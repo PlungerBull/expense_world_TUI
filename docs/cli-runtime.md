@@ -42,7 +42,7 @@ What stays CLI-specific (and is OK to live only here):
 - `~/.expense-config` filesystem storage (a future mobile client would use its keychain)
 - [expense/dates.py](../expense/dates.py) — date input forgiveness for terminal humans
 - [expense/quickadd/](../expense/quickadd/) — the one-line quick-add grammar, shared by both surfaces (`expense log "<line>"` and the TUI's LOG bar). Client-side because completion runs on every keystroke against reference lists the client already holds; the engine still validates every field it receives, so no correctness moved out of it
-- [expense/import_/](../expense/import_/) — the `.xlsx` reader behind `expense import`
+- [expense/import_/](../expense/import_/) — the `.xlsx` reader behind `expense import sheet`, and [expense/bank_import/](../expense/bank_import/) — the bank-download parser and ledger matcher behind `expense import bank`
 - `--json` flag and the human-output renderers — terminal UX
 
 What is NOT CLI-specific (and must never be): idempotency keys, sign convention (`debit_as_negative`), error envelope shape, RFC 3339 dates, IDs-only responses with client-side name resolution. These are multi-client contracts; the CLI uses them faithfully so future clients inherit working patterns, not just specs.

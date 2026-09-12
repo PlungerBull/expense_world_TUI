@@ -80,6 +80,8 @@ KNOWN_LOCAL = frozenset(
         # the paging test's fake `fetch_transactions` records its own kwargs
         # (`category`, `offset`) — the CLI's flag names, not engine fields
         "category",
+        # the `commands={...}` key test_cmd_import_bank.py wires its command under
+        "bank",
         "cents",
         "unconverted",
         "net_cents",

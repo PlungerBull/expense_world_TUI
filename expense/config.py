@@ -38,6 +38,11 @@ class Config(BaseModel):
     engine_url: str
     token: str | None = None
     main_currency: str | None = None
+    # `expense import bank`: the file's stem ("VISA Infinite Sapphire") → the
+    # account base name it was last imported into ("BCP Signature"). Written
+    # the first time a file is imported, read on every run after, overridden
+    # by --account (2026-09-12, mockup expense-world-bank-import.html pick B).
+    bank_files: dict[str, str] = {}
 
 
 def load() -> Config | None:

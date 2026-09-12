@@ -5,6 +5,7 @@ from expense.commands import (
     accounts_cmd,
     activity_cmd,
     auth_cmd,
+    bank_import_cmd,
     categories_cmd,
     config_cmd,
     dashboard_cmd,
@@ -64,7 +65,13 @@ app.command("ping")(ping_cmd.ping)
 app.command("whoami")(auth_cmd.whoami)
 app.command("log")(log_cmd.log)
 app.command("dashboard")(dashboard_cmd.dashboard)
-app.command("import")(import_cmd.run_import)
+# `import` grew a second door on 2026-09-12: `sheet` is the personal-sheet
+# importer that used to be `expense import <file>` bare, `bank` reads a bank
+# download and matches it against the ledger (expense/bank_import/).
+import_app = typer.Typer(help="Bring rows in from a spreadsheet.", no_args_is_help=True)
+import_app.command("sheet")(import_cmd.run_import)
+import_app.command("bank")(bank_import_cmd.bank)
+app.add_typer(import_app, name="import")
 app.command("world")(world_command)
 
 

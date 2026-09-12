@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bank Import</title>
+<style>
+  :root{
+    --page:#050506; --pad:#000; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68;
+    --dimmer:#3c3f47; --accent:#7fa6d6; --pos:#7fbf8f; --neg:#cf8d8d; --warn:#d6b97f;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 20px 90px;font-family:var(--mono);color:var(--text);
+       -webkit-font-smoothing:antialiased}
+  .head{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:82ch}
+  .head b{color:var(--text)}
+  .chg{width:min(1080px,100%);border:1px solid #23232a;border-radius:10px;padding:14px 18px;margin-top:14px}
+  .chg h2{margin:0 0 8px;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .chg h2 + ul{margin-bottom:14px}
+  .chg ul{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.75}
+  .chg b{color:var(--text)} .chg code{color:var(--text);font-size:12px}
+  .pane{width:min(1080px,100%);margin-top:40px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl b{color:var(--text)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:86ch}
+  .blurb b,.qa b{color:var(--text)} .blurb i{color:var(--muted)}
+  .blurb code,.qa code,.de code{color:var(--text);font-size:12px}
+  .term{border:1px solid #23232a;border-radius:12px;overflow:hidden;box-shadow:0 22px 56px -34px #000;background:var(--pad)}
+  .term + .term{margin-top:14px}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#000}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:14px 18px 18px}
+  pre.scr{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700;color:#fff} .a{color:var(--accent)}
+  .n{color:var(--neg)} .p{color:var(--pos)} .e{color:var(--neg)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:#0b0b0e}
+  .cur{background:var(--text);color:var(--text);animation:blink 1.05s steps(1) infinite}
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){.cur{animation:none}}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+  @media (max-width:820px){.opt{grid-template-columns:1fr}}
+  .opt .term{margin-top:0}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  table.gr{width:100%;border-collapse:collapse;margin-top:12px}
+  table.gr td{border-top:1px solid #1c1c22;padding:9px 10px;vertical-align:top;font-size:12.5px}
+  td.tk{color:var(--accent);white-space:nowrap;width:210px;font-weight:700}
+  td.de{color:var(--muted);line-height:1.6} td.de b{color:var(--text)}
+  .qs{margin-top:12px}
+  .q{border-top:1px solid #1c1c22;padding:14px 2px}
+  .qq{margin:0 0 6px;color:var(--text);font-size:13.5px}
+  .qa{margin:0;color:var(--muted);font-size:13px;line-height:1.7;max-width:88ch}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>Bank Import</h1>
+  <p>You hand the app a bank download; the app asks which account it belongs to, shows you
+     what it would write and what it already has, and on <b>--apply</b> writes only the new
+     rows — under <b>@Pendiente</b>, ready for the categorising pass. Duplicates are found by
+     <b>matching against the ledger</b>, not by hashing the file: the bank's operation number
+     when it has one, and otherwise date, amount, account and title with a one-day tolerance
+     and a count per group.</p>
+  <p>Drawn from the two real downloads in <code>~/Downloads</code> on 2026-09-12:
+     <b>Sueldo Soles.xlsx</b> (20 rows, carries an operation number) and
+     <b>VISA Infinite Sapphire.xlsx</b> (80 rows, mixed S/ and $, no operation number).</p>
+  <div class="chg">
+    <h2>Your calls, 2026-09-12</h2>
+    <ul>
+      <li><b>The app asks which account.</b> A card with two currencies is one pick; the
+          currency column chooses the leg per row (S/ → BCP Signature PEN, $ → BCP Signature
+          USD).</li>
+      <li><b>The operation number is the duplicate resolver when the file has one.</b>
+          Without it: date ± 1 day, amount and account, with a count per group — three
+          rows of 3.50 in the file mean at most three in the ledger.</li>
+      <li><b>Card descriptions are cleaned</b>: the merchant part only, whitespace collapsed;
+          the raw text is kept in the description field.</li>
+      <li><b>The operation code becomes a column</b> on every transaction, unique per
+          account at the database.</li>
+    </ul>
+    <h2>Two things this mockup leaves for you to pick</h2>
+    <ul>
+      <li><b>Pane 1</b> — ask which account every time (<b>A</b>), or remember the file name
+          → account choice in your config after the first run (<b>B</b>).</li>
+      <li><b>Pane 5</b> — when the ledger holds <i>more</i> rows in a group than the file does,
+          the preview says so. Whether that is a dim note or a loud one is a taste call.</li>
+    </ul>
+  </div>
+</div>
+
+<section class="pane">
+<div class="lbl"><b>1</b> <span>· the command, and the account it asks for</span></div>
+<p class="blurb">One argument, the file. The sheet is read, the currencies it holds are
+counted, and the account list is shown with cards folded into one entry per name — a two-leg
+card is one answer. Picking a single-currency account for a file that holds both currencies
+is refused before anything else happens.</p>
+<div class="opt">
+  <div>
+    <p class="oh">A <span>· ask every time</span></p>
+    <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense import bank ~/Downloads/"VISA Infinite Sapphire.xlsx"
+  <span class="d">80 rows · 2026-08-13 → 2026-09-11 · S/ 73 · $ 7</span>
+
+  <span class="d">Which account is this?</span>
+    <span class="d">1</span>  BCP PEN
+    <span class="d">2</span>  BCP Oro           <span class="d">PEN + USD</span>
+    <span class="d">3</span>  BCP Signature     <span class="d">PEN + USD</span>
+    <span class="d">4</span>  BCP USD
+  <span class="d">Account [1-4]:</span> 3<span class="cur">█</span></pre></div></div>
+  </div>
+  <div>
+    <p class="oh">B <span>· remembered after the first run</span></p>
+    <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense import bank ~/Downloads/"VISA Infinite Sapphire.xlsx"
+  <span class="d">80 rows · 2026-08-13 → 2026-09-11 · S/ 73 · $ 7</span>
+  <span class="d">Account:</span> BCP Signature <span class="d">(remembered for "VISA Infinite Sapphire";</span>
+  <span class="d">pass --account to override)</span>
+</pre></div></div>
+  </div>
+</div>
+<p class="blurb"><b>B is the recommendation</b>, because the file name is the bank's and it
+does not change between downloads; the remembered pair lives in <code>~/.expense-config</code>
+beside the engine URL. A is what the first run of any new file does under B anyway.</p>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>2</b> <span>· the preview — a card file, matched by content</span></div>
+<p class="blurb">Dry run is the default, as on <code>expense import</code>. Every row says
+where it goes and what the ledger already has. The <code>match</code> column names the rule
+that found it, so you can see <i>why</i> a row is not new. The first 8 of 80 rows; the
+summary is the whole file.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">   #  date        title                    amount  →  account            match</span>
+   1  2026-09-11  Plus Ultra Lineas Aereas <span class="n">-1,468.87</span>  BCP Signature USD  <span class="p">new</span>
+   2  2026-09-11  EDO SUSHI BAR               <span class="n">-49.00</span>  BCP Signature PEN  <span class="p">new</span>
+   3  2026-09-11  DLC*RIDES                   <span class="n">-12.90</span>  BCP Signature PEN  <span class="p">new</span>
+   4  2026-09-11  MAR DE COLAS             <span class="n">-1,233.60</span>  BCP Signature PEN  <span class="p">new</span>
+   5  2026-09-11  DLC*RIDES                   <span class="n">-16.00</span>  BCP Signature PEN  <span class="p">new</span>
+   6  2026-09-10  IZI*QF FARMACIA MAGIST     <span class="n">-203.00</span>  BCP Signature PEN  <span class="d">in ledger · same day + title</span>
+   7  2026-09-10  IZI*Fitrex                 <span class="n">-273.90</span>  BCP Signature PEN  <span class="d">in ledger · ±1 day, amount</span>
+   8  2026-09-10  UNBRANDED CO               <span class="n">-269.00</span>  BCP Signature PEN  <span class="p">new</span>
+  <span class="d">… 72 more · pass --all to print every row</span>
+
+  <span class="d">80 rows</span>  <span class="p">63 new</span>  <span class="d">·</span>  <span class="d">17 in the ledger</span> <span class="d">(0 by operation code · 9 same day + title · 3 ±1 day + title · 5 ±1 day, amount only)</span>  <span class="d">·</span>  <span class="d">0 refused</span>
+  <span class="d">New rows land under</span> <span class="a">@Pendiente</span><span class="d">: 58 → BCP Signature PEN · 5 → BCP Signature USD.</span>
+  <span class="d">Nothing written. Pass --apply to write the 63 new rows.</span></pre></div></div>
+<p class="blurb">Row 7 is the interesting one: it matched a row you typed in the LOG bar that
+week as <i>fitrex -273.90 $signature</i>, a different title on a nearby day. The count rule
+is what caught it. Row 6 matched a row the old sheet imported in August with the same cleaned
+title. Neither is written again.</p>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>3</b> <span>· the preview — a current-account file, matched by operation number</span></div>
+<p class="blurb">When the file carries <code>Numero de Operacion</code>, that is the key and
+the other rules are never consulted for those rows. The code is written to the new column on
+every row, so the <i>next</i> download matches on it too — and the database refuses a second
+row with the same code on the same account even if the CLI got it wrong.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense import bank ~/Downloads/"Sueldo Soles.xlsx"
+  <span class="d">20 rows · 2026-09-06 → 2026-09-11 · S/ 20 · operation numbers on every row</span>
+  <span class="d">Account:</span> BCP PEN <span class="d">(remembered for "Sueldo Soles")</span>
+
+<span class="d">   #  date        title               amount  →  account   op        match</span>
+   1  2026-09-11  TRAN.CEL.BM.        <span class="n">-50.00</span>  BCP PEN   04330935  <span class="p">new</span>
+   2  2026-09-10  TRAN.CEL.BM.BBVA    <span class="n">-50.00</span>  BCP PEN   02088437  <span class="p">new</span>
+   3  2026-09-10  TRAN.CEL.BM.        <span class="n">-60.00</span>  BCP PEN   03144753  <span class="d">in ledger · operation 03144753</span>
+   4  2026-09-10  TRAN.CEL.BM.       <span class="n">-104.90</span>  BCP PEN   01191936  <span class="p">new</span>
+   5  2026-09-10  EDIF000000000605   <span class="n">-280.19</span>  BCP PEN   04185178  <span class="p">new</span>
+  <span class="d">… 15 more</span>
+
+  <span class="d">20 rows</span>  <span class="p">14 new</span>  <span class="d">·</span>  <span class="d">6 in the ledger</span> <span class="d">(6 by operation code)</span>  <span class="d">·</span>  <span class="d">0 refused</span>
+  <span class="d">Nothing written. Pass --apply to write the 14 new rows.</span></pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>4</b> <span>· --apply</span></div>
+<p class="blurb">One <code>POST /transactions/batch</code> for the new rows, the same shared
+writer the LOG bar and <code>expense import</code> use. A row the engine refuses is named by
+number with the engine's own message. The last line points at the next job.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense import bank ~/Downloads/"VISA Infinite Sapphire.xlsx" --apply
+  <span class="d">Account:</span> BCP Signature <span class="d">(remembered)</span>
+  <span class="d">80 rows · 63 new · 17 in the ledger · 0 refused</span>
+
+  <span class="p">63 written</span> <span class="d">· 58 → BCP Signature PEN · 5 → BCP Signature USD · all under</span> <span class="a">@Pendiente</span>
+  <span class="d">Categorise them:</span> expense world <span class="d">→ Transactions →</span> p</pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>5</b> <span>· when the ledger has more than the file</span></div>
+<p class="blurb">A group where the ledger holds three and the file holds two is not an
+insert — it is a hint that something was logged twice before. The preview says so and
+writes nothing for that group. Two weights to choose from.</p>
+<div class="opt">
+  <div>
+    <p class="oh">C <span>· a dim note</span></p>
+    <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr">  <span class="d">80 rows</span>  <span class="p">63 new</span>  <span class="d">·</span>  <span class="d">17 in the ledger</span>  <span class="d">·</span>  <span class="d">0 refused</span>
+  <span class="d">1 group has more in the ledger than in the file:</span>
+  <span class="d">  2026-09-07 · -3.50 · BCP Signature PEN — ledger 3, file 2</span></pre></div></div>
+  </div>
+  <div>
+    <p class="oh">D <span>· a loud one</span></p>
+    <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr">  <span class="d">80 rows</span>  <span class="p">63 new</span>  <span class="d">·</span>  <span class="d">17 in the ledger</span>  <span class="d">·</span>  <span class="d">0 refused</span>
+  <span class="w">! 1 group has more in the ledger than in the file — a row may be logged twice</span>
+  <span class="w">    2026-09-07 · -3.50 · BCP Signature PEN — ledger 3, file 2</span>
+  <span class="d">  expense transactions list --account-id … --from 2026-09-06 --to 2026-09-08</span></pre></div></div>
+  </div>
+</div>
+<p class="blurb"><b>D is the recommendation.</b> The one thing the count rule can detect that
+nothing else can is an earlier double entry, and a hint you can miss is a hint you will.</p>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>6</b> <span>· refusals</span></div>
+<p class="blurb">A row the importer cannot place is listed and skipped; the rest of the file
+still previews. Refusals never write, and they never guess.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense import bank ~/Downloads/"VISA Infinite Sapphire.xlsx" --account "BCP PEN"
+  <span class="e">! BCP PEN holds PEN only, and this file has 7 rows in USD. Pick the card (BCP Signature), or a USD account.</span>
+
+<span class="d">$</span> expense import bank ~/Downloads/"Sueldo Soles.xlsx"
+  <span class="d">…</span>
+  <span class="d">20 rows</span>  <span class="p">17 new</span>  <span class="d">·</span>  <span class="d">1 in the ledger</span>  <span class="d">·</span>  <span class="e">2 refused</span>
+  <span class="e">  row 14: operation 01788637 appears twice in this file — rows 14 and 19</span>
+  <span class="e">  row 15: "31/13/2026" is not a date</span></pre></div></div>
+</section>
+
+<section class="pane"><div class="lbl"><b>rules</b> <span>· how a file row is matched, in order — each ledger row is claimed at most once</span></div><table class="gr">
+<tr><td class="tk">1 · operation code</td><td class="de">Both sides carry one → exact match on account + code. The other rules are skipped for that row, matched or not. <b>Sueldo Soles</b> rows always take this path from the second download on.</td></tr>
+<tr><td class="tk">2 · same day + title</td><td class="de">Same account, same date, same amount, same cleaned title. Catches rows the old sheet imported and rows an earlier download wrote.</td></tr>
+<tr><td class="tk">3 · ±1 day + title</td><td class="de">As 2, but the ledger row may sit one day either side — the pending-to-posted shift on a card.</td></tr>
+<tr><td class="tk">4 · ±1 day, amount only</td><td class="de">Same account and amount within a day, <b>title ignored</b>: your count rule. Catches rows typed in the LOG bar under your own title. Exact-date candidates are claimed before neighbours, so a file row on Tuesday prefers Tuesday's ledger row over Monday's.</td></tr>
+<tr><td class="tk">count per group</td><td class="de">Rules 2–4 are run row by row, and because each ledger row is claimed once, a group of three identical file rows against one ledger row leaves two unmatched → two new. That is the count, without a separate counting step.</td></tr>
+<tr><td class="tk">what is written</td><td class="de">Unmatched rows, as a batch: date, amount, account leg, cleaned title, the raw description as <code>description</code>, the operation code when present, <b>no category</b> (the engine files them under @Pendiente), no hashtags. Fresh ids — idempotency comes from the match, not the id.</td></tr>
+<tr><td class="tk">what the engine gains</td><td class="de"><code>operation_code</code>, nullable text, on <code>POST</code>/<code>PUT</code>/batch and every transaction response, with a partial UNIQUE index on (user, account, code) — the hard floor under rule 1.</td></tr>
+<tr><td class="tk">the honest limit</td><td class="de">A card row that moves by <i>more</i> than a day between downloads, or changes amount (a tip added at settlement), is not matched and imports twice. The unreconciled check over the statement period remains the backstop.</td></tr>
+</table></section>
+
+<section class="pane"><div class="lbl"><b>title cleaning</b> <span>· merchant only, raw text kept</span></div><table class="gr">
+<tr><td class="tk">raw (card)</td><td class="de"><code>LIDERMAN OUTLET AREQUI ICA           PE</code> — the bank pads the merchant to 22 characters, then city, then country.</td></tr>
+<tr><td class="tk">title</td><td class="de"><code>LIDERMAN OUTLET AREQUI</code> — the first 22 characters, trimmed, inner runs of spaces collapsed.</td></tr>
+<tr><td class="tk">description</td><td class="de">the raw cell, verbatim — so nothing the bank said is lost, and a search for the city still finds it.</td></tr>
+<tr><td class="tk">current account</td><td class="de"><code>TRAN.CEL.BM.</code>, <code>EDIF000000000605</code> — no padding, no suffix; the same cleaner leaves them untouched.</td></tr>
+</table></section>
+
+<section class="pane"><div class="lbl"><b>rejected</b> <span>· the ones that needed more than a line</span></div><div class="qs">
+<div class="q"><p class="qq">Content-hashed ids (the old importer's scheme, minus the row number).</p><p class="qa">Deterministic and no ledger read — and blind to everything this flow actually meets: the August rows the old sheet already imported under positional ids, the rows you typed in the LOG bar under your own title, and a card row whose date moves a day between downloads. Every one of those becomes a duplicate. Matching against the ledger sees all three.</p></div>
+<div class="q"><p class="qq">Date + amount + account only, no title anywhere in the chain.</p><p class="qa">Two rides at the same fare on the same day would be one match and one silent loss. Title stays as rules 2 and 3 <i>before</i> the amount-only rule 4, so identical merchants match first and only the leftover falls through to the count.</p></div>
+<div class="q"><p class="qq">A per-bank parser (a "BCP module").</p><p class="qa">Both files already share one shape — Fecha, Descripcion, Moneda, Monto, and an optional Numero de Operacion — under two date spellings. One tolerant column mapping covers both, the way <code>expense import</code> already tolerates header spellings. A bank module is what to build the day a second bank's export looks different.</p></div>
+</div></section>
+</body>
+</html>
