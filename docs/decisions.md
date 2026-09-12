@@ -59,6 +59,7 @@ Rules for this file:
 | The LOG bar shows the named account's ledger — elastic, and it stays put | 2026-08-29 | full entry below |
 | The legend, the two picker gaps, and day+month dates | 2026-08-29 | full entry below |
 | Rates cross the wire as integers — `rate_e8`, not a float — and `/100` becomes one named constant | 2026-08-29 | `expense_world_engine/docs/currency-model-decision.md` ("A rate is an integer, like every other number on the money path") |
+| Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check | 2026-09-12 | full entry below |
 
 ## What a half-written batch means (2026-08-25)
 
@@ -852,3 +853,49 @@ and `test_the_month_grid_takes_its_natural_width_not_the_console_width` render a
 `test_neither_table_expands_and_no_column_carries_a_ratio` asserts it on the `Table`
 objects themselves rather than by scanning the source, which would also match this
 entry's own quoting of the old code.
+
+
+## Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check (2026-09-12)
+
+**Context.** `import_/plan.py` derives every transaction id as
+`uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and `stable_row_key` ends with
+`str(row.line)` — the sheet's row number. That is what makes re-import safe: the same
+row hashes to the same id, the engine returns `409`, the importer skips. It is also what
+makes it fragile, because a row number describes where a purchase sits in the file, not
+what the purchase is. Insert, delete or sort a row mid-sheet and every row below it
+hashes to a *new* id — no collision, no skip, a second copy of a transaction the ledger
+already holds.
+
+The row number is not removable. Two genuinely identical purchases on the same day —
+same date, account, currency, amount, title — are byte-identical without it, so they
+would collapse into one id and the second would be `409`'d away. Dropping `line` trades
+silent duplication for silent *loss*, which is worse. The constraint is therefore real
+and permanent: **the sheet is append-only below the last imported row.** Add at the
+bottom; never insert, delete or re-sort above it.
+
+**Decision — record the constraint and give it a check, rather than re-engineer the id.**
+The engine's own shape already contains the damage: no create path sets
+`reconciliation_id` (`helpers/transactions.py`), and a completed reconciliation refuses
+new assignments, so a duplicate that arrives after a period is closed lands *outside* it
+and cannot move its `difference_cents`. The monthly reconciliation against a statement
+balance stays correct — which is exactly why the duplicate is invisible. What was missing
+was the query: the engine could filter to one reconciliation but not to *no*
+reconciliation. `GET /transactions?unreconciled=true` (2026-09-12) closes that, and
+`expense transactions list --unreconciled` exposes it. Run it over the period you last
+reconciled, after every import: empty means the period holds nothing the statement did
+not account for; rows mean look. Combining `--unreconciled` with `--reconciliation-id`
+is a `422` rather than an empty result, because here an empty result is an assertion of
+safety and must never be produced by a contradiction.
+
+**Rejected.** (1) **Replacing `line` with a duplicate-group counter** — rank a row among
+the rows identical to it, so the two coffees stay distinct while inserts elsewhere stop
+mattering. Genuinely better in isolation and still the right fix if the sheet ever has to
+be edited in place; turned down because it changes every existing id once, and the
+positional scheme is sound as long as the append-only rule is known, which is what this
+entry is for. (2) **Treating it as a data-integrity bug in the importer** — it is not one:
+re-import convergence works exactly as designed, under a precondition nobody had written
+down. The defect was the missing precondition and the missing check, not the hash.
+(3) **An importer-side guard that refuses a shifted sheet** (store the last imported row
+count, compare) — it would need state the CLI deliberately does not keep, and it guesses
+at intent: a sheet can legitimately shrink. The post-hoc check needs no state and catches
+the outcome rather than predicting it.

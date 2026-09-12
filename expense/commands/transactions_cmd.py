@@ -126,6 +126,7 @@ def fetch_transactions(
     category: str | None = None,
     hashtag: str | None = None,
     reconciliation: str | None = None,
+    unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
     search: str | None = None,
@@ -148,6 +149,8 @@ def fetch_transactions(
         params["hashtag_id"] = hashtag
     if reconciliation is not None:
         params["reconciliation_id"] = reconciliation
+    if unreconciled:
+        params["unreconciled"] = "true"
     if date_from is not None:
         params["date_from"] = date_from
     if date_to is not None:
@@ -181,6 +184,12 @@ def list_(
     reconciliation: str | None = typer.Option(
         None, "--reconciliation-id", help="Filter by reconciliation_id."
     ),
+    unreconciled: bool = typer.Option(
+        False,
+        "--unreconciled",
+        help="Only transactions assigned to no reconciliation. "
+        "Over a reconciled period, these are the rows the statement never accounted for.",
+    ),
     date_from: str | None = typer.Option(None, "--from", help="ISO 8601 lower bound (inclusive)."),
     date_to: str | None = typer.Option(None, "--to", help="ISO 8601 upper bound (inclusive)."),
     search: str | None = typer.Option(
@@ -194,6 +203,15 @@ def list_(
     """GET /v1/transactions.
 
     Example: expense transactions list --account-id <id> --from 2026-04-01 --to 2026-04-30
+
+    Run after every import, over the period you last reconciled:
+
+        expense transactions list --account-id <id> --from 2026-08-01 --to 2026-08-31 --unreconciled
+
+    Empty means the period holds nothing the statement did not account for. Rows
+    mean look — a re-import after a mid-sheet edit lands duplicates here, and a
+    completed reconciliation cannot see them (docs/decisions.md, "Importer ids
+    are positional").
     """
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)
@@ -203,6 +221,7 @@ def list_(
         category=category,
         hashtag=hashtag,
         reconciliation=reconciliation,
+        unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,
         search=search,

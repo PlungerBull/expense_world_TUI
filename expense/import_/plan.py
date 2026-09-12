@@ -43,6 +43,24 @@ class ImportPlan:
 
 
 def stable_row_key(row: ParsedRow | OpeningRow) -> str:
+    """The content a transaction's id is hashed from.
+
+    ``row.line`` is load-bearing and not removable: two genuinely identical
+    purchases on the same day — same date, account, currency, amount, title —
+    are byte-identical without it, so they would share an id and the second
+    would be 409'd away as a re-import skip. Dropping it trades silent
+    duplication for silent loss.
+
+    It is also positional, and that is the precondition this module's
+    convergence claim rests on: **the sheet must be append-only below the last
+    imported row.** Insert, delete or sort a row mid-sheet and every row below
+    it hashes to a new id, which imports as a second copy rather than skipping.
+    The duplicate is unassigned by construction and cannot disturb a completed
+    reconciliation, so it is invisible until looked for — check with
+    ``expense transactions list --account-id <id> --from <start> --to <end>
+    --unreconciled`` over the period you last reconciled. Full rationale and
+    the rejected alternatives: docs/decisions.md, "Importer ids are positional".
+    """
     return "|".join(
         [
             row.date_iso,
