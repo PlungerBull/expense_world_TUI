@@ -240,16 +240,16 @@ class LogTransactionMixin:
 
     Replaced the home menu's `Log a transaction` row on 2026-08-20: logging is
     the thing you do most and a menu row made it the slowest path to it. Bound
-    on Home, Transactions and Inbox — the three screens where "and now write one
-    down" is the obvious next thought.
+    on Home and Transactions — the screens where "and now write one down" is
+    the obvious next thought. (The Inbox was the third until 2026-09-12.)
 
     **It opens the LOG bar, not the bar-cycle form** (quick-add phase 4,
     2026-08-25): one typed line, a staged batch, one save. The form keeps its
     *edit* door — `⏎` on an existing row — and lost only its create door
     (docs/mockups/expense-world-two-doors.html). `+` still means one thing
-    everywhere it is bound, the Inbox included: it logs a posted transaction,
-    and a line too sparse to post is routed to the Inbox by the grammar, not by
-    which screen you happened to be standing on.
+    everywhere it is bound: it logs a posted transaction, and a line too
+    sparse to post is refused by the grammar in place — never parked
+    somewhere by which screen you happened to be standing on.
 
     **Plain `+`, no modifier, deliberately.** `shift++` was considered and is not
     bindable: for a printable key the shift is already baked into the character
@@ -299,8 +299,8 @@ class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Sc
     # fitted size was below the 20 cap overflowed #content by 2 lines, clipping
     # its own bottom border and the `rows … · page …` subtitle and growing the
     # undraggable scrollbar the 2026-07-13 decision meant to delete. Invisible
-    # while the cap hid it on tall terminals; permanent once Transactions and
-    # Inbox started filling the window.
+    # while the cap hid it on tall terminals; permanent once Transactions
+    # started filling the window.
     LIST_FRAME_LINES = 6
     # Lower bound on the page size we ASK for — not a clipping guard, despite what
     # this comment claimed until 2026-08-20. It cannot make the viewport show five
@@ -311,7 +311,7 @@ class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Sc
     PAGE_ROWS_FLOOR = 5
     # Upper bound on the page size. DEFAULT_PAGE_ROWS (20) app-wide — pages stay
     # stable across window sizes and short lists keep a tidy card. Transactions
-    # and Inbox override it to grow with the terminal (2026-08-29); their cap is
+    # overrides it to grow with the terminal (2026-08-29); its cap is
     # the engine's own `limit` ceiling, so the fetch contract can't be broken by
     # a tall window. See docs/decisions.md "the ledger fills the window".
     PAGE_ROWS_CAP = DEFAULT_PAGE_ROWS

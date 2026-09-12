@@ -23,14 +23,18 @@ from textual.screen import Screen
 from textual.widgets import Footer, OptionList, Static
 from textual.widgets.option_list import Option
 
-from expense.commands import dashboard_cmd
-from expense.commands._resource import UNRATED_SUFFIX, format_cents, unconverted_of
+from expense.commands import dashboard_cmd, transactions_cmd
+from expense.commands._resource import (
+    UNRATED_SUFFIX,
+    format_cents,
+    load_pending_category_id,
+    unconverted_of,
+)
 from expense.tui.screens._base import LogTransactionMixin, screen_fetch_kwargs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import HelpBindingMixin
-from expense.tui.screens.inbox import InboxScreen
 from expense.tui.screens.overview import OverviewScreen
 from expense.tui.screens.reconciliations import ReconciliationsScreen
 from expense.tui.screens.system import (
@@ -40,7 +44,7 @@ from expense.tui.screens.system import (
     RatesScreen,
 )
 from expense.tui.screens.transactions import TransactionsScreen
-from expense.tui.theme import PALETTE, Palette
+from expense.tui.theme import ACCENT, PALETTE, Palette
 from expense.tui.widgets.cursor_list import CursorOptionList
 from expense.tui.widgets.header import RATE_ALERT_GAP, rate_alert
 
@@ -49,7 +53,6 @@ _BANNER = "◈  EXPENSE WORLD"
 # (id, label) — id None renders a non-selectable group header.
 _MENU: list[tuple[str | None, str]] = [
     (None, "Capture & ledger"),
-    ("inbox", "Inbox"),
     ("transactions", "Transactions"),
     ("reconciliations", "Reconciliations"),
     (None, "Reports"),
@@ -69,7 +72,6 @@ _MENU: list[tuple[str | None, str]] = [
 # `test_screens_map_covers_every_wired_menu_entry` guard keeps it in lockstep
 # with the wired _MENU entries, so a new menu row can't be left dead.
 _SCREENS: dict[str, type[Screen]] = {
-    "inbox": InboxScreen,
     "transactions": TransactionsScreen,
     "reconciliations": ReconciliationsScreen,
     "overview": OverviewScreen,
@@ -153,7 +155,27 @@ def _stat_cluster(stats: dict | None, palette: Palette | None) -> Text:
             parts.append(sep)
         label = "owed to you " if owed > 0 else "you owe "
         parts += [(label, "dim"), (format_cents(abs(owed)), pos if owed > 0 else neg)]
+    # The rows still to classify — a nudge, not an alarm, so it trails the
+    # money figures in the accent and vanishes at zero like `owed` does
+    # (docs/mockups/expense-world-pendiente-not-inbox.html pane 7, 2026-09-12).
+    pending = stats.get("pending")
+    if isinstance(pending, int) and not isinstance(pending, bool) and pending > 0:
+        if parts:
+            parts.append(sep)
+        parts.append((f"{pending} pendiente", ACCENT if palette else ""))
     return Text.assemble(*parts)
+
+
+def _pending_count(cfg, **kw) -> int:
+    """How many ledger rows sit under @Pendiente — `0` when none, or when the
+    category has never been seeded (a user who never logs a sparse row never
+    sees it). One `limit=1` fetch; the engine's `total` is the count."""
+    pending_id = load_pending_category_id()
+    if pending_id is None:
+        return 0
+    body = transactions_cmd.fetch_transactions(cfg, category=pending_id, limit=1, **kw)
+    total = body.get("total") if isinstance(body, dict) else None
+    return total if isinstance(total, int) else 0
 
 
 def _build_header(
@@ -221,10 +243,16 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
 
         try:
             cfg = config_module.ensure_loaded()
-            body = dashboard_cmd.fetch_dashboard(cfg, **screen_fetch_kwargs(self.app))
+            kw = screen_fetch_kwargs(self.app)
+            body = dashboard_cmd.fetch_dashboard(cfg, **kw)
         except Exception:
             return
-        self.app.call_from_thread(self._set_stats, _extract_stats(body))
+        stats = _extract_stats(body)
+        try:
+            stats["pending"] = _pending_count(cfg, **kw)
+        except Exception:
+            stats["pending"] = 0  # the money figures still paint
+        self.app.call_from_thread(self._set_stats, stats)
 
     def _set_stats(self, stats: dict) -> None:
         self._stats = stats

@@ -19,7 +19,6 @@ from expense.tui.screens.quick_log import QuickAddLogScreen
 from tests.unit.helpers import wait_for
 
 _CASES = [
-    ("inbox", home.InboxScreen),
     ("transactions", home.TransactionsScreen),
     ("reconciliations", home.ReconciliationsScreen),
     ("overview", home.OverviewScreen),

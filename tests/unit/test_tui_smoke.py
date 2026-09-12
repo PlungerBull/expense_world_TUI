@@ -105,6 +105,7 @@ def test_home_header_stat_cluster_populates_from_worker(monkeypatch):
                 "spent": 320000,
                 "owed": 42000,
                 "unrated": 0,
+                "pending": 0,  # no @Pendiente row seeded in this stub
             }
 
     asyncio.run(scenario())

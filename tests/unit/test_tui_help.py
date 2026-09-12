@@ -30,8 +30,8 @@ from expense.tui.screens.help import (
     render_card,
     screen_inventory,
 )
-from expense.tui.screens.inbox import InboxScreen
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import wait_for, wait_for_loaded
 
@@ -42,8 +42,12 @@ def _stub_engine(monkeypatch, items=()):
         "expense.commands.accounts_cmd.fetch_accounts", lambda cfg, **k: {"items": list(items)}
     )
     monkeypatch.setattr(
-        "expense.commands.inbox_cmd.fetch_inbox", lambda cfg, **k: {"items": [], "total": 0}
+        "expense.commands.transactions_cmd.fetch_transactions",
+        lambda cfg, **k: {"items": [], "total": 0},
     )
+    monkeypatch.setattr("expense.tui.screens.transactions.load_pending_category_id", lambda: None)
+    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+        monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
 
 
 def _card_text(groups) -> str:
@@ -246,8 +250,9 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
 
 def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
     """`enter` is a literal no-op on the Manage lists (tui-plan §4.1) because no
-    screen there handles CursorList.Selected. Inbox does handle it. The card has
-    to tell those two apart, or it is documenting a key that does nothing."""
+    screen there handles CursorList.Selected. Transactions does handle it. The
+    card has to tell those two apart, or it is documenting a key that does
+    nothing."""
     _stub_engine(monkeypatch)
 
     async def scenario():
@@ -259,13 +264,13 @@ def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
             _, manage = screen_inventory(app.screen)
             app.pop_screen()
 
-            await app.push_screen(InboxScreen())
+            await app.push_screen(TransactionsScreen())
             await wait_for_loaded(pilot, app)
             await pilot.pause()
-            _, inbox = screen_inventory(app.screen)
+            _, ledger = screen_inventory(app.screen)
 
             assert not any(r.description == "Open" for r in _rows(manage, "Moving around"))
-            assert any(r.description == "Open" for r in _rows(inbox, "Moving around"))
+            assert any(r.description == "Open" for r in _rows(ledger, "Moving around"))
 
     asyncio.run(scenario())
 

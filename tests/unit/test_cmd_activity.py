@@ -213,8 +213,6 @@ def _client(responses: dict) -> FakeClient:
         ("categories", "/categories/abc-123", {"name": "Comida"}, "Comida"),
         ("hashtag", "/hashtags/abc-123", {"name": "viajes"}, "#viajes"),  # '#' prefix
         ("hashtags", "/hashtags/abc-123", {"name": "viajes"}, "#viajes"),
-        ("inbox", "/inbox/abc-123", {"title": "Almuerzo"}, "Almuerzo"),
-        ("inbox_items", "/inbox/abc-123", {"description": "nota"}, "nota"),  # title fallback
         ("transaction", "/transactions/abc-123", {"title": "Latte"}, "Latte"),
         (
             "expense_transactions",

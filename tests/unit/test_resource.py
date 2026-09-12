@@ -421,7 +421,7 @@ def test_format_hashtag_cell_empty_or_non_list_is_dash():
 
 # --- parse_hashtag_ids -------------------------------------------------------
 # Hoisted to _resource.py with backlog 6.1 so the four commands taking
-# `--hashtag-ids` (transactions update, log, inbox add, inbox update) share one
+# `--hashtag-ids` (transactions update, log) share one
 # parse. Behaviour pinned here rather than in each command's suite.
 
 

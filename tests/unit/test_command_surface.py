@@ -102,7 +102,8 @@ _DESTRUCTIVE_LEAF_IDS = [" ".join(path) for path, _ in _DESTRUCTIVE_LEAVES]
 def test_destructive_walker_finds_known_commands():
     # Pin the count: a drop means a destructive command was renamed out of the
     # name set above and now evades the --yes guard — extend the set instead.
-    assert len(_DESTRUCTIVE_LEAVES) == 8, sorted(_DESTRUCTIVE_LEAF_IDS)
+    # 7 since 2026-09-12: `inbox delete` left with the inbox command group.
+    assert len(_DESTRUCTIVE_LEAVES) == 7, sorted(_DESTRUCTIVE_LEAF_IDS)
 
 
 @pytest.mark.parametrize(("path", "callback"), _DESTRUCTIVE_LEAVES, ids=_DESTRUCTIVE_LEAF_IDS)

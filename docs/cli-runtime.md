@@ -16,7 +16,7 @@ Every read command is a direct `GET` against the engine. There is no cache to wa
 
 - List renderers resolve IDs to display names via live reference-list fetches (`load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` in [expense/commands/_resource.py](../expense/commands/_resource.py)) — the engine's responses are IDs-only by convention, and clients resolve names themselves. On any failure these maps degrade to `{}` and renderers fall back to 8-char short ids; a name-map hiccup never breaks a listing.
 - `--include-deleted` is an ordinary query param — soft-deleted rows live engine-side only.
-- Transactions and inbox reads always send `debit_as_negative=true`: every CLI/TUI surface renders debits negative, so the request pins the flag rather than depending on the engine default.
+- Transaction reads always send `debit_as_negative=true`: every CLI/TUI surface renders debits negative, so the request pins the flag rather than depending on the engine default.
 
 ## Write semantics
 

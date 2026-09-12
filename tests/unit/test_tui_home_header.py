@@ -170,3 +170,12 @@ def test_build_header_none_is_wordmark_only():
     out = _render(home._build_header(None, None))
     assert "EXPENSE WORLD" in out
     assert "net" not in out and "spent" not in out
+
+
+def test_cluster_trails_the_pending_count_and_drops_it_at_zero():
+    """`2 pendiente` after the money figures (mockup pane 7, 2026-09-12); a zero
+    is silence, like `owed`."""
+    shown = home._stat_cluster({"net": 480000, "spent": 320000, "owed": 0, "pending": 2}, PALETTE)
+    assert shown.plain.endswith("2 pendiente")
+    quiet = home._stat_cluster({"net": 480000, "spent": 320000, "owed": 0, "pending": 0}, PALETTE)
+    assert "pendiente" not in quiet.plain

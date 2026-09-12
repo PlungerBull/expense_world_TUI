@@ -236,7 +236,10 @@ def test_the_rest_is_the_title_in_order():
 
 
 def test_missing_lists_only_the_required_fields():
-    assert _p("").missing == ("title", "amount", "account", "category")
+    # amount and account are all a row needs since 2026-09-12; title and
+    # category are optional (docs/decisions.md "The Inbox is deleted")
+    assert _p("").missing == ("amount", "account")
+    assert _p("-5 $efectivo").missing == ()
     assert _p("tottus -5 $efectivo @wants").missing == ()
 
 

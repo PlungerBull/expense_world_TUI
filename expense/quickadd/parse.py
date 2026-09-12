@@ -31,7 +31,11 @@ from expense.quickadd.when import parse_date
 _AMOUNT = re.compile(r"^[+-]\$?[0-9][0-9,.]*$")
 _SIGILS = ("$", "@", "#")
 
-REQUIRED = ("title", "amount", "account", "category")
+# What a line needs to become a ledger row: a signed amount and an account.
+# Title and category are optional since 2026-09-12 — a row with no category
+# is filed under @Pendiente by the engine, and a row with no title is a
+# titleless row (docs/decisions.md "The Inbox is deleted").
+REQUIRED = ("amount", "account")
 
 
 @dataclass(frozen=True)
@@ -82,8 +86,8 @@ class ParsedLine:
     def is_complete(self) -> bool:
         """Every required field present and every name resolved.
 
-        Routing is the screen's call, not this module's: a complete row still
-        goes to the Inbox when it is dated ahead (docs/decisions.md).
+        Routing is the screen's call, not this module's: a complete row is
+        still refused when it is dated ahead (docs/decisions.md).
         """
         return not self.missing and not self.unresolved
 
@@ -263,10 +267,8 @@ def parse(
 
     title = " ".join(title_words)
     values = {
-        "title": title or None,
         "amount": amount_cents,
         "account": picked["account"],
-        "category": picked["category"],
     }
     return ParsedLine(
         title=title,

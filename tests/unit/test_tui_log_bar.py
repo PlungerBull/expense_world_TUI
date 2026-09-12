@@ -154,36 +154,54 @@ def _stage(line: str, today: date = TODAY) -> Staged:
 
 
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN @KORAKUEN #CAJA CHICA"
-NO_ACCOUNT_LINE = "apparka mall -3.50 @TRANSPORTE #TAXI 18/08/2026"
-AHEAD_LINE = "alquiler -1800 $BCP PEN @KORAKUEN 22/08/2026"
+NO_ACCOUNT_LINE = "apparka mall -3.50 @TRANSPORTE #TAXI 18/08/2026"  # refused on ↵
+NO_CATEGORY_LINE = "apparka mall -3.50 $BCP PEN #TAXI 18/08/2026"  # stages → @Pendiente
+NO_TITLE_LINE = "-6.60 $BCP PEN"  # stages as a titleless row
+AHEAD_LINE = "alquiler -1800 $BCP PEN @KORAKUEN 22/08/2026"  # refused on ↵
 USD_LINE = "shimaya ramen -96.00 $BCP Signature USD @KORAKUEN"
 
 
 # ---- pure: the staged table -------------------------------------------------
-def test_ledger_row_is_marked_and_routed_to_the_ledger():
+def test_ledger_row_is_marked():
     out = _text(staged_table([_stage(LEDGER_LINE)], REFS, today=TODAY.isoformat()))
-    assert "•" in out and "ledger" in out
+    assert "•" in out
+    assert "goes to" not in out  # the column left with the Inbox (2026-09-12)
     assert "TOTTUS" not in out  # the title is shown verbatim, never upper-cased
     assert "tottus porongoche" in out
     assert "-38.60" in out and "BCP Signature PEN" in out and "#CAJA CHICA" in out
 
 
-def test_row_with_no_account_is_flagged_and_routed_to_the_inbox():
-    out = _text(staged_table([_stage(NO_ACCOUNT_LINE)], REFS, today=TODAY.isoformat()))
-    assert "!" in out
-    assert "— account?" in out
-    assert "inbox" in out
+def test_a_line_with_no_account_is_refused_not_staged():
+    """Routing's answer for the line `↵` refuses — the screen never builds a
+    row from it (pane 2 of the pendiente mockup, 2026-09-12)."""
+    entry = _stage(NO_ACCOUNT_LINE)
+    assert entry.routing.refused
+    assert "the line names no account" in entry.routing.reasons
 
 
-def test_row_dated_ahead_goes_to_the_inbox_though_it_is_complete():
+def test_row_with_no_category_reads_as_pendiente():
+    """Pane 1: the category cell already says where the engine will file it."""
+    out = _text(staged_table([_stage(NO_CATEGORY_LINE)], REFS, today=TODAY.isoformat()))
+    assert "•" in out
+    assert "pendiente" in out.lower()
+    assert "apparka mall" in out
+
+
+def test_row_with_no_title_shows_a_dash():
+    out = _text(staged_table([_stage(NO_TITLE_LINE)], REFS, today=TODAY.isoformat()))
+    assert "—" in out
+    assert "(no title)" not in out
+
+
+def test_row_dated_ahead_is_refused_though_it_is_complete():
     entry = _stage(AHEAD_LINE)
     assert entry.parsed.is_complete  # nothing is missing — only the date is
-    assert entry.routing.to_inbox
+    assert entry.routing.refused
     assert "it is dated ahead" in entry.routing.reasons
 
 
 def test_row_without_tags_shows_a_dim_dash():
-    out = _text(staged_table([_stage(AHEAD_LINE)], REFS, today=TODAY.isoformat()))
+    out = _text(staged_table([_stage(USD_LINE)], REFS, today=TODAY.isoformat()))
     assert "—" in out
 
 
@@ -227,13 +245,13 @@ def test_summary_totals_per_currency_never_adds_soles_to_dollars():
     assert "-134.60" not in out
 
 
-def test_summary_names_the_inbox_rows_with_routes_own_phrases():
-    entries = [_stage(LEDGER_LINE), _stage(NO_ACCOUNT_LINE), _stage(AHEAD_LINE)]
+def test_summary_counts_the_rows_that_will_land_as_pendiente():
+    entries = [_stage(LEDGER_LINE), _stage(NO_CATEGORY_LINE), _stage(NO_TITLE_LINE)]
     out = _text(staged_summary(entries, REFS), width=160)
-    assert "1 to the ledger" in out
-    assert "2 to the Inbox" in out
-    assert "row 2: the line names no account" in out
-    assert "row 3: it is dated ahead" in out
+    assert "3 staged" in out
+    assert "-48.70 PEN" in out
+    assert "2 pendiente" in out
+    assert "Inbox" not in out
 
 
 def test_summary_of_an_empty_list_is_silent():
@@ -366,14 +384,15 @@ def test_state4_enter_stages_the_line_and_clears_the_bar(fake_client, monkeypatc
             screen.on_input_submitted()
             assert _bar(screen).value == ""
             assert [e.line for e in screen._staged] == [LEDGER_LINE]
-            assert not screen._staged[0].routing.to_inbox
             out = _text(screen._staged_renderable())
             assert "1 staged" in out and "-38.60 PEN" in out
 
     asyncio.run(scenario())
 
 
-def test_state5_an_incomplete_line_stages_as_an_inbox_draft(fake_client, monkeypatch):
+def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypatch):
+    """Pane 2 (2026-09-12): the line stays in the bar with the reason under
+    it, and the staged list is untouched. The next keystroke clears the reason."""
     _patch(monkeypatch)
 
     async def scenario():
@@ -384,11 +403,35 @@ def test_state5_an_incomplete_line_stages_as_an_inbox_draft(fake_client, monkeyp
             screen.on_input_submitted()
             _type(screen, NO_ACCOUNT_LINE)
             screen.on_input_submitted()
-            assert screen._staged[1].routing.to_inbox
-            out = _text(screen._staged_renderable(), width=160)
-            assert "1 to the ledger" in out
-            assert "1 to the Inbox" in out
+            assert len(screen._staged) == 1  # not staged
+            assert _bar(screen).value == NO_ACCOUNT_LINE  # still in the bar
+            assert screen._refused is not None
+            out = _text(screen._suggest_renderable(), width=160)
+            assert "not staged" in out
             assert "the line names no account" in out
+            assert "not staged" in screen._hint()
+
+            _type(screen, NO_ACCOUNT_LINE + " $BCP PEN")  # any edit is a new attempt
+            assert screen._refused is None
+            screen.on_input_submitted()
+            assert len(screen._staged) == 2
+
+    asyncio.run(scenario())
+
+
+def test_a_line_with_no_category_stages_and_reads_as_pendiente(fake_client, monkeypatch):
+    _patch(monkeypatch)
+
+    async def scenario():
+        app = ExpenseApp()
+        async with app.run_test() as pilot:
+            screen = await _open(app, pilot)
+            _type(screen, NO_CATEGORY_LINE)
+            screen.on_input_submitted()
+            assert _bar(screen).value == ""
+            assert screen._staged[0].parsed.category_id is None
+            out = _text(screen._staged_renderable(), width=160)
+            assert "1 staged" in out and "1 pendiente" in out
 
     asyncio.run(scenario())
 
@@ -400,7 +443,7 @@ def test_state6_arrows_pick_a_staged_row_and_enter_lifts_the_typed_line(fake_cli
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_ACCOUNT_LINE):
+            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
                 _type(screen, line)
                 screen.on_input_submitted()
 
@@ -410,7 +453,7 @@ def test_state6_arrows_pick_a_staged_row_and_enter_lifts_the_typed_line(fake_cli
             assert screen._picked == 1
 
             screen.on_input_submitted()  # lift it
-            assert _bar(screen).value == NO_ACCOUNT_LINE  # the raw line, verbatim
+            assert _bar(screen).value == NO_CATEGORY_LINE  # the raw line, verbatim
             assert screen._editing == 1
             assert _label(screen) == "EDIT 2"
             assert "the line that made it" in screen._hint()
@@ -425,20 +468,20 @@ def test_a_lifted_row_is_replaced_in_place_not_appended(fake_client, monkeypatch
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_ACCOUNT_LINE):
+            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
                 _type(screen, line)
                 screen.on_input_submitted()
             screen.action_move(1)
             screen.action_move(1)
             screen.on_input_submitted()  # lift row 2
 
-            fixed = NO_ACCOUNT_LINE + " $BCP PEN"
+            fixed = NO_CATEGORY_LINE + " @TRANSPORTE"
             _type(screen, fixed)
             screen.on_input_submitted()
 
             assert len(screen._staged) == 2
             assert screen._staged[1].line == fixed
-            assert not screen._staged[1].routing.to_inbox  # it has an account now
+            assert screen._staged[1].parsed.category_id == "cat2"  # classified now
             assert screen._editing is None
             assert _label(screen) == "LOG"
 
@@ -452,12 +495,12 @@ def test_ctrl_x_drops_the_picked_row(fake_client, monkeypatch):
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_ACCOUNT_LINE):
+            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
                 _type(screen, line)
                 screen.on_input_submitted()
             screen.action_move(1)
             screen.action_drop_row()
-            assert [e.line for e in screen._staged] == [NO_ACCOUNT_LINE]
+            assert [e.line for e in screen._staged] == [NO_CATEGORY_LINE]
 
     asyncio.run(scenario())
 
@@ -536,11 +579,12 @@ def test_escape_on_an_empty_screen_just_leaves(fake_client, monkeypatch):
     asyncio.run(scenario())
 
 
-def test_ctrl_s_writes_the_ledger_in_one_batch_then_each_draft(fake_client, monkeypatch):
-    """The shape of the save: one atomic call, then one POST per draft.
+def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
+    """The shape of the save: one atomic call, and nothing after it.
 
-    Was `test_staging_writes_nothing_phase_3_has_no_save` — phase 3's boundary
-    marker, inverted here now that `ctrl+s` exists.
+    Was `..._then_each_draft` until 2026-09-12 — the per-draft `POST /inbox`
+    loop left with the Inbox. A sparse row rides the same batch, its absent
+    fields omitted (never null) so the engine applies its own defaults.
     """
     _patch(monkeypatch)
 
@@ -548,29 +592,24 @@ def test_ctrl_s_writes_the_ledger_in_one_batch_then_each_draft(fake_client, monk
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_ACCOUNT_LINE, AHEAD_LINE):
+            for line in (LEDGER_LINE, NO_CATEGORY_LINE, NO_TITLE_LINE):
                 _type(screen, line)
                 screen.on_input_submitted()
             assert len(screen._staged) == 3
-            # Routing is frozen at stage time against the real clock, so derive
-            # what to expect from the rows rather than pinning today's date.
-            drafts = [e for e in screen._staged if e.routing.to_inbox]
-            ledger = [e for e in screen._staged if not e.routing.to_inbox]
-            assert ledger and drafts  # the three lines cover both destinations
 
             await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: len(fake_client.posts) == 1 + len(drafts))
+            await wait_for(pilot, lambda: len(fake_client.posts) == 1)
 
             batch_path, batch_body = fake_client.posts[0]
             assert batch_path == "/transactions/batch"
-            # ONE call for every ledger row, not one call each
-            assert len(batch_body["transactions"]) == len(ledger)
-            assert [p for p, _ in fake_client.posts[1:]] == ["/inbox"] * len(drafts)
-            # the draft body is sparse — an absent field is omitted, never null
-            assert "account_id" not in fake_client.posts[1][1]
+            rows = batch_body["transactions"]
+            assert len(rows) == 3  # ONE call for every row, not one call each
+            assert "category_id" not in rows[1] and rows[1]["title"] == "apparka mall"
+            assert "title" not in rows[2] and "category_id" not in rows[2]
 
             await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
             assert app.screen is screen  # it stays: the ticks are the receipt
+            assert "3 logged · 2 pendiente" in _text(screen._staged_renderable())
 
     asyncio.run(scenario())
 
@@ -598,7 +637,8 @@ def _script(client, responses):
     """Give the fake client a per-call answer for POST.
 
     `FakeClient.errors["POST"]` fails *every* POST, which cannot express the
-    interesting case — the ledger batch lands and a draft does not. Each entry
+    interesting case — the batch is refused and one row of it then lands
+    while another does not (batch_write's singleton fallback). Each entry
     is either an exception to raise or a dict to return, consumed in order; the
     list running dry falls back to the ordinary empty-dict success.
     """
@@ -687,18 +727,24 @@ def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch)
 
 
 def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
-    """Pane 8. The ledger batch lands, the draft does not — and the screen says
-    which is which, because "nothing was written" would be a lie."""
+    """Pane 8. The engine refuses the batch without naming a row, the fallback
+    re-posts one row per batch, the first lands and the second does not — and
+    the screen says which is which, because "nothing was written" would be a
+    lie."""
     _patch(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, NO_ACCOUNT_LINE)
+            _stage_lines(screen, LEDGER_LINE, USD_LINE)
             _script(
                 fake_client,
-                [{}, EngineError("SERVER_ERROR", "engine exploded", None, 500, {})],
+                [
+                    EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                    {},
+                    EngineError("VALIDATION_ERROR", "engine exploded", None, 422, {}),
+                ],
             )
             await pilot.press("ctrl+s")
             await wait_for(pilot, lambda: not screen._saving)
@@ -722,16 +768,24 @@ def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch)
         app = ExpenseApp()
         async with app.run_test() as pilot:
             screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, NO_ACCOUNT_LINE)
-            _script(fake_client, [{}, EngineError("SERVER_ERROR", "down", None, 500, {})])
+            _stage_lines(screen, LEDGER_LINE, USD_LINE)
+            _script(
+                fake_client,
+                [
+                    EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                    {},
+                    EngineError("VALIDATION_ERROR", "down", None, 422, {}),
+                ],
+            )
             await pilot.press("ctrl+s")
             await wait_for(pilot, lambda: not screen._saving)
             fake_client.calls.clear()
 
             await pilot.press("ctrl+s")  # the engine is healthy again
             await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            # the ledger row is already in — it is not in the retry at all
-            assert [p for _, p, _ in fake_client.calls] == ["/inbox"]
+            # the first row is already in — the retry carries the other alone
+            assert [p for _, p, _ in fake_client.calls] == ["/transactions/batch"]
+            assert len(fake_client.calls[0][2]["transactions"]) == 1
 
     asyncio.run(scenario())
 
@@ -920,9 +974,9 @@ def test_the_error_block_is_empty_when_nothing_failed():
 
 
 def test_the_receipt_counts_what_landed_not_what_was_hoped_for():
-    ledger, draft, failed = _stage(LEDGER_LINE), _stage(NO_ACCOUNT_LINE), _stage(USD_LINE)
-    ledger.saved = draft.saved = True
-    assert save_receipt([ledger, draft, failed]) == "1 logged · 1 draft in the Inbox"
+    ledger, sparse, failed = _stage(LEDGER_LINE), _stage(NO_CATEGORY_LINE), _stage(USD_LINE)
+    ledger.saved = sparse.saved = True
+    assert save_receipt([ledger, sparse, failed]) == "2 logged · 1 pendiente"
     assert save_receipt([failed]) == ""
 
 
@@ -1161,7 +1215,7 @@ def test_the_hint_row_carries_what_changes_not_the_grammar(fake_client, monkeypa
             assert screen._hint() == ""  # nothing to echo: the caret is in the title
             _type(screen, "tottus -38.60")  # caret in the amount
             assert "-38.60" in screen._hint() and "sign" in screen._hint()
-            _type(screen, "tottus -38.60 hoy")
+            _type(screen, "tottus -38.60 18/8/26")  # a fixed date: `hoy` moved with the calendar
             assert "Aug" in screen._hint()  # the resolved date, in words
             assert "$account" not in screen._hint()  # never the legend's job
 

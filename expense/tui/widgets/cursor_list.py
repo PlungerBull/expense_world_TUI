@@ -1,6 +1,6 @@
 """CursorList — a focusable, keyboard-navigable table list with a row cursor.
 
-Reused by every list screen (inbox, transactions, accounts, categories...).
+Reused by every list screen (transactions, accounts, categories...).
 Rows are `(key, cells)` pairs: `key` identifies the row (e.g. a record id) and
 is carried on the `Selected` message; `cells` are the column strings. `_build()`
 is pure, so formatting is unit-testable without an event loop.

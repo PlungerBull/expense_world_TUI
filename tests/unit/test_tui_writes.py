@@ -1,10 +1,10 @@
-"""Phase 2 write-action smoke tests (Inbox promote/delete + write-worker
-isolation / content-swap serialization on a SectionScreen).
+"""Write-worker isolation / content-swap serialization on a SectionScreen.
 
-Uses a fake HTTP client so nothing real is mutated — asserts the right
-engine endpoint would be called via the ConfirmModal → run_write path.
-Manage-list archive is an immediate toggle on the list itself — see
-test_tui_manage_actions.py.
+Uses a fake HTTP client so nothing real is mutated. Until 2026-09-12 these
+drove the Inbox's promote/delete (ConfirmModal → run_write); the Inbox left
+with sql/038, so they now call `run_write` on the Accounts list directly —
+the mixin is what is under test, not any one screen's keys. Manage-list
+archive itself is covered in test_tui_manage_actions.py.
 """
 
 import asyncio
@@ -12,41 +12,13 @@ import threading
 
 from expense.tui.app import ExpenseApp
 from expense.tui.screens.accounts import AccountsScreen
-from expense.tui.screens.inbox import InboxScreen
-from expense.tui.screens.modals import ConfirmModal
 from tests.unit.helpers import wait_for, wait_for_list
 
-INBOX = [{"id": "i1", "title": "Almuerzo", "status": 1, "amount_cents": -1000}]
 ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False, "color": None}]
 
 
-async def _drive(app, screen, key, fake_client):
-    async with app.run_test() as pilot:
-        await app.push_screen(screen)
-
-        await wait_for_list(pilot, app)
-        await pilot.press(key)  # action → ConfirmModal
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        await pilot.press("y")  # confirm → run_write
-        await wait_for(pilot, lambda: fake_client.calls)
-
-
-def test_inbox_promote_calls_engine(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.commands.inbox_cmd.fetch_inbox", lambda *a, **k: {"items": INBOX})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_account_name_map", lambda: {})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_category_name_map", lambda: {})
-
-    asyncio.run(_drive(ExpenseApp(), InboxScreen(), "p", fake_client))
-    assert ("POST", "/inbox/i1/promote") in fake_client.requests
-
-
-def test_inbox_delete_calls_engine(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.commands.inbox_cmd.fetch_inbox", lambda *a, **k: {"items": INBOX})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_account_name_map", lambda: {})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_category_name_map", lambda: {})
-
-    asyncio.run(_drive(ExpenseApp(), InboxScreen(), "d", fake_client))
-    assert ("DELETE", "/inbox/i1") in fake_client.requests
+def _stub_accounts(monkeypatch):
+    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
 
 
 def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
@@ -54,11 +26,9 @@ def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
 
     run_write and _load used to share the default exclusive group, so a
     refresh or theme change cancelled an in-flight write worker. Exercised on
-    Inbox promote (a SectionScreen list write + inherited `r` refresh).
+    a SectionScreen list write + the inherited `r` refresh.
     """
-    monkeypatch.setattr("expense.commands.inbox_cmd.fetch_inbox", lambda *a, **k: {"items": INBOX})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_account_name_map", lambda: {})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_category_name_map", lambda: {})
+    _stub_accounts(monkeypatch)
     real_post = fake_client.post
     release = threading.Event()
 
@@ -76,13 +46,11 @@ def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
     async def scenario():
         app = ExpenseApp()
         async with app.run_test() as pilot:
-            screen = InboxScreen()
+            screen = AccountsScreen()
             await app.push_screen(screen)
 
             await wait_for_list(pilot, app)
-            await pilot.press("p")  # promote → ConfirmModal
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")  # confirm → gated run_write
+            screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
             # Poll (don't snapshot) until the write worker registers — it's
             # blocked in gated_post, so this state is stable, not fleeting.
             await wait_for(
@@ -102,7 +70,7 @@ def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
         asyncio.run(scenario())
     finally:
         release.set()  # never leave the worker thread blocked on the gate
-    assert ("POST", "/inbox/i1/promote") in fake_client.requests
+    assert ("POST", "/accounts/a1/archive") in fake_client.requests
 
 
 def test_rapid_writes_serialize_in_order(fake_client, monkeypatch):
@@ -111,9 +79,7 @@ def test_rapid_writes_serialize_in_order(fake_client, monkeypatch):
     (backlog 6.4b)."""
     import time
 
-    monkeypatch.setattr("expense.commands.inbox_cmd.fetch_inbox", lambda *a, **k: {"items": INBOX})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_account_name_map", lambda: {})
-    monkeypatch.setattr("expense.tui.screens.inbox.load_category_name_map", lambda: {})
+    _stub_accounts(monkeypatch)
 
     active = 0
     max_active = 0
@@ -135,17 +101,17 @@ def test_rapid_writes_serialize_in_order(fake_client, monkeypatch):
     async def scenario():
         app = ExpenseApp()
         async with app.run_test() as pilot:
-            screen = InboxScreen()
+            screen = AccountsScreen()
             await app.push_screen(screen)
 
             await wait_for_list(pilot, app)
-            screen.run_write("POST", "/inbox/i1/promote", on_success=lambda: None)
-            screen.run_write("POST", "/inbox/i1/snooze", on_success=lambda: None)
+            screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
+            screen.run_write("POST", "/accounts/a1/unarchive", on_success=lambda: None)
             await wait_for(pilot, lambda: len(fake_client.posts) == 2)
 
     asyncio.run(scenario())
     assert max_active == 1  # serialized: never two writes in flight
-    assert [p for p, _ in fake_client.posts] == ["/inbox/i1/promote", "/inbox/i1/snooze"]
+    assert [p for p, _ in fake_client.posts] == ["/accounts/a1/archive", "/accounts/a1/unarchive"]
 
 
 def test_concurrent_content_swaps_mount_one_card(fake_client, monkeypatch):
@@ -155,7 +121,7 @@ def test_concurrent_content_swaps_mount_one_card(fake_client, monkeypatch):
     interleave mounts a second '#card' (DuplicateIds) and kills the load
     worker — seen on slow CI runners as a refresh raced a post-write reload.
     """
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
+    _stub_accounts(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()

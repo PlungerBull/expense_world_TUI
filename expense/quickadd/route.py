@@ -1,13 +1,17 @@
-"""Where a parsed line goes: the ledger, or the Inbox.
+"""Whether a parsed line can be staged: the ledger, or refused.
 
 One copy of the rule for both surfaces — the flat `expense log "…"` asks it
-once per line, the TUI staged list asks it per row to fill its `goes to`
-column (docs/mockups/expense-world-quickadd-batch.html).
+once per line, the TUI LOG bar asks it on `↵` and either stages the row or
+leaves the line in the bar with the reason under it
+(docs/mockups/expense-world-pendiente-not-inbox.html).
 
-The rule, as decided (docs/decisions.md): a row reaches the ledger only if
-it is **complete** and **not dated ahead**. Everything else is a draft —
-`POST /inbox` takes sparse bodies (only `id` is required) and has no
-future-date check, which is gated at promote instead.
+The rule, as decided 2026-09-12 (docs/decisions.md "The Inbox is deleted"): a
+row reaches the ledger when it has an **amount** and an **account**, every
+name it typed resolved, and its date is not ahead of today. A missing title
+or category is not a reason — the engine stores a titleless row as null and
+files an uncategorised one under `@Pendiente`, and both count. Everything
+else is **refused**, never parked: the Inbox that used to hold such lines is
+gone, so the line stays where you can fix it.
 
 Deliberately not a method on `ParsedLine`: routing needs `today`, and the
 parser's job ends at "what does this line say".
@@ -19,14 +23,12 @@ from datetime import date as date_cls
 from expense.quickadd.parse import ParsedLine, Unresolved
 
 LEDGER = "ledger"
-INBOX = "inbox"
+REFUSED = "refused"
 
 _SIGIL = {"account": "$", "category": "@", "hashtag": "#"}
 _MISSING_PHRASE = {
-    "title": "the line has no title",
     "amount": "the line has no amount — a number needs a sign to be one",
     "account": "the line names no account",
-    "category": "the line names no category",
 }
 
 
@@ -35,21 +37,21 @@ class Routing:
     """Where the row goes, and the phrases that say why it is not the ledger.
 
     `reasons` is empty for a ledger row. Each reason is a finished sentence
-    fragment a caller can print as-is — the flat command puts one under the
-    prompt, the staged list folds them into its footnote ("row 3 has no
-    account, row 5 is dated ahead").
+    fragment a caller can print as-is — the flat command puts them under the
+    echo, the LOG bar puts them under the bar.
     """
 
     target: str
     reasons: tuple[str, ...] = ()
 
     @property
-    def to_inbox(self) -> bool:
-        return self.target == INBOX
+    def refused(self) -> bool:
+        return self.target == REFUSED
 
 
 def route(parsed: ParsedLine, today: date_cls) -> Routing:
-    """Ledger when complete and not dated ahead; a draft otherwise."""
+    """Ledger when it has an amount and an account, resolves, and is not dated
+    ahead; refused otherwise."""
     reasons: list[str] = []
 
     for field in parsed.missing:
@@ -66,7 +68,7 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
     if parsed.date > today.isoformat():
         reasons.append("it is dated ahead")
 
-    return Routing(INBOX if reasons else LEDGER, tuple(reasons))
+    return Routing(REFUSED if reasons else LEDGER, tuple(reasons))
 
 
 def describe(token: Unresolved) -> str:
@@ -76,8 +78,7 @@ def describe(token: Unresolved) -> str:
     the other is a name that needs more of itself typed. A **bare sigil** names
     nothing, so it gets its own phrase — it is not a failed match, it is a
     token you have not finished (2026-08-29). One wording has to serve both
-    readers: the picker header above the list, and the Inbox reason if the line
-    is staged with the sigil still bare.
+    readers: the picker header above the list, and the refusal under the bar.
     """
     if token.kind == "date":
         return f'"{token.text}" is not a real date'

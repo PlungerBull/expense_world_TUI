@@ -10,7 +10,6 @@ from expense.commands import (
     dashboard_cmd,
     hashtags_cmd,
     import_cmd,
-    inbox_cmd,
     log_cmd,
     ping_cmd,
     rates_cmd,
@@ -56,7 +55,6 @@ app.add_typer(auth_cmd.app, name="auth")
 app.add_typer(accounts_cmd.app, name="accounts")
 app.add_typer(categories_cmd.app, name="categories")
 app.add_typer(hashtags_cmd.app, name="hashtags")
-app.add_typer(inbox_cmd.app, name="inbox")
 app.add_typer(transactions_cmd.app, name="transactions")
 app.add_typer(reconcile_cmd.app, name="reconcile")
 app.add_typer(reports_cmd.app, name="reports")

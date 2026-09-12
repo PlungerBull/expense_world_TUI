@@ -11,14 +11,16 @@ create one (docs/mockups/expense-world-two-doors.html): an existing row has an
 id, a version and possibly a reconciliation freezing four of its fields, so
 correcting one is a PUT of what changed, not a line retyped from scratch.
 
-**The save** is `ctrl+s`: one `POST /transactions/batch` for the complete rows,
-then one `POST /inbox` per draft, through `expense/batch_write.py` — the same
-chunk-then-row-by-row pattern `expense import` uses, because the engine refuses
-an atomic batch without saying which row. What that means when only half of it
-lands is four owner calls, recorded in docs/decisions.md "What a half-written
-batch means": the screen stays and the ticks are the receipt, a retry re-sends
-only the rows without one, an unstaged line in the bar is never written, and
-the discard card's `ctrl+s save first` leaves only if the save succeeds.
+**The save** is `ctrl+s`: one `POST /transactions/batch` for every staged row,
+through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
+`expense import` uses, because the engine refuses an atomic batch without
+saying which row. What that means when only some of it lands is four owner
+calls, recorded in docs/decisions.md "What a half-written batch means": the
+screen stays and the ticks are the receipt, a retry re-sends only the rows
+without one, an unstaged line in the bar is never written, and the discard
+card's `ctrl+s save first` leaves only if the save succeeds. (Until 2026-09-12
+the save had a second half — one `POST /inbox` per draft. The Inbox is gone:
+docs/decisions.md "The Inbox is deleted".)
 
 **The account peek** (2026-08-29, docs/mockups/expense-world-log-account-peek.html):
 the moment the line names an account, that account's posted ledger fills the
@@ -32,10 +34,15 @@ module the flat `expense log "…"` calls — so the two surfaces read a line
 identically and neither owns a second copy:
 
     parse()  what the line says, with a Span per token for colouring
-    route()  ledger or Inbox, and the phrases that say why
+    route()  staged or refused, and the phrases that say why
 
-Routing is decided **at stage time**, not at save time, and frozen onto the
-staged row: what the `goes to` column says is what will happen.
+**`↵` either stages the line or refuses it in place** (2026-09-12,
+docs/mockups/expense-world-pendiente-not-inbox.html panes 2–4): a line with
+no account, an ambiguous name, a tag that does not exist, or a date ahead of
+today stays in the bar with the reason under it, and the staged list is
+untouched. A line with no category stages — its category cell already reads
+`@Pendiente`, which is where the engine files it — and a line with no title
+stages as a dash. Routing is decided at stage time and frozen onto the row.
 
 Four calls this screen makes, all put to the user 2026-08-25 and recorded in
 docs/decisions.md "Four calls for the LOG bar":
@@ -43,7 +50,8 @@ docs/decisions.md "Four calls for the LOG bar":
 * a staged row comes back as **the raw line you typed**, not a re-render;
 * the staged table carries the **tags** column (the batch mockup's set);
 * the batch totals **per currency** — soles are never added to dollars;
-* the Inbox footnote reuses **route.py's own phrases**, so there is one wording.
+* the refusal under the bar reuses **route.py's own phrases**, so there is one
+  wording (it was the Inbox footnote's job until the Inbox went).
 """
 
 from dataclasses import dataclass, field
@@ -70,13 +78,14 @@ from expense.commands._resource import (
     format_short_date,
     items_of,
     load_quickadd_refs,
+    pending_label,
     resolve_name,
     truncate,
 )
 from expense.dates import now_local_iso, to_canonical_aware, today_local
-from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.errors import EngineConnectionError, format_error
 from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
-from expense.quickadd.payload import inbox_payload, transaction_payload
+from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
 from expense.tui.screens._base import screen_fetch_kwargs
@@ -98,7 +107,7 @@ PICKER_WINDOW = 8
 
 #: The marker and the row number share one cell (`• 1`) — two columns of
 #: Rich padding for three characters is width this table does not have.
-HEADERS = ("", "date", "title", "amount", "account", "category", "tags", "goes to")
+HEADERS = ("", "date", "title", "amount", "account", "category", "tags")
 
 EMPTY_LINES = (
     "Nothing staged. Type a line and press ↵ — nothing reaches the engine",
@@ -137,6 +146,7 @@ STAGED_HINT = "↵ stages · ctrl+s saves all · ↑↓ picks a staged row when 
 SAVING_HINT = "writing…"
 PICKER_HINT = "↑↓ moves, ↵ writes the full name into the line"
 COMPLETED_HINT = "↵ completed the token in place — the line always says what will be saved"
+REFUSED_HINT = "not staged — fix the line and press ↵ again"
 EDIT_HINT = "the row came back as the line that made it · ↵ puts it back · esc leaves it alone"
 SIGN_HINT = "a sign is what makes a number an amount"
 LOADING_HINT = "loading accounts, categories and tags…"
@@ -161,7 +171,9 @@ class Staged:
     `line` is the **raw text as typed** — it is what `↵` puts back in the bar,
     so a round trip through the staged list can never lose or reword anything
     (decided 2026-08-25). `parsed` and `routing` are computed once, at stage
-    time, and never recomputed on render: the `goes to` column is a promise.
+    time, and never recomputed on render. A refused line is never staged, so
+    a row here always routes to the ledger; `routing` is kept because the
+    reasons a line was *not* refused for are the row's own record.
 
     `saved` is the phase-4 half. A saved row is done: it keeps a `✓`, it is
     never re-sent, and `ctrl+s` only ever covers the rows without one.
@@ -170,9 +182,9 @@ class Staged:
     the routing is. The id makes a retry safe: a row whose response was lost
     replays under the id it already had, so the engine answers 409 and the row
     ticks instead of landing twice — a fresh id per attempt would double-write.
-    The date is frozen because the `date` column is a promise as much as
-    `goes to` is: a batch typed at 23:59 and saved at 00:01 must not silently
-    change day between what you read and what you wrote.
+    The date is frozen because the `date` column is a promise: a batch typed
+    at 23:59 and saved at 00:01 must not silently change day between what you
+    read and what you wrote.
     """
 
     line: str
@@ -268,6 +280,21 @@ def _reference_cell(
     return Text(f"— {kind}?", style=palette.error if palette else "")
 
 
+def _category_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> str | Text:
+    """The category, or the @Pendiente name in the accent when the line named
+    none — the same thing the ledger will show once the row is written."""
+    if parsed.category_id:
+        return resolve_name(parsed.category_id, refs.category_names)
+    return Text(pending_label(refs), style=ACCENT if palette else "")
+
+
+def _title_cell(parsed: ParsedLine) -> Text:
+    """The title in bold, or a dim dash for a titleless row (owner call 2026-09-12)."""
+    if parsed.title:
+        return Text(parsed.title, style="bold")
+    return Text("—", style="dim")
+
+
 def _tags_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> Text:
     names = [f"#{resolve_name(t, refs.hashtag_names)}" for t in parsed.hashtag_ids]
     if names:
@@ -289,12 +316,10 @@ def staged_rows(
     today = today or today_local().isoformat()
     rows: list[tuple] = []
     for number, entry in enumerate(entries, start=1):
-        parsed, routing = entry.parsed, entry.routing
+        parsed = entry.parsed
         ahead = parsed.date > today
         if entry.saved:
             glyph, glyph_style = SAVED_GLYPH, (palette.success if palette else "")
-        elif routing.to_inbox:
-            glyph, glyph_style = "!", (palette.error if palette else "")
         else:
             glyph, glyph_style = "•", (ACCENT if palette else "")
         marker = Text.assemble((glyph, glyph_style), " ", (str(number), "dim"))
@@ -307,23 +332,15 @@ def staged_rows(
             if parsed.amount_cents is not None
             else Text("— no amount", style="dim")
         )
-        goes = (
-            Text("inbox", style=ACCENT if palette else "")
-            if routing.to_inbox
-            else Text("ledger", style="dim")
-        )
         rows.append(
             (
                 marker,
                 date,
-                Text(parsed.title or "(no title)", style="bold"),
+                _title_cell(parsed),
                 amount,
                 _reference_cell(parsed, "account", parsed.account_id, refs.account_names, palette),
-                _reference_cell(
-                    parsed, "category", parsed.category_id, refs.category_names, palette
-                ),
+                _category_cell(parsed, refs, palette),
                 _tags_cell(parsed, refs, palette),
-                goes,
             )
         )
     return rows
@@ -368,34 +385,36 @@ def staged_table(
 
 
 def save_receipt(entries: list[Staged]) -> str:
-    """`2 logged · 1 draft in the Inbox` — what a save actually wrote.
+    """`3 logged · 1 pendiente` — what a save actually wrote.
 
     Counted from `saved`, never from the routing alone, so a partial save says
     what landed rather than what was hoped for. Empty string when nothing has
-    been written yet, which is what keeps it out of the at-rest screen.
+    been written yet, which is what keeps it out of the at-rest screen. The
+    pendiente count is the rows you still owe a category to.
     """
-    logged = sum(1 for e in entries if e.saved and not e.routing.to_inbox)
-    drafts = sum(1 for e in entries if e.saved and e.routing.to_inbox)
+    logged = sum(1 for e in entries if e.saved)
+    pending = sum(1 for e in entries if e.saved and e.parsed.category_id is None)
     parts = []
     if logged:
         parts.append(f"{logged} logged")
-    if drafts:
-        parts.append(f"{drafts} draft{'' if drafts == 1 else 's'} in the Inbox")
+    if pending:
+        parts.append(f"{pending} pendiente")
     return " · ".join(parts)
 
 
 def staged_summary(
     entries: list[Staged], refs: QuickAddRefs, *, palette: Palette | None = None
 ) -> RenderableType:
-    """`3 to the ledger · -45.20 PEN · -96.00 USD` and the Inbox footnote.
+    """`5 staged · -1,944.70 PEN · 2 pendiente` — the batch you are about to write.
 
     **One figure per currency** (decided 2026-08-25): a batch can hold a PEN row
     and a USD row, and one number covering both would be a lie. With a single
     currency staged — the normal case — it reads exactly as the mockup drew it.
 
-    **The Inbox reasons are route.py's own phrases**, prefixed with the row
-    number. The flat `expense log` prints the same strings, which is the point:
-    one wording, in one place, for both surfaces.
+    **The pendiente count** is how many of the pending rows named no category
+    (docs/mockups/expense-world-pendiente-not-inbox.html pane 1): they will
+    land under @Pendiente, and a batch of shorthand should look like one
+    before it is saved.
 
     **Saved rows are counted, not totalled** (phase 4). Once a row is written it
     stops being something you are about to do, so it leaves the per-currency
@@ -405,8 +424,6 @@ def staged_summary(
     if not entries:
         return Text("")
     pending = [e for e in entries if not e.saved]
-    ledger = [e for e in pending if not e.routing.to_inbox]
-    drafts = [(n, e) for n, e in enumerate(entries, start=1) if e.routing.to_inbox and not e.saved]
 
     lines: list[Text] = []
     receipt = save_receipt(entries)
@@ -417,28 +434,22 @@ def staged_summary(
             line.append(" · ctrl+s again does nothing — the list is done", style="dim")
         lines.append(line)
 
-    if ledger:
+    if pending:
         totals: dict[str, int] = {}
-        for entry in ledger:
+        for entry in pending:
             code = currency_of(refs, entry.parsed.account_id)
             totals[code] = totals.get(code, 0) + (entry.parsed.amount_cents or 0)
-        # every row still pending is going to the ledger — say it the short way
-        head = f"{len(ledger)} staged" if not drafts else f"{len(ledger)} to the ledger"
-        line = Text("  " + head, style="dim")
+        line = Text(f"  {len(pending)} staged", style="dim")
         for code, cents in totals.items():
             line.append(" · ", style="dim")
             figure = amount_cell(cents, palette, AMOUNT_RULE)
             line.append_text(figure if isinstance(figure, Text) else Text(str(figure)))
             if code:
                 line.append(f" {code}", style="dim")
-        lines.append(line)
-
-    if drafts:
-        line = Text("  ", style="dim")
-        line.append(f"{len(drafts)} to the Inbox", style=ACCENT if palette else "")
-        whys = [f"row {n}: {', '.join(e.routing.reasons)}" for n, e in drafts if e.routing.reasons]
-        if whys:
-            line.append(" — " + " · ".join(whys), style="dim")
+        unclassified = sum(1 for e in pending if e.parsed.category_id is None)
+        if unclassified:
+            line.append(" · ", style="dim")
+            line.append(f"{unclassified} pendiente", style=ACCENT if palette else "")
         lines.append(line)
 
     return Group(*lines) if lines else Text("")
@@ -624,6 +635,9 @@ class LogBarScreen(Screen):
         self._staged: list[Staged] = []
         self._picked: int | None = None
         self._editing: int | None = None
+        # the last `↵` that was refused — the line is still in the bar, and
+        # this is what says why until the next keystroke
+        self._refused: Routing | None = None
         self._refs: QuickAddRefs | None = None
         self._parsed: ParsedLine | None = None
         self._picker: _Picker | None = None
@@ -680,6 +694,7 @@ class LogBarScreen(Screen):
     # ---- parsing -----------------------------------------------------------
     def _reparse(self, text: str) -> None:
         """Re-read the bar and recompute what the picker would offer."""
+        self._refused = None  # any edit is a new attempt
         refs = self._refs
         if refs is None or not text.strip():
             self._parsed = None
@@ -817,8 +832,7 @@ class LogBarScreen(Screen):
 
     @work(thread=True, group="engine-write")
     def _save(self, leave_after: bool) -> None:
-        """One `POST /transactions/batch` for the ledger rows, then one
-        `POST /inbox` per draft.
+        """One `POST /transactions/batch` for every row without a tick.
 
         Not `EngineWriteMixin.run_write`: that is one request per queued item,
         it drops the response, and it clears the queue on the first error —
@@ -830,28 +844,16 @@ class LogBarScreen(Screen):
         from expense import config as config_module
         from expense.http import ExpenseClient
 
-        ledger = [e for e in self._pending() if not e.routing.to_inbox]
-        drafts = [e for e in self._pending() if e.routing.to_inbox]
+        rows = self._pending()
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                if ledger:
+                if rows:
                     items = [
-                        transaction_payload(e.parsed, row_id=e.row_id, date=e.date) for e in ledger
+                        transaction_payload(e.parsed, row_id=e.row_id, date=e.date) for e in rows
                     ]
                     outcome = post_transaction_batch(client, items)
-                    self.app.call_from_thread(self._apply_outcome, ledger, outcome)
-                for entry in drafts:
-                    body = inbox_payload(entry.parsed, row_id=entry.row_id, date=entry.date)
-                    try:
-                        client.post("/inbox", json_body=body)
-                    except EngineError as err:
-                        # 409 = this id is already a draft: the row IS in
-                        ok = err.status == 409
-                        note = None if ok else format_error(err)
-                        self.app.call_from_thread(self._mark, entry, ok, note)
-                    else:
-                        self.app.call_from_thread(self._mark, entry, True, None)
+                    self.app.call_from_thread(self._apply_outcome, rows, outcome)
         except EngineConnectionError as err:
             message = format_error(err)
             self.app.call_from_thread(self._stop_save, message)
@@ -929,12 +931,21 @@ class LogBarScreen(Screen):
         self._suggest_idx = 0
 
     def _stage(self, line: str) -> None:
-        """Freeze the line into a row — this is where routing is decided."""
+        """Freeze the line into a row — or refuse it, and leave it in the bar.
+
+        A refusal changes nothing below the bar: the staged list, the picked
+        row and any edit in progress all stand, and the reasons render under
+        the bar until the next keystroke (`_reparse` clears them).
+        """
         if self._refs is None:
             self.notify("Still loading accounts and categories.", severity="warning")
             return
         parsed = self._parsed
         if parsed is None:
+            return
+        routing = route(parsed, today_local())
+        if routing.refused:
+            self._refused = routing
             return
         # A finished batch clears the moment the next one starts: the list only
         # ever shows rows you are about to write, and what the save wrote lives
@@ -943,7 +954,7 @@ class LogBarScreen(Screen):
             self._staged.clear()
             self._picked = None
             self._editing = None
-        entry = Staged(line=line, parsed=parsed, routing=route(parsed, today_local()))
+        entry = Staged(line=line, parsed=parsed, routing=routing)
         # A written row is never replaced: it has an id the engine already holds,
         # and overwriting it here would drop the tick and write the row twice.
         editing = self._editing
@@ -1003,8 +1014,8 @@ class LogBarScreen(Screen):
         * a **picker open on an account** — the highlighted candidate, so the
           peek swaps as you arrow and the disambiguation answers itself;
         * a **resolved `$account`** — that one;
-        * an **account token that resolves to nothing** — none: the row is
-          bound for the Inbox and there is no ledger to show;
+        * an **account token that resolves to nothing** — none: the line will
+          be refused and there is no ledger to show;
         * **no account token at all**, including the empty bar `↵` leaves
           behind — the last one the bar named (pick i). Staging a line must not
           blink the panel off between the lines of a run against one account.
@@ -1114,6 +1125,8 @@ class LogBarScreen(Screen):
             return EDIT_HINT
         if self._picker is not None:
             return f"{describe(self._picker.token)} — {PICKER_HINT}"
+        if self._refused is not None:
+            return REFUSED_HINT
         if self._completed:
             return COMPLETED_HINT
         parsed = self._parsed
@@ -1132,7 +1145,7 @@ class LogBarScreen(Screen):
     def _suggest_renderable(self) -> RenderableType:
         picker = self._picker
         if picker is None:
-            return Text("")
+            return self._refusal_renderable()
         candidates = picker.candidates
         if not candidates:
             return Text("  no matches — pick something that exists", style="dim")
@@ -1153,6 +1166,23 @@ class LogBarScreen(Screen):
         remaining = total - min(start + PICKER_WINDOW, total)
         if remaining > 0:
             rows.append(Text(f"  ↓ {remaining} more", style="dim"))
+        return Group(*rows)
+
+    def _refusal_renderable(self) -> RenderableType:
+        """`! not staged — the line names no account`, in the error colour,
+        with the candidates under an ambiguous name so the way out is visible
+        (mockup panes 2–4). Empty when the last `↵` was not a refusal."""
+        refused, parsed, refs = self._refused, self._parsed, self._refs
+        if refused is None or parsed is None or refs is None:
+            return Text("")
+        rows: list[Text] = []
+        head = Text("  ! not staged — ", style=PALETTE.error)
+        head.append(", ".join(refused.reasons), style=PALETTE.error)
+        rows.append(head)
+        for token in parsed.unresolved:
+            for ident, name in token.candidates:
+                extra = currency_of(refs, ident)
+                rows.append(Text(f"    {name}{'    ' + extra if extra else ''}", style="dim"))
         return Group(*rows)
 
     def _staged_renderable(self) -> RenderableType | None:

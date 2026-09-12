@@ -1,4 +1,4 @@
-"""The bar-cycle transaction / draft **edit** form (fake client).
+"""The bar-cycle transaction **edit** form (fake client).
 
 Edit-only since quick-add phase 4 (2026-08-25) moved the create door to the LOG
 bar — see [test_tui_log_bar.py](test_tui_log_bar.py). The create-flow tests that
@@ -201,53 +201,6 @@ def test_edit_add_hashtag_puts_merged_hashtag_ids(fake_client, monkeypatch):
     asyncio.run(scenario())
 
 
-def test_edit_draft_puts_hashtag_ids_to_inbox(fake_client, monkeypatch):
-    """The same picker, on a draft, writes to /inbox — the 6.1 payoff.
-
-    Proves the un-gated field is not merely displayed: the tag reaches
-    `PUT /inbox/{id}` under the engine's field name.
-    """
-    _patch(monkeypatch)
-
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            draft = {**TXN, "id": "i1", "hashtag_ids": []}
-            screen = QuickAddLogScreen(record=draft, resource="inbox")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            screen._current = screen._sequence().index("hashtags")
-            _enter(screen, "trav")
-            screen.action_submit()
-            await wait_for(pilot, lambda: fake_client.puts)
-            path, body = fake_client.puts[0]
-            assert path == "/inbox/i1"
-            assert body == {"hashtag_ids": ["h2"]}
-
-    asyncio.run(scenario())
-
-
-def test_edit_draft_clearing_tags_sends_empty_list(fake_client, monkeypatch):
-    """Clearing must send `[]` (the engine's clear), never drop the key or send null."""
-    _patch(monkeypatch)
-
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            draft = {**TXN, "id": "i1", "hashtag_ids": ["h1"]}
-            screen = QuickAddLogScreen(record=draft, resource="inbox")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            screen._values["hashtags"] = []
-            screen.action_submit()
-            await wait_for(pilot, lambda: fake_client.puts)
-            path, body = fake_client.puts[0]
-            assert path == "/inbox/i1"
-            assert body == {"hashtag_ids": []}
-
-    asyncio.run(scenario())
-
-
 def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
     _patch(monkeypatch)
 
@@ -272,25 +225,14 @@ def test_no_form_offers_cleared():
     an entire edit. Nothing replaces it: a row is confirmed by belonging to a
     completed reconciliation that adds up.
     """
-    for screen in (
-        QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions"),
-        QuickAddLogScreen(record={"id": "i1", "title": "x"}, resource="inbox"),
-    ):
-        assert "cleared" not in screen._sequence()
+    screen = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
+    assert "cleared" not in screen._sequence()
 
 
-def test_edit_sequence_offers_hashtags_for_both_resources():
-    """Drafts and transactions get the identical field sequence (backlog 6.1, 2026-08-16).
-
-    This was the gap the resource gate created: a draft could be tagged at
-    creation and never re-tagged, even though the engine has accepted
-    `hashtag_ids` on `PUT /inbox/{id}` since 2026-08-14 and the tags survive
-    promotion. The gate was one line; removing it was the whole fix.
-    """
-    draft = QuickAddLogScreen(record={"id": "i1", "title": "x"}, resource="inbox")
+def test_edit_sequence_offers_hashtags():
+    """Hashtags are an ordinary editable field (backlog 6.1, 2026-08-16)."""
     tx = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
-    assert "hashtags" in draft._sequence()
-    assert draft._sequence() == tx._sequence()
+    assert "hashtags" in tx._sequence()
 
 
 def test_quick_log_rejects_zero_and_unknown_account(fake_client, monkeypatch):

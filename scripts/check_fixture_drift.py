@@ -76,6 +76,10 @@ KNOWN_LOCAL = frozenset(
         "spent",
         "owed",
         "unrated",
+        "pending",  # the @Pendiente row count on the stats line (2026-09-12)
+        # the paging test's fake `fetch_transactions` records its own kwargs
+        # (`category`, `offset`) — the CLI's flag names, not engine fields
+        "category",
         "cents",
         "unconverted",
         "net_cents",
@@ -87,7 +91,7 @@ KNOWN_LOCAL = frozenset(
         "acc3",  # third account in the LOG bar's name-map fixture (quick-add)
         "cat1",
         "cat2",
-        "tag1",  # hashtag name-map fixture, test_tui_inbox.py (backlog 6.1)
+        "tag1",  # hashtag name-map fixture (backlog 6.1; was test_tui_inbox.py)
         "aaaa",
         "bbbb",
         "amt",

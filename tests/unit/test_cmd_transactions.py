@@ -24,7 +24,6 @@ TRANSACTION_RESPONSE = {
     "description": None,
     "transaction_type": 1,
     "hashtag_ids": [],
-    "inbox_id": None,
     "reconciliation_id": None,
     "created_at": "2026-04-24T10:00:00Z",
     "updated_at": "2026-04-24T10:00:00Z",

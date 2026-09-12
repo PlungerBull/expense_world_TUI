@@ -44,7 +44,7 @@ Rules for this file:
 | Home aggregates are nullable — `3 unrated` is a state, not a number | 2026-08-16 | full entry below |
 | Contract tests verify against a disposable database, and refuse the real ledger | 2026-08-16 | full entry below |
 | A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group | 2026-08-16 | full entry below |
-| The inbox has no deleted view — `--include-deleted` is paired with `restore`, and the inbox has none | 2026-08-16 | full entry below |
+| ~~The inbox has no deleted view~~ *(moot since 2026-09-12 — the inbox is deleted)* | 2026-08-16 | full entry below |
 | One word for hashtags — the engine's, everywhere | 2026-08-16 | full entry below |
 | The light theme will detect the terminal, not ask the user | 2026-08-16 | full entry below |
 | The command palette is removed, not populated — `?` is the one discoverability surface | 2026-08-17 | full entry below |
@@ -52,14 +52,15 @@ Rules for this file:
 | A terminal too small is the user's to fix — no size guard; 80×24 correct, 60×20 lossy | 2026-08-20 | full entry below |
 | Logging is a key, not a menu row — plain `+`, and the footer stops naming the arrow keys *(what `+` opens changed 2026-08-25 — see "What a half-written batch means")* | 2026-08-20 | full entry below |
 | Three quick-add grammar rules — contains-matching, dashed dates, tags are never created | 2026-08-25 | full entry below |
-| Two calls for the one-line `expense log` — incomplete drafts to the Inbox, and it always asks first | 2026-08-25 | full entry below |
-| Four calls for the LOG bar — the raw line comes back, tags stay, totals are per currency, one wording for why | 2026-08-25 | full entry below |
-| What a half-written batch means — the LOG bar's save, and `+` switching to it | 2026-08-25 | full entry below |
+| Two calls for the one-line `expense log` — incomplete drafts to the Inbox, and it always asks first *(the first call is superseded 2026-09-12 — an incomplete line is refused; see "The Inbox is deleted")* | 2026-08-25 | full entry below |
+| Four calls for the LOG bar — the raw line comes back, tags stay, totals are per currency, one wording for why *(the fourth moved from the Inbox footnote to the refusal under the bar, 2026-09-12)* | 2026-08-25 | full entry below |
+| What a half-written batch means — the LOG bar's save, and `+` switching to it *(the two-call save became one call when the Inbox left, 2026-09-12; the four calls about ticks and retries stand)* | 2026-08-25 | full entry below |
 | One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` | 2026-08-27 | full entry below |
 | The LOG bar shows the named account's ledger — elastic, and it stays put | 2026-08-29 | full entry below |
 | The legend, the two picker gaps, and day+month dates | 2026-08-29 | full entry below |
 | Rates cross the wire as integers — `rate_e8`, not a float — and `/100` becomes one named constant | 2026-08-29 | `expense_world_engine/docs/currency-model-decision.md` ("A rate is an integer, like every other number on the money path") |
 | Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check | 2026-09-12 | full entry below |
+| The Inbox is deleted — a sparse line is a ledger row under `@Pendiente` | 2026-09-12 | full entry below |
 
 ## What a half-written batch means (2026-08-25)
 
@@ -899,3 +900,13 @@ down. The defect was the missing precondition and the missing check, not the has
 count, compare) — it would need state the CLI deliberately does not keep, and it guesses
 at intent: a sheet can legitimately shrink. The post-hoc check needs no state and catches
 the outcome rather than predicting it.
+
+## The Inbox is deleted — a sparse line is a ledger row under `@Pendiente` (2026-09-12)
+
+**Context.** After two weeks of daily use the owner's verdict on the app was that the capture flow was heavier than a spreadsheet — and, on inspection, that the grammar and the LOG bar were fine and the **Inbox** was the weight. A line missing a category went to a second table, did not count toward any total or account balance, and had to be found, finished and promoted before the money it described existed anywhere. In a spreadsheet the same line is a row with an empty cell, and the sum is already right. The ledger held 3,821 rows and the Inbox zero live drafts on the day of the decision, so nothing needed migrating. Mockup: [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-world-pendiente-not-inbox.html).
+
+**Decision.** (1) **The Inbox goes** — table, routes, promote, the ready/overdue filters, the screen, the `inbox` command group and the second hashtag junction source. (2) **A ledger row needs an account, an amount and a date; everything else may be empty.** Title, category, tags and note are optional. (3) **An empty category files the row under a new system category, `@Pendiente`** (`system_key = 'pending'`), on the `@Opening` pattern — seeded on first use, renameable, delete refused, name reserved — with the opposite reporting rule: `@Pendiente` rows are **included** in every total, the monthly grid, every account balance and every reconciliation window. Naming `@pendiente` explicitly on a write is allowed and means the same thing, so the edit form can send a row back to pending. (4) **Three calls the owner made on the same day:** the ledger keeps refusing a date ahead of today, and nothing else accepts one any more — the concept leaves with the Inbox; an unknown `#tag` is refused, never created (the 2026-08-25 rule, now with no fallback); a titleless row shows a dash, everywhere. (5) **Routing becomes refusal.** The LOG bar's `↵` either stages a ledger row or refuses the line in place with the reason under the bar, using [route.py](../expense/quickadd/route.py)'s existing phrases; the `goes to` column is deleted. The flat `expense log` exits non-zero on a refused line and keeps its echo-then-ask on an accepted one. (6) **The Inbox screen becomes a filter on Transactions** (`p` cycles all → pendiente, over the engine's existing `?category_id=`), and the pending count joins Home's header stats line, dim, vanishing at zero. Of the two ledger renderings in the mockup's pane 6 the owner picked **A** (2026-09-12): the category cell alone carries the state, no marker column — the category *is* the state, and a second cell saying so would spend width on a fact the accent colour already carries.
+
+**Rejected.** *Keep the Inbox but count drafts toward totals* — every aggregate would join two tables, and promote would survive to move a row that already counted; that is a ledger under a second name. *A `pending` flag on the ledger row* — a second axis every filter and every client must know, and it permits a row with a real category and the flag both set; "unclassified" is a classification, and `@Opening` already proved a category can carry a meaning the reports key off `system_key`. *Let the ledger accept future dates now that the Inbox cannot* — rejected by the owner: the ledger records what happened, and a balance that already contains next week's rent reads wrong today. *Create unknown tags on save* — a typo becomes a permanent tag; already rejected 2026-08-25 and reaffirmed. *Default a missing title to the category or account name* — invented text indistinguishable from typed text, forever. *Keep title required with an `UNTITLED` placeholder* — the value promote used to refuse; a placeholder is a lie the ledger carries. *A `Pendiente` row on the Home menu where Inbox was* — a second door into the same screen with a filter pre-set; the menu lists screens, not filters.
+
+**Shipped 2026-09-12, both halves the same day.** Engine `sql/038` (the inbox table, its routes, `inbox_id`, and the junction table's `transaction_source` all dropped; `@Pendiente` seeded on first use; `title` and `category_id` optional on the ledger), then this repo: `expense/quickadd/route.py` answers *staged or refused*, the LOG bar refuses in place, `expense log` exits 1 on a refused line and needs only `--amount` and `--account-id`, Transactions gained `p`, Home's stats line the pending count, and the Inbox screen, the `expense inbox` group and the draft edit door are gone. The 2026-08-25 entries above stand as history; the index marks which of their calls this one supersedes.

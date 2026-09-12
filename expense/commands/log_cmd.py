@@ -2,21 +2,27 @@
 
 Two forms, one command, never mixed:
 
-    expense log --title Lunch --amount -1500 --account-id <id> --category-id <id>
+    expense log --amount -1500 --account-id <id> [--title Lunch] [--category-id <id>]
     expense log "tottus -38.60 $signature @korakuen #caja hoy"
 
-The flag form is the original and is unchanged — explicit, scriptable, no
-parsing. The line form runs the shared quick-add grammar (expense/quickadd/),
-so it and the TUI bar read a line exactly alike.
+The flag form is the original — explicit, scriptable, no parsing. The line
+form runs the shared quick-add grammar (expense/quickadd/), so it and the TUI
+bar read a line exactly alike.
 
-Two behaviours are specific to the line form, decided 2026-08-25
-(docs/decisions.md "Two calls for the one-line `expense log`"):
+**A row needs an amount and an account; title and category are optional**
+(2026-09-12, docs/decisions.md "The Inbox is deleted"). A row with no
+category is filed under `@Pendiente` by the engine and counts like any other;
+a row with no title is a titleless row. Two behaviours are specific to the
+line form:
 
-* **An incomplete or ambiguous line becomes an Inbox draft**, not an error —
-  the routing rule `expense/quickadd/route.py` holds for both surfaces.
-* **It always asks before writing**, unless `--yes`. The grammar is forgiving
-  on purpose (`18/8/26`, `$sig`, `hoy`); the TUI earns that back with its
-  staged list, and this prompt is the flat equivalent.
+* **A line that is missing an amount or an account, names something
+  ambiguously, uses a tag that does not exist, or is dated ahead is
+  refused** — printed with the reason, exit 1, nothing written. The Inbox
+  that used to hold such lines is gone; the routing rule
+  `expense/quickadd/route.py` holds for both surfaces.
+* **It always asks before writing**, unless `--yes` (decided 2026-08-25). The
+  grammar is forgiving on purpose (`18/8/26`, `$sig`, `hoy`); the TUI earns
+  that back with its staged list, and this prompt is the flat equivalent.
 """
 
 import json
@@ -33,6 +39,7 @@ from expense.commands._resource import (
     format_cents,
     load_quickadd_refs,
     parse_hashtag_ids,
+    pending_label,
     render_record,
     require_yes,
     resolve_name,
@@ -43,7 +50,7 @@ from expense.dates import now_local_iso, to_canonical_aware, today_local
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
 from expense.quickadd.parse import ParsedLine, parse
-from expense.quickadd.payload import inbox_payload, transaction_payload
+from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, route
 from expense.quickadd.when import format_date_words
 
@@ -58,7 +65,7 @@ _CONTENT_FLAGS = (
     ("--description", "description"),
     ("--hashtag-ids", "hashtag_ids"),
 )
-_REQUIRED_FLAGS = ("--title", "--amount", "--account-id", "--category-id")
+_REQUIRED_FLAGS = ("--amount", "--account-id")
 
 # Width of the row block: title left, amount right, as picked 2026-08-25
 # (docs/mockups/expense-world-log-oneline.html, option A).
@@ -76,13 +83,19 @@ def _fail(message: str) -> None:
     raise typer.Exit(code=1)
 
 
-def _reference_cell(parsed: ParsedLine, kind: str, value: str | None, names: dict) -> str:
-    """One reference as the facts line shows it: the resolved name, or why not."""
+def _reference_cell(
+    parsed: ParsedLine, kind: str, value: str | None, names: dict, *, empty: str
+) -> str:
+    """One reference as the facts line shows it: the resolved name, or why not.
+
+    `empty` is what an absent token reads as — `no account` for the field
+    the line needs, the @Pendiente name for the category it may leave out.
+    """
     if value:
         return resolve_name(value, names)
     token = next((u for u in parsed.unresolved if u.kind == kind), None)
     if token is None:
-        return f"no {kind}"
+        return empty
     sigil = "$" if kind == "account" else "@"
     if not token.candidates:
         return f"{sigil}{token.text} — no match"
@@ -108,13 +121,22 @@ def render_row(parsed: ParsedLine, refs: QuickAddRefs) -> list[str]:
     if currency:
         amount = f"{amount} {currency}"
 
-    title = parsed.title or "(no title)"
+    # A titleless row is a dash, everywhere (owner call 2026-09-12).
+    title = parsed.title or "—"
     room = _ROW_WIDTH - len(amount) - 2
     title = truncate(title, room)
 
     facts = [
-        _reference_cell(parsed, "account", parsed.account_id, refs.account_names),
-        _reference_cell(parsed, "category", parsed.category_id, refs.category_names),
+        _reference_cell(
+            parsed, "account", parsed.account_id, refs.account_names, empty="no account"
+        ),
+        _reference_cell(
+            parsed,
+            "category",
+            parsed.category_id,
+            refs.category_names,
+            empty=pending_label(refs),
+        ),
     ]
     tags = _hashtag_cell(parsed, refs)
     if tags:
@@ -127,15 +149,15 @@ def render_row(parsed: ParsedLine, refs: QuickAddRefs) -> list[str]:
 
 
 def render_reasons(parsed: ParsedLine, routing: Routing, refs: QuickAddRefs) -> list[str]:
-    """Why this row is a draft, plus the candidates behind an ambiguous name.
+    """Why this line was refused, plus the candidates behind an ambiguous name.
 
-    Listing the candidates on a row that is *going* to the Inbox is the point:
-    an ambiguous name counts as no name (decided 2026-08-25), so the way out is
-    to answer n and type more of it — which you cannot do without seeing them.
+    Listing the candidates is the point: an ambiguous name counts as no name
+    (decided 2026-08-25), so the way out is to retype it with more of the
+    name — which you cannot do without seeing them.
     """
-    if not routing.to_inbox:
+    if not routing.refused:
         return []
-    lines = [f"  ! Goes to the Inbox — {', '.join(routing.reasons)}."]
+    lines = [f"  ! not logged — {', '.join(routing.reasons)}."]
     ambiguous = False
     for token in parsed.unresolved:
         if not token.candidates:
@@ -145,7 +167,7 @@ def render_reasons(parsed: ParsedLine, routing: Routing, refs: QuickAddRefs) -> 
             currency = currency_of(refs, ident)
             lines.append(f"        {name}{'    ' + currency if currency else ''}")
     if ambiguous:
-        lines.append("    Answer n and type more of the name to send it to the ledger instead.")
+        lines.append("    Type more of the name so only one matches.")
     return lines
 
 
@@ -192,14 +214,20 @@ def log(
         "A sign is what makes a number an amount; `//` opens a note. "
         "Mutually exclusive with the flags below.",
     ),
-    title: str | None = typer.Option(None, "--title", help="Short label for the transaction."),
+    title: str | None = typer.Option(
+        None, "--title", help="Short label for the transaction. Optional — omitted is a dash."
+    ),
     amount: int | None = typer.Option(
         None,
         "--amount",
         help="Signed cents. Negative = expense, positive = income. Sign is mandatory.",
     ),
     account_id: str | None = typer.Option(None, "--account-id", help="Account UUID."),
-    category_id: str | None = typer.Option(None, "--category-id", help="Category UUID."),
+    category_id: str | None = typer.Option(
+        None,
+        "--category-id",
+        help="Category UUID. Optional — omitted files the row under @Pendiente.",
+    ),
     date: str | None = typer.Option(
         None,
         "--date",
@@ -221,13 +249,15 @@ def log(
     yes: bool = typer.Option(False, "--yes", help="Line form only: skip the confirmation."),
     json_output: bool = JSON_OPT,
 ) -> None:
-    """POST /v1/transactions — or /v1/inbox when a typed line is incomplete.
+    """POST /v1/transactions — a ledger row from flags or from one typed line.
 
-    Two forms. Four flags, or one line in the quick-add grammar; never both.
-    A line that is missing something, names something ambiguously, or is dated
-    ahead becomes an Inbox draft instead — the command says so and asks first.
+    Two forms. Flags, or one line in the quick-add grammar; never both. A row
+    needs an amount and an account; title and category are optional (no
+    category files it under @Pendiente). A line missing either, naming
+    something ambiguously, using a tag that does not exist, or dated ahead is
+    refused with the reason — exit 1, nothing written.
 
-    Example: expense log --title Lunch --amount -1500 --account-id <id> --category-id <id>
+    Example: expense log --amount -1500 --account-id <id> --title Lunch --category-id <id>
 
     Example: expense log "tottus -38.60 $signature @korakuen #caja hoy" --dry-run
     """
@@ -283,24 +313,30 @@ def _log_from_flags(
     *,
     verbose: bool,
     json_output: bool,
-    title: str,
+    title: str | None,
     amount: int,
     account_id: str,
-    category_id: str,
+    category_id: str | None,
     date: str | None,
     description: str | None,
     hashtag_ids: str | None,
 ) -> None:
-    """The original command, unchanged: no parse, no prompt, no routing."""
+    """The original command: no parse, no prompt, no routing.
+
+    Title and category are sent only when given — omitted, never null, so the
+    engine's own defaults apply (a titleless row; `@Pendiente`).
+    """
     new_id = str(uuid4())
     payload: dict = {
         "id": new_id,
-        "title": title,
         "amount_cents": amount,
         "account_id": account_id,
-        "category_id": category_id,
         "date": to_canonical_aware(date) if date is not None else now_local_iso(),
     }
+    if title is not None:
+        payload["title"] = title
+    if category_id is not None:
+        payload["category_id"] = category_id
     if description is not None:
         payload["description"] = description
     if hashtag_ids is not None:
@@ -330,30 +366,34 @@ def _log_from_line(
     # names one means that day, so it lands at local midnight.
     wire_date = to_canonical_aware(parsed.date) if parsed.date_given else now_local_iso()
     new_id = str(uuid4())
-    body = (
-        inbox_payload(parsed, row_id=new_id, date=wire_date)
-        if routing.to_inbox
-        else transaction_payload(parsed, row_id=new_id, date=wire_date)
-    )
+    # A refused line has no body: nothing about it is going to be sent.
+    body = {} if routing.refused else transaction_payload(parsed, row_id=new_id, date=wire_date)
 
     if dry_run:
         if json_output:
             typer.echo(_dry_run_json(line, parsed, routing, body))
             return
         _echo_block(parsed, routing, refs)
-        where = "the Inbox" if routing.to_inbox else "the ledger"
+        where = "refused" if routing.refused else "the ledger"
         typer.echo(f"  → {where}. Nothing written (--dry-run).")
         return
 
+    if routing.refused:
+        # The reasons are the echo block's second half; with --json the parse
+        # is the whole answer. Either way: exit 1, nothing sent.
+        if json_output:
+            typer.echo(_dry_run_json(line, parsed, routing, body))
+        else:
+            _echo_block(parsed, routing, refs)
+        raise typer.Exit(code=1)
+
     if not json_output:
         _echo_block(parsed, routing, refs)
-    prompt = "  File it as a draft?" if routing.to_inbox else "  Log this to the ledger?"
-    require_yes(yes, prompt, aborted_text="Nothing written.")
+    require_yes(yes, "  Log this to the ledger?", aborted_text="Nothing written.")
 
-    path = "/inbox" if routing.to_inbox else "/transactions"
-    response = _post(cfg, path, body, verbose=verbose)
+    response = _post(cfg, "/transactions", body, verbose=verbose)
     if not json_output:
-        typer.echo(f"{'Drafted' if routing.to_inbox else 'Created'}: {new_id}")
+        typer.echo(f"Created: {new_id}")
     render_record(response, json_mode=json_output)
 
 

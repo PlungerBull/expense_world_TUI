@@ -20,8 +20,16 @@ Rules, unchanged from the backlog this file replaces
 TUI are both feature-complete against the engine; **1152 unit tests green
 (2026-08-29)**, contract suite **12/12** against the disposable engine on `:8001`
 (last run 2026-08-25). Exactly one item below is a genuine defect — the macOS field
-keys, under **Bugs**; the rest are a missing capability, ergonomics, one engine-side
-ask, and one cosmetic follow-up.
+keys, under **Bugs**; the rest are ergonomics, engine-side asks, and one cosmetic
+follow-up.
+
+**The Inbox was deleted 2026-09-12** — engine (`sql/038`) and CLI in one day: a ledger row
+needs an account, an amount and a date; a missing category files it under `@Pendiente`,
+which counts everywhere; the LOG bar refuses a line it cannot stage instead of parking it;
+Transactions grew a `p` filter and Home's stats line a pending count. The why, with the
+rejected alternatives, is in [decisions.md](decisions.md) "The Inbox is deleted"; the
+screens in [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-world-pendiente-not-inbox.html)
+(pane 6 option A). Per the first rule above, the item is gone — git history is the archive.
 
 **The quick-add bar closed 2026-08-25** — all four phases: the grammar
 ([expense/quickadd/](../expense/quickadd/)), `expense log "<line>"`, the TUI LOG bar
@@ -63,17 +71,6 @@ per the first rule above, the item itself is gone — git history is the archive
    one case where an arrow-family key earns a footer slot (`⇥ Field` beside
    `esc Cancel  ^s Save`), against the standing "arrows never get a slot" rule from
    [tui.md](tui.md) §4.
-
-## Missing capability
-
-2. **The TUI cannot create an inbox draft.** Found 2026-08-20 while binding `+`. The
-   Inbox screen only filters, promotes, deletes and edits; `expense inbox add` is the
-   only way to put a draft in. `+` deliberately does **not** fill this hole — it opens
-   the LOG bar on every screen that has it, and a line lands in the Inbox only when the
-   grammar says it is too sparse to post, never because of where you were standing
-   ([decisions.md](decisions.md) "What a half-written batch means"). The shape if it is
-   closed: **`n New`**, already the convention on every other list screen
-   (`_base.py` `ResourceListScreen`), and unbound on the Inbox today. **[UI]**
 
 ## Ergonomics
 

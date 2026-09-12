@@ -1,4 +1,4 @@
-"""Edit a transaction or an inbox draft — the bar-cycle form.
+"""Edit a transaction — the bar-cycle form.
 
 One input bar cycles through fields; a summary fills below. Entity fields
 (account/category/hashtags) show a live-filtered suggestion list — pick
@@ -15,7 +15,7 @@ rows — every one the xlsx importer made — were never a typed line and have
 nothing to round-trip; and retyping a line to fix one number is more work, not
 less.
 
-Reached by `⏎` on a row in Transactions or on a draft in the Inbox. Sequence:
+Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
 only the changed fields. (`Cleared` was here until 2026-08-17 — the engine
 deleted the column.)
@@ -95,11 +95,9 @@ class QuickAddLogScreen(FormScreen):
         self._hashtags: list = []
         self._original: dict = {}
 
-        self.crumb = (
-            ("Capture & ledger", "Inbox", "Edit draft")
-            if self._resource == "inbox"
-            else ("Capture & ledger", "Transactions", "Edit")
-        )
+        # `resource` survives as a parameter for the PUT path only; the Inbox
+        # draft it used to name left on 2026-09-12 (sql/038).
+        self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
 
     # ---- edit pre-fill ---------------------------------------------------
@@ -136,9 +134,6 @@ class QuickAddLogScreen(FormScreen):
 
     # ---- field sequence --------------------------------------------------
     def _sequence(self) -> list[str]:
-        # Same sequence for both resources: drafts have carried hashtag_ids
-        # since 2026-08-14 and the tags survive promotion, so there is no
-        # reason for the inbox form to differ (backlog 6.1, 2026-08-16).
         return ["date", "title", "amount", "account", "category", "hashtags", "note"]
 
     def _after_mount(self) -> None:

@@ -289,6 +289,25 @@ def fetch_all_pages(
         offset += len(page)
 
 
+def _load_items(path: str, params: dict | None) -> list[dict]:
+    """Every row of one reference-list endpoint. Empty on any failure.
+
+    The failure-silent half of `_load_name_map`, split out so a second reader
+    (`load_pending_category_id`) can share it: no config, engine down, auth —
+    every one degrades to `[]` instead of raising, and the caller falls back.
+    """
+    try:
+        cfg = config_module.ensure_loaded()
+        with ExpenseClient(cfg) as client:
+            return fetch_all_pages(
+                lambda limit, offset: client.get(
+                    path, params={**(params or {}), "limit": limit, "offset": offset}
+                )
+            )
+    except Exception:
+        return []
+
+
 def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     """Live id → name map over one reference-list endpoint. Empty on any failure.
 
@@ -297,16 +316,7 @@ def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     short ids — which is why every failure (no config, engine down, auth)
     degrades to `{}` instead of raising.
     """
-    try:
-        cfg = config_module.ensure_loaded()
-        with ExpenseClient(cfg) as client:
-            items = fetch_all_pages(
-                lambda limit, offset: client.get(
-                    path, params={**(params or {}), "limit": limit, "offset": offset}
-                )
-            )
-    except Exception:
-        return {}
+    items = _load_items(path, params)
     out: dict[str, str] = {}
     for item in items:
         rid = item.get("id")
@@ -319,7 +329,7 @@ def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
 def load_account_name_map() -> dict[str, str]:
     """Live account id → name map. Empty on any failure.
 
-    Includes archived + people accounts so transaction/inbox rows can resolve
+    Includes archived + people accounts so transaction rows can resolve
     references to retired accounts. Soft-deleted excluded.
     """
     return _load_name_map("/accounts", {"include_archived": "true", "include_people": "true"})
@@ -328,6 +338,31 @@ def load_account_name_map() -> dict[str, str]:
 def load_category_name_map() -> dict[str, str]:
     """Live category id → name map. Empty on any failure."""
     return _load_name_map("/categories", None)
+
+
+# The engine's stable key for the system category an uncategorised row is
+# filed under (engine constants.SystemCategoryKey.PENDING, sql/038). Lookup is
+# by this key, never by the display name — the owner may rename it.
+PENDING_SYSTEM_KEY = "pending"
+# What the CLI says when it has no reference list to read the real name from.
+PENDING_FALLBACK_NAME = "pendiente"
+
+
+def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
+    """`(id, name)` of the @Pendiente row among category rows, or None."""
+    for c in categories:
+        if c.get("system_key") == PENDING_SYSTEM_KEY and isinstance(c.get("id"), str):
+            return (c["id"], c.get("name") or PENDING_FALLBACK_NAME)
+    return None
+
+
+def load_pending_category_id() -> str | None:
+    """Live id of the user's @Pendiente category. `None` on any failure — and
+    `None` when it has never been seeded, which is the ordinary state of a user
+    who has never logged a sparse row (the engine creates it on first use).
+    """
+    pending = _pending_of(_load_items("/categories", None))
+    return pending[0] if pending else None
 
 
 def load_hashtag_name_map() -> dict[str, str]:
@@ -392,6 +427,16 @@ class QuickAddRefs:
     account_names: dict[str, str]
     category_names: dict[str, str]
     hashtag_names: dict[str, str]
+    # `(id, name)` of the @Pendiente system row, or None until the engine has
+    # seeded it. Not in the matching pool (a typed line never names it; an
+    # empty category IS it), but the echo and the staged list render its name.
+    pending: tuple[str, str] | None = None
+
+
+def pending_label(refs: "QuickAddRefs") -> str:
+    """What a row with no category reads as — the @Pendiente row's own display
+    name (the owner may have renamed it), or the plain word before it exists."""
+    return refs.pending[1] if refs.pending else PENDING_FALLBACK_NAME
 
 
 def currency_of(refs: "QuickAddRefs", account_id: object) -> str:
@@ -429,7 +474,8 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
       archived accounts, so you cannot type your way into a retired one but a
       transaction that already names one still renders.
     * **System categories are excluded** from the pool — `@Opening` is the
-      engine's own bookkeeping, not something a human logs against.
+      engine's own bookkeeping, and `@Pendiente` is what an *empty* category
+      means, so neither is something a typed line names.
     * **Every page** — categories and hashtags go through `fetch_all_pages`.
       A single unpaginated call left every tag past the engine's default page
       invisible to the picker and unmatchable from a typed line.
@@ -456,6 +502,7 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         account_names=_id_name_map(accts),
         category_names=_id_name_map(cats),
         hashtag_names=_id_name_map(tags),
+        pending=_pending_of(cats),
     )
 
 
@@ -513,7 +560,7 @@ def parse_hashtag_ids(raw: str) -> list[str]:
       must pass the result to `build_update_payload` only when the flag was supplied;
       `[]` is a real value the engine acts on, while a dropped key means "leave alone".
 
-    Consumers: `transactions update`, `log`, `inbox add`, `inbox update`.
+    Consumers: `transactions update`, `log`.
     """
     return [piece.strip() for piece in raw.split(",") if piece.strip()]
 

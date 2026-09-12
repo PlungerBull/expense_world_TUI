@@ -4,7 +4,7 @@ Pages are min(PAGE_ROWS_CAP, what fits the terminal) since 2026-07-13 (adaptive
 rows, pick A): the tier-E wire tests at the bottom pin `run_test(size=…)` so the
 expected rows-per-page is deterministic — a 30-line harness proves the shrink, a
 tiny one proves the floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but
-`ENGINE_PAGE_CAP` on Transactions/Inbox, which grow with the window (2026-08-29).
+`ENGINE_PAGE_CAP` on Transactions, which grows with the window (2026-08-29).
 
 Mostly pure tests in the style of the other widget suites: `_build()` renders
 through a Rich Console; action handlers run with `_refresh`/`post_message`
@@ -375,26 +375,28 @@ def _drive_transactions(size: tuple[int, int], calls: list, checks) -> None:
 
 
 def test_transactions_screen_pages_on_the_wire(monkeypatch):
-    """A tall terminal keeps growing (2026-08-29: Transactions/Inbox lifted the
-    20 cap to the engine's own): 35 lines fit 22 rows, so it loads with
-    limit=22&offset=0 and pgdn refetches offset=22 (picks A+B, 2026-07-11)."""
+    """A tall terminal keeps growing (2026-08-29: Transactions lifted the
+    20 cap to the engine's own): 35 lines fit 20 rows, so it loads with
+    limit=20&offset=0 and pgdn refetches offset=20 (picks A+B, 2026-07-11).
+    (22 until 2026-09-12 — the pendiente filter legend under the list takes
+    two lines now, as the Inbox's did.)"""
     calls = _patch_transactions(monkeypatch)
 
     async def checks(pilot, screen):
-        assert calls == [(22, 0)]
-        assert screen.query(CursorList).first().page_status == "rows 1-22 of 133 · page 1 of 7"
+        assert calls == [(20, 0)]
+        assert screen.query(CursorList).first().page_status == "rows 1-20 of 133 · page 1 of 7"
         await pilot.press("pagedown")
         await wait_for(
             pilot,
             lambda: (
                 screen.query(CursorList)
                 and screen.query(CursorList).first().page_status
-                == "rows 23-44 of 133 · page 2 of 7"
+                == "rows 21-40 of 133 · page 2 of 7"
             ),
         )
-        assert calls[-1] == (22, 22)
+        assert calls[-1] == (20, 20)
 
-    # content 28 lines − 6 frame lines → 22 rows fit, and the ledger takes all 22
+    # content 28 lines − 6 frame lines − 2 legend lines → 20 rows fit
     _drive_transactions((120, 35), calls, checks)
 
 
@@ -438,26 +440,27 @@ def test_transactions_page_stops_at_the_engine_cap(monkeypatch):
 
 
 def test_transactions_screen_adapts_rows_to_short_terminal(monkeypatch):
-    """A 30-line terminal fits 17 rows (chrome takes 13): the page IS the
-    screenful — limit=17 on the wire, 17-row pages in the indicator (pick A,
-    2026-07-13). This is the 2026-07-12 clipped-panel screenshot, fixed — and
-    since 2026-08-29 the frame count is honest, so the panel really does fit."""
+    """A 30-line terminal fits 15 rows (chrome takes 13, the filter legend 2):
+    the page IS the screenful — limit=15 on the wire, 15-row pages in the
+    indicator (pick A, 2026-07-13). This is the 2026-07-12 clipped-panel
+    screenshot, fixed — and since 2026-08-29 the frame count is honest, so
+    the panel really does fit. (17 until the legend arrived, 2026-09-12.)"""
     calls = _patch_transactions(monkeypatch)
 
     async def checks(pilot, screen):
-        assert calls == [(17, 0)]
-        assert screen.page_rows == 17
-        assert screen.query(CursorList).first().page_status == "rows 1-17 of 133 · page 1 of 8"
+        assert calls == [(15, 0)]
+        assert screen.page_rows == 15
+        assert screen.query(CursorList).first().page_status == "rows 1-15 of 133 · page 1 of 9"
         await pilot.press("pagedown")
         await wait_for(
             pilot,
             lambda: (
                 screen.query(CursorList)
                 and screen.query(CursorList).first().page_status
-                == "rows 18-34 of 133 · page 2 of 8"
+                == "rows 16-30 of 133 · page 2 of 9"
             ),
         )
-        assert calls[-1] == (17, 17)
+        assert calls[-1] == (15, 15)
 
     _drive_transactions((120, 30), calls, checks)
 
@@ -473,43 +476,43 @@ def test_transactions_screen_floors_at_five_rows(monkeypatch):
     _drive_transactions((120, 14), calls, checks)
 
 
-def test_inbox_filter_change_resets_page(monkeypatch):
-    """`f` invalidates the old offset: page 2 of `all` must not leak into `ready`."""
-    import expense.tui.screens.inbox as inbox_mod
+def test_pendiente_filter_change_resets_page(monkeypatch):
+    """`p` invalidates the old offset: page 2 of `all` must not leak into
+    `pendiente` (the pin the Inbox's `f` carried until 2026-09-12)."""
+    import expense.tui.screens.transactions as txn_mod
 
     calls = []
 
-    def fake_inbox(cfg, *, ready=False, overdue=False, limit=None, offset=None, **kw):
-        # Every load also issues an unpaged ready=True probe (the `rdy` glyph).
-        # It carries no offset — that is how `_filter_calls` tells the probe
-        # apart from the paged filter fetch this test is about.
-        calls.append({"ready": ready, "offset": offset})
-        items = [{"id": f"d{i}", "title": f"Draft {i}", "status": 1} for i in range(limit or 20)]
+    def fake_transactions(cfg, *, category=None, limit=None, offset=None, **kw):
+        # Every load also issues a limit=1 probe for the legend's pending count;
+        # it carries no offset — that is how `_filter_calls` tells it apart from
+        # the paged fetch this test is about.
+        calls.append({"category": category, "offset": offset})
+        items = [{"id": f"t{i}", "title": f"Row {i}"} for i in range(limit or 20)]
         return {"items": items, "total": 60, "limit": limit, "offset": offset}
 
-    monkeypatch.setattr("expense.commands.inbox_cmd.fetch_inbox", fake_inbox)
-    monkeypatch.setattr(inbox_mod, "load_account_name_map", lambda: {})
-    monkeypatch.setattr(inbox_mod, "load_category_name_map", lambda: {})
+    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_transactions)
+    monkeypatch.setattr(txn_mod, "load_pending_category_id", lambda: "pend")
+    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+        monkeypatch.setattr(txn_mod, name, lambda: {})
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario():
-        from expense.tui.screens.inbox import InboxScreen
+        from expense.tui.screens.transactions import TransactionsScreen
 
         def _filter_calls():
             return [c for c in calls if c["offset"] is not None]
 
         app = ExpenseApp()
-        # 35 lines: inbox chrome + legend take 15, so the page is 20 rows — the
-        # same number the lifted cap used to force (2026-08-29)
         async with app.run_test(size=(120, 35)) as pilot:
-            screen = InboxScreen()
+            screen = TransactionsScreen()
             await app.push_screen(screen)
             await wait_for_list(pilot, app)
             await pilot.press("pagedown")
-            await wait_for(pilot, lambda: any(c["offset"] == 20 for c in _filter_calls()))
-            await pilot.press("f")  # all → ready; offset must reset
-            await wait_for(pilot, lambda: any(c["ready"] for c in _filter_calls()))
-            ready_call = next(c for c in _filter_calls() if c["ready"])
-            assert ready_call["offset"] == 0 and screen._page == 0
+            await wait_for(pilot, lambda: any(c["offset"] for c in _filter_calls()))
+            await pilot.press("p")  # all → pendiente; offset must reset
+            await wait_for(pilot, lambda: any(c["category"] == "pend" for c in _filter_calls()))
+            pending_call = next(c for c in _filter_calls() if c["category"] == "pend")
+            assert pending_call["offset"] == 0 and screen._page == 0
 
     asyncio.run(scenario())

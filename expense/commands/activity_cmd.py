@@ -54,8 +54,6 @@ _RESOURCE_PATH = {
     "categories": "categories",
     "hashtag": "hashtags",
     "hashtags": "hashtags",
-    "inbox": "inbox",
-    "inbox_items": "inbox",
     "reconciliation": "reconciliations",
     "reconciliations": "reconciliations",
 }
@@ -63,7 +61,7 @@ _RESOURCE_PATH = {
 
 def _display_name(path: str, row: dict, resource_id: str, client: ExpenseClient) -> str:
     """The human handle for one fetched row, per resource kind."""
-    if path in ("transactions", "inbox"):
+    if path == "transactions":
         return row.get("title") or row.get("description") or _short_id(resource_id)
     if path == "hashtags":
         name = row.get("name")

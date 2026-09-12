@@ -26,7 +26,6 @@ TRANSACTION_RESPONSE = {
     "description": None,
     "transaction_type": 1,
     "hashtag_ids": [],
-    "inbox_id": None,
     "reconciliation_id": None,
     "created_at": "2026-04-24T10:00:00Z",
     "updated_at": "2026-04-24T10:00:00Z",
@@ -168,9 +167,12 @@ def test_log_422_settings_missing_prints_hint(configured):
 # The line form — quick-add phase 2 (2026-08-25)
 # ---------------------------------------------------------------------------
 # `expense log "tottus -38.60 $signature @korakuen hoy"`. Three behaviours are
-# specific to it and each has a test below: an incomplete or ambiguous line
-# becomes an Inbox draft rather than an error, it always asks before writing,
-# and --dry-run shows the parse without touching the network.
+# specific to it and each has a test below: a line missing an amount or an
+# account, ambiguous, using an unknown tag, or dated ahead is REFUSED (exit 1,
+# nothing written — the Inbox that used to take it went 2026-09-12), it always
+# asks before writing, and --dry-run shows the parse without touching the
+# network. A missing title or category is fine: the engine stores the one as
+# null and files the other under @Pendiente.
 
 ACCOUNTS = [
     {"id": "acct-pen", "name": "BCP Signature PEN", "currency_code": "PEN"},
@@ -183,17 +185,6 @@ CATEGORIES = [
     {"id": "cat-sys", "name": "Opening", "is_system": True},
 ]
 HASHTAGS = [{"id": "tag-caja", "name": "CAJA CHICA"}, {"id": "tag-taxi", "name": "TAXI"}]
-
-INBOX_RESPONSE = {
-    "id": "66666666-6666-6666-6666-666666666666",
-    "title": "apparka mall",
-    "amount_cents": -350,
-    "date": "2026-08-25T00:00:00-05:00",
-    "account_id": None,
-    "category_id": "cat-tra",
-    "description": None,
-    "hashtag_ids": ["tag-taxi"],
-}
 
 TODAY = date(2026, 8, 25)
 
@@ -294,73 +285,108 @@ def test_line_yes_skips_the_prompt(configured, monkeypatch):
 
 
 @respx.mock
-def test_line_without_an_account_becomes_a_draft(configured, monkeypatch):
+def test_line_without_an_account_is_refused(configured, monkeypatch):
     _refs()
     ledger = respx.post("https://api.example.com/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
-    inbox = respx.post("https://api.example.com/v1/inbox").mock(
-        return_value=httpx.Response(201, json=INBOX_RESPONSE)
-    )
     result = _run(monkeypatch, ["log", "apparka mall -3.50 @transporte #taxi", "--yes"])
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert not ledger.called
-    body = json.loads(inbox.calls.last.request.content)
-    # sparse, and never an explicit null — the engine 422s on those
-    assert "account_id" not in body
-    assert body["title"] == "apparka mall"
-    assert body["category_id"] == "cat-tra"
-    assert "Goes to the Inbox" in result.output
-    assert "Drafted:" in result.output
+    assert "not logged" in result.output
+    assert "the line names no account" in result.output
 
 
 @respx.mock
-def test_ambiguous_name_drafts_and_lists_the_candidates(configured, monkeypatch):
-    """An ambiguous name counts as no name (decided 2026-08-25) — but the way
-    out is to retype it, so the candidates are printed anyway."""
+def test_line_without_a_category_lands_in_the_ledger_under_pendiente(configured, monkeypatch):
+    """No category is not a reason (2026-09-12): the body omits it — never
+    null — and the echo already says where the engine will file the row."""
     _refs()
-    inbox = respx.post("https://api.example.com/v1/inbox").mock(
-        return_value=httpx.Response(201, json=INBOX_RESPONSE)
+    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+        return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
+    )
+    result = _run(monkeypatch, ["log", "apparka mall -3.50 $bcp signature pen #taxi", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    body = json.loads(ledger.calls.last.request.content)
+    assert "category_id" not in body
+    assert body["title"] == "apparka mall"
+    assert body["hashtag_ids"] == ["tag-taxi"]
+    assert "PENDIENTE" in result.output.upper()
+    assert "Created:" in result.output
+
+
+@respx.mock
+def test_line_without_a_title_sends_none_and_echoes_a_dash(configured, monkeypatch):
+    _refs()
+    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+        return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
+    )
+    # `--` keeps typer from reading the leading minus as an option; a shell
+    # user quotes the line, which is the same thing.
+    result = _run(monkeypatch, ["log", "--yes", "--", "-6.60 $bcp signature pen"])
+
+    assert result.exit_code == 0, result.output
+    body = json.loads(ledger.calls.last.request.content)
+    assert "title" not in body
+    assert "  —" in result.output
+
+
+@respx.mock
+def test_ambiguous_name_is_refused_and_lists_the_candidates(configured, monkeypatch):
+    """An ambiguous name counts as no name (decided 2026-08-25) — and the way
+    out is to retype it, so the candidates are printed with the refusal."""
+    _refs()
+    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+        return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature @korakuen hoy", "--yes"])
 
-    assert result.exit_code == 0, result.output
-    body = json.loads(inbox.calls.last.request.content)
-    assert "account_id" not in body
+    assert result.exit_code == 1, result.output
+    assert not ledger.called
     assert "BCP Signature PEN" in result.output
     assert "BCP Signature USD" in result.output
     assert "matches 2 accounts" in result.output
 
 
 @respx.mock
-def test_unmatched_hashtag_drafts_and_is_never_created(configured, monkeypatch):
-    _refs()
-    inbox = respx.post("https://api.example.com/v1/inbox").mock(
-        return_value=httpx.Response(201, json=INBOX_RESPONSE)
-    )
-    result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen #nope hoy", "--yes"])
-
-    assert result.exit_code == 0, result.output
-    assert "hashtag_ids" not in json.loads(inbox.calls.last.request.content)
-    assert "matches no hashtags" in result.output
-
-
-@respx.mock
-def test_complete_but_dated_ahead_drafts(configured, monkeypatch):
+def test_unmatched_hashtag_is_refused_and_never_created(configured, monkeypatch):
     _refs()
     ledger = respx.post("https://api.example.com/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
-    inbox = respx.post("https://api.example.com/v1/inbox").mock(
-        return_value=httpx.Response(201, json=INBOX_RESPONSE)
+    result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen #nope hoy", "--yes"])
+
+    assert result.exit_code == 1, result.output
+    assert not ledger.called
+    assert "matches no hashtags" in result.output
+
+
+@respx.mock
+def test_complete_but_dated_ahead_is_refused(configured, monkeypatch):
+    _refs()
+    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+        return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "alquiler -1800 $signature pen @korakuen manana", "--yes"])
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert not ledger.called
-    assert inbox.called
     assert "dated ahead" in result.output
+
+
+@respx.mock
+def test_flag_form_needs_only_amount_and_account(configured):
+    route = respx.post("https://api.example.com/v1/transactions").mock(
+        return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
+    )
+    result = runner.invoke(cli_app, ["log", "--amount", "-660", "--account-id", "acct-id"])
+
+    assert result.exit_code == 0, result.output
+    body = json.loads(route.calls.last.request.content)
+    assert "title" not in body and "category_id" not in body
+    assert body["amount_cents"] == -660
 
 
 @respx.mock
@@ -383,13 +409,10 @@ def test_dry_run_touches_no_write_endpoint(configured, monkeypatch):
     ledger = respx.post("https://api.example.com/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
-    inbox = respx.post("https://api.example.com/v1/inbox").mock(
-        return_value=httpx.Response(201, json=INBOX_RESPONSE)
-    )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen hoy", "--dry-run"])
 
     assert result.exit_code == 0, result.output
-    assert not ledger.called and not inbox.called
+    assert not ledger.called
     assert "Nothing written (--dry-run)." in result.output
 
 
@@ -403,7 +426,7 @@ def test_dry_run_json_is_the_parse(configured, monkeypatch):
 
     assert result.exit_code == 0, result.output
     body = json.loads(result.output)
-    assert body["target"] == "inbox"
+    assert body["target"] == "refused"
     assert body["reasons"] == ['"$signature" matches 2 accounts']
     assert body["parsed"]["date"] == "2026-08-18"
     assert body["parsed"]["date_given"] is True
@@ -411,7 +434,7 @@ def test_dry_run_json_is_the_parse(configured, monkeypatch):
     assert body["parsed"]["unresolved"][0]["kind"] == "account"
     assert len(body["parsed"]["unresolved"][0]["candidates"]) == 2
     assert body["parsed"]["spans"]  # a span per token, for a colouring caller
-    assert "account_id" not in body["payload"]
+    assert body["payload"] == {}  # a refused line has no body
 
 
 @respx.mock
@@ -454,13 +477,17 @@ def test_line_and_flag_together_is_refused(configured):
 def test_bare_log_names_both_forms(configured):
     result = runner.invoke(cli_app, ["log"])
     assert result.exit_code == 1
-    assert "--title" in result.output and "expense log" in result.output
+    assert "--amount" in result.output and "--account-id" in result.output
+    assert "expense log" in result.output
 
 
 def test_flag_form_missing_a_required_flag_says_which(configured):
+    """Only `--amount` and `--account-id` are required (2026-09-12); a missing
+    `--category-id` is not a complaint any more."""
     result = runner.invoke(cli_app, ["log", "--title", "x", "--amount", "-100"])
     assert result.exit_code == 1
-    assert "--account-id" in result.output and "--category-id" in result.output
+    assert "--account-id" in result.output
+    assert "--category-id" not in result.output
 
 
 def test_dry_run_needs_a_line(configured):

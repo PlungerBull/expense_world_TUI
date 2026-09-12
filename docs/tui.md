@@ -37,17 +37,18 @@ expense/tui/
     overview.py     # Overview — the Accounts | People band (5 drawn rows each,
                     #   people keep their ▼/▶ settled fold) over the sliding
                     #   4-month grid, ▼/▶ hashtag rows, inflow/outflow/net
-    inbox.py        transactions.py  accounts.py  categories.py  hashtags.py
+    transactions.py # the ledger; `p` filters to the rows under @Pendiente (2026-09-12)
+    accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth / Activity / Rates screens
-    quick_log.py    # the transaction / draft EDIT form (`⏎` on a row). Its create
+    quick_log.py    # the transaction EDIT form (`⏎` on a row). Its create
                     #   mode moved to the LOG bar 2026-08-25 — `record` is required now
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
                     #   the named account's ledger below it (AccountPeek, 2026-08-29),
-                    #   one save. Parses through expense/quickadd/, routes each row to
-                    #   the ledger or the Inbox at stage time; ctrl+s writes the ledger
-                    #   rows in ONE POST /transactions/batch (via expense/batch_write.py)
-                    #   then each draft to POST /inbox. Saved rows keep a ✓ until the
+                    #   one save. Parses through expense/quickadd/; `↵` stages a line or
+                    #   refuses it in place (2026-09-12 — the Inbox it used to route to
+                    #   is gone); ctrl+s writes every row in ONE POST /transactions/batch
+                    #   (via expense/batch_write.py). Saved rows keep a ✓ until the
                     #   next line is staged; a partial failure re-sends only the rest.
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
@@ -118,7 +119,7 @@ Every home-menu entry is wired — no stubs. `_SCREENS` in
 
 | Group | Entries |
 |---|---|
-| **Capture & ledger** | Inbox · Transactions · Reconciliations |
+| **Capture & ledger** | Transactions · Reconciliations |
 | **Reports** | Overview |
 | **Manage** | Accounts · Categories · Hashtags |
 | **System** | Config · Auth & profile · Activity · Rates |
@@ -245,14 +246,12 @@ them — they are hand-written into the `?` card
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely.
 
-**`+` logs a transaction** — Home, Transactions and Inbox (`LogTransactionMixin` in
+**`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
 `HelpBindingMixin`). It always opens the same capture screen — the **LOG bar**, since
-quick-add phase 4 (2026-08-25) — including inside the Inbox: one key, one meaning.
-Where a row lands is decided by *the line you typed* and shown in the `goes to` column
-before you press `ctrl+s`, never by which screen you were standing on; that is what
-keeps this from being the trap of one key writing to two endpoints depending on where
-you stand ([todo.md](todo.md), "The TUI cannot create an inbox draft"). Plain `+`,
+quick-add phase 4 (2026-08-25): one key, one meaning. Whether a line stages is decided
+by *the line you typed* — refused in place with the reason if it cannot (2026-09-12),
+never parked somewhere by which screen you were standing on. Plain `+`,
 no modifier — `shift`+`+` is not
 bindable at all, and the numpad and main-row keys send the same byte, so one binding
 catches both ([decisions.md](decisions.md)).
@@ -353,15 +352,15 @@ the terminal)** rows — the page IS the screenful, so the panel border/subtitle
 never clip and no dead scrollbar appears. A resize re-measures
 (`SectionScreen.measure_list_rows`, floor 5) and keeps the first visible row.
 `DEFAULT_PAGE_ROWS` (20, one copy shared with the CLI) is the app-wide cap and the
-pre-layout fallback everywhere except **Transactions and Inbox, which fill the window**
-(2026-08-29): they set `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (200, the engine's own `limit`
-ceiling) and `CARD_WIDTH = None`, so their card spans the full width too — the two
-screens you sit in take the terminal you gave them. Every other screen keeps its
+pre-layout fallback everywhere except **Transactions, which fills the window**
+(2026-08-29): it sets `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (200, the engine's own `limit`
+ceiling) and `CARD_WIDTH = None`, so its card spans the full width too — the screen
+you sit in takes the terminal you gave it (the Inbox did the same until 2026-09-12). Every other screen keeps its
 20-row cap and its tidy `CARD_WIDTH`. Page keys: `pgdn` next, `pgup` previous — hidden when one page holds it all.
 They carry the Overview's month window too (`pgdn` older, `pgup` newer): one
 meaning, "the next window of data", whether the window is rows or months.
 
-Transactions / Inbox / Activity / Rates fetch real `limit`/`offset` pages sized to the
+Transactions / Activity / Rates fetch real `limit`/`offset` pages sized to the
 window via `PagedListMixin` (`↑`/`↓` clamp at the fetched edge; a resize refetches with
 the offset re-anchored). Full-data screens window locally — Manage, the two
 Reconciliations panes splitting the space equally, the recon checklist at fit÷2 items —
@@ -420,7 +419,5 @@ rationale: [decisions.md](decisions.md) "A terminal too small is the user's to f
   destructive count — adjust them deliberately when adding or removing commands.
 
 **Known, accepted, not worth fixing at this scale:** a screen load may open several
-short-lived clients (inbox: 2 fetches + 2 name maps = 4) — harmless on loopback; and
-the inbox ready-probe is **unpaged**, fetching every ready item to badge the visible
-page. If inbox rows ever number in the thousands, badging from the paged body would be
-an engine ask (`ready` is a filter, not a per-row field).
+short-lived clients (Transactions: the page, a `limit=1` probe for the pendiente count,
+the `@Pendiente` lookup and three name maps) — harmless on loopback.
