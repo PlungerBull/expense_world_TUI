@@ -18,7 +18,9 @@ filtered list the changed rows leave at once (pane 6, option C). A refused
 row is named by its number; the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
-`esc` retreats one step at a time: selection, then filter, then the screen.
+`esc` clears the selection when there is one; otherwise it goes back to where
+you came from — Home, for a filter Home opened (owner, 2026-09-13: esc on a
+filtered ledger is back to Home, never to the unfiltered ledger).
 
 The `p` filter (all → pendiente) lived here from the morning of 2026-09-12 to
 the evening: `@Pendiente` is a row on Home now, and `⏎` on it is the filter.
@@ -56,7 +58,6 @@ from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList
-from expense.tui.widgets.header import Breadcrumb
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
 #: The free-text columns and their share of the width left after Amount, Date,
@@ -159,7 +160,7 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
             "escape",
             "back",
             "Back",
-            tooltip="Clear the selection, then the filter, then leave",
+            tooltip="Clear the selection, else go back",
         ),
     ]
     crumb = ("Capture & ledger", "Transactions")
@@ -276,18 +277,16 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         self._selected = set() if keys and keys <= self._selected else keys
         self._repaint_selection()
 
-    async def action_back(self) -> None:
-        """One key, three retreats: selection → filter → screen."""
+    def action_back(self) -> None:
+        """Selection first, then back to the screen that pushed this one.
+
+        Until 2026-09-13 a filtered ledger cleared its filter on the second
+        `esc` and left on the third. The owner's report: from Home, `⏏` on a
+        category then `esc` should be Home again, not the whole ledger — the
+        filter is the door you came in by, not a state to step out of."""
         if self._selected:
             self._selected = set()
             self._repaint_selection()
-            return
-        if self._filter is not None:
-            self._filter = None
-            self.crumb = _crumb_for(None)
-            self.query_one("#crumb", Breadcrumb).set_trail(self.crumb)
-            self.reset_page()
-            await self.action_reload()
             return
         self.app.pop_screen()
 

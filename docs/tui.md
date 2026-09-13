@@ -151,8 +151,9 @@ to set the category, move to an account, or **replace** the hashtag set. The wri
 one `PUT /transactions/{id}` per row, in order, on one client, then one reload: on a
 filtered list the changed rows **leave at once** (pick C), the toast `3 rows → KORAKUEN`
 is the receipt, and a refused row (an account move a completed reconciliation locks)
-is named by number, stays selected, and does not stop the others. `esc` retreats one
-step at a time — selection, then filter, then the screen. Title, description, amount
+is named by number, stays selected, and does not stop the others. `esc` clears the
+selection if there is one, and otherwise goes back — to Home, for a filter Home opened
+(2026-09-13; it used to clear the filter first, which left you on the whole ledger). Title, description, amount
 and date stay single-row edits behind `⏎`. No suggestions and no same-merchant
 spreading, by decision — [decisions.md](decisions.md) "Home is the month".
 
@@ -260,7 +261,7 @@ them — they are hand-written into the `?` card
 2026-09-12): `space` selects / unselects the cursor row without moving it (`↓` then
 `space` is the rhythm), `a` selects every row on the page or clears the selection,
 `c` / `b` / `h` open the picker for category / account / hashtags, `esc` clears the
-selection before it clears the filter before it leaves. `space` is declared on
+selection if there is one, else goes back to the screen that opened the ledger. `space` is declared on
 `CursorList` but is live — key and footer both — only on a screen that handles
 `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open` goes through on the
 `?` card, so the Manage lists neither react to it nor advertise it. `h` is a *command*

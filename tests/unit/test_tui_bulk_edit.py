@@ -2,8 +2,8 @@
 docs/mockups/expense-world-home-as-ledger.html panes 2–6).
 
 `space` selects, `a` selects the page, `c`/`b`/`h` open the picker over the
-selection (or the cursor row) and write one PUT per row; `esc` retreats
-selection → filter → screen. A fake client stands in for the engine, so the
+selection (or the cursor row) and write one PUT per row; `esc` clears the
+selection, else goes back. A fake client stands in for the engine, so the
 PUTs are asserted, never sent.
 """
 
@@ -304,16 +304,19 @@ def test_esc_cancels_the_picker_and_writes_nothing(fake_client, monkeypatch):
     asyncio.run(scenario())
 
 
-# ---- esc retreats ---------------------------------------------------------------
+# ---- esc -----------------------------------------------------------------------
 
 
-def test_esc_retreats_selection_then_filter_then_screen(monkeypatch):
+def test_esc_clears_the_selection_then_goes_back_with_the_filter_kept(monkeypatch):
+    """Owner, 2026-09-13: esc on a filtered ledger is back to where you came
+    from, never to the unfiltered ledger. A selection still clears first."""
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test(size=(120, 30)) as pilot:
+            before = app.screen
             screen = TransactionsScreen(filter=FILTER)
             await _open(app, pilot, screen)
             await pilot.press("space")
@@ -322,12 +325,8 @@ def test_esc_retreats_selection_then_filter_then_screen(monkeypatch):
             await wait_for(pilot, lambda: screen._selected == set())
             assert screen._filter == FILTER and app.screen is screen
             await pilot.press("escape")
-            await wait_for(pilot, lambda: screen._filter is None)
-            await wait_for_list(pilot, app)
-            assert app.screen is screen
-            assert _legend(screen) == "no filter · 3 rows"
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is not screen)
+            await wait_for(pilot, lambda: app.screen is before)
+            assert screen._filter == FILTER  # left as it was entered, never cleared
 
     asyncio.run(scenario())
 

@@ -176,6 +176,31 @@ def test_left_on_a_hashtag_row_folds_its_category_and_lands_on_it(monkeypatch):
     asyncio.run(scenario())
 
 
+def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
+    """The owner's report, 2026-09-13: ⏎ on a category or a hashtag, then esc,
+    lands on Home — not on the unfiltered ledger."""
+    _stub_month(monkeypatch)
+
+    async def scenario():
+        app = ExpenseApp()
+        async with app.run_test(size=(100, 40)) as pilot:
+            await _month_loaded(app, pilot)
+            home_screen = app.screen
+            await _select(app, pilot, "category:c-pend")
+            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: app.screen is home_screen)
+            await _highlight(app, "category:c-wants")
+            await pilot.press("right")
+            await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
+            await _select(app, pilot, "tag:c-wants:h-sal")
+            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: app.screen is home_screen)
+
+    asyncio.run(scenario())
+
+
 def test_enter_on_an_account_filters_the_ledger_by_it(monkeypatch):
     _stub_month(monkeypatch)
 
