@@ -31,7 +31,7 @@ from expense.commands._resource import fetch_all_pages, format_cents, items_of, 
 from expense.context import get_verbose
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.dates import to_canonical_aware
-from expense.errors import handle_errors
+from expense.errors import EngineError, format_error, handle_errors
 from expense.http import ExpenseClient
 from expense.import_.reader import ImportDependencyError, ImportFileError, read_workbook
 
@@ -241,7 +241,8 @@ def _match_cell(v: Verdict) -> str:
         return "new"
     if v.rule == "operation":
         return f"in ledger · operation {v.row.operation_code}"
-    return f"in ledger · {v.rule}"
+    suffix = " · +code" if v.backfill_code else ""
+    return f"in ledger · {v.rule}{suffix}"
 
 
 def render_preview(
@@ -285,6 +286,10 @@ def render_preview(
     new = [v for v in verdicts if v.new]
     if new:
         typer.echo("  New rows land under @Pendiente: " + legs_line(new) + ".")
+    codes = sum(1 for v in verdicts if v.backfill_code)
+    if codes:
+        rows_word = f"{codes} matched row{'' if codes == 1 else 's'}"
+        typer.echo(f"  {rows_word} in the ledger have no operation code yet — --apply writes it.")
     for line in excess_lines(excess):
         typer.echo("  " + line)
     for b in bad:
@@ -341,6 +346,7 @@ def _json_doc(file: str, group: AccountGroup, verdicts, bad, excess, written=Non
                 "account_id": v.account_id,
                 "match": v.rule,
                 "ledger_id": v.ledger_id,
+                "backfill_code": v.backfill_code,
             }
             for v in verdicts
         ],
@@ -453,21 +459,44 @@ def bank(
         return
 
     new = [v for v in verdicts if v.new]
+    backfill = [v for v in verdicts if v.backfill_code]
     if not json_output:
         typer.echo("  " + summary_line(verdicts, bad))
         for line in excess_lines(excess):
             typer.echo("  " + line)
+
+    # The backfill: a matched ledger row that has no code gets the file's.
+    # One PUT per row — there is no batch update — and a refusal is reported
+    # by row, never fatal for the rest.
+    coded = 0
+    code_failures: list[tuple[Verdict, str]] = []
+    if backfill:
+        with ExpenseClient(cfg, verbose=verbose) as client:
+            for v in backfill:
+                try:
+                    client.put(
+                        f"/transactions/{v.ledger_id}",
+                        json_body={"operation_code": v.backfill_code},
+                    )
+                    coded += 1
+                except EngineError as err:
+                    code_failures.append((v, format_error(err)))
+        if not json_output:
+            typer.echo(
+                f"  {coded} operation code{'' if coded == 1 else 's'} written onto existing rows"
+            )
+            for v, message in code_failures:
+                typer.echo(f"  ! row {v.row.line} (code {v.backfill_code}): {message}")
+
     if not new:
         if json_output:
-            typer.echo(
-                json.dumps(
-                    _json_doc(file, group, verdicts, bad, excess, written=0),
-                    indent=2,
-                    ensure_ascii=False,
-                )
-            )
+            doc = _json_doc(file, group, verdicts, bad, excess, written=0)
+            doc["codes_written"] = coded
+            typer.echo(json.dumps(doc, indent=2, ensure_ascii=False))
         else:
-            typer.echo("  Nothing to write — the ledger already has every row of this file.")
+            typer.echo("  Nothing new to write — the ledger already has every row of this file.")
+        if code_failures:
+            raise typer.Exit(code=1)
         return
 
     items = [payload_for(v) for v in new]
@@ -481,6 +510,7 @@ def bank(
         doc = _json_doc(file, group, verdicts, bad, excess, written=written)
         doc["already_there"] = existed
         doc["failed"] = [{"line": v.row.line, "error": m} for v, m in failed]
+        doc["codes_written"] = coded
         typer.echo(json.dumps(doc, indent=2, ensure_ascii=False))
     else:
         typer.echo("")
@@ -501,5 +531,5 @@ def bank(
             )
         if written:
             typer.echo("  Categorise them: expense world → Transactions → p")
-    if failed or outcome.stopped:
+    if failed or outcome.stopped or code_failures:
         raise typer.Exit(code=1)

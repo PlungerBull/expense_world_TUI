@@ -251,3 +251,35 @@ def test_excess_names_the_group_where_the_ledger_holds_more_than_the_file():
     e = excess[0]
     assert (e.date_iso, e.amount_cents, e.ledger_count, e.file_count) == ("2026-08-18", -350, 2, 1)
     assert e.account_name == "BCP Signature PEN"
+
+
+# ---- codes the ledger does not know yet (owner call 2026-09-12) --------------
+def test_a_coded_row_with_no_coded_ledger_row_falls_through_to_the_content_rules():
+    """The ledger predates the column: a code it has never seen is not a
+    verdict. The row matches by content, and the code is what gets written."""
+    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
+    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.")]  # no code
+    verdicts, _ = match_rows(rows, LEGS, ledger)
+    v = verdicts[0]
+    assert (v.rule, v.ledger_id, v.backfill_code) == (RULE_SAME_DAY_TITLE, "t1", "03144753")
+
+
+def test_a_ledger_row_with_a_different_code_is_never_the_same_movement():
+    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
+    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.", code="99999999")]
+    verdicts, _ = match_rows(rows, LEGS, ledger)
+    assert verdicts[0].new
+
+
+def test_a_row_matched_by_its_own_code_has_nothing_to_backfill():
+    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
+    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.", code="03144753")]
+    verdicts, _ = match_rows(rows, LEGS, ledger)
+    assert (verdicts[0].rule, verdicts[0].backfill_code) == (RULE_OPERATION, None)
+
+
+def test_an_uncoded_file_row_never_backfills():
+    rows = [_bank(2, "2026-09-10", "EDO SUSHI BAR", -4900)]
+    ledger = [_ledger("t1", "2026-09-10", -4900, "EDO SUSHI BAR")]
+    verdicts, _ = match_rows(rows, LEGS, ledger)
+    assert verdicts[0].ledger_id == "t1" and verdicts[0].backfill_code is None

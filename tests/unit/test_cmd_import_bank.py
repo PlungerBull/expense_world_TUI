@@ -274,3 +274,44 @@ def test_apply_reports_a_refused_row_and_exits_1(configured, monkeypatch):
     assert result.exit_code == 1, result.output
     assert "1 written" in result.output
     assert "! row 3:" in result.output
+
+
+# ---- the operation-code backfill --------------------------------------------
+@respx.mock
+def test_preview_says_which_matched_rows_will_get_a_code(configured, monkeypatch):
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
+    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
+    put = respx.put(f"{BASE}/v1/transactions/t1")
+    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP"])
+    assert result.exit_code == 0, result.output
+    assert "in ledger · same day + title · +code" in result.output
+    assert "1 matched row in the ledger have no operation code yet" in result.output
+    assert not put.called  # a dry run writes nothing
+
+
+@respx.mock
+def test_apply_writes_the_code_onto_the_matched_row_and_nothing_else(configured, monkeypatch):
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
+    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
+    put = respx.put(f"{BASE}/v1/transactions/t1").mock(return_value=httpx.Response(200, json={}))
+    batch = respx.post(f"{BASE}/v1/transactions/batch")
+    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(put.calls.last.request.content) == {"operation_code": "03144753"}
+    assert not batch.called  # nothing was new
+    assert "1 operation code written onto existing rows" in result.output
+    assert "Nothing new to write" in result.output
+
+
+@respx.mock
+def test_a_second_download_matches_by_the_code_it_wrote(configured, monkeypatch):
+    """After the backfill the ledger row carries the code, so rule 1 decides
+    and no content rule is consulted."""
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
+    _engine(
+        {"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.", "03144753")]}
+    )
+    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP"])
+    assert result.exit_code == 0, result.output
+    assert "in ledger · operation 03144753" in result.output
+    assert "+code" not in result.output

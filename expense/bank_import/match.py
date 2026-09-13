@@ -12,6 +12,14 @@ ledger"). Four rules, tried in order, each ledger row claimed at most once:
                             the owner's count rule: three rows of 3.50 in the
                             file and one in the ledger leave two unmatched
 
+**A code the ledger does not know yet is not a verdict** (owner call
+2026-09-12): the ledger carries no operation codes for anything logged
+before the column existed, so a coded file row that finds no coded ledger
+row falls through to rules 2–4 like any other — and a match there is where
+the code gets *written*, which is the backfill. What a code does refuse is a
+ledger row that carries a *different* code: two coded movements are the same
+movement only when the codes agree, whatever the date and amount say.
+
 Rows 2–4 prefer an exact-date candidate over a neighbour, so a Tuesday file
 row claims Tuesday's ledger row before Monday's. Because every ledger row is
 claimed once, a group of identical file rows against fewer ledger rows leaves
@@ -50,13 +58,18 @@ class LedgerRow:
 
 @dataclass(frozen=True)
 class Verdict:
-    """One file row, placed. `rule` and `ledger_id` are set iff it matched."""
+    """One file row, placed. `rule` and `ledger_id` are set iff it matched.
+
+    `backfill_code` is the file row's operation code when it matched a ledger
+    row that has none — the code the importer writes onto that row on apply.
+    """
 
     row: BankRow
     account_id: str
     account_name: str
     rule: str | None = None
     ledger_id: str | None = None
+    backfill_code: str | None = None
 
     @property
     def new(self) -> bool:
@@ -117,16 +130,29 @@ def match_rows(
         ].append(lr)
         by_day_amount[(lr.account_id, lr.date_iso, lr.amount_cents)].append(lr)
 
-    def claim(candidates: list[LedgerRow]) -> LedgerRow | None:
+    def claim(candidates: list[LedgerRow], code: str | None) -> LedgerRow | None:
+        """The first unclaimed candidate whose code does not contradict the
+        file row's: a ledger row with no code is fair game, one with the same
+        code is the same movement, one with another code is something else."""
         for lr in candidates:
-            if lr.id not in claimed:
-                claimed.add(lr.id)
-                return lr
+            if lr.id in claimed:
+                continue
+            if code is not None and lr.operation_code not in (None, code):
+                continue
+            claimed.add(lr.id)
+            return lr
         return None
+
+    def verdict(
+        row: BankRow, account_id: str, account_name: str, rule: str, hit: LedgerRow
+    ) -> Verdict:
+        code = row.operation_code if (row.operation_code and not hit.operation_code) else None
+        return Verdict(row, account_id, account_name, rule, hit.id, code)
 
     placed: dict[int, Verdict] = {}
 
-    # Rule 1 — the operation code decides, matched or not.
+    # Rule 1 — a code the ledger knows decides; a code it does not know yet
+    # falls through (the ledger predates the column for most of its rows).
     pending: list[BankRow] = []
     for row in rows:
         account_id, account_name = legs[row.currency]
@@ -135,9 +161,7 @@ def match_rows(
             if hit is not None and hit.id not in claimed:
                 claimed.add(hit.id)
                 placed[row.line] = Verdict(row, account_id, account_name, RULE_OPERATION, hit.id)
-            else:
-                placed[row.line] = Verdict(row, account_id, account_name)
-            continue
+                continue
         pending.append(row)
 
     # Rules 2–4, one pass each so an exact match anywhere in the file beats a
@@ -149,13 +173,14 @@ def match_rows(
             account_id, account_name = legs[row.currency]
             hit = None
             for key in keyer(row, account_id):
-                hit = claim(by_day_amount_title[key] if len(key) == 4 else by_day_amount[key])
+                pool = by_day_amount_title[key] if len(key) == 4 else by_day_amount[key]
+                hit = claim(pool, row.operation_code)
                 if hit is not None:
                     break
             if hit is None:
                 left.append(row)
             else:
-                placed[row.line] = Verdict(row, account_id, account_name, rule, hit.id)
+                placed[row.line] = verdict(row, account_id, account_name, rule, hit)
         pending = left
 
     pass_over(
