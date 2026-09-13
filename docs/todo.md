@@ -17,8 +17,8 @@ Rules, unchanged from the backlog this file replaces
   quote the item's bolded title instead, so a renumber can never make them lie.
 
 **Nothing here is a regression and nothing blocks daily use.** The flat CLI and the
-TUI are both feature-complete against the engine; **1172 unit tests green
-(2026-09-12)**, contract suite **12/12** against the disposable engine on `:8001`
+TUI are both feature-complete against the engine; **1166 unit tests green
+(2026-09-13)**, contract suite **12/12** against the disposable engine on `:8001`
 (last run 2026-08-25). Exactly one item below is a genuine defect — the macOS field
 keys, under **Bugs**; the rest are ergonomics, engine-side asks, and one cosmetic
 follow-up.
@@ -26,7 +26,7 @@ follow-up.
 **The Inbox was deleted 2026-09-12** — engine (`sql/038`) and CLI in one day: a ledger row
 needs an account, an amount and a date; a missing category files it under `@Pendiente`,
 which counts everywhere; the LOG bar refuses a line it cannot stage instead of parking it;
-and — since the same evening — Home is the month itself, with `⏎` on `@Pendiente` opening
+and — since the same evening — Home is the month itself (four months since 2026-09-13, with Overview folded in and deleted), with `⏎` on `@Pendiente` opening
 the ledger filtered to it and `space` + `c`/`b`/`h` editing rows in bulk (the `p` filter
 and the stats line lasted the day; [decisions.md](decisions.md) "Home is the month"). The why, with the
 rejected alternatives, is in [decisions.md](decisions.md) "The Inbox is deleted"; the

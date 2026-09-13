@@ -195,3 +195,115 @@ async def wait_for_list(pilot, app) -> None:
         lambda: list_ready(app),
         message="list never finished loading (no CursorList, or LoadingIndicator still up)",
     )
+
+
+# ---- Home's month (2026-09-13) ---------------------------------------------------
+#: Two months as `/reports/monthly` returns them. @Pendiente holds only untagged
+#: rows, WANTS two hashtags, and HOGAR nothing in either month — so Home must not
+#: draw it. Ids carry a hyphen so scripts/check_fixture_drift.py does not read the
+#: hashtag-name map's keys as engine fields.
+HOME_MONTHS = [
+    {
+        "month": {"year": 2026, "month": 8},
+        "categories": [
+            {
+                "id": "c-pend",
+                "name": "@Pendiente",
+                "spent_home_cents": -26620,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [
+                    {"hashtag_ids": [], "spent_home_cents": -26620, "unconverted_count": 0}
+                ],
+            },
+            {
+                "id": "c-wants",
+                "name": "WANTS",
+                "spent_home_cents": -160843,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [
+                    {"hashtag_ids": ["h-sal"], "spent_home_cents": -64850, "unconverted_count": 0},
+                    {"hashtag_ids": ["h-otr"], "spent_home_cents": -95993, "unconverted_count": 0},
+                ],
+            },
+            {
+                "id": "c-hogar",
+                "name": "HOGAR",
+                "spent_home_cents": 0,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [],
+            },
+        ],
+        "totals": {
+            "inflow_home_cents": 0,
+            "outflow_home_cents": 187463,
+            "net_home_cents": -187463,
+            "unconverted_count": 0,
+        },
+    },
+    {
+        "month": {"year": 2026, "month": 9},
+        "categories": [
+            {
+                "id": "c-pend",
+                "name": "@Pendiente",
+                "spent_home_cents": -1148746,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [
+                    {"hashtag_ids": [], "spent_home_cents": -1148746, "unconverted_count": 0}
+                ],
+            },
+            {
+                "id": "c-wants",
+                "name": "WANTS",
+                "spent_home_cents": 0,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [],
+            },
+            {
+                "id": "c-hogar",
+                "name": "HOGAR",
+                "spent_home_cents": 0,
+                "unconverted_count": 0,
+                "hashtag_breakdown": [],
+            },
+        ],
+        "totals": {
+            "inflow_home_cents": 82288,
+            "outflow_home_cents": 1231034,
+            "net_home_cents": -1148746,
+            "unconverted_count": 0,
+        },
+    },
+]
+HOME_DASHBOARD = {
+    "month": {"year": 2026, "month": 9},
+    "bank_accounts": [
+        {"id": "a-pen", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 514582},
+        {"id": "a-usd", "name": "BCP USD", "currency_code": "USD", "current_balance_cents": 130},
+    ],
+    "people": [],
+    "categories": [],
+    "totals": {"net_home_cents": -1148746, "unconverted_count": 0},
+}
+HOME_TAG_NAMES = dict([("h-sal", "SALIDAS"), ("h-otr", "OTROS")])
+
+
+def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, calls=None):
+    """Answer Home's worker from the fixtures above. `calls`, when given, records
+    each range read's `(from_ym, to_ym)`."""
+
+    def fake_range(cfg, *, from_ym, to_ym, **kw):
+        if calls is not None:
+            calls.append((from_ym, to_ym))
+        return dict(months=HOME_MONTHS if months is None else months)
+
+    monkeypatch.setattr(
+        "expense.commands.dashboard_cmd.fetch_dashboard",
+        lambda *a, **k: HOME_DASHBOARD if dashboard is None else dashboard,
+    )
+    monkeypatch.setattr("expense.commands.reports_cmd.fetch_range", fake_range)
+    monkeypatch.setattr(
+        "expense.tui.screens.home.load_hashtag_name_map",
+        lambda: HOME_TAG_NAMES if names is None else names,
+    )
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())

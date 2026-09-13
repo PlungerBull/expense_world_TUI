@@ -189,3 +189,36 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
     # the ratio columns are exactly the ones the screen names, nothing else
     table = lst._build()
     assert [c.ratio for c in table.columns] == [3, 3, None, None, None, None, 2]
+
+
+def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
+    """⏎ on a hashtag row on Home (2026-09-13): the ledger asks the engine for
+    that category and that hashtag, both, and says so in its crumb."""
+    import expense.commands.transactions_cmd as tc
+    import expense.tui.screens.transactions as tx_mod
+    from expense.tui.screens.transactions import LedgerFilter
+
+    seen: list = []
+
+    def fake(cfg, **kw):
+        seen.append(kw)
+        return {"items": ITEMS, "total": 2}
+
+    monkeypatch.setattr(tc, "fetch_transactions", fake)
+    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario():
+        app = ExpenseApp()
+        async with app.run_test() as pilot:
+            flt = LedgerFilter("category", "cat2", "Comida #trabajo", hashtag_id="h1")
+            screen = TransactionsScreen(filter=flt)
+            await app.push_screen(screen)
+            await wait_for_list(pilot, app)
+            assert seen[0]["category"] == "cat2" and seen[0]["hashtag"] == "h1"
+            assert "account" not in seen[0]
+            assert screen.crumb == ("Ledger", "Comida #trabajo")
+
+    asyncio.run(scenario())

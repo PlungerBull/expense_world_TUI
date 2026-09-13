@@ -78,11 +78,14 @@ BULK_FIELDS = {"category": "category_id", "account": "account_id", "hashtags": "
 
 class LedgerFilter(NamedTuple):
     """What Home handed the ledger: `kind` is `category` or `account`, `id` the
-    engine row, `name` what the crumb and the legend say."""
+    engine row, `name` what the crumb and the legend say. `hashtag_id` narrows
+    a category filter to one hashtag — `⏎` on a hashtag row under a category
+    on Home (2026-09-13); the name then reads `WANTS #SALIDAS`."""
 
     kind: str
     id: str
     name: str
+    hashtag_id: str | None = None
 
 
 def transaction_rows(
@@ -191,6 +194,8 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         scope = {}
         if flt is not None:
             scope = {"category": flt.id} if flt.kind == "category" else {"account": flt.id}
+            if flt.hashtag_id is not None:
+                scope["hashtag"] = flt.hashtag_id
 
         def page(pkw: dict) -> dict:
             return transactions_cmd.fetch_transactions(cfg, **scope, **pkw, **kw)

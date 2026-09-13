@@ -18,10 +18,9 @@ import asyncio
 
 from textual.widgets import OptionList
 
-from expense.commands import dashboard_cmd
 from expense.tui.app import ExpenseApp
 from expense.tui.widgets.cursor_list import CURSOR_STYLE, CursorOptionList
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import stub_home_month, wait_for
 
 
 def _line_of(menu, index: int) -> int:
@@ -38,29 +37,14 @@ def _line_style(menu, index: int) -> str:
     return ""
 
 
-_BODY = {
-    "month": {"year": 2026, "month": 9},
-    "categories": [
-        {"id": "c1", "name": "@Pendiente", "spent_home_cents": -100, "unconverted_count": 0},
-        {"id": "c2", "name": "HOGAR", "spent_home_cents": 0, "unconverted_count": 0},
-    ],
-    "bank_accounts": [
-        {"id": "a1", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 1}
-    ],
-    "people": [],
-    "totals": {"net_home_cents": -100, "unconverted_count": 0},
-}
-
-
 def _stub_month(monkeypatch):
-    """Home draws its rows from one dashboard read; give it a month so the menu
+    """Home draws its rows from the month reads; give it a month so the menu
     has section headers (disabled) above live rows, as it does in use."""
-    monkeypatch.setattr(dashboard_cmd, "fetch_dashboard", lambda *a, **k: _BODY)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    stub_home_month(monkeypatch)
 
 
 async def _loaded(pilot, app):
-    await wait_for(pilot, lambda: app.screen._body is not None)
+    await wait_for(pilot, lambda: app.screen._data is not None)
     await pilot.pause()
 
 

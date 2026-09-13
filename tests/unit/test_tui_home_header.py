@@ -1,12 +1,11 @@
-"""Home as the month — pure-function coverage (no event loop).
+"""Home as four months — pure-function coverage (no event loop).
 
-Home became a live list on 2026-09-12 (docs/mockups/expense-world-home-as-
-ledger.html, picks A and C): `home_rows` turns one dashboard body into the
-page's rows and `home_options` aligns them into menu options. These lock the
-contract: categories in the home currency with a `net` line, accounts and
-people in their own currency with the code beside the figure, the People
-section folding to `none`, the three doors always present (even before the
-fetch lands, even when it fails), and every colour from the palette.
+Home became the month grid on 2026-09-13 (docs/mockups/expense-world-home-
+absorbs-overview.html, option A), folding the Overview screen in. `home_rows`
+turns the dashboard + range reads into the page's rows and `home_options`
+aligns them. These lock the owner's picks: four month columns, a category with
+nothing in the window hidden, hashtag rows under a category that filter by
+that hashtag, balances in their own currency, and the doors always present.
 """
 
 import io
@@ -15,29 +14,13 @@ from rich.console import Console
 from rich.text import Text
 
 import expense.tui.screens.home as home
+from expense.commands.reports_cmd import build_range_grid
 from expense.tui.theme import Palette
+from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES
 
 PALETTE = Palette(success="#7fbf8f", error="#cf8d8d", warning="#d6b878")
-
-BODY = {
-    "month": {"year": 2026, "month": 9},
-    "categories": [
-        {
-            "id": "c-pend",
-            "name": "@Pendiente",
-            "spent_home_cents": -1148746,
-            "unconverted_count": 0,
-        },
-        {"id": "c-ing", "name": "INGRESOS", "spent_home_cents": 0, "unconverted_count": 0},
-        {"id": "c-x", "name": "VIAJES", "spent_home_cents": None, "unconverted_count": 3},
-    ],
-    "bank_accounts": [
-        {"id": "a-pen", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 514582},
-        {"id": "a-usd", "name": "BCP USD", "currency_code": "USD", "current_balance_cents": 130},
-    ],
-    "people": [],
-    "totals": {"net_home_cents": -1148746, "unconverted_count": 0},
-}
+DATA = dict(dashboard=HOME_DASHBOARD, grid=build_range_grid(HOME_MONTHS), names=HOME_TAG_NAMES)
+DOORS = ["LEDGER ▸", "MANAGE ▸", "SYSTEM ▸"]
 
 
 def _render(renderable, width=100) -> str:
@@ -54,75 +37,146 @@ def _plain(value) -> str:
     return value.plain if isinstance(value, Text) else str(value)
 
 
-# ---- month_label -----------------------------------------------------------
+def _by_left(rows):
+    return {r.left.strip(): r for r in _live(rows)}
 
 
-def test_month_label_names_the_month():
-    assert home.month_label({"year": 2026, "month": 9}) == "September 2026"
-    assert home.month_label({"year": 2026, "month": 13}) == ""
-    assert home.month_label(None) == ""
+# ---- small helpers -----------------------------------------------------------
 
 
-# ---- home_rows -------------------------------------------------------------
+def test_shift_month_rolls_over_years():
+    assert home.shift_month(2026, 1, -1) == (2025, 12)
+    assert home.shift_month(2025, 12, 1) == (2026, 1)
+    assert home.shift_month(2026, 9, -3) == (2026, 6)
+    assert home.shift_month(2026, 2, -14) == (2024, 12)
 
 
-def test_rows_carry_categories_then_net_then_accounts_then_people_then_doors():
-    rows = _live(home.home_rows(BODY, set(), PALETTE))
-    lefts = [r.left for r in rows]
-    assert lefts[:5] == ["CATEGORIES", "@Pendiente", "INGRESOS", "VIAJES", "net"]
-    assert lefts[5:8] == ["BANK ACCOUNTS", "BCP PEN", "BCP USD"]
-    assert lefts[8:9] == ["PEOPLE"]
-    assert lefts[9:] == ["LEDGER ▸", "MANAGE ▸", "SYSTEM ▸"]
+def test_month_labels():
+    assert home.month_title((2026, 9)) == "September 2026"
+    assert home.short_label("2026-09") == "Sep 2026"
+    assert home.short_label("garbage") == "garbage"
 
 
-def test_category_rows_are_home_currency_figures_and_filters():
-    rows = {r.left: r for r in _live(home.home_rows(BODY, set(), PALETTE))}
+def test_the_window_is_four_months():
+    assert home.WINDOW_MONTHS == 4
+
+
+# ---- home_rows -----------------------------------------------------------------
+
+
+def test_rows_run_categories_totals_accounts_people_doors():
+    lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
+    assert lefts[:3] == ["CATEGORIES", "@Pendiente", "▶ WANTS"]
+    assert lefts[3:7] == ["", "inflow", "outflow", "net"]
+    assert lefts[7:10] == ["BANK ACCOUNTS", "BCP PEN", "BCP USD"]
+    assert lefts[10:11] == ["PEOPLE"]
+    assert lefts[11:] == DOORS
+
+
+def test_a_category_with_nothing_in_the_window_is_hidden():
+    """Owner pick, 2026-09-13: HOGAR spent nothing in either month."""
+    assert "HOGAR" not in _by_left(home.home_rows(DATA, palette=PALETTE))
+
+
+def test_the_header_marks_the_newest_month():
+    header = _live(home.home_rows(DATA, palette=PALETTE))[0]
+    assert [_plain(c) for c in header.right] == ["Aug 2026", "▸ Sep 2026"]
+
+
+def test_category_cells_are_home_currency_with_a_dash_for_no_activity():
+    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
     pend = rows["@Pendiente"]
     assert pend.id == "category:c-pend" and pend.name == "@Pendiente"
-    assert _plain(pend.right) == "-11,487.46"
-    assert pend.right.style == PALETTE.error  # sign-coloured, from the palette
-    # nothing spent is a dim 0.00, not a green one
-    assert _plain(rows["INGRESOS"].right) == "0.00" and rows["INGRESOS"].right.style == "dim"
-    # a category the engine could not price says so
-    assert _plain(rows["VIAJES"].right) == "3 unrated"
-    assert _plain(rows["net"].right) == "-11,487.46" and rows["net"].id is None
+    assert [_plain(c) for c in pend.right] == ["-266.20", "-11,487.46"]
+    assert pend.right[1].style == PALETTE.error
+    assert [_plain(c) for c in rows["▶ WANTS"].right] == ["-1,608.43", "—"]
+    assert [_plain(c) for c in rows["net"].right] == ["-1,874.63", "-11,487.46"]
 
 
-def test_account_rows_are_native_with_the_code_beside_them():
-    """Pick A (2026-09-12): the balance you act on is the native one, so every
-    account carries its own code — PEN is PEN and USD is USD."""
-    rows = {r.left: r for r in _live(home.home_rows(BODY, set(), PALETTE))}
+def test_only_a_category_with_hashtags_can_unfold():
+    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
+    assert "@Pendiente" in rows  # its only combo is "no hashtags": no caret
+    assert "▶ WANTS" in rows
+
+
+def test_unfolded_hashtag_rows_filter_by_category_and_hashtag():
+    state = home.HomeState(expanded=frozenset({"c-wants"}))
+    rows = _live(home.home_rows(DATA, state, PALETTE))
+    lefts = [r.left.strip() for r in rows]
+    i = lefts.index("▼ WANTS")
+    sal, otr = rows[i + 1], rows[i + 2]
+    assert (sal.left.strip(), otr.left.strip()) == ("#SALIDAS", "#OTROS")
+    assert sal.id == "tag:c-wants:h-sal" and sal.hashtag == "h-sal"
+    assert sal.name == "WANTS #SALIDAS" and sal.dim
+    assert [_plain(c) for c in sal.right] == ["-648.50", "—"]
+
+
+def test_a_combo_of_several_hashtags_or_none_cannot_filter():
+    months = [
+        {
+            "month": {"year": 2026, "month": 9},
+            "categories": [
+                {
+                    "id": "c-x",
+                    "name": "X",
+                    "spent_home_cents": -300,
+                    "unconverted_count": 0,
+                    "hashtag_breakdown": [
+                        {"hashtag_ids": ["h-a", "h-b"], "spent_home_cents": -200},
+                        {"hashtag_ids": [], "spent_home_cents": -100},
+                    ],
+                }
+            ],
+            "totals": {},
+        }
+    ]
+    data = dict(
+        dashboard={}, grid=build_range_grid(months), names=dict([("h-a", "A"), ("h-b", "B")])
+    )
+    rows = _by_left(home.home_rows(data, home.HomeState(expanded=frozenset({"c-x"}))))
+    assert rows["#A + #B"].hashtag is None and rows["#A + #B"].id == "tag:c-x:#0"
+    assert rows["(no hashtags)"].hashtag is None and rows["(no hashtags)"].id == "tag:c-x:#1"
+
+
+def test_balances_are_native_with_the_code_beside_them():
+    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
     assert _plain(rows["BCP PEN"].right) == "5,145.82 PEN"
     assert _plain(rows["BCP USD"].right) == "1.30 USD"
     assert rows["BCP USD"].id == "account:a-usd"
+    assert _plain(rows["BANK ACCOUNTS"].right) == "balance today"
 
 
-def test_people_fold_to_none_and_are_account_filters_when_present():
-    rows = {r.left: r for r in _live(home.home_rows(BODY, set(), PALETTE))}
+def test_people_say_none_and_fold_the_settled():
+    rows = _by_left(home.home_rows(DATA, palette=PALETTE))
     assert _plain(rows["PEOPLE"].right) == "none"
-    body = {
-        **BODY,
-        "people": [
-            {"id": "p1", "name": "Juan", "currency_code": "USD", "current_balance_cents": -4500}
-        ],
-    }
-    rows = {r.left: r for r in _live(home.home_rows(body, set(), PALETTE))}
-    assert _plain(rows["PEOPLE"].right) == "owed"
-    assert rows["Juan"].id == "account:p1" and _plain(rows["Juan"].right) == "-45.00 USD"
+    people = [
+        {"id": "p-1", "name": "Juan", "currency_code": "USD", "current_balance_cents": -4500},
+        {"id": "p-2", "name": "Majo", "currency_code": "PEN", "current_balance_cents": 0},
+    ]
+    data = {**DATA, "dashboard": {**HOME_DASHBOARD, "people": people}}
+    rows = _by_left(home.home_rows(data, palette=PALETTE))
+    assert _plain(rows["Juan"].right) == "-45.00 USD" and rows["Juan"].id == "account:p-1"
+    assert "Majo" not in rows and rows["▶ 1 settled"].id == home.SETTLED_ID
+    rows = _by_left(home.home_rows(data, home.HomeState(settled_open=True), PALETTE))
+    assert rows["Majo"].id == "account:p-2" and rows["Majo"].dim
 
 
-def test_doors_are_there_before_the_fetch_and_after_a_failure():
-    before = _live(home.home_rows(None, set()))
-    assert [r.left for r in before] == ["LEDGER ▸", "MANAGE ▸", "SYSTEM ▸"]
-    failed = _live(home.home_rows(None, set(), error="Connection refused"))
+def test_doors_stand_before_the_fetch_and_after_a_failure():
+    assert [r.left for r in _live(home.home_rows(None))] == DOORS
+    failed = _live(home.home_rows(None, error="Connection refused"))
     assert failed[0].id is None and "Connection refused" in failed[0].left
-    assert [r.left for r in failed[1:]] == ["LEDGER ▸", "MANAGE ▸", "SYSTEM ▸"]
+    assert [r.left for r in failed[1:]] == DOORS
+
+
+def test_the_ledger_door_no_longer_holds_overview():
+    ledger = _live(home.home_rows(None))[0]
+    assert _plain(ledger.right) == "Transactions · Reconciliations"
+    assert "overview" not in home._SCREENS
 
 
 def test_an_open_door_lists_its_entries_under_it():
-    rows = _live(home.home_rows(None, {"manage"}))
-    lefts = [r.left for r in rows]
-    assert lefts == [
+    rows = _live(home.home_rows(None, home.HomeState(open_doors=frozenset({"manage"}))))
+    assert [r.left for r in rows] == [
         "LEDGER ▸",
         "MANAGE ▾",
         "  Accounts",
@@ -130,41 +184,32 @@ def test_an_open_door_lists_its_entries_under_it():
         "  Hashtags",
         "SYSTEM ▸",
     ]
-    assert [r.id for r in rows[2:5]] == ["accounts", "categories", "hashtags"]
 
 
-def test_headers_and_notes_are_never_selectable():
-    for row in _live(home.home_rows(BODY, set(), PALETTE)):
-        if row.left in ("CATEGORIES", "net", "BANK ACCOUNTS", "PEOPLE"):
-            assert row.id is None and row.dim
+# ---- home_options ------------------------------------------------------------------
 
 
-# ---- home_options ----------------------------------------------------------
-
-
-def test_options_align_the_amount_column_across_rows():
-    options = [o for o in home.home_options(home.home_rows(BODY, set(), PALETTE)) if o]
-    ends = {}
-    for option in options:
-        plain = option.prompt.plain
-        if plain.rstrip().endswith(("PEN", "USD", ".46", ".00", "unrated")):
-            ends[plain.strip().split()[0]] = len(plain.rstrip())
-    # every figure ends on the same column
-    assert len(set(ends.values())) == 1, ends
+def test_month_columns_and_balances_end_on_the_same_column():
+    rows = home.home_rows(DATA, home.HomeState(expanded=frozenset({"c-wants"})), PALETTE)
+    widths = {
+        row.left.strip(): len(option.prompt.plain)
+        for row, option in zip(rows, home.home_options(rows), strict=True)
+        if row is not None and (isinstance(row.right, list) or row.id and "account:" in row.id)
+    }
+    assert len(set(widths.values())) == 1, widths
 
 
 def test_options_disable_exactly_the_rows_without_an_id():
-    rows = home.home_rows(BODY, set(), PALETTE)
-    options = home.home_options(rows)
-    for row, option in zip(rows, options, strict=True):
+    rows = home.home_rows(DATA, palette=PALETTE)
+    for row, option in zip(rows, home.home_options(rows), strict=True):
         if row is None:
-            assert option is None  # a separator
+            assert option is None
         else:
             assert option.disabled is (row.id is None)
             assert option.id == row.id
 
 
-# ---- _build_header ---------------------------------------------------------
+# ---- _build_header -------------------------------------------------------------------
 
 
 def test_build_header_shows_wordmark_and_month():
@@ -173,6 +218,4 @@ def test_build_header_shows_wordmark_and_month():
 
 
 def test_build_header_none_is_wordmark_only():
-    out = _render(home._build_header(None, PALETTE))
-    assert home._BANNER in out
-    assert out.strip() == home._BANNER
+    assert _render(home._build_header(None, PALETTE)).strip() == home._BANNER

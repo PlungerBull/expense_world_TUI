@@ -33,10 +33,7 @@ expense/tui/
     _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
-    home.py         # the month as a list: categories, accounts, people, then the doors
-    overview.py     # Overview — the Accounts | People band (5 drawn rows each,
-                    #   people keep their ▼/▶ settled fold) over the sliding
-                    #   4-month grid, ▼/▶ hashtag rows, inflow/outflow/net
+    home.py         # four months × categories, balances today, then the doors (Overview folded in)
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
@@ -113,27 +110,35 @@ so it also shows on an ordinary morning before the engine's fetch job has run.
 
 ## 2. Screens
 
-**Home is the month** (2026-09-12, mockup
-[expense-world-home-as-ledger.html](mockups/expense-world-home-as-ledger.html), picks
-A and C). One `/dashboard` read on mount and on every return home draws it as a list:
+**Home is four months of the ledger** (2026-09-13, mockup
+[expense-world-home-absorbs-overview.html](mockups/expense-world-home-absorbs-overview.html),
+option A — the Overview screen folded in and deleted; the 2026-09-12 single-month Home,
+[expense-world-home-as-ledger.html](mockups/expense-world-home-as-ledger.html), is what it
+grew from). One worker reads `/dashboard` and `/reports/monthly` and draws:
 
 | Section | Rows | `⏎` |
 |---|---|---|
-| **CATEGORIES** · *this month* | every category with `spent_home_cents` (home currency, outflows negative, a dim `0.00` for nothing spent, `3 unrated` when unpriceable), then a `net` line from `totals` | the ledger filtered to that category |
-| **BANK ACCOUNTS** · *balance* | every account with `current_balance_cents` **in its own currency, the code beside it** — PEN is PEN and USD is USD; nothing is converted here (the Overview band carries the converted figure with its rate caveat) | the ledger filtered to that account |
-| **PEOPLE** | each person's balance in their own currency; the header says `none` when there is nobody | the ledger filtered to that person |
-| **LEDGER ▸** | Transactions · Reconciliations · Overview | opens the door in place; `⏎` on an entry pushes the screen |
+| **CATEGORIES** · four month columns, the newest marked `▸` | every category with activity somewhere in the window, home currency, `—` for a month with none, `3 unrated` when unpriceable — **a category with nothing in the whole window is hidden** (owner pick). `→` unfolds its hashtag rows, `←` folds them; a category whose only combo is untagged has no caret. Under them: `inflow`, `outflow`, `net` | the ledger filtered to that category, every month |
+| hashtag row (unfolded) | the category's spend on that hashtag, per month | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`). A combo of several hashtags or none is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag and has no untagged filter. No such row exists outside `@Pendiente` today |
+| **BANK ACCOUNTS** · *balance today* | every account with `current_balance_cents` in its own currency, the code beside it | the ledger filtered to that account |
+| **PEOPLE** | outstanding people in their own currency; settled ones folded behind `▶ N settled` (`⏎`/`→` opens it); `none` when there is nobody | the ledger filtered to that person |
+| **LEDGER ▸** | Transactions · Reconciliations | opens the door in place; `⏎` on an entry pushes the screen |
 | **MANAGE ▸** | Accounts · Categories · Hashtags | as above |
 | **SYSTEM ▸** | Config · Auth & profile · Activity · Rates | as above |
 
-The doors are there before the fetch lands and after it fails — a failure is one dim
-row with the reason, never a silent blank, and `r` re-reads. The first month to land
-moves the cursor to the first category; later re-reads leave it where it was. `_SCREENS`
-in [home.py](../expense/tui/screens/home.py) maps entry id → screen, kept in lockstep
-by `test_screens_map_covers_every_door_entry`. The wordmark line carries the month on
-the right, where the `net · spent · owed` cluster sat until 2026-09-12 — those numbers
-are rows now. `Log a transaction` was a menu row until 2026-08-20; it is now **`+`** —
-see §4.
+`pgdn` walks the window one month back, `pgup` one month forward and never past this
+month. Balances do not move with it — there is no balances-as-of-date endpoint — which is
+why their header says `balance today` permanently. The window and fold keys are
+`priority=True` because the menu is an `OptionList`, which binds `pgdn`/`pgup` to its own
+page scroll. The doors are there before the reads land and after they fail — a failure is
+one dim row with the reason, and `r` re-reads. The first month to land moves the cursor to
+the first category; later re-reads leave it where it was. The wordmark line carries the
+window's newest month on the right. `_SCREENS` in
+[home.py](../expense/tui/screens/home.py) maps entry id → screen, kept in lockstep by
+`test_screens_map_covers_every_door_entry`. `Log a transaction` was a menu row until
+2026-08-20; it is now **`+`** — see §4. At 120×34 the collapsed page fits whole with this
+ledger's 11 categories and 6 accounts; each unfolded category costs its hashtag count in
+lines, and past the terminal's height the list scrolls.
 
 **The filtered ledger is the categorising pass.** `⏎` on a Home row pushes
 [transactions.py](../expense/tui/screens/transactions.py) with a `LedgerFilter`: the
@@ -154,29 +159,14 @@ spreading, by decision — [decisions.md](decisions.md) "Home is the month".
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
 rather than a partial total ([decisions.md](decisions.md)). Opening balances are
 excluded engine-side — an `@Opening` seed is where tracking starts, not money that
-moved. Rows with nothing spent are hidden on the Overview grid; Home draws them at
-`0.00`, because Home is the list of places a row can go.
+moved.
 
-**Overview** is one screen (2026-08-29). A two-panel band — **Accounts** left, **People**
-right, each drawing at most `PANEL_ROWS` (5) rows — sits above a sliding **4-month grid**
-(categories × months, `▼/▶` hashtag rows, `pgdn`/`pgup` slide the window), which closes
-with `inflow` / `outflow` / `net` from the same `build_range_grid` the flat range table
-renders. It absorbed Outstanding Amounts: that screen's category tree *was* this grid's
-newest column, so the merge deleted the duplicate rather than moving it, and what
-Outstanding uniquely held — the balances — became the band.
-
-Four things about the band are deliberate and measured, not stylistic. It is **always
-today's balances**, whatever month the window shows — there is no balances-as-of-date
-endpoint, and the permanent `balances today` in the title is the whole mitigation. The
-panels are drawn **lean** (`box=None`, no header row): boxed they cost 12 lines instead
-of 8 and push `net` below the fold at 120×34. And the 5-row cap truncates **drawing
-only** — the fetch is untouched, `expense dashboard` still prints every row, and the
-Accounts screen is where "all of them" lives. Fits whole at 120×34; **100×31** is the
-minimum for the entire report at once. Because `#content` scrolls, the screen's
-`pgdn`/`pgup` are `priority=True` — without that the scroll container eats them on any
-terminal short enough for the card to overflow.
-
-And **every table on the screen is `expand=False`** (2026-08-29, mockup [expense-world-overview-width.html](mockups/expense-world-overview-width.html), option A): natural width, packed against the left margin, identical at 80 columns and at 200. They used to expand, with `ratio=1` on the grid's label column on top of that, which handed the label every spare cell — on a 200-column terminal that is ~140 blanks between the names and the amounts. The knock-on is the grid cursor: it is a `reverse` row style, so the highlight bar is now content-wide, not pane-wide. That trade was the substance of the choice — decisions.md holds the two rejected options that would have kept the bar full-width.
+**Overview was deleted 2026-09-13.** Its band was Home's accounts and people, its grid's
+newest column was Home's month, and what it alone carried — three earlier months, the
+hashtag rows, inflow/outflow and the month keys — moved onto Home. The flat
+`expense dashboard` and `expense reports monthly --from --to` are unchanged; the grid
+builder they share with Home, `reports_cmd.build_range_grid`, is covered by
+[test_range_grid.py](../tests/unit/test_range_grid.py).
 
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").
@@ -394,7 +384,7 @@ their natural width first, the three text columns share what is left 3:3:2, and 
 by the table at the edge of the column it actually has. So the column edges follow the terminal,
 not the page's longest cell, and on a narrow terminal the free text gives way before the numbers.
 Every other list leaves `flex` empty and keeps Rich's content-proportional spread. Page keys: `pgdn` next, `pgup` previous — hidden when one page holds it all.
-They carry the Overview's month window too (`pgdn` older, `pgup` newer): one
+They carry Home's month window too (`pgdn` older, `pgup` newer): one
 meaning, "the next window of data", whether the window is rows or months.
 
 Transactions / Activity / Rates fetch real `limit`/`offset` pages sized to the
@@ -403,8 +393,8 @@ the offset re-anchored). Full-data screens window locally — Manage, the two
 Reconciliations panes splitting the space equally, the recon checklist at fit÷2 items —
 where `↑`/`↓` walk through and cursor-restore lands on its page. Lists are quiet-border
 panels: border title carries the screen title, border subtitle the page status
-(`rows 21-40 of 133 · page 2 of 7`). Exempt: the Overview band, static tables, the
-month grid, System kv-tables. Picks:
+(`rows 21-40 of 133 · page 2 of 7`). Exempt: Home's month grid, static tables,
+System kv-tables. Picks:
 [mockups/expense-world-pagination.html](mockups/expense-world-pagination.html),
 [mockups/expense-world-adaptive-rows.html](mockups/expense-world-adaptive-rows.html).
 

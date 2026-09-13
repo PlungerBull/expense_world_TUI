@@ -16,7 +16,7 @@ from textual.widgets import OptionList, Static
 from expense.commands import dashboard_cmd
 from expense.tui.app import ExpenseApp
 from expense.tui.screens.home import HomeScreen
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import stub_home_month, wait_for
 
 SAMPLE = {
     "month": {"year": 2026, "month": 3},
@@ -52,14 +52,6 @@ SAMPLE = {
 }
 
 
-SAMPLE_WITH_IDS = {
-    **SAMPLE,
-    "bank_accounts": [{"id": "a1", **SAMPLE["bank_accounts"][0]}],
-    "people": [{"id": "p1", **SAMPLE["people"][0]}],
-    "categories": [{"id": f"c{i}", **cat} for i, cat in enumerate(SAMPLE["categories"], start=1)],
-}
-
-
 def test_app_launches_home_with_the_three_doors():
     async def scenario():
         app = ExpenseApp()
@@ -83,12 +75,9 @@ def test_app_launches_home_with_the_three_doors():
 
 
 def test_home_month_populates_from_worker(monkeypatch):
-    """Drive the real on-mount worker path end-to-end: fetch → _set_body →
-    the header carries the month and the menu the live rows. The header
-    Static exists from first paint; the rows arrive once the worker returns.
-    (Rendering of the rows is covered in test_tui_home_header.py.)"""
-    monkeypatch.setattr(dashboard_cmd, "fetch_dashboard", lambda *a, **k: SAMPLE_WITH_IDS)
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    """Drive the real on-mount worker: the dashboard and range reads → _set_data
+    → the header carries the month and the menu the live rows (2026-09-13)."""
+    stub_home_month(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
@@ -96,7 +85,7 @@ def test_home_month_populates_from_worker(monkeypatch):
             await pilot.pause()
             home = app.screen
             assert home.query_one("#brand", Static) is not None  # header up from first paint
-            await wait_for(pilot, lambda: home._body is not None)
+            await wait_for(pilot, lambda: home._data is not None)
             await pilot.pause()
             option_list = app.query_one(OptionList)
             ids = [
@@ -104,9 +93,11 @@ def test_home_month_populates_from_worker(monkeypatch):
                 for i in range(option_list.option_count)
                 if option_list.get_option_at_index(i).id
             ]
-            assert ids[:3] == ["category:c1", "category:c2", "category:c3"]
-            assert "account:a1" in ids and "account:p1" in ids
+            assert ids[:2] == ["category:c-pend", "category:c-wants"]
+            assert "category:c-hogar" not in ids  # nothing in the window: hidden
+            assert "account:a-pen" in ids and "account:a-usd" in ids
             assert ids[-3:] == ["door:ledger", "door:manage", "door:system"]
+            assert home._cursor_id() == "category:c-pend"  # the first month lands the cursor
 
     asyncio.run(scenario())
 

@@ -296,7 +296,15 @@ def test_home_card_names_itself_without_a_crumb():
             # menu row. The card is now the only place the key is written down in
             # full, so this assertion is what keeps it discoverable. `r` re-reads
             # the month since Home became the month (2026-09-12).
-            assert [row.keys for row in _rows(groups, "This screen")] == ["+", "q", "r"]
+            assert [row.keys for row in _rows(groups, "This screen")] == [
+                "+",
+                "pgdn",
+                "pgup",
+                "→",
+                "←",
+                "q",
+                "r",
+            ]
 
     asyncio.run(scenario())
 
