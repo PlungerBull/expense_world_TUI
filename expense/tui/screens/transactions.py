@@ -28,7 +28,6 @@ from expense.commands._resource import (
     load_hashtag_name_map,
     load_pending_category_id,
     resolve_name,
-    truncate,
 )
 from expense.tui.screens._base import (
     LogTransactionMixin,
@@ -42,6 +41,13 @@ from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
+#: The free-text columns and their share of the width left after Amount, Date,
+#: Account and Cat take their natural size (2026-09-12, option A of
+#: docs/mockups/expense-world-ledger-column-fit.html). The cells are handed to
+#: the table whole and cut by it at the column edge; the row builder used to cap
+#: them at 20/18/20 characters, a size for the 80-column card this screen left on
+#: 2026-08-29, which is why a wide terminal showed wide columns of cut text.
+_FLEX = {0: 3, 1: 3, 6: 2}
 _FILTERS = ["all", "pendiente"]
 
 
@@ -59,13 +65,13 @@ def transaction_rows(
             (
                 it.get("id"),
                 [
-                    truncate(it.get("title") or "—", 20),
-                    truncate(it.get("description"), 18),
+                    it.get("title") or "—",
+                    it.get("description") or "",
                     amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
                     format_short_date(it.get("date")),
                     resolve_name(it.get("account_id"), accounts),
                     resolve_name(it.get("category_id"), categories),
-                    format_hashtag_cell(it.get("hashtag_ids"), hashtags, max_width=20),
+                    format_hashtag_cell(it.get("hashtag_ids"), hashtags),
                 ],
             )
         )
@@ -148,6 +154,7 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
                 _HEADERS,
                 rows,
                 align_right={2},
+                flex=_FLEX,
                 empty=empty,
                 title=title,
                 page_size=self.page_rows,

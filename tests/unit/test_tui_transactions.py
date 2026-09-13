@@ -140,3 +140,52 @@ def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
             assert listing._cursor == before + 1
 
     asyncio.run(scenario())
+
+
+def test_transaction_rows_hand_the_table_whole_cells():
+    """The row builder no longer caps title/description/hashtags (2026-09-12,
+    option A of docs/mockups/expense-world-ledger-column-fit.html): the table
+    cuts each cell at the edge of the column it actually has, so a wide
+    terminal shows wide cells instead of wide columns of text cut at 20."""
+    long_title = "ANTHROPIC* CLAUDE SUB  ANTHROPIC.COM CA"  # 39 chars, a real bank title
+    long_desc = "APPARKA AAP AREQUIPA   AREQUIPA      PE"
+    items = [
+        {**ITEMS[0], "title": long_title, "description": long_desc, "hashtag_ids": ["h1", "h2"]}
+    ]
+    tags = {**HASHTAGS, "h2": "x" * 30}
+    (_, cells), *_ = transaction_rows(items, ACCOUNTS, CATEGORIES, tags)
+    assert cells[0] == long_title and cells[1] == long_desc
+    assert cells[6] == "trabajo, " + "x" * 30
+    assert "…" not in "".join(str(c) for c in cells)
+
+
+def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
+    """Free-text columns share the slack by ratio; the fixed ones keep their
+    natural width. Rendered narrow, the text cells are elided by the table and
+    the amount/date/account cells stay whole — the ledger's degradation order."""
+    import io
+
+    from rich.console import Console
+
+    from expense.tui.screens.transactions import _FLEX, _HEADERS
+
+    long_title = "ANTHROPIC* CLAUDE SUB  ANTHROPIC.COM CA"
+    items = [{**ITEMS[0], "title": long_title, "description": "x" * 40}, ITEMS[1]]
+    rows = transaction_rows(items, ACCOUNTS, CATEGORIES, HASHTAGS)
+    lst = CursorList(_HEADERS, rows, align_right={2}, flex=_FLEX)
+    lst._refresh = lambda: None
+
+    def render(width: int) -> list[str]:
+        con = Console(file=io.StringIO(), width=width)
+        con.print(lst._build())
+        return con.file.getvalue().splitlines()
+
+    wide = render(200)
+    assert any(long_title in line and "6,519.00" in line for line in wide), wide
+    narrow = render(80)
+    first = next(line for line in narrow if "6,519.00" in line)
+    assert "…" in first and "2026-03-05" in first and "BCP Soles" in first and "Ingreso" in first
+    assert long_title not in first
+    # the ratio columns are exactly the ones the screen names, nothing else
+    table = lst._build()
+    assert [c.ratio for c in table.columns] == [3, 3, None, None, None, None, 2]

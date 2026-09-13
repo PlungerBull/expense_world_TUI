@@ -24,7 +24,7 @@ The widget is its own quiet-border panel (app.tcss): screens name it via
 (mockup pick B) — `rows 21-40 of 133 · page 2 of 7`.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import NamedTuple
 
 from rich import box
@@ -156,11 +156,21 @@ class CursorList(Static):
         title: str | None = None,
         page_size: int = DEFAULT_PAGE_ROWS,
         page_meta: tuple[int, int] | None = None,
+        flex: Mapping[int, int] | None = None,
     ) -> None:
+        """``flex`` maps a column index to a Rich ``ratio`` (2026-09-12, mockup
+        expense-world-ledger-column-fit.html, option A). Columns named there are
+        free text: the others take their natural width first and the flex
+        columns share whatever the terminal has left, in ratio, each cell cut by
+        the table at the edge of the column it actually has — so a cell is never
+        pre-truncated shorter than its column. Left empty (every list but the
+        ledger), Rich spreads the slack over every column in proportion to the
+        content it measured, as before."""
         super().__init__()
         self._headers = list(headers)
         self._rows: list[Row] = [Row.coerce(r) for r in rows]
         self._align = set(align_right)
+        self._flex = dict(flex or {})
         self._empty = empty
         self._page_size = page_size
         self._page_meta = page_meta
@@ -229,7 +239,12 @@ class CursorList(Static):
             return Text("  " + self._empty, style="dim")
         t = Table(box=box.SIMPLE, expand=True, pad_edge=False)
         for i, header in enumerate(self._headers):
-            t.add_column(header, justify="right" if i in self._align else "left", no_wrap=True)
+            t.add_column(
+                header,
+                justify="right" if i in self._align else "left",
+                no_wrap=True,
+                ratio=self._flex.get(i),
+            )
         start = self._window_start
         for r, row in enumerate(self._rows[start : start + self._page_size], start=start):
             style = CURSOR_STYLE if r == self._cursor else row.base_style

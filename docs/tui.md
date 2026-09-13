@@ -356,7 +356,14 @@ pre-layout fallback everywhere except **Transactions, which fills the window**
 (2026-08-29): it sets `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (200, the engine's own `limit`
 ceiling) and `CARD_WIDTH = None`, so its card spans the full width too — the screen
 you sit in takes the terminal you gave it (the Inbox did the same until 2026-09-12). Every other screen keeps its
-20-row cap and its tidy `CARD_WIDTH`. Page keys: `pgdn` next, `pgup` previous — hidden when one page holds it all.
+20-row cap and its tidy `CARD_WIDTH`. Its cells fill that width too (2026-09-12,
+[mockups/expense-world-ledger-column-fit.html](mockups/expense-world-ledger-column-fit.html)
+option A): `transaction_rows` hands the table whole strings and `CursorList(flex={0: 3, 1: 3, 6: 2})`
+makes Title, Description and Hashtags Rich ratio columns — Amount, Date, Account and Cat take
+their natural width first, the three text columns share what is left 3:3:2, and each cell is cut
+by the table at the edge of the column it actually has. So the column edges follow the terminal,
+not the page's longest cell, and on a narrow terminal the free text gives way before the numbers.
+Every other list leaves `flex` empty and keeps Rich's content-proportional spread. Page keys: `pgdn` next, `pgup` previous — hidden when one page holds it all.
 They carry the Overview's month window too (`pgdn` older, `pgup` newer): one
 meaning, "the next window of data", whether the window is rows or months.
 
