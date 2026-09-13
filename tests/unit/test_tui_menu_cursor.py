@@ -107,7 +107,7 @@ def test_group_headers_never_take_the_cursor(monkeypatch):
             await _loaded(pilot, app)
             menu = app.screen.query_one("#menu", CursorOptionList)
             disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
-            assert disabled, "the menu is built from section headers + live rows + doors"
+            assert disabled, "the menu is built from section headers + live rows + screen entries"
             for index in disabled:
                 assert CURSOR_STYLE not in _line_style(menu, index)
 

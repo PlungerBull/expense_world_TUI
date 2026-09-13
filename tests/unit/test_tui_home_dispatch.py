@@ -1,4 +1,4 @@
-"""HomeScreen dispatch — every door entry pushes its screen, every live row
+"""HomeScreen dispatch — every screen entry pushes its screen, every live row
 pushes the filtered ledger, and the page keys walk the month window
 (backlog 6.3, redrawn 2026-09-12 and 2026-09-13).
 
@@ -58,61 +58,60 @@ async def _select(app, pilot, option_id):
     await pilot.press("enter")
 
 
-async def _open_door_and_select(app, pilot, door, kind):
-    await _select(app, pilot, f"door:{door}")
-    await wait_for(pilot, lambda: door in app.screen._state.open_doors)
-    await _select(app, pilot, kind)
-
-
 async def _month_loaded(app, pilot):
     await wait_for(pilot, lambda: app.screen._data is not None)
 
 
-@pytest.mark.parametrize(("door", "kind", "screen_cls"), _CASES, ids=[k for _, k, _ in _CASES])
-def test_door_entry_dispatch(monkeypatch, door, kind, screen_cls):
+@pytest.mark.parametrize(("section", "kind", "screen_cls"), _CASES, ids=[k for _, k, _ in _CASES])
+def test_section_entry_dispatch(monkeypatch, section, kind, screen_cls):
     _stub_loaders(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
-        async with app.run_test() as pilot:
+        async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause()
-            await _open_door_and_select(app, pilot, door, kind)
+            await _select(app, pilot, kind)  # always listed: nothing to open first
             await wait_for(pilot, lambda: isinstance(app.screen, screen_cls))
             assert type(app.screen) is screen_cls
 
     asyncio.run(scenario())
 
 
-def test_a_door_closes_again_on_enter(monkeypatch):
+def test_left_and_right_on_a_screen_entry_change_nothing(monkeypatch):
+    """The sections are not collapsible (owner, 2026-09-13)."""
     _stub_loaders(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
-        async with app.run_test() as pilot:
+        async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause()
-            await _select(app, pilot, "door:manage")
-            await wait_for(pilot, lambda: "manage" in app.screen._state.open_doors)
-            await _select(app, pilot, "door:manage")
-            await wait_for(pilot, lambda: "manage" not in app.screen._state.open_doors)
+            menu = app.query_one("#menu", OptionList)
+            count = menu.option_count
+            await _highlight(app, "accounts")
+            await pilot.press("left")
+            await pilot.press("right")
+            await pilot.pause()
+            assert menu.option_count == count
+            assert app.screen._cursor_id() == "accounts"
             assert isinstance(app.screen, HomeScreen)
 
     asyncio.run(scenario())
 
 
-def test_cases_cover_every_door_entry():
-    """Armor: a new door entry must get a dispatch case here (and vice versa)."""
-    wired = {kind for _door, _label, entries in home._DOORS for kind, _ in entries}
+def test_cases_cover_every_section_entry():
+    """Armor: a new section entry must get a dispatch case here (and vice versa)."""
+    wired = {kind for _section, _label, entries in home._SECTIONS for kind, _ in entries}
     assert wired == {kind for _, kind, _ in _CASES}
 
 
-def test_screens_map_covers_every_door_entry():
-    wired = {kind for _door, _label, entries in home._DOORS for kind, _ in entries}
+def test_screens_map_covers_every_section_entry():
+    wired = {kind for _section, _label, entries in home._SECTIONS for kind, _ in entries}
     assert set(home._SCREENS) == wired
 
 
-def test_log_is_not_a_door_entry():
+def test_log_is_not_a_section_entry():
     """`Log a transaction` left the menu on 2026-08-20 for `+`; guard the reflex re-add."""
-    labels = [text for _door, _label, entries in home._DOORS for _kind, text in entries]
+    labels = [text for _section, _label, entries in home._SECTIONS for _kind, text in entries]
     assert "Log a transaction" not in labels
     assert "log" not in home._SCREENS
 
@@ -288,9 +287,9 @@ def test_q_inert_off_home(monkeypatch):
 
     async def scenario():
         app = ExpenseApp()
-        async with app.run_test() as pilot:
+        async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause()
-            await _open_door_and_select(app, pilot, "manage", "accounts")
+            await _select(app, pilot, "accounts")
             await wait_for(pilot, lambda: isinstance(app.screen, home.AccountsScreen))
             await pilot.press("q")
             await pilot.pause()

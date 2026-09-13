@@ -1,4 +1,4 @@
-"""Home screen — four months of the ledger, today's balances, then the doors.
+"""Home screen — four months of the ledger, today's balances, then the screens.
 
 Home is the month grid (2026-09-13, docs/mockups/expense-world-home-absorbs-
 overview.html, option A — which folded the Overview screen into this one and
@@ -11,7 +11,8 @@ deleted it). One worker reads `/dashboard` for the balances and
   hashtag rows, `←` folds them. Under the categories: inflow, outflow, net.
 - **BANK ACCOUNTS** with today's balance in each account's own currency.
 - **PEOPLE** the same way, settled people folded behind `▶ N settled`.
-- **LEDGER / MANAGE / SYSTEM** — door rows that open in place.
+- **LEDGER / MANAGE / SYSTEM** — section headers with their screens always
+  listed under them; they never collapse (owner, 2026-09-13).
 
 `pgdn` walks the window one month back, `pgup` one month forward (never past
 this month). Balances do not move with it: there is no balances-as-of-date
@@ -73,9 +74,9 @@ _BANNER = "◈  EXPENSE WORLD"
 #: Months side by side. Four is the owner's number (2026-09-13).
 WINDOW_MONTHS = 4
 
-#: The door rows, in order: (door id, label, [(screen kind, entry label)…]).
-#: A door opens in place — `⏎` or `→` opens it and its entries appear under it.
-_DOORS: list[tuple[str, str, list[tuple[str, str]]]] = [
+#: The screen sections, in order: (section id, header, [(screen kind, label)…]).
+#: Always listed in full — they do not fold (owner, 2026-09-13).
+_SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "ledger",
         "LEDGER",
@@ -98,8 +99,8 @@ _DOORS: list[tuple[str, str, list[tuple[str, str]]]] = [
     ),
 ]
 
-# kind → screen to push. The `test_screens_map_covers_every_door_entry` guard
-# keeps it in lockstep with the door entries, so a new row can't be left dead.
+# kind → screen to push. The `test_screens_map_covers_every_section_entry` guard
+# keeps it in lockstep with the section entries, so a new row can't be left dead.
 _SCREENS: dict[str, type[Screen]] = {
     "transactions": TransactionsScreen,
     "reconciliations": ReconciliationsScreen,
@@ -116,7 +117,6 @@ _SCREENS: dict[str, type[Screen]] = {
 CATEGORY_PREFIX = "category:"
 TAG_PREFIX = "tag:"  # tag:<category id>:<hashtag id>, or tag:<category id>:#<n>
 ACCOUNT_PREFIX = "account:"
-DOOR_PREFIX = "door:"
 SETTLED_ID = "fold:settled"
 
 _MIN_NAME_WIDTH = 14
@@ -129,7 +129,7 @@ class HomeRow(NamedTuple):
 
     `id` None = a header, rule or note (disabled, never the cursor). `right` is
     a list of month cells on grid rows, one Text on balance rows, a caption on
-    doors. `name` is what the ledger's crumb says; `hashtag` is the one
+    nothing on header and entry rows. `name` is what the ledger's crumb says; `hashtag` is the one
     hashtag a tag row filters by (None when it cannot be filtered)."""
 
     id: str | None
@@ -141,10 +141,9 @@ class HomeRow(NamedTuple):
 
 
 class HomeState(NamedTuple):
-    """What the viewer has unfolded: categories, doors, the settled people."""
+    """What the viewer has unfolded: categories and the settled people."""
 
     expanded: frozenset = frozenset()
-    open_doors: frozenset = frozenset()
     settled_open: bool = False
 
 
@@ -276,7 +275,7 @@ def home_rows(
     """The whole page as rows; `None` is a separator. Pure — unit-testable.
 
     `data` is `{dashboard, grid, names}`; None (pre-fetch, or a failed fetch
-    with `error` set) draws only the doors, and the error as one note.
+    with `error` set) draws only the screen sections, and the error as one note.
     """
     rows: list[HomeRow | None] = []
     if data is not None:
@@ -304,13 +303,9 @@ def home_rows(
     elif error is not None:
         rows.append(HomeRow(None, f"could not load the month — {error}", dim=True))
         rows.append(None)
-    for door_id, label, entries in _DOORS:
-        if door_id in state.open_doors:
-            rows.append(HomeRow(f"{DOOR_PREFIX}{door_id}", f"{label} ▾"))
-            rows.extend(HomeRow(kind, f"  {text}") for kind, text in entries)
-        else:
-            caption = " · ".join(text for _kind, text in entries)
-            rows.append(HomeRow(f"{DOOR_PREFIX}{door_id}", f"{label} ▸", caption, dim=True))
+    for _section, header, entries in _SECTIONS:
+        rows.append(HomeRow(None, header, dim=True))
+        rows.extend(HomeRow(kind, f"  {text}") for kind, text in entries)
     return rows
 
 
@@ -318,22 +313,18 @@ def _plain(value: object) -> str:
     return value.plain if isinstance(value, Text) else str(value)
 
 
-def _is_note(row: HomeRow) -> bool:
-    """A sentence with nothing on the right: drawn whole, no columns."""
-    return row.id is None and not isinstance(row.right, list) and not _plain(row.right)
+def _is_whole(row: HomeRow) -> bool:
+    """A line with nothing on the right — a note, a section header, a screen
+    entry, the settled fold: drawn as written, outside the columns."""
+    return not isinstance(row.right, list) and not _plain(row.right)
 
 
 def home_options(rows: list[HomeRow | None]) -> list:
     """Rows → `Option`s, the name column and the month columns aligned across
     every row (each option renders alone, so the alignment is padding). A
-    balance ends where the last month column ends; a door's caption sits beside
-    its label."""
+    balance ends where the last month column ends."""
     live = [r for r in rows if r is not None]
-    columned = [
-        r
-        for r in live
-        if not _is_note(r) and not (r.id or "").startswith(DOOR_PREFIX) and r.id != SETTLED_ID
-    ]
+    columned = [r for r in live if not _is_whole(r)]
     name_w = max((len(r.left) for r in columned), default=_MIN_NAME_WIDTH)
     name_w = max(_MIN_NAME_WIDTH, min(_MAX_NAME_WIDTH, name_w))
     grid_cells = [c for r in live if isinstance(r.right, list) for c in r.right]
@@ -348,22 +339,19 @@ def home_options(rows: list[HomeRow | None]) -> list:
             options.append(None)
             continue
         style = "dim" if row.dim else ""
-        if _is_note(row):
-            options.append(Option(Text(row.left, style=style), disabled=True))
+        if _is_whole(row):
+            options.append(Option(Text(row.left, style=style), id=row.id, disabled=row.id is None))
             continue
         text = Text(row.left[:name_w].ljust(name_w), style=style)
         right = row.right
-        if (row.id or "").startswith(DOOR_PREFIX):
-            text.append("  ")
-            text.append(_plain(right), style="dim")
-        elif isinstance(right, list):
+        if isinstance(right, list):
             if all(_plain(c) == "─" for c in right):  # the rule over the totals
                 text.append("─" * (cell_w * len(right)), style="dim")
             else:
                 for cell in right:
                     text.append(" " * (cell_w - len(_plain(cell))))
                     text.append_text(_as_text(cell, "dim" if row.dim and row.id else ""))
-        elif _plain(right):
+        else:
             text.append(" " * max(2, body_w - len(_plain(right))))
             text.append_text(_as_text(right))
         options.append(Option(text, id=row.id, disabled=row.id is None))
@@ -460,7 +448,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     @work(thread=True, exclusive=True, group="home-month")
     def _load_month(self) -> None:
         # Failure lands as a row, never a crash: Home must stay usable offline /
-        # unconfigured / engine-down, with the doors still there.
+        # unconfigured / engine-down, with the screen entries still there.
         from expense import config as config_module
 
         end = self._end
@@ -506,7 +494,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
         menu = self.query_one("#menu", CursorOptionList)
         keep = focus_id
         # The cursor stays where it was across a re-read — except the first
-        # time the month lands, when it moves from the doors to the first
+        # time the month lands, when it moves from the screen entries to the first
         # category.
         if keep is None and (self._menu_has_month or self._data is None):
             keep = self._cursor_id()
@@ -556,11 +544,8 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
             self._state = state._replace(expanded=state.expanded | {cat})
         elif option_id == SETTLED_ID:
             self._state = state._replace(settled_open=True)
-        elif option_id.startswith(DOOR_PREFIX):
-            door = option_id[len(DOOR_PREFIX) :]
-            self._state = state._replace(open_doors=state.open_doors | {door})
         else:
-            return
+            return  # a screen entry: the sections do not fold
         self._rebuild_menu(focus_id=option_id)
 
     def action_collapse(self) -> None:
@@ -576,39 +561,21 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
             focus = f"{CATEGORY_PREFIX}{cat}"
         elif option_id == SETTLED_ID:
             self._state = state._replace(settled_open=False)
-        elif option_id.startswith(DOOR_PREFIX):
-            door = option_id[len(DOOR_PREFIX) :]
-            self._state = state._replace(open_doors=state.open_doors - {door})
         else:
-            door = next((d for d, _l, entries in _DOORS if option_id in dict(entries)), None)
-            if door is None:
-                return
-            self._state = state._replace(open_doors=state.open_doors - {door})
-            focus = f"{DOOR_PREFIX}{door}"
+            return  # a screen entry: the sections do not fold
         self._rebuild_menu(focus_id=focus)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         option_id = event.option.id or ""
         row = self._rows_by_id.get(option_id)
-        state = self._state
-        if option_id.startswith(DOOR_PREFIX):
-            door = option_id[len(DOOR_PREFIX) :]
-            self._state = state._replace(open_doors=state.open_doors ^ {door})
-            self._rebuild_menu(focus_id=option_id)
-            return
         if option_id == SETTLED_ID:
-            self._state = state._replace(settled_open=not state.settled_open)
+            self._state = self._state._replace(settled_open=not self._state.settled_open)
             self._rebuild_menu(focus_id=option_id)
-            return
-        if row is None:
-            screen_cls = _SCREENS.get(option_id)
-            if screen_cls is not None:
-                self.app.push_screen(screen_cls())
             return
         flt: LedgerFilter | None = None
-        if option_id.startswith(CATEGORY_PREFIX):
+        if row is not None and option_id.startswith(CATEGORY_PREFIX):
             flt = LedgerFilter("category", option_id[len(CATEGORY_PREFIX) :], row.name)
-        elif option_id.startswith(TAG_PREFIX):
+        elif row is not None and option_id.startswith(TAG_PREFIX):
             if row.hashtag is None:
                 self.notify(
                     "This row is several hashtags or none; the ledger filters by one hashtag.",
@@ -617,7 +584,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
                 return
             cat = option_id[len(TAG_PREFIX) :].split(":", 1)[0]
             flt = LedgerFilter("category", cat, row.name, hashtag_id=row.hashtag)
-        elif option_id.startswith(ACCOUNT_PREFIX):
+        elif row is not None and option_id.startswith(ACCOUNT_PREFIX):
             flt = LedgerFilter("account", option_id[len(ACCOUNT_PREFIX) :], row.name)
         if flt is not None:
             self.app.push_screen(TransactionsScreen(filter=flt))

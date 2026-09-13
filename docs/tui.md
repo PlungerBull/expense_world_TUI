@@ -33,7 +33,7 @@ expense/tui/
     _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
-    home.py         # four months × categories, balances today, then the doors (Overview folded in)
+    home.py         # four months × categories, balances today, then every screen (Overview folded in)
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
@@ -122,15 +122,16 @@ grew from). One worker reads `/dashboard` and `/reports/monthly` and draws:
 | hashtag row (unfolded) | the category's spend on that hashtag, per month | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`). A combo of several hashtags or none is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag and has no untagged filter. No such row exists outside `@Pendiente` today |
 | **BANK ACCOUNTS** · *balance today* | every account with `current_balance_cents` in its own currency, the code beside it | the ledger filtered to that account |
 | **PEOPLE** | outstanding people in their own currency; settled ones folded behind `▶ N settled` (`⏎`/`→` opens it); `none` when there is nobody | the ledger filtered to that person |
-| **LEDGER ▸** | Transactions · Reconciliations | opens the door in place; `⏎` on an entry pushes the screen |
-| **MANAGE ▸** | Accounts · Categories · Hashtags | as above |
-| **SYSTEM ▸** | Config · Auth & profile · Activity · Rates | as above |
+| **LEDGER** | Transactions · Reconciliations, each a row of its own | `⏎` on an entry pushes the screen |
+| **MANAGE** | Accounts · Categories · Hashtags | as above |
+| **SYSTEM** | Config · Auth & profile · Activity · Rates | as above |
 
 `pgdn` walks the window one month back, `pgup` one month forward and never past this
 month. Balances do not move with it — there is no balances-as-of-date endpoint — which is
 why their header says `balance today` permanently. The window and fold keys are
 `priority=True` because the menu is an `OptionList`, which binds `pgdn`/`pgup` to its own
-page scroll. The doors are there before the reads land and after they fail — a failure is
+page scroll. LEDGER, MANAGE and SYSTEM never fold — their screens are always rows
+(owner, 2026-09-13; they opened in place for one day). The screens are there before the reads land and after they fail — a failure is
 one dim row with the reason, and `r` re-reads. The first month to land moves the cursor to
 the first category; later re-reads leave it where it was. The wordmark line carries the
 window's newest month on the right. `_SCREENS` in

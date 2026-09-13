@@ -52,7 +52,7 @@ SAMPLE = {
 }
 
 
-def test_app_launches_home_with_the_three_doors():
+def test_app_launches_home_with_every_screen_listed():
     async def scenario():
         app = ExpenseApp()
         async with app.run_test() as pilot:
@@ -64,8 +64,18 @@ def test_app_launches_home_with_the_three_doors():
                 for i in range(option_list.option_count)
                 if option_list.get_option_at_index(i).id
             ]
-            # the doors are there before any fetch lands (2026-09-12)
-            assert ids == ["door:ledger", "door:manage", "door:system"]
+            # every screen is a row before any fetch lands, never folded (2026-09-13)
+            assert ids == [
+                "transactions",
+                "reconciliations",
+                "accounts",
+                "categories",
+                "hashtags",
+                "config",
+                "auth",
+                "activity",
+                "rates",
+            ]
             # both halves of the 2026-08-29 merge are gone as separate rows —
             # asserted negatively so a reflex re-add fails here, loudly
             assert "outstanding" not in ids
@@ -96,14 +106,24 @@ def test_home_month_populates_from_worker(monkeypatch):
             assert ids[:2] == ["category:c-pend", "category:c-wants"]
             assert "category:c-hogar" not in ids  # nothing in the window: hidden
             assert "account:a-pen" in ids and "account:a-usd" in ids
-            assert ids[-3:] == ["door:ledger", "door:manage", "door:system"]
+            assert ids[-9:] == [
+                "transactions",
+                "reconciliations",
+                "accounts",
+                "categories",
+                "hashtags",
+                "config",
+                "auth",
+                "activity",
+                "rates",
+            ]
             assert home._cursor_id() == "category:c-pend"  # the first month lands the cursor
 
     asyncio.run(scenario())
 
 
 def test_home_says_so_when_the_month_cannot_load(monkeypatch):
-    """Offline / unconfigured / engine-down: the doors stay, and one dim row
+    """Offline / unconfigured / engine-down: the screens stay, and one dim row
     carries the reason — failure was silent until 2026-09-12, when the numbers
     became the page."""
 
@@ -122,6 +142,6 @@ def test_home_says_so_when_the_month_cannot_load(monkeypatch):
             option_list = app.query_one(OptionList)
             first = option_list.get_option_at_index(0)
             assert first.disabled and "Connection refused" in first.prompt.plain
-            assert option_list.get_option_index("door:ledger") is not None
+            assert option_list.get_option_index("transactions") is not None
 
     asyncio.run(scenario())

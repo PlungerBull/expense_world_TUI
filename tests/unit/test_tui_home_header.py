@@ -5,7 +5,8 @@ absorbs-overview.html, option A), folding the Overview screen in. `home_rows`
 turns the dashboard + range reads into the page's rows and `home_options`
 aligns them. These lock the owner's picks: four month columns, a category with
 nothing in the window hidden, hashtag rows under a category that filter by
-that hashtag, balances in their own currency, and the doors always present.
+that hashtag, balances in their own currency, and the screen sections always
+listed in full — they do not fold (owner, 2026-09-13).
 """
 
 import io
@@ -20,7 +21,20 @@ from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES
 
 PALETTE = Palette(success="#7fbf8f", error="#cf8d8d", warning="#d6b878")
 DATA = dict(dashboard=HOME_DASHBOARD, grid=build_range_grid(HOME_MONTHS), names=HOME_TAG_NAMES)
-DOORS = ["LEDGER ▸", "MANAGE ▸", "SYSTEM ▸"]
+SECTIONS = [
+    "LEDGER",
+    "  Transactions",
+    "  Reconciliations",
+    "MANAGE",
+    "  Accounts",
+    "  Categories",
+    "  Hashtags",
+    "SYSTEM",
+    "  Config",
+    "  Auth & profile",
+    "  Activity",
+    "  Rates",
+]
 
 
 def _render(renderable, width=100) -> str:
@@ -64,13 +78,13 @@ def test_the_window_is_four_months():
 # ---- home_rows -----------------------------------------------------------------
 
 
-def test_rows_run_categories_totals_accounts_people_doors():
+def test_rows_run_categories_totals_accounts_people_screens():
     lefts = [r.left.strip() for r in _live(home.home_rows(DATA, palette=PALETTE))]
     assert lefts[:3] == ["CATEGORIES", "@Pendiente", "▶ WANTS"]
     assert lefts[3:7] == ["", "inflow", "outflow", "net"]
     assert lefts[7:10] == ["BANK ACCOUNTS", "BCP PEN", "BCP USD"]
     assert lefts[10:11] == ["PEOPLE"]
-    assert lefts[11:] == DOORS
+    assert lefts[11:] == [x.strip() for x in SECTIONS]
 
 
 def test_a_category_with_nothing_in_the_window_is_hidden():
@@ -161,29 +175,37 @@ def test_people_say_none_and_fold_the_settled():
     assert rows["Majo"].id == "account:p-2" and rows["Majo"].dim
 
 
-def test_doors_stand_before_the_fetch_and_after_a_failure():
-    assert [r.left for r in _live(home.home_rows(None))] == DOORS
+def test_screens_stand_before_the_fetch_and_after_a_failure():
+    assert [r.left for r in _live(home.home_rows(None))] == SECTIONS
     failed = _live(home.home_rows(None, error="Connection refused"))
     assert failed[0].id is None and "Connection refused" in failed[0].left
-    assert [r.left for r in failed[1:]] == DOORS
+    assert [r.left for r in failed[1:]] == SECTIONS
 
 
-def test_the_ledger_door_no_longer_holds_overview():
-    ledger = _live(home.home_rows(None))[0]
-    assert _plain(ledger.right) == "Transactions · Reconciliations"
-    assert "overview" not in home._SCREENS
-
-
-def test_an_open_door_lists_its_entries_under_it():
-    rows = _live(home.home_rows(None, home.HomeState(open_doors=frozenset({"manage"}))))
-    assert [r.left for r in rows] == [
-        "LEDGER ▸",
-        "MANAGE ▾",
-        "  Accounts",
-        "  Categories",
-        "  Hashtags",
-        "SYSTEM ▸",
+def test_the_sections_never_fold():
+    """Owner, 2026-09-13: LEDGER, MANAGE and SYSTEM are not collapsible. The
+    headers are disabled rows and every screen is always a row of its own."""
+    rows = _live(home.home_rows(None))
+    headers = [r for r in rows if r.left in ("LEDGER", "MANAGE", "SYSTEM")]
+    assert [r.id for r in headers] == [None, None, None]
+    assert [r.id for r in rows if r.id] == [
+        "transactions",
+        "reconciliations",
+        "accounts",
+        "categories",
+        "hashtags",
+        "config",
+        "auth",
+        "activity",
+        "rates",
     ]
+    assert "open_doors" not in home.HomeState._fields
+
+
+def test_the_ledger_section_no_longer_holds_overview():
+    ledger = [r.left.strip() for r in _live(home.home_rows(None))][1:3]
+    assert ledger == ["Transactions", "Reconciliations"]
+    assert "overview" not in home._SCREENS
 
 
 # ---- home_options ------------------------------------------------------------------
