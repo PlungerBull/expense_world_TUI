@@ -1,19 +1,27 @@
-"""Home screen — single-line header (wordmark + live stat cluster) + section menu.
+"""Home screen — the month itself, then the doors.
 
-The header is one line: the wordmark on the left, and a right-pinned
-`net · spent · owed` cluster fed by one current-month dashboard read. The read
-runs in a background worker on mount and again whenever you return home (so a
-just-logged transaction is reflected); it is failure-silent — offline, no
-config, or engine-down leaves the cluster empty and the menu fully usable. The
-cluster paints after first paint, so the menu never waits on the network.
+Home is a live list, not a menu with a stats line (2026-09-12, mockup
+docs/mockups/expense-world-home-as-ledger.html, picks A and C): every category
+with what it holds this month in the home currency and a `net` line under
+them, every bank account with today's balance in its own currency, every
+person with what is owed in theirs (the section folds to `none` when there is
+nobody), and then three door rows — LEDGER, MANAGE, SYSTEM — that open in place
+to the screens they hold. One `/dashboard` read feeds the whole page, on mount
+and again whenever you return home, so a transaction you just wrote is
+reflected; while it is in flight, or if it fails, the doors are there and
+usable and the failure is a row that says so.
 
-The section list is the top-level entry point into every TUI screen; every
-entry is wired (the last "soon" stub, the month grid, shipped 2026-07-08).
+`⏎` on a category, an account or a person pushes the ledger filtered to it —
+that is the categorising pass, and why `@Pendiente` needs no door of its own.
+`+` logs (`LogTransactionMixin`), `?` opens the keys card, `r` re-reads the
+month, `q` quits.
 
-`Log a transaction` was a menu row until 2026-08-20; it is now `+`
-(`LogTransactionMixin`), because logging is the most frequent thing you do here
-and a menu row made it the slowest path to it.
+The wordmark line carries the month on the right, where the `net · spent ·
+owed` cluster used to be — those numbers are rows now.
 """
+
+import calendar
+from typing import NamedTuple
 
 from rich.table import Table
 from rich.text import Text
@@ -23,13 +31,9 @@ from textual.screen import Screen
 from textual.widgets import Footer, OptionList, Static
 from textual.widgets.option_list import Option
 
-from expense.commands import dashboard_cmd, transactions_cmd
-from expense.commands._resource import (
-    UNRATED_SUFFIX,
-    format_cents,
-    load_pending_category_id,
-    unconverted_of,
-)
+from expense.commands import dashboard_cmd
+from expense.commands._resource import unconverted_of
+from expense.errors import format_error
 from expense.tui.screens._base import LogTransactionMixin, screen_fetch_kwargs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
@@ -43,34 +47,46 @@ from expense.tui.screens.system import (
     ConfigScreen,
     RatesScreen,
 )
-from expense.tui.screens.transactions import TransactionsScreen
-from expense.tui.theme import ACCENT, PALETTE, Palette
+from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
+from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
+from expense.tui.widgets.cells import aggregate_cell, amount_cell
 from expense.tui.widgets.cursor_list import CursorOptionList
 from expense.tui.widgets.header import RATE_ALERT_GAP, rate_alert
 
 _BANNER = "◈  EXPENSE WORLD"
 
-# (id, label) — id None renders a non-selectable group header.
-_MENU: list[tuple[str | None, str]] = [
-    (None, "Capture & ledger"),
-    ("transactions", "Transactions"),
-    ("reconciliations", "Reconciliations"),
-    (None, "Reports"),
-    ("overview", "Overview"),
-    (None, "Manage"),
-    ("accounts", "Accounts"),
-    ("categories", "Categories"),
-    ("hashtags", "Hashtags"),
-    (None, "System"),
-    ("config", "Config"),
-    ("auth", "Auth & profile"),
-    ("activity", "Activity"),
-    ("rates", "Rates"),
+#: The door rows, in order: (door id, label, [(screen kind, entry label)…]).
+#: A door opens in place — `⏎` toggles it and its entries appear under it.
+_DOORS: list[tuple[str, str, list[tuple[str, str]]]] = [
+    (
+        "ledger",
+        "LEDGER",
+        [
+            ("transactions", "Transactions"),
+            ("reconciliations", "Reconciliations"),
+            ("overview", "Overview"),
+        ],
+    ),
+    (
+        "manage",
+        "MANAGE",
+        [("accounts", "Accounts"), ("categories", "Categories"), ("hashtags", "Hashtags")],
+    ),
+    (
+        "system",
+        "SYSTEM",
+        [
+            ("config", "Config"),
+            ("auth", "Auth & profile"),
+            ("activity", "Activity"),
+            ("rates", "Rates"),
+        ],
+    ),
 ]
 
 # kind → screen to push. One table instead of a 14-arm elif (backlog §5); the
 # `test_screens_map_covers_every_wired_menu_entry` guard keeps it in lockstep
-# with the wired _MENU entries, so a new menu row can't be left dead.
+# with the door entries, so a new row can't be left dead.
 _SCREENS: dict[str, type[Screen]] = {
     "transactions": TransactionsScreen,
     "reconciliations": ReconciliationsScreen,
@@ -84,110 +100,178 @@ _SCREENS: dict[str, type[Screen]] = {
     "rates": RatesScreen,
 }
 
+#: Option-id prefixes for the live rows; the rest of the id is the engine row.
+CATEGORY_PREFIX = "category:"
+ACCOUNT_PREFIX = "account:"
+DOOR_PREFIX = "door:"
 
-def _signed(cents: object) -> str:
-    """`format_cents` with a leading `+` for non-negative amounts (e.g. `+1,240.50`)."""
-    text = format_cents(cents)
-    return f"+{text}" if isinstance(cents, int) and cents >= 0 else text
+_MIN_NAME_WIDTH = 14
+_MAX_NAME_WIDTH = 40
 
 
-def _extract_stats(body: dict) -> dict:
-    """Pull the header's three home-currency figures from a dashboard body.
+class HomeRow(NamedTuple):
+    """One line of Home before it becomes an `Option`.
 
-    net/spent come straight from `totals`; `owed` is the net of every person's
-    *home-converted* balance (positive = they owe you, negative = you owe them).
-    Native `current_balance_cents` is intentionally ignored — summing across
-    currencies would be meaningless.
+    `id` None = a header or a note (disabled, never the cursor); `right` is
+    the amount cell (a Text when it is styled) or a caption; `name` carries
+    the filter name so `⏎` can hand it to the ledger's crumb."""
 
-    `unrated` counts everything the header could not price: the transactions
-    behind an unconvertible `totals` block, plus each person whose balance has
-    no rate today. Two different kinds of thing, deliberately added into one
-    number — it is a single list of work to go do (user decision, 2026-08-16).
-    When it is non-zero, `_stat_cluster` shows nothing else.
+    id: str | None
+    left: str
+    right: object = ""
+    name: str = ""
+    dim: bool = False
+
+
+def month_label(month: dict | None) -> str:
+    """`{year: 2026, month: 9}` → `September 2026`; anything else → ``."""
+    if isinstance(month, dict):
+        year, m = month.get("year"), month.get("month")
+        if isinstance(year, int) and isinstance(m, int) and 1 <= m <= 12:
+            return f"{calendar.month_name[m]} {year}"
+    return ""
+
+
+def _spent_cell(cents: object, unconverted: int, palette: Palette | None) -> object:
+    """A category's month figure: `3 unrated`, a dim `0.00` for nothing spent,
+    else the sign-coloured amount."""
+    if unconverted == 0 and cents == 0:
+        return Text("0.00", style="dim")
+    return aggregate_cell(cents, unconverted, palette, AMOUNT_RULE)
+
+
+def _balance_cell(item: dict, palette: Palette | None) -> Text:
+    """An account's balance in its own currency, the code beside it (pick A,
+    2026-09-12: the balance you act on is the native one)."""
+    cell = amount_cell(item.get("current_balance_cents"), palette, AMOUNT_RULE)
+    text = cell if isinstance(cell, Text) else Text(str(cell))
+    return Text.assemble(text, " ", (item.get("currency_code") or "?", "dim"))
+
+
+def home_rows(
+    body: dict | None,
+    open_doors: set[str],
+    palette: Palette | None = None,
+    error: str | None = None,
+) -> list[HomeRow | None]:
+    """The whole page as rows; `None` is a separator. Pure — unit-testable.
+
+    `body` None (pre-fetch, or a failed fetch with `error` set) draws only the
+    doors and, when there is an error, one note saying so.
     """
-    totals = body.get("totals") or {}
-    people = body.get("people") or []
-    priced = [p for p in people if isinstance(p.get("current_balance_home_cents"), int)]
-    owed = sum(p["current_balance_home_cents"] for p in priced)
-    return {
-        "net": totals.get("net_home_cents"),
-        "spent": totals.get("outflow_home_cents"),
-        "owed": owed,
-        "unrated": unconverted_of(totals) + (len(people) - len(priced)),
-    }
-
-
-def _stat_cluster(stats: dict | None, palette: Palette | None) -> Text:
-    """The right-pinned `net · spent · owed` line as sign-colored Rich text.
-
-    `None` (pre-fetch / failed fetch) → empty. The owed segment is dropped
-    entirely when nothing is outstanding (`owed == 0`); otherwise its label and
-    color flip with the sign. Colors come from the palette, never literal names.
-
-    **If anything feeding this line could not be priced, the line is replaced
-    by `4 UNRATED` and nothing else** (Phase 4 sketch, option J). Every figure
-    here is partly wrong in that case: an unconvertible `totals` blanks net and
-    spent, and an unpriceable person silently shrinks owed. Showing a figure
-    that looks right but is not is worse than showing the error, so the error
-    stands alone until the rates are fixed.
-    """
-    if stats is None:
-        return Text("")
-    unrated = stats.get("unrated")
-    if isinstance(unrated, int) and not isinstance(unrated, bool) and unrated > 0:
-        return Text(
-            f"{unrated} {UNRATED_SUFFIX.upper()}",
-            style=palette.warning if palette else "bold",
+    rows: list[HomeRow | None] = []
+    if body is not None:
+        rows.append(HomeRow(None, "CATEGORIES", "this month", dim=True))
+        totals = body.get("totals") or {}
+        for cat in body.get("categories") or []:
+            cat_id = cat.get("id")
+            if not cat_id:
+                continue
+            name = cat.get("name") or "(unnamed)"
+            cell = _spent_cell(cat.get("spent_home_cents"), unconverted_of(cat), palette)
+            rows.append(HomeRow(f"{CATEGORY_PREFIX}{cat_id}", name, cell, name=name))
+        rows.append(
+            HomeRow(
+                None,
+                "net",
+                aggregate_cell(
+                    totals.get("net_home_cents"), unconverted_of(totals), palette, AMOUNT_RULE
+                ),
+                dim=True,
+            )
         )
-    pos = palette.success if palette else ""
-    neg = palette.error if palette else ""
-    sep = ("  ·  ", "dim")
-    parts: list = []
-    net, spent, owed = stats.get("net"), stats.get("spent"), stats.get("owed")
-    if isinstance(net, int):
-        parts += [("net ", "dim"), (_signed(net), pos if net >= 0 else neg)]
-    if isinstance(spent, int):
-        if parts:
-            parts.append(sep)
-        parts += [("spent ", "dim"), (format_cents(spent), neg)]
-    if isinstance(owed, int) and owed != 0:
-        if parts:
-            parts.append(sep)
-        label = "owed to you " if owed > 0 else "you owe "
-        parts += [(label, "dim"), (format_cents(abs(owed)), pos if owed > 0 else neg)]
-    # The rows still to classify — a nudge, not an alarm, so it trails the
-    # money figures in the accent and vanishes at zero like `owed` does
-    # (docs/mockups/expense-world-pendiente-not-inbox.html pane 7, 2026-09-12).
-    pending = stats.get("pending")
-    if isinstance(pending, int) and not isinstance(pending, bool) and pending > 0:
-        if parts:
-            parts.append(sep)
-        parts.append((f"{pending} pendiente", ACCENT if palette else ""))
-    return Text.assemble(*parts)
+        rows.append(None)
+        rows.append(HomeRow(None, "BANK ACCOUNTS", "balance", dim=True))
+        for acct in body.get("bank_accounts") or []:
+            if not acct.get("id"):
+                continue
+            name = acct.get("name") or "(unnamed)"
+            rows.append(
+                HomeRow(
+                    f"{ACCOUNT_PREFIX}{acct['id']}", name, _balance_cell(acct, palette), name=name
+                )
+            )
+        rows.append(None)
+        people = [p for p in body.get("people") or [] if p.get("id")]
+        rows.append(HomeRow(None, "PEOPLE", "owed" if people else "none", dim=True))
+        for person in people:
+            name = person.get("name") or "(unnamed)"
+            rows.append(
+                HomeRow(
+                    f"{ACCOUNT_PREFIX}{person['id']}",
+                    name,
+                    _balance_cell(person, palette),
+                    name=name,
+                )
+            )
+        rows.append(None)
+    elif error is not None:
+        rows.append(HomeRow(None, f"could not load the month — {error}", dim=True))
+        rows.append(None)
+    for door_id, label, entries in _DOORS:
+        if door_id in open_doors:
+            rows.append(HomeRow(f"{DOOR_PREFIX}{door_id}", f"{label} ▾"))
+            rows.extend(HomeRow(kind, f"  {text}") for kind, text in entries)
+        else:
+            caption = " · ".join(text for _kind, text in entries)
+            rows.append(HomeRow(f"{DOOR_PREFIX}{door_id}", f"{label} ▸", caption, dim=True))
+    return rows
 
 
-def _pending_count(cfg, **kw) -> int:
-    """How many ledger rows sit under @Pendiente — `0` when none, or when the
-    category has never been seeded (a user who never logs a sparse row never
-    sees it). One `limit=1` fetch; the engine's `total` is the count."""
-    pending_id = load_pending_category_id()
-    if pending_id is None:
-        return 0
-    body = transactions_cmd.fetch_transactions(cfg, category=pending_id, limit=1, **kw)
-    total = body.get("total") if isinstance(body, dict) else None
-    return total if isinstance(total, int) else 0
+def _plain(value: object) -> str:
+    return value.plain if isinstance(value, Text) else str(value)
+
+
+def home_options(rows: list[HomeRow | None]) -> list:
+    """Rows → `Option`s for the menu, name column and amount column aligned
+    across every row (each option renders alone, so the alignment is padding).
+    A door's caption sits beside its label, never right-aligned: it is a list
+    of names, not a number."""
+    live = [r for r in rows if r is not None]
+    # a note (no id, nothing on the right) is a sentence, not a name: it is
+    # drawn whole and takes no part in the column width
+    columned = [r for r in live if r.id is not None or _plain(r.right)]
+    name_w = max((len(r.left) for r in columned), default=_MIN_NAME_WIDTH)
+    name_w = max(_MIN_NAME_WIDTH, min(_MAX_NAME_WIDTH, name_w))
+    amount_w = max(
+        (len(_plain(r.right)) for r in live if r.id is None or not r.id.startswith(DOOR_PREFIX)),
+        default=0,
+    )
+    options: list = []
+    for row in rows:
+        if row is None:
+            options.append(None)
+            continue
+        style = "dim" if row.dim else ""
+        if row.id is None and not _plain(row.right):
+            options.append(Option(Text(row.left, style=style), disabled=True))
+            continue
+        text = Text(row.left[:name_w].ljust(name_w), style=style)
+        right = row.right
+        if row.id is not None and row.id.startswith(DOOR_PREFIX):
+            text.append("   ")
+            text.append(_plain(right), style="dim")
+        elif _plain(right):
+            pad = "  " + " " * max(0, amount_w - len(_plain(right)))
+            text.append(pad)
+            if isinstance(right, Text):
+                text.append_text(right)
+            else:
+                text.append(str(right), style=style)
+        options.append(Option(text, id=row.id, disabled=row.id is None))
+    return options
 
 
 def _build_header(
-    stats: dict | None, palette: Palette | None, rate_stale: bool | None = None
+    month: str | None, palette: Palette | None, rate_stale: bool | None = None
 ) -> Table:
-    """Wordmark (left) + stat cluster (right), one line, full width.
+    """Wordmark (left) + the month (right), one line, full width.
 
     `expand=True` with a `ratio=1` left column and a right-justified column pins
-    the cluster to the terminal's right edge — the same idiom the section tables
+    the month to the terminal's right edge — the same idiom the section tables
     use. `no_wrap` keeps it on one line; overflow truncates rather than wraps.
 
-    The rate alert trails the cluster, so it sits in the same place as on the
+    The rate alert trails the month, so it sits in the same place as on the
     section screens (far right of the header) despite the two being built
     differently. It is empty unless the rate is known-stale — see `rate_alert`.
     """
@@ -195,7 +279,7 @@ def _build_header(
     grid.add_column(ratio=1, no_wrap=True)
     grid.add_column(justify="right", no_wrap=True)
 
-    right = _stat_cluster(stats, palette)
+    right = Text(month or "", style="dim")
     alert = rate_alert(rate_stale, palette)
     if alert.plain:
         if right.plain:
@@ -211,71 +295,121 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     # never kill the app (backlog 4.6). ctrl+q stays the everywhere-quit.
     BINDINGS = [
         *LogTransactionMixin.BINDINGS,
+        ("r", "reload", "Refresh"),
         ("q", "app.quit", "Quit"),
         *HelpBindingMixin.BINDINGS,
     ]
 
-    _stats: dict | None = None
+    _body: dict | None = None
+    _error: str | None = None
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._open: set[str] = set()
+        self._menu_has_month = False  # the first month to land takes the cursor
 
     def compose(self) -> ComposeResult:
         yield Static(_build_header(None, None), id="brand")
-        options: list = []
-        for opt_id, label in _MENU:
-            if opt_id is None:
-                options.append(None)  # separator rule
-                options.append(Option(label.upper(), disabled=True))
-            else:
-                options.append(Option(label, id=opt_id))
-        yield CursorOptionList(*options, id="menu")
+        yield CursorOptionList(*home_options(home_rows(None, self._open)), id="menu")
         yield Footer()
 
     def on_mount(self) -> None:
-        self._load_stats()
+        self._load_dashboard()
 
     def on_screen_resume(self) -> None:
         # returning home after a write should reflect the new numbers
-        self._load_stats()
+        self._load_dashboard()
 
-    @work(thread=True, exclusive=True, group="home-stats")
-    def _load_stats(self) -> None:
-        # failure-silent: home must stay usable offline / unconfigured / engine-down
+    def action_reload(self) -> None:
+        self._load_dashboard()
+
+    @work(thread=True, exclusive=True, group="home-dashboard")
+    def _load_dashboard(self) -> None:
+        # Failure lands as a row, never a crash: home must stay usable offline /
+        # unconfigured / engine-down, with the doors still there.
         from expense import config as config_module
 
         try:
             cfg = config_module.ensure_loaded()
-            kw = screen_fetch_kwargs(self.app)
-            body = dashboard_cmd.fetch_dashboard(cfg, **kw)
-        except Exception:
+            body = dashboard_cmd.fetch_dashboard(cfg, **screen_fetch_kwargs(self.app))
+        except Exception as exc:
+            self.app.call_from_thread(self._set_body, None, format_error(exc))
             return
-        stats = _extract_stats(body)
-        try:
-            stats["pending"] = _pending_count(cfg, **kw)
-        except Exception:
-            stats["pending"] = 0  # the money figures still paint
-        self.app.call_from_thread(self._set_stats, stats)
+        self.app.call_from_thread(self._set_body, body, None)
 
-    def _set_stats(self, stats: dict) -> None:
-        self._stats = stats
+    def _set_body(self, body: dict | None, error: str | None) -> None:
+        self._body, self._error = body, error
         self._rerender()
 
     def _rerender(self) -> None:
-        palette = PALETTE
-        self.query_one("#brand", Static).update(
-            _build_header(self._stats, palette, getattr(self.app, "rate_stale", None))
-        )
+        self.repaint_header()
+        self._rebuild_menu()
+
+    def _rebuild_menu(self) -> None:
+        menu = self.query_one("#menu", CursorOptionList)
+        keep = None
+        # The cursor stays where it was across a re-read — except the first
+        # time the month lands, when it moves from the doors to the first
+        # category (mockup pane 1: "the cursor lands on the first category").
+        if (
+            (self._menu_has_month or self._body is None)
+            and menu.highlighted is not None
+            and menu.highlighted < menu.option_count
+        ):
+            keep = menu.get_option_at_index(menu.highlighted).id
+        self._menu_has_month = self._body is not None
+        menu.clear_options()
+        menu.add_options(home_options(home_rows(self._body, self._open, PALETTE, self._error)))
+        target = None
+        if keep is not None:
+            try:
+                target = menu.get_option_index(keep)
+            except Exception:
+                target = None
+        if target is None:
+            target = next(
+                (i for i in range(menu.option_count) if not menu.get_option_at_index(i).disabled),
+                None,
+            )
+        menu.highlighted = target
 
     def repaint_header(self) -> None:
         """The app's hook for when `rate_stale` lands (see `ExpenseApp`).
 
         Home builds its own header instead of using `Breadcrumb`, so it cannot
         be repainted by the app's blanket breadcrumb refresh. The two fetches
-        race — dashboard stats and rate status — and whichever finishes second
-        must not paint away the first, which is why both go through `_rerender`
-        against the current app state rather than through their own update.
+        race — the dashboard and the rate status — and whichever finishes
+        second must not paint away the first, which is why both go through the
+        same header build against the current state.
         """
-        self._rerender()
+        month = month_label(self._body.get("month")) if self._body else None
+        self.query_one("#brand", Static).update(
+            _build_header(month, PALETTE, getattr(self.app, "rate_stale", None))
+        )
+
+    def _row_name(self, option_id: str) -> str:
+        for row in home_rows(self._body, self._open):
+            if row is not None and row.id == option_id:
+                return row.name
+        return ""
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        screen_cls = _SCREENS.get(event.option.id or "")
+        option_id = event.option.id or ""
+        if option_id.startswith(DOOR_PREFIX):
+            door = option_id[len(DOOR_PREFIX) :]
+            self._open ^= {door}
+            self._rebuild_menu()
+            return
+        if option_id.startswith(CATEGORY_PREFIX):
+            row_id = option_id[len(CATEGORY_PREFIX) :]
+            flt = LedgerFilter("category", row_id, self._row_name(option_id))
+            self.app.push_screen(TransactionsScreen(filter=flt))
+            return
+        if option_id.startswith(ACCOUNT_PREFIX):
+            row_id = option_id[len(ACCOUNT_PREFIX) :]
+            flt = LedgerFilter("account", row_id, self._row_name(option_id))
+            self.app.push_screen(TransactionsScreen(filter=flt))
+            return
+        screen_cls = _SCREENS.get(option_id)
         if screen_cls is not None:
             self.app.push_screen(screen_cls())

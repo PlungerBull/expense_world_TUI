@@ -12,7 +12,13 @@ that and still passed while the box rendered empty; we assert it has size.
 import asyncio
 
 from expense.tui.app import ExpenseApp
-from expense.tui.screens.modals import ConfirmModal, PromptModal, RecordModal, SnapshotModal
+from expense.tui.screens.modals import (
+    ConfirmModal,
+    PickerModal,
+    PromptModal,
+    RecordModal,
+    SnapshotModal,
+)
 from tests.unit.helpers import wait_for
 
 _RECORD = {
@@ -30,6 +36,7 @@ _MODALS = [
     lambda: ConfirmModal("Archive account?", "Archive BCP USD."),
     lambda: PromptModal("Rename", "New name"),
     lambda: SnapshotModal("Change", _BEFORE, _AFTER),
+    lambda: PickerModal("CATEGORY for 3 rows", [("c1", "KORAKUEN")]),
 ]
 
 

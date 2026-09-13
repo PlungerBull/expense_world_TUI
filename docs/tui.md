@@ -33,11 +33,11 @@ expense/tui/
     _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
-    home.py         # banner + stat cluster + section menu
+    home.py         # the month as a list: categories, accounts, people, then the doors
     overview.py     # Overview — the Accounts | People band (5 drawn rows each,
                     #   people keep their ▼/▶ settled fold) over the sliding
                     #   4-month grid, ▼/▶ hashtag rows, inflow/outflow/net
-    transactions.py # the ledger; `p` filters to the rows under @Pendiente (2026-09-12)
+    transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth / Activity / Rates screens
@@ -113,29 +113,49 @@ so it also shows on an ordinary morning before the engine's fetch job has run.
 
 ## 2. Screens
 
-Every home-menu entry is wired — no stubs. `_SCREENS` in
-[home.py](../expense/tui/screens/home.py) maps id → screen, kept in lockstep by
-`test_screens_map_covers_every_wired_menu_entry`.
+**Home is the month** (2026-09-12, mockup
+[expense-world-home-as-ledger.html](mockups/expense-world-home-as-ledger.html), picks
+A and C). One `/dashboard` read on mount and on every return home draws it as a list:
 
-| Group | Entries |
-|---|---|
-| **Capture & ledger** | Transactions · Reconciliations |
-| **Reports** | Overview |
-| **Manage** | Accounts · Categories · Hashtags |
-| **System** | Config · Auth & profile · Activity · Rates |
+| Section | Rows | `⏎` |
+|---|---|---|
+| **CATEGORIES** · *this month* | every category with `spent_home_cents` (home currency, outflows negative, a dim `0.00` for nothing spent, `3 unrated` when unpriceable), then a `net` line from `totals` | the ledger filtered to that category |
+| **BANK ACCOUNTS** · *balance* | every account with `current_balance_cents` **in its own currency, the code beside it** — PEN is PEN and USD is USD; nothing is converted here (the Overview band carries the converted figure with its rate caveat) | the ledger filtered to that account |
+| **PEOPLE** | each person's balance in their own currency; the header says `none` when there is nobody | the ledger filtered to that person |
+| **LEDGER ▸** | Transactions · Reconciliations · Overview | opens the door in place; `⏎` on an entry pushes the screen |
+| **MANAGE ▸** | Accounts · Categories · Hashtags | as above |
+| **SYSTEM ▸** | Config · Auth & profile · Activity · Rates | as above |
 
-`Log a transaction` was a menu row until 2026-08-20; it is now **`+`** — see §4.
+The doors are there before the fetch lands and after it fails — a failure is one dim
+row with the reason, never a silent blank, and `r` re-reads. The first month to land
+moves the cursor to the first category; later re-reads leave it where it was. `_SCREENS`
+in [home.py](../expense/tui/screens/home.py) maps entry id → screen, kept in lockstep
+by `test_screens_map_covers_every_door_entry`. The wordmark line carries the month on
+the right, where the `net · spent · owed` cluster sat until 2026-09-12 — those numbers
+are rows now. `Log a transaction` was a menu row until 2026-08-20; it is now **`+`** —
+see §4.
 
-Home is a wordmark line plus a live `net · spent · owed` stat cluster (one dashboard
-read on mount/resume, failure-silent), with the menu de-boxed onto the app background.
-**net** is `totals.net_home_cents` (this calendar month's inflow − outflow, signed);
-**spent** is `totals.outflow_home_cents` (the same month's outflow, drawn positive);
-**owed** nets every person's home-converted balance and is dropped entirely at zero.
-Opening balances are excluded engine-side — an `@Opening` seed is where tracking
-starts, not money that moved.
+**The filtered ledger is the categorising pass.** `⏎` on a Home row pushes
+[transactions.py](../expense/tui/screens/transactions.py) with a `LedgerFilter`: the
+crumb reads `Ledger ▸ @Pendiente`, the panel is titled for the filter, the fetch is the
+engine's own `?category_id=` / `?account_id=`, and the legend says `filter: category
+@Pendiente · 57 rows · 3 selected`. `space` selects rows (a `●` in the title gutter,
+the row in the accent), `a` selects the page or clears it, and `c` / `b` / `h` open
+`PickerModal` over the selection — or over the cursor row when nothing is selected —
+to set the category, move to an account, or **replace** the hashtag set. The write is
+one `PUT /transactions/{id}` per row, in order, on one client, then one reload: on a
+filtered list the changed rows **leave at once** (pick C), the toast `3 rows → KORAKUEN`
+is the receipt, and a refused row (an account move a completed reconciliation locks)
+is named by number, stays selected, and does not stop the others. `esc` retreats one
+step at a time — selection, then filter, then the screen. Title, description, amount
+and date stay single-row edits behind `⏎`. No suggestions and no same-merchant
+spreading, by decision — [decisions.md](decisions.md) "Home is the month".
+
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
-rather than a partial total ([decisions.md](decisions.md)). Rows with nothing spent are
-hidden, on the dashboard and in the Overview grid alike.
+rather than a partial total ([decisions.md](decisions.md)). Opening balances are
+excluded engine-side — an `@Opening` seed is where tracking starts, not money that
+moved. Rows with nothing spent are hidden on the Overview grid; Home draws them at
+`0.00`, because Home is the list of places a row can go.
 
 **Overview** is one screen (2026-08-29). A two-panel band — **Accounts** left, **People**
 right, each drawing at most `PANEL_ROWS` (5) rows — sits above a sliding **4-month grid**
@@ -245,6 +265,16 @@ them — they are hand-written into the `?` card
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely.
+
+**The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py),
+2026-09-12): `space` selects / unselects the cursor row without moving it (`↓` then
+`space` is the rhythm), `a` selects every row on the page or clears the selection,
+`c` / `b` / `h` open the picker for category / account / hashtags, `esc` clears the
+selection before it clears the filter before it leaves. `space` is declared on
+`CursorList` but is live — key and footer both — only on a screen that handles
+`CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open` goes through on the
+`?` card, so the Manage lists neither react to it nor advertise it. `h` is a *command*
+letter here, which is exactly what deleting the vim aliases on 2026-08-27 freed it for.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like
@@ -426,5 +456,5 @@ rationale: [decisions.md](decisions.md) "A terminal too small is the user's to f
   destructive count — adjust them deliberately when adding or removing commands.
 
 **Known, accepted, not worth fixing at this scale:** a screen load may open several
-short-lived clients (Transactions: the page, a `limit=1` probe for the pendiente count,
-the `@Pendiente` lookup and three name maps) — harmless on loopback.
+short-lived clients (Transactions: the page and three name maps; the bulk pickers'
+reference lists load once, on the first bulk key) — harmless on loopback.

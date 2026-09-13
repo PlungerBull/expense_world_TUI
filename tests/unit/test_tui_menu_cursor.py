@@ -18,17 +18,50 @@ import asyncio
 
 from textual.widgets import OptionList
 
+from expense.commands import dashboard_cmd
 from expense.tui.app import ExpenseApp
-from expense.tui.screens.home import HomeScreen
 from expense.tui.widgets.cursor_list import CURSOR_STYLE, CursorOptionList
+from tests.unit.helpers import wait_for
 
 
-def _line_style(menu, y: int) -> str:
-    """The rendered style of the first non-blank segment on row `y`."""
-    for segment in menu.render_line(y)._segments:
+def _line_of(menu, index: int) -> int:
+    """The y offset of option `index` — separators take a line of their own,
+    so an option's index and its line diverge below the first one."""
+    return next(y for y, (option, _line) in enumerate(menu._lines) if option == index)
+
+
+def _line_style(menu, index: int) -> str:
+    """The rendered style of the first non-blank segment of option `index`."""
+    for segment in menu.render_line(_line_of(menu, index))._segments:
         if segment.text.strip():
             return str(segment.style)
     return ""
+
+
+_BODY = {
+    "month": {"year": 2026, "month": 9},
+    "categories": [
+        {"id": "c1", "name": "@Pendiente", "spent_home_cents": -100, "unconverted_count": 0},
+        {"id": "c2", "name": "HOGAR", "spent_home_cents": 0, "unconverted_count": 0},
+    ],
+    "bank_accounts": [
+        {"id": "a1", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 1}
+    ],
+    "people": [],
+    "totals": {"net_home_cents": -100, "unconverted_count": 0},
+}
+
+
+def _stub_month(monkeypatch):
+    """Home draws its rows from one dashboard read; give it a month so the menu
+    has section headers (disabled) above live rows, as it does in use."""
+    monkeypatch.setattr(dashboard_cmd, "fetch_dashboard", lambda *a, **k: _BODY)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+
+async def _loaded(pilot, app):
+    await wait_for(pilot, lambda: app.screen._body is not None)
+    await pilot.pause()
 
 
 def _run(scenario):
@@ -42,12 +75,12 @@ def test_home_menu_uses_the_cursor_widget():
 
 def test_highlighted_row_renders_differently_from_its_neighbours(monkeypatch):
     """The whole point: the cursor row must not look like the rows around it."""
-    monkeypatch.setattr(HomeScreen, "_load_stats", lambda self: None)
+    _stub_month(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
+            await _loaded(pilot, app)
             menu = app.screen.query_one("#menu", CursorOptionList)
             assert menu.has_focus, "the menu must be focused for the cursor to mean anything"
             highlighted = menu.highlighted
@@ -63,12 +96,12 @@ def test_highlighted_row_renders_differently_from_its_neighbours(monkeypatch):
 
 def test_cursor_follows_the_keyboard(monkeypatch):
     """Moving down must move the reverse bar, not just an internal index."""
-    monkeypatch.setattr(HomeScreen, "_load_stats", lambda self: None)
+    _stub_month(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
+            await _loaded(pilot, app)
             menu = app.screen.query_one("#menu", CursorOptionList)
             first = menu.highlighted
             await pilot.press("down")
@@ -82,15 +115,15 @@ def test_cursor_follows_the_keyboard(monkeypatch):
 
 def test_group_headers_never_take_the_cursor(monkeypatch):
     """Disabled options are section labels; reversing one would read as selectable."""
-    monkeypatch.setattr(HomeScreen, "_load_stats", lambda self: None)
+    _stub_month(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
+            await _loaded(pilot, app)
             menu = app.screen.query_one("#menu", CursorOptionList)
             disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
-            assert disabled, "the menu is built from group headers + entries"
+            assert disabled, "the menu is built from section headers + live rows + doors"
             for index in disabled:
                 assert CURSOR_STYLE not in _line_style(menu, index)
 
@@ -99,14 +132,14 @@ def test_group_headers_never_take_the_cursor(monkeypatch):
 
 def test_cursor_bar_spans_the_full_row(monkeypatch):
     """Reverse video must cover the row's padding too, or it reads as a ragged blob."""
-    monkeypatch.setattr(HomeScreen, "_load_stats", lambda self: None)
+    _stub_month(monkeypatch)
 
     async def scenario():
         app = ExpenseApp()
         async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
+            await _loaded(pilot, app)
             menu = app.screen.query_one("#menu", CursorOptionList)
-            segments = menu.render_line(menu.highlighted)._segments
+            segments = menu.render_line(_line_of(menu, menu.highlighted))._segments
             assert segments
             assert all(CURSOR_STYLE in str(s.style) for s in segments), (
                 "every segment on the cursor row, including trailing padding, "

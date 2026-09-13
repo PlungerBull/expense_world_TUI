@@ -45,7 +45,6 @@ def _stub_engine(monkeypatch, items=()):
         "expense.commands.transactions_cmd.fetch_transactions",
         lambda cfg, **k: {"items": [], "total": 0},
     )
-    monkeypatch.setattr("expense.tui.screens.transactions.load_pending_category_id", lambda: None)
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
 
@@ -118,12 +117,20 @@ def test_no_duplicate_movement_key_aliases():
     *command* letters on a list screen only while no widget claims them first.
     A stray alias would silently eat a future binding — which is exactly how the
     pile accumulated the first time.
+
+    So the guard bans the letters on **widgets** (the layer that would eat them)
+    and bans them as *movement* actions anywhere. A screen command is what the
+    deletion freed the letters for: `h` became `hashtags` on the ledger on
+    2026-09-12, and that is allowed.
     """
+    from textual.screen import Screen
+
     banned = {"j", "k", "h", "l", "comma", "full_stop"}
+    movement = ("move", "page", "cursor", "scroll", "expand", "collapse", "suggest")
     offenders = [
         f"{klass.__name__}: {b.key} → {b.action}"
         for klass, b in _all_declared_bindings()
-        if b.key in banned
+        if b.key in banned and (not issubclass(klass, Screen) or b.action.startswith(movement))
     ]
     assert not offenders, f"duplicate movement aliases are deleted, not re-added: {offenders}"
 
@@ -165,7 +172,7 @@ def test_declared_bindings_keeps_only_our_own():
     achieved by walking the MRO for *declaring* classes, not by a suppression
     list that would rot as Textual changes."""
     keys = {binding.key for binding in declared_bindings(CursorList)}
-    assert keys == {"down", "up", "enter", "pagedown", "pageup"}
+    assert keys == {"down", "up", "enter", "space", "pagedown", "pageup"}
     for intruder in ("home", "end", "tab", "shift+tab", "left", "right", "ctrl+c"):
         assert intruder not in keys
 
@@ -287,8 +294,9 @@ def test_home_card_names_itself_without_a_crumb():
             assert title == "Keys — Home"
             # `+` joined `q` on 2026-08-20, when `Log a transaction` stopped being a
             # menu row. The card is now the only place the key is written down in
-            # full, so this assertion is what keeps it discoverable.
-            assert [row.keys for row in _rows(groups, "This screen")] == ["+", "q"]
+            # full, so this assertion is what keeps it discoverable. `r` re-reads
+            # the month since Home became the month (2026-09-12).
+            assert [row.keys for row in _rows(groups, "This screen")] == ["+", "q", "r"]
 
     asyncio.run(scenario())
 

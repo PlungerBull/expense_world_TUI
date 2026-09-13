@@ -476,43 +476,39 @@ def test_transactions_screen_floors_at_five_rows(monkeypatch):
     _drive_transactions((120, 14), calls, checks)
 
 
-def test_pendiente_filter_change_resets_page(monkeypatch):
-    """`p` invalidates the old offset: page 2 of `all` must not leak into
-    `pendiente` (the pin the Inbox's `f` carried until 2026-09-12)."""
+def test_clearing_the_filter_with_esc_resets_page(monkeypatch):
+    """`esc` on a filtered ledger clears the filter and invalidates the old
+    offset: page 2 of `@Pendiente` must not leak into the whole ledger (the
+    pin the Inbox's `f` and then the `p` filter carried, 2026-09-12)."""
     import expense.tui.screens.transactions as txn_mod
+    from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 
     calls = []
 
-    def fake_transactions(cfg, *, category=None, limit=None, offset=None, **kw):
-        # Every load also issues a limit=1 probe for the legend's pending count;
-        # it carries no offset — that is how `_filter_calls` tells it apart from
-        # the paged fetch this test is about.
+    def fake_transactions(cfg, *, category=None, account=None, limit=None, offset=None, **kw):
         calls.append({"category": category, "offset": offset})
         items = [{"id": f"t{i}", "title": f"Row {i}"} for i in range(limit or 20)]
         return {"items": items, "total": 60, "limit": limit, "offset": offset}
 
     monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_transactions)
-    monkeypatch.setattr(txn_mod, "load_pending_category_id", lambda: "pend")
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(txn_mod, name, lambda: {})
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario():
-        from expense.tui.screens.transactions import TransactionsScreen
-
-        def _filter_calls():
-            return [c for c in calls if c["offset"] is not None]
-
         app = ExpenseApp()
         async with app.run_test(size=(120, 35)) as pilot:
-            screen = TransactionsScreen()
+            screen = TransactionsScreen(filter=LedgerFilter("category", "pend", "@Pendiente"))
             await app.push_screen(screen)
             await wait_for_list(pilot, app)
+            assert calls[0]["category"] == "pend"
             await pilot.press("pagedown")
-            await wait_for(pilot, lambda: any(c["offset"] for c in _filter_calls()))
-            await pilot.press("p")  # all → pendiente; offset must reset
-            await wait_for(pilot, lambda: any(c["category"] == "pend" for c in _filter_calls()))
-            pending_call = next(c for c in _filter_calls() if c["category"] == "pend")
-            assert pending_call["offset"] == 0 and screen._page == 0
+            await wait_for(pilot, lambda: any(c["offset"] for c in calls))
+            await pilot.press("escape")  # clears the filter; offset must reset
+            await wait_for(pilot, lambda: any(c["category"] is None for c in calls))
+            cleared = next(c for c in calls if c["category"] is None)
+            assert cleared["offset"] == 0 and screen._page == 0
+            assert screen._filter is None and screen.crumb == ("Capture & ledger", "Transactions")
+            assert isinstance(app.screen, TransactionsScreen)  # the screen itself stayed
 
     asyncio.run(scenario())

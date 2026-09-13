@@ -66,7 +66,10 @@ EXCLUDED_ACTIONS = frozenset({"help"})
 #: screen handles it, because the keymap contract makes `enter` a literal no-op
 #: there (docs/tui.md §4). Advertising `⏎ Open` on those screens would be
 #: the card lying — so the row is dropped when the handler is absent.
-NEEDS_SCREEN_HANDLER = {"select": "on_cursor_list_selected"}
+NEEDS_SCREEN_HANDLER = {
+    "select": "on_cursor_list_selected",
+    "toggle": "on_cursor_list_toggled",
+}
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
 #: interior columns; the split matches the approved mockup.

@@ -161,21 +161,19 @@ def test_alert_renders_without_a_palette():
 # ---- the two header hosts ------------------------------------------------
 
 
-def test_home_header_shows_the_mark_beside_the_stat_cluster():
-    stats = {"net": 480000, "spent": 320000, "owed": 0}
-    out = _render(home._build_header(stats, PALETTE, True))
+def test_home_header_shows_the_mark_beside_the_month():
+    out = _render(home._build_header("September 2026", PALETTE, True))
     assert RATE_ALERT_MARK in out
-    assert "4,800.00" in out, "the alert must not displace the stats"
+    assert "September 2026" in out, "the alert must not displace the month"
 
 
 def test_home_header_is_unmarked_when_fresh_or_unknown():
-    stats = {"net": 480000, "spent": 320000, "owed": 0}
     for state in (False, None):
-        out = _render(home._build_header(stats, PALETTE, state))
+        out = _render(home._build_header("September 2026", PALETTE, state))
         assert RATE_ALERT_MARK not in out, state
 
 
-def test_home_header_shows_the_mark_with_no_stats_yet():
+def test_home_header_shows_the_mark_with_no_month_yet():
     """The two fetches race; the alert must not need the dashboard to have landed."""
     assert RATE_ALERT_MARK in _render(home._build_header(None, PALETTE, True))
 

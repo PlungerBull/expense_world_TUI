@@ -98,6 +98,11 @@ class CursorList(Static):
         Binding("down", "move(1)", "Navigate", tooltip="Down", show=False),
         Binding("up", "move(-1)", "Up", show=False),
         Binding("enter", "select", "Open"),
+        # Row selection for bulk edits (2026-09-12, mockup expense-world-home-as-
+        # ledger.html). The widget only posts `Toggled`; it is live — key and
+        # footer both — only on a screen that handles the message, the same
+        # gate `enter` goes through in help.py (`check_action` below).
+        Binding("space", "toggle", "Select", tooltip="Select / unselect the cursor row"),
         Binding("pagedown", "page(1)", "Next", key_display="pgdn", tooltip="Next page"),
         Binding("pageup", "page(-1)", "Prev", key_display="pgup", tooltip="Previous page"),
     ]
@@ -129,6 +134,21 @@ class CursorList(Static):
         def control(self) -> "CursorList":
             """The list that posted this — handlers on screens with several
             CursorLists must filter by source (backlog 6.2c)."""
+            return self._control
+
+    class Toggled(Message):
+        """Posted on `space`: the screen owns the selection set and re-marks
+        the rows; the widget keeps no selection state of its own, so paging
+        and reloads cannot desynchronise it."""
+
+        def __init__(self, control: "CursorList", key: object, index: int) -> None:
+            super().__init__()
+            self._control = control
+            self.key = key
+            self.index = index
+
+        @property
+        def control(self) -> "CursorList":
             return self._control
 
     class PageRequested(Message):
@@ -278,11 +298,23 @@ class CursorList(Static):
             if self._page_meta is not None:
                 return self._page_meta[1] > self._page_size
             return len(self._rows) > self._page_size
+        if action == "toggle":  # only where a screen owns a selection
+            try:
+                host = self.screen
+            except Exception:
+                return False
+            # False = neither live nor in the footer (Textual 8: None would
+            # keep the row, greyed — a key that says "not here" every time)
+            return hasattr(host, "on_cursor_list_toggled")
         return True
 
     def action_select(self) -> None:
         if self._rows:
             self.post_message(self.Selected(self, self._rows[self._cursor].key, self._cursor))
+
+    def action_toggle(self) -> None:
+        if self._rows:
+            self.post_message(self.Toggled(self, self._rows[self._cursor].key, self._cursor))
 
 
 class CursorOptionList(OptionList):

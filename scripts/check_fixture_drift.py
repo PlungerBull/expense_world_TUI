@@ -71,12 +71,6 @@ ENVELOPE_KEYS = frozenset(
 # ids used as dict keys, CLI-side config fields, query-param assertions.
 KNOWN_LOCAL = frozenset(
     {
-        # TUI home-header stat dict (expense/tui/screens/home.py builds this)
-        "net",
-        "spent",
-        "owed",
-        "unrated",
-        "pending",  # the @Pendiente row count on the stats line (2026-09-12)
         # the paging test's fake `fetch_transactions` records its own kwargs
         # (`category`, `offset`) — the CLI's flag names, not engine fields
         "category",
