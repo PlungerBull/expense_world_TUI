@@ -32,6 +32,7 @@ from expense.commands._resource import (
     load_hashtag_name_map,
     load_quickadd_refs,
     parse_hashtag_ids,
+    query_params,
     redact_token,
     render_pagination_hint,
     render_record,
@@ -1012,3 +1013,24 @@ def test_load_quickadd_refs_pages_through_every_hashtag(configured):
     assert len(refs.hashtags) == 201
     assert route.call_count == 2
     assert ("h200", "last") in refs.hashtags
+
+
+# ---- query_params -----------------------------------------------------------
+def test_query_params_drops_what_was_not_asked_for():
+    assert query_params(a=None, b="x") == {"b": "x"}
+
+
+def test_query_params_encodes_a_flag_as_the_engine_reads_it():
+    # False is absent, not `"false"`: absence IS the default
+    assert query_params(include_deleted=True, include_archived=False) == {"include_deleted": "true"}
+
+
+def test_query_params_keeps_a_zero_offset():
+    """`offset=0` is a real page, and `0 is None` is False — the guard has to
+    be identity, not truthiness."""
+    assert query_params(offset=0, limit=20) == {"offset": 0, "limit": 20}
+
+
+def test_query_params_sends_one_spelling_of_a_number():
+    """`reconcile` and `rates` sent `str(limit)`; everything else sent `limit`."""
+    assert query_params(limit=20) == {"limit": 20}

@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 import typer
@@ -19,17 +18,20 @@ from expense.commands._resource import (
     format_field_value,
     items_of,
     load_account_name_map,
+    query_params,
     render_pagination_hint,
     render_record,
     render_table,
     require_yes,
     resolve_name,
+    run_delete,
     run_toggle,
 )
 from expense.context import get_verbose
 from expense.dates import to_canonical_aware
 from expense.errors import EngineError, error_haystack, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Reconciliations.", no_args_is_help=True)
 
@@ -74,15 +76,12 @@ def fetch_reconciliations(
     screen. Account-scoped reads come back `date_start ASC NULLS LAST,
     created_at ASC`; the cross-account list stays `created_at DESC`.
     """
-    params: dict = {}
-    if account_id is not None:
-        params["account_id"] = account_id
-    if include_deleted:
-        params["include_deleted"] = "true"
-    if limit is not None:
-        params["limit"] = str(limit)
-    if offset is not None:
-        params["offset"] = str(offset)
+    params = query_params(
+        account_id=account_id,
+        include_deleted=include_deleted,
+        limit=limit,
+        offset=offset,
+    )
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -106,14 +105,13 @@ def fetch_reconciliation(
     page and falsely reported later records as deleted (backlog 6.2b).
     Missing record → EngineError(status=404).
     """
-    params: dict = {}
-    if limit is not None:
-        params["limit"] = str(limit)
-    if offset is not None:
-        params["offset"] = str(offset)
-    # Always signed: every CLI/TUI surface renders debits negative, so the
-    # request pins the flag rather than depending on the engine default.
-    params["debit_as_negative"] = "true"
+    params = query_params(
+        limit=limit,
+        offset=offset,
+        # Always signed: every CLI/TUI surface renders debits negative, so the
+        # request pins the flag rather than depending on the engine default.
+        debit_as_negative=True,
+    )
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}/{id_}",
@@ -142,7 +140,7 @@ _RESTORE_NOTE = (
 
 def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -188,7 +186,7 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
 
 def _render_reconciliation_detail(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
 
     render_record(body, json_mode=False, skip=("transactions",))
@@ -413,22 +411,16 @@ def delete(
 
     Example: expense reconcile delete <id> --yes
     """
-    require_yes(
-        yes,
-        f"Delete reconciliation {id_}? This cascade-unassigns all attached transactions.",
+    run_delete(
+        ctx,
+        resource=_RESOURCE,
+        id_=id_,
+        confirm=(f"Delete reconciliation {id_}? This cascade-unassigns all attached transactions."),
+        yes=yes,
+        json_output=json_output,
+        hints={409: _DELETE_LOCKED_HINT},
+        skip=("transactions",),
     )
-
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.delete(f"/{_RESOURCE}/{id_}")
-        except EngineError as err:
-            if err.status == 409:
-                typer.echo(_DELETE_LOCKED_HINT, err=True)
-            raise
-    render_record(body, json_mode=json_output, skip=("transactions",))
 
 
 def _render_after_state_change(body: dict, *, lock_verb: str) -> None:
@@ -497,7 +489,7 @@ def complete(
                     typer.echo(_COMPLETE_EMPTY_HINT, err=True)
             raise
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
     else:
         _render_after_state_change(body, lock_verb="Locked")
 

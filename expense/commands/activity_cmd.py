@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass, field
 
 import typer
@@ -9,16 +8,19 @@ from expense.commands._resource import (
     LIMIT_OPT,
     OFFSET_OPT,
     effective_limit,
+    fetch_body,
     items_of,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
+    query_params,
     render_pagination_hint,
     render_table,
 )
 from expense.context import get_verbose
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Activity log (audit trail).", no_args_is_help=True)
 
@@ -240,7 +242,7 @@ def _render_activity_rows(
 
 def _render_list(body: object, *, json_mode: bool, cfg, verbose: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -266,18 +268,14 @@ def fetch_activity(
     Extracted so the TUI Activity screen and the typer command share one
     fetch path — the CLI thin-wrapper rule (no logic duplicated in the TUI).
     """
-    params: dict = {}
-    if resource_type is not None:
-        params["resource_type"] = resource_type
-    if resource_id is not None:
-        params["resource_id"] = resource_id
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
+    params = query_params(
+        resource_type=resource_type,
+        resource_id=resource_id,
+        limit=limit,
+        offset=offset,
+    )
 
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get(f"/{_RESOURCE}", params=params or None)
+    return fetch_body(cfg, path=f"/{_RESOURCE}", params=params, verbose=verbose)
 
 
 @app.command("list")

@@ -91,6 +91,8 @@ from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.picker import suggestion_list
+from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: Sigil per reference kind — the character a completion writes back into the
 #: line. Same table the grammar reads with; kept here because this module goes
@@ -99,9 +101,6 @@ SIGIL = {"account": "$", "category": "@", "hashtag": "#"}
 
 #: Reference kinds a completion picker can open on.
 PICKABLE = frozenset(SIGIL)
-
-#: How many candidates the picker shows at once (the existing form's window).
-PICKER_WINDOW = 8
 
 #: The marker and the row number share one cell (`• 1`) — two columns of
 #: Rich padding for three characters is width this table does not have.
@@ -378,7 +377,7 @@ def staged_table(
             Text(header, style="dim"), justify="right" if index == 3 else "left", no_wrap=True
         )
     for index, cells in enumerate(staged_rows(entries, refs, palette=palette, today=today)):
-        table.add_row(*cells, style="reverse" if index == picked else "")
+        table.add_row(*cells, style=CURSOR_STYLE if index == picked else "")
     return table
 
 
@@ -1145,27 +1144,13 @@ class LogBarScreen(Screen):
         picker = self._picker
         if picker is None:
             return self._refusal_renderable()
-        candidates = picker.candidates
-        if not candidates:
-            return Text("  no matches — pick something that exists", style="dim")
-        total = len(candidates)
-        start = 0
-        if total > PICKER_WINDOW:
-            start = max(0, min(self._suggest_idx - PICKER_WINDOW // 2, total - PICKER_WINDOW))
-        rows: list[Text] = []
-        if start > 0:
-            rows.append(Text(f"  ↑ {start} more", style="dim"))
-        for index in range(start, min(start + PICKER_WINDOW, total)):
-            ident, name = candidates[index]
+        labels = []
+        for ident, name in picker.candidates:
+            # an account's currency rides after the name; the other pools have
+            # none, and neither does an account the refs have not loaded yet
             extra = currency_of(self._refs, ident) if self._refs else ""
-            line = Text(f"  {name}{'    ' + extra if extra else ''}")
-            if index == self._suggest_idx:
-                line.stylize("reverse")
-            rows.append(line)
-        remaining = total - min(start + PICKER_WINDOW, total)
-        if remaining > 0:
-            rows.append(Text(f"  ↓ {remaining} more", style="dim"))
-        return Group(*rows)
+            labels.append(f"{name}    {extra}" if extra else name)
+        return suggestion_list(labels, self._suggest_idx)
 
     def _refusal_renderable(self) -> RenderableType:
         """`! not staged — the line names no account`, in the error colour,

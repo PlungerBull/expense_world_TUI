@@ -236,3 +236,19 @@ def test_format_rate_never_loses_the_low_digits_to_binary():
     """
     big = 9_007_199_254_740_993 * (RATE_SCALE // 100_000_000)  # 2**53 + 1
     assert format_rate(big) == "90071992.5474"
+
+
+@respx.mock
+def test_list_says_how_to_reach_the_next_page(configured):
+    """`rates list` was the one paginated list with no paging instruction: it
+    printed its own `showing N of M · newest first` and stopped there."""
+    respx.get("https://api.example.com/v1/exchange-rates/history").mock(
+        return_value=httpx.Response(
+            200,
+            json={**HISTORY_RESPONSE, "total": 134, "limit": 20, "offset": 0},
+        )
+    )
+    result = runner.invoke(cli_app, ["rates", "list"])
+    assert result.exit_code == 0, result.output
+    assert "showing 3 of 134 · newest first" in result.output
+    assert "pass --offset 3 --limit 20 for more" in result.output

@@ -95,6 +95,10 @@ KNOWN_LOCAL = frozenset(
         # aggregates many engine calls), so its shape is ours, not the engine's.
         # `source_name` is the raw sheet CUENTA behind a derived account name.
         "source_name",
+        # Textual widget geometry, faked by the adaptive-rows tests so
+        # `fit_rows` can be measured without an event loop
+        "content_size",
+        "height",
         # CLI-side config file fields — never sent to the engine
         "engine_url",
         "client_id",

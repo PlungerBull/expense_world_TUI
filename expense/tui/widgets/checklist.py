@@ -27,12 +27,11 @@ from rich.table import Table
 from rich.text import Text
 from textual.binding import Binding
 from textual.message import Message
-from textual.widgets import Static
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
-from expense.tui.widgets.cursor_list import page_indicator
+from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 
 
 class Row(NamedTuple):
@@ -56,8 +55,10 @@ class Row(NamedTuple):
 RowInput = Row | tuple
 
 
-class CheckList(Static):
-    can_focus = True
+class CheckList(WindowedList):
+    #: One transaction is two physical lines, so the indicator counts items.
+    PAGE_UNIT = "items"
+
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
         # footer slot (user, 2026-08-20 — "its obvious and it just occupies space
@@ -86,14 +87,10 @@ class CheckList(Static):
         palette: Palette = PALETTE,  # value object: _build must stay app-less
         page_size: int = DEFAULT_PAGE_ROWS,
     ) -> None:
-        super().__init__()
-        self._rows: list[Row] = [Row.coerce(r) for r in rows]
+        super().__init__([Row.coerce(r) for r in rows], empty=empty, page_size=page_size)
         self._checked: set = set(checked)
         self._read_only = read_only
-        self._empty = empty
         self._palette = palette
-        self._page_size = page_size
-        self._cursor = 0
 
     def on_mount(self) -> None:
         self._refresh()
@@ -101,36 +98,8 @@ class CheckList(Static):
             self.focus()
 
     @property
-    def cursor_key(self) -> object | None:
-        return self._rows[self._cursor].key if self._rows else None
-
-    @property
     def checked(self) -> set:
         return set(self._checked)
-
-    def set_page_size(self, page_size: int) -> None:
-        """Adaptive rows (2026-07-13): the screen re-measures on terminal resize
-        and re-slices the window around the cursor. Membership (`_checked`) is a
-        key-set over the whole batch, so a re-slice can't drop checks."""
-        if page_size < 1 or page_size == self._page_size:
-            return
-        self._page_size = page_size
-        self._refresh()
-
-    @property
-    def _window_start(self) -> int:
-        return (self._cursor // self._page_size) * self._page_size
-
-    @property
-    def page_status(self) -> str | None:
-        """The border-subtitle string, or None when everything fits one page."""
-        start = self._window_start
-        shown = min(self._page_size, len(self._rows) - start)
-        return page_indicator(start, shown, len(self._rows), self._page_size, unit="items")
-
-    def _refresh(self) -> None:
-        self.border_subtitle = self.page_status or ""
-        self.update(self._build())
 
     def _build(self) -> RenderableType:
         if not self._rows:
@@ -141,8 +110,7 @@ class CheckList(Static):
         t.add_column("Title")
         t.add_column("Amount", justify="right", no_wrap=True)
         t.add_column("Date", justify="right", width=12, no_wrap=True)
-        start = self._window_start
-        window = self._rows[start : start + self._page_size]
+        start, window = self._window()
         for i, (key, title, amount, date, sub) in enumerate(window, start=start):
             cursor = i == self._cursor
             amt = amount_cell(amount, self._palette, AMOUNT_RULE)
@@ -153,26 +121,10 @@ class CheckList(Static):
                 checked = key in self._checked
                 line1 = [Text(mark, style=self._palette.success if checked else "dim"), *line1]
                 line2 = ["", *line2]
-            t.add_row(*line1, style="reverse" if cursor else "")
-            t.add_row(*line2, style="reverse" if cursor else "")
+            style = CURSOR_STYLE if cursor else ""
+            t.add_row(*line1, style=style)
+            t.add_row(*line2, style=style)
         return t
-
-    def action_move(self, delta: int) -> None:
-        if not self._rows:
-            return
-        self._cursor = max(0, min(len(self._rows) - 1, self._cursor + delta))
-        self._refresh()
-
-    def action_page(self, delta: int) -> None:
-        if not self._rows:
-            return
-        self._cursor = max(0, min(len(self._rows) - 1, self._cursor + delta * self._page_size))
-        self._refresh()
-
-    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action == "page":  # hide the page keys when one page holds it all
-            return len(self._rows) > self._page_size
-        return True
 
     def action_toggle(self) -> None:
         if self._read_only or not self._rows:

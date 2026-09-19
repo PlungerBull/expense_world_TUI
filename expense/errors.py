@@ -1,8 +1,9 @@
-import json
 from functools import wraps
 from typing import Any
 
 import typer
+
+from expense.jsonout import json_text
 
 
 class EngineError(Exception):
@@ -98,14 +99,14 @@ def render(err: Exception, *, json_mode: bool) -> tuple[str, int, bool]:
     """
     if isinstance(err, EngineError):
         if json_mode:
-            return json.dumps(err.raw_body, indent=2), 1, False
+            return json_text(err.raw_body), 1, False
         return "Error: " + format_error(err), 1, True
 
     for exc_type, (code, exit_code) in _ENVELOPE_ERRORS.items():
         if isinstance(err, exc_type):
             if json_mode:
                 envelope = {"error": {"code": code, "message": str(err), "fields": None}}
-                return json.dumps(envelope, indent=2), exit_code, False
+                return json_text(envelope), exit_code, False
             return "Error: " + format_error(err), exit_code, True
 
     raise err

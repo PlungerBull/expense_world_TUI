@@ -19,9 +19,10 @@ from textual.containers import VerticalScroll
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit
 from expense.tui.app import ExpenseApp
-from expense.tui.screens._base import PagedListMixin
+from expense.tui.screens._base import AdaptiveRowsMixin, PagedListMixin
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, page_indicator
+from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 from tests.unit.helpers import wait_for, wait_for_list
 
 
@@ -474,3 +475,88 @@ def test_transactions_screen_floors_at_five_rows(monkeypatch):
         assert calls == [(5, 0)]
 
     _drive_transactions((120, 14), calls, checks)
+
+
+# ---- the shared base --------------------------------------------------------
+def test_both_list_widgets_page_on_the_same_arithmetic():
+    """`CursorList` and `CheckList` render nothing alike, but they window, page
+    and count identically — one implementation since the two copies drifted."""
+    assert issubclass(CursorList, WindowedList) and issubclass(CheckList, WindowedList)
+    lst, chk = _list(45), _checklist(45)
+    for widget in (lst, chk):
+        assert widget._window_start == 0
+        widget._cursor = 27
+        start, window = widget._window()
+        assert start == 20 and len(window) == 20
+    assert lst.page_status == "rows 21-40 of 45 · page 2 of 3"
+    assert chk.page_status == "items 21-40 of 45 · page 2 of 3"
+
+
+def test_a_move_that_goes_nowhere_does_not_repaint():
+    """`CheckList.action_move` used to repaint on every keypress, including the
+    ones already at an edge; `CursorList` did not. They agree now."""
+    for widget in (_list(5), _checklist(5)):
+        painted: list[int] = []
+        widget._refresh = lambda sink=painted: sink.append(1)
+        widget.post_message = lambda m: True
+        widget.action_move(-1)  # already at the top
+        assert painted == []
+        widget.action_move(1)
+        assert painted == [1] and widget._cursor == 1
+
+
+def test_the_checklist_cursor_uses_the_documented_style():
+    """It drew itself with a bare `"reverse"` literal, so the constant that
+    carries the reason had exactly one consumer."""
+    import expense.tui.widgets.checklist as mod
+
+    assert mod.CURSOR_STYLE is CURSOR_STYLE
+    # and it is actually applied: the cursor row renders differently from its
+    # neighbour, which a dropped style would not.
+    chk = _checklist(3)
+    con = Console(file=io.StringIO(), width=60, force_terminal=True)
+    con.print(chk._build())
+    lines = [ln for ln in con.file.getvalue().splitlines() if "txn 0" in ln]
+    assert lines and "\x1b[7m" in lines[0] and "\x1b[7m" not in lines[1]
+
+
+# ---- the shared measurement -------------------------------------------------
+class _Measured(AdaptiveRowsMixin):
+    """A screen with a known viewport height and nothing else."""
+
+    def __init__(self, height: int) -> None:
+        self._height = height
+
+    def query_one(self, _selector):
+        size = type("Size", (), {"height": self._height})()
+        return type("Container", (), {"content_size": size})()
+
+
+def test_fit_rows_clamps_to_the_screen_class_limits_not_hardcoded_ones():
+    """The reconciliation screens each re-derived this measurement with a bare
+    `5` and a hardcoded 20, so raising `PAGE_ROWS_CAP` on a screen would have
+    left them at 20 without saying so."""
+    wide = _Measured(200)
+    assert wide.fit_rows(chrome=6) == DEFAULT_PAGE_ROWS
+
+    class Taller(_Measured):
+        PAGE_ROWS_CAP = 50
+
+    assert Taller(200).fit_rows(chrome=6) == 50
+    assert Taller(200).fit_rows(chrome=6, lines_per_row=2) == 50
+
+    class Deeper(_Measured):
+        PAGE_ROWS_FLOOR = 2
+
+    assert Deeper(8).fit_rows(chrome=6, lines_per_row=2) == 2
+
+
+def test_fit_rows_falls_back_to_the_default_before_layout():
+    assert _Measured(0).fit_rows(chrome=6) == DEFAULT_PAGE_ROWS
+
+
+def test_fit_rows_counts_two_line_rows_and_split_panes():
+    # the two callers that used to hand-roll this: a pane sharing #content with
+    # a sibling, and a checklist whose items are two physical lines each
+    assert _Measured(40).fit_rows(chrome=2 + 2 * 6, lines_per_row=2) == 13
+    assert _Measured(40).fit_rows("#rlist", chrome=4, lines_per_row=2) == 18

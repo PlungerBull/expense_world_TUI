@@ -29,9 +29,14 @@ expense/tui/
                     #   absent-value marks: `—` for a null amount, BLANK for a null
                     #   difference_cents — see decisions.md 2026-09-14, the two are
                     #   different states and must not share a glyph
-    cursor_list.py  # CURSOR_STYLE (reverse video, app-wide) + CursorList — arrow-key
-                    #   list (pickers) + CursorOptionList — the home menu
+    windowed.py     # CURSOR_STYLE (reverse video, app-wide) + WindowedList — the
+                    #   window/cursor/page arithmetic both list widgets stand on
+                    #   + page_indicator() — `rows 21-40 of 133 · page 2 of 7`
+    cursor_list.py  # CursorList — arrow-key list (pickers), window + fetched-page
+                    #   modes + CursorOptionList — the home menu
     checklist.py    # CheckList — multi-select (hashtag picker)
+    picker.py       # suggestion_list() — the scrolling name list both quick-add
+                    #   surfaces drop under their input
   screens/
     _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
@@ -224,9 +229,11 @@ Three things only rendering revealed, all load-bearing:
 is drawn the same way everywhere: the terminal's own foreground and background, swapped
 — colour-free, so it is correct on any ground by construction rather than by detection.
 The shared constant is `CURSOR_STYLE` in
-[cursor_list.py](../expense/tui/widgets/cursor_list.py); `CursorList` / `CheckList`
-apply it to their Rich table rows, and `CursorOptionList` applies it to the finished
-strip.
+[windowed.py](../expense/tui/widgets/windowed.py) (re-exported from `cursor_list.py`
+for the import path that already pointed there); `CursorList` / `CheckList` apply it
+to their Rich table rows, `suggestion_list` to the picked name, the LOG bar to its
+staged row and the field modal to its candidate, and `CursorOptionList` applies it to
+the finished strip.
 
 That last one exists because the theme gives the block cursor **no colour of its own**
 (`block-cursor-foreground` and `-background` are both `ansi_default`), so all its

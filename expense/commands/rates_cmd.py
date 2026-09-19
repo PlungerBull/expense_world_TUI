@@ -1,5 +1,3 @@
-import json
-
 import typer
 
 from expense import config as config_module
@@ -8,13 +6,16 @@ from expense.commands._resource import (
     LIMIT_OPT,
     OFFSET_OPT,
     effective_limit,
+    fetch_body,
     items_of,
+    query_params,
+    render_pagination_hint,
     render_table,
 )
 from expense.context import get_verbose
 from expense.currencies import RATE_SCALE
 from expense.errors import EngineError, handle_errors
-from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Exchange rates.", no_args_is_help=True)
 
@@ -73,7 +74,7 @@ def _render_rate(body: object) -> None:
             display = value if value is not None else "(null)"
             typer.echo(f"  {key}: {display}")
     else:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
 
 
 def fetch_rate(
@@ -89,14 +90,9 @@ def fetch_rate(
     `base` / `date` are omitted when None so the engine defaults (USD, today)
     apply. Shared by the typer command and the TUI Rates screen.
     """
-    params: dict = {"target": target}
-    if base is not None:
-        params["base"] = base
-    if date is not None:
-        params["date"] = date
+    params = query_params(target=target, base=base, date=date)
 
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get("/exchange-rates", params=params)
+    return fetch_body(cfg, path="/exchange-rates", params=params, verbose=verbose)
 
 
 def rate_is_stale(body: dict) -> bool | None:
@@ -153,16 +149,9 @@ def fetch_rates_history(
     per pair per day; `date` is an exact-day filter — no fallback semantics.
     Shared by the typer command and the TUI Rates screen.
     """
-    params: dict = {}
-    if date is not None:
-        params["date"] = date
-    if limit is not None:
-        params["limit"] = str(limit)
-    if offset is not None:
-        params["offset"] = str(offset)
+    params = query_params(date=date, limit=limit, offset=offset)
 
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get("/exchange-rates/history", params=params or None)
+    return fetch_body(cfg, path="/exchange-rates/history", params=params, verbose=verbose)
 
 
 @app.command("list")
@@ -188,7 +177,7 @@ def list_(
     limit = effective_limit(limit, json_mode=json_output)
     body = fetch_rates_history(cfg, date=date, limit=limit, offset=offset, verbose=get_verbose(ctx))
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -207,9 +196,7 @@ def list_(
         ],
         align_right={"rate"},
     )
-    total = body.get("total")
-    if isinstance(total, int):
-        typer.echo(f"\nshowing {len(items)} of {total} · newest first")
+    render_pagination_hint(body, items, note="newest first", always=True)
 
 
 @app.command("get")
@@ -240,6 +227,6 @@ def get(
     body = fetch_rate(cfg, target=target, base=base, date=date, verbose=get_verbose(ctx))
 
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     _render_rate(body)

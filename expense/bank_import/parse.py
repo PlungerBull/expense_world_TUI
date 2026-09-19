@@ -21,7 +21,7 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 from expense.currencies import MINOR_UNIT_SCALE, SUPPORTED_CURRENCIES
-from expense.import_.mapping import normalize_header
+from expense.import_.mapping import match_headers
 from expense.import_.parse import to_iso_date
 from expense.import_.reader import SheetData
 
@@ -93,19 +93,11 @@ class BankFormatError(Exception):
 
 def header_index(headers: list[object]) -> dict[str, int]:
     """Field → column index, or BankFormatError naming what is missing."""
-    normalized = [normalize_header(h) for h in headers]
-    index: dict[str, int] = {}
-    for field, labels in FIELD_HEADERS.items():
-        for label in labels:
-            if label in normalized:
-                index[field] = normalized.index(label)
-                break
-    missing = REQUIRED_FIELDS - index.keys()
+    index, missing = match_headers(headers, FIELD_HEADERS, REQUIRED_FIELDS)
     if missing:
-        wanted = ", ".join(sorted(FIELD_HEADERS[m][0] for m in missing))
         found = ", ".join(repr(h) for h in headers if h is not None) or "(none)"
         raise BankFormatError(
-            f"The sheet is missing required column(s): {wanted}. Found headers: {found}"
+            f"The sheet is missing required column(s): {', '.join(missing)}. Found headers: {found}"
         )
     return index
 

@@ -1,4 +1,3 @@
-import json
 import time
 
 import typer
@@ -8,6 +7,7 @@ from expense.commands._resource import JSON_OPT
 from expense.context import get_verbose
 from expense.errors import handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 
 @handle_errors
@@ -28,7 +28,7 @@ def ping(
     elapsed = time.monotonic() - start
 
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
     else:
         status = body.get("status", "?") if isinstance(body, dict) else "?"
         typer.echo(f"{status} ({elapsed:.1f}s)")

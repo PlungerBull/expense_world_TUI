@@ -31,7 +31,7 @@ navigation in the edit form is broken on macOS"). See
 import copy
 from datetime import date as date_cls
 
-from rich.console import Group, RenderableType
+from rich.console import RenderableType
 from rich.text import Text
 from textual import work
 from textual.widgets import Input
@@ -47,6 +47,7 @@ from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.widgets.picker import suggestion_list
 
 _LABELS = {
     "date": "DATE",
@@ -281,27 +282,8 @@ class QuickAddLogScreen(FormScreen):
     def _suggest_renderable(self) -> RenderableType:
         if self._key not in _ENTITY:
             return Text("")
-        if not self._suggestions:
-            return Text("  no matches — pick something that exists", style="dim")
-        window = 8
-        total = len(self._suggestions)
-        start = 0
-        if total > window:
-            start = max(0, min(self._suggest_idx - window // 2, total - window))
-        rows: list = []
-        if start > 0:
-            rows.append(Text(f"  ↑ {start} more", style="dim"))
-        for idx in range(start, min(start + window, total)):
-            ent = self._suggestions[idx]
-            extra = f"  {ent[2]}" if len(ent) > 2 else ""
-            line = Text(f"  {ent[1]}{extra}")
-            if idx == self._suggest_idx:
-                line.stylize("reverse")
-            rows.append(line)
-        remaining = total - min(start + window, total)
-        if remaining > 0:
-            rows.append(Text(f"  ↓ {remaining} more", style="dim"))
-        return Group(*rows)
+        labels = [f"{ent[1]}{'  ' + ent[2] if len(ent) > 2 else ''}" for ent in self._suggestions]
+        return suggestion_list(labels, self._suggest_idx)
 
     # ---- submit ----------------------------------------------------------
     def _submit_request(self) -> tuple[str, str, dict, str] | None:

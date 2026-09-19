@@ -28,7 +28,7 @@ import uuid
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container
 from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Footer, Input, Static
@@ -36,7 +36,6 @@ from textual.worker import get_current_worker
 
 from expense.commands import accounts_cmd, reconcile_cmd, transactions_cmd
 from expense.commands._resource import (
-    DEFAULT_PAGE_ROWS,
     account_choices,
     fetch_all_pages,
     format_cents,
@@ -51,6 +50,7 @@ from expense.errors import EngineError, format_error
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.tui.screens._base import (
+    AdaptiveRowsMixin,
     ContentSwapLockMixin,
     EngineWriteMixin,
     SectionScreen,
@@ -162,16 +162,10 @@ class ReconciliationsScreen(SectionScreen):
     # ---- adaptive window (2026-07-13): two stacked panes split #content ----
     def pane_rows(self) -> int:
         """Rows-per-pane = an equal split of what fits (title 2 + two panel
-        frames), capped at 20, floor PAGE_ROWS_FLOOR — auto-height panes give
-        unused rows back when a pane has fewer rows than its share."""
-        try:
-            avail = self.query_one("#content", VerticalScroll).content_size.height
-        except Exception:
-            return DEFAULT_PAGE_ROWS
-        if avail <= 0:
-            return DEFAULT_PAGE_ROWS
-        per = (avail - 2 - 2 * self.LIST_FRAME_LINES) // 2
-        return max(self.PAGE_ROWS_FLOOR, min(DEFAULT_PAGE_ROWS, per))
+        frames) — auto-height panes give unused rows back when a pane has
+        fewer rows than its share. Clamped by `AdaptiveRowsMixin`, which is
+        what this used to do for itself against a hardcoded 20."""
+        return self.fit_rows(chrome=2 + 2 * self.LIST_FRAME_LINES, lines_per_row=2)
 
     def _viewport_resized(self) -> None:
         for lst in (getattr(self, "_accts_list", None), getattr(self, "_batch_list", None)):
@@ -489,7 +483,13 @@ def _txn_sub(it: dict, cat_names: dict, tag_names: dict) -> str:
     return "  ·  ".join(parts)
 
 
-class ReconciliationDetailScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Screen):
+class ReconciliationDetailScreen(
+    HelpBindingMixin,
+    EngineWriteMixin,
+    ContentSwapLockMixin,
+    AdaptiveRowsMixin,
+    Screen,
+):
     """One batch: header + a transaction checklist (draft) or read-only list
     (completed). `space` toggles membership; `c`/`u`/`d` complete/revert/delete;
     `r` refetches the batch + checklist (r = refresh everywhere, never a write)."""
@@ -533,16 +533,13 @@ class ReconciliationDetailScreen(HelpBindingMixin, EngineWriteMixin, ContentSwap
 
     # ---- adaptive window (2026-07-13) --------------------------------------
     def _checklist_items(self) -> int:
-        """Items-per-page = what fits #rlist at two lines each, capped at 20,
-        floor 5. Pre-layout / unmeasurable → the 20-item default."""
-        try:
-            avail = self.query_one("#rlist", Container).content_size.height
-        except Exception:
-            return DEFAULT_PAGE_ROWS
-        if avail <= 0:
-            return DEFAULT_PAGE_ROWS
-        items = (avail - 4) // 2  # panel border 2 + column header + rule, then 2 lines/item
-        return max(5, min(DEFAULT_PAGE_ROWS, items))
+        """Items-per-page = what fits #rlist at two lines each.
+
+        The chrome is the panel border (2) plus the column header and its rule.
+        The clamp is `AdaptiveRowsMixin`'s; this used to spell it out with a
+        bare `5` and a hardcoded 20.
+        """
+        return self.fit_rows("#rlist", chrome=4, lines_per_row=2)
 
     def on_resize(self, _event) -> None:
         if self._list is not None and self._list.is_attached:

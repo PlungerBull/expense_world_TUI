@@ -23,17 +23,19 @@ from expense.commands._resource import (
     load_category_name_map,
     load_hashtag_name_map,
     parse_hashtag_ids,
+    query_params,
     render_pagination_hint,
     render_record,
     render_table,
-    require_yes,
     resolve_name,
+    run_delete,
     truncate,
 )
 from expense.context import get_verbose
 from expense.dates import to_canonical_aware
 from expense.errors import EngineError, error_haystack, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(
     help="Ledger transactions: list, view, edit, delete, restore, batch.",
@@ -60,7 +62,7 @@ def _render_transaction_list(body: dict, *, json_mode: bool, show_deleted: bool 
     same header, whatever the ledger happens to hold that day.
     """
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -140,32 +142,22 @@ def fetch_transactions(
     Shared by the flat `transactions list` command and the TUI's Transactions
     screen.
     """
-    params: dict = {}
-    if account is not None:
-        params["account_id"] = account
-    if category is not None:
-        params["category_id"] = category
-    if hashtag is not None:
-        params["hashtag_id"] = hashtag
-    if reconciliation is not None:
-        params["reconciliation_id"] = reconciliation
-    if unreconciled:
-        params["unreconciled"] = "true"
-    if date_from is not None:
-        params["date_from"] = date_from
-    if date_to is not None:
-        params["date_to"] = date_to
-    if search is not None:
-        params["search"] = search
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
-    if include_deleted:
-        params["include_deleted"] = "true"
-    # Always signed: every CLI/TUI surface renders debits negative, so the
-    # request pins the flag rather than depending on the engine default.
-    params["debit_as_negative"] = "true"
+    params = query_params(
+        account_id=account,
+        category_id=category,
+        hashtag_id=hashtag,
+        reconciliation_id=reconciliation,
+        unreconciled=unreconciled,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        limit=limit,
+        offset=offset,
+        include_deleted=include_deleted,
+        # Always signed: every CLI/TUI surface renders debits negative, so the
+        # request pins the flag rather than depending on the engine default.
+        debit_as_negative=True,
+    )
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -318,24 +310,21 @@ def delete(
 
     Example: expense transactions delete <transaction-id> --yes
     """
-    require_yes(yes, f"Delete transaction {id_}?")
-
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.delete(f"/{_RESOURCE}/{id_}")
-        except EngineError as err:
-            if err.status == 409:
-                typer.echo(
-                    "Hint: This transaction is assigned to a completed reconciliation "
-                    "and cannot be deleted — revert the reconciliation to draft first "
-                    "('expense reconcile revert <id>').",
-                    err=True,
-                )
-            raise
-    render_record(body, json_mode=json_output)
+    run_delete(
+        ctx,
+        resource=_RESOURCE,
+        id_=id_,
+        confirm=f"Delete transaction {id_}?",
+        yes=yes,
+        json_output=json_output,
+        hints={
+            409: (
+                "Hint: This transaction is assigned to a completed reconciliation "
+                "and cannot be deleted — revert the reconciliation to draft first "
+                "('expense reconcile revert <id>')."
+            )
+        },
+    )
 
 
 @app.command("restore")
@@ -416,7 +405,7 @@ def batch(
     with ExpenseClient(cfg, verbose=verbose) as client:
         body = client.post(f"/{_RESOURCE}/batch", json_body={"transactions": items})
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
 
     created_items = body.get("created", []) if isinstance(body, dict) else []

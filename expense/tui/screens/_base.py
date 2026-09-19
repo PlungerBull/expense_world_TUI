@@ -281,17 +281,21 @@ class LogTransactionMixin:
         reload, so a transaction you just wrote appears without pressing `r`."""
 
 
-class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Screen):
-    BINDINGS = [
-        ("escape", "app.pop_screen", "Back"),
-        ("r", "reload", "Refresh"),
-        *HelpBindingMixin.BINDINGS,
-    ]
-    crumb: tuple[str, ...] = ()
-    CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
-    _started: bool = False  # first load ran (it waits for the first layout pass)
+class AdaptiveRowsMixin:
+    """How many rows a list may ask for, given the room it actually has.
 
-    # ---- adaptive list sizing (2026-07-13, mockups/expense-world-adaptive-rows.html)
+    Adaptive rows (2026-07-13, mockups/expense-world-adaptive-rows.html, pick
+    A + cap 20): the page IS the screenful, so every list measures its
+    container before fetching and re-measures on a terminal resize.
+
+    The measurement was written three times — here, and twice on the
+    reconciliation screens, which each re-derived the try/except, the `avail
+    <= 0` guard and the clamp while hardcoding `DEFAULT_PAGE_ROWS` and a bare
+    `5` in place of the caps below. Nothing showed, because no screen that
+    copied it also raises `PAGE_ROWS_CAP` — but Transactions does raise it, so
+    the copies were one shared base class away from silently ignoring it.
+    """
+
     # Lines a CursorList spends on chrome rather than rows: panel border 2,
     # column header 1, header rule 1, plus the blank top and bottom edge lines
     # Rich's `box.SIMPLE` draws inside the border (2). It read 4 until
@@ -315,6 +319,55 @@ class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Sc
     # the engine's own `limit` ceiling, so the fetch contract can't be broken by
     # a tall window. See docs/decisions.md "the ledger fills the window".
     PAGE_ROWS_CAP = DEFAULT_PAGE_ROWS
+
+    def list_extra_lines(self) -> int:
+        """Lines the screen renders around its list inside #content (legends…)."""
+        return 0
+
+    def fit_rows(
+        self,
+        container: str = "#content",
+        *,
+        chrome: int = 0,
+        lines_per_row: int = 1,
+    ) -> int:
+        """Rows that fit `container`, clamped to this screen's limits.
+
+        `chrome` is what the container spends on anything but rows (borders,
+        headers, a legend); `lines_per_row` is how many physical lines one row
+        costs — two for the reconciliation checklist, and two again for a pane
+        that splits its room with a sibling. Pre-layout or unmeasurable → the
+        20-row default, since a page size of 0 would fetch nothing.
+        """
+        try:
+            avail = self.query_one(container).content_size.height
+        except Exception:
+            return DEFAULT_PAGE_ROWS
+        if avail <= 0:
+            return DEFAULT_PAGE_ROWS
+        rows = (avail - chrome) // lines_per_row
+        return max(self.PAGE_ROWS_FLOOR, min(self.PAGE_ROWS_CAP, rows))
+
+    def measure_list_rows(self) -> int:
+        """The standard case: one list filling #content."""
+        return self.fit_rows(chrome=self.LIST_FRAME_LINES + self.list_extra_lines())
+
+
+class SectionScreen(
+    HelpBindingMixin,
+    EngineWriteMixin,
+    ContentSwapLockMixin,
+    AdaptiveRowsMixin,
+    Screen,
+):
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Back"),
+        ("r", "reload", "Refresh"),
+        *HelpBindingMixin.BINDINGS,
+    ]
+    crumb: tuple[str, ...] = ()
+    CARD_WIDTH: int | None = 64  # cap the content card; None = fill width
+    _started: bool = False  # first load ran (it waits for the first layout pass)
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
@@ -341,23 +394,6 @@ class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Sc
     def _viewport_resized(self) -> None:
         """Hook — adaptive-list screens re-window (window mode) or refetch with
         the new limit (fetched-page mode) when the terminal size changes."""
-
-    def list_extra_lines(self) -> int:
-        """Lines the screen renders around its list inside #content (legends…)."""
-        return 0
-
-    def measure_list_rows(self) -> int:
-        """Rows-per-page = min(PAGE_ROWS_CAP, what fits #content), floor
-        PAGE_ROWS_FLOOR — pick A, 2026-07-13. Pre-layout / unmeasurable → the
-        20 default."""
-        try:
-            avail = self.query_one("#content", VerticalScroll).content_size.height
-        except Exception:
-            return DEFAULT_PAGE_ROWS
-        if avail <= 0:
-            return DEFAULT_PAGE_ROWS
-        rows = avail - self.LIST_FRAME_LINES - self.list_extra_lines()
-        return max(self.PAGE_ROWS_FLOOR, min(self.PAGE_ROWS_CAP, rows))
 
     async def action_reload(self) -> None:
         async with self._content_lock():

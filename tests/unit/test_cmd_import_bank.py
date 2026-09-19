@@ -315,3 +315,68 @@ def test_a_second_download_matches_by_the_code_it_wrote(configured, monkeypatch)
     assert result.exit_code == 0, result.output
     assert "in ledger · operation 03144753" in result.output
     assert "+code" not in result.output
+
+
+# ---- the JSON document ------------------------------------------------------
+#: Every key `--json` emits, on every run. The document used to be assembled in
+#: three places, so which of the write keys you got depended on which fork the
+#: run took; a consumer could not tell "no rows failed" from "this fork never
+#: told me about failures".
+DOC_KEYS = {
+    "file",
+    "account",
+    "legs",
+    "rows",
+    "refused",
+    "excess",
+    "written",
+    "already_there",
+    "codes_written",
+    "failed",
+    "stopped",
+}
+
+
+@respx.mock
+def test_the_json_document_has_one_shape_on_a_dry_run(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine()
+    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--json"])
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.output)
+    assert set(doc) == DOC_KEYS
+    # `written` is null, not 0: nothing was attempted, which is not the same as
+    # nothing needing doing.
+    assert doc["written"] is None
+    assert doc["already_there"] == 0 and doc["codes_written"] == 0
+    assert doc["failed"] == [] and doc["stopped"] is None
+
+
+@respx.mock
+def test_the_json_document_has_one_shape_when_apply_writes(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine()
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+    result = _run(
+        monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.output)
+    assert set(doc) == DOC_KEYS
+    assert doc["written"] == 1 and doc["failed"] == []
+
+
+@respx.mock
+def test_the_json_document_has_one_shape_when_apply_writes_nothing(configured, monkeypatch):
+    """The fork that used to carry neither `failed` nor `already_there`."""
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine({"sig-pen": [_ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR")]})
+    result = _run(
+        monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.output)
+    assert set(doc) == DOC_KEYS
+    assert doc["written"] == 0 and doc["failed"] == []

@@ -1,6 +1,5 @@
 """Shared helpers for resource sub-apps (accounts, categories, hashtags)."""
 
-import json
 import os
 import re
 import sys
@@ -16,6 +15,7 @@ from expense.context import get_verbose
 from expense.currencies import MINOR_UNIT_SCALE
 from expense.errors import EngineError
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 # Shared option declarations — one wording for flags repeated across command
 # modules. Never mutate these; a command whose flag means something different
@@ -224,7 +224,7 @@ def render_record(body: dict, *, json_mode: bool, skip: tuple[str, ...] = ()) ->
     keys from the human dump only — `--json` stays the verbatim engine body.
     """
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     for key, value in body.items():
         if key in skip:
@@ -627,6 +627,35 @@ def render_table(
         typer.echo(sep.join(fmt(footer.get(key, ""), key) for key in headers))
 
 
+def query_params(**values: Any) -> dict[str, Any]:
+    """The query string for one engine read: drop what was not asked for,
+    encode what was, one way.
+
+    - `None` means "not asked for" and is left out entirely. `0` is not None,
+      so `offset=0` still goes.
+    - A bool is a flag. `True` becomes the string `"true"` the engine reads;
+      `False` is left out, because its absence IS the default.
+    - Everything else passes through unchanged.
+
+    Ints stay ints. Thirteen hand-written builders spelled this out, and they
+    had already split on that last point: `reconcile` and `rates` sent
+    `str(limit)` while `accounts`, `categories`, `hashtags`, `activity` and
+    `transactions` sent `limit`, for the same engine parameter. httpx renders
+    both identically, so nothing was broken — but two spellings of one value
+    is how a real difference eventually hides.
+
+    Keyword names are the **wire** names, not the Python ones, so the mapping
+    a caller used to do by hand (`account` -> `account_id`) stays visible at
+    the call site.
+    """
+    out: dict[str, Any] = {}
+    for key, value in values.items():
+        if value is None or value is False:
+            continue
+        out[key] = "true" if value is True else value
+    return out
+
+
 def fetch_body(
     cfg: Config,
     *,
@@ -704,11 +733,95 @@ def render_totals(totals: dict | None) -> None:
         typer.echo(f"  {label}: {amount}")
 
 
-def render_pagination_hint(body: Any, items: list[Any]) -> None:
-    """Print a `(showing N of M; pass --offset ... --limit ... for more)` hint.
+def hashtag_label(ids: list[str], name_map: dict[str, str]) -> str:
+    """Format a hashtag-combo label, resolving ids via name_map.
 
-    No-op when the body isn't paginated, items fit on one page, or required
-    metadata is missing. Used by every paginated `list` renderer.
+    Empty ids -> `(no hashtags)`. Otherwise joins resolved names (or raw id
+    fallback for any unresolved entry) with ` + `.
+    """
+    if not ids:
+        return "(no hashtags)"
+    return " + ".join(name_map.get(hid, hid) for hid in ids)
+
+
+def render_category_table(categories: list[dict] | None) -> None:
+    """Render the Categories block as Name / Home, with indented hashtag sub-rows.
+
+    Shared by `dashboard` and `reports monthly` (single-month view). Both
+    docstrings used to end by promising the other table agreed with them --
+    same rules, same column name, because the two are read side by side -- and
+    that promise was kept by two byte-identical copies. It is one function now,
+    so agreeing is not something either caller can forget.
+
+    The amount is `spent_home_cents` -- the only cross-account figure that
+    exists since 2026-08-05, the native `spent_cents` having been deleted
+    engine-side (a sum across currencies is a number in no currency). The
+    column is called `Home` (Phase 4 sketch, option F).
+
+    Categories and hashtag combinations with nothing spent are **not drawn**:
+    the engine returns every non-deleted category whether or not it has
+    activity, and a report is not a category list. One that could not be priced
+    keeps its row and says `3 unrated` (`has_aggregate`).
+    """
+    typer.echo("Categories:")
+    if not categories:
+        typer.echo("  (no categories)")
+        return
+
+    name_map = load_hashtag_name_map()
+    rows: list[dict[str, str]] = []
+    for cat in categories:
+        cat_unconverted = unconverted_of(cat)
+        if not has_aggregate(cat.get("spent_home_cents"), cat_unconverted):
+            continue
+        rows.append(
+            {
+                "name": cat.get("name") or "(unnamed)",
+                "home": format_aggregate(cat.get("spent_home_cents"), cat_unconverted),
+            }
+        )
+        for sub in cat.get("hashtag_breakdown") or []:
+            sub_unconverted = unconverted_of(sub)
+            if not has_aggregate(sub.get("spent_home_cents"), sub_unconverted):
+                continue
+            ids = sub.get("hashtag_ids") or []
+            rows.append(
+                {
+                    "name": "  " + hashtag_label(ids, name_map),
+                    "home": format_aggregate(sub.get("spent_home_cents"), sub_unconverted),
+                }
+            )
+
+    if not rows:
+        typer.echo("  (no categories)")
+        return
+
+    render_table(
+        headers={"name": "Name", "home": "Home"},
+        rows=rows,
+        align_right={"home"},
+    )
+
+
+def render_pagination_hint(
+    body: Any,
+    items: list[Any],
+    *,
+    note: str = "",
+    always: bool = False,
+) -> None:
+    """Print `(showing N of M)`, and how to reach the rest when there is a rest.
+
+    No-op when the body isn't paginated or the metadata is missing, and — by
+    default — when one page holds everything, since there is then nothing to
+    tell anyone.
+
+    `always` prints the count even on a single page, and `note` rides on the
+    same line for a list whose order is worth stating. Both exist for `rates
+    list`, which kept its own tail (`showing 3 of 3 · newest first`) rather
+    than use this helper, and so became the one paginated list that never
+    said how to page. Its two extras cost one line each here; its missing
+    instruction cost every user of it a trip to `--help`.
     """
     if not isinstance(body, dict):
         return
@@ -717,12 +830,15 @@ def render_pagination_hint(body: Any, items: list[Any]) -> None:
     offset = body.get("offset")
     if not (isinstance(total, int) and isinstance(limit, int) and isinstance(offset, int)):
         return
-    if offset + len(items) >= total:
-        return
     next_offset = offset + len(items)
-    typer.echo(
-        f"\n(showing {len(items)} of {total}; pass --offset {next_offset} --limit {limit} for more)"
-    )
+    exhausted = next_offset >= total
+    if exhausted and not always:
+        return
+    shown = f"showing {len(items)} of {total}"
+    if note:
+        shown += f" · {note}"
+    more = "" if exhausted else f"; pass --offset {next_offset} --limit {limit} for more"
+    typer.echo(f"\n({shown}{more})")
 
 
 def run_toggle(
@@ -751,14 +867,59 @@ def run_toggle(
     verbose = get_verbose(ctx)
 
     with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.post(f"/{resource}/{id_}/{verb}")
-        except EngineError as err:
-            if hints and err.status in hints:
-                typer.echo(hints[err.status], err=True)
-            raise
+        body = _hinted(lambda: client.post(f"/{resource}/{id_}/{verb}"), hints)
 
     if json_output:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
     else:
         render_human(body)
+
+
+def run_delete(
+    ctx: typer.Context,
+    *,
+    resource: str,
+    id_: str,
+    confirm: str,
+    yes: bool,
+    json_output: bool,
+    hints: dict[int, str] | None = None,
+    skip: tuple[str, ...] = (),
+) -> None:
+    """Execute one `delete` command: confirm, DELETE /{resource}/{id}, render.
+
+    The sibling of `run_toggle`, and written for the same reason. That one's
+    docstring says `hints` exists so a resource with a domain-specific 403/409
+    can "keep their friendly recovery prompts without forking the call site" —
+    but only the toggle verbs ever got the helper, so all five deletes forked
+    anyway, each re-spelling the same confirm → open → try → hint → render.
+
+    What stays with the resource is what differs: `confirm` is its own warning
+    (a hashtag cascades to junction rows, a reconciliation unassigns its
+    transactions), `hints` its own recovery prompts, and `skip` the fields its
+    record view drops. Everything else is plumbing.
+    """
+    require_yes(yes, confirm)
+
+    cfg: Config = config_module.ensure_loaded()
+    verbose = get_verbose(ctx)
+
+    with ExpenseClient(cfg, verbose=verbose) as client:
+        body = _hinted(lambda: client.delete(f"/{resource}/{id_}"), hints)
+
+    render_record(body, json_mode=json_output, skip=skip)
+
+
+def _hinted(call: Callable[[], dict], hints: dict[int, str] | None) -> dict:
+    """Run one engine call; on an EngineError whose status has a hint, print it
+    to stderr before letting the error out to `handle_errors`.
+
+    The hint goes first because the error envelope below it is the engine's
+    words, and the recovery prompt is ours.
+    """
+    try:
+        return call()
+    except EngineError as err:
+        if hints and err.status in hints:
+            typer.echo(hints[err.status], err=True)
+        raise

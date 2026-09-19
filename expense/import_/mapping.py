@@ -9,6 +9,7 @@ pipeline needs no other change.
 """
 
 import uuid
+from collections.abc import Container, Mapping, Sequence
 
 from expense.currencies import SUPPORTED_CURRENCIES
 
@@ -74,3 +75,35 @@ def normalize_header(label: object) -> str:
     importer and silently go missing on the other.
     """
     return " ".join(str(label).split()).casefold() if label is not None else ""
+
+
+def match_headers(
+    headers: list[object],
+    field_headers: Mapping[str, Sequence[str]],
+    required: Container[str],
+) -> tuple[dict[str, int], list[str]]:
+    """Canonical field -> column index, plus the canonical labels of any
+    required field with no column.
+
+    **The one header matcher for both importers**, for the reason
+    `normalize_header` above is the one normaliser: the two spelled out the
+    same nested loop, and a fix to how a label is matched has to land in both
+    or it has not landed. The sheet layouts stay apart — each importer owns its
+    own `FIELD_HEADERS` and `REQUIRED_FIELDS`, which is where they genuinely
+    differ — and so does the refusal, because the two raise different
+    exceptions with different wording. This returns what is missing; the
+    caller decides what to say about it.
+
+    Labels are matched best-first: the first label a field lists that appears
+    in the header row wins, so a sheet carrying both an old and a new spelling
+    resolves to the preferred one rather than to whichever came first.
+    """
+    normalized = [normalize_header(h) for h in headers]
+    index: dict[str, int] = {}
+    for field, labels in field_headers.items():
+        for label in labels:
+            if label in normalized:
+                index[field] = normalized.index(label)
+                break
+    missing = sorted(field_headers[f][0] for f in field_headers if f in required and f not in index)
+    return index, missing

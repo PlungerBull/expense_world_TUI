@@ -9,6 +9,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Static
 
 from expense.commands._resource import format_field_value
+from expense.tui.widgets.windowed import CURSOR_STYLE
 
 
 class SnapshotModal(ModalScreen):
@@ -230,7 +231,7 @@ class PickerModal(ModalScreen[object]):
         if not self._pool:
             line.append("no matches — pick something that exists", style="dim")
         for k, (_id, name) in enumerate(self._pool[:12]):
-            line.append(f" {name} ", style="reverse" if k == self._idx else "")
+            line.append(f" {name} ", style=CURSOR_STYLE if k == self._idx else "")
             line.append("  ")
         if len(self._pool) > 12:
             line.append(f"… {len(self._pool) - 12} more", style="dim")

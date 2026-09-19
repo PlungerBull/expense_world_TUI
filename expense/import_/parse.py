@@ -94,19 +94,12 @@ class ImportFormatError(Exception):
 
 def build_column_index(headers: list[object]) -> dict[str, int]:
     """Map each canonical field to its column index by matching header labels."""
-    norm = [mapping.normalize_header(h) for h in headers]
-    index: dict[str, int] = {}
-    for field, labels in mapping.FIELD_HEADERS.items():
-        for label in labels:
-            if label in norm:
-                index[field] = norm.index(label)
-                break
-    missing = mapping.REQUIRED_FIELDS - index.keys()
+    index, missing = mapping.match_headers(headers, mapping.FIELD_HEADERS, mapping.REQUIRED_FIELDS)
     if missing:
-        wanted = ", ".join(sorted(mapping.FIELD_HEADERS[m][0] for m in missing))
         found = ", ".join(str(h) for h in headers if h is not None)
         raise ImportFormatError(
-            f"Spreadsheet is missing required column(s): {wanted}. Found headers: {found}"
+            f"Spreadsheet is missing required column(s): {', '.join(missing)}. "
+            f"Found headers: {found}"
         )
     return index
 

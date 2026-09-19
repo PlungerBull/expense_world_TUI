@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 import typer
@@ -19,16 +18,18 @@ from expense.commands._resource import (
     format_bool,
     format_cents,
     items_of,
+    query_params,
     render_pagination_hint,
     render_record,
     render_table,
-    require_yes,
+    run_delete,
     run_toggle,
 )
 from expense.context import get_verbose
 from expense.dates import now_local_iso, to_canonical_aware
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Bank accounts.", no_args_is_help=True)
 
@@ -37,7 +38,7 @@ _RESOURCE = "accounts"
 
 def _render_account_list(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -89,17 +90,13 @@ def fetch_accounts(
     Without limit/offset the body is the flat list internal consumers rely on;
     with either set it's the standard {items,total,limit,offset} envelope.
     """
-    params: dict = {}
-    if include_archived:
-        params["include_archived"] = "true"
-    if include_deleted:
-        params["include_deleted"] = "true"
-    if include_people:
-        params["include_people"] = "true"
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
+    params = query_params(
+        include_archived=include_archived,
+        include_deleted=include_deleted,
+        include_people=include_people,
+        limit=limit,
+        offset=offset,
+    )
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -363,23 +360,20 @@ def delete(
 
     Example: expense accounts delete <account-id> --yes
     """
-    require_yes(yes, f"Delete account {id_}? This is for cleanup/mistakes only.")
-
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.delete(f"/{_RESOURCE}/{id_}")
-        except EngineError as err:
-            if err.status == 409:
-                typer.echo(
-                    f"Hint: This account has transactions and cannot be deleted. "
-                    f"Try 'expense accounts archive {id_}' to retire it instead.",
-                    err=True,
-                )
-            raise
-    render_record(body, json_mode=json_output)
+    run_delete(
+        ctx,
+        resource=_RESOURCE,
+        id_=id_,
+        confirm=f"Delete account {id_}? This is for cleanup/mistakes only.",
+        yes=yes,
+        json_output=json_output,
+        hints={
+            409: (
+                f"Hint: This account has transactions and cannot be deleted. "
+                f"Try 'expense accounts archive {id_}' to retire it instead."
+            )
+        },
+    )
 
 
 @app.command("restore")

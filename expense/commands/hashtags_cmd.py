@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 import typer
@@ -15,15 +14,17 @@ from expense.commands._resource import (
     fetch_body,
     format_bool,
     items_of,
+    query_params,
     render_pagination_hint,
     render_record,
     render_table,
-    require_yes,
+    run_delete,
     run_toggle,
 )
 from expense.context import get_verbose
 from expense.errors import handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Hashtags.", no_args_is_help=True)
 
@@ -32,7 +33,7 @@ _RESOURCE = "hashtags"
 
 def _render_hashtag_list(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -68,13 +69,7 @@ def fetch_hashtags(
 
     Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
     """
-    params: dict = {}
-    if include_deleted:
-        params["include_deleted"] = "true"
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
+    params = query_params(include_deleted=include_deleted, limit=limit, offset=offset)
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -191,18 +186,17 @@ def delete(
 
     Example: expense hashtags delete <hashtag-id> --yes
     """
-    require_yes(
-        yes,
-        f"Delete hashtag {id_}? Junction rows on transactions will be cascaded "
-        "(restore does not undo this).",
+    run_delete(
+        ctx,
+        resource=_RESOURCE,
+        id_=id_,
+        confirm=(
+            f"Delete hashtag {id_}? Junction rows on transactions will be cascaded "
+            "(restore does not undo this)."
+        ),
+        yes=yes,
+        json_output=json_output,
     )
-
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        body = client.delete(f"/{_RESOURCE}/{id_}")
-    render_record(body, json_mode=json_output)
 
 
 @app.command("restore")

@@ -25,7 +25,6 @@ line form:
   that back with its staged list, and this prompt is the flat equivalent.
 """
 
-import json
 from dataclasses import asdict
 from uuid import uuid4
 
@@ -49,6 +48,7 @@ from expense.context import get_verbose
 from expense.dates import now_local_iso, to_canonical_aware, today_local
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import json_text
 from expense.quickadd.parse import ParsedLine, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, route
@@ -180,7 +180,7 @@ def _dry_run_json(line: str, parsed: ParsedLine, routing: Routing, body: dict) -
     contract a future consumer reads: the resolved fields, what did not
     resolve and its candidates, and a span per token.
     """
-    return json.dumps(
+    return json_text(
         {
             "line": line,
             "target": routing.target,
@@ -199,8 +199,7 @@ def _dry_run_json(line: str, parsed: ParsedLine, routing: Routing, body: dict) -
                 "unresolved": [asdict(u) for u in parsed.unresolved],
                 "spans": [asdict(s) for s in parsed.spans],
             },
-        },
-        indent=2,
+        }
     )
 
 

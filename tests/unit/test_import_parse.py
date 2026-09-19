@@ -472,7 +472,31 @@ def test_headers_match_through_doubled_interior_spaces():
     assert build_column_index(noisy) == build_column_index(HEADERS)
 
 
-def test_both_importers_share_one_header_normaliser():
+def test_both_importers_share_one_header_matcher():
+    """Both the normaliser and the nested match loop, which the two importers
+    used to spell out separately. The sheet layouts stay their own."""
     from expense.bank_import import parse as bank_parse
 
-    assert bank_parse.normalize_header is mapping.normalize_header
+    assert bank_parse.match_headers is mapping.match_headers
+    assert bank_parse.FIELD_HEADERS is not mapping.FIELD_HEADERS
+
+
+def test_match_headers_reports_missing_fields_by_their_canonical_label():
+    """Against the real sheet mapping: a header row missing `cuenta` names it
+    by its canonical spelling, which is what the refusal prints."""
+    index, missing = mapping.match_headers(
+        ["Fecha", "Monto"], mapping.FIELD_HEADERS, mapping.REQUIRED_FIELDS
+    )
+    assert sorted(index.items()) == [("amount", 1), ("date", 0)]
+    assert "cuenta" in missing and "fecha" not in missing
+    assert missing == sorted(missing)
+
+
+def test_match_headers_takes_the_best_label_a_sheet_offers():
+    """Labels are best-first, so a sheet carrying an old and a new spelling
+    resolves to the preferred one rather than whichever column came first.
+    `title` accepts `descripcion` before `titulo`."""
+    index, _missing = mapping.match_headers(
+        ["Titulo", "Descripcion"], mapping.FIELD_HEADERS, frozenset({"title"})
+    )
+    assert index["title"] == 1

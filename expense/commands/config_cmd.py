@@ -1,11 +1,10 @@
-import json
-
 import typer
 
 from expense import config as config_module
 from expense.commands._resource import YES_OPT, redact_token, require_yes
 from expense.config import Config
 from expense.errors import ConfigInvalidError, handle_errors
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Manage ~/.expense-config", no_args_is_help=True)
 
@@ -94,7 +93,7 @@ def get_cmd(
         data["token"] = _redact_token(cfg.token)
 
     if json_output:
-        typer.echo(json.dumps(data, indent=2, sort_keys=True))
+        emit_json(data, sort_keys=True)
     else:
         for key, value in sorted(data.items()):
             display = value if value is not None else "(not set)"

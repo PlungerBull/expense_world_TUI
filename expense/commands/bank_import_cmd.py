@@ -14,8 +14,7 @@ nothing; the card's PEN and USD rows share one file, so the pick is the card
 and the currency column chooses the leg per row.
 """
 
-import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -34,6 +33,7 @@ from expense.dates import to_canonical_aware
 from expense.errors import EngineError, format_error, handle_errors
 from expense.http import ExpenseClient
 from expense.import_.reader import ImportDependencyError, ImportFileError, read_workbook
+from expense.jsonout import emit_json
 
 #: Rows the preview prints before folding the rest behind `--all`.
 PREVIEW_ROWS = 8
@@ -332,9 +332,75 @@ def excess_lines(excess: list[Excess]) -> list[str]:
     return lines
 
 
-def _json_doc(file: str, group: AccountGroup, verdicts, bad, excess, written=None) -> dict:
+@dataclass(frozen=True)
+class Placement:
+    """Where every row of the file lands — the whole decision, before anything
+    is written. `bank` resolves one of these, then either prints it (dry run)
+    or hands it to `write_placement`."""
+
+    file: str
+    group: AccountGroup
+    rows: list[BankRow]
+    bad: list[BadRow]
+    verdicts: list[Verdict]
+    excess: list[Excess]
+
+    @property
+    def new(self) -> list[Verdict]:
+        """Rows the ledger does not have — the ones `--apply` writes."""
+        return [v for v in self.verdicts if v.new]
+
+    @property
+    def backfill(self) -> list[Verdict]:
+        """Matched ledger rows with no operation code, which the file can give one."""
+        return [v for v in self.verdicts if v.backfill_code]
+
+    @property
+    def has_codes(self) -> bool:
+        return any(r.operation_code for r in self.rows)
+
+
+@dataclass
+class WriteReport:
+    """What `--apply` actually did. A dry run has none of this.
+
+    `ok` is the exit-code question: anything the run could not do — a refused
+    row, a refused code, a batch that stopped early — means exit 1, because a
+    partial import that reports success is one nobody re-runs.
+    """
+
+    codes_written: int = 0
+    code_failures: list[tuple[Verdict, str]] = field(default_factory=list)
+    written: int = 0
+    already_there: int = 0
+    #: The verdicts the engine actually created, for the per-leg count line.
+    created: list[Verdict] = field(default_factory=list)
+    failed: list[tuple[Verdict, str]] = field(default_factory=list)
+    stopped: str | None = None
+    unsent: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return not (self.failed or self.code_failures or self.stopped)
+
+
+def json_doc(placement: Placement, report: WriteReport | None) -> dict:
+    """The placement as one JSON document — the only definition of that shape.
+
+    It used to be built in three places: once for the dry run, then twice more
+    under `--apply`, each mutating this function's result with whichever of
+    `codes_written` / `already_there` / `failed` that fork happened to know
+    about. So `--apply --json` carried `failed` when rows were written and not
+    when none were, and a consumer could not tell a clean run from a key it
+    had never been given. Every key is present on every run now.
+
+    **`written` is null on a dry run and a number under `--apply`** — that is
+    the one shape difference left, and it is the signal for "nothing was
+    attempted" rather than "nothing needed doing".
+    """
+    group = placement.group
     return {
-        "file": file,
+        "file": placement.file,
         "account": group.base,
         "legs": {c: {"id": i, "name": n} for c, (i, n) in group.legs.items()},
         "rows": [
@@ -351,9 +417,9 @@ def _json_doc(file: str, group: AccountGroup, verdicts, bad, excess, written=Non
                 "ledger_id": v.ledger_id,
                 "backfill_code": v.backfill_code,
             }
-            for v in verdicts
+            for v in placement.verdicts
         ],
-        "refused": [{"line": b.line, "reason": b.reason} for b in bad],
+        "refused": [{"line": b.line, "reason": b.reason} for b in placement.bad],
         "excess": [
             {
                 "account": e.account_name,
@@ -362,10 +428,177 @@ def _json_doc(file: str, group: AccountGroup, verdicts, bad, excess, written=Non
                 "ledger": e.ledger_count,
                 "file": e.file_count,
             }
-            for e in excess
+            for e in placement.excess
         ],
-        "written": written,
+        "written": report.written if report else None,
+        "already_there": report.already_there if report else 0,
+        "codes_written": report.codes_written if report else 0,
+        "failed": ([{"line": v.row.line, "error": m} for v, m in report.failed] if report else []),
+        "stopped": report.stopped if report else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# the three passes: place, write, report
+# ---------------------------------------------------------------------------
+def resolve_placement(
+    cfg,
+    *,
+    file: str,
+    account_flag: str | None,
+    quiet: bool,
+    verbose: bool,
+) -> Placement:
+    """Read the sheet, settle which account it belongs to, and match every row
+    against the ledger. Reads only — nothing here writes.
+
+    `quiet` suppresses the human banner and the account prompt's chatter, which
+    is what `--json` wants.
+    """
+    try:
+        sheet = read_workbook(file, sheet_name=SHEET_NAME)
+        rows, bad = parse_bank_sheet(sheet)
+    except (ImportDependencyError, ImportFileError, BankFormatError) as exc:
+        _fail(str(exc))
+    if not rows and not bad:
+        _fail("the sheet has no rows.")
+
+    currencies = sorted({r.currency for r in rows})
+    if rows and not quiet:
+        typer.echo("  " + _file_banner(rows, bad))
+
+    accounts = items_of(accounts_cmd.fetch_accounts(cfg, include_people=False, verbose=verbose))
+    groups = account_groups(accounts)
+    if not groups:
+        _fail("no accounts exist yet — create one first (expense accounts create).")
+    group = choose_group(
+        groups, file_key=Path(file).stem, cfg=cfg, account_flag=account_flag, quiet=quiet
+    )
+
+    missing = [c for c in currencies if c not in group.legs]
+    if missing:
+        held = " and ".join(sorted(group.legs)) or "nothing"
+        n = sum(1 for r in rows if r.currency in missing)
+        _fail(
+            f"{group.base} holds {held} only, and this file has {n} row{'' if n == 1 else 's'} in "
+            f"{' and '.join(missing)}. Pick the card that has both, or an account in that currency."
+        )
+
+    ledger = fetch_ledger(cfg, group.legs, rows, verbose=verbose)
+    verdicts, excess = match_rows(rows, group.legs, ledger)
+    return Placement(file=file, group=group, rows=rows, bad=bad, verdicts=verdicts, excess=excess)
+
+
+def _file_banner(rows: list[BankRow], bad: list[BadRow]) -> str:
+    """`23 rows · 2026-09-01 → 2026-09-12 · S/ 14 · $ 9` — what the file holds,
+    before any of it is placed."""
+    days = sorted(r.date_iso for r in rows)
+    currencies = sorted({r.currency for r in rows})
+    counts = " · ".join(
+        f"{CURRENCY_LABEL.get(c, c)} {sum(1 for r in rows if r.currency == c)}" for c in currencies
+    )
+    codes = " · operation numbers on every row" if all(r.operation_code for r in rows) else ""
+    return f"{len(rows) + len(bad)} rows · {days[0]} → {days[-1]} · {counts}{codes}"
+
+
+def write_placement(cfg, placement: Placement, *, verbose: bool) -> WriteReport:
+    """Write the placement: backfill codes onto matched rows, then post the new
+    ones. Pure plumbing — it prints nothing, so both output forks report the
+    same run rather than each narrating its own half.
+    """
+    report = WriteReport()
+
+    # The backfill: a matched ledger row that has no code gets the file's.
+    # One PUT per row — there is no batch update — and a refusal is reported
+    # by row, never fatal for the rest.
+    backfill = placement.backfill
+    if backfill:
+        with ExpenseClient(cfg, verbose=verbose) as client:
+            for v in backfill:
+                try:
+                    client.put(
+                        f"/transactions/{v.ledger_id}",
+                        json_body={"operation_code": v.backfill_code},
+                    )
+                    report.codes_written += 1
+                except EngineError as err:
+                    report.code_failures.append((v, format_error(err)))
+
+    new = placement.new
+    if not new:
+        return report
+
+    items = [payload_for(v) for v in new]
+    with ExpenseClient(cfg, verbose=verbose, timeout_read=300.0) as client:
+        outcome = post_transaction_batch(client, items)
+
+    report.written = outcome.count(RowResult.CREATED)
+    report.already_there = outcome.count(RowResult.EXISTED)
+    report.failed = [(new[i], msg) for i, msg in outcome.errors.items()]
+    report.created = [v for i, v in enumerate(new) if outcome.results[i] is RowResult.CREATED]
+    if outcome.stopped:
+        report.stopped = outcome.stop_error
+        report.unsent = len(outcome.unsent)
+    return report
+
+
+def render_dry_run(placement: Placement, *, show_all: bool) -> None:
+    """The preview: where every row would land, and what `--apply` would do."""
+    render_preview(
+        placement.verdicts,
+        placement.bad,
+        placement.excess,
+        show_all=show_all,
+        has_codes=placement.has_codes,
+    )
+    new = len(placement.new)
+    typer.echo("")
+    if new:
+        rows_word = f"{new} new row{'' if new == 1 else 's'}"
+        typer.echo(f"  Nothing written. Pass --apply to write the {rows_word}.")
+    else:
+        typer.echo("  Nothing written — the ledger already has every row of this file.")
+
+
+def render_write_header(placement: Placement) -> None:
+    """What `--apply` is about to do. Printed *before* the writes start: a file
+    with hundreds of rows spends real time in `write_placement`, and the old
+    flow put this line up first so that wait has something above it."""
+    typer.echo("  " + summary_line(placement.verdicts, placement.bad))
+    for line in excess_lines(placement.excess):
+        typer.echo("  " + line)
+
+
+def render_write(placement: Placement, report: WriteReport) -> None:
+    """What `--apply` did, in the order it did it."""
+    if placement.backfill:
+        coded = report.codes_written
+        typer.echo(
+            f"  {coded} operation code{'' if coded == 1 else 's'} written onto existing rows"
+        )
+        for v, message in report.code_failures:
+            typer.echo(f"  ! row {v.row.line} (code {v.backfill_code}): {message}")
+
+    if not placement.new:
+        typer.echo("  Nothing new to write — the ledger already has every row of this file.")
+        return
+
+    typer.echo("")
+    line = f"  {report.written} written"
+    if report.written:
+        line += " · " + legs_line(report.created)
+        line += " · all under @Pendiente"
+    typer.echo(line)
+    if report.already_there:
+        typer.echo(
+            f"  {report.already_there} already there — the engine holds that operation number"
+        )
+    for v, message in report.failed:
+        typer.echo(f"  ! row {v.row.line}: {message}")
+    if report.stopped:
+        typer.echo(f"  ! stopped: {report.stopped} — {report.unsent} rows were never sent")
+    if report.written:
+        typer.echo("  Categorise them: expense world → Home → @Pendiente → ⏎")
 
 
 # ---------------------------------------------------------------------------
@@ -400,139 +633,26 @@ def bank(
 
     Example: expense import bank ~/Downloads/"Sueldo Soles.xlsx" --apply
     """
-    try:
-        sheet = read_workbook(file, sheet_name=SHEET_NAME)
-        rows, bad = parse_bank_sheet(sheet)
-    except (ImportDependencyError, ImportFileError, BankFormatError) as exc:
-        _fail(str(exc))
-    if not rows and not bad:
-        _fail("the sheet has no rows.")
-
     cfg = config_module.ensure_loaded()
     verbose = get_verbose(ctx)
-    currencies = sorted({r.currency for r in rows})
-    if rows:
-        days = sorted(r.date_iso for r in rows)
-        counts = " · ".join(
-            f"{CURRENCY_LABEL.get(c, c)} {sum(1 for r in rows if r.currency == c)}"
-            for c in currencies
-        )
-        codes = " · operation numbers on every row" if all(r.operation_code for r in rows) else ""
-        if not json_output:
-            typer.echo(f"  {len(rows) + len(bad)} rows · {days[0]} → {days[-1]} · {counts}{codes}")
 
-    accounts = items_of(accounts_cmd.fetch_accounts(cfg, include_people=False, verbose=verbose))
-    groups = account_groups(accounts)
-    if not groups:
-        _fail("no accounts exist yet — create one first (expense accounts create).")
-    file_key = Path(file).stem
-    group = choose_group(
-        groups, file_key=file_key, cfg=cfg, account_flag=account, quiet=json_output
+    placement = resolve_placement(
+        cfg, file=file, account_flag=account, quiet=json_output, verbose=verbose
     )
-
-    missing = [c for c in currencies if c not in group.legs]
-    if missing:
-        held = " and ".join(sorted(group.legs)) or "nothing"
-        n = sum(1 for r in rows if r.currency in missing)
-        _fail(
-            f"{group.base} holds {held} only, and this file has {n} row{'' if n == 1 else 's'} in "
-            f"{' and '.join(missing)}. Pick the card that has both, or an account in that currency."
-        )
-
-    ledger = fetch_ledger(cfg, group.legs, rows, verbose=verbose)
-    verdicts, excess = match_rows(rows, group.legs, ledger)
-    has_codes = any(r.operation_code for r in rows)
 
     if not apply:
         if json_output:
-            typer.echo(
-                json.dumps(
-                    _json_doc(file, group, verdicts, bad, excess), indent=2, ensure_ascii=False
-                )
-            )
-            return
-        render_preview(verdicts, bad, excess, show_all=show_all, has_codes=has_codes)
-        new = sum(1 for v in verdicts if v.new)
-        typer.echo("")
-        if new:
-            rows_word = f"{new} new row{'' if new == 1 else 's'}"
-            typer.echo(f"  Nothing written. Pass --apply to write the {rows_word}.")
+            emit_json(json_doc(placement, None))
         else:
-            typer.echo("  Nothing written — the ledger already has every row of this file.")
+            render_dry_run(placement, show_all=show_all)
         return
 
-    new = [v for v in verdicts if v.new]
-    backfill = [v for v in verdicts if v.backfill_code]
     if not json_output:
-        typer.echo("  " + summary_line(verdicts, bad))
-        for line in excess_lines(excess):
-            typer.echo("  " + line)
-
-    # The backfill: a matched ledger row that has no code gets the file's.
-    # One PUT per row — there is no batch update — and a refusal is reported
-    # by row, never fatal for the rest.
-    coded = 0
-    code_failures: list[tuple[Verdict, str]] = []
-    if backfill:
-        with ExpenseClient(cfg, verbose=verbose) as client:
-            for v in backfill:
-                try:
-                    client.put(
-                        f"/transactions/{v.ledger_id}",
-                        json_body={"operation_code": v.backfill_code},
-                    )
-                    coded += 1
-                except EngineError as err:
-                    code_failures.append((v, format_error(err)))
-        if not json_output:
-            typer.echo(
-                f"  {coded} operation code{'' if coded == 1 else 's'} written onto existing rows"
-            )
-            for v, message in code_failures:
-                typer.echo(f"  ! row {v.row.line} (code {v.backfill_code}): {message}")
-
-    if not new:
-        if json_output:
-            doc = _json_doc(file, group, verdicts, bad, excess, written=0)
-            doc["codes_written"] = coded
-            typer.echo(json.dumps(doc, indent=2, ensure_ascii=False))
-        else:
-            typer.echo("  Nothing new to write — the ledger already has every row of this file.")
-        if code_failures:
-            raise typer.Exit(code=1)
-        return
-
-    items = [payload_for(v) for v in new]
-    with ExpenseClient(cfg, verbose=verbose, timeout_read=300.0) as client:
-        outcome = post_transaction_batch(client, items)
-
-    written = outcome.count(RowResult.CREATED)
-    existed = outcome.count(RowResult.EXISTED)
-    failed = [(new[i], msg) for i, msg in outcome.errors.items()]
+        render_write_header(placement)
+    report = write_placement(cfg, placement, verbose=verbose)
     if json_output:
-        doc = _json_doc(file, group, verdicts, bad, excess, written=written)
-        doc["already_there"] = existed
-        doc["failed"] = [{"line": v.row.line, "error": m} for v, m in failed]
-        doc["codes_written"] = coded
-        typer.echo(json.dumps(doc, indent=2, ensure_ascii=False))
+        emit_json(json_doc(placement, report))
     else:
-        typer.echo("")
-        line = f"  {written} written"
-        if written:
-            line += " · " + legs_line(
-                [v for i, v in enumerate(new) if outcome.results[i] is RowResult.CREATED]
-            )
-            line += " · all under @Pendiente"
-        typer.echo(line)
-        if existed:
-            typer.echo(f"  {existed} already there — the engine holds that operation number")
-        for v, message in failed:
-            typer.echo(f"  ! row {v.row.line}: {message}")
-        if outcome.stopped:
-            typer.echo(
-                f"  ! stopped: {outcome.stop_error} — {len(outcome.unsent)} rows were never sent"
-            )
-        if written:
-            typer.echo("  Categorise them: expense world → Home → @Pendiente → ⏎")
-    if failed or outcome.stopped or code_failures:
+        render_write(placement, report)
+    if not report.ok:
         raise typer.Exit(code=1)

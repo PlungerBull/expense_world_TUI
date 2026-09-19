@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 import typer
@@ -17,15 +16,17 @@ from expense.commands._resource import (
     fetch_body,
     format_bool,
     items_of,
+    query_params,
     render_pagination_hint,
     render_record,
     render_table,
-    require_yes,
+    run_delete,
     run_toggle,
 )
 from expense.context import get_verbose
-from expense.errors import EngineError, handle_errors
+from expense.errors import handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Categories.", no_args_is_help=True)
 
@@ -35,7 +36,7 @@ _SYSTEM_HINT = "The system category (@Opening) can be renamed but not deleted."
 
 def _render_category_list(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     items = items_of(body)
     if not items:
@@ -76,13 +77,7 @@ def fetch_categories(
 
     Shared by the flat `categories list` command and the TUI's Categories screen.
     """
-    params: dict = {}
-    if include_deleted:
-        params["include_deleted"] = "true"
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
+    params = query_params(include_deleted=include_deleted, limit=limit, offset=offset)
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -205,25 +200,21 @@ def delete(
 
     Example: expense categories delete <category-id> --yes
     """
-    require_yes(yes, f"Delete category {id_}? This is for cleanup/mistakes only.")
-
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.delete(f"/{_RESOURCE}/{id_}")
-        except EngineError as err:
-            if err.status == 403:
-                typer.echo(f"Hint: {_SYSTEM_HINT}", err=True)
-            elif err.status == 409:
-                typer.echo(
-                    "Hint: This category has transactions and cannot be deleted. "
-                    "Recategorize them first if you want to retire it.",
-                    err=True,
-                )
-            raise
-    render_record(body, json_mode=json_output)
+    run_delete(
+        ctx,
+        resource=_RESOURCE,
+        id_=id_,
+        confirm=f"Delete category {id_}? This is for cleanup/mistakes only.",
+        yes=yes,
+        json_output=json_output,
+        hints={
+            403: f"Hint: {_SYSTEM_HINT}",
+            409: (
+                "Hint: This category has transactions and cannot be deleted. "
+                "Recategorize them first if you want to retire it."
+            ),
+        },
+    )
 
 
 @app.command("restore")

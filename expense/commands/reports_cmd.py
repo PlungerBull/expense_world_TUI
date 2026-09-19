@@ -1,23 +1,22 @@
-import json
-
 import typer
 
 from expense import config as config_module
 from expense.commands._resource import (
     JSON_OPT,
+    fetch_body,
     format_aggregate,
     format_month,
     has_aggregate,
-    load_hashtag_name_map,
+    query_params,
+    render_category_table,
     render_table,
     render_totals,
     unconverted_of,
 )
-from expense.commands.dashboard_cmd import hashtag_label
 from expense.context import get_verbose
 from expense.dates import parse_year_month
 from expense.errors import handle_errors
-from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Historical reports.", no_args_is_help=True)
 
@@ -26,65 +25,13 @@ app = typer.Typer(help="Historical reports.", no_args_is_help=True)
 NO_ACTIVITY_MARK = "—"
 
 
-def _render_single_month_categories(categories: list[dict] | None) -> None:
-    """Render the Categories block as an ASCII table.
-
-    Each category's hashtag_breakdown rows render as indented sub-rows in the
-    Name column.
-
-    One amount column, `Home`: the native `spent_cents` was deleted engine-side
-    on 2026-08-05 (a sum across currencies is a number in no currency), so the
-    converted figure is the only one that exists. Rows with nothing spent are
-    dropped; rows the engine could not price say `3 unrated`. Same rules and
-    same column name as `dashboard` — the two tables are read side by side.
-    """
-    typer.echo("Categories:")
-    if not categories:
-        typer.echo("  (no categories)")
-        return
-
-    name_map = load_hashtag_name_map()
-    rows: list[dict[str, str]] = []
-    for cat in categories:
-        cat_unconverted = unconverted_of(cat)
-        if not has_aggregate(cat.get("spent_home_cents"), cat_unconverted):
-            continue
-        rows.append(
-            {
-                "name": cat.get("name") or "(unnamed)",
-                "home": format_aggregate(cat.get("spent_home_cents"), cat_unconverted),
-            }
-        )
-        for sub in cat.get("hashtag_breakdown") or []:
-            sub_unconverted = unconverted_of(sub)
-            if not has_aggregate(sub.get("spent_home_cents"), sub_unconverted):
-                continue
-            ids = sub.get("hashtag_ids") or []
-            rows.append(
-                {
-                    "name": "  " + hashtag_label(ids, name_map),
-                    "home": format_aggregate(sub.get("spent_home_cents"), sub_unconverted),
-                }
-            )
-
-    if not rows:
-        typer.echo("  (no categories)")
-        return
-
-    render_table(
-        headers={"name": "Name", "home": "Home"},
-        rows=rows,
-        align_right={"home"},
-    )
-
-
 def _render_single_month(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     typer.echo(f"Month: {format_month(body.get('month'))}")
     typer.echo("")
-    _render_single_month_categories(body.get("categories"))
+    render_category_table(body.get("categories"))
     typer.echo("")
     render_totals(body.get("totals"))
 
@@ -231,7 +178,7 @@ def format_grid_cell(cell: object) -> str:
 
 def _render_range_table(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
 
     months = body.get("months") or []
@@ -265,9 +212,8 @@ def fetch_single_month(
     verbose: bool = False,
 ) -> dict:
     """GET /v1/reports/monthly for one month → the raw engine body. No rendering."""
-    params = {"year": str(year), "month": str(month)}
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get("/reports/monthly", params=params)
+    params = query_params(year=year, month=month)
+    return fetch_body(cfg, path="/reports/monthly", params=params, verbose=verbose)
 
 
 def fetch_range(
@@ -282,14 +228,13 @@ def fetch_range(
     Range rules (inverted range, max span) are the engine's — invalid ranges
     are sent as-is so its 422 surfaces.
     """
-    params = {
-        "from_year": str(from_ym[0]),
-        "from_month": str(from_ym[1]),
-        "to_year": str(to_ym[0]),
-        "to_month": str(to_ym[1]),
-    }
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get("/reports/monthly", params=params)
+    params = query_params(
+        from_year=from_ym[0],
+        from_month=from_ym[1],
+        to_year=to_ym[0],
+        to_month=to_ym[1],
+    )
+    return fetch_body(cfg, path="/reports/monthly", params=params, verbose=verbose)
 
 
 def run_single_month(

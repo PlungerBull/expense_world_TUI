@@ -5,7 +5,6 @@ nothing. With --apply, resolves-or-creates accounts/categories/hashtags by name
 and writes transactions through the atomic batch endpoint.
 """
 
-import json
 from collections import Counter
 
 import typer
@@ -19,6 +18,7 @@ from expense.import_ import apply as apply_mod
 from expense.import_ import plan as plan_mod
 from expense.import_.parse import ImportFormatError, parse_sheet
 from expense.import_.reader import ImportDependencyError, ImportFileError, read_workbook
+from expense.jsonout import emit_json
 
 
 # sanctioned exception — see cli-spec.md "Sanctioned exceptions": import's
@@ -26,34 +26,29 @@ from expense.import_.reader import ImportDependencyError, ImportFileError, read_
 # many engine calls, so there is no single engine response to pass through.
 def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
     if json_output:
-        typer.echo(
-            json.dumps(
-                {
-                    "valid_rows": len(plan.rows),
-                    "skipped": [
-                        {"line": s.line, "reason": s.reason, "detail": s.detail}
-                        for s in plan.skipped
-                    ],
-                    "accounts": [
-                        {"name": a.name, "currency": a.currency, "source_name": a.source_name}
-                        for a in plan.accounts
-                    ],
-                    "categories": plan.categories,
-                    "hashtags": plan.hashtags,
-                    "opening_balances": [
-                        {
-                            "line": o.line,
-                            "account": o.account,
-                            "currency": o.currency,
-                            "amount_cents": o.amount_cents,
-                            "date": o.date_iso,
-                        }
-                        for o in plan.openings
-                    ],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
+        emit_json(
+            {
+                "valid_rows": len(plan.rows),
+                "skipped": [
+                    {"line": s.line, "reason": s.reason, "detail": s.detail} for s in plan.skipped
+                ],
+                "accounts": [
+                    {"name": a.name, "currency": a.currency, "source_name": a.source_name}
+                    for a in plan.accounts
+                ],
+                "categories": plan.categories,
+                "hashtags": plan.hashtags,
+                "opening_balances": [
+                    {
+                        "line": o.line,
+                        "account": o.account,
+                        "currency": o.currency,
+                        "amount_cents": o.amount_cents,
+                        "date": o.date_iso,
+                    }
+                    for o in plan.openings
+                ],
+            }
         )
         return
 
@@ -88,27 +83,23 @@ def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
 def _render_result(result: apply_mod.ApplyResult, *, json_output: bool) -> None:
     res = result.resolve
     if json_output:
-        typer.echo(
-            json.dumps(
-                {
-                    "accounts_created": res.accounts_created,
-                    "accounts_reused": res.accounts_reused,
-                    "categories_created": res.categories_created,
-                    "categories_reused": res.categories_reused,
-                    "hashtags_created": res.hashtags_created,
-                    "hashtags_reused": res.hashtags_reused,
-                    "resolve_failures": res.resolve_failures,
-                    "tx_created": result.tx_created,
-                    "tx_skipped_existing": result.tx_skipped_existing,
-                    "tx_failed": result.tx_failed,
-                    "opening_created": result.opening_created,
-                    "opening_skipped_existing": result.opening_skipped_existing,
-                    "opening_failed": result.opening_failed,
-                    "failures": [{"chunk": c, "error": m} for c, m in result.failures],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
+        emit_json(
+            {
+                "accounts_created": res.accounts_created,
+                "accounts_reused": res.accounts_reused,
+                "categories_created": res.categories_created,
+                "categories_reused": res.categories_reused,
+                "hashtags_created": res.hashtags_created,
+                "hashtags_reused": res.hashtags_reused,
+                "resolve_failures": res.resolve_failures,
+                "tx_created": result.tx_created,
+                "tx_skipped_existing": result.tx_skipped_existing,
+                "tx_failed": result.tx_failed,
+                "opening_created": result.opening_created,
+                "opening_skipped_existing": result.opening_skipped_existing,
+                "opening_failed": result.opening_failed,
+                "failures": [{"chunk": c, "error": m} for c, m in result.failures],
+            }
         )
         return
 

@@ -18,7 +18,7 @@ from expense.batch_write import (
     RowResult,
     post_transaction_batch,
 )
-from expense.commands._resource import fetch_all_pages
+from expense.commands._resource import fetch_all_pages, query_params
 from expense.dates import to_canonical_aware
 from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.http import ExpenseClient
@@ -66,9 +66,7 @@ def _list_all(
     `include_archived` applies to accounts only — the only archivable resource
     since the 2026-08-06 engine schema slimming.
     """
-    params: dict = {}
-    if include_archived:
-        params["include_archived"] = "true"
+    params = query_params(include_archived=include_archived)
     return fetch_all_pages(
         lambda limit, offset: client.get(
             f"/{resource}",

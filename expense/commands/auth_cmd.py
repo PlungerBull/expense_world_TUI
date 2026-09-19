@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import typer
@@ -10,6 +9,7 @@ from expense.config import Config
 from expense.context import get_verbose
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
+from expense.jsonout import emit_json
 
 app = typer.Typer(help="Authentication, identity, and settings.", no_args_is_help=True)
 
@@ -29,7 +29,7 @@ def _detect_timezone(localtime: Path = Path("/etc/localtime")) -> str:
 
 def _render_user_and_settings(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     user = body.get("user", {}) or {}
     settings = body.get("settings", {}) or {}
@@ -45,7 +45,7 @@ def _render_user_and_settings(body: dict, *, json_mode: bool) -> None:
 
 def _render_settings_only(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     typer.echo("Settings:")
     for key, value in body.items():
@@ -55,7 +55,7 @@ def _render_settings_only(body: dict, *, json_mode: bool) -> None:
 
 def _render_user_only(body: dict, *, json_mode: bool) -> None:
     if json_mode:
-        typer.echo(json.dumps(body, indent=2))
+        emit_json(body)
         return
     typer.echo("User:")
     for key, value in body.items():

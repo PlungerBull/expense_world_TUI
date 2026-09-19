@@ -35,33 +35,12 @@ from rich.text import Text
 from textual.binding import Binding
 from textual.message import Message
 from textual.strip import Strip
-from textual.widgets import OptionList, Static
+from textual.widgets import OptionList
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS
+from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList, page_indicator
 
-
-def page_indicator(
-    start: int, shown: int, total: int, page_size: int, *, unit: str = "rows"
-) -> str | None:
-    """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all."""
-    if total <= page_size:
-        return None
-    page = start // page_size + 1
-    pages = -(-total // page_size)  # ceil
-    return f"{unit} {start + 1}-{start + shown} of {total} · page {page} of {pages}"
-
-
-#: How "you are here" is drawn, app-wide: reverse video — the terminal's own
-#: foreground and background, swapped. Colour-free, so it is correct on a dark,
-#: light or Solarized ground by construction rather than by detection (the ANSI
-#: palette decision, 2026-08-19).
-#:
-#: It must be applied as a **Rich style**, never as a Textual `text-style` rule.
-#: Textual 8.2.7 drops `reverse` from `get_visual_style()` when foreground and
-#: background are both `ansi_default` — which is exactly our theme — so a CSS
-#: cursor renders identically to an unselected row. That is what made the home
-#: menu cursor invisible until 2026-08-20; see `CursorOptionList` below.
-CURSOR_STYLE = "reverse"
+__all__ = ["CURSOR_STYLE", "CursorList", "CursorOptionList", "Row", "RowInput", "page_indicator"]
 
 
 class Row(NamedTuple):
@@ -88,8 +67,7 @@ class Row(NamedTuple):
 RowInput = Row | tuple
 
 
-class CursorList(Static):
-    can_focus = True
+class CursorList(WindowedList):
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
         # footer slot (user, 2026-08-20 — "its obvious and it just occupies space
@@ -186,15 +164,11 @@ class CursorList(Static):
         pre-truncated shorter than its column. Left empty (every list but the
         ledger), Rich spreads the slack over every column in proportion to the
         content it measured, as before."""
-        super().__init__()
+        super().__init__([Row.coerce(r) for r in rows], empty=empty, page_size=page_size)
         self._headers = list(headers)
-        self._rows: list[Row] = [Row.coerce(r) for r in rows]
         self._align = set(align_right)
         self._flex = dict(flex or {})
-        self._empty = empty
-        self._page_size = page_size
         self._page_meta = page_meta
-        self._cursor = 0
         if title is not None:
             self.border_title = title
 
@@ -207,10 +181,6 @@ class CursorList(Static):
         self._cursor = min(self._cursor, max(0, len(self._rows) - 1))
         self._refresh()
 
-    @property
-    def cursor_key(self) -> object | None:
-        return self._rows[self._cursor].key if self._rows else None
-
     def index_of(self, key: object) -> int:
         for i, row in enumerate(self._rows):
             if row.key == key:
@@ -222,32 +192,18 @@ class CursorList(Static):
             self._cursor = max(0, min(len(self._rows) - 1, index))
             self._refresh()
 
-    def set_page_size(self, page_size: int) -> None:
-        """Adaptive rows (2026-07-13): the screen re-measures on terminal resize.
-        Window mode re-slices around the cursor here; fetched-page screens
-        refetch and rebuild the widget instead."""
-        if page_size < 1 or page_size == self._page_size:
-            return
-        self._page_size = page_size
-        self._refresh()
-
-    @property
-    def _window_start(self) -> int:
-        return (self._cursor // self._page_size) * self._page_size
-
     @property
     def page_status(self) -> str | None:
-        """The border-subtitle string, or None when everything fits one page."""
+        """The border-subtitle string, or None when everything fits one page.
+
+        Fetched-page mode counts against the engine's total, not the page in
+        hand: `_rows` is one page, and `rows 21-40 of 40` would claim the list
+        ends where the fetch did.
+        """
         if self._page_meta is not None:
             offset, total = self._page_meta
             return page_indicator(offset, len(self._rows), total, self._page_size)
-        start = self._window_start
-        shown = min(self._page_size, len(self._rows) - start)
-        return page_indicator(start, shown, len(self._rows), self._page_size)
-
-    def _refresh(self) -> None:
-        self.border_subtitle = self.page_status or ""
-        self.update(self._build())
+        return super().page_status
 
     @staticmethod
     def _cell(value: object) -> object:
@@ -265,33 +221,21 @@ class CursorList(Static):
                 no_wrap=True,
                 ratio=self._flex.get(i),
             )
-        start = self._window_start
-        for r, row in enumerate(self._rows[start : start + self._page_size], start=start):
+        start, window = self._window()
+        for r, row in enumerate(window, start=start):
             style = CURSOR_STYLE if r == self._cursor else row.base_style
             t.add_row(*[self._cell(c) for c in row.cells], style=style)
         return t
 
-    def action_move(self, delta: int) -> None:
-        if not self._rows:
-            return
-        new = max(0, min(len(self._rows) - 1, self._cursor + delta))
-        if new != self._cursor:
-            self._cursor = new
-            self._refresh()
-            self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))
+    def _cursor_moved(self) -> None:
+        self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))
 
     def action_page(self, delta: int) -> None:
         if self._page_meta is not None:
             # fetched-page mode: the screen owns the data; ask it to turn.
             self.post_message(self.PageRequested(self, delta))
             return
-        if not self._rows:
-            return
-        new = max(0, min(len(self._rows) - 1, self._cursor + delta * self._page_size))
-        if new != self._cursor:
-            self._cursor = new
-            self._refresh()
-            self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))
+        super().action_page(delta)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "page":  # hide the page keys when one page holds it all
