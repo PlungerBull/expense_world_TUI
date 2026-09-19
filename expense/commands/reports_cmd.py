@@ -118,8 +118,7 @@ def _totals_cell(totals: dict, key: str) -> dict:
 
     All three figures share the month's single `unconverted_count`, so they fail
     together: an unpriceable month reports `3 unrated` on every row rather than a
-    partial total on some — the rule `_totals_table` used to enforce on the
-    Outstanding screen before the merge deleted it.
+    partial total on some.
     """
     return {
         "cents": totals.get(f"{key}_home_cents"),
@@ -161,10 +160,9 @@ def build_range_grid(months: list[dict]) -> dict:
                      "net":     {label: ...}},
         }
 
-    `totals` carries all three `TOTALS_KEYS` (it was `net`-only until the Overview
-    merge on 2026-08-29 — the flat range table drew one footer row and had no
-    reason to want more; Outstanding Amounts owned inflow/outflow, and when that
-    screen was folded in, the figures had to come from here or be computed twice).
+    `totals` carries all three `TOTALS_KEYS` — the flat range table draws only
+    `net`, but Home's grid needs inflow and outflow, and computing them twice
+    would be two places to get the `unconverted_count` rule wrong.
     """
     labels = [format_month(m.get("month")) for m in months]
 

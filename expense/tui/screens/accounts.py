@@ -2,8 +2,9 @@
 
 Built on SectionScreen + the shared CursorList. Includes people and archived
 accounts (archived rows dimmed); the Color column renders the account's hex
-color as a swatch. Native-currency balances (home equivalents live in
-Outstanding Amounts). `n` creates; `e` edits the cursor row (prefilled
+color as a swatch. Balances are native currency — no surface converts an
+account balance to the home currency (see `dashboard_cmd._render_account_table`
+for why). `n` creates; `e` edits the cursor row (prefilled
 EditAccountScreen); `a` toggles archive immediately — a second `a` undoes.
 `enter` does nothing.
 """
@@ -41,7 +42,7 @@ class AccountsScreen(ResourceListScreen):
     TITLE = "Accounts — banks & people"
     HEADERS = _HEADERS
     EMPTY = "(no accounts)"
-    LEGEND = "balances are native currency · home equivalents in Outstanding Amounts"
+    LEGEND = "balances are native currency"
     ALIGN_RIGHT = {4}
     RESOURCE = "accounts"
     # Accounts are the only archivable resource since the 2026-08-06 engine

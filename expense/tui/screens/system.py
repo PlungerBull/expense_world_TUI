@@ -309,7 +309,6 @@ class RatesScreen(PagedListMixin, SectionScreen):
     to the terminal): newest first, one row per currency pair per day.
     Cross-currency writes convert automatically engine-side, so this is
     reference data only. `f` filters to an exact day; blank enter clears.
-    Replaced the t/b/d letter-jump lookup per the approved v2 mockup.
     """
 
     crumb = ("System", "Rates")

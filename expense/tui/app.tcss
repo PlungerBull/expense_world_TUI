@@ -40,7 +40,7 @@ Screen {
     padding: 0 1;
 }
 
-/* ---- section interface (Outstanding Amounts) ---- */
+/* ---- section interface (SectionScreen: crumb + card + legend) ---- */
 #crumb {
     padding: 1 2;
     color: $text-muted;

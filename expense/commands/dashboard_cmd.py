@@ -187,8 +187,7 @@ def fetch_dashboard(
 ) -> dict:
     """GET /v1/dashboard → the raw engine body. Pure data, no rendering.
 
-    Shared by the flat `dashboard` command and the TUI's Outstanding Amounts
-    screen — the fetch/print split that lets both consume the same dict.
+    Split from the rendering so the flat command and the TUI share one fetch.
     """
     params: dict = {}
     if include_archived:

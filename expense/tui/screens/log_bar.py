@@ -18,9 +18,7 @@ saying which row. What that means when only some of it lands is four owner
 calls, recorded in docs/decisions.md "What a half-written batch means": the
 screen stays and the ticks are the receipt, a retry re-sends only the rows
 without one, an unstaged line in the bar is never written, and the discard
-card's `ctrl+s save first` leaves only if the save succeeds. (Until 2026-09-12
-the save had a second half — one `POST /inbox` per draft. The Inbox is gone:
-docs/decisions.md "The Inbox is deleted".)
+card's `ctrl+s save first` leaves only if the save succeeds.
 
 **The account peek** (2026-08-29, docs/mockups/expense-world-log-account-peek.html):
 the moment the line names an account, that account's posted ledger fills the
@@ -836,8 +834,9 @@ class LogBarScreen(Screen):
 
         Not `EngineWriteMixin.run_write`: that is one request per queued item,
         it drops the response, and it clears the queue on the first error —
-        none of which fits a batch with a per-row fallback. The worker still
-        runs in run_write's `engine-write` group, so it cannot race one.
+        none of which fits a batch with a per-row fallback. Overlapping saves
+        are held off by `_saving`, not by the worker group: `group=` without
+        `exclusive=True` serializes nothing.
         """
         # lazy, like every other write site: the test fixture patches
         # `expense.http.ExpenseClient` and only an in-function lookup sees it

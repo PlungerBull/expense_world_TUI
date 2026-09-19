@@ -68,10 +68,10 @@ class NameMaps:
     """Id → name for the three reference lists an activity page keeps naming.
 
     A page of activity is mostly rows about accounts, categories and hashtags,
-    and each one used to cost a live `GET /<kind>/<id>` — two for a
+    and resolving each one alone costs a live `GET /<kind>/<id>` — two for a
     reconciliation, which also reads its account. The three whole lists are
-    small and bounded, so reading them once per page replaces one-to-two
-    engine reads per row with three for the page.
+    small and bounded, so reading them once per page costs three engine reads
+    instead of one-to-two per row.
 
     Not a general cache: transactions and reconciliations have no listing
     cheap enough to preload and still resolve one read at a time, and an id

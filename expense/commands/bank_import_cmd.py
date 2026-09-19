@@ -533,6 +533,6 @@ def bank(
                 f"  ! stopped: {outcome.stop_error} — {len(outcome.unsent)} rows were never sent"
             )
         if written:
-            typer.echo("  Categorise them: expense world → Transactions → p")
+            typer.echo("  Categorise them: expense world → Home → @Pendiente → ⏎")
     if failed or outcome.stopped or code_failures:
         raise typer.Exit(code=1)

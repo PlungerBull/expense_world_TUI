@@ -4,11 +4,9 @@ One input bar cycles through fields; a summary fills below. Entity fields
 (account/category/hashtags) show a live-filtered suggestion list — pick
 existing entities only.
 
-**Edit only, since quick-add phase 4 (2026-08-25).** This screen had a second
-hat — opened with no record it was a *create* form, and `+` opened it that way.
-`+` now opens the LOG bar ([log_bar.py](log_bar.py)) and the create hat is
-gone; nothing else about the file changed
-(docs/mockups/expense-world-two-doors.html). Why the edit form stays: an
+**Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)); this screen
+is reached by `⏎` on an existing row (quick-add phase 4, 2026-08-25,
+docs/mockups/expense-world-two-doors.html). Why the edit form stays: an
 existing row has an id, a version and possibly a completed reconciliation
 freezing four of its fields, so the write is a PUT of just what changed; most
 rows — every one the xlsx importer made — were never a typed line and have
@@ -17,8 +15,7 @@ less.
 
 Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
-only the changed fields. (`Cleared` was here until 2026-08-17 — the engine
-deleted the column.)
+only the changed fields.
 
 `enter` saves & advances · `↑/↓` move the suggestion highlight · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the

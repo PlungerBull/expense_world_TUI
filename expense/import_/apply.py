@@ -90,8 +90,8 @@ def _resolve_each(
 ) -> tuple[dict, int, int, list[str]]:
     """Resolve each wanted spec against `existing` (reuse) or POST it (create).
 
-    Returns (key → id, created, reused, failures). One copy of the resolve-or-POST
-    loop the three resource blocks below used to paste (backlog 6.4d). `existing`
+    Returns (key → id, created, reused, failures). The one copy of the
+    resolve-or-POST loop the three resource blocks below share. `existing`
     is mutated so a duplicate spec reuses the row created for the first one;
     `payload_of(spec, i)` gets the enumerate index (categories' palette).
 
@@ -103,8 +103,8 @@ def _resolve_each(
     whose engine name may carry a currency suffix the sheet never had.
 
     A per-spec `EngineError` (422/409/5xx-after-retries) is collected via
-    `describe(spec)` and the loop continues — one bad resource no longer aborts
-    the whole import (backlog 6.4d follow-up). An `EngineConnectionError`
+    `describe(spec)` and the loop continues, so one bad resource does not abort
+    the whole import. An `EngineConnectionError`
     propagates: the engine is unreachable, so nothing further can succeed and a
     re-run converges once it's back.
     """

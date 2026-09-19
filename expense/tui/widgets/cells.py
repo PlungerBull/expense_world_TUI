@@ -23,22 +23,16 @@ def difference_cell(cents: object, palette: Palette | None) -> str | Text:
     | `None` | **blank** | not checked — no ending balance has been entered |
 
     Zero is the goal state, so it reads as "nothing to see" rather than as a
-    number to check (option H of the Phase 3 sketch). A non-zero difference is
-    sign-colored like every other amount in the TUI (option B) — the sign says
-    which way to look.
+    number to check. A non-zero difference is sign-colored like every other
+    amount in the TUI — the sign says which way to look.
 
-    ⚠️ **`None` must not share the em-dash, and that changed on 2026-09-14.**
-    Until the engine's `sql/040` a null difference was unreachable in practice —
-    it meant "an older engine body" and the defensive branch folded it in with
-    zero. `sql/040` made it a real state with real meaning: the engine stopped
-    inventing a `0` ending balance to compute against, so a null difference now
-    says *nobody has entered the closing figure yet*. That is the opposite of
-    "it balances", and the em-dash was designed to read as "nothing to see,
-    move on" — the exact wrong signal for the one row on the screen that still
-    needs work. A blank cell reads as "not applicable yet", which is what it is.
-
-    Non-int junk goes to the blank too, never to the em-dash: whatever it is,
-    the one thing we must not do is assert that the batch balances.
+    ⚠️ **`None` must not share the em-dash.** A null difference says *nobody has
+    entered the closing figure yet*, which is the opposite of "it balances" —
+    and the em-dash is designed to read as "nothing to see, move on". Non-int
+    junk goes to the blank too: whatever it is, the one thing this cell must
+    not do is assert that the batch balances. Why, with the rejected
+    renderings: docs/decisions.md "A null difference is blank, a zero
+    difference is the em-dash".
     """
     if not isinstance(cents, int) or isinstance(cents, bool):
         return ""

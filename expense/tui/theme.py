@@ -19,12 +19,9 @@ is the bridge. It holds **no app reference**, which is what lets the pure
 row-builders (`account_rows`, `amount_cell`, …) be unit-tested without an app,
 and lets them take `palette=None` to render unstyled.
 
-`PALETTE` is a **constant**, not a lookup. It used to be `resolve_palette(app)`,
-reading `app.current_theme` on every render so a theme switch would repaint —
-but there is one theme and no way to change it (the picker went with the command
-palette, 2026-08-17; the light/dark pair went with the ANSI slots, 2026-08-19),
-so that call provably returned the same value every time. Removed 2026-08-20
-along with the theme-change signal it existed for.
+`PALETTE` is a **constant**, not a lookup: there is one theme and no way to
+change it, so reading `app.current_theme` per render would provably return the
+same value every time.
 
 It is still *derived* from the Theme rather than written out: `_rich` turns
 Textual's `ansi_green` into the `green` Rich wants, so the slots above stay the

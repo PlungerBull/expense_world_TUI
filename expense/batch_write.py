@@ -18,11 +18,6 @@ the engine behaving as specified — batch is all or nothing by design — so th
 client is the right place to decide that a partly-valid import should still
 make progress.
 
-This module's earlier docstring said the endpoint "does not deliver" the index
-the spec promised. That was true of the shape it promised and is no longer true
-of anything: the index is in the key. What the endpoint never promised, and
-still does not, is partial success.
-
 **The result is index-aligned with the items handed in**, and carries no
 vocabulary of its own. That is the whole point of the split: the importer maps
 an index to a sheet line, the LOG bar maps it to a staged row, and neither

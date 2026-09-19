@@ -229,7 +229,7 @@ def test_apply_writes_only_the_new_rows_under_no_category(configured, monkeypatc
         assert item["date"].startswith(("2026-09-11", "2026-09-07"))
     assert items[0]["description"] == "EDO SUSHI BAR             LI"
     assert "3 written · 3 → BCP Signature PEN · all under @Pendiente" in result.output
-    assert "Categorise them: expense world → Transactions → p" in result.output
+    assert "Categorise them: expense world → Home → @Pendiente → ⏎" in result.output
 
 
 @respx.mock

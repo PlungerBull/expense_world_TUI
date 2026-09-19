@@ -69,9 +69,8 @@ def normalize_header(label: object) -> str:
     collapsed to one space.
 
     **The one normaliser for both importers** — `bank_import/parse.py` imports
-    this rather than keeping its own. The two used to disagree on doubled
-    interior spaces (this one only stripped the ends), so a sheet re-exported
-    with `Numero  de  Operacion` matched on the bank side and silently went
-    missing on this one.
+    this rather than keeping its own. Two implementations that disagree on, say,
+    doubled interior spaces (`Numero  de  Operacion`) make a header match on one
+    importer and silently go missing on the other.
     """
     return " ".join(str(label).split()).casefold() if label is not None else ""

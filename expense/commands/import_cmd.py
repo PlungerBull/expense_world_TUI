@@ -176,7 +176,7 @@ def run_import(
     Full re-runs of large already-imported sheets are slower (one request per
     row).
 
-    Example: expense import ~/Downloads/Presupuesto.xlsx
+    Example: expense import sheet ~/Downloads/Presupuesto.xlsx
     """
     try:
         sheet = read_workbook(file)

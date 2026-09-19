@@ -19,7 +19,7 @@ from expense.http import ExpenseClient
 
 # Shared option declarations — one wording for flags repeated across command
 # modules. Never mutate these; a command whose flag means something different
-# declares it inline (e.g. `reconcile reorder --json` skips the editor).
+# declares it inline (e.g. `import sheet --json` emits the plan, not a body).
 JSON_OPT = typer.Option(False, "--json", help="Output the raw engine response as JSON.")
 LIMIT_OPT = typer.Option(
     None,
@@ -260,9 +260,9 @@ def redact_token(token: str) -> str:
 def items_of(body: object) -> list:
     """Rows of a paginated dict (`{"items": [...]}`) or a bare list; [] for anything else.
 
-    The engine's list endpoints return the paginated shape; a few replica/live
-    paths return flat lists. Strict list-or-empty — never hands a dict or None
-    to a row-builder.
+    The engine's list endpoints return the paginated shape; a few (e.g.
+    /accounts) return flat lists. Strict list-or-empty — never hands a dict or
+    None to a row-builder.
     """
     if isinstance(body, dict):
         items = body.get("items")
@@ -279,7 +279,7 @@ DEFAULT_PAGE_ROWS = 20
 def effective_limit(limit: int | None, *, json_mode: bool) -> int | None:
     """The limit a list command sends: DEFAULT_PAGE_ROWS in human mode unless
     the user passed --limit. `--json` requests are left untouched (no default),
-    so the raw body stays exactly what the engine/cache returns today."""
+    so the raw body stays exactly what the engine returns today."""
     return DEFAULT_PAGE_ROWS if limit is None and not json_mode else limit
 
 

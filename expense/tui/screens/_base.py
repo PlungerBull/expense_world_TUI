@@ -62,7 +62,8 @@ class EngineWriteMixin:
 
     A failed write **drops the queued remainder** — those intents were decided
     against a screen state the engine just contradicted; the error callback
-    typically resyncs.
+    typically resyncs. Why, with the rejected alternatives: docs/decisions.md
+    "TUI writes: FIFO queue in EngineWriteMixin, error drops the queue".
     """
 
     _write_queue: deque[_QueuedWrite] | None = None  # lazily created; UI-thread only
@@ -238,10 +239,9 @@ class PagedListMixin:
 class LogTransactionMixin:
     """Adds `+` — jump straight to the LOG bar.
 
-    Replaced the home menu's `Log a transaction` row on 2026-08-20: logging is
-    the thing you do most and a menu row made it the slowest path to it. Bound
-    on Home and Transactions — the screens where "and now write one down" is
-    the obvious next thought. (The Inbox was the third until 2026-09-12.)
+    Logging is the thing you do most, so it is a key, not a menu row
+    (2026-08-20). Bound on Home and Transactions — the screens where "and now
+    write one down" is the obvious next thought.
 
     **It opens the LOG bar, not the bar-cycle form** (quick-add phase 4,
     2026-08-25): one typed line, a staged batch, one save. The form keeps its

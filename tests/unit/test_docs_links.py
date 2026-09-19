@@ -49,3 +49,55 @@ def test_relative_doc_links_resolve():
             elif ENGINE_ROOT.exists() and not resolved.exists():
                 broken.append(f"{doc.relative_to(REPO_ROOT)} -> {target} (engine repo)")
     assert not broken, "Broken relative links:\n  " + "\n  ".join(broken)
+
+
+# ---- decisions.md headings quoted from the source ---------------------------
+# Code points at a decision rather than restating it (CLAUDE.md: the rationale,
+# with rejected alternatives, lives in decisions.md). A pointer is only worth
+# writing if a rename cannot silently orphan it, so the headings quoted from
+# .py files are checked the way the markdown links above are.
+
+DECISIONS = REPO_ROOT / "docs" / "decisions.md"
+PKG = REPO_ROOT / "expense"
+
+# `docs/decisions.md "Some heading"` — the form every pointer in the package
+# uses. The quoted heading may wrap across lines (and across a comment's `#`
+# markers), so the match spans newlines and the whitespace is normalised after.
+# A trailing `.` or `,` inside the quotes is not part of the heading.
+_POINTER = re.compile(r'decisions\.md\s*[,:]?\s*"([^"]{1,160})"')
+_WRAP = re.compile(r"\s*\n\s*#?\s*")
+
+
+def _decision_headings() -> set[str]:
+    heads = set()
+    for line in DECISIONS.read_text().splitlines():
+        if line.startswith("## "):
+            head = line[3:].strip()
+            heads.add(head)
+            # Entries are titled `Thing happened (2026-08-25)`; code cites the
+            # title without the date, which is the stable half.
+            heads.add(re.sub(r"\s*\((?:hardened\s+)?20\d\d-\d\d-\d\d.*\)$", "", head).strip())
+    return heads
+
+
+def _quoted_pointers() -> list[tuple[Path, int, str]]:
+    found = []
+    for path in sorted(PKG.rglob("*.py")):
+        text = path.read_text()
+        for match in _POINTER.finditer(text):
+            heading = _WRAP.sub(" ", match.group(1)).strip().rstrip(" .,")
+            lineno = text.count("\n", 0, match.start()) + 1
+            found.append((path, lineno, heading))
+    return found
+
+
+def test_decision_pointers_in_code_resolve():
+    headings = _decision_headings()
+    broken = [
+        f"{path.relative_to(REPO_ROOT)}:{lineno} -> {quoted!r}"
+        for path, lineno, quoted in _quoted_pointers()
+        if not any(quoted.lower() in head.lower() for head in headings)
+    ]
+    assert not broken, "Quoted decisions.md headings that no longer exist:\n  " + "\n  ".join(
+        broken
+    )
