@@ -423,3 +423,56 @@ def test_opening_id_deterministic_and_line_sensitive():
     other = OpeningRow(3, "SALDO INICIAL", "BCP PEN", "PEN", "2022-12-01", 3500)
     assert plan_mod.tx_id_for(a) == plan_mod.tx_id_for(again)
     assert plan_mod.tx_id_for(a) != plan_mod.tx_id_for(other)
+
+
+# ---- a numeric cell that is not a date at all ------------------------------
+@pytest.mark.parametrize(
+    "value",
+    [
+        1e309,  # float overflow: int(inf) raises OverflowError, not ValueError
+        float("inf"),
+        float("-inf"),
+        10**12,  # a plausible-looking number that is centuries past date.max
+        -(10**12),
+        "1e400",
+    ],
+)
+def test_an_out_of_range_serial_is_a_bad_date_not_a_crash(value):
+    """OverflowError is not ValueError, so an unbounded serial escaped the
+    guard and took the whole import down over one cell."""
+    assert to_iso_date(value) is None
+
+
+def test_the_serial_range_is_exactly_what_date_can_represent():
+    from expense.import_.parse import MAX_EXCEL_SERIAL, MIN_EXCEL_SERIAL
+
+    assert serial_to_iso(MIN_EXCEL_SERIAL) == "0001-01-01"
+    assert serial_to_iso(MAX_EXCEL_SERIAL) == "9999-12-31"
+    for out in (MIN_EXCEL_SERIAL - 1, MAX_EXCEL_SERIAL + 1):
+        with pytest.raises(ValueError):
+            serial_to_iso(out)
+
+
+def test_one_unreadable_date_skips_its_row_and_the_sheet_still_imports():
+    parsed, _, skipped = parse_sheet(_sheet([_row(2, Fecha=1e309), _row(3)]))
+    assert [s.reason for s in skipped] == ["bad-date"]
+    assert [p.line for p in parsed] == [3]
+
+
+# ---- one header normaliser for both importers (A6) -------------------------
+def test_headers_match_through_doubled_interior_spaces():
+    """`normalize_header` collapses runs of whitespace, so a sheet re-exported
+    with a double space in a header still maps. The two importers disagreed on
+    this until they shared the one function."""
+    assert mapping.normalize_header("Numero  de  Operacion") == "numero de operacion"
+    assert mapping.normalize_header(" Fecha\n") == "fecha"
+    assert mapping.normalize_header(None) == ""
+
+    noisy = [f"  {h.upper()}  ".replace(" ", "  ") for h in HEADERS]
+    assert build_column_index(noisy) == build_column_index(HEADERS)
+
+
+def test_both_importers_share_one_header_normaliser():
+    from expense.bank_import import parse as bank_parse
+
+    assert bank_parse.normalize_header is mapping.normalize_header

@@ -188,3 +188,42 @@ def test_clear_without_yes_in_non_tty_errors(tmp_config):
     result = runner.invoke(app, ["clear"])
     assert result.exit_code == 1  # missing confirmation, not CONFIG_MISSING (3)
     assert "non-interactive" in result.output
+
+
+def test_set_preserves_bank_files_which_no_flag_touches(tmp_config):
+    """`config set` rebuilt the Config by naming fields, so every field it has
+    no flag for was dropped — `bank_files` (the file stem → account memory
+    `expense import bank` writes) was wiped by any `config set`."""
+    tmp_config.write_text(
+        json.dumps(
+            {
+                "engine_url": "https://api.example.com",
+                "token": "ewe_pat_old",
+                "bank_files": {"VISA Infinite Sapphire": "BCP Signature"},
+            }
+        )
+    )
+
+    result = runner.invoke(app, ["set", "--token", "ewe_pat_new"])
+    assert result.exit_code == 0, result.output
+
+    cfg = config_module.load()
+    assert cfg.token == "ewe_pat_new"
+    assert cfg.bank_files == {"VISA Infinite Sapphire": "BCP Signature"}
+
+
+def test_set_leaves_every_other_config_field_alone(tmp_config):
+    """The guard that makes the one above general: a field added to Config
+    must survive `config set` without an edit to config_cmd."""
+    runner.invoke(app, ["set", "--engine-url", "https://api.example.com"])
+    before = config_module.load()
+
+    runner.invoke(app, ["set", "--engine-url", "https://other.example.com"])
+    after = config_module.load()
+
+    changed = {
+        field
+        for field in type(before).model_fields
+        if getattr(before, field) != getattr(after, field)
+    }
+    assert changed == {"engine_url"}

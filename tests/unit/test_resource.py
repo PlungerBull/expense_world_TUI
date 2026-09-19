@@ -21,6 +21,7 @@ from expense.commands._resource import (
     format_aggregate,
     format_bool,
     format_cents,
+    format_cents_or_dash,
     format_field_value,
     format_hashtag_cell,
     format_month,
@@ -133,6 +134,24 @@ def test_format_cents_non_int_falls_back_to_str():
     # Booleans are an int subclass but are never amounts — keep them literal.
     assert format_cents(True) == "True"
     assert format_cents("n/a") == "n/a"
+
+
+def test_format_cents_or_dash_splits_absent_from_zero():
+    """`(null)` is deliberately ugly so a null nobody expected gets noticed.
+
+    A reconciliation's `ending_balance_cents` is null whenever you have opened
+    a batch and not yet read the closing figure off the statement (engine
+    sql/040) — ordinary, expected, and not something to shout about. It gets
+    the repo's absent-value mark instead, the same one `format_short_date`
+    uses. The pair below is the whole point: an entered zero is a real
+    statement balance and must never collapse into "not entered".
+    """
+    assert format_cents_or_dash(None) == "—"
+    assert format_cents_or_dash(0) == "0.00"
+    assert format_cents_or_dash(-449_86) == format_cents(-449_86)
+    # `format_cents` itself is untouched — the noisy marker still exists for
+    # every field where a null really would mean something is wrong.
+    assert format_cents(None) == "(null)"
 
 
 # ---------------------------------------------------------------------------

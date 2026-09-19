@@ -122,20 +122,7 @@ per the first rule above, the item itself is gone — git history is the archive
 *(This repo never writes the engine repo. These are contract gaps found by using the
 engine, which is what this CLI exists to do — see CLAUDE.md "Product scope and role".)*
 
-8. **`POST /transactions/batch` does not return the failing item's index.**
-   `engine-spec.md` says it "returns an array of created transaction objects and an
-   array of any validation errors (**with the index of the failing item**)"; it does
-   not. Either the spec describes an intention that was never built, or the shape
-   drifted. **Not a blocker and not urgent** — the workaround is written, shared and
-   tested ([batch_write.py](../expense/batch_write.py): a refused chunk is re-posted one
-   row per batch so the bad row names itself) — but it is exactly the kind of gap this
-   CLI exists to surface before web and iOS inherit it. Found by `expense import`; now
-   also relied on by the TUI's LOG bar, so **two** surfaces depend on the workaround.
-   Related wire-shape note for the same conversation: the spec's error paths say
-   `fields.items[i]…`, implying an `items` key, while every caller sends
-   `{"transactions": [...]}` — worth confirming which is authoritative.
-
-9. **No way to ask which hashtags a category has been used with.** *(user, 2026-08-29:
+8. **No way to ask which hashtags a category has been used with.** *(user, 2026-08-29:
    "can we only suggest hashtags that exist on the category if a category exists?")* A
    hashtag is a flat global label joined only to transactions — there is no category
    link on it and no endpoint that answers this. The only source is the user's own

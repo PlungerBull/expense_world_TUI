@@ -131,13 +131,18 @@ class AuthScreen(SectionScreen):
 
     def fetch(self) -> dict:
         from expense import config as config_module
+        from expense.commands import auth_cmd
         from expense.errors import EngineError
         from expense.http import ExpenseClient
 
         cfg = config_module.ensure_loaded()
         try:
+            # Shared with `expense auth me` — and the shared path is what
+            # caches `main_currency`, which the header's stale-rate check
+            # targets. Reading /auth/me here directly left a TUI-only user
+            # with no cached currency and so no warning, ever.
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                body = client.get("/auth/me")
+                body = auth_cmd.fetch_me(cfg, client=client)
         except EngineError as exc:
             if exc.status == 404:
                 return {"provisioned": False}
@@ -239,8 +244,9 @@ class ActivityScreen(PagedListMixin, SectionScreen):
         return 2  # the "most recent first · ↵ view" legend below (margin-top 1 + text)
 
     def fetch(self) -> dict:
-        # Name resolution is a live engine read per row, so the cells are
-        # computed here in the worker thread — build() must never do HTTP.
+        # Name resolution reads the engine (three reference lists up front,
+        # then a per-row read only for what they cannot answer), so the cells
+        # are computed here in the worker thread — build() must never do HTTP.
         from expense import config as config_module
         from expense.commands import activity_cmd
         from expense.http import ExpenseClient
@@ -249,6 +255,7 @@ class ActivityScreen(PagedListMixin, SectionScreen):
         body = self.fetch_page_body(
             lambda pkw: activity_cmd.fetch_activity(cfg, verbose=self.app._verbose, **pkw)
         )
+        names = activity_cmd.load_name_maps()  # three reads for the page, not per row
         rows: list[tuple[str, list[str]]] = []
         by_id: dict = {}
         with ExpenseClient(cfg, verbose=self.app._verbose) as client:
@@ -257,7 +264,7 @@ class ActivityScreen(PagedListMixin, SectionScreen):
                     continue
                 key = item.get("id") or f"row-{i}"
                 by_id[key] = item
-                rows.append((key, activity_cmd.activity_display_cells(item, client)))
+                rows.append((key, activity_cmd.activity_display_cells(item, client, names)))
         return {"rows": rows, "by_id": by_id}
 
     def build(self, data: dict) -> list[Widget]:

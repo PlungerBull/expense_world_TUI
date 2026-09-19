@@ -10,10 +10,20 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from expense.currencies import MINOR_UNIT_SCALE
 from expense.import_ import mapping
 from expense.import_.reader import RawRow, SheetData
 
 EXCEL_EPOCH = date(1899, 12, 30)
+
+#: The serial day-numbers ``date`` can actually represent, derived from the
+#: epoch rather than guessed. A numeric cell that is not a date at all — a
+#: phone number, ``1e309`` — lands in the date column often enough that an
+#: unbounded serial is a real hazard: ``timedelta`` and ``int(float(...))``
+#: raise OverflowError, which is not ValueError and so used to abort the whole
+#: import instead of skipping one row as ``bad-date``.
+MIN_EXCEL_SERIAL = (date.min - EXCEL_EPOCH).days
+MAX_EXCEL_SERIAL = (date.max - EXCEL_EPOCH).days
 
 
 @dataclass(frozen=True)
@@ -112,8 +122,14 @@ def _clean(value: object) -> str | None:
 
 
 def serial_to_iso(serial: object) -> str:
-    """Excel serial day number -> ``YYYY-MM-DD`` (epoch 1899-12-30)."""
+    """Excel serial day number -> ``YYYY-MM-DD`` (epoch 1899-12-30).
+
+    ValueError for a serial outside the representable range, so a cell that is
+    a number but not a date is one skipped row like any other bad date.
+    """
     days = int(float(serial))
+    if not MIN_EXCEL_SERIAL <= days <= MAX_EXCEL_SERIAL:
+        raise ValueError(f"Excel serial out of range: {days}")
     return (EXCEL_EPOCH + timedelta(days=days)).isoformat()
 
 
@@ -143,7 +159,10 @@ def to_iso_date(value: object) -> str | None:
             pass
     try:
         return serial_to_iso(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError is NOT a ValueError: `int(float("1e309"))` and a
+        # `timedelta` past date.max both raise it, and letting it out would
+        # take down the import over a single unreadable cell.
         return None
 
 
@@ -152,7 +171,7 @@ def amount_to_cents(value: object) -> int:
 
     ``-132.80000000000001`` -> ``-13280``.
     """
-    cents = Decimal(str(value)).scaleb(2)
+    cents = Decimal(str(value)) * MINOR_UNIT_SCALE
     return int(cents.to_integral_value(rounding=ROUND_HALF_UP))
 
 

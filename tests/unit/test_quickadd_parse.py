@@ -377,3 +377,25 @@ def test_fold_is_the_one_copy_every_picker_matches_through():
     assert fold("Café") == "cafe"
     assert matches("nut", "NUTRICIONISTA") and matches("SALUD", "salud")
     assert not matches("xyz", "SALUD")
+
+
+def test_a_bare_sigil_opens_the_picker_even_when_one_candidate_exists():
+    """A bare sigil names nothing, so it cannot resolve — not even against a
+    reference list of one, which is the ordinary state of a new ledger. It
+    used to pick that sole entry and skip the picker it was typed to open."""
+    one_each = dict(
+        accounts=[("a1", "BCP PEN", "PEN")], categories=[("c1", "WANTS")], hashtags=[("t1", "TAXI")]
+    )
+    for sigil, kind in (("$", "account"), ("@", "category"), ("#", "hashtag")):
+        result = parse(f"tottus -5 {sigil}", today=TODAY, **one_each)
+        assert [(u.kind, len(u.candidates)) for u in result.unresolved] == [(kind, 1)]
+    # the account and category are still unset — nothing was silently picked
+    result = parse("tottus -5 $", today=TODAY, **one_each)
+    assert result.account_id is None
+
+
+def test_parse_amount_refuses_non_finite_decimals():
+    """`Decimal` reads "nan" and "inf" happily; `int()` on either raises. A
+    form field must warn on an unreadable amount, not crash."""
+    for text in ("nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"):
+        assert parse_amount(text) is None

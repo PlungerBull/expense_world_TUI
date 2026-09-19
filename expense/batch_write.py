@@ -1,13 +1,27 @@
-"""Post transactions through the atomic batch endpoint, and find out which row failed.
+"""Post transactions through the atomic batch endpoint, and land every good row.
 
-`POST /transactions/batch` is all-or-nothing: a chunk-level 409 ("at least one
-id pre-exists") or 422 ("at least one row is invalid") says nothing about
-WHICH row. The engine spec promises "an array of any validation errors (with
-the index of the failing item)" and does not deliver one — a contract gap this
-repo exists to surface. The workaround, written for `expense import` and
-extracted here in 2026-08-25 so the TUI's LOG bar shares it rather than growing
-a second copy: retry the failed chunk one row per batch, which keeps the
-endpoint's semantics while letting the good rows land.
+`POST /transactions/batch` is all-or-nothing: one bad row in a chunk of 200 and
+none of the 200 are written. The singleton retry — written for `expense import`,
+extracted here 2026-08-25 so the TUI's LOG bar shares it rather than growing a
+second copy — re-posts the refused chunk one row per batch, so the 199 good rows
+land and the bad one is named on its own.
+
+**Why it stays, now that the engine names the failing row** (engine change
+2026-09-13: a 422 from that endpoint carries flat `fields` keys
+`transactions.<index>.<field>`, the same grammar a schema-level rejection has
+always used). Better diagnostics cannot replace this pass, because its job is
+not diagnosis — it is **partial progress out of an atomic endpoint**. A 409
+("a transaction with id X already exists", which is what a re-run after a
+half-written save looks like) refuses the whole chunk and carries no per-row
+key at all; and even a fully-named 422 leaves the good rows unwritten. That is
+the engine behaving as specified — batch is all or nothing by design — so the
+client is the right place to decide that a partly-valid import should still
+make progress.
+
+This module's earlier docstring said the endpoint "does not deliver" the index
+the spec promised. That was true of the shape it promised and is no longer true
+of anything: the index is in the key. What the endpoint never promised, and
+still does not, is partial success.
 
 **The result is index-aligned with the items handed in**, and carries no
 vocabulary of its own. That is the whole point of the split: the importer maps

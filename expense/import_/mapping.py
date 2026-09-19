@@ -65,5 +65,13 @@ CATEGORY_PALETTE = [
 
 
 def normalize_header(label: object) -> str:
-    """Lower-case + strip a header cell for tolerant matching."""
-    return str(label).strip().casefold() if label is not None else ""
+    """Header cell -> its match key: casefolded, every run of whitespace
+    collapsed to one space.
+
+    **The one normaliser for both importers** — `bank_import/parse.py` imports
+    this rather than keeping its own. The two used to disagree on doubled
+    interior spaces (this one only stripped the ends), so a sheet re-exported
+    with `Numero  de  Operacion` matched on the bank side and silently went
+    missing on this one.
+    """
+    return " ".join(str(label).split()).casefold() if label is not None else ""

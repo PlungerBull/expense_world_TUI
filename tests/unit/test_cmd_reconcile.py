@@ -41,9 +41,19 @@ RECON_OFF_RESPONSE = {
     "difference_cents": -3500,
 }
 
+# A batch opened before the statement arrived. Both fields are nullable since
+# the engine's sql/040 (2026-09-14) — it stopped storing a 0 ending balance as
+# a stand-in for "not entered yet" and computing the add-up check against it.
+RECON_UNENTERED_RESPONSE = {
+    **RECON_DRAFT_RESPONSE,
+    "id": "44444444-4444-4444-4444-444444444444",
+    "ending_balance_cents": None,
+    "difference_cents": None,
+}
+
 LIST_RESPONSE = {
-    "items": [RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE],
-    "total": 2,
+    "items": [RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE, RECON_UNENTERED_RESPONSE],
+    "total": 3,
     "limit": 50,
     "offset": 0,
 }
@@ -131,6 +141,36 @@ def test_list_renders_difference_column(configured):
     off = next(line for line in lines if RECON_OFF_RESPONSE["id"] in line)
     assert "0.00" in balanced
     assert "-35.00" in off
+
+
+@respx.mock
+def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
+    """A batch with no closing figure yet reads as absent, not as `(null)`.
+
+    `ending_balance_cents` and `difference_cents` are nullable since the
+    engine's sql/040: before it, an omitted ending balance was stored as 0 and
+    the add-up check was computed against that placeholder, so "not entered"
+    and "the statement says zero" were the same row. Now they differ on the
+    wire, and this asserts they differ on the screen too — the `0.00` on the
+    balanced row is the control.
+    """
+    respx.get("https://api.example.com/v1/reconciliations").mock(
+        return_value=httpx.Response(200, json=LIST_RESPONSE)
+    )
+    result = runner.invoke(cli_app, ["reconcile", "list"])
+    assert result.exit_code == 0, result.output
+
+    lines = result.output.splitlines()
+    unentered = next(line for line in lines if RECON_UNENTERED_RESPONSE["id"] in line)
+    balanced = next(line for line in lines if RECON_DRAFT_RESPONSE["id"] in line)
+
+    assert "(null)" not in unentered, (
+        "an un-entered closing balance is an ordinary state, not a shape error"
+    )
+    assert "—" in unentered
+    # The control: an entered figure of 0 still prints as a number, so the two
+    # states stay distinguishable in the piped table.
+    assert "0.00" in balanced
 
 
 @respx.mock

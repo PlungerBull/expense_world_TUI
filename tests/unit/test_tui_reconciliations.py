@@ -277,3 +277,22 @@ def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypa
             assert app.screen is screen
 
     asyncio.run(scenario())
+
+
+def test_the_account_picker_matches_through_accents_like_every_other_one():
+    """This picker was the last one on a plain `.lower()`, so `bcp credito`
+    found no `BCP Crédito` here while the same text matched in the LOG bar and
+    every modal. One matcher — `quickadd.names.matches` — for all of them."""
+    screen = NewReconciliationScreen()
+    screen._accounts = [
+        ("acc1", "BCP Crédito", "PEN"),
+        ("acc2", "Interbank USD", "USD"),
+    ]
+    screen._current = screen._sequence().index("account")  # `_key` is derived
+
+    for typed in ("credito", "Crédito", "CRÉDITO", "crédito"):
+        screen._recompute(typed)
+        assert [a[0] for a in screen._suggestions] == ["acc1"], typed
+
+    screen._recompute("interbank")
+    assert [a[0] for a in screen._suggestions] == ["acc2"]

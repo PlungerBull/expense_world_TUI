@@ -78,9 +78,14 @@ class Verdict:
 
 @dataclass(frozen=True)
 class Excess:
-    """A (account, date, amount) group where the ledger holds more rows than
-    the file does — the one thing the count rule can detect that nothing else
-    can: an earlier double entry. Reported, never acted on."""
+    """A (account, date, amount) group the file reported and the ledger holds
+    an UNCLAIMED row of — the one thing the count rule can detect that nothing
+    else can: an earlier double entry. Reported, never acted on.
+
+    `ledger_count` and `file_count` are the whole group on both sides (what
+    the preview prints); what makes it an excess is that at least one of those
+    ledger rows survived every rule unmatched.
+    """
 
     account_name: str
     date_iso: str
@@ -203,15 +208,33 @@ def match_rows(
 
     verdicts = [placed[row.line] for row in rows]
 
-    # Groups where the ledger holds MORE on the exact day than the file does.
+    # Groups where the ledger still holds a row NOTHING in the file claimed.
+    #
+    # Derived from the claim set, not from per-day counts. Counting compared
+    # the ledger rows ON a date against the file rows ON that date, but rules
+    # 3-4 let a file row claim a ledger row a day either side — and that file
+    # row is counted on its own date, not on the one it matched. So two ledger
+    # rows on Friday both matched (one by Friday's file row, one by
+    # Saturday's) still read as "ledger 2, file 1" and warned about a double
+    # entry that was fully accounted for.
+    unclaimed: Counter = Counter()
+    for lr in ledger:
+        if lr.id not in claimed:
+            unclaimed[(lr.account_id, lr.date_iso, lr.amount_cents)] += 1
+
     file_groups: Counter = Counter()
     for v in verdicts:
         file_groups[(v.account_id, v.row.date_iso, v.row.amount_cents)] += 1
     names = {account_id: name for account_id, name in legs.values()}
     excess: list[Excess] = []
     for key, file_count in sorted(file_groups.items(), key=lambda kv: (kv[0][1], kv[0][2])):
-        ledger_count = len(by_day_amount.get(key, []))
-        if ledger_count > file_count:
-            account_id, date_iso, amount = key
-            excess.append(Excess(names[account_id], date_iso, amount, ledger_count, file_count))
+        # Only where the file reported the movement too: an unclaimed ledger
+        # row the file never mentions at all is something else (a hand-logged
+        # row, a leg outside the download), not a double entry.
+        if not unclaimed.get(key):
+            continue
+        account_id, date_iso, amount = key
+        excess.append(
+            Excess(names[account_id], date_iso, amount, len(by_day_amount.get(key, [])), file_count)
+        )
     return verdicts, excess

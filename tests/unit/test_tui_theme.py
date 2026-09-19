@@ -81,7 +81,7 @@ def test_pending_carries_weight_not_colour():
 def test_amount_cell_rule_matrix():
     # plain rule, missing palette, or non-int cents → the bare string
     assert amount_cell(100, SYNTHETIC, "plain") == amount_cell(100, None, "sign")
-    assert isinstance(amount_cell(None, SYNTHETIC, "sign"), str)
+    assert isinstance(amount_cell("n/a", SYNTHETIC, "sign"), str)
     # sign: both directions colored
     assert amount_cell(100, SYNTHETIC, "sign").style == SYNTHETIC.success
     assert amount_cell(-100, SYNTHETIC, "sign").style == SYNTHETIC.error
@@ -97,12 +97,48 @@ def test_difference_cell_balances_to_a_dim_dash():
     is the goal state, not a number to check."""
     balanced = difference_cell(0, SYNTHETIC)
     assert str(balanced) == "—" and balanced.style == "dim"
-    # a missing/omitted field reads the same, never a misleading 0.00
-    assert str(difference_cell(None, SYNTHETIC)) == "—"
     # off in either direction: sign-colored like every other amount
     assert difference_cell(-3500, SYNTHETIC).style == SYNTHETIC.error
     assert difference_cell(3500, SYNTHETIC).style == SYNTHETIC.success
     assert str(difference_cell(-3500, SYNTHETIC)) == "-35.00"
+
+
+def test_difference_cell_null_is_blank_not_the_balanced_dash():
+    """Three states, three cells — the engine's sql/040 made null a real one.
+
+    A null difference means "no ending balance entered, so nothing was
+    checked". It used to share the em-dash with a zero difference, which says
+    the opposite: "checked, and it adds up". The em-dash reads as "nothing to
+    see, move on", so an unfinished reconciliation wore the all-clear mark —
+    the one row on the screen that still needed work.
+
+    This test exists because that collapse is invisible: both branches returned
+    a byte-identical dim em-dash, so nothing failed and nothing looked wrong.
+    """
+    assert str(difference_cell(None, SYNTHETIC)) == ""
+    # Junk goes to the blank too — whatever it is, we must not assert "balances".
+    assert str(difference_cell("n/a", SYNTHETIC)) == ""
+    # And the three states stay mutually distinguishable.
+    rendered = {
+        str(difference_cell(None, SYNTHETIC)),
+        str(difference_cell(0, SYNTHETIC)),
+        str(difference_cell(-3500, SYNTHETIC)),
+    }
+    assert len(rendered) == 3, rendered
+
+
+def test_amount_cell_null_is_a_dash_not_the_literal_null():
+    """A reconciliation's `ending_balance_cents` is nullable since sql/040, and
+    it is the only field that can hand `amount_cell` a None today. `(null)` is
+    `format_cents`'s deliberately-ugly marker for "something is off"; an
+    un-entered closing balance is an ordinary every-month state, so it gets the
+    repo's absent-value mark instead (same as `format_short_date`)."""
+    dashed = amount_cell(None, SYNTHETIC, "sign")
+    assert str(dashed) == "—" and dashed.style == "dim"
+    # Palette-less callers get the plain string, same mark.
+    assert amount_cell(None, None, "sign") == "—"
+    # An entered zero is still a real figure, never the dash.
+    assert str(amount_cell(0, SYNTHETIC, "sign")) == "0.00"
 
 
 def test_no_literal_color_styles_in_tui():

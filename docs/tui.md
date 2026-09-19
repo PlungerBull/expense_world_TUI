@@ -26,6 +26,9 @@ expense/tui/
     header.py       # Breadcrumb — slim section header (home banner lives in home.py)
                     #   + rate_alert() — the `!` staleness mark both headers share
     cells.py        # cell renderers: color swatch, sign-colored right-aligned amount_cell
+                    #   absent-value marks: `—` for a null amount, BLANK for a null
+                    #   difference_cents — see decisions.md 2026-09-14, the two are
+                    #   different states and must not share a glyph
     cursor_list.py  # CURSOR_STYLE (reverse video, app-wide) + CursorList — arrow-key
                     #   list (pickers) + CursorOptionList — the home menu
     checklist.py    # CheckList — multi-select (hashtag picker)

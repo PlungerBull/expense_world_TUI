@@ -14,17 +14,34 @@ def swatch(color: object) -> Text:
 
 
 def difference_cell(cents: object, palette: Palette | None) -> str | Text:
-    """A reconciliation's `difference_cents`: a dim em-dash when it balances,
-    the sign-colored figure when it doesn't.
+    """A reconciliation's `difference_cents`, in three distinguishable states.
+
+    | value | cell | means |
+    |---|---|---|
+    | `0` | dim em-dash | checked, and the batch adds up |
+    | non-zero | sign-colored figure | checked, and it is off by this much |
+    | `None` | **blank** | not checked — no ending balance has been entered |
 
     Zero is the goal state, so it reads as "nothing to see" rather than as a
     number to check (option H of the Phase 3 sketch). A non-zero difference is
     sign-colored like every other amount in the TUI (option B) — the sign says
-    which way to look. Missing/non-int (an older engine body) also renders as
-    the em-dash, never as a misleading 0.00.
+    which way to look.
+
+    ⚠️ **`None` must not share the em-dash, and that changed on 2026-09-14.**
+    Until the engine's `sql/040` a null difference was unreachable in practice —
+    it meant "an older engine body" and the defensive branch folded it in with
+    zero. `sql/040` made it a real state with real meaning: the engine stopped
+    inventing a `0` ending balance to compute against, so a null difference now
+    says *nobody has entered the closing figure yet*. That is the opposite of
+    "it balances", and the em-dash was designed to read as "nothing to see,
+    move on" — the exact wrong signal for the one row on the screen that still
+    needs work. A blank cell reads as "not applicable yet", which is what it is.
+
+    Non-int junk goes to the blank too, never to the em-dash: whatever it is,
+    the one thing we must not do is assert that the batch balances.
     """
     if not isinstance(cents, int) or isinstance(cents, bool):
-        return Text("—", style="dim")
+        return ""
     if cents == 0:
         return Text("—", style="dim")
     return amount_cell(cents, palette, "sign")
@@ -36,7 +53,18 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
     Returns the plain string under rule="plain", palette=None, or non-int cents,
     so palette-less callers (and their equality-asserting tests) see today's
     output unchanged. "sign" colors both directions; "income-only" only ≥ 0.
+
+    `None` is a dim em-dash, not `format_cents`'s literal `(null)` — the TUI's
+    mark for an absent value, the same one `format_short_date` already uses.
+    Only one caller can actually hand this a null today (a reconciliation's
+    `ending_balance_cents`, nullable since the engine's `sql/040`); the rest —
+    account balances, transaction amounts, beginning balances — are non-null by
+    engine guarantee. Handling it here rather than at that one call site means
+    no column can ever start printing `(null)` at a user if another field turns
+    nullable later.
     """
+    if cents is None:
+        return Text("—", style="dim") if palette is not None else "—"
     text = format_cents(cents)
     if palette is None or rule == "plain" or not isinstance(cents, int):
         return text

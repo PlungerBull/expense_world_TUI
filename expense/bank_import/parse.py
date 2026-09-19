@@ -7,10 +7,12 @@ Operacion. Dates come as `11/09/2026` on one export and `2026-09-11` on the
 other; currency as `S/` or `$`; amounts as signed numbers, outflows negative,
 which is the engine's own sign convention so nothing is flipped here.
 
-Columns are matched by header name, case- and whitespace-insensitively, the
-way expense/import_/mapping.py does for the personal sheet — one tolerant
-mapping covers both bank files, and a second bank's export is a label added
-here, not a module.
+Columns are matched by header name, case- and whitespace-insensitively, using
+expense/import_/mapping.py's own `normalize_header` — one tolerant mapping
+covers both bank files, and a second bank's export is a label added here, not
+a module. That normaliser is *imported*, not copied: this module kept its own
+until the two drifted apart on doubled interior spaces, so a header the bank
+re-exported as `Numero  de  Operacion` matched here and nowhere else.
 """
 
 import re
@@ -18,7 +20,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from expense.currencies import SUPPORTED_CURRENCIES
+from expense.currencies import MINOR_UNIT_SCALE, SUPPORTED_CURRENCIES
+from expense.import_.mapping import normalize_header
 from expense.import_.parse import to_iso_date
 from expense.import_.reader import SheetData
 
@@ -86,10 +89,6 @@ class BadRow:
 
 class BankFormatError(Exception):
     """The header row is missing a required column."""
-
-
-def normalize_header(label: object) -> str:
-    return " ".join(str(label).split()).casefold() if label is not None else ""
 
 
 def header_index(headers: list[object]) -> dict[str, int]:
@@ -161,7 +160,7 @@ def parse_amount(value: object) -> int | None:
         return None
     try:
         text = str(value).strip().replace(",", "")
-        cents = Decimal(text).scaleb(2)
+        cents = Decimal(text) * MINOR_UNIT_SCALE
     except (ArithmeticError, ValueError):
         return None
     return int(cents.to_integral_value(rounding=ROUND_HALF_UP))
@@ -169,10 +168,21 @@ def parse_amount(value: object) -> int | None:
 
 def parse_operation(value: object) -> str | None:
     """The bank's number as text, zero-padded back to 8 when a cell lost its
-    leading zeros to a numeric type. Blank → None."""
-    if value is None:
+    leading zeros to a numeric type. Blank → None.
+
+    A boolean or a fractional number is **refused**, not coerced: `True` used
+    to fall through and stringify to `"True"`, and `12345.67` truncated to
+    `"12345"`. Either would then be matched against the ledger and written
+    onto a transaction as an operation code the bank never issued — and the
+    engine's per-account UNIQUE on the column (`sql/039`) would make that
+    invented code permanent.
+    """
+    if value is None or isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, (int, float)):
+        # `is_integer` also refuses inf and nan, which `int()` cannot convert.
+        if isinstance(value, float) and not value.is_integer():
+            return None
         return str(int(value)).zfill(8)
     text = str(value).strip()
     if not text or text.casefold() == "none":

@@ -130,6 +130,25 @@ def format_cents(value: object) -> str:
     return f"-{body}" if negative else body
 
 
+def format_cents_or_dash(value: object) -> str:
+    """`format_cents`, but an absent amount is `—` rather than `(null)`.
+
+    For fields where null is a *meaningful state the user will actually see*,
+    not a shape error worth shouting about. `(null)` is the right output when a
+    null means something went wrong — it is deliberately ugly so it gets
+    noticed. It is the wrong output for a reconciliation's `ending_balance_cents`,
+    which is null whenever you have opened a batch and not yet read the closing
+    figure off the statement (engine `sql/040`, 2026-09-14): a normal, expected,
+    every-month state that should not read as a defect.
+
+    `—` is already this repo's mark for an absent value — see `format_short_date`
+    above, and `amount_cell` in the TUI. `0` still renders as `0.00`, because an
+    entered zero is a real statement balance and telling those two apart is the
+    entire point of the engine change this pairs with.
+    """
+    return "—" if value is None else format_cents(value)
+
+
 UNRATED_SUFFIX = "unrated"
 
 

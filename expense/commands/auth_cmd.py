@@ -70,6 +70,30 @@ def _cache_main_currency(cfg: Config, settings: dict) -> None:
         config_module.save(updated)
 
 
+def fetch_me(cfg: Config, *, verbose: bool = False, client: "ExpenseClient | None" = None) -> dict:
+    """GET /v1/auth/me, mirroring the home currency into ~/.expense-config.
+
+    **The one auth-me path**, shared by `expense auth me` and the TUI's Auth &
+    profile screen. The caching is not incidental to the read: the header's
+    stale-rate indicator targets the cached `main_currency`
+    (`tui/app.refresh_rate_status`) and skips the check entirely when there is
+    none. With the TUI reading `/auth/me` on its own, a user who never ran the
+    flat `auth me` had no cached currency and so could never see the warning —
+    the one thing that surface is for.
+
+    Pass `client` to reuse one that is already open; the TUI does, because its
+    screens build clients through a lazily-imported seam. Without it, one is
+    opened and closed here.
+    """
+    if client is not None:
+        body = client.get("/auth/me")
+    else:
+        with ExpenseClient(cfg, verbose=verbose) as opened:
+            body = opened.get("/auth/me")
+    _cache_main_currency(cfg, body.get("settings") or {})
+    return body
+
+
 @app.command("bootstrap")
 @handle_errors
 def bootstrap(
@@ -101,26 +125,23 @@ def bootstrap(
     with ExpenseClient(cfg, verbose=verbose) as client:
         body = client.post("/auth/bootstrap", json_body=payload)
 
-    _cache_main_currency(cfg, body.get("settings", {}))
+    _cache_main_currency(cfg, body.get("settings") or {})
     _render_user_and_settings(body, json_mode=json_output)
 
 
 def _me_impl(ctx: typer.Context, json_output: bool) -> None:
     cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
 
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.get("/auth/me")
-        except EngineError as err:
-            if err.status == 404:
-                typer.echo(
-                    "Run 'expense auth bootstrap' first to create your user record.",
-                    err=True,
-                )
-            raise
+    try:
+        body = fetch_me(cfg, verbose=get_verbose(ctx))
+    except EngineError as err:
+        if err.status == 404:
+            typer.echo(
+                "Run 'expense auth bootstrap' first to create your user record.",
+                err=True,
+            )
+        raise
 
-    _cache_main_currency(cfg, body.get("settings", {}))
     _render_user_and_settings(body, json_mode=json_output)
 
 

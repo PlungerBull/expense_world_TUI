@@ -219,7 +219,11 @@ def parse(
                 count, hits = 1, list(refs[kind])
             last = words[index + count - 1][1]
             typed = body[start:last]
-            resolved = len(hits) == 1
+            # A name is required before anything can resolve. `len(hits) == 1`
+            # alone let a bare `$` pick the only account there is instead of
+            # opening the picker the sigil was typed to open — and a one-entry
+            # reference list is the ordinary state of a new ledger.
+            resolved = bool(head) and len(hits) == 1
             span = Span(kind, start, last, typed, resolved=resolved)
             spans.append(span)
             if resolved:

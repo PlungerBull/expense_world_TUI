@@ -19,6 +19,11 @@ def parse_amount(text: str) -> int | None:
         value = Decimal(text)
     except InvalidOperation:
         return None
+    if not value.is_finite():
+        # `Decimal` accepts "nan", "inf" and "-Infinity"; `int()` on any of them
+        # raises. A form field must warn on an unreadable amount, not crash, so
+        # they leave here as None like every other thing that isn't a number.
+        return None
     return int((value * MINOR_UNIT_SCALE).to_integral_value(rounding=ROUND_HALF_UP))
 
 

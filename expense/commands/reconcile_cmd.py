@@ -15,6 +15,7 @@ from expense.commands._resource import (
     fetch_body,
     format_bool,
     format_cents,
+    format_cents_or_dash,
     format_field_value,
     items_of,
     load_account_name_map,
@@ -155,8 +156,12 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
             "name": item.get("name") or "(unnamed)",
             "period": format_period(item),
             "begin": format_cents(item.get("beginning_balance_cents")),
-            "end": format_cents(item.get("ending_balance_cents")),
-            "diff": format_cents(item.get("difference_cents")),
+            # Both nullable since the engine's sql/040 — an ending balance the
+            # user has not entered yet, and the add-up check that therefore has
+            # no answer. `—` rather than `(null)`; `0.00` still means a real
+            # entered zero, which is the distinction sql/040 exists to preserve.
+            "end": format_cents_or_dash(item.get("ending_balance_cents")),
+            "diff": format_cents_or_dash(item.get("difference_cents")),
             "status": format_status(item.get("status")),
             "deleted": format_bool(item.get("deleted_at")),
             "id": item.get("id") or "—",

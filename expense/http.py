@@ -21,8 +21,12 @@ _WRITE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 # loop below does, so that holds. Scope is exactly
 # timeout + 5xx — a connect failure means the engine isn't reachable at all
 # and fails fast, and reads are safe for callers to re-run themselves.
-_WRITE_ATTEMPTS = 3
+# One wait per retry, so the table IS the retry count: the loop below indexes
+# it by `attempt - 1`, and deriving the total instead of spelling it out keeps
+# a raised count from running off the end with an IndexError halfway through a
+# write — the one failure mode a bounded retry must not have.
 _RETRY_BACKOFF_SECONDS = (1.0, 2.0)
+_WRITE_ATTEMPTS = len(_RETRY_BACKOFF_SECONDS) + 1
 _RETRYABLE_STATUS = frozenset({500, 502, 503, 504})
 
 

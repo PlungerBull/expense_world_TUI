@@ -283,3 +283,75 @@ def test_an_uncoded_file_row_never_backfills():
     ledger = [_ledger("t1", "2026-09-10", -4900, "EDO SUSHI BAR")]
     verdicts, _ = match_rows(rows, LEGS, ledger)
     assert verdicts[0].ledger_id == "t1" and verdicts[0].backfill_code is None
+
+
+# ---- an operation code the bank never issued --------------------------------
+def test_operation_refuses_booleans_and_fractions():
+    """`True` used to stringify to "True" and `12345.67` to truncate to
+    "12345". Either would be matched against the ledger and then WRITTEN onto
+    a transaction, where the engine's per-account UNIQUE (`sql/039`) makes the
+    invented code permanent."""
+    assert parse_operation(True) is None
+    assert parse_operation(False) is None
+    assert parse_operation(12345.67) is None
+    assert parse_operation(float("nan")) is None
+    assert parse_operation(float("inf")) is None
+    # a whole number that merely arrived as a float is still a code
+    assert parse_operation(4330935.0) == "04330935"
+
+
+def test_a_row_whose_operation_cell_is_junk_imports_without_a_code():
+    """Refusing the code must not refuse the row — it just falls through to
+    the content rules like every pre-column ledger row does."""
+    rows, bad = parse_bank_sheet(
+        _sheet(ACCOUNT_HEADERS, ["11/09/2026", "TRAN.CEL.BM.", "S/", -60, True])
+    )
+    assert bad == []
+    assert rows[0].operation_code is None
+
+
+# ---- the excess warning is about ledger rows NOTHING claimed ----------------
+def test_no_excess_when_a_neighbouring_day_claimed_the_second_ledger_row():
+    """Two ledger rows on Friday, both matched — one by Friday's file row, one
+    by Saturday's under the ±1-day rule. Counting per day saw "ledger 2, file
+    1" on Friday and warned about a double entry that was fully accounted
+    for."""
+    rows = [
+        _bank(2, "2026-09-11", "APPARKA", -350),
+        _bank(3, "2026-09-12", "APPARKA", -350),
+    ]
+    ledger = [
+        _ledger("t1", "2026-09-11", -350, "APPARKA"),
+        _ledger("t2", "2026-09-11", -350, "APPARKA"),
+    ]
+    verdicts, excess = match_rows(rows, LEGS, ledger)
+    assert [v.new for v in verdicts] == [False, False]  # both matched
+    assert excess == []
+
+
+def test_excess_still_fires_when_a_ledger_row_survives_every_rule():
+    """The case the warning exists for: the file reports the movement once,
+    the ledger holds two rows of it and only one gets claimed."""
+    rows = [_bank(2, "2026-09-11", "APPARKA", -350)]
+    ledger = [
+        _ledger("t1", "2026-09-11", -350, "APPARKA"),
+        _ledger("t2", "2026-09-11", -350, "APPARKA"),
+    ]
+    verdicts, excess = match_rows(rows, LEGS, ledger)
+    assert not verdicts[0].new
+    assert [(e.date_iso, e.amount_cents, e.ledger_count, e.file_count) for e in excess] == [
+        ("2026-09-11", -350, 2, 1)
+    ]
+
+
+def test_a_ledger_row_the_file_never_mentions_is_not_an_excess():
+    """An unclaimed ledger row on a day/amount the file has nothing for is a
+    hand-logged row, not a double entry — it was never reported and is not
+    reported now."""
+    rows = [_bank(2, "2026-09-11", "APPARKA", -350)]
+    ledger = [
+        _ledger("t1", "2026-09-11", -350, "APPARKA"),
+        _ledger("t2", "2026-09-20", -9999, "EFECTIVO"),
+    ]
+    _, excess = match_rows(rows, LEGS, ledger)
+    assert excess == []

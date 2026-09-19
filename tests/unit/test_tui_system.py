@@ -348,3 +348,28 @@ def test_rates_screen_date_filter_refetches(monkeypatch):
             await wait_for(pilot, lambda: len(calls) >= 3 and calls[-1] is None)
 
     asyncio.run(scenario())
+
+
+def test_auth_screen_caches_the_home_currency_like_the_cli_does(fake_client, monkeypatch):
+    """The TUI read `/auth/me` on its own and threw the settings away, so a
+    TUI-only user never got a cached `main_currency` — and the header's
+    stale-rate check skips entirely without one (`app.refresh_rate_status`).
+    Both surfaces go through `auth_cmd.fetch_me` now."""
+    saved: list = []
+    fake_client.get_responses["/auth/me"] = {
+        "user": {"display_name": "Alex", "id": "u1"},
+        "settings": {"main_currency": "PEN"},
+    }
+    monkeypatch.setattr(
+        "expense.config.ensure_loaded", lambda: CFG.model_copy(update={"main_currency": None})
+    )
+    monkeypatch.setattr("expense.config.save", lambda c: saved.append(c))
+
+    async def scenario():
+        app = ExpenseApp()
+        async with app.run_test() as pilot:
+            await app.push_screen(AuthScreen())
+            await wait_for(pilot, lambda: saved, message="main_currency was never cached")
+            assert saved[-1].main_currency == "PEN"
+
+    asyncio.run(scenario())

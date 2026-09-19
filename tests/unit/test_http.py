@@ -364,3 +364,19 @@ def test_verbose_dump_shows_response_body(config, capsys):
     captured = capsys.readouterr()
     assert "u_xyz" in captured.err
     assert "200" in captured.err
+
+
+def test_every_retry_has_a_backoff_to_index():
+    """Drift guard, not a regression test — the two constants agree today and
+    the point is that they cannot stop agreeing.
+
+    `_request` sleeps `_RETRY_BACKOFF_SECONDS[attempt - 1]` on attempts
+    1..`_WRITE_ATTEMPTS` - 1, so the table has to BE the retry count. While the
+    count was spelled out independently, raising it to 4 without adding a wait
+    turned the third retry into an IndexError *mid-write* — the one failure a
+    bounded same-key retry must not have. Deriving it makes that edit
+    impossible; this asserts the derivation is still what's there.
+    """
+    from expense import http
+
+    assert http._WRITE_ATTEMPTS == len(http._RETRY_BACKOFF_SECONDS) + 1

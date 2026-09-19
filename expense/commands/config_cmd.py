@@ -48,11 +48,18 @@ def set_cmd(
             main_currency=main_currency,
         )
     else:
-        new = Config(
-            engine_url=engine_url or existing.engine_url,
-            token=token if token is not None else existing.token,
-            main_currency=(main_currency if main_currency is not None else existing.main_currency),
-        )
+        # Copy-and-update, never a field-by-field rebuild: naming the fields
+        # drops every one this command has no flag for, which silently wiped
+        # `bank_files` (the file → account memory `import bank` writes) on any
+        # `config set`. A new Config field must not need an edit here to survive.
+        updates: dict[str, object] = {}
+        if engine_url:
+            updates["engine_url"] = engine_url
+        if token is not None:
+            updates["token"] = token
+        if main_currency is not None:
+            updates["main_currency"] = main_currency
+        new = existing.model_copy(update=updates)
 
     if new.token and not new.token.startswith("ewe_pat_"):
         typer.echo(

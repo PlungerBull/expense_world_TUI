@@ -49,6 +49,7 @@ from expense.commands._resource import (
 from expense.dates import to_canonical_aware
 from expense.errors import EngineError, format_error
 from expense.quickadd.money import amount_to_text, parse_amount
+from expense.quickadd.names import matches
 from expense.tui.screens._base import (
     ContentSwapLockMixin,
     EngineWriteMixin,
@@ -362,9 +363,13 @@ class NewReconciliationScreen(FormScreen):
     # ---- suggestions -----------------------------------------------------
     def _recompute(self, text: str) -> None:
         key = self._key
-        needle = text.strip().lower()
+        needle = text.strip()
         if key == "account":
-            self._suggestions = [(i, n, c) for (i, n, c) in self._accounts if needle in n.lower()]
+            # `quickadd.names.matches` — the one matcher every picker in the
+            # app uses: substring, case-blind AND accent-blind. This was the
+            # last one still on a plain `.lower()`, so `bcp credito` found no
+            # `BCP Crédito` here while the same text matched everywhere else.
+            self._suggestions = [(i, n, c) for (i, n, c) in self._accounts if matches(needle, n)]
         else:
             self._suggestions = []
         self._suggest_idx = 0

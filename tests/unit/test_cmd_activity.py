@@ -269,3 +269,98 @@ def test_resolve_unknown_kind_and_bad_id():
     assert activity_cmd._resolve_resource_name(None, "0123456789ab", client) == "01234567"
     assert activity_cmd._resolve_resource_name("account", None, client) == "—"
     assert client.requests == []
+
+
+# --- the three name maps, built once per page (A10) --------------------------
+def test_the_name_maps_answer_without_touching_the_engine():
+    """An account, category or hashtag row resolves off the preloaded map, so
+    the per-row `GET /<kind>/<id>` never happens."""
+    names = activity_cmd.NameMaps(
+        accounts={"abc-123": "BCP"},
+        categories={"cat-1": "Comida"},
+        hashtags={"tag-1": "viajes"},
+    )
+    client = _client({})  # every path 404s — nothing may be read
+
+    assert activity_cmd._resolve_resource_name("account", "abc-123", client, names) == "BCP"
+    assert activity_cmd._resolve_resource_name("category", "cat-1", client, names) == "Comida"
+    assert activity_cmd._resolve_resource_name("hashtag", "tag-1", client, names) == "#viajes"
+    assert client.requests == []
+
+
+def test_an_id_the_maps_do_not_know_still_falls_through_to_the_engine():
+    """A row deleted since the list was read, or a list that failed to load —
+    an empty map costs speed, never correctness."""
+    names = activity_cmd.NameMaps()  # every map empty, as a failed load leaves them
+    client = _client({"/accounts/abc-123": {"name": "BCP"}})
+
+    assert activity_cmd._resolve_resource_name("account", "abc-123", client, names) == "BCP"
+    assert client.requests == [("GET", "/accounts/abc-123")]
+
+
+def test_a_transaction_row_is_still_a_per_row_read():
+    """Transactions have no listing cheap enough to preload — the maps must
+    not pretend to answer for them."""
+    names = activity_cmd.NameMaps(accounts={"abc-123": "BCP"})
+    client = _client({"/transactions/abc-123": {"title": "Latte"}})
+
+    assert activity_cmd._resolve_resource_name("transaction", "abc-123", client, names) == "Latte"
+    assert client.requests == [("GET", "/transactions/abc-123")]
+
+
+def test_a_reconciliation_takes_its_account_name_from_the_map():
+    """The second of the two reads a reconciliation row used to cost."""
+    names = activity_cmd.NameMaps(accounts={"acc1": "BCP"})
+    client = _client(
+        {"/reconciliations/r-1": {"statement_date": "2026-05-01", "account_id": "acc1"}}
+    )
+
+    assert activity_cmd._resolve_resource_name("reconciliation", "r-1", client, names) == (
+        "2026-05-01 / BCP"
+    )
+    assert client.requests == [("GET", "/reconciliations/r-1")]  # the account was NOT re-read
+
+
+@respx.mock
+def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configured):
+    """Five account rows used to cost five `GET /accounts/<id>`. Now the page
+    costs one `GET /accounts` (plus categories and hashtags) and no per-row
+    read at all."""
+    rows = [
+        {
+            **ACTIVITY_ROW,
+            "id": f"e{i}",
+            "resource_type": "account",
+            "resource_id": f"acc-{i}",
+            "after_snapshot": None,
+        }
+        for i in range(5)
+    ]
+    respx.get("https://api.example.com/v1/activity").mock(
+        return_value=httpx.Response(200, json=rows)
+    )
+    accounts = respx.get("https://api.example.com/v1/accounts").mock(
+        return_value=httpx.Response(
+            200, json=[{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)]
+        )
+    )
+    respx.get("https://api.example.com/v1/categories").mock(
+        return_value=httpx.Response(200, json={"items": [], "total": 0})
+    )
+    respx.get("https://api.example.com/v1/hashtags").mock(
+        return_value=httpx.Response(200, json={"items": [], "total": 0})
+    )
+    per_row = [
+        respx.get(f"https://api.example.com/v1/accounts/acc-{i}").mock(
+            return_value=httpx.Response(200, json={"name": f"Account {i}"})
+        )
+        for i in range(5)
+    ]
+
+    result = runner.invoke(cli_app, ["activity", "list"])
+    assert result.exit_code == 0, result.output
+
+    assert accounts.call_count == 1  # one list read for the page
+    assert [r.call_count for r in per_row] == [0] * 5  # and nothing per row
+    for i in range(5):
+        assert f"Account {i}" in result.output
