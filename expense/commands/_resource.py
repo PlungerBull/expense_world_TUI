@@ -308,25 +308,6 @@ def fetch_all_pages(
         offset += len(page)
 
 
-def _load_items(path: str, params: dict | None) -> list[dict]:
-    """Every row of one reference-list endpoint. Empty on any failure.
-
-    The failure-silent half of `_load_name_map`, split out so a second reader
-    (`load_pending_category_id`) can share it: no config, engine down, auth —
-    every one degrades to `[]` instead of raising, and the caller falls back.
-    """
-    try:
-        cfg = config_module.ensure_loaded()
-        with ExpenseClient(cfg) as client:
-            return fetch_all_pages(
-                lambda limit, offset: client.get(
-                    path, params={**(params or {}), "limit": limit, "offset": offset}
-                )
-            )
-    except Exception:
-        return []
-
-
 def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     """Live id → name map over one reference-list endpoint. Empty on any failure.
 
@@ -335,7 +316,16 @@ def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     short ids — which is why every failure (no config, engine down, auth)
     degrades to `{}` instead of raising.
     """
-    items = _load_items(path, params)
+    try:
+        cfg = config_module.ensure_loaded()
+        with ExpenseClient(cfg) as client:
+            items = fetch_all_pages(
+                lambda limit, offset: client.get(
+                    path, params={**(params or {}), "limit": limit, "offset": offset}
+                )
+            )
+    except Exception:
+        return {}
     out: dict[str, str] = {}
     for item in items:
         rid = item.get("id")
@@ -373,15 +363,6 @@ def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
         if c.get("system_key") == PENDING_SYSTEM_KEY and isinstance(c.get("id"), str):
             return (c["id"], c.get("name") or PENDING_FALLBACK_NAME)
     return None
-
-
-def load_pending_category_id() -> str | None:
-    """Live id of the user's @Pendiente category. `None` on any failure — and
-    `None` when it has never been seeded, which is the ordinary state of a user
-    who has never logged a sparse row (the engine creates it on first use).
-    """
-    pending = _pending_of(_load_items("/categories", None))
-    return pending[0] if pending else None
 
 
 def load_hashtag_name_map() -> dict[str, str]:

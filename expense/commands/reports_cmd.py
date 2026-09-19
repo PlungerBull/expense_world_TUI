@@ -26,11 +26,11 @@ app = typer.Typer(help="Historical reports.", no_args_is_help=True)
 NO_ACTIVITY_MARK = "—"
 
 
-def _render_single_month_categories(categories: list[dict] | None, *, show_hashtags: bool) -> None:
+def _render_single_month_categories(categories: list[dict] | None) -> None:
     """Render the Categories block as an ASCII table.
 
-    When show_hashtags is True, each category's hashtag_breakdown rows render
-    as indented sub-rows in the Name column.
+    Each category's hashtag_breakdown rows render as indented sub-rows in the
+    Name column.
 
     One amount column, `Home`: the native `spent_cents` was deleted engine-side
     on 2026-08-05 (a sum across currencies is a number in no currency), so the
@@ -43,7 +43,7 @@ def _render_single_month_categories(categories: list[dict] | None, *, show_hasht
         typer.echo("  (no categories)")
         return
 
-    name_map = load_hashtag_name_map() if show_hashtags else {}
+    name_map = load_hashtag_name_map()
     rows: list[dict[str, str]] = []
     for cat in categories:
         cat_unconverted = unconverted_of(cat)
@@ -55,8 +55,6 @@ def _render_single_month_categories(categories: list[dict] | None, *, show_hasht
                 "home": format_aggregate(cat.get("spent_home_cents"), cat_unconverted),
             }
         )
-        if not show_hashtags:
-            continue
         for sub in cat.get("hashtag_breakdown") or []:
             sub_unconverted = unconverted_of(sub)
             if not has_aggregate(sub.get("spent_home_cents"), sub_unconverted):
@@ -80,13 +78,13 @@ def _render_single_month_categories(categories: list[dict] | None, *, show_hasht
     )
 
 
-def _render_single_month(body: dict, *, json_mode: bool, show_hashtags: bool = True) -> None:
+def _render_single_month(body: dict, *, json_mode: bool) -> None:
     if json_mode:
         typer.echo(json.dumps(body, indent=2))
         return
     typer.echo(f"Month: {format_month(body.get('month'))}")
     typer.echo("")
-    _render_single_month_categories(body.get("categories"), show_hashtags=show_hashtags)
+    _render_single_month_categories(body.get("categories"))
     typer.echo("")
     render_totals(body.get("totals"))
 
@@ -303,7 +301,6 @@ def run_single_month(
     month: int,
     verbose: bool = False,
     json_mode: bool = False,
-    show_hashtags: bool = True,
 ) -> None:
     """Fetch + render for a single month — the flat command's whole body."""
     body = fetch_single_month(
@@ -312,7 +309,7 @@ def run_single_month(
         month=month,
         verbose=verbose,
     )
-    _render_single_month(body, json_mode=json_mode, show_hashtags=show_hashtags)
+    _render_single_month(body, json_mode=json_mode)
 
 
 def run_range(

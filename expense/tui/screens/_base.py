@@ -414,18 +414,6 @@ class SectionScreen(HelpBindingMixin, EngineWriteMixin, ContentSwapLockMixin, Sc
         self.notify(message)
         self._load()  # re-fetch; content swaps are lock-serialized, no card clash
 
-    def confirm_write(
-        self, title: str, message: str, method: str, path: str, *, success: str = "Done."
-    ) -> None:
-        """Push a yes/no modal; on yes, run the write + refresh + reload."""
-        from expense.tui.screens.modals import ConfirmModal
-
-        def _cb(confirmed: bool | None) -> None:
-            if confirmed:
-                self.run_write(method, path, success=success)
-
-        self.app.push_screen(ConfirmModal(title, message), _cb)
-
     # ---- subclass hooks --------------------------------------------------
     def fetch(self) -> object:
         """Fetch data in a worker thread. Raise to surface an in-app error."""

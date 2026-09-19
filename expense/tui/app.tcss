@@ -60,10 +60,6 @@ Screen {
     color: $text-muted;
     margin-top: 1;
 }
-.sync-note {
-    color: $text-muted;
-    padding: 1 2;
-}
 
 /* quick-add log bar */
 #inputbar {
@@ -126,7 +122,7 @@ Screen {
 }
 
 /* modal screens — center the #modal box (else it collapses top-left) */
-RecordModal, SnapshotModal, ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
+SnapshotModal, ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
     align: center middle;
 }
 /* The dim scrim (pick H, 2026-08-19). `black`, NOT `$background`, and that is

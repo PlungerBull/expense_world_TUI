@@ -12,7 +12,6 @@ from expense.batch_write import (
     BATCH_PATH,
     BatchOutcome,
     RowResult,
-    chunked,
     post_transaction_batch,
 )
 from expense.errors import EngineConnectionError, EngineError
@@ -49,11 +48,6 @@ def _conflict() -> EngineError:
 
 def _invalid() -> EngineError:
     return EngineError("VALIDATION_ERROR", "amount_cents: Must not be zero.", None, 422, {})
-
-
-def test_chunked_sizes():
-    """Moved from test_import_parse.py with the function itself."""
-    assert [len(c) for c in chunked(list(range(450)), 200)] == [200, 200, 50]
 
 
 def test_an_empty_list_makes_no_call_at_all():

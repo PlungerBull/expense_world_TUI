@@ -53,8 +53,8 @@ expense/tui/
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people
-    modals.py       # RecordModal, SnapshotModal, ConfirmModal, PromptModal,
-                    #   DiscardStagedModal (the LOG bar's one confirmation)
+    modals.py       # SnapshotModal, ConfirmModal, PromptModal, DiscardStagedModal
+                    #   (the LOG bar's one confirmation)
 ```
 
 **The fetch/print split is the anti-duplication guardrail.** Every command that

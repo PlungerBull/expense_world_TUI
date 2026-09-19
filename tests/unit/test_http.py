@@ -89,7 +89,7 @@ def test_writes_get_unique_idempotency_keys(config):
     assert keys[0] != keys[1]
 
 
-@pytest.mark.parametrize("verb", ["post", "put", "patch", "delete"])
+@pytest.mark.parametrize("verb", ["post", "put", "delete"])
 @respx.mock
 def test_every_write_verb_sends_a_wellformed_idempotency_key(config, verb):
     """Idempotency on every write (CLAUDE.md non-negotiable) — every verb the

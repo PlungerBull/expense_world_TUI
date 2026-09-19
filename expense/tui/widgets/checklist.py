@@ -108,12 +108,6 @@ class CheckList(Static):
     def checked(self) -> set:
         return set(self._checked)
 
-    def set_rows(self, rows: Iterable[Row], checked: Sequence[object]) -> None:
-        self._rows = list(rows)
-        self._checked = set(checked)
-        self._cursor = min(self._cursor, max(0, len(self._rows) - 1))
-        self._refresh()
-
     def set_page_size(self, page_size: int) -> None:
         """Adaptive rows (2026-07-13): the screen re-measures on terminal resize
         and re-slices the window around the cursor. Membership (`_checked`) is a

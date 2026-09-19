@@ -67,9 +67,6 @@ class ExpenseClient:
     def put(self, path: str, json_body: dict | None = None) -> dict:
         return self._request("PUT", path, json_body=json_body)
 
-    def patch(self, path: str, json_body: dict | None = None) -> dict:
-        return self._request("PATCH", path, json_body=json_body)
-
     def delete(self, path: str) -> dict:
         return self._request("DELETE", path)
 

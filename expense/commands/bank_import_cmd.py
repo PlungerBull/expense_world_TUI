@@ -23,7 +23,7 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
-from expense.bank_import.match import Excess, LedgerRow, Verdict, match_rows
+from expense.bank_import.match import RULES, Excess, LedgerRow, Verdict, match_rows
 from expense.bank_import.parse import SHEET_NAME, BadRow, BankFormatError, BankRow, parse_bank_sheet
 from expense.batch_write import RowResult, post_transaction_batch
 from expense.commands import _resource, accounts_cmd, transactions_cmd
@@ -302,7 +302,10 @@ def summary_line(verdicts: list[Verdict], bad: list[BadRow]) -> str:
     by_rule: dict[str, int] = {}
     for v in matched:
         by_rule[v.rule or ""] = by_rule.get(v.rule or "", 0) + 1
-    detail = " · ".join(f"{n} by {rule}" for rule, n in by_rule.items()) if matched else ""
+    # Strongest rule first, always — `RULES` is the order the matcher tries them
+    # in, so the breakdown reads the same for every file instead of following
+    # whichever rule happened to claim the first row.
+    detail = " · ".join(f"{by_rule[rule]} by {rule}" for rule in RULES if by_rule.get(rule))
     parts = [f"{len(verdicts) + len(bad)} rows", f"{new} new", f"{len(matched)} in the ledger"]
     if detail:
         parts[-1] += f" ({detail})"

@@ -272,7 +272,7 @@ def format_date_cell(iso: str, today_iso: str) -> str:
 
 
 def _reference_cell(
-    parsed: ParsedLine, kind: str, value: str | None, names: dict, palette: Palette | None
+    kind: str, value: str | None, names: dict, palette: Palette | None
 ) -> str | Text:
     """A resolved name, or `— account?` in the error colour."""
     if value:
@@ -338,7 +338,7 @@ def staged_rows(
                 date,
                 _title_cell(parsed),
                 amount,
-                _reference_cell(parsed, "account", parsed.account_id, refs.account_names, palette),
+                _reference_cell("account", parsed.account_id, refs.account_names, palette),
                 _category_cell(parsed, refs, palette),
                 _tags_cell(parsed, refs, palette),
             )

@@ -33,7 +33,6 @@ row is already in the ledger — which is what makes a retry after a half-writte
 save safe: nothing can be written twice.
 """
 
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -101,11 +100,6 @@ class BatchOutcome:
     @property
     def unsent(self) -> list[int]:
         return [i for i, r in enumerate(self.results) if r is RowResult.UNSENT]
-
-
-def chunked(items: list, size: int) -> Iterator[list]:
-    for i in range(0, len(items), size):
-        yield items[i : i + size]
 
 
 def post_transaction_batch(
