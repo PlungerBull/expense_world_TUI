@@ -9,16 +9,13 @@ collapse. Asserting the *screen* was pushed is not enough — the old tests did
 that and still passed while the box rendered empty; we assert it has size.
 """
 
-import asyncio
-
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.modals import (
     ConfirmModal,
     PickerModal,
     PromptModal,
     SnapshotModal,
 )
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import run_app, wait_for
 
 _BEFORE = {"name": "Old name", "is_archived": False}
 _AFTER = {"name": "BCP USD", "is_archived": True}
@@ -32,19 +29,17 @@ _MODALS = [
 
 
 def test_every_modal_box_renders_with_size():
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            for make_modal in _MODALS:
-                modal = make_modal()
-                await app.push_screen(modal)
-                await wait_for(pilot, lambda: app.screen.query("#modal"))
-                box = app.screen.query_one("#modal")
-                name = type(app.screen).__name__
-                # A collapsed box is an empty border — the exact failure we guard.
-                assert box.size.width > 10, f"{name} #modal collapsed: {box.size}"
-                assert box.size.height > 2, f"{name} #modal collapsed: {box.size}"
-                app.pop_screen()
-                await wait_for(pilot, lambda: not app.screen.query("#modal"))
+    async def scenario(pilot, app):
+        for make_modal in _MODALS:
+            modal = make_modal()
+            await app.push_screen(modal)
+            await wait_for(pilot, lambda: app.screen.query("#modal"))
+            box = app.screen.query_one("#modal")
+            name = type(app.screen).__name__
+            # A collapsed box is an empty border — the exact failure we guard.
+            assert box.size.width > 10, f"{name} #modal collapsed: {box.size}"
+            assert box.size.height > 2, f"{name} #modal collapsed: {box.size}"
+            app.pop_screen()
+            await wait_for(pilot, lambda: not app.screen.query("#modal"))
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))

@@ -14,27 +14,22 @@ indicator that fires when it cannot reach the engine is reporting on the
 connection, and one that cries wolf gets ignored on the day it is right.
 """
 
-import asyncio
-import io
-
 import httpx
 import respx
-from rich.console import Console
 from textual.widgets import Static
 
 import expense.tui.screens.home as home
 from expense.commands.rates_cmd import fetch_rate_staleness, rate_is_stale
-from expense.tui.app import ExpenseApp
 from expense.tui.theme import Palette
 from expense.tui.widgets.header import RATE_ALERT_MARK, Breadcrumb, rate_alert
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, render_text, run_app
 
 PALETTE = Palette(success="#7fbf8f", error="#cf8d8d", warning="#d6b878")
 
 
 def _render(renderable, width=100) -> str:
-    con = Console(file=io.StringIO(), width=width)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=width)
 
 
 def _painted(widget) -> str:
@@ -81,7 +76,7 @@ def test_missing_or_wrong_typed_dates_are_unknown_not_stale():
 def test_fetch_reports_stale_from_a_carried_forward_response(configured):
     from expense import config as config_module
 
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -101,11 +96,8 @@ def test_no_rate_at_all_counts_as_stale(configured):
     """404 is the same condition at its extreme — nothing on or before today."""
     from expense import config as config_module
 
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
-        return_value=httpx.Response(
-            404,
-            json={"error": {"code": "NOT_FOUND", "message": "no rate", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
+        return_value=error_response(404, "NOT_FOUND", "no rate", None)
     )
     assert fetch_rate_staleness(config_module.ensure_loaded(), target="PEN") is True
 
@@ -115,11 +107,8 @@ def test_other_engine_errors_are_unknown_not_stale(configured):
     """A 422 is a question about the request, not an answer about the rate."""
     from expense import config as config_module
 
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
-        return_value=httpx.Response(
-            422,
-            json={"error": {"code": "VALIDATION_ERROR", "message": "bad", "fields": {}}},
-        )
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
+        return_value=error_response(422, "VALIDATION_ERROR", "bad", {})
     )
     assert fetch_rate_staleness(config_module.ensure_loaded(), target="XXX") is None
 
@@ -195,23 +184,21 @@ def test_breadcrumb_outside_an_app_renders_the_trail_and_no_mark():
 
 
 def test_breadcrumb_mounted_in_the_app_follows_rate_stale():
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            crumb = Breadcrumb(("System", "Rates"))
-            await app.screen.mount(crumb)
-            await pilot.pause()
+    async def scenario(pilot, app):
+        await pilot.pause()
+        crumb = Breadcrumb(("System", "Rates"))
+        await app.screen.mount(crumb)
+        await pilot.pause()
 
-            # Unconfigured in tests, so the startup fetch bails and leaves None.
-            assert app.rate_stale is None
-            assert RATE_ALERT_MARK not in _painted(crumb)
+        # Unconfigured in tests, so the startup fetch bails and leaves None.
+        assert app.rate_stale is None
+        assert RATE_ALERT_MARK not in _painted(crumb)
 
-            app._set_rate_stale(True)
-            await pilot.pause()
-            assert RATE_ALERT_MARK in _painted(crumb)
+        app._set_rate_stale(True)
+        await pilot.pause()
+        assert RATE_ALERT_MARK in _painted(crumb)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_home_header_repaints_when_the_rate_status_lands():
@@ -220,28 +207,24 @@ def test_home_header_repaints_when_the_rate_status_lands():
     home is the first screen you see, so missing this means the `!` only ever
     appears after navigating somewhere else."""
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            brand = app.query_one("#brand", Static)
-            assert RATE_ALERT_MARK not in _painted(brand)
+    async def scenario(pilot, app):
+        await pilot.pause()
+        brand = app.query_one("#brand", Static)
+        assert RATE_ALERT_MARK not in _painted(brand)
 
-            app._set_rate_stale(True)
-            await pilot.pause()
-            assert RATE_ALERT_MARK in _painted(brand)
+        app._set_rate_stale(True)
+        await pilot.pause()
+        assert RATE_ALERT_MARK in _painted(brand)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_startup_fetch_is_silent_without_config():
     """The TUI must stay usable offline / unconfigured — the indicator is not
     allowed to be the thing that makes launching fail or hang."""
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            assert app.rate_stale is None
+    async def scenario(pilot, app):
+        await pilot.pause()
+        assert app.rate_stale is None
 
-    asyncio.run(scenario())
+    run_app(scenario)

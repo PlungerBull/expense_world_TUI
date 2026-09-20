@@ -33,9 +33,12 @@ fixture matches its endpoint".
 from __future__ import annotations
 
 import argparse
+import ast
+import io
 import json
 import re
 import sys
+import tokenize
 import urllib.error
 import urllib.request
 from collections import defaultdict
@@ -69,17 +72,17 @@ ENVELOPE_KEYS = frozenset(
 # Keys that are test-local bookkeeping, not engine fields — triaged 2026-08-16.
 # Each is a dict key a fixture invents for itself: TUI header stat names, sample
 # ids used as dict keys, CLI-side config fields, query-param assertions.
+#
+# An entry here only earns its place while some fixture still writes that key:
+# a dead one silently widens the exemption for whatever key is next to reuse the
+# name. tests/unit/test_suite_hygiene.py::test_known_local_exemptions_still_match
+# is the guard — it needs no engine, so it runs with the hermetic suite. Eight
+# entries had already rotted when it was added on 2026-09-19, one of them citing
+# a file deleted on 2026-09-12.
 KNOWN_LOCAL = frozenset(
     {
-        # the paging test's fake `fetch_transactions` records its own kwargs
-        # (`category`, `offset`) — the CLI's flag names, not engine fields
-        "category",
-        # the `commands={...}` key test_cmd_import_bank.py wires its command under
-        "bank",
         "cents",
         "unconverted",
-        "net_cents",
-        "outflow_cents",
         # sample ids used as dict keys in name-map fixtures
         "jan",
         "acc1",
@@ -87,9 +90,6 @@ KNOWN_LOCAL = frozenset(
         "acc3",  # third account in the LOG bar's name-map fixture (quick-add)
         "cat1",
         "cat2",
-        "tag1",  # hashtag name-map fixture (backlog 6.1; was test_tui_inbox.py)
-        "aaaa",
-        "bbbb",
         "amt",
         # `expense import --json` plan keys: the plan is client-composed (it
         # aggregates many engine calls), so its shape is ours, not the engine's.
@@ -101,12 +101,14 @@ KNOWN_LOCAL = frozenset(
         "height",
         # CLI-side config file fields — never sent to the engine
         "engine_url",
+        # `expense import bank`'s file→account memory, written into the
+        # config file so a second run of the same download needs no --account
+        "bank_files",
         "client_id",
         "future_field",
         "verbose",
         # query-param / flag assertions, not response bodies
         "include_deleted",
-        "include_archived",
         "debit_as_negative",
         "hashtag_id",
         "date_from",
@@ -125,11 +127,9 @@ KNOWN_LOCAL = frozenset(
         "whoami",
         "ping",
         "log",
-        "import",
         "delete",
         "unexpected",
         "mouse",
-        "ready",
         "actor_type",
     }
 )
@@ -159,12 +159,54 @@ def engine_field_names(engine_url: str) -> set[str]:
     return names
 
 
+def _prose_spans(source: str) -> tuple[set[int], dict[int, int]]:
+    """Where a file *talks about* keys rather than writing them.
+
+    `KEY_RE` reads text, not syntax, so a docstring or comment that mentions a
+    fixture key (`... a key like "name": ...`) used to be reported as a fixture
+    claiming that field. Two showed up the moment the tests grew explanatory
+    module docstrings (2026-09-19).
+
+    Returns the doc-comment line numbers to skip outright, plus a per-line
+    column where an inline comment starts, so only the comment half of a line
+    like `{"name": "x"},  # the "color" key went away` is ignored.
+
+    Narrow on purpose: only a **statement** string is prose. A dict key is a
+    string constant too, and skipping those would blind the script to every
+    fixture in the suite — which is the whole thing it reads.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set(), {}  # a file that will not parse has bigger problems
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            if isinstance(node.value.value, str):
+                lines |= set(range(node.lineno, (node.value.end_lineno or node.lineno) + 1))
+
+    comment_at: dict[int, int] = {}
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+            if tok.type == tokenize.COMMENT:
+                row, col = tok.start
+                comment_at[row] = min(col, comment_at.get(row, col))
+    except (tokenize.TokenError, IndentationError):
+        pass
+    return lines, comment_at
+
+
 def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
     """Map every unknown fixture key to the file:line sites that use it."""
     sites: dict[str, list[str]] = defaultdict(list)
     for path in sorted(UNIT_TESTS.glob("*.py")):
-        for lineno, line in enumerate(path.read_text().splitlines(), 1):
-            for key in KEY_RE.findall(line):
+        source = path.read_text()
+        prose, comment_at = _prose_spans(source)
+        for lineno, line in enumerate(source.splitlines(), 1):
+            if lineno in prose:
+                continue
+            code = line[: comment_at[lineno]] if lineno in comment_at else line
+            for key in KEY_RE.findall(code):
                 if key not in known:
                     sites[key].append(f"{path.name}:{lineno}")
     return sites

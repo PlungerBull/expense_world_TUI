@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from expense import config as config_module
 from expense.commands.config_cmd import app
+from tests.unit.helpers import ENGINE_URL as BASE
 
 runner = CliRunner()
 
@@ -20,13 +21,13 @@ def tmp_config(tmp_path, monkeypatch):
 def test_set_creates_config_on_first_run(tmp_config):
     result = runner.invoke(
         app,
-        ["set", "--engine-url", "https://api.example.com", "--token", "ewe_pat_abc"],
+        ["set", "--engine-url", BASE, "--token", "ewe_pat_abc"],
     )
     assert result.exit_code == 0, result.output
     assert "Config saved" in result.output
 
     cfg = config_module.load()
-    assert cfg.engine_url == "https://api.example.com"
+    assert cfg.engine_url == BASE
     assert cfg.token == "ewe_pat_abc"
 
 
@@ -41,7 +42,7 @@ def test_set_preserves_untouched_fields_on_update(tmp_config):
         [
             "set",
             "--engine-url",
-            "https://api.example.com",
+            BASE,
             "--token",
             "ewe_pat_abc",
             "--main-currency",
@@ -53,7 +54,7 @@ def test_set_preserves_untouched_fields_on_update(tmp_config):
     second = config_module.load()
 
     assert second.token == "ewe_pat_new"
-    assert second.engine_url == "https://api.example.com"
+    assert second.engine_url == BASE
     assert second.main_currency == "PEN"
 
 
@@ -63,7 +64,7 @@ def test_set_over_a_legacy_client_id_config(tmp_config):
     tmp_config.write_text(
         json.dumps(
             {
-                "engine_url": "https://api.example.com",
+                "engine_url": BASE,
                 "token": "ewe_pat_old",
                 "client_id": str(uuid4()),
             }
@@ -197,7 +198,7 @@ def test_set_preserves_bank_files_which_no_flag_touches(tmp_config):
     tmp_config.write_text(
         json.dumps(
             {
-                "engine_url": "https://api.example.com",
+                "engine_url": BASE,
                 "token": "ewe_pat_old",
                 "bank_files": {"VISA Infinite Sapphire": "BCP Signature"},
             }
@@ -215,7 +216,7 @@ def test_set_preserves_bank_files_which_no_flag_touches(tmp_config):
 def test_set_leaves_every_other_config_field_alone(tmp_config):
     """The guard that makes the one above general: a field added to Config
     must survive `config set` without an edit to config_cmd."""
-    runner.invoke(app, ["set", "--engine-url", "https://api.example.com"])
+    runner.invoke(app, ["set", "--engine-url", BASE])
     before = config_module.load()
 
     runner.invoke(app, ["set", "--engine-url", "https://other.example.com"])

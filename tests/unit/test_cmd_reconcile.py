@@ -6,7 +6,8 @@ import respx
 from typer.testing import CliRunner
 
 from expense.commands.reconcile_cmd import app as reconcile_app
-from tests.unit.helpers import make_cli_app, strip_panel
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app, page, strip_panel
 
 cli_app = make_cli_app(reconcile_app, "reconcile")
 
@@ -51,12 +52,12 @@ RECON_UNENTERED_RESPONSE = {
     "difference_cents": None,
 }
 
-LIST_RESPONSE = {
-    "items": [RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE, RECON_UNENTERED_RESPONSE],
-    "total": 3,
-    "limit": 50,
-    "offset": 0,
-}
+LIST_RESPONSE = page(
+    [RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE, RECON_UNENTERED_RESPONSE],
+    total=3,
+    limit=50,
+    offset=0,
+)
 
 DETAIL_WITH_TRANSACTIONS = {
     **RECON_DRAFT_RESPONSE,
@@ -93,7 +94,7 @@ DETAIL_EMPTY_TRANSACTIONS = {
 
 @respx.mock
 def test_list_happy_with_account_filter(configured):
-    route = respx.get("https://api.example.com/v1/reconciliations").mock(
+    route = respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(
@@ -129,7 +130,7 @@ def test_list_renders_difference_column(configured):
     """The flat table always prints the number — 0.00 when the batch balances,
     the signed figure when it does not. No glyph translation: this table gets
     piped and eyeballed (Phase 3 sketch, the CLI half of option H)."""
-    respx.get("https://api.example.com/v1/reconciliations").mock(
+    respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])
@@ -154,7 +155,7 @@ def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
     wire, and this asserts they differ on the screen too — the `0.00` on the
     balanced row is the control.
     """
-    respx.get("https://api.example.com/v1/reconciliations").mock(
+    respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])
@@ -175,8 +176,8 @@ def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
 
 @respx.mock
 def test_list_empty(configured):
-    respx.get("https://api.example.com/v1/reconciliations").mock(
-        return_value=httpx.Response(200, json={"items": [], "total": 0, "limit": 50, "offset": 0})
+    respx.get(f"{BASE}/v1/reconciliations").mock(
+        return_value=httpx.Response(200, json=page([], total=0, limit=50, offset=0))
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])
     assert result.exit_code == 0, result.output
@@ -185,7 +186,7 @@ def test_list_empty(configured):
 
 @respx.mock
 def test_list_json_passthrough(configured):
-    respx.get("https://api.example.com/v1/reconciliations").mock(
+    respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reconcile", "list", "--json"])
@@ -195,9 +196,9 @@ def test_list_json_passthrough(configured):
 
 @respx.mock
 def test_get_with_transactions_window(configured):
-    route = respx.get(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(return_value=httpx.Response(200, json=DETAIL_WITH_TRANSACTIONS))
+    route = respx.get(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=httpx.Response(200, json=DETAIL_WITH_TRANSACTIONS)
+    )
     result = runner.invoke(
         cli_app,
         ["reconcile", "get", "11111111-1111-1111-1111-111111111111", "--limit", "1"],
@@ -216,9 +217,9 @@ def test_get_with_transactions_window(configured):
 
 @respx.mock
 def test_get_empty_transactions_hint(configured):
-    respx.get(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(return_value=httpx.Response(200, json=DETAIL_EMPTY_TRANSACTIONS))
+    respx.get(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=httpx.Response(200, json=DETAIL_EMPTY_TRANSACTIONS)
+    )
     result = runner.invoke(cli_app, ["reconcile", "get", "11111111-1111-1111-1111-111111111111"])
     assert result.exit_code == 0, result.output
     assert "(no transactions assigned)" in result.output
@@ -227,11 +228,8 @@ def test_get_empty_transactions_hint(configured):
 
 @respx.mock
 def test_get_404(configured):
-    respx.get("https://api.example.com/v1/reconciliations/missing").mock(
-        return_value=httpx.Response(
-            404,
-            json={"error": {"code": "NOT_FOUND", "message": "Not found", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/reconciliations/missing").mock(
+        return_value=error_response(404, "NOT_FOUND", "Not found", None)
     )
     result = runner.invoke(cli_app, ["reconcile", "get", "missing"])
     assert result.exit_code == 1
@@ -240,7 +238,7 @@ def test_get_404(configured):
 
 @respx.mock
 def test_create_sends_both_required_fields(configured):
-    route = respx.post("https://api.example.com/v1/reconciliations").mock(
+    route = respx.post(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(201, json=RECON_DRAFT_RESPONSE)
     )
     result = runner.invoke(
@@ -344,9 +342,9 @@ def test_create_rejects_retired_flags(configured):
 
 @respx.mock
 def test_update_partial_payload(configured):
-    route = respx.put(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(return_value=httpx.Response(200, json=RECON_DRAFT_RESPONSE))
+    route = respx.put(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=httpx.Response(200, json=RECON_DRAFT_RESPONSE)
+    )
     result = runner.invoke(
         cli_app,
         [
@@ -383,19 +381,13 @@ def test_update_rejects_retired_source_flag(configured):
 
 @respx.mock
 def test_update_field_locked_422_surfaces_hint(configured):
-    respx.put(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(
-        return_value=httpx.Response(
+    respx.put(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Cannot edit locked fields on completed reconciliation.",
-                    "fields": {
-                        "ending_balance_cents": "Locked while reconciliation is completed.",
-                    },
-                }
+            "VALIDATION_ERROR",
+            "Cannot edit locked fields on completed reconciliation.",
+            {
+                "ending_balance_cents": "Locked while reconciliation is completed.",
             },
         )
     )
@@ -422,9 +414,9 @@ def test_delete_requires_yes_in_non_tty(configured):
 
 @respx.mock
 def test_delete_with_yes(configured):
-    respx.delete(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(return_value=httpx.Response(200, json={**RECON_DRAFT_RESPONSE, "deleted_at": "now"}))
+    respx.delete(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=httpx.Response(200, json={**RECON_DRAFT_RESPONSE, "deleted_at": "now"})
+    )
     result = runner.invoke(
         cli_app,
         ["reconcile", "delete", "11111111-1111-1111-1111-111111111111", "--yes"],
@@ -434,18 +426,9 @@ def test_delete_with_yes(configured):
 
 @respx.mock
 def test_delete_409_surfaces_hint(configured):
-    respx.delete(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111"
-    ).mock(
-        return_value=httpx.Response(
-            409,
-            json={
-                "error": {
-                    "code": "CONFLICT",
-                    "message": "Cannot delete a completed reconciliation.",
-                    "fields": None,
-                }
-            },
+    respx.delete(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=error_response(
+            409, "CONFLICT", "Cannot delete a completed reconciliation.", None
         )
     )
     result = runner.invoke(
@@ -465,7 +448,7 @@ def test_delete_409_surfaces_hint(configured):
 @respx.mock
 def test_restore_happy_with_note(configured):
     route = respx.post(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111/restore"
+        f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/restore"
     ).mock(return_value=httpx.Response(200, json=RECON_DRAFT_RESPONSE))
     result = runner.invoke(
         cli_app, ["reconcile", "restore", "11111111-1111-1111-1111-111111111111"]
@@ -479,7 +462,7 @@ def test_restore_happy_with_note(configured):
 def test_complete_happy_prints_locked_count(configured):
     response_with_count = {**RECON_DRAFT_RESPONSE, "status": 2, "transactions_total": 17}
     route = respx.post(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete"
+        f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete"
     ).mock(return_value=httpx.Response(200, json=response_with_count))
     result = runner.invoke(
         cli_app, ["reconcile", "complete", "11111111-1111-1111-1111-111111111111"]
@@ -491,18 +474,9 @@ def test_complete_happy_prints_locked_count(configured):
 
 @respx.mock
 def test_complete_422_empty_batch_surfaces_hint(configured):
-    respx.post(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete"
-    ).mock(
-        return_value=httpx.Response(
-            422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "No transactions assigned to this reconciliation.",
-                    "fields": {},
-                }
-            },
+    respx.post(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "No transactions assigned to this reconciliation.", {}
         )
     )
     result = runner.invoke(
@@ -523,7 +497,7 @@ def test_revert_requires_yes_in_non_tty(configured):
 def test_revert_with_yes_prints_unlocked_count(configured):
     response_with_count = {**RECON_DRAFT_RESPONSE, "status": 1, "transactions_total": 17}
     route = respx.post(
-        "https://api.example.com/v1/reconciliations/11111111-1111-1111-1111-111111111111/revert"
+        f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/revert"
     ).mock(return_value=httpx.Response(200, json=response_with_count))
     result = runner.invoke(
         cli_app,
@@ -541,8 +515,8 @@ def test_list_include_deleted_param(configured):
         "id": "99999999-9999-9999-9999-999999999999",
         "deleted_at": "2026-06-01T09:00:00Z",
     }
-    body = {"items": [RECON_DRAFT_RESPONSE, deleted], "total": 2, "limit": 50, "offset": 0}
-    route = respx.get("https://api.example.com/v1/reconciliations").mock(
+    body = page([RECON_DRAFT_RESPONSE, deleted], total=2, limit=50, offset=0)
+    route = respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=body)
     )
     result = runner.invoke(cli_app, ["reconcile", "list", "--include-deleted", "--json"])
@@ -554,18 +528,18 @@ def test_list_include_deleted_param(configured):
 @respx.mock
 def test_list_resolves_account_name_from_live_accounts(configured):
     """The Account column joins account_id against the live accounts list."""
-    respx.get("https://api.example.com/v1/reconciliations").mock(
+    respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    accounts_route = respx.get("https://api.example.com/v1/accounts").mock(
+    accounts_route = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200,
-            json={
-                "items": [{"id": RECON_DRAFT_RESPONSE["account_id"], "name": "BCP Soles"}],
-                "total": 1,
-                "limit": 200,
-                "offset": 0,
-            },
+            json=page(
+                [{"id": RECON_DRAFT_RESPONSE["account_id"], "name": "BCP Soles"}],
+                total=1,
+                limit=200,
+                offset=0,
+            ),
         )
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])
@@ -577,10 +551,33 @@ def test_list_resolves_account_name_from_live_accounts(configured):
 @respx.mock
 def test_list_unresolvable_account_degrades_to_short_id(configured):
     """A reference list the engine won't serve must not break the table."""
-    respx.get("https://api.example.com/v1/reconciliations").mock(
+    respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])
     assert result.exit_code == 0, result.output
     assert "22222222" in result.output
     assert "BCP Soles" not in result.output
+
+
+@respx.mock
+def test_list_surfaces_an_engine_refusal(configured):
+    respx.get(f"{BASE}/v1/reconciliations").mock(
+        return_value=error_response(401, "UNAUTHORIZED", "Token is not valid.")
+    )
+    result = runner.invoke(cli_app, ["reconcile", "list"])
+    assert result.exit_code == 1
+    assert "UNAUTHORIZED" in result.output
+
+
+@respx.mock
+def test_restore_refusal_surfaces_the_engine_envelope(configured):
+    """A completed batch's rows are locked, so restoring one is not always
+    allowed — and the refusal is the only place that rule becomes visible."""
+    respx.post(f"{BASE}/v1/reconciliations/abc/restore").mock(
+        return_value=error_response(409, "CONFLICT", "Cannot restore this batch.")
+    )
+    result = runner.invoke(cli_app, ["reconcile", "restore", "abc"])
+    assert result.exit_code == 1
+    assert "CONFLICT" in result.output
+    assert "Cannot restore this batch." in result.output

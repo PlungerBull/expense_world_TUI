@@ -1,14 +1,11 @@
 """Smoke tests for the Accounts TUI screen + CursorList enhancements."""
 
-import asyncio
-
 from rich.text import Text
 
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.accounts import AccountsScreen, account_rows
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import wait_for, wait_for_list
+from tests.unit.helpers import run_app, wait_for, wait_for_list
 
 ITEMS = [
     {
@@ -61,14 +58,12 @@ def test_accounts_screen_lists_and_edits(monkeypatch):
     monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: ITEMS)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_list(pilot, app)
-            cl = app.screen.query(CursorList).first()
-            assert cl is not None
-            await pilot.press("e")  # edit the cursor row — no detail hop
-            await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_list(pilot, app)
+        cl = app.screen.query(CursorList).first()
+        assert cl is not None
+        await pilot.press("e")  # edit the cursor row — no detail hop
+        await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
 
-    asyncio.run(scenario())
+    run_app(scenario)

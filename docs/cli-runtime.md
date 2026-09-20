@@ -59,14 +59,29 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 - A **separate PAT for a separate user** is true data isolation within the same database. PATs are issued out-of-band: see [cli-spec.md](cli-spec.md) "Auth model" and the engine spec for the endpoint contract. CLI-side `auth pat create`/`revoke` are deferred.
 - **A second engine over the `expense_world_test` database** is the strongest, and since 2026-08-16 it is how the contract suite is meant to run. Nothing it writes can reach the real ledger, and the debris is disposable — `deploy/local/create-test-db.sh --force` wipes it. Setup lives in the engine repo: `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates`, then
 
-      SUPABASE_DB_URL=postgresql:///expense_world_test \
-        python -m uvicorn app.main:app --port 8001
+      SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
+        ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
+        python -m uvicorn app.main:app --port 8002
 
   (`python -m uvicorn`, not the console script — engine `deploy/local/README.md` "TCC".)
+
+  **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s, permanently — point the
+  suite at `:8001` and every request 404s against a gym API while the refusal guard
+  and the health check both look fine. Cost a debugging pass on 2026-09-19. The
+  engine repo's `seed-test-user.sh` still prints `8001` in its own instructions;
+  this repo never edits that one (CLAUDE.md "Product scope and role"), so the
+  correction lives here.
+
+  **Connect as `expense_engine`, not the owner.** The engine refuses to start as a
+  SUPERUSER — that role bypasses every RLS policy, so tenant isolation would be
+  engine-side only. `postgresql:///expense_world_test` connects as the owner and
+  hits exactly that guard.
 
 **The contract suite** (`tests/contract/`) hits a real engine deliberately and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> pytest tests/contract`. `EXPENSE_ENGINE_URL` overrides the target and now defaults to `http://127.0.0.1:8000` — until 2026-08-16 it defaulted to the mothballed Render host, so the env var was effectively mandatory while this page claimed otherwise.
 
 **It refuses to run against the real ledger.** Without `EXPENSE_PAT` the only credential available is the developer's own config, so [tests/contract/conftest.py](../tests/contract/conftest.py) aborts the session with a message pointing at the practice database. `EXPENSE_ALLOW_REAL_LEDGER=1` overrides it. This exists because the alternative — a printed warning — only helps someone who is watching, and on 2026-08-16 a mis-scoped gate ran the suite against the real ledger and left four live junk accounts behind.
+
+**Last run 2026-09-19: 24/24**, the first since 2026-08-25 and the first ever for the reconciliation, reports and dashboard modules added that day. Those three found what mocked tests structurally cannot: `amount_cents` is signed on the way in and returns as a magnitude unless the read asks for `debit_as_negative`; `/dashboard` keeps archived accounts and people in their own sections rather than merging them into the live ones; and those sections are `null`, not `[]`, when the flag is absent. Two of the three were found by the new tests being wrong in the same way a second client would be.
 
 What the suite does: walks real flows (the freshman gate: config → ping → bootstrap → accounts/categories create → log → dashboard), redirects `EXPENSE_CONFIG` to a temp dir so the developer's install is untouched, and cleans up after itself best-effort in reverse dependency order. Cleanup means **soft-deletes** — the run leaves tombstoned rows in the PAT user's account (visible under `--include-deleted`), which is exactly why it belongs on the practice database. Run it at step gates, when engine-shape drift is suspected, or before calling a release done — never in CI (deps and gating are designed so CI stays hermetic).
 

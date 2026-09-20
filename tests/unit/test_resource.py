@@ -44,6 +44,8 @@ from expense.commands._resource import (
     split_settled,
 )
 from expense.errors import EngineError, handle_errors
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, page
 
 runner = CliRunner()
 
@@ -276,8 +278,8 @@ def test_format_month(value, expected):
 def test_fetch_body_issues_one_live_get(configured):
     from expense import config as config_module
 
-    route = respx.get("https://api.example.com/v1/things", params={"limit": "5"}).mock(
-        return_value=httpx.Response(200, json={"items": [{"id": "a"}], "total": 1})
+    route = respx.get(f"{BASE}/v1/things", params={"limit": "5"}).mock(
+        return_value=httpx.Response(200, json=page([{"id": "a"}], total=1))
     )
     body = fetch_body(
         config_module.ensure_loaded(),
@@ -285,7 +287,7 @@ def test_fetch_body_issues_one_live_get(configured):
         params={"limit": 5},
         verbose=False,
     )
-    assert body == {"items": [{"id": "a"}], "total": 1}
+    assert body == page([{"id": "a"}], total=1)
     assert route.call_count == 1
 
 
@@ -294,8 +296,8 @@ def test_fetch_body_include_deleted_is_just_a_query_param(configured):
     """No special routing left — every read is live, so --include-deleted is a param."""
     from expense import config as config_module
 
-    route = respx.get("https://api.example.com/v1/things", params={"include_deleted": "true"}).mock(
-        return_value=httpx.Response(200, json={"items": [{"id": "a"}], "total": 1})
+    route = respx.get(f"{BASE}/v1/things", params={"include_deleted": "true"}).mock(
+        return_value=httpx.Response(200, json=page([{"id": "a"}], total=1))
     )
     body = fetch_body(
         config_module.ensure_loaded(),
@@ -303,7 +305,7 @@ def test_fetch_body_include_deleted_is_just_a_query_param(configured):
         params={"include_deleted": "true"},
         verbose=False,
     )
-    assert body == {"items": [{"id": "a"}], "total": 1}
+    assert body == page([{"id": "a"}], total=1)
     assert route.call_count == 1
 
 
@@ -311,8 +313,8 @@ def test_fetch_body_include_deleted_is_just_a_query_param(configured):
 def test_fetch_body_empty_params_sends_no_query(configured):
     from expense import config as config_module
 
-    route = respx.get("https://api.example.com/v1/things").mock(
-        return_value=httpx.Response(200, json={"items": [], "total": 0})
+    route = respx.get(f"{BASE}/v1/things").mock(
+        return_value=httpx.Response(200, json=page([], total=0))
     )
     fetch_body(config_module.ensure_loaded(), path="/things", params={}, verbose=False)
     assert route.calls.last.request.url.query == b""
@@ -324,18 +326,13 @@ def test_fetch_body_empty_params_sends_no_query(configured):
 
 
 def _list_body(items: list[dict], total: int | None = None) -> httpx.Response:
-    body = {
-        "items": items,
-        "total": len(items) if total is None else total,
-        "limit": 200,
-        "offset": 0,
-    }
+    body = page(items, total=len(items) if total is None else total, limit=200, offset=0)
     return httpx.Response(200, json=body)
 
 
 @respx.mock
 def test_load_account_name_map_fetches_live_with_archived_and_people(configured):
-    route = respx.get("https://api.example.com/v1/accounts").mock(
+    route = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=_list_body([{"id": "a1", "name": "BCP"}, {"id": "p1", "name": "Mom"}])
     )
     assert load_account_name_map() == {"a1": "BCP", "p1": "Mom"}
@@ -349,7 +346,7 @@ def test_load_account_name_map_fetches_live_with_archived_and_people(configured)
 
 @respx.mock
 def test_load_category_name_map_fetches_live(configured):
-    route = respx.get("https://api.example.com/v1/categories").mock(
+    route = respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body([{"id": "c1", "name": "Food"}])
     )
     assert load_category_name_map() == {"c1": "Food"}
@@ -358,7 +355,7 @@ def test_load_category_name_map_fetches_live(configured):
 
 @respx.mock
 def test_load_hashtag_name_map_fetches_live(configured):
-    route = respx.get("https://api.example.com/v1/hashtags").mock(
+    route = respx.get(f"{BASE}/v1/hashtags").mock(
         return_value=_list_body([{"id": "h1", "name": "trabajo"}])
     )
     assert load_hashtag_name_map() == {"h1": "trabajo"}
@@ -369,7 +366,7 @@ def test_load_hashtag_name_map_fetches_live(configured):
 def test_load_name_map_pages_through_every_row(configured):
     first = [{"id": f"c{i}", "name": f"n{i}"} for i in range(200)]
     second = [{"id": "c200", "name": "n200"}]
-    route = respx.get("https://api.example.com/v1/categories").mock(
+    route = respx.get(f"{BASE}/v1/categories").mock(
         side_effect=[_list_body(first, total=201), _list_body(second, total=201)]
     )
     out = load_category_name_map()
@@ -380,7 +377,7 @@ def test_load_name_map_pages_through_every_row(configured):
 
 @respx.mock
 def test_load_name_map_skips_rows_without_a_string_id_and_name(configured):
-    respx.get("https://api.example.com/v1/categories").mock(
+    respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body([{"id": "c1", "name": "Food"}, {"id": "c2"}, {"name": "orphan"}])
     )
     assert load_category_name_map() == {"c1": "Food"}
@@ -395,10 +392,8 @@ def test_load_name_map_without_config_is_empty():
 
 @respx.mock
 def test_load_name_map_on_engine_error_is_empty(configured):
-    respx.get("https://api.example.com/v1/categories").mock(
-        return_value=httpx.Response(
-            401, json={"error": {"code": "UNAUTHORIZED", "message": "nope", "fields": None}}
-        )
+    respx.get(f"{BASE}/v1/categories").mock(
+        return_value=error_response(401, "UNAUTHORIZED", "nope", None)
     )
     assert load_category_name_map() == {}
 
@@ -475,7 +470,7 @@ def test_parse_hashtag_ids_does_not_validate_uuids():
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
-        ({"items": [{"id": "a"}], "total": 1}, [{"id": "a"}]),  # paginated dict
+        (page([{"id": "a"}], total=1), [{"id": "a"}]),  # paginated dict
         ({"items": []}, []),
         ({"items": None}, []),  # items present but null
         ({"total": 3}, []),  # dict without items — never a row source
@@ -608,7 +603,7 @@ def _build_toggle_app() -> typer.Typer:
 
 @respx.mock
 def test_run_toggle_happy_posts_correct_url(configured):
-    route = respx.post("https://api.example.com/v1/things/abc/archive").mock(
+    route = respx.post(f"{BASE}/v1/things/abc/archive").mock(
         return_value=httpx.Response(200, json={"id": "abc"})
     )
     result = runner.invoke(_build_toggle_app(), ["test-toggle", "abc"])
@@ -619,17 +614,8 @@ def test_run_toggle_happy_posts_correct_url(configured):
 
 @respx.mock
 def test_run_toggle_surfaces_403_hint(configured):
-    respx.post("https://api.example.com/v1/things/abc/archive").mock(
-        return_value=httpx.Response(
-            403,
-            json={
-                "error": {
-                    "code": "FORBIDDEN",
-                    "message": "Cannot archive a system thing.",
-                    "fields": None,
-                }
-            },
-        )
+    respx.post(f"{BASE}/v1/things/abc/archive").mock(
+        return_value=error_response(403, "FORBIDDEN", "Cannot archive a system thing.", None)
     )
     result = runner.invoke(_build_toggle_app(), ["test-toggle", "abc"])
     assert result.exit_code == 1
@@ -638,11 +624,8 @@ def test_run_toggle_surfaces_403_hint(configured):
 
 @respx.mock
 def test_run_toggle_surfaces_409_hint(configured):
-    respx.post("https://api.example.com/v1/things/abc/archive").mock(
-        return_value=httpx.Response(
-            409,
-            json={"error": {"code": "CONFLICT", "message": "Conflict.", "fields": None}},
-        )
+    respx.post(f"{BASE}/v1/things/abc/archive").mock(
+        return_value=error_response(409, "CONFLICT", "Conflict.", None)
     )
     result = runner.invoke(_build_toggle_app(), ["test-toggle", "abc"])
     assert result.exit_code == 1
@@ -651,11 +634,8 @@ def test_run_toggle_surfaces_409_hint(configured):
 
 @respx.mock
 def test_run_toggle_no_hint_for_unmapped_status(configured):
-    respx.post("https://api.example.com/v1/things/abc/archive").mock(
-        return_value=httpx.Response(
-            500,
-            json={"error": {"code": "ERR", "message": "boom", "fields": None}},
-        )
+    respx.post(f"{BASE}/v1/things/abc/archive").mock(
+        return_value=error_response(500, "ERR", "boom", None)
     )
     result = runner.invoke(_build_toggle_app(), ["test-toggle", "abc"])
     assert result.exit_code == 1
@@ -688,11 +668,8 @@ def test_run_toggle_no_hints_kwarg_means_no_hint(configured):
             render_human=lambda body: typer.echo("ok"),
         )
 
-    respx.post("https://api.example.com/v1/things/abc/restore").mock(
-        return_value=httpx.Response(
-            403,
-            json={"error": {"code": "FORBIDDEN", "message": "x", "fields": None}},
-        )
+    respx.post(f"{BASE}/v1/things/abc/restore").mock(
+        return_value=error_response(403, "FORBIDDEN", "x", None)
     )
     result = runner.invoke(app, ["plain", "abc"])
     assert result.exit_code == 1
@@ -702,11 +679,8 @@ def test_run_toggle_no_hints_kwarg_means_no_hint(configured):
 @respx.mock
 def test_run_toggle_raises_engine_error_for_handle_errors_to_render(configured):
     """The engine error bubbles up so handle_errors renders the full envelope."""
-    respx.post("https://api.example.com/v1/things/abc/archive").mock(
-        return_value=httpx.Response(
-            403,
-            json={"error": {"code": "FORBIDDEN", "message": "Forbidden", "fields": None}},
-        )
+    respx.post(f"{BASE}/v1/things/abc/archive").mock(
+        return_value=error_response(403, "FORBIDDEN", "Forbidden", None)
     )
     result = runner.invoke(_build_toggle_app(), ["test-toggle", "abc"])
     assert result.exit_code == 1
@@ -778,8 +752,8 @@ def _pager(pages):
 
 
 def test_fetch_all_pages_full_then_short_page():
-    full = {"items": [{"id": f"t{i}"} for i in range(200)], "total": 240}
-    short = {"items": [{"id": f"t{200 + i}"} for i in range(40)], "total": 240}
+    full = page([{"id": f"t{i}"} for i in range(200)], total=240)
+    short = page([{"id": f"t{200 + i}"} for i in range(40)], total=240)
     fetch_page, calls = _pager([full, short])
     rows = fetch_all_pages(fetch_page)
     assert calls == [(200, 0), (200, 200)]
@@ -794,15 +768,15 @@ def test_fetch_all_pages_flat_list_returned_whole():
 
 
 def test_fetch_all_pages_empty_first_page():
-    fetch_page, calls = _pager([{"items": [], "total": 0}])
+    fetch_page, calls = _pager([page([], total=0)])
     assert fetch_all_pages(fetch_page) == []
     assert calls == [(200, 0)]
 
 
 def test_fetch_all_pages_total_stops_padded_pages():
     """A full page with total == collected stops without an extra request."""
-    page = {"items": [{"id": f"t{i}"} for i in range(200)], "total": 200}
-    fetch_page, calls = _pager([page])
+    full = page([{"id": f"t{i}"} for i in range(200)], total=200)
+    fetch_page, calls = _pager([full])
     assert len(fetch_all_pages(fetch_page)) == 200
     assert calls == [(200, 0)]
 
@@ -946,7 +920,7 @@ def test_settled_label_shape():
 
 @respx.mock
 def test_load_quickadd_refs_shapes_all_three_lists(configured):
-    respx.get("https://api.example.com/v1/accounts").mock(
+    respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200,
             json=[
@@ -955,14 +929,12 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
             ],
         )
     )
-    respx.get("https://api.example.com/v1/categories").mock(
+    respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body(
             [{"id": "c1", "name": "KORAKUEN"}, {"id": "c2", "name": "Opening", "is_system": True}]
         )
     )
-    respx.get("https://api.example.com/v1/hashtags").mock(
-        return_value=_list_body([{"id": "h1", "name": "TAXI"}])
-    )
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body([{"id": "h1", "name": "TAXI"}]))
 
     refs = load_quickadd_refs(config_module.ensure_loaded())
 
@@ -977,15 +949,15 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
 def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
     """You cannot type your way into an archived account or a system category,
     but a row that already names one still renders its name."""
-    respx.get("https://api.example.com/v1/accounts").mock(
+    respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200, json=[{"id": "a2", "name": "Retired", "is_archived": True}]
         )
     )
-    respx.get("https://api.example.com/v1/categories").mock(
+    respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body([{"id": "c2", "name": "Opening", "is_system": True}])
     )
-    respx.get("https://api.example.com/v1/hashtags").mock(return_value=_list_body([]))
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body([]))
 
     refs = load_quickadd_refs(config_module.ensure_loaded())
 
@@ -998,10 +970,10 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
 def test_load_quickadd_refs_pages_through_every_hashtag(configured):
     """A tag past the engine's first page was invisible to the picker and
     unmatchable from a typed line — one unpaginated call was the cause."""
-    respx.get("https://api.example.com/v1/accounts").mock(return_value=httpx.Response(200, json=[]))
-    respx.get("https://api.example.com/v1/categories").mock(return_value=_list_body([]))
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body([]))
     first = [{"id": f"h{i}", "name": f"tag{i}"} for i in range(200)]
-    route = respx.get("https://api.example.com/v1/hashtags").mock(
+    route = respx.get(f"{BASE}/v1/hashtags").mock(
         side_effect=[
             _list_body(first, total=201),
             _list_body([{"id": "h200", "name": "last"}], total=201),

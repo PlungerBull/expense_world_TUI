@@ -10,9 +10,8 @@ archive itself is covered in test_tui_manage_actions.py.
 import asyncio
 import threading
 
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.accounts import AccountsScreen
-from tests.unit.helpers import wait_for, wait_for_list
+from tests.unit.helpers import run_app, wait_for, wait_for_list
 
 ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False, "color": None}]
 
@@ -43,31 +42,29 @@ def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
 
     fake_client.post = gated_post
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = AccountsScreen()
-            await app.push_screen(screen)
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
 
-            await wait_for_list(pilot, app)
-            screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
-            # Poll (don't snapshot) until the write worker registers — it's
-            # blocked in gated_post, so this state is stable, not fleeting.
-            await wait_for(
-                pilot,
-                lambda: [w for w in app.workers if w.group == "engine-write"],
-                message="write worker not running in its own group",
-            )
-            write_worker = next(w for w in app.workers if w.group == "engine-write")
-            await pilot.press("r")  # refresh while the write is in flight
-            await pilot.pause()  # let the refresh keypress settle, then assert a non-event
-            assert not write_worker.is_cancelled, "refresh cancelled the in-flight write"
-            release.set()  # let the gated write complete
-            await wait_for(pilot, lambda: fake_client.calls)
-            assert not write_worker.is_cancelled
+        await wait_for_list(pilot, app)
+        screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
+        # Poll (don't snapshot) until the write worker registers — it's
+        # blocked in gated_post, so this state is stable, not fleeting.
+        await wait_for(
+            pilot,
+            lambda: [w for w in app.workers if w.group == "engine-write"],
+            message="write worker not running in its own group",
+        )
+        write_worker = next(w for w in app.workers if w.group == "engine-write")
+        await pilot.press("r")  # refresh while the write is in flight
+        await pilot.pause()  # let the refresh keypress settle, then assert a non-event
+        assert not write_worker.is_cancelled, "refresh cancelled the in-flight write"
+        release.set()  # let the gated write complete
+        await wait_for(pilot, lambda: fake_client.calls)
+        assert not write_worker.is_cancelled
 
     try:
-        asyncio.run(scenario())
+        run_app(scenario)
     finally:
         release.set()  # never leave the worker thread blocked on the gate
     assert ("POST", "/accounts/a1/archive") in fake_client.requests
@@ -98,18 +95,16 @@ def test_rapid_writes_serialize_in_order(fake_client, monkeypatch):
 
     fake_client.post = slow_post
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = AccountsScreen()
-            await app.push_screen(screen)
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
 
-            await wait_for_list(pilot, app)
-            screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
-            screen.run_write("POST", "/accounts/a1/unarchive", on_success=lambda: None)
-            await wait_for(pilot, lambda: len(fake_client.posts) == 2)
+        await wait_for_list(pilot, app)
+        screen.run_write("POST", "/accounts/a1/archive", on_success=lambda: None)
+        screen.run_write("POST", "/accounts/a1/unarchive", on_success=lambda: None)
+        await wait_for(pilot, lambda: len(fake_client.posts) == 2)
 
-    asyncio.run(scenario())
+    run_app(scenario)
     assert max_active == 1  # serialized: never two writes in flight
     assert [p for p, _ in fake_client.posts] == ["/accounts/a1/archive", "/accounts/a1/unarchive"]
 
@@ -123,14 +118,12 @@ def test_concurrent_content_swaps_mount_one_card(fake_client, monkeypatch):
     """
     _stub_accounts(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = AccountsScreen()
-            await app.push_screen(screen)
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
 
-            await wait_for_list(pilot, app)
-            await asyncio.gather(screen._show(ACCOUNTS), screen._show(ACCOUNTS))
-            assert len(screen.query("#card")) == 1
+        await wait_for_list(pilot, app)
+        await asyncio.gather(screen._show(ACCOUNTS), screen._show(ACCOUNTS))
+        assert len(screen.query("#card")) == 1
 
-    asyncio.run(scenario())
+    run_app(scenario)

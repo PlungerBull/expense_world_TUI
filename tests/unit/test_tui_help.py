@@ -10,12 +10,9 @@ tests that matter here are the ones that fail when the derivation drifts:
   · the palette is off, and the footer no longer offers it
 """
 
-import asyncio
 import importlib
-import io
 import pkgutil
 
-from rich.console import Console
 from textual.binding import Binding
 
 import expense.tui as tui_pkg
@@ -33,7 +30,7 @@ from expense.tui.screens.help import (
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import wait_for, wait_for_loaded
+from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_loaded
 
 
 def _stub_engine(monkeypatch, items=()):
@@ -43,16 +40,14 @@ def _stub_engine(monkeypatch, items=()):
     )
     monkeypatch.setattr(
         "expense.commands.transactions_cmd.fetch_transactions",
-        lambda cfg, **k: {"items": [], "total": 0},
+        lambda cfg, **k: page([], total=0),
     )
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
 
 
 def _card_text(groups) -> str:
-    console = Console(width=66, file=io.StringIO(), record=True, legacy_windows=False)
-    console.print(render_card(groups, "#000000"))
-    return console.export_text()
+    return render_text(render_card(groups, "#000000"), width=66)
 
 
 def _titles(groups) -> list[str]:
@@ -222,37 +217,35 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
     app-wide keys right."""
     _stub_engine(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 32)) as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            await pilot.pause()
-            title, groups = screen_inventory(app.screen)
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.pause()
+        title, groups = screen_inventory(app.screen)
 
-            assert title == "Keys — Accounts"
-            assert _titles(groups) == [
-                "This screen",
-                "Moving around",
-                "Always true",
-                "Everywhere",
-            ]
-            assert [row.description for row in _rows(groups, "This screen")] == [
-                "New",
-                "Edit",
-                "Archive / unarchive",
-                "Refresh",
-                "Back",
-            ]
-            text = _card_text(groups)
-            # the two columns' second blocks start on the same line
-            lines = text.split("\n")
-            conventions = next(i for i, line in enumerate(lines) if "Always true" in line)
-            assert "Everywhere" in lines[conventions]
-            # nothing overflows the 66-column card
-            assert max(len(line) for line in lines) <= 66
+        assert title == "Keys — Accounts"
+        assert _titles(groups) == [
+            "This screen",
+            "Moving around",
+            "Always true",
+            "Everywhere",
+        ]
+        assert [row.description for row in _rows(groups, "This screen")] == [
+            "New",
+            "Edit",
+            "Archive / unarchive",
+            "Refresh",
+            "Back",
+        ]
+        text = _card_text(groups)
+        # the two columns' second blocks start on the same line
+        lines = text.split("\n")
+        conventions = next(i for i, line in enumerate(lines) if "Always true" in line)
+        assert "Everywhere" in lines[conventions]
+        # nothing overflows the 66-column card
+        assert max(len(line) for line in lines) <= 66
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 32))
 
 
 def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
@@ -262,72 +255,66 @@ def test_help_never_advertises_a_key_the_screen_cannot_service(monkeypatch):
     nothing."""
     _stub_engine(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 32)) as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            await pilot.pause()
-            _, manage = screen_inventory(app.screen)
-            app.pop_screen()
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.pause()
+        _, manage = screen_inventory(app.screen)
+        app.pop_screen()
 
-            await app.push_screen(TransactionsScreen())
-            await wait_for_loaded(pilot, app)
-            await pilot.pause()
-            _, ledger = screen_inventory(app.screen)
+        await app.push_screen(TransactionsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.pause()
+        _, ledger = screen_inventory(app.screen)
 
-            assert not any(r.description == "Open" for r in _rows(manage, "Moving around"))
-            assert any(r.description == "Open" for r in _rows(ledger, "Moving around"))
+        assert not any(r.description == "Open" for r in _rows(manage, "Moving around"))
+        assert any(r.description == "Open" for r in _rows(ledger, "Moving around"))
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 32))
 
 
 def test_home_card_names_itself_without_a_crumb():
     """Home paints its own header and has no crumb, so the title falls back to
     the class name rather than rendering a bare `Keys`."""
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            title, groups = screen_inventory(app.screen)
-            assert title == "Keys — Home"
-            # `+` joined `q` on 2026-08-20, when `Log a transaction` stopped being a
-            # menu row. The card is now the only place the key is written down in
-            # full, so this assertion is what keeps it discoverable. `r` re-reads
-            # the month since Home became the month (2026-09-12).
-            assert [row.keys for row in _rows(groups, "This screen")] == [
-                "+",
-                "pgdn",
-                "pgup",
-                "→",
-                "←",
-                "q",
-                "r",
-            ]
+    async def scenario(pilot, app):
+        await pilot.pause()
+        title, groups = screen_inventory(app.screen)
+        assert title == "Keys — Home"
+        # `+` joined `q` on 2026-08-20, when `Log a transaction` stopped being a
+        # menu row. The card is now the only place the key is written down in
+        # full, so this assertion is what keeps it discoverable. `r` re-reads
+        # the month since Home became the month (2026-09-12).
+        assert [row.keys for row in _rows(groups, "This screen")] == [
+            "+",
+            "pgdn",
+            "pgup",
+            "→",
+            "←",
+            "q",
+            "r",
+        ]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_question_mark_opens_and_closes_the_card(monkeypatch):
     """`?` is a peek: the key that opens it closes it, and so does esc."""
     _stub_engine(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 32)) as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            await pilot.press("question_mark")
-            await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
-            await pilot.press("question_mark")
-            await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
-            await pilot.press("question_mark")
-            await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: isinstance(app.screen, HelpModal))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not isinstance(app.screen, HelpModal))
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 32))
 
 
 def test_question_mark_types_a_character_inside_a_form(monkeypatch):
@@ -346,21 +333,19 @@ def test_question_mark_types_a_character_inside_a_form(monkeypatch):
         "expense.commands.hashtags_cmd.fetch_hashtags", lambda cfg, **k: {"items": []}
     )
 
-    async def scenario():
+    async def scenario(pilot, app):
         from textual.widgets import Input
 
         from expense.tui.screens.create_forms import NewHashtagScreen
 
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 32)) as pilot:
-            await app.push_screen(NewHashtagScreen())
-            await pilot.pause()
-            await pilot.press("question_mark")
-            await pilot.pause()
-            assert not isinstance(app.screen, HelpModal)
-            assert "?" in app.screen.query_one("#bar", Input).value
+        await app.push_screen(NewHashtagScreen())
+        await pilot.pause()
+        await pilot.press("question_mark")
+        await pilot.pause()
+        assert not isinstance(app.screen, HelpModal)
+        assert "?" in app.screen.query_one("#bar", Input).value
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 32))
 
 
 # ---------------------------------------------------------------------------
@@ -378,18 +363,16 @@ def test_command_palette_is_disabled():
 def test_footer_no_longer_offers_the_palette(monkeypatch):
     _stub_engine(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 32)) as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            await pilot.pause()
-            from textual.widgets import Footer
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        await pilot.pause()
+        from textual.widgets import Footer
 
-            footer = app.screen.query_one(Footer)
-            assert not footer.query(".-command-palette")
+        footer = app.screen.query_one(Footer)
+        assert not footer.query(".-command-palette")
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 32))
 
 
 # ---------------------------------------------------------------------------

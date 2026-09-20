@@ -14,13 +14,10 @@ asserting on CSS or component styles would have passed throughout the bug
 (`get_component_styles` reported `text_style: reverse` the whole time).
 """
 
-import asyncio
-
 from textual.widgets import OptionList
 
-from expense.tui.app import ExpenseApp
 from expense.tui.widgets.cursor_list import CURSOR_STYLE, CursorOptionList
-from tests.unit.helpers import stub_home_month, wait_for
+from tests.unit.helpers import run_app, stub_home_month, wait_for
 
 
 def _line_of(menu, index: int) -> int:
@@ -49,7 +46,7 @@ async def _loaded(pilot, app):
 
 
 def _run(scenario):
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_home_menu_uses_the_cursor_widget():
@@ -61,19 +58,17 @@ def test_highlighted_row_renders_differently_from_its_neighbours(monkeypatch):
     """The whole point: the cursor row must not look like the rows around it."""
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _loaded(pilot, app)
-            menu = app.screen.query_one("#menu", CursorOptionList)
-            assert menu.has_focus, "the menu must be focused for the cursor to mean anything"
-            highlighted = menu.highlighted
-            assert highlighted is not None
+    async def scenario(pilot, app):
+        await _loaded(pilot, app)
+        menu = app.screen.query_one("#menu", CursorOptionList)
+        assert menu.has_focus, "the menu must be focused for the cursor to mean anything"
+        highlighted = menu.highlighted
+        assert highlighted is not None
 
-            cursor_row = _line_style(menu, highlighted)
-            assert CURSOR_STYLE in cursor_row, f"cursor row is {cursor_row!r}"
-            for y in (highlighted - 1, highlighted + 1):
-                assert _line_style(menu, y) != cursor_row
+        cursor_row = _line_style(menu, highlighted)
+        assert CURSOR_STYLE in cursor_row, f"cursor row is {cursor_row!r}"
+        for y in (highlighted - 1, highlighted + 1):
+            assert _line_style(menu, y) != cursor_row
 
     _run(scenario)
 
@@ -82,17 +77,15 @@ def test_cursor_follows_the_keyboard(monkeypatch):
     """Moving down must move the reverse bar, not just an internal index."""
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _loaded(pilot, app)
-            menu = app.screen.query_one("#menu", CursorOptionList)
-            first = menu.highlighted
-            await pilot.press("down")
-            await pilot.pause()
-            assert menu.highlighted == first + 1
-            assert CURSOR_STYLE not in _line_style(menu, first)
-            assert CURSOR_STYLE in _line_style(menu, first + 1)
+    async def scenario(pilot, app):
+        await _loaded(pilot, app)
+        menu = app.screen.query_one("#menu", CursorOptionList)
+        first = menu.highlighted
+        await pilot.press("down")
+        await pilot.pause()
+        assert menu.highlighted == first + 1
+        assert CURSOR_STYLE not in _line_style(menu, first)
+        assert CURSOR_STYLE in _line_style(menu, first + 1)
 
     _run(scenario)
 
@@ -101,15 +94,13 @@ def test_group_headers_never_take_the_cursor(monkeypatch):
     """Disabled options are section labels; reversing one would read as selectable."""
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _loaded(pilot, app)
-            menu = app.screen.query_one("#menu", CursorOptionList)
-            disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
-            assert disabled, "the menu is built from section headers + live rows + screen entries"
-            for index in disabled:
-                assert CURSOR_STYLE not in _line_style(menu, index)
+    async def scenario(pilot, app):
+        await _loaded(pilot, app)
+        menu = app.screen.query_one("#menu", CursorOptionList)
+        disabled = [i for i, opt in enumerate(menu.options) if opt.disabled]
+        assert disabled, "the menu is built from section headers + live rows + screen entries"
+        for index in disabled:
+            assert CURSOR_STYLE not in _line_style(menu, index)
 
     _run(scenario)
 
@@ -118,16 +109,14 @@ def test_cursor_bar_spans_the_full_row(monkeypatch):
     """Reverse video must cover the row's padding too, or it reads as a ragged blob."""
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _loaded(pilot, app)
-            menu = app.screen.query_one("#menu", CursorOptionList)
-            segments = menu.render_line(_line_of(menu, menu.highlighted))._segments
-            assert segments
-            assert all(CURSOR_STYLE in str(s.style) for s in segments), (
-                "every segment on the cursor row, including trailing padding, "
-                f"must carry {CURSOR_STYLE}"
-            )
+    async def scenario(pilot, app):
+        await _loaded(pilot, app)
+        menu = app.screen.query_one("#menu", CursorOptionList)
+        segments = menu.render_line(_line_of(menu, menu.highlighted))._segments
+        assert segments
+        assert all(CURSOR_STYLE in str(s.style) for s in segments), (
+            "every segment on the cursor row, including trailing padding, "
+            f"must carry {CURSOR_STYLE}"
+        )
 
     _run(scenario)

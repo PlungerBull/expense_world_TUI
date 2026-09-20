@@ -15,7 +15,7 @@ from typer.testing import CliRunner
 from expense.commands.accounts_cmd import app as accounts_app
 from expense.jsonout import emit_json, json_text
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import make_cli_app, page
 
 runner = CliRunner()
 cli_app = make_cli_app(accounts_app, "accounts")
@@ -44,12 +44,12 @@ def test_a_list_command_emits_accents_the_way_the_bank_importer_always_did(confi
     respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200,
-            json={
-                "items": [{"id": "a1", "name": ACCENTED, "currency_code": "PEN"}],
-                "total": 1,
-                "limit": 20,
-                "offset": 0,
-            },
+            json=page(
+                [{"id": "a1", "name": ACCENTED, "currency_code": "PEN"}],
+                total=1,
+                limit=20,
+                offset=0,
+            ),
         )
     )
     result = runner.invoke(cli_app, ["accounts", "list", "--json"])

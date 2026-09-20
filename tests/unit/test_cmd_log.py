@@ -8,7 +8,8 @@ from typer.testing import CliRunner
 
 from expense.commands import _resource, log_cmd
 from expense.commands.log_cmd import log as log_impl
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app, page
 
 cli_app = make_cli_app(commands={"log": log_impl})
 
@@ -36,7 +37,7 @@ TRANSACTION_RESPONSE = {
 
 @respx.mock
 def test_log_happy(configured):
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(
@@ -69,7 +70,7 @@ def test_log_happy(configured):
 
 @respx.mock
 def test_log_json_mode(configured):
-    respx.post("https://api.example.com/v1/transactions").mock(
+    respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(
@@ -99,7 +100,7 @@ def test_log_default_date_is_today(configured, monkeypatch):
     # flake (backlog §5). Patch the seam the default flows through (log_cmd.py:88).
     frozen = "2026-04-24T09:30:00-05:00"
     monkeypatch.setattr(log_cmd, "now_local_iso", lambda: frozen)
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(
@@ -116,7 +117,7 @@ def test_log_default_date_is_today(configured, monkeypatch):
 
 @respx.mock
 def test_log_signed_negative_amount(configured):
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     runner.invoke(
@@ -129,7 +130,7 @@ def test_log_signed_negative_amount(configured):
 
 @respx.mock
 def test_log_signed_positive_amount(configured):
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     runner.invoke(
@@ -142,16 +143,12 @@ def test_log_signed_positive_amount(configured):
 
 @respx.mock
 def test_log_422_settings_missing_prints_hint(configured):
-    respx.post("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(
+    respx.post(f"{BASE}/v1/transactions").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "SETTINGS_MISSING",
-                    "message": "User settings missing.",
-                    "fields": {"user_settings": "Must be provisioned via bootstrap."},
-                }
-            },
+            "SETTINGS_MISSING",
+            "User settings missing.",
+            {"user_settings": "Must be provisioned via bootstrap."},
         )
     )
     result = runner.invoke(
@@ -191,14 +188,12 @@ TODAY = date(2026, 8, 25)
 
 def _refs() -> None:
     """Mock the three reference-list reads every parse needs."""
-    respx.get("https://api.example.com/v1/accounts").mock(
-        return_value=httpx.Response(200, json=ACCOUNTS)
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=ACCOUNTS))
+    respx.get(f"{BASE}/v1/categories").mock(
+        return_value=httpx.Response(200, json=page(CATEGORIES, total=3))
     )
-    respx.get("https://api.example.com/v1/categories").mock(
-        return_value=httpx.Response(200, json={"items": CATEGORIES, "total": 3})
-    )
-    respx.get("https://api.example.com/v1/hashtags").mock(
-        return_value=httpx.Response(200, json={"items": HASHTAGS, "total": 2})
+    respx.get(f"{BASE}/v1/hashtags").mock(
+        return_value=httpx.Response(200, json=page(HASHTAGS, total=2))
     )
 
 
@@ -216,7 +211,7 @@ def _run(monkeypatch, args, *, tty: bool = True, **kwargs):
 @respx.mock
 def test_line_complete_goes_to_the_ledger(configured, monkeypatch):
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(
@@ -240,7 +235,7 @@ def test_line_complete_goes_to_the_ledger(configured, monkeypatch):
 def test_line_echoes_the_resolved_date_in_words(configured, monkeypatch):
     """Two-digit years are only safe because the resolved date is spelled out."""
     _refs()
-    respx.post("https://api.example.com/v1/transactions").mock(
+    respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(
@@ -257,7 +252,7 @@ def test_line_echoes_the_resolved_date_in_words(configured, monkeypatch):
 @respx.mock
 def test_line_declined_writes_nothing(configured, monkeypatch):
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(
@@ -274,7 +269,7 @@ def test_line_declined_writes_nothing(configured, monkeypatch):
 @respx.mock
 def test_line_yes_skips_the_prompt(configured, monkeypatch):
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen hoy", "--yes"])
@@ -287,7 +282,7 @@ def test_line_yes_skips_the_prompt(configured, monkeypatch):
 @respx.mock
 def test_line_without_an_account_is_refused(configured, monkeypatch):
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "apparka mall -3.50 @transporte #taxi", "--yes"])
@@ -303,7 +298,7 @@ def test_line_without_a_category_lands_in_the_ledger_under_pendiente(configured,
     """No category is not a reason (2026-09-12): the body omits it — never
     null — and the echo already says where the engine will file the row."""
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "apparka mall -3.50 $bcp signature pen #taxi", "--yes"])
@@ -320,7 +315,7 @@ def test_line_without_a_category_lands_in_the_ledger_under_pendiente(configured,
 @respx.mock
 def test_line_without_a_title_sends_none_and_echoes_a_dash(configured, monkeypatch):
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     # `--` keeps typer from reading the leading minus as an option; a shell
@@ -338,7 +333,7 @@ def test_ambiguous_name_is_refused_and_lists_the_candidates(configured, monkeypa
     """An ambiguous name counts as no name (decided 2026-08-25) — and the way
     out is to retype it, so the candidates are printed with the refusal."""
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature @korakuen hoy", "--yes"])
@@ -353,7 +348,7 @@ def test_ambiguous_name_is_refused_and_lists_the_candidates(configured, monkeypa
 @respx.mock
 def test_unmatched_hashtag_is_refused_and_never_created(configured, monkeypatch):
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen #nope hoy", "--yes"])
@@ -366,7 +361,7 @@ def test_unmatched_hashtag_is_refused_and_never_created(configured, monkeypatch)
 @respx.mock
 def test_complete_but_dated_ahead_is_refused(configured, monkeypatch):
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "alquiler -1800 $signature pen @korakuen manana", "--yes"])
@@ -378,7 +373,7 @@ def test_complete_but_dated_ahead_is_refused(configured, monkeypatch):
 
 @respx.mock
 def test_flag_form_needs_only_amount_and_account(configured):
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(cli_app, ["log", "--amount", "-660", "--account-id", "acct-id"])
@@ -392,7 +387,7 @@ def test_flag_form_needs_only_amount_and_account(configured):
 @respx.mock
 def test_line_without_a_date_defaults_to_now(configured, monkeypatch):
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     frozen = "2026-08-25T14:31:07-05:00"
@@ -406,7 +401,7 @@ def test_line_without_a_date_defaults_to_now(configured, monkeypatch):
 @respx.mock
 def test_dry_run_touches_no_write_endpoint(configured, monkeypatch):
     _refs()
-    ledger = respx.post("https://api.example.com/v1/transactions").mock(
+    ledger = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen hoy", "--dry-run"])
@@ -441,7 +436,7 @@ def test_dry_run_json_is_the_parse(configured, monkeypatch):
 def test_json_without_yes_is_refused(configured, monkeypatch):
     """A y/N prompt would land in the middle of the JSON."""
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen hoy", "--json"])
@@ -454,7 +449,7 @@ def test_json_without_yes_is_refused(configured, monkeypatch):
 @respx.mock
 def test_json_with_yes_stays_a_clean_engine_body(configured, monkeypatch):
     _refs()
-    respx.post("https://api.example.com/v1/transactions").mock(
+    respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(
@@ -521,7 +516,7 @@ def test_line_off_a_tty_demands_yes(configured, monkeypatch):
     """Piped or scripted, there is nobody to answer — the same rule every
     other confirmed write in the CLI follows (`require_yes`)."""
     _refs()
-    route = respx.post("https://api.example.com/v1/transactions").mock(
+    route = respx.post(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(201, json=TRANSACTION_RESPONSE)
     )
     result = _run(monkeypatch, ["log", "tottus -38.60 $signature pen @korakuen hoy"], tty=False)

@@ -14,6 +14,7 @@ from expense.errors import (
     handle_errors,
     render,
 )
+from tests.unit.helpers import error_body
 
 
 def _engine_error(message, fields=None, status=422):
@@ -44,13 +45,7 @@ def test_engine_error_attributes():
         message="Amount must not be zero",
         fields={"amount_cents": "Must not be zero"},
         status=422,
-        raw_body={
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "...",
-                "fields": {"amount_cents": "..."},
-            }
-        },
+        raw_body=error_body("VALIDATION_ERROR", "...", {"amount_cents": "..."}),
     )
     assert err.code == "VALIDATION_ERROR"
     assert err.status == 422
@@ -102,7 +97,7 @@ def test_render_engine_error_human_non_401_no_hint():
 
 
 def test_render_engine_error_json_passes_through_raw_body():
-    raw = {"error": {"code": "NOT_FOUND", "message": "x", "fields": None}}
+    raw = error_body("NOT_FOUND", "x", None)
     err = EngineError(
         code="NOT_FOUND",
         message="x",

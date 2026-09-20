@@ -15,10 +15,13 @@ from expense import config as config_module
 from expense.commands import _resource, bank_import_cmd
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import error_body, error_response, page, real_cli_app
 
 runner = CliRunner()
-cli_app = make_cli_app(commands={"bank": bank_import_cmd.bank})
+#: The real command tree — see the note in test_cmd_import.py. Mounted as a
+#: bare `bank`, these tests could not tell `expense import bank` from any other
+#: name the command might be given.
+cli_app = real_cli_app()
 
 ACCOUNTS = [
     {"id": "bcp-pen", "name": "BCP PEN", "currency_code": "PEN"},
@@ -53,7 +56,7 @@ def _engine(ledger_by_account: dict[str, list[dict]] | None = None):
     def transactions(request):
         account = request.url.params.get("account_id")
         items = (ledger_by_account or {}).get(account, [])
-        return httpx.Response(200, json={"items": items, "total": len(items)})
+        return httpx.Response(200, json=page(items, total=len(items)))
 
     respx.get(f"{BASE}/v1/transactions").mock(side_effect=transactions)
 
@@ -80,7 +83,7 @@ def test_account_flag_is_used_and_remembered(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
     result = _run(
-        monkeypatch, ["bank", "VISA Infinite Sapphire.xlsx", "--account", "BCP Signature"]
+        monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx", "--account", "BCP Signature"]
     )
     assert result.exit_code == 0, result.output
     assert "Account: BCP Signature" in result.output
@@ -94,7 +97,7 @@ def test_remembered_account_needs_no_flag(configured, monkeypatch):
     config_module.save(cfg)
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
-    result = _run(monkeypatch, ["bank", "/tmp/VISA Infinite Sapphire.xlsx"])
+    result = _run(monkeypatch, ["import", "bank", "/tmp/VISA Infinite Sapphire.xlsx"])
     assert result.exit_code == 0, result.output
     assert 'remembered for "VISA Infinite Sapphire"' in result.output
 
@@ -103,7 +106,7 @@ def test_remembered_account_needs_no_flag(configured, monkeypatch):
 def test_off_a_tty_with_nothing_remembered_the_flag_is_required(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
-    result = _run(monkeypatch, ["bank", "VISA Infinite Sapphire.xlsx"])
+    result = _run(monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx"])
     assert result.exit_code == 1
     assert "--account is required" in result.output
 
@@ -114,7 +117,9 @@ def test_on_a_tty_the_accounts_are_listed_folded_and_the_answer_is_remembered(
 ):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
-    result = _run(monkeypatch, ["bank", "VISA Infinite Sapphire.xlsx"], tty=True, input="2\n")
+    result = _run(
+        monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx"], tty=True, input="2\n"
+    )
     assert result.exit_code == 0, result.output
     # Folded by base name; archived and person accounts are not offered.
     assert "1  BCP     PEN + USD" in result.output
@@ -127,7 +132,7 @@ def test_on_a_tty_the_accounts_are_listed_folded_and_the_answer_is_remembered(
 def test_a_currency_the_pick_has_no_leg_for_refuses_the_file(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)  # holds one $ row
     _engine()
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature PEN"])
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature PEN"])
     assert result.exit_code == 1
     assert "1 row in USD" in result.output and "BCP Signature PEN holds PEN only" in result.output
 
@@ -144,7 +149,7 @@ def test_dry_run_places_rows_and_writes_nothing(configured, monkeypatch):
         }
     )
     batch = respx.post(f"{BASE}/v1/transactions/batch")
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature"])
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
     assert result.exit_code == 0, result.output
     assert not batch.called
     out = result.output
@@ -168,7 +173,7 @@ def test_operation_codes_are_shown_and_decide(configured, monkeypatch):
     _engine(
         {"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.", "03144753")]}
     )
-    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP", "--all"])
+    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--all"])
     assert result.exit_code == 0, result.output
     assert "operation numbers on every row" in result.output
     assert "04330935  new" in result.output
@@ -186,7 +191,7 @@ def test_the_ledger_holding_more_than_the_file_is_a_loud_warning(configured, mon
             ]
         }
     )
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature"])
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
     assert result.exit_code == 0, result.output
     assert "! 1 group has more in the ledger than in the file" in result.output
     assert "2026-09-07 · -3.50 · BCP Signature PEN — ledger 2, file 1" in result.output
@@ -196,7 +201,7 @@ def test_the_ledger_holding_more_than_the_file_is_a_loud_warning(configured, mon
 def test_json_is_the_placement(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine()
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--json"])
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--json"])
     assert result.exit_code == 0, result.output
     doc = json.loads(result.output)
     assert doc["account"] == "BCP Signature"
@@ -214,7 +219,9 @@ def test_apply_writes_only_the_new_rows_under_no_category(configured, monkeypatc
     batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json={"created": []})
     )
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply"])
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
     assert result.exit_code == 0, result.output
     body = json.loads(batch.calls.last.request.content)
     items = body["transactions"]
@@ -239,7 +246,9 @@ def test_apply_carries_the_operation_code(configured, monkeypatch):
     batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json={"created": []})
     )
-    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"])
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
     assert result.exit_code == 0, result.output
     item = json.loads(batch.calls.last.request.content)["transactions"][0]
     assert item["operation_code"] == "04330935"
@@ -250,7 +259,9 @@ def test_apply_with_nothing_new_writes_nothing(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine({"sig-pen": [_ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR")]})
     batch = respx.post(f"{BASE}/v1/transactions/batch")
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply"])
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
     assert result.exit_code == 0, result.output
     assert not batch.called
     assert "the ledger already has every row" in result.output
@@ -260,9 +271,7 @@ def test_apply_with_nothing_new_writes_nothing(configured, monkeypatch):
 def test_apply_reports_a_refused_row_and_exits_1(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])
     _engine()
-    error = {
-        "error": {"code": "VALIDATION_ERROR", "message": "Batch validation failed.", "fields": {}}
-    }
+    error = error_body("VALIDATION_ERROR", "Batch validation failed.", {})
     respx.post(f"{BASE}/v1/transactions/batch").mock(
         side_effect=[
             httpx.Response(422, json=error),  # the chunk
@@ -270,7 +279,9 @@ def test_apply_reports_a_refused_row_and_exits_1(configured, monkeypatch):
             httpx.Response(422, json=error),  # row 2 alone
         ]
     )
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply"])
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
     assert result.exit_code == 1, result.output
     assert "1 written" in result.output
     assert "! row 3:" in result.output
@@ -282,7 +293,7 @@ def test_preview_says_which_matched_rows_will_get_a_code(configured, monkeypatch
     _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
     _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
     put = respx.put(f"{BASE}/v1/transactions/t1")
-    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP"])
+    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP"])
     assert result.exit_code == 0, result.output
     assert "in ledger · same day + title · +code" in result.output
     assert "1 matched row in the ledger have no operation code yet" in result.output
@@ -295,7 +306,9 @@ def test_apply_writes_the_code_onto_the_matched_row_and_nothing_else(configured,
     _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
     put = respx.put(f"{BASE}/v1/transactions/t1").mock(return_value=httpx.Response(200, json={}))
     batch = respx.post(f"{BASE}/v1/transactions/batch")
-    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"])
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
     assert result.exit_code == 0, result.output
     assert json.loads(put.calls.last.request.content) == {"operation_code": "03144753"}
     assert not batch.called  # nothing was new
@@ -311,7 +324,7 @@ def test_a_second_download_matches_by_the_code_it_wrote(configured, monkeypatch)
     _engine(
         {"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.", "03144753")]}
     )
-    result = _run(monkeypatch, ["bank", "Sueldo Soles.xlsx", "--account", "BCP"])
+    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP"])
     assert result.exit_code == 0, result.output
     assert "in ledger · operation 03144753" in result.output
     assert "+code" not in result.output
@@ -341,7 +354,7 @@ DOC_KEYS = {
 def test_the_json_document_has_one_shape_on_a_dry_run(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine()
-    result = _run(monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--json"])
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--json"])
     assert result.exit_code == 0, result.output
     doc = json.loads(result.output)
     assert set(doc) == DOC_KEYS
@@ -360,7 +373,7 @@ def test_the_json_document_has_one_shape_when_apply_writes(configured, monkeypat
         return_value=httpx.Response(201, json={"created": []})
     )
     result = _run(
-        monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
     )
     assert result.exit_code == 0, result.output
     doc = json.loads(result.output)
@@ -374,9 +387,151 @@ def test_the_json_document_has_one_shape_when_apply_writes_nothing(configured, m
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine({"sig-pen": [_ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR")]})
     result = _run(
-        monkeypatch, ["bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
     )
     assert result.exit_code == 0, result.output
     doc = json.loads(result.output)
     assert set(doc) == DOC_KEYS
     assert doc["written"] == 0 and doc["failed"] == []
+
+
+# ---- when a write does not land ----------------------------------------------
+#
+# Three branches of write_placement/render_write had no test until 2026-09-19:
+# a backfill PUT the engine refuses, a chunk the engine already holds, and a
+# connection error that stops the run mid-batch. All three decide the exit code
+# through `WriteReport.ok`, and a partial import that reports success is one
+# nobody re-runs.
+
+
+@respx.mock
+def test_a_refused_backfill_names_the_row_and_does_not_stop_the_new_rows(configured, monkeypatch):
+    """The code write and the row write are separate asks of the engine.
+
+    Backfilling a code onto a row the ledger already has can fail on its own —
+    the engine's per-account UNIQUE on `operation_code` (sql/039) rejects a code
+    a *different* row already carries. That must not cost the run the rows that
+    are genuinely new: they are why the import was started.
+    """
+    _feed(
+        monkeypatch,
+        ACCOUNT_HEADERS,
+        [
+            ("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753"),  # matches t1 → backfill
+            ("11/09/2026", "PAGO SERVICIOS", "S/", -25, "03144999"),  # new
+        ],
+    )
+    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
+    put = respx.put(f"{BASE}/v1/transactions/t1").mock(
+        return_value=error_response(
+            409, "CONFLICT", "operation_code already used on this account.", None
+        )
+    )
+    batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
+
+    assert put.called and batch.called  # the refusal did not abort the run
+    assert "0 operation codes written onto existing rows" in result.output
+    assert "! row 2 (code 03144753): CONFLICT — operation_code already used" in result.output
+    assert "1 written" in result.output
+    assert result.exit_code == 1  # a partial run never reports success
+
+
+@respx.mock
+def test_a_refused_backfill_alone_is_still_exit_1(configured, monkeypatch):
+    """Nothing new to write, one code refused — the run did not do its job."""
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
+    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
+    respx.put(f"{BASE}/v1/transactions/t1").mock(
+        return_value=error_response(422, "VALIDATION_ERROR", "bad code.", None)
+    )
+
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
+
+    assert "! row 2 (code 03144753): VALIDATION_ERROR — bad code." in result.output
+    assert "Nothing new to write" in result.output
+    assert result.exit_code == 1
+
+
+@respx.mock
+def test_rows_the_engine_already_holds_are_counted_not_failed(configured, monkeypatch):
+    """A 409 on a client-minted id means the row is already in.
+
+    This is what a re-run of a half-written import looks like, and it is the
+    reason a retry is safe — so it reports as `already there`, exit 0, not as a
+    failure. The ledger read cannot see these (the match rules missed them);
+    only the engine's own id collision can.
+    """
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])
+    _engine()
+    conflict = error_response(409, "CONFLICT", "a transaction with that id already exists.", None)
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=[conflict, conflict, conflict]  # the chunk, then each row alone
+    )
+
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+
+    assert "0 written" in result.output
+    assert "2 already there — the engine holds that operation number" in result.output
+    assert result.exit_code == 0  # nothing failed; the rows are in
+
+
+@respx.mock
+def test_a_connection_error_mid_batch_says_how_many_were_never_sent(configured, monkeypatch):
+    """`stopped` is the one outcome where the ledger's state is unknown to us.
+
+    The rows still UNSENT were never put on the wire, so the line has to say how
+    many — that count is what tells the user a re-run is safe and finite.
+    """
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
+    _engine()
+    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=httpx.ConnectError("down"))
+
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+
+    assert "0 written" in result.output
+    assert "! stopped:" in result.output and "could not reach engine" in result.output
+    assert "4 rows were never sent" in result.output
+    assert result.exit_code == 1
+
+
+@respx.mock
+def test_apply_repeats_the_excess_warning_above_the_writes(configured, monkeypatch):
+    """The preview warns when the ledger holds more of a group than the file does;
+    `--apply` has to warn again.
+
+    `render_write_header` prints before the writes start, and under `--apply` the
+    preview is not shown at all — so without this line the one signal that a row
+    may already be logged twice would be visible only on the dry run nobody reads
+    twice.
+    """
+    _feed(monkeypatch, CARD_HEADERS, [("2026-09-11", "EDO SUSHI BAR             LI", "S/", -49)])
+    _engine(
+        {
+            "sig-pen": [
+                _ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR"),
+                _ledger("t2", "sig-pen", "2026-09-11", -4900, "edo sushi"),
+            ]
+        }
+    )
+    batch = respx.post(f"{BASE}/v1/transactions/batch")
+
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not batch.called  # the file's one row is already in the ledger
+    assert "1 group has more in the ledger than in the file" in result.output
+    assert "ledger 2, file 1" in result.output

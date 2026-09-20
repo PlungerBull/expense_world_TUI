@@ -9,7 +9,8 @@ from typer.testing import CliRunner
 from expense import config as config_module
 from expense.commands.auth_cmd import app as auth_app
 from expense.commands.auth_cmd import whoami as whoami_impl
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app
 
 cli_app = make_cli_app(auth_app, "auth", commands={"whoami": whoami_impl})
 
@@ -37,7 +38,7 @@ BOOTSTRAP_RESPONSE = {
 
 @respx.mock
 def test_bootstrap_caches_main_currency(configured):
-    respx.post("https://api.example.com/v1/auth/bootstrap").mock(
+    respx.post(f"{BASE}/v1/auth/bootstrap").mock(
         return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
     )
     result = runner.invoke(
@@ -63,9 +64,7 @@ def test_me_refreshes_main_currency_cache(configured):
         **BOOTSTRAP_RESPONSE,
         "settings": {**BOOTSTRAP_RESPONSE["settings"], "main_currency": "PEN"},
     }
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(200, json=updated_response)
-    )
+    respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=updated_response))
     result = runner.invoke(cli_app, ["auth", "me"])
     assert result.exit_code == 0
 
@@ -75,17 +74,8 @@ def test_me_refreshes_main_currency_cache(configured):
 
 @respx.mock
 def test_me_404_prints_bootstrap_hint(configured):
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(
-            404,
-            json={
-                "error": {
-                    "code": "NOT_FOUND",
-                    "message": "User not found",
-                    "fields": None,
-                }
-            },
-        )
+    respx.get(f"{BASE}/v1/auth/me").mock(
+        return_value=error_response(404, "NOT_FOUND", "User not found", None)
     )
     result = runner.invoke(cli_app, ["auth", "me"])
     assert result.exit_code == 1
@@ -94,7 +84,7 @@ def test_me_404_prints_bootstrap_hint(configured):
 
 @respx.mock
 def test_whoami_equivalent_to_me(configured):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
+    route = respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
     )
     me_result = runner.invoke(cli_app, ["auth", "me", "--json"])
@@ -115,7 +105,7 @@ def test_settings_no_flags_errors(configured):
 @respx.mock
 def test_settings_display_timezone_updates(configured):
     updated_settings = {**BOOTSTRAP_RESPONSE["settings"], "display_timezone": "America/Bogota"}
-    route = respx.put("https://api.example.com/v1/auth/settings").mock(
+    route = respx.put(f"{BASE}/v1/auth/settings").mock(
         return_value=httpx.Response(200, json=updated_settings)
     )
     result = runner.invoke(cli_app, ["auth", "settings", "--display-timezone", "America/Bogota"])
@@ -128,16 +118,12 @@ def test_settings_display_timezone_updates(configured):
 
 @respx.mock
 def test_settings_422_invalid_timezone_renders_engine_error(configured):
-    respx.put("https://api.example.com/v1/auth/settings").mock(
-        return_value=httpx.Response(
+    respx.put(f"{BASE}/v1/auth/settings").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid input.",
-                    "fields": {"display_timezone": "Not a valid IANA timezone."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Invalid input.",
+            {"display_timezone": "Not a valid IANA timezone."},
         )
     )
     result = runner.invoke(cli_app, ["auth", "settings", "--display-timezone", "Mars/Olympus"])
@@ -148,9 +134,7 @@ def test_settings_422_invalid_timezone_renders_engine_error(configured):
 
 @respx.mock
 def test_me_json_mode(configured):
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
-    )
+    respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE))
     result = runner.invoke(cli_app, ["auth", "me", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -166,7 +150,7 @@ def test_profile_no_flags_errors(configured):
 @respx.mock
 def test_profile_display_name_success(configured):
     updated_user = {**BOOTSTRAP_RESPONSE["user"], "display_name": "Alex"}
-    route = respx.put("https://api.example.com/v1/auth/profile").mock(
+    route = respx.put(f"{BASE}/v1/auth/profile").mock(
         return_value=httpx.Response(200, json=updated_user)
     )
     result = runner.invoke(cli_app, ["auth", "profile", "--display-name", "Alex"])
@@ -180,9 +164,7 @@ def test_profile_display_name_success(configured):
 @respx.mock
 def test_profile_json_mode(configured):
     updated_user = {**BOOTSTRAP_RESPONSE["user"], "display_name": "Alex"}
-    respx.put("https://api.example.com/v1/auth/profile").mock(
-        return_value=httpx.Response(200, json=updated_user)
-    )
+    respx.put(f"{BASE}/v1/auth/profile").mock(return_value=httpx.Response(200, json=updated_user))
     result = runner.invoke(cli_app, ["auth", "profile", "--display-name", "Alex", "--json"])
     assert result.exit_code == 0
     assert json.loads(result.output) == updated_user
@@ -190,16 +172,9 @@ def test_profile_json_mode(configured):
 
 @respx.mock
 def test_profile_422_renders_engine_error(configured):
-    respx.put("https://api.example.com/v1/auth/profile").mock(
-        return_value=httpx.Response(
-            422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid input.",
-                    "fields": {"display_name": "Must not be null."},
-                }
-            },
+    respx.put(f"{BASE}/v1/auth/profile").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "Invalid input.", {"display_name": "Must not be null."}
         )
     )
     result = runner.invoke(cli_app, ["auth", "profile", "--display-name", "Alex"])
@@ -211,7 +186,7 @@ def test_profile_422_renders_engine_error(configured):
 @respx.mock
 def test_bootstrap_timezone_auto_detected_from_tz_env(configured, monkeypatch):
     monkeypatch.setenv("TZ", "America/Lima")
-    route = respx.post("https://api.example.com/v1/auth/bootstrap").mock(
+    route = respx.post(f"{BASE}/v1/auth/bootstrap").mock(
         return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
     )
     result = runner.invoke(cli_app, ["auth", "bootstrap", "--display-name", "Alex"])
@@ -247,3 +222,15 @@ def test_bootstrap_undetectable_timezone_errors_cleanly(configured, monkeypatch,
     assert "Could not detect system timezone" in result.output
     assert "Traceback" not in result.output
     assert not respx.calls
+
+
+@respx.mock
+def test_whoami_surfaces_an_engine_refusal(configured):
+    """`whoami` is the command people run to find out whether their token works,
+    so a bad token has to produce a sentence, not an empty record."""
+    respx.get(f"{BASE}/v1/auth/me").mock(
+        return_value=error_response(401, "UNAUTHORIZED", "Token is not valid.")
+    )
+    result = runner.invoke(cli_app, ["whoami"])
+    assert result.exit_code == 1
+    assert "UNAUTHORIZED" in result.output

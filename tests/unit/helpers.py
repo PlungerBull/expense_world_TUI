@@ -6,12 +6,16 @@ Keep this module free of Textual imports at module level so CLI command test
 files pay no TUI import cost.
 """
 
+import asyncio
+import io
 import re
 from collections.abc import Callable
 from typing import Any
 
+import httpx
 import pytest
 import typer
+from rich.console import Console
 
 from expense.context import AppContext
 from expense.errors import EngineError
@@ -22,6 +26,22 @@ ENGINE_URL = "https://api.example.com"
 # ---------------------------------------------------------------------------
 # Typer root wiring
 # ---------------------------------------------------------------------------
+
+
+def real_cli_app() -> typer.Typer:
+    """The app `expense` actually runs — `expense.__main__.app`.
+
+    Prefer this to `make_cli_app` whenever the *path* to the command is part of
+    what the test is asserting: a group name, a subcommand name, or a command
+    that moved. A hand-wired root proves the callback does its job with whatever
+    name the test chose, which is exactly no coverage of the name the user types.
+
+    The import is function-local because `__main__` pulls in the TUI, and the
+    CLI command test files should not pay Textual's import cost just to exist.
+    """
+    from expense.__main__ import app
+
+    return app
 
 
 def make_cli_app(
@@ -75,6 +95,80 @@ def strip_panel(output: str) -> str:
     no_ansi = _ANSI_ESCAPE_RE.sub("", output)
     no_box = "".join(c for c in no_ansi if c not in "│╭╮╰╯─\n\t")
     return " ".join(no_box.split())
+
+
+# ---------------------------------------------------------------------------
+# Rich rendering
+# ---------------------------------------------------------------------------
+
+
+def render_text(*renderables: object, width: int = 100, ansi: bool = False) -> str:
+    """Print Rich renderables to a string with terminal detection turned OFF.
+
+    `force_terminal` is passed explicitly in both directions, and that is the
+    whole point. Left unset, Rich *sniffs the environment* — FORCE_COLOR, TERM,
+    CI — so the same renderable comes back as plain text on one machine and as
+    ANSI spans on another, which splits `-134.60 PEN` into separate spans and
+    breaks a plain substring assertion that is not wrong about anything. Six
+    tests in this suite failed that way under `FORCE_COLOR=1` (2026-09-19), and
+    CLAUDE.md carried the workaround for a year: "FORCE_COLOR must not be set
+    when you run the suite ... `env -u FORCE_COLOR pytest tests/unit` if in
+    doubt" (2026-08-29). An assertion that depends on the environment it runs in
+    is the bug; this is the fix, and the instruction is gone with it.
+
+    `legacy_windows=False` is pinned for the same reason — box-drawing must not
+    depend on the host OS.
+
+    Pass `ansi=True` when the escape codes ARE the assertion (reverse-video
+    cursor rows, colour-by-sign). That is the one case that wants a terminal,
+    and saying so at the call site is what makes it readable as deliberate.
+    """
+    console = Console(file=io.StringIO(), width=width, force_terminal=ansi, legacy_windows=False)
+    for renderable in renderables:
+        console.print(renderable)
+    return console.file.getvalue()  # type: ignore[union-attr]
+
+
+# ---------------------------------------------------------------------------
+# Engine envelopes
+# ---------------------------------------------------------------------------
+#
+# The two wrappers every endpoint speaks. They were written out by hand at ~80
+# sites, which is fine until the shape moves: `warnings` left DELETE on
+# 2026-08-11 and a flat `fields` grammar arrived on 2026-09-13, and each time the
+# change had to be chased through a dozen files. One definition each means the
+# next one is a single edit — and means a fixture cannot quietly disagree with
+# its neighbours about what the engine sends.
+
+
+def error_body(code: str, message: str = "boom", fields: object = None) -> dict:
+    """The engine's standard error envelope — see CLAUDE.md "Engine errors
+    surface cleanly" and docs/cli-runtime.md.
+
+    `fields` defaults to None (the shape a non-validation refusal has); pass a
+    dict for a 422, whose keys the engine has named per row since 2026-09-13.
+    """
+    return {"error": {"code": code, "message": message, "fields": fields}}
+
+
+def error_response(
+    status: int, code: str, message: str = "boom", fields: object = None
+) -> httpx.Response:
+    """`error_body` as a respx-ready response."""
+    return httpx.Response(status, json=error_body(code, message, fields))
+
+
+def page(items: list, *, total: int | None = None, limit: int = 50, offset: int = 0) -> dict:
+    """The list envelope. `total` defaults to "this is the whole collection",
+    which is what most fixtures mean; pass it explicitly to make a page a
+    *partial* one and exercise the pagination hint.
+    """
+    return {
+        "items": items,
+        "total": len(items) if total is None else total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +239,34 @@ class FakeClient:
     @property
     def deletes(self) -> list[str]:
         return [path for method, path, _ in self.calls if method == "DELETE"]
+
+
+def run_app(body: Callable, *, size: tuple[int, int] | None = None):
+    """Run `body(pilot, app)` inside a live ExpenseApp and return its result.
+
+    Every TUI test needs the same four lines — an app, `run_test`, a pilot, and
+    an `asyncio.run` to drive it — and until 2026-09-19 all 144 of them wrote
+    their own copy. That is not only repetition: it is 144 independent chances
+    to boot the app slightly differently, and the place a suite-wide change
+    (a default size, a fixture, an exception-handling wrapper) has to be made
+    144 times or not at all.
+
+    `size` is passed through to `run_test` only when given, so the default stays
+    Textual's rather than a number this helper invented. A screen that depends
+    on a viewport says so at its own call site.
+
+    The ExpenseApp import is function-local: this module stays free of Textual
+    at import time so the CLI command tests do not pay for it (see the module
+    docstring).
+    """
+    from expense.tui.app import ExpenseApp
+
+    async def scenario():
+        app = ExpenseApp()
+        async with app.run_test(**(dict(size=size) if size else {})) as pilot:
+            return await body(pilot, app)
+
+    return asyncio.run(scenario())
 
 
 async def wait_for(

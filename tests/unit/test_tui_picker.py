@@ -4,18 +4,13 @@ The LOG bar and the bar-cycle edit form each wrote this scroll arithmetic out;
 these pin the window behaviour that used to exist twice.
 """
 
-import io
-
-from rich.console import Console
-
 from expense.tui.widgets.picker import PICKER_WINDOW, suggestion_list
 from expense.tui.widgets.windowed import CURSOR_STYLE
+from tests.unit.helpers import render_text
 
 
 def _text(renderable, *, ansi: bool = False) -> str:
-    con = Console(file=io.StringIO(), width=60, force_terminal=ansi)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=60, ansi=ansi)
 
 
 def _labels(n: int) -> list[str]:

@@ -212,3 +212,56 @@ def test_root_help_renders():
     assert result.exit_code == 0
     for group in ("config", "auth", "accounts", "dashboard"):
         assert group in result.stdout, f"`expense --help` is missing `{group}`"
+
+
+# ---------------------------------------------------------------------------
+# Gate criterion 3 — the error-shape half of the testing convention
+# ---------------------------------------------------------------------------
+
+#: Leaves that never reach the engine, so "an error-shape test" is not a thing
+#: they can have. Each is checked below to still BE a leaf, so this list cannot
+#: quietly outlive the commands it excuses (the same rot
+#: tests/unit/test_suite_hygiene.py guards two other allowlists against).
+NO_ENGINE_CALL: set[tuple[str, ...]] = {
+    ("version",),  # prints __version__
+    ("world",),  # launches the TUI; its writes are tested through the TUI suite
+    ("config", "set"),  # ~/.expense-config only
+    ("config", "get"),
+    ("config", "clear"),
+}
+
+
+def test_the_no_engine_call_list_still_names_real_commands():
+    """An exemption for a command that no longer exists excuses nothing, and
+    hides that it stopped existing."""
+    stale = sorted(NO_ENGINE_CALL - {path for path, _ in _LEAVES})
+    assert not stale, f"NO_ENGINE_CALL names commands that are gone: {stale}"
+
+
+def test_every_command_has_an_error_shape_test():
+    """CLAUDE.md "Testing conventions": *every* command lands with a happy-path
+    AND an error-shape test. The happy path is self-enforcing — a command with
+    no test at all is a command nobody wrote a test for, and that gets noticed.
+    The error path is the half that silently never arrives: the command works,
+    the tests are green, and the first person to meet its 409 is the user.
+
+    Twenty-odd commands were missing one when this landed (2026-09-19), in a
+    clear pattern — `list` and `create`, on every resource. Not a coincidence:
+    those are the two verbs whose happy path is the most fun to write.
+
+    Reads `conftest.ERROR_TESTED`, which records real invocations rather than
+    scanning the source, so a parametrized test counts exactly as much as a
+    hand-written one.
+    """
+    from tests.unit import conftest
+
+    if conftest.PARTIAL_RUN:
+        pytest.skip("a filtered run cannot see whether the whole suite covers a command")
+
+    expected = {path for path, _ in _LEAVES} - NO_ENGINE_CALL
+    missing = sorted(" ".join(path) for path in expected - conftest.ERROR_TESTED)
+    assert not missing, (
+        "these commands have no test that drives them to a non-zero exit — add "
+        "one asserting the engine's envelope reaches the user (or, if the "
+        f"command truly cannot fail, list it in NO_ENGINE_CALL with a reason): {missing}"
+    )

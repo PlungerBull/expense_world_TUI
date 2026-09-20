@@ -6,14 +6,11 @@ lived here went with it; what the form still owns is pre-fill, the diffed PUT,
 and the suggestion pickers.
 """
 
-import asyncio
-
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.quick_log import QuickAddLogScreen
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import render_text, run_app, wait_for
 
 ACCOUNTS = [
     {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN", "is_person": False},
@@ -87,17 +84,15 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
     )
     monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", rec("hashtags", HASHTAGS))
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            assert sorted(calls) == [("accounts", True), ("categories", False), ("hashtags", False)]
-            assert "accX" not in [a[0] for a in screen._accounts]  # archived out of the pool
-            assert screen._acc_names.get("accX") == "Old bank"  # but resolvable in the map
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert sorted(calls) == [("accounts", True), ("categories", False), ("hashtags", False)]
+        assert "accX" not in [a[0] for a in screen._accounts]  # archived out of the pool
+        assert screen._acc_names.get("accX") == "Old bank"  # but resolvable in the map
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_edit_with_null_hashtag_ref_renders_dash_not_crash(fake_client, monkeypatch):
@@ -106,115 +101,100 @@ def test_edit_with_null_hashtag_ref_renders_dash_not_crash(fake_client, monkeypa
     _patch(monkeypatch)
     record = {**TXN, "hashtag_ids": ["h1", None]}
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=record, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            await wait_for(pilot, lambda: "—" in screen._display.get("hashtags", ""))
-            assert app.is_running
-            assert "—" in screen._display["hashtags"]  # null id → em-dash
-            assert "—" in screen._tag_display_names()
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await wait_for(pilot, lambda: "—" in screen._display.get("hashtags", ""))
+        assert app.is_running
+        assert "—" in screen._display["hashtags"]  # null id → em-dash
+        assert "—" in screen._tag_display_names()
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_quick_log_guards_double_submit(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            screen._values.update(title="x", amount=-500, account="acc1", category="cat1")
-            screen.action_submit()
-            screen.action_submit()  # in flight → ignored
-            screen.action_submit()
-            await wait_for(pilot, lambda: fake_client.puts)
-            await pilot.pause()  # let the ignored submits settle, then assert a non-event
-            assert len(fake_client.puts) == 1
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._values.update(title="x", amount=-500, account="acc1", category="cat1")
+        screen.action_submit()
+        screen.action_submit()  # in flight → ignored
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+        await pilot.pause()  # let the ignored submits settle, then assert a non-event
+        assert len(fake_client.puts) == 1
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_suggest_window_keeps_highlight_visible():
-    import io
-
-    from rich.console import Console
 
     screen = QuickAddLogScreen(record=TXN, resource="transactions")
     screen._current = 3  # account (an entity field)
     screen._suggestions = [(f"c{i}", f"Cat{i}", "PEN") for i in range(20)]
     screen._suggest_idx = 17
-    con = Console(file=io.StringIO(), width=60)
-    con.print(screen._suggest_renderable())
-    out = con.file.getvalue()
+    out = render_text(screen._suggest_renderable(), width=60)
     assert "Cat17" in out and "more" in out
 
 
 def test_edit_prefills_and_puts_only_changed_fields(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            assert screen._values["title"] == "Farmacia" and screen._values["amount"] == -4250
-            # change just the title, then save
-            screen._current = screen._sequence().index("title")
-            _enter(screen, "Farmacia Inkafarma")
-            screen.action_submit()
-            await wait_for(pilot, lambda: fake_client.puts)
-            path, body = fake_client.puts[0]
-            assert path == "/transactions/tx1"
-            assert body == {"title": "Farmacia Inkafarma"}  # diff only
-            assert not fake_client.posts  # never POSTs in edit mode
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._values["title"] == "Farmacia" and screen._values["amount"] == -4250
+        # change just the title, then save
+        screen._current = screen._sequence().index("title")
+        _enter(screen, "Farmacia Inkafarma")
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+        path, body = fake_client.puts[0]
+        assert path == "/transactions/tx1"
+        assert body == {"title": "Farmacia Inkafarma"}  # diff only
+        assert not fake_client.posts  # never POSTs in edit mode
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_edit_add_hashtag_puts_merged_hashtag_ids(fake_client, monkeypatch):
     """Hashtag appends must survive the edit diff — the snapshot must not alias (backlog 1.2)."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            screen._current = screen._sequence().index("hashtags")
-            _enter(screen, "trav")  # add #traveling next to the pre-existing #dog
-            assert screen._values["hashtags"] == ["h1", "h2"]
-            screen.action_submit()
-            await wait_for(pilot, lambda: fake_client.puts)
-            path, body = fake_client.puts[0]
-            assert path == "/transactions/tx1"
-            assert body == {"hashtag_ids": ["h1", "h2"]}  # diff only, both tags
-            assert not fake_client.posts
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("hashtags")
+        _enter(screen, "trav")  # add #traveling next to the pre-existing #dog
+        assert screen._values["hashtags"] == ["h1", "h2"]
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+        path, body = fake_client.puts[0]
+        assert path == "/transactions/tx1"
+        assert body == {"hashtag_ids": ["h1", "h2"]}  # diff only, both tags
+        assert not fake_client.posts
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            screen.action_submit()  # nothing changed
-            await pilot.pause()  # let the no-op submit settle, then assert a non-event
-            assert not fake_client.calls
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen.action_submit()  # nothing changed
+        await pilot.pause()  # let the no-op submit settle, then assert a non-event
+        assert not fake_client.calls
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_no_form_offers_cleared():
@@ -238,21 +218,19 @@ def test_edit_sequence_offers_hashtags():
 def test_quick_log_rejects_zero_and_unknown_account(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await _wait_loaded(screen, pilot)
-            _enter(screen, "")  # date
-            _enter(screen, "x")  # title
-            _enter(screen, "0")  # amount zero → rejected, stays
-            assert screen._key == "amount"
-            _enter(screen, "-5.00")  # valid → account
-            _enter(screen, "Nonexistent")  # no match → rejected, stays
-            assert screen._key == "account"
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        _enter(screen, "")  # date
+        _enter(screen, "x")  # title
+        _enter(screen, "0")  # amount zero → rejected, stays
+        assert screen._key == "amount"
+        _enter(screen, "-5.00")  # valid → account
+        _enter(screen, "Nonexistent")  # no match → rejected, stays
+        assert screen._key == "account"
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
@@ -268,17 +246,15 @@ def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
         QuickAddLogScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: notices)
-            assert notices and "engine down" in notices[0]
-            assert app.is_running
-            assert app.screen is screen
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: notices)
+        assert notices and "engine down" in notices[0]
+        assert app.is_running
+        assert app.screen is screen
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch):
@@ -294,15 +270,13 @@ def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch)
         QuickAddLogScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = QuickAddLogScreen(record=TXN, resource="transactions")
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: notices)
-            assert notices and "could not reach engine at https://x.invalid" in notices[0]
+    async def scenario(pilot, app):
+        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: notices)
+        assert notices and "could not reach engine at https://x.invalid" in notices[0]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_the_form_cannot_be_opened_without_a_record():

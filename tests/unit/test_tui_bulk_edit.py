@@ -7,14 +7,11 @@ selection, else goes back. A fake client stands in for the engine, so the
 PUTs are asserted, never sent.
 """
 
-import asyncio
-
 from rich.text import Text
 
 import expense.tui.screens.transactions as tx_mod
 from expense.commands._resource import QuickAddRefs
 from expense.errors import EngineError
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
@@ -27,7 +24,7 @@ from expense.tui.screens.transactions import (
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import wait_for, wait_for_list, wait_for_loaded
+from tests.unit.helpers import page, run_app, wait_for, wait_for_list, wait_for_loaded
 
 ITEMS = [
     {
@@ -65,7 +62,7 @@ FILTER = LedgerFilter("category", "pend", "@Pendiente")
 def _stub_ledger(monkeypatch, items=ITEMS):
     monkeypatch.setattr(
         "expense.commands.transactions_cmd.fetch_transactions",
-        lambda *a, **k: {"items": list(items), "total": len(items)},
+        lambda *a, **k: page(list(items), total=len(items)),
     )
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
@@ -117,28 +114,26 @@ def test_space_selects_and_a_selects_the_page(monkeypatch):
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            assert screen.crumb == ("Ledger", "@Pendiente")
-            assert _legend(screen) == "filter: category @Pendiente · 3 rows"
-            await pilot.press("space")  # select row 1; the cursor stays
-            await wait_for(pilot, lambda: screen._selected == {"t1"})
-            assert screen.query_one(CursorList)._cursor == 0
-            assert _legend(screen).endswith("· 1 selected")
-            await pilot.press("down", "space")
-            await wait_for(pilot, lambda: screen._selected == {"t1", "t2"})
-            await pilot.press("space")  # unselect the cursor row
-            await wait_for(pilot, lambda: screen._selected == {"t1"})
-            await pilot.press("a")  # all
-            await wait_for(pilot, lambda: screen._selected == {"t1", "t2", "t3"})
-            await pilot.press("a")  # none
-            await wait_for(pilot, lambda: screen._selected == set())
-            assert _legend(screen) == "filter: category @Pendiente · 3 rows"
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        assert screen.crumb == ("Ledger", "@Pendiente")
+        assert _legend(screen) == "filter: category @Pendiente · 3 rows"
+        await pilot.press("space")  # select row 1; the cursor stays
+        await wait_for(pilot, lambda: screen._selected == {"t1"})
+        assert screen.query_one(CursorList)._cursor == 0
+        assert _legend(screen).endswith("· 1 selected")
+        await pilot.press("down", "space")
+        await wait_for(pilot, lambda: screen._selected == {"t1", "t2"})
+        await pilot.press("space")  # unselect the cursor row
+        await wait_for(pilot, lambda: screen._selected == {"t1"})
+        await pilot.press("a")  # all
+        await wait_for(pilot, lambda: screen._selected == {"t1", "t2", "t3"})
+        await pilot.press("a")  # none
+        await wait_for(pilot, lambda: screen._selected == set())
+        assert _legend(screen) == "filter: category @Pendiente · 3 rows"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkeypatch):
@@ -151,24 +146,22 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
         lambda cfg, **k: {"items": [{"id": "a1", "name": "BCP", "is_archived": False}]},
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            await app.push_screen(AccountsScreen())
-            await wait_for_loaded(pilot, app)
-            app.screen.query_one(CursorList).focus()
-            await pilot.pause()
-            shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
-            assert "Select" not in shown
-            app.pop_screen()
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_loaded(pilot, app)
+        app.screen.query_one(CursorList).focus()
+        await pilot.pause()
+        shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
+        assert "Select" not in shown
+        app.pop_screen()
 
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
-            assert "Select" in shown and "All/none" in shown
-            assert {"Category", "Account", "Hashtags"} <= set(shown)
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
+        assert "Select" in shown and "All/none" in shown
+        assert {"Category", "Account", "Hashtags"} <= set(shown)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 # ---- the bulk write ------------------------------------------------------------
@@ -178,70 +171,64 @@ def test_c_writes_one_put_per_selected_row_then_reloads(fake_client, monkeypatch
     _stub_ledger(monkeypatch)
     toasts: list[str] = []
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
-            await _open(app, pilot, screen)
-            await pilot.press("space", "down", "down", "space")
-            await wait_for(pilot, lambda: screen._selected == {"t1", "t3"})
-            await pilot.press("c")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-            assert app.screen._title == "CATEGORY for 2 rows"
-            await pilot.press("k", "o", "r", "enter")
-            await wait_for(pilot, lambda: len(fake_client.puts) == 2)
-            assert fake_client.puts == [
-                ("/transactions/t1", {"category_id": "kor"}),
-                ("/transactions/t3", {"category_id": "kor"}),
-            ]
-            await wait_for(pilot, lambda: "2 rows → KORAKUEN" in toasts)
-            await wait_for(pilot, lambda: not screen._bulk_busy and screen._selected == set())
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
+        await _open(app, pilot, screen)
+        await pilot.press("space", "down", "down", "space")
+        await wait_for(pilot, lambda: screen._selected == {"t1", "t3"})
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        assert app.screen._title == "CATEGORY for 2 rows"
+        await pilot.press("k", "o", "r", "enter")
+        await wait_for(pilot, lambda: len(fake_client.puts) == 2)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"category_id": "kor"}),
+            ("/transactions/t3", {"category_id": "kor"}),
+        ]
+        await wait_for(pilot, lambda: "2 rows → KORAKUEN" in toasts)
+        await wait_for(pilot, lambda: not screen._bulk_busy and screen._selected == set())
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            await pilot.press("down", "b")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-            assert app.screen._title == "ACCOUNT for 1 row"
-            await pilot.press("o", "r", "o", "enter")
-            await wait_for(pilot, lambda: fake_client.puts)
-            assert fake_client.puts == [("/transactions/t2", {"account_id": "acc2"})]
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("down", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        assert app.screen._title == "ACCOUNT for 1 row"
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t2", {"account_id": "acc2"})]
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            await pilot.press("space", "h")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-            modal = app.screen
-            assert modal._multi and "replaces every tag" in modal._note
-            # `com` + ↵ picks COMIDA and clears the input; `caj` narrows to two,
-            # ↓ takes CAJAS; ↵ on the empty input applies both
-            await pilot.press("c", "o", "m", "enter")
-            await wait_for(pilot, lambda: modal._picked == ["h1"])
-            await pilot.press("c", "a", "j", "down", "enter")
-            await wait_for(pilot, lambda: modal._picked == ["h1", "h3"])
-            await pilot.press("enter")
-            await wait_for(pilot, lambda: fake_client.puts)
-            assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1", "h3"]})]
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "h")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        modal = app.screen
+        assert modal._multi and "replaces every tag" in modal._note
+        # `com` + ↵ picks COMIDA and clears the input; `caj` narrows to two,
+        # ↓ takes CAJAS; ↵ on the empty input applies both
+        await pilot.press("c", "o", "m", "enter")
+        await wait_for(pilot, lambda: modal._picked == ["h1"])
+        await pilot.press("c", "a", "j", "down", "enter")
+        await wait_for(pilot, lambda: modal._picked == ["h1", "h3"])
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1", "h3"]})]
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch):
@@ -261,47 +248,43 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
 
     fake_client.put = put
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            monkeypatch.setattr(
-                screen,
-                "notify",
-                lambda message, title="", **kw: toasts.append((title, str(message))),
-            )
-            await _open(app, pilot, screen)
-            await pilot.press("a", "b")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-            await pilot.press("o", "r", "o", "enter")
-            await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
-            assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
-            refused = next(m for t, m in toasts if t == "Refused")
-            assert refused.startswith("row 2: ") and "locked" in refused
-            assert ("", "2 rows → BCP Oro PEN") in toasts
-            await wait_for(pilot, lambda: not screen._bulk_busy)
-            assert screen._selected == {"t2"}
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
+        refused = next(m for t, m in toasts if t == "Refused")
+        assert refused.startswith("row 2: ") and "locked" in refused
+        assert ("", "2 rows → BCP Oro PEN") in toasts
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t2"}
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 def test_esc_cancels_the_picker_and_writes_nothing(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            await pilot.press("space", "c")
-            await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is screen)
-            await pilot.pause()
-            assert fake_client.puts == []
-            assert screen._selected == {"t1"}  # the selection survives a cancel
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "c")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert fake_client.puts == []
+        assert screen._selected == {"t1"}  # the selection survives a cancel
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 # ---- esc -----------------------------------------------------------------------
@@ -313,65 +296,59 @@ def test_esc_clears_the_selection_then_goes_back_with_the_filter_kept(monkeypatc
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(120, 30)) as pilot:
-            before = app.screen
-            screen = TransactionsScreen(filter=FILTER)
-            await _open(app, pilot, screen)
-            await pilot.press("space")
-            await wait_for(pilot, lambda: screen._selected == {"t1"})
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: screen._selected == set())
-            assert screen._filter == FILTER and app.screen is screen
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is before)
-            assert screen._filter == FILTER  # left as it was entered, never cleared
+    async def scenario(pilot, app):
+        before = app.screen
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space")
+        await wait_for(pilot, lambda: screen._selected == {"t1"})
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: screen._selected == set())
+        assert screen._filter == FILTER and app.screen is screen
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is before)
+        assert screen._filter == FILTER  # left as it was entered, never cleared
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(120, 30))
 
 
 # ---- the picker on its own ------------------------------------------------------
 
 
 def test_picker_single_mode_narrows_and_moves():
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 30)) as pilot:
-            results: list = []
-            modal = PickerModal("CATEGORY for 1 row", [("a", "HOGAR"), ("b", "KORAKUEN")])
-            app.push_screen(modal, results.append)
-            await wait_for(pilot, lambda: app.screen is modal)
-            assert [i for i, _ in modal._pool] == ["a", "b"]
-            await pilot.press("down", "enter")  # the second candidate
-            await wait_for(pilot, lambda: results == ["b"])
+    async def scenario(pilot, app):
+        results: list = []
+        modal = PickerModal("CATEGORY for 1 row", [("a", "HOGAR"), ("b", "KORAKUEN")])
+        app.push_screen(modal, results.append)
+        await wait_for(pilot, lambda: app.screen is modal)
+        assert [i for i, _ in modal._pool] == ["a", "b"]
+        await pilot.press("down", "enter")  # the second candidate
+        await wait_for(pilot, lambda: results == ["b"])
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 30))
 
 
 def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 30)) as pilot:
-            results: list = []
-            modal = PickerModal("HASHTAGS for 2 rows", [("h1", "COMIDA")], multi=True)
-            app.push_screen(modal, results.append)
-            await wait_for(pilot, lambda: app.screen is modal)
-            await pilot.press("enter")  # empty: not "clear every tag"
-            await pilot.pause()
-            assert app.screen is modal and results == []
-            for ch in list("zzz"):  # no `"…":` — the drift scanner reads that as a field
-                await pilot.press(ch)
-            await pilot.press("enter")
-            await pilot.pause()
-            assert app.screen is modal and results == [] and modal._picked == []
-            # a pick, then backspace on the empty input takes it back
-            await pilot.press("backspace", "backspace", "backspace", "backspace")
-            await pilot.press("c", "o", "enter")
-            await wait_for(pilot, lambda: modal._picked == ["h1"])
-            await pilot.press("backspace")
-            await wait_for(pilot, lambda: modal._picked == [])
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: results == [None])
+    async def scenario(pilot, app):
+        results: list = []
+        modal = PickerModal("HASHTAGS for 2 rows", [("h1", "COMIDA")], multi=True)
+        app.push_screen(modal, results.append)
+        await wait_for(pilot, lambda: app.screen is modal)
+        await pilot.press("enter")  # empty: not "clear every tag"
+        await pilot.pause()
+        assert app.screen is modal and results == []
+        for ch in list("zzz"):  # no `"…":` — the drift scanner reads that as a field
+            await pilot.press(ch)
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.screen is modal and results == [] and modal._picked == []
+        # a pick, then backspace on the empty input takes it back
+        await pilot.press("backspace", "backspace", "backspace", "backspace")
+        await pilot.press("c", "o", "enter")
+        await wait_for(pilot, lambda: modal._picked == ["h1"])
+        await pilot.press("backspace")
+        await wait_for(pilot, lambda: modal._picked == [])
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: results == [None])
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 30))

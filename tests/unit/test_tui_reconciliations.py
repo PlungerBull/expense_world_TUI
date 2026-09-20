@@ -1,16 +1,13 @@
 """Phase 2 reconciliations tests — list rows + new-batch form (fake client)."""
 
-import asyncio
-
 from textual.widgets import Input
 
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.reconciliations import (
     NewReconciliationScreen,
     ReconciliationsScreen,
 )
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import wait_for, wait_for_list
+from tests.unit.helpers import page, run_app, wait_for, wait_for_list
 
 ITEMS = [
     {
@@ -83,28 +80,26 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
     extra="forbid", so shipping it is a 422)."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = NewReconciliationScreen()
-            await app.push_screen(screen)
-            await _wait_accounts(screen, pilot)
-            _enter(screen, "April 2026")  # name
-            _enter(screen, "BCP")  # account → acc1
-            _enter(screen, "2026-04-01")  # date_start (required)
-            _enter(screen, "")  # date_end skip
-            _enter(screen, "9580.00")  # begin
-            _enter(screen, "9460.00")  # end → submits
-            await wait_for(pilot, lambda: fake_client.posts)
-            path, body = fake_client.posts[0]
-            assert path == "/reconciliations"
-            assert body["account_id"] == "acc1" and body["name"] == "April 2026"
-            assert body["beginning_balance_cents"] == 958000
-            assert body["ending_balance_cents"] == 946000
-            assert "beginning_balance_source" not in body
-            assert "sort_order" not in body
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen()
+        await app.push_screen(screen)
+        await _wait_accounts(screen, pilot)
+        _enter(screen, "April 2026")  # name
+        _enter(screen, "BCP")  # account → acc1
+        _enter(screen, "2026-04-01")  # date_start (required)
+        _enter(screen, "")  # date_end skip
+        _enter(screen, "9580.00")  # begin
+        _enter(screen, "9460.00")  # end → submits
+        await wait_for(pilot, lambda: fake_client.posts)
+        path, body = fake_client.posts[0]
+        assert path == "/reconciliations"
+        assert body["account_id"] == "acc1" and body["name"] == "April 2026"
+        assert body["beginning_balance_cents"] == 958000
+        assert body["ending_balance_cents"] == 946000
+        assert "beginning_balance_source" not in body
+        assert "sort_order" not in body
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_new_reconciliation_date_start_is_required(fake_client, monkeypatch):
@@ -112,30 +107,28 @@ def test_new_reconciliation_date_start_is_required(fake_client, monkeypatch):
     rather than silently creating an unorderable batch."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = NewReconciliationScreen()
-            await app.push_screen(screen)
-            await _wait_accounts(screen, pilot)
-            _enter(screen, "April 2026")  # name
-            _enter(screen, "BCP")  # account → acc1
-            _enter(screen, "")  # date_start → rejected, stays put
-            assert screen._key == "date_start"
-            assert "date_start" in screen._required()
-            _enter(screen, "2026-04-01")
-            assert screen._key == "date_end"
-            await pilot.pause()
-            assert not fake_client.posts
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen()
+        await app.push_screen(screen)
+        await _wait_accounts(screen, pilot)
+        _enter(screen, "April 2026")  # name
+        _enter(screen, "BCP")  # account → acc1
+        _enter(screen, "")  # date_start → rejected, stays put
+        assert screen._key == "date_start"
+        assert "date_start" in screen._required()
+        _enter(screen, "2026-04-01")
+        assert screen._key == "date_end"
+        await pilot.pause()
+        assert not fake_client.posts
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def _patch_browse(monkeypatch):
     """Two accounts, one batch each — the browse screen's standard fixture."""
     monkeypatch.setattr(
         "expense.commands.reconcile_cmd.fetch_reconciliations",
-        lambda *a, **k: {"items": ITEMS, "total": 2},
+        lambda *a, **k: page(ITEMS, total=2),
     )
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts",
@@ -150,24 +143,22 @@ def _patch_browse(monkeypatch):
 def test_reconciliations_browse_account_first(monkeypatch):
     _patch_browse(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationsScreen()
-            await app.push_screen(screen)
-            await wait_for_list(pilot, app)
-            # account focus: first account (acc1) selected → its batch (r1) shown below
-            assert screen._mode == "accts"
-            assert set(screen._by_id) == {"r1"}
-            # arrow to the second account → batch list follows to acc2's batch (r2).
-            # Wait on the state, not a fixed sleep: the Highlighted message
-            # bubbles through several widget pumps and a 50ms nap lost that race
-            # on CI (flaked 2026-07-13 after the adaptive-rows load deferral).
-            screen._accts_list.action_move(1)
-            await wait_for(pilot, lambda: screen._acct_idx == 1)
-            assert set(screen._by_id) == {"r2"}
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        # account focus: first account (acc1) selected → its batch (r1) shown below
+        assert screen._mode == "accts"
+        assert set(screen._by_id) == {"r1"}
+        # arrow to the second account → batch list follows to acc2's batch (r2).
+        # Wait on the state, not a fixed sleep: the Highlighted message
+        # bubbles through several widget pumps and a 50ms nap lost that race
+        # on CI (flaked 2026-07-13 after the adaptive-rows load deferral).
+        screen._accts_list.action_move(1)
+        await wait_for(pilot, lambda: screen._acct_idx == 1)
+        assert set(screen._by_id) == {"r2"}
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_highlight_from_batches_pane_does_not_switch_account(monkeypatch):
@@ -176,23 +167,21 @@ def test_highlight_from_batches_pane_does_not_switch_account(monkeypatch):
     then create the new batch under the wrong account (backlog 6.2c)."""
     _patch_browse(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationsScreen()
-            await app.push_screen(screen)
-            await wait_for_list(pilot, app)
-            assert screen._mode == "accts" and screen._acct_idx == 0
-            # from the *batches* list → ignored
-            screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._batch_list, "r1", 1))
-            assert screen._acct_idx == 0
-            assert set(screen._by_id) == {"r1"}
-            # the same event from the *accounts* list still drives the panes
-            screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._accts_list, "acc2", 1))
-            assert screen._acct_idx == 1
-            assert set(screen._by_id) == {"r2"}
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert screen._mode == "accts" and screen._acct_idx == 0
+        # from the *batches* list → ignored
+        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._batch_list, "r1", 1))
+        assert screen._acct_idx == 0
+        assert set(screen._by_id) == {"r1"}
+        # the same event from the *accounts* list still drives the panes
+        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._accts_list, "acc2", 1))
+        assert screen._acct_idx == 1
+        assert set(screen._by_id) == {"r2"}
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_reconciliations_list_pages_past_engine_cap(monkeypatch):
@@ -206,7 +195,7 @@ def test_reconciliations_list_pages_past_engine_cap(monkeypatch):
 
     def paged(cfg, *, limit=None, offset=None, **k):
         lo = offset or 0
-        return {"items": all_items[lo : lo + (limit or 100)], "total": total}
+        return page(all_items[lo : lo + (limit or 100)], total=total)
 
     monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", paged)
     monkeypatch.setattr(
@@ -215,16 +204,14 @@ def test_reconciliations_list_pages_past_engine_cap(monkeypatch):
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationsScreen()
-            await app.push_screen(screen)
-            await wait_for_list(pilot, app)
-            assert len(screen._recons) == total  # both pages collected
-            assert len(screen._batches) == total  # every batch for the account
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert len(screen._recons) == total  # both pages collected
+        assert len(screen._batches) == total  # every batch for the account
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_batches_ordered_by_statement_start_date_nulls_last():
@@ -266,17 +253,15 @@ def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypa
         NewReconciliationScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = NewReconciliationScreen()
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: notices)
-            assert notices and "engine down" in notices[0]
-            assert app.is_running
-            assert app.screen is screen
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: notices)
+        assert notices and "engine down" in notices[0]
+        assert app.is_running
+        assert app.screen is screen
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_the_account_picker_matches_through_accents_like_every_other_one():

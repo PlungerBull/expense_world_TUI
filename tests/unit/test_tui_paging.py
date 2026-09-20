@@ -11,25 +11,18 @@ through a Rich Console; action handlers run with `_refresh`/`post_message`
 stubbed so no event loop is needed.
 """
 
-import asyncio
-import io
-
-from rich.console import Console
 from textual.containers import VerticalScroll
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit
-from expense.tui.app import ExpenseApp
 from expense.tui.screens._base import AdaptiveRowsMixin, PagedListMixin
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
-from tests.unit.helpers import wait_for, wait_for_list
+from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list
 
 
 def _text(renderable) -> str:
-    con = Console(file=io.StringIO(), width=120)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=120)
 
 
 def _rows(n: int) -> list[tuple]:
@@ -237,7 +230,7 @@ def test_categories_manage_fetches_all_pages(monkeypatch):
 
     def fake_fetch(cfg, *, limit, offset, **kw):
         items = [{"id": f"c{i}"} for i in range(offset, min(offset + limit, 150))]
-        return {"items": items, "total": 150, "limit": limit, "offset": offset}
+        return page(items, total=150, limit=limit, offset=offset)
 
     monkeypatch.setattr("expense.commands.categories_cmd.fetch_categories", fake_fetch)
     from expense.tui.screens.categories import CategoriesScreen
@@ -248,7 +241,7 @@ def test_categories_manage_fetches_all_pages(monkeypatch):
 def test_hashtags_manage_fetches_all_pages(monkeypatch):
     def fake_fetch(cfg, *, limit, offset, **kw):
         items = [{"id": f"h{i}"} for i in range(offset, min(offset + limit, 130))]
-        return {"items": items, "total": 130, "limit": limit, "offset": offset}
+        return page(items, total=130, limit=limit, offset=offset)
 
     monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", fake_fetch)
     from expense.tui.screens.hashtags import HashtagsScreen
@@ -326,7 +319,7 @@ def test_fetch_page_body_snaps_back_when_page_vanishes():
         fetched.append(dict(pkw))
         offset = pkw["offset"]
         items = [{"id": i} for i in range(offset, min(offset + 20, 21))]
-        return {"items": items, "total": 21, "limit": pkw["limit"], "offset": offset}
+        return page(items, total=21, limit=pkw["limit"], offset=offset)
 
     body = scr.fetch_page_body(fetch)
     assert scr._page == 1 and scr._page_total == 21
@@ -349,7 +342,7 @@ def _patch_transactions(monkeypatch) -> list:
             {"id": f"t{i}", "title": f"Txn {i}", "amount_cents": -100 - i, "date": "2026-07-01"}
             for i in range(offset, min(offset + limit, 133))
         ]
-        return {"items": items, "total": 133, "limit": limit, "offset": offset}
+        return page(items, total=133, limit=limit, offset=offset)
 
     monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: {})
@@ -362,17 +355,15 @@ def _patch_transactions(monkeypatch) -> list:
 def _drive_transactions(size: tuple[int, int], calls: list, checks) -> None:
     """Push a TransactionsScreen in a `size` harness and run `checks(pilot, screen)`."""
 
-    async def scenario():
+    async def scenario(pilot, app):
         from expense.tui.screens.transactions import TransactionsScreen
 
-        app = ExpenseApp()
-        async with app.run_test(size=size) as pilot:
-            screen = TransactionsScreen()
-            await app.push_screen(screen)
-            await wait_for_list(pilot, app)
-            await checks(pilot, screen)
+        screen = TransactionsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await checks(pilot, screen)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=size)
 
 
 def test_transactions_screen_pages_on_the_wire(monkeypatch):
@@ -514,9 +505,8 @@ def test_the_checklist_cursor_uses_the_documented_style():
     # and it is actually applied: the cursor row renders differently from its
     # neighbour, which a dropped style would not.
     chk = _checklist(3)
-    con = Console(file=io.StringIO(), width=60, force_terminal=True)
-    con.print(chk._build())
-    lines = [ln for ln in con.file.getvalue().splitlines() if "txn 0" in ln]
+    painted = render_text(chk._build(), width=60, ansi=True)
+    lines = [ln for ln in painted.splitlines() if "txn 0" in ln]
     assert lines and "\x1b[7m" in lines[0] and "\x1b[7m" not in lines[1]
 
 

@@ -13,10 +13,18 @@ the real ledger **refuses to start**. Point it at the disposable practice databa
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
     # the normal, isolated way (see ../../../expense_world_engine/deploy/local/)
-    deploy/local/seed-test-user.sh
-    SUPABASE_DB_URL=…/expense_world_test python -m uvicorn app.main:app --port 8001
-    PYTEST_LIVE=1 EXPENSE_PAT=<seeded> EXPENSE_ENGINE_URL=http://127.0.0.1:8001 \
+    deploy/local/seed-test-user.sh --force          # prints the PAT once
+    SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
+      ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
+      python -m uvicorn app.main:app --port 8002
+    PYTEST_LIVE=1 EXPENSE_PAT=<seeded> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 \
         pytest tests/contract
+
+Two details that look like details and are not (both cost a pass on 2026-09-19):
+**8002, not 8001** — `:8001` belongs to todo_world_engine, and pointed there every
+request 404s against a gym API while /health still answers `ok`. **Connect as
+`expense_engine`** — the engine refuses to start as a SUPERUSER, because that role
+bypasses RLS and would make tenant isolation engine-side only.
 
 Full ops guide: docs/cli-runtime.md "Working against the live engine".
 """
@@ -67,7 +75,7 @@ _REFUSAL = """
 │                                                            │
 │  practice database instead:                                │
 │    ../expense_world_engine/deploy/local/seed-test-user.sh  │
-│    then EXPENSE_PAT=… EXPENSE_ENGINE_URL=http://127.0.0.1:8001
+│    then EXPENSE_PAT=… EXPENSE_ENGINE_URL=http://127.0.0.1:8002
 │                                                            │
 │  or, to mean it:                                           │
 │    EXPENSE_ALLOW_REAL_LEDGER=1                             │

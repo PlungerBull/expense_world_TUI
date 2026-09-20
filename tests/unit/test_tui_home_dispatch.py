@@ -6,19 +6,16 @@ Each case drives the real path — focus the menu, open what needs opening,
 highlight the row, press the key — and asserts the result.
 """
 
-import asyncio
-
 import pytest
 from textual.widgets import OptionList
 
 import expense.tui.screens.home as home
-from expense.tui.app import ExpenseApp
 from expense.tui.screens._base import SectionScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
-from tests.unit.helpers import stub_home_month, wait_for
+from tests.unit.helpers import run_app, stub_home_month, wait_for
 
 _CASES = [
     ("ledger", "transactions", home.TransactionsScreen),
@@ -66,36 +63,32 @@ async def _month_loaded(app, pilot):
 def test_section_entry_dispatch(monkeypatch, section, kind, screen_cls):
     _stub_loaders(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
-            await _select(app, pilot, kind)  # always listed: nothing to open first
-            await wait_for(pilot, lambda: isinstance(app.screen, screen_cls))
-            assert type(app.screen) is screen_cls
+    async def scenario(pilot, app):
+        await pilot.pause()
+        await _select(app, pilot, kind)  # always listed: nothing to open first
+        await wait_for(pilot, lambda: isinstance(app.screen, screen_cls))
+        assert type(app.screen) is screen_cls
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))
 
 
 def test_left_and_right_on_a_screen_entry_change_nothing(monkeypatch):
     """The sections are not collapsible (owner, 2026-09-13)."""
     _stub_loaders(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
-            menu = app.query_one("#menu", OptionList)
-            count = menu.option_count
-            await _highlight(app, "accounts")
-            await pilot.press("left")
-            await pilot.press("right")
-            await pilot.pause()
-            assert menu.option_count == count
-            assert app.screen._cursor_id() == "accounts"
-            assert isinstance(app.screen, HomeScreen)
+    async def scenario(pilot, app):
+        await pilot.pause()
+        menu = app.query_one("#menu", OptionList)
+        count = menu.option_count
+        await _highlight(app, "accounts")
+        await pilot.press("left")
+        await pilot.press("right")
+        await pilot.pause()
+        assert menu.option_count == count
+        assert app.screen._cursor_id() == "accounts"
+        assert isinstance(app.screen, HomeScreen)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))
 
 
 def test_cases_cover_every_section_entry():
@@ -126,53 +119,47 @@ def test_the_overview_screen_is_gone():
 def test_enter_on_a_category_filters_the_ledger_by_it(monkeypatch):
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await _month_loaded(app, pilot)
-            await _select(app, pilot, "category:c-pend")
-            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-            assert app.screen._filter == LedgerFilter("category", "c-pend", "@Pendiente")
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _select(app, pilot, "category:c-pend")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        assert app.screen._filter == LedgerFilter("category", "c-pend", "@Pendiente")
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_enter_on_a_hashtag_filters_by_category_and_hashtag(monkeypatch):
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _month_loaded(app, pilot)
-            await _highlight(app, "category:c-wants")
-            await pilot.press("right")
-            await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
-            await _select(app, pilot, "tag:c-wants:h-sal")
-            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-            assert app.screen._filter == LedgerFilter(
-                "category", "c-wants", "WANTS #SALIDAS", hashtag_id="h-sal"
-            )
-            assert app.screen.crumb == ("Ledger", "WANTS #SALIDAS")
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _highlight(app, "category:c-wants")
+        await pilot.press("right")
+        await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
+        await _select(app, pilot, "tag:c-wants:h-sal")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        assert app.screen._filter == LedgerFilter(
+            "category", "c-wants", "WANTS #SALIDAS", hashtag_id="h-sal"
+        )
+        assert app.screen.crumb == ("Ledger", "WANTS #SALIDAS")
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))
 
 
 def test_left_on_a_hashtag_row_folds_its_category_and_lands_on_it(monkeypatch):
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _month_loaded(app, pilot)
-            await _highlight(app, "category:c-wants")
-            await pilot.press("right")
-            await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
-            await _highlight(app, "tag:c-wants:h-otr")
-            await pilot.press("left")
-            await wait_for(pilot, lambda: "c-wants" not in app.screen._state.expanded)
-            assert app.screen._cursor_id() == "category:c-wants"
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _highlight(app, "category:c-wants")
+        await pilot.press("right")
+        await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
+        await _highlight(app, "tag:c-wants:h-otr")
+        await pilot.press("left")
+        await wait_for(pilot, lambda: "c-wants" not in app.screen._state.expanded)
+        assert app.screen._cursor_id() == "category:c-wants"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))
 
 
 def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
@@ -180,38 +167,34 @@ def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
     lands on Home — not on the unfiltered ledger."""
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await _month_loaded(app, pilot)
-            home_screen = app.screen
-            await _select(app, pilot, "category:c-pend")
-            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is home_screen)
-            await _highlight(app, "category:c-wants")
-            await pilot.press("right")
-            await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
-            await _select(app, pilot, "tag:c-wants:h-sal")
-            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is home_screen)
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        home_screen = app.screen
+        await _select(app, pilot, "category:c-pend")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is home_screen)
+        await _highlight(app, "category:c-wants")
+        await pilot.press("right")
+        await wait_for(pilot, lambda: "c-wants" in app.screen._state.expanded)
+        await _select(app, pilot, "tag:c-wants:h-sal")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is home_screen)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))
 
 
 def test_enter_on_an_account_filters_the_ledger_by_it(monkeypatch):
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await _month_loaded(app, pilot)
-            await _select(app, pilot, "account:a-pen")
-            await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
-            assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _select(app, pilot, "account:a-pen")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        assert app.screen._filter == LedgerFilter("account", "a-pen", "BCP PEN")
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_pgdn_walks_the_window_back_and_pgup_stops_at_this_month(monkeypatch):
@@ -219,81 +202,71 @@ def test_pgdn_walks_the_window_back_and_pgup_stops_at_this_month(monkeypatch):
     calls: list = []
     _stub_month(monkeypatch, calls=calls)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 20)) as pilot:
-            await _month_loaded(app, pilot)
-            screen = app.screen
-            today = screen._today
-            assert calls[-1] == (home.shift_month(*today, -3), today)
-            await pilot.press("pagedown")
-            back = home.shift_month(*today, -1)
-            await wait_for(pilot, lambda: calls[-1][1] == back)
-            assert calls[-1][0] == home.shift_month(*back, -3)
-            await pilot.press("pageup")
-            await wait_for(pilot, lambda: calls[-1][1] == today)
-            count = len(calls)
-            await pilot.press("pageup")  # already at this month
-            await pilot.pause()
-            assert len(calls) == count and screen._end == today
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        screen = app.screen
+        today = screen._today
+        assert calls[-1] == (home.shift_month(*today, -3), today)
+        await pilot.press("pagedown")
+        back = home.shift_month(*today, -1)
+        await wait_for(pilot, lambda: calls[-1][1] == back)
+        assert calls[-1][0] == home.shift_month(*back, -3)
+        await pilot.press("pageup")
+        await wait_for(pilot, lambda: calls[-1][1] == today)
+        count = len(calls)
+        await pilot.press("pageup")  # already at this month
+        await pilot.pause()
+        assert len(calls) == count and screen._end == today
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 20))
 
 
 def test_home_keeps_the_cursor_row_across_a_reload(monkeypatch):
     _stub_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await _month_loaded(app, pilot)
-            await _highlight(app, "account:a-pen")
-            app.screen._set_data(app.screen._data, None)
-            await pilot.pause()
-            assert app.screen._cursor_id() == "account:a-pen"
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _highlight(app, "account:a-pen")
+        app.screen._set_data(app.screen._data, None)
+        await pilot.pause()
+        assert app.screen._cursor_id() == "account:a-pen"
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_plus_opens_the_log_form_from_home(monkeypatch):
     _stub_loaders(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            await pilot.press("+")
-            await wait_for(pilot, lambda: isinstance(app.screen, LogBarScreen))
-            assert app.screen._staged == []
+    async def scenario(pilot, app):
+        await pilot.pause()
+        await pilot.press("+")
+        await wait_for(pilot, lambda: isinstance(app.screen, LogBarScreen))
+        assert app.screen._staged == []
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_q_quits_from_home(monkeypatch):
     _stub_loaders(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            await pilot.press("q")
-            await wait_for(pilot, lambda: not app.is_running)
+    async def scenario(pilot, app):
+        await pilot.pause()
+        await pilot.press("q")
+        await wait_for(pilot, lambda: not app.is_running)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_q_inert_off_home(monkeypatch):
     _stub_loaders(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(100, 40)) as pilot:
-            await pilot.pause()
-            await _select(app, pilot, "accounts")
-            await wait_for(pilot, lambda: isinstance(app.screen, home.AccountsScreen))
-            await pilot.press("q")
-            await pilot.pause()
-            assert app.is_running
-            assert isinstance(app.screen, home.AccountsScreen)
+    async def scenario(pilot, app):
+        await pilot.pause()
+        await _select(app, pilot, "accounts")
+        await wait_for(pilot, lambda: isinstance(app.screen, home.AccountsScreen))
+        await pilot.press("q")
+        await pilot.pause()
+        assert app.is_running
+        assert isinstance(app.screen, home.AccountsScreen)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(100, 40))

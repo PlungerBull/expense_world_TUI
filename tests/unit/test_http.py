@@ -7,12 +7,14 @@ import respx
 from expense.config import Config
 from expense.errors import EngineConnectionError, EngineError
 from expense.http import ExpenseClient
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response
 
 
 @pytest.fixture
 def config():
     return Config(
-        engine_url="https://api.example.com",
+        engine_url=BASE,
         token="ewe_pat_test123",
         main_currency="USD",
     )
@@ -20,7 +22,7 @@ def config():
 
 @respx.mock
 def test_health_bypasses_v1_prefix(config):
-    route = respx.get("https://api.example.com/health").mock(
+    route = respx.get(f"{BASE}/health").mock(
         return_value=httpx.Response(200, json={"status": "ok"})
     )
     with ExpenseClient(config) as client:
@@ -33,7 +35,7 @@ def test_health_bypasses_v1_prefix(config):
 
 @respx.mock
 def test_other_paths_get_v1_prefix(config):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
+    route = respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(200, json={"user": {}, "settings": {}})
     )
     with ExpenseClient(config) as client:
@@ -44,9 +46,7 @@ def test_other_paths_get_v1_prefix(config):
 
 @respx.mock
 def test_path_already_v1_is_not_double_prefixed(config):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(200, json={})
-    )
+    route = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json={}))
     with ExpenseClient(config) as client:
         client.get("/v1/auth/me")
 
@@ -55,9 +55,7 @@ def test_path_already_v1_is_not_double_prefixed(config):
 
 @respx.mock
 def test_authorization_header_present_on_auth_requests(config):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(200, json={})
-    )
+    route = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json={}))
     with ExpenseClient(config) as client:
         client.get("/auth/me")
 
@@ -66,7 +64,7 @@ def test_authorization_header_present_on_auth_requests(config):
 
 @respx.mock
 def test_authorization_absent_when_auth_false(config):
-    route = respx.get("https://api.example.com/health").mock(
+    route = respx.get(f"{BASE}/health").mock(
         return_value=httpx.Response(200, json={"status": "ok"})
     )
     with ExpenseClient(config) as client:
@@ -77,7 +75,7 @@ def test_authorization_absent_when_auth_false(config):
 
 @respx.mock
 def test_writes_get_unique_idempotency_keys(config):
-    route = respx.post("https://api.example.com/v1/auth/bootstrap").mock(
+    route = respx.post(f"{BASE}/v1/auth/bootstrap").mock(
         return_value=httpx.Response(200, json={"user": {}, "settings": {}})
     )
     with ExpenseClient(config) as client:
@@ -94,7 +92,7 @@ def test_writes_get_unique_idempotency_keys(config):
 def test_every_write_verb_sends_a_wellformed_idempotency_key(config, verb):
     """Idempotency on every write (CLAUDE.md non-negotiable) — every verb the
     client exposes must mint a key the engine can replay, not just POST."""
-    route = getattr(respx, verb)("https://api.example.com/v1/accounts/a1").mock(
+    route = getattr(respx, verb)(f"{BASE}/v1/accounts/a1").mock(
         return_value=httpx.Response(200, json={})
     )
     with ExpenseClient(config) as client:
@@ -108,9 +106,7 @@ def test_every_write_verb_sends_a_wellformed_idempotency_key(config, verb):
 
 @respx.mock
 def test_reads_do_not_send_idempotency_key(config):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(200, json={})
-    )
+    route = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json={}))
     with ExpenseClient(config) as client:
         client.get("/auth/me")
 
@@ -129,12 +125,7 @@ def test_reads_do_not_send_idempotency_key(config):
 )
 @respx.mock
 def test_engine_errors_translate_by_status(config, status, code):
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=httpx.Response(
-            status,
-            json={"error": {"code": code, "message": "bad", "fields": None}},
-        )
-    )
+    respx.get(f"{BASE}/v1/auth/me").mock(return_value=error_response(status, code, "bad", None))
     with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
         client.get("/auth/me")
 
@@ -144,16 +135,9 @@ def test_engine_errors_translate_by_status(config, status, code):
 
 @respx.mock
 def test_validation_error_includes_fields(config):
-    respx.put("https://api.example.com/v1/auth/settings").mock(
-        return_value=httpx.Response(
-            422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid",
-                    "fields": {"main_currency": "Unsupported currency"},
-                }
-            },
+    respx.put(f"{BASE}/v1/auth/settings").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "Invalid", {"main_currency": "Unsupported currency"}
         )
     )
     with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
@@ -164,9 +148,7 @@ def test_validation_error_includes_fields(config):
 
 @respx.mock
 def test_connection_error_on_network_failure(config):
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        side_effect=httpx.ConnectError("connection refused")
-    )
+    respx.get(f"{BASE}/v1/auth/me").mock(side_effect=httpx.ConnectError("connection refused"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError) as exc:
         client.get("/auth/me")
 
@@ -175,9 +157,7 @@ def test_connection_error_on_network_failure(config):
 
 @respx.mock
 def test_connection_error_on_timeout(config):
-    respx.get("https://api.example.com/v1/auth/me").mock(
-        side_effect=httpx.TimeoutException("timed out")
-    )
+    respx.get(f"{BASE}/v1/auth/me").mock(side_effect=httpx.TimeoutException("timed out"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.get("/auth/me")
 
@@ -195,14 +175,14 @@ def test_connection_error_on_timeout(config):
 @respx.mock
 def test_connection_error_on_full_transport_family(config, exc):
     """Every httpx transport failure renders cleanly, not as a traceback (backlog 3.4)."""
-    respx.get("https://api.example.com/v1/auth/me").mock(side_effect=exc)
+    respx.get(f"{BASE}/v1/auth/me").mock(side_effect=exc)
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.get("/auth/me")
 
 
 @respx.mock
 def test_connection_error_on_non_json_response(config):
-    respx.get("https://api.example.com/v1/auth/me").mock(
+    respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(500, text="<html>Internal Server Error</html>")
     )
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
@@ -211,7 +191,7 @@ def test_connection_error_on_non_json_response(config):
 
 @respx.mock
 def test_connection_error_on_malformed_error_envelope(config):
-    respx.get("https://api.example.com/v1/auth/me").mock(
+    respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(500, json={"unexpected": "shape"})
     )
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
@@ -221,18 +201,13 @@ def test_connection_error_on_malformed_error_envelope(config):
 # --- bounded same-key write retry (backlog 3.1) ------------------------------
 
 
-@pytest.fixture
-def no_backoff(monkeypatch):
-    monkeypatch.setattr("expense.http._RETRY_BACKOFF_SECONDS", (0, 0))
-
-
 def _envelope(status: int, code: str) -> httpx.Response:
-    return httpx.Response(status, json={"error": {"code": code, "message": "boom", "fields": None}})
+    return error_response(status, code, "boom", None)
 
 
 @respx.mock
-def test_write_timeout_is_retried_with_same_idempotency_key(config, no_backoff, capsys):
-    route = respx.post("https://api.example.com/v1/accounts").mock(
+def test_write_timeout_is_retried_with_same_idempotency_key(config, capsys):
+    route = respx.post(f"{BASE}/v1/accounts").mock(
         side_effect=[httpx.TimeoutException("timed out"), httpx.Response(201, json={"id": "a"})]
     )
     with ExpenseClient(config) as client:
@@ -246,8 +221,8 @@ def test_write_timeout_is_retried_with_same_idempotency_key(config, no_backoff, 
 
 
 @respx.mock
-def test_write_5xx_is_retried_with_same_idempotency_key(config, no_backoff):
-    route = respx.post("https://api.example.com/v1/accounts").mock(
+def test_write_5xx_is_retried_with_same_idempotency_key(config):
+    route = respx.post(f"{BASE}/v1/accounts").mock(
         side_effect=[_envelope(503, "UNAVAILABLE"), httpx.Response(201, json={"id": "a"})]
     )
     with ExpenseClient(config) as client:
@@ -260,10 +235,8 @@ def test_write_5xx_is_retried_with_same_idempotency_key(config, no_backoff):
 
 
 @respx.mock
-def test_write_retry_is_bounded_then_raises_connection_error(config, no_backoff):
-    route = respx.post("https://api.example.com/v1/accounts").mock(
-        side_effect=httpx.TimeoutException("timed out")
-    )
+def test_write_retry_is_bounded_then_raises_connection_error(config):
+    route = respx.post(f"{BASE}/v1/accounts").mock(side_effect=httpx.TimeoutException("timed out"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.post("/accounts", json_body={"name": "x"})
 
@@ -271,10 +244,8 @@ def test_write_retry_is_bounded_then_raises_connection_error(config, no_backoff)
 
 
 @respx.mock
-def test_write_5xx_exhaustion_surfaces_the_engine_error(config, no_backoff):
-    route = respx.post("https://api.example.com/v1/accounts").mock(
-        return_value=_envelope(503, "UNAVAILABLE")
-    )
+def test_write_5xx_exhaustion_surfaces_the_engine_error(config):
+    route = respx.post(f"{BASE}/v1/accounts").mock(return_value=_envelope(503, "UNAVAILABLE"))
     with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
         client.post("/accounts", json_body={"name": "x"})
 
@@ -283,11 +254,9 @@ def test_write_5xx_exhaustion_surfaces_the_engine_error(config, no_backoff):
 
 
 @respx.mock
-def test_write_connect_error_fails_fast(config, no_backoff):
+def test_write_connect_error_fails_fast(config):
     """Connect-refused means the engine isn't there — no retry, no ambiguity."""
-    route = respx.post("https://api.example.com/v1/accounts").mock(
-        side_effect=httpx.ConnectError("refused")
-    )
+    route = respx.post(f"{BASE}/v1/accounts").mock(side_effect=httpx.ConnectError("refused"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.post("/accounts", json_body={"name": "x"})
 
@@ -295,10 +264,8 @@ def test_write_connect_error_fails_fast(config, no_backoff):
 
 
 @respx.mock
-def test_write_4xx_is_not_retried(config, no_backoff):
-    route = respx.post("https://api.example.com/v1/accounts").mock(
-        return_value=_envelope(422, "VALIDATION_ERROR")
-    )
+def test_write_4xx_is_not_retried(config):
+    route = respx.post(f"{BASE}/v1/accounts").mock(return_value=_envelope(422, "VALIDATION_ERROR"))
     with ExpenseClient(config) as client, pytest.raises(EngineError):
         client.post("/accounts", json_body={"name": "x"})
 
@@ -306,10 +273,8 @@ def test_write_4xx_is_not_retried(config, no_backoff):
 
 
 @respx.mock
-def test_read_timeout_is_not_retried(config, no_backoff):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
-        side_effect=httpx.TimeoutException("timed out")
-    )
+def test_read_timeout_is_not_retried(config):
+    route = respx.get(f"{BASE}/v1/auth/me").mock(side_effect=httpx.TimeoutException("timed out"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.get("/auth/me")
 
@@ -317,10 +282,8 @@ def test_read_timeout_is_not_retried(config, no_backoff):
 
 
 @respx.mock
-def test_read_5xx_is_not_retried(config, no_backoff):
-    route = respx.get("https://api.example.com/v1/auth/me").mock(
-        return_value=_envelope(500, "INTERNAL")
-    )
+def test_read_5xx_is_not_retried(config):
+    route = respx.get(f"{BASE}/v1/auth/me").mock(return_value=_envelope(500, "INTERNAL"))
     with ExpenseClient(config) as client, pytest.raises(EngineError):
         client.get("/auth/me")
 
@@ -329,7 +292,7 @@ def test_read_5xx_is_not_retried(config, no_backoff):
 
 @respx.mock
 def test_verbose_dump_redacts_authorization(config, capsys):
-    respx.get("https://api.example.com/v1/auth/me").mock(
+    respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(200, json={"user": {"id": "x"}})
     )
     with ExpenseClient(config, verbose=True) as client:
@@ -342,7 +305,7 @@ def test_verbose_dump_redacts_authorization(config, capsys):
 
 @respx.mock
 def test_verbose_dump_shows_request_body(config, capsys):
-    respx.post("https://api.example.com/v1/auth/bootstrap").mock(
+    respx.post(f"{BASE}/v1/auth/bootstrap").mock(
         return_value=httpx.Response(200, json={"user": {}, "settings": {}})
     )
     with ExpenseClient(config, verbose=True) as client:
@@ -355,7 +318,7 @@ def test_verbose_dump_shows_request_body(config, capsys):
 
 @respx.mock
 def test_verbose_dump_shows_response_body(config, capsys):
-    respx.get("https://api.example.com/v1/auth/me").mock(
+    respx.get(f"{BASE}/v1/auth/me").mock(
         return_value=httpx.Response(200, json={"user": {"id": "u_xyz"}})
     )
     with ExpenseClient(config, verbose=True) as client:

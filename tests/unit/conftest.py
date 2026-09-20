@@ -10,6 +10,7 @@ import socket
 import pytest
 
 from expense import config as config_module
+from expense import http as http_module
 from tests.unit import helpers
 
 # Loopback stays reachable so a locally-bound helper never trips the guard;
@@ -93,3 +94,105 @@ def fake_client(monkeypatch):
     monkeypatch.setattr("expense.http.ExpenseClient", lambda *a, **k: client)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     return client
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_backoff(monkeypatch):
+    """Zero the write-retry waits for EVERY unit test.
+
+    `expense.http` sleeps `_RETRY_BACKOFF_SECONDS` (1s then 2s) between the
+    attempts of a same-key write retry. That is right in production and pure
+    dead time here: any test that mocks a 5xx or a timeout on a write pays it
+    for real. test_http.py had a local `no_backoff` fixture and every test that
+    knew to ask for it was fast — the ones that did not know were not, and the
+    slowest test in the suite (3.01s, `test_run_toggle_no_hint_for_unmapped_status`
+    in test_resource.py) was one POST → 500 waiting out the full table.
+
+    The replacement keeps the table's *length*, so
+    `test_every_retry_has_a_backoff_to_index` still measures the real retry
+    count rather than a stub's shape.
+    """
+    monkeypatch.setattr(
+        "expense.http._RETRY_BACKOFF_SECONDS",
+        tuple(0 for _ in http_module._RETRY_BACKOFF_SECONDS),
+    )
+    yield
+
+
+# ---------------------------------------------------------------------------
+# Which commands were driven down their error path (the guard in
+# test_command_surface.py::test_every_command_has_an_error_shape_test reads this)
+# ---------------------------------------------------------------------------
+#
+# Recorded at runtime, not scanned out of the source. A static scan was the
+# obvious first idea and it cannot work: the shared CRUD contract invokes
+# `[spec.name, "get", "missing"]`, so the command being tested is a variable and
+# a reader of the text sees nothing. Watching the invocations happen is immune
+# to how the argv was spelled.
+
+#: Command paths some test drove to a non-zero exit — ("accounts", "get"), …
+ERROR_TESTED: set[tuple[str, ...]] = set()
+
+#: True when this run cannot see the whole suite (-k, -m, --lf, or a nodeid),
+#: in which case the guard has nothing to conclude and skips.
+PARTIAL_RUN = False
+
+_LEAF_PATHS: frozenset[tuple[str, ...]] = frozenset()
+
+
+def _leaf_paths() -> frozenset[tuple[str, ...]]:
+    """Every leaf command path in the app `expense` actually runs."""
+    from expense.__main__ import app
+
+    def walk(typer_app, prefix=()):
+        for cmd in typer_app.registered_commands:
+            yield (*prefix, cmd.name or cmd.callback.__name__.rstrip("_"))
+        for grp in typer_app.registered_groups:
+            yield from walk(grp.typer_instance, (*prefix, grp.name))
+
+    return frozenset(walk(app))
+
+
+def pytest_configure(config):
+    """Wrap CliRunner.invoke once, for the whole session."""
+    global _LEAF_PATHS, PARTIAL_RUN
+    from typer.testing import CliRunner
+
+    _LEAF_PATHS = _leaf_paths()
+    PARTIAL_RUN = bool(
+        getattr(config.option, "keyword", "")
+        or getattr(config.option, "markexpr", "")
+        or getattr(config.option, "last_failed", False)
+        or any("::" in arg for arg in config.args)
+    )
+
+    original = CliRunner.invoke
+
+    def recording_invoke(self, cli, args=None, **kwargs):
+        result = original(self, cli, args, **kwargs)
+        if result.exit_code != 0 and args:
+            tokens = tuple(a for a in args if isinstance(a, str) and not a.startswith("-"))
+            # longest leaf path that prefixes the argv — `accounts get missing`
+            # records ("accounts", "get"), never ("accounts", "get", "missing")
+            for size in (3, 2, 1):
+                if tokens[:size] in _LEAF_PATHS:
+                    ERROR_TESTED.add(tokens[:size])
+                    break
+        return result
+
+    CliRunner.invoke = recording_invoke
+    config.add_cleanup(lambda: setattr(CliRunner, "invoke", original))
+
+
+def pytest_collection_modifyitems(items):
+    """Run the error-shape guard last.
+
+    It reads a registry every other test writes to, so its answer depends on
+    having seen them all — collected alphabetically it sits at `c`, ahead of
+    most of the suite, and reports a gap that is really just the rest of the
+    run. Same reason tests/contract/conftest.py gates in a hook rather than a
+    fixture: a rule about the whole session belongs where the whole session is.
+    """
+    last = [i for i in items if i.name == "test_every_command_has_an_error_shape_test"]
+    if last:
+        items[:] = [i for i in items if i not in last] + last

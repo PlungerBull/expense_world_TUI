@@ -10,7 +10,6 @@ strings creep back in, and (4) that a runtime theme switch rebuilds section
 screens.
 """
 
-import asyncio
 import re
 from pathlib import Path
 
@@ -18,7 +17,7 @@ import expense.tui as tui_pkg
 from expense.tui.app import ExpenseApp
 from expense.tui.theme import EXPENSE_ANSI, PALETTE, PENDING_STYLE, Palette, _rich
 from expense.tui.widgets.cells import amount_cell, difference_cell
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import run_app, wait_for
 
 # A deliberately fake palette: the cell rules must be colour-agnostic.
 SYNTHETIC = Palette("#0f0", "#f00", "#ff0")
@@ -188,13 +187,11 @@ def test_modal_scrim_dims_rather_than_wipes():
     """
     from expense.tui.screens.modals import ConfirmModal
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(74, 16)) as pilot:
-            await app.push_screen(ConfirmModal("Delete account", "Delete BCP?"))
-            await wait_for(pilot, lambda: bool(app.screen.query("#modal")))
-            scrim = app.screen.styles.background
-            assert scrim.a < 1.0, f"scrim is opaque ({scrim!r}) — it wipes, not dims"
-            assert scrim.ansi is None, f"an ANSI scrim ({scrim!r}) loses its alpha"
+    async def scenario(pilot, app):
+        await app.push_screen(ConfirmModal("Delete account", "Delete BCP?"))
+        await wait_for(pilot, lambda: bool(app.screen.query("#modal")))
+        scrim = app.screen.styles.background
+        assert scrim.a < 1.0, f"scrim is opaque ({scrim!r}) — it wipes, not dims"
+        assert scrim.ansi is None, f"an ANSI scrim ({scrim!r}) loses its alpha"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(74, 16))

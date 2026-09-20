@@ -1,13 +1,10 @@
 """Smoke tests for the Transactions TUI screen."""
 
-import asyncio
-
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.screens.transactions import TransactionsScreen, transaction_rows
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import wait_for, wait_for_list
+from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list
 
 ITEMS = [
     {
@@ -59,7 +56,7 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: {"items": ITEMS, "total": 2})
+    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -69,17 +66,15 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: [])
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await app.push_screen(TransactionsScreen())
-            await wait_for_list(pilot, app)
-            await pilot.press("enter")  # opens the edit screen, pre-filled
-            await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
-            assert app.screen._resource == "transactions"
-            assert app.screen._values["amount"] == 651900
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_list(pilot, app)
+        await pilot.press("enter")  # opens the edit screen, pre-filled
+        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        assert app.screen._resource == "transactions"
+        assert app.screen._values["amount"] == 651900
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_plus_opens_the_log_bar(monkeypatch):
@@ -89,7 +84,7 @@ def test_plus_opens_the_log_bar(monkeypatch):
     import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: {"items": ITEMS, "total": 2})
+    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -97,16 +92,14 @@ def test_plus_opens_the_log_bar(monkeypatch):
     monkeypatch.setattr(LogBarScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await app.push_screen(TransactionsScreen())
-            await wait_for_list(pilot, app)
-            await pilot.press("+")
-            await wait_for(pilot, lambda: isinstance(app.screen, LogBarScreen))
-            assert app.screen._staged == []
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_list(pilot, app)
+        await pilot.press("+")
+        await wait_for(pilot, lambda: isinstance(app.screen, LogBarScreen))
+        assert app.screen._staged == []
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
@@ -116,30 +109,28 @@ def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
     import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: {"items": ITEMS, "total": 2})
+    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await app.push_screen(TransactionsScreen())
-            await wait_for_list(pilot, app)
-            app.screen.query_one(CursorList).focus()
-            await pilot.pause()
-            shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
-            assert "Navigate" not in shown
-            assert "Open" in shown and "Add" in shown  # the non-obvious keys stay
-            # the key itself still moves the cursor
-            listing = app.screen.query_one(CursorList)
-            before = listing._cursor
-            await pilot.press("down")
-            await pilot.pause()
-            assert listing._cursor == before + 1
+    async def scenario(pilot, app):
+        await app.push_screen(TransactionsScreen())
+        await wait_for_list(pilot, app)
+        app.screen.query_one(CursorList).focus()
+        await pilot.pause()
+        shown = [b.description for _n, b, _e, _t in app.active_bindings.values() if b.show]
+        assert "Navigate" not in shown
+        assert "Open" in shown and "Add" in shown  # the non-obvious keys stay
+        # the key itself still moves the cursor
+        listing = app.screen.query_one(CursorList)
+        before = listing._cursor
+        await pilot.press("down")
+        await pilot.pause()
+        assert listing._cursor == before + 1
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_transaction_rows_hand_the_table_whole_cells():
@@ -163,9 +154,6 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
     """Free-text columns share the slack by ratio; the fixed ones keep their
     natural width. Rendered narrow, the text cells are elided by the table and
     the amount/date/account cells stay whole — the ledger's degradation order."""
-    import io
-
-    from rich.console import Console
 
     from expense.tui.screens.transactions import _FLEX, _HEADERS
 
@@ -176,9 +164,7 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
     lst._refresh = lambda: None
 
     def render(width: int) -> list[str]:
-        con = Console(file=io.StringIO(), width=width)
-        con.print(lst._build())
-        return con.file.getvalue().splitlines()
+        return render_text(lst._build(), width=width).splitlines()
 
     wide = render(200)
     assert any(long_title in line and "6,519.00" in line for line in wide), wide
@@ -202,7 +188,7 @@ def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
 
     def fake(cfg, **kw):
         seen.append(kw)
-        return {"items": ITEMS, "total": 2}
+        return page(ITEMS, total=2)
 
     monkeypatch.setattr(tc, "fetch_transactions", fake)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
@@ -210,15 +196,13 @@ def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            flt = LedgerFilter("category", "cat2", "Comida #trabajo", hashtag_id="h1")
-            screen = TransactionsScreen(filter=flt)
-            await app.push_screen(screen)
-            await wait_for_list(pilot, app)
-            assert seen[0]["category"] == "cat2" and seen[0]["hashtag"] == "h1"
-            assert "account" not in seen[0]
-            assert screen.crumb == ("Ledger", "Comida #trabajo")
+    async def scenario(pilot, app):
+        flt = LedgerFilter("category", "cat2", "Comida #trabajo", hashtag_id="h1")
+        screen = TransactionsScreen(filter=flt)
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert seen[0]["category"] == "cat2" and seen[0]["hashtag"] == "h1"
+        assert "account" not in seen[0]
+        assert screen.crumb == ("Ledger", "Comida #trabajo")
 
-    asyncio.run(scenario())
+    run_app(scenario)

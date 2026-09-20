@@ -1,22 +1,19 @@
 """Smoke tests for the `expense world` TUI.
 
-Drives Textual headlessly via `App.run_test()` wrapped in `asyncio.run` (no
-pytest-asyncio dependency). Network is never touched — the nav test stubs
-`fetch_dashboard`.
+Drives Textual headlessly through `helpers.run_app` — one shared harness for
+the whole suite, and still no pytest-asyncio dependency. Network is never
+touched: the nav test stubs `fetch_dashboard`.
 
 The render-helper and fold tests that used to live here moved to
 `test_tui_overview.py` with the 2026-08-29 merge; the ones for `CategoriesView`
 went away with the widget, whose job the month grid's newest column already did.
 """
 
-import asyncio
-
 from textual.widgets import OptionList, Static
 
 from expense.commands import dashboard_cmd
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.home import HomeScreen
-from tests.unit.helpers import stub_home_month, wait_for
+from tests.unit.helpers import run_app, stub_home_month, wait_for
 
 SAMPLE = {
     "month": {"year": 2026, "month": 3},
@@ -53,35 +50,33 @@ SAMPLE = {
 
 
 def test_app_launches_home_with_every_screen_listed():
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            assert isinstance(app.screen, HomeScreen)
-            option_list = app.query_one(OptionList)
-            ids = [
-                option_list.get_option_at_index(i).id
-                for i in range(option_list.option_count)
-                if option_list.get_option_at_index(i).id
-            ]
-            # every screen is a row before any fetch lands, never folded (2026-09-13)
-            assert ids == [
-                "transactions",
-                "reconciliations",
-                "accounts",
-                "categories",
-                "hashtags",
-                "config",
-                "auth",
-                "activity",
-                "rates",
-            ]
-            # both halves of the 2026-08-29 merge are gone as separate rows —
-            # asserted negatively so a reflex re-add fails here, loudly
-            assert "outstanding" not in ids
-            assert "report" not in ids
+    async def scenario(pilot, app):
+        await pilot.pause()
+        assert isinstance(app.screen, HomeScreen)
+        option_list = app.query_one(OptionList)
+        ids = [
+            option_list.get_option_at_index(i).id
+            for i in range(option_list.option_count)
+            if option_list.get_option_at_index(i).id
+        ]
+        # every screen is a row before any fetch lands, never folded (2026-09-13)
+        assert ids == [
+            "transactions",
+            "reconciliations",
+            "accounts",
+            "categories",
+            "hashtags",
+            "config",
+            "auth",
+            "activity",
+            "rates",
+        ]
+        # both halves of the 2026-08-29 merge are gone as separate rows —
+        # asserted negatively so a reflex re-add fails here, loudly
+        assert "outstanding" not in ids
+        assert "report" not in ids
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_home_month_populates_from_worker(monkeypatch):
@@ -89,37 +84,35 @@ def test_home_month_populates_from_worker(monkeypatch):
     → the header carries the month and the menu the live rows (2026-09-13)."""
     stub_home_month(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            home = app.screen
-            assert home.query_one("#brand", Static) is not None  # header up from first paint
-            await wait_for(pilot, lambda: home._data is not None)
-            await pilot.pause()
-            option_list = app.query_one(OptionList)
-            ids = [
-                option_list.get_option_at_index(i).id
-                for i in range(option_list.option_count)
-                if option_list.get_option_at_index(i).id
-            ]
-            assert ids[:2] == ["category:c-pend", "category:c-wants"]
-            assert "category:c-hogar" not in ids  # nothing in the window: hidden
-            assert "account:a-pen" in ids and "account:a-usd" in ids
-            assert ids[-9:] == [
-                "transactions",
-                "reconciliations",
-                "accounts",
-                "categories",
-                "hashtags",
-                "config",
-                "auth",
-                "activity",
-                "rates",
-            ]
-            assert home._cursor_id() == "category:c-pend"  # the first month lands the cursor
+    async def scenario(pilot, app):
+        await pilot.pause()
+        home = app.screen
+        assert home.query_one("#brand", Static) is not None  # header up from first paint
+        await wait_for(pilot, lambda: home._data is not None)
+        await pilot.pause()
+        option_list = app.query_one(OptionList)
+        ids = [
+            option_list.get_option_at_index(i).id
+            for i in range(option_list.option_count)
+            if option_list.get_option_at_index(i).id
+        ]
+        assert ids[:2] == ["category:c-pend", "category:c-wants"]
+        assert "category:c-hogar" not in ids  # nothing in the window: hidden
+        assert "account:a-pen" in ids and "account:a-usd" in ids
+        assert ids[-9:] == [
+            "transactions",
+            "reconciliations",
+            "accounts",
+            "categories",
+            "hashtags",
+            "config",
+            "auth",
+            "activity",
+            "rates",
+        ]
+        assert home._cursor_id() == "category:c-pend"  # the first month lands the cursor
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_home_says_so_when_the_month_cannot_load(monkeypatch):
@@ -133,15 +126,13 @@ def test_home_says_so_when_the_month_cannot_load(monkeypatch):
     monkeypatch.setattr(dashboard_cmd, "fetch_dashboard", boom)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            home = app.screen
-            await wait_for(pilot, lambda: home._error is not None)
-            await pilot.pause()
-            option_list = app.query_one(OptionList)
-            first = option_list.get_option_at_index(0)
-            assert first.disabled and "Connection refused" in first.prompt.plain
-            assert option_list.get_option_index("transactions") is not None
+    async def scenario(pilot, app):
+        home = app.screen
+        await wait_for(pilot, lambda: home._error is not None)
+        await pilot.pause()
+        option_list = app.query_one(OptionList)
+        first = option_list.get_option_at_index(0)
+        assert first.disabled and "Connection refused" in first.prompt.plain
+        assert option_list.get_option_index("transactions") is not None
 
-    asyncio.run(scenario())
+    run_app(scenario)

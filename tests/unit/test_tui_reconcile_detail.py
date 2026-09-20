@@ -1,15 +1,12 @@
 """Phase 2 reconciliation working-screen tests — checklist + assign/complete."""
 
-import asyncio
-
 from textual.widgets import Static
 
 from expense.errors import EngineError
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen, _txn_sub
 from expense.tui.widgets.checklist import CheckList
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import error_body, run_app, wait_for
 
 CATS = {"c1": "Vivienda"}
 TAGS = {"h1": "oficina"}
@@ -126,53 +123,47 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
     engine no longer has two answers to; it carries the add-up check instead."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            head = str(screen.query_one("#rhead", Static).visual)
-            assert "diff" in head and "-35.00" in head
-            assert "chained" not in head and "manual" not in head
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        head = str(screen.query_one("#rhead", Static).visual)
+        assert "diff" in head and "-35.00" in head
+        assert "chained" not in head and "manual" not in head
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            cl = screen._list
-            keys = [r[0] for r in cl._rows]
-            assert keys == ["t1", "t2"]  # t3 (other batch) excluded
-            assert cl.checked == {"t1"}  # assigned one is checked
-            assert not cl._read_only
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        cl = screen._list
+        keys = [r[0] for r in cl._rows]
+        assert keys == ["t1", "t2"]  # t3 (other batch) excluded
+        assert cl.checked == {"t1"}  # assigned one is checked
+        assert not cl._read_only
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_toggle_puts_reconciliation_id(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            # toggle the available row (t2) into the batch
-            screen._list._cursor = 1
-            screen._list.action_toggle()
-            await wait_for(pilot, lambda: fake_client.puts)
-            assert fake_client.puts == [("/transactions/t2", {"reconciliation_id": "r1"})]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        # toggle the available row (t2) into the batch
+        screen._list._cursor = 1
+        screen._list.action_toggle()
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t2", {"reconciliation_id": "r1"})]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
@@ -198,19 +189,17 @@ def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
 
     fake_client.put = slow_put
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            screen._list._cursor = 0
-            screen._list.action_toggle()  # t1 → out of the batch
-            screen._list._cursor = 1
-            screen._list.action_toggle()  # t2 → into the batch
-            await wait_for(pilot, lambda: len(fake_client.puts) == 2)
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen._list._cursor = 0
+        screen._list.action_toggle()  # t1 → out of the batch
+        screen._list._cursor = 1
+        screen._list.action_toggle()  # t2 → into the batch
+        await wait_for(pilot, lambda: len(fake_client.puts) == 2)
 
-    asyncio.run(scenario())
+    run_app(scenario)
     assert max_active == 1  # serialized: never two PUTs in flight
     assert fake_client.puts == [
         ("/transactions/t1", {"reconciliation_id": None}),
@@ -229,22 +218,20 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            screen._list._cursor = 0
-            screen._list.action_toggle()
-            screen._list._cursor = 1
-            screen._list.action_toggle()  # queued behind the failing PUT
-            await wait_for(pilot, lambda: notices)
-            await pilot.pause()  # let the queue drain settle, then assert a non-event
-            assert not screen._write_queue  # stale intent dropped, not sent
-            assert len(fake_client.puts) == 1
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen._list._cursor = 0
+        screen._list.action_toggle()
+        screen._list._cursor = 1
+        screen._list.action_toggle()  # queued behind the failing PUT
+        await wait_for(pilot, lambda: notices)
+        await pilot.pause()  # let the queue drain settle, then assert a non-event
+        assert not screen._write_queue  # stale intent dropped, not sent
+        assert len(fake_client.puts) == 1
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
@@ -252,26 +239,24 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
     including a re-toggle of the same row (t1 out, then back in)."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            screen._list._cursor = 0
-            screen._list.action_toggle()  # t1 → out
-            screen._list._cursor = 1
-            screen._list.action_toggle()  # t2 → in
-            screen._list._cursor = 0
-            screen._list.action_toggle()  # t1 → back in
-            await wait_for(pilot, lambda: len(fake_client.puts) == 3)
-            assert fake_client.puts == [
-                ("/transactions/t1", {"reconciliation_id": None}),
-                ("/transactions/t2", {"reconciliation_id": "r1"}),
-                ("/transactions/t1", {"reconciliation_id": "r1"}),
-            ]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen._list._cursor = 0
+        screen._list.action_toggle()  # t1 → out
+        screen._list._cursor = 1
+        screen._list.action_toggle()  # t2 → in
+        screen._list._cursor = 0
+        screen._list.action_toggle()  # t1 → back in
+        await wait_for(pilot, lambda: len(fake_client.puts) == 3)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"reconciliation_id": None}),
+            ("/transactions/t2", {"reconciliation_id": "r1"}),
+            ("/transactions/t1", {"reconciliation_id": "r1"}),
+        ]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
@@ -303,19 +288,17 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
 
     monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: calls["n"] >= 1)
-            screen._load_txns()  # supersedes the slow mount-time load
-            await wait_for(pilot, lambda: screen._list is not None and len(screen._list._rows) == 2)
-            await pilot.pause(0.25)  # window for the cancelled worker to (not) paint
-            assert len(screen.query(CheckList)) == 1
-            assert [r[0] for r in screen._list._rows] == ["t1", "t9"]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: calls["n"] >= 1)
+        screen._load_txns()  # supersedes the slow mount-time load
+        await wait_for(pilot, lambda: screen._list is not None and len(screen._list._rows) == 2)
+        await pilot.pause(0.25)  # window for the cancelled worker to (not) paint
+        assert len(screen.query(CheckList)) == 1
+        assert [r[0] for r in screen._list._rows] == ["t1", "t9"]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
@@ -338,35 +321,31 @@ def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
 def test_complete_confirms_then_posts(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            screen.action_complete()  # opens confirm
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")  # confirm
-            await wait_for(pilot, lambda: fake_client.posts)
-            assert fake_client.posts == [("/reconciliations/r1/complete", None)]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen.action_complete()  # opens confirm
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")  # confirm
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [("/reconciliations/r1/complete", None)]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_completed_is_read_only(fake_client, monkeypatch):
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            assert screen._list._read_only
-            assert [r[0] for r in screen._list._rows] == ["t1"]  # only batch txns
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        assert screen._list._read_only
+        assert [r[0] for r in screen._list._rows] == ["t1"]  # only batch txns
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
@@ -386,20 +365,18 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("d")
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")
-            await wait_for(pilot, lambda: notices)
-            assert fake_client.deletes == ["/reconciliations/r1"]  # request was attempted
-            assert any("Revert to draft first" in m for m in notices)
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        assert fake_client.deletes == ["/reconciliations/r1"]  # request was attempted
+        assert any("Revert to draft first" in m for m in notices)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatch):
@@ -425,21 +402,19 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            assert not screen._list.checked
-            screen.action_complete()  # no pre-block: confirm opens
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")
-            await wait_for(pilot, lambda: notices)
-            assert fake_client.posts == [("/reconciliations/r1/complete", None)]
-            assert any("At least one transaction must be assigned" in m for m in notices)
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        assert not screen._list.checked
+        screen.action_complete()  # no pre-block: confirm opens
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        assert fake_client.posts == [("/reconciliations/r1/complete", None)]
+        assert any("At least one transaction must be assigned" in m for m in notices)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
@@ -451,40 +426,36 @@ def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("u")
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")
-            await wait_for(pilot, lambda: fake_client.posts)
-            assert fake_client.posts == [("/reconciliations/r1/revert", None)]
-            await wait_for(pilot, lambda: notices)
-            assert any("reverted to draft" in m for m in notices)
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+        await wait_for(pilot, lambda: notices)
+        assert any("reverted to draft" in m for m in notices)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_revert_posts(fake_client, monkeypatch):
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            screen.action_revert()
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")
-            await wait_for(pilot, lambda: fake_client.posts)
-            assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen.action_revert()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_revert_key_is_u(fake_client, monkeypatch):
@@ -492,19 +463,17 @@ def test_revert_key_is_u(fake_client, monkeypatch):
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("u")
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("y")
-            await wait_for(pilot, lambda: fake_client.posts)
-            assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_r_refreshes_record_by_id_and_never_writes(fake_client, monkeypatch):
@@ -527,21 +496,19 @@ def test_r_refreshes_record_by_id_and_never_writes(fake_client, monkeypatch):
 
     monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliation", fake_get)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(completed))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("r")
-            await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") == 999999)
-            await pilot.pause()  # let the refresh settle, then assert a non-event
-            assert fetched_ids == ["r1"]  # single-record fetch, not a collection scan
-            assert "transactions" not in screen._record  # embedded window stripped
-            assert app.screen is screen  # not dismissed — the 6.2b false positive
-            assert not fake_client.posts and not fake_client.deletes
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("r")
+        await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") == 999999)
+        await pilot.pause()  # let the refresh settle, then assert a non-event
+        assert fetched_ids == ["r1"]  # single-record fetch, not a collection scan
+        assert "transactions" not in screen._record  # embedded window stripped
+        assert app.screen is screen  # not dismissed — the 6.2b false positive
+        assert not fake_client.posts and not fake_client.deletes
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
@@ -554,64 +521,58 @@ def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
             f"reconciliation {id_} not found.",
             None,
             404,
-            {"error": {"code": "NOT_FOUND", "message": "x", "fields": None}},
+            error_body("NOT_FOUND", "x", None),
         )
 
     monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliation", gone)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("r")
-            await wait_for(pilot, lambda: app.screen is not screen)
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("r")
+        await wait_for(pilot, lambda: app.screen is not screen)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
     """Enter is the safe default: dismisses the confirm without applying (4.1)."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("d")  # delete → confirm modal
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("enter")
-            await wait_for(pilot, lambda: app.screen is screen)  # modal gone
-            await pilot.pause()  # let the cancel settle, then assert a non-event
-            assert not fake_client.deletes
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("d")  # delete → confirm modal
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: app.screen is screen)  # modal gone
+        await pilot.pause()  # let the cancel settle, then assert a non-event
+        assert not fake_client.deletes
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_q_inert_inside_confirm_modal(fake_client, monkeypatch):
     """The 4.6 bug: q inside a ConfirmModal must not kill the app anymore."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await _wait_list(screen, pilot)
-            await pilot.press("d")  # delete → confirm modal
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-            await pilot.press("q")
-            await pilot.pause()  # let the (inert) keypress settle, then assert a non-event
-            assert app.is_running
-            assert isinstance(app.screen, ConfirmModal)  # modal still up, undecided
-            await pilot.press("escape")
-            await wait_for(pilot, lambda: app.screen is screen)  # modal dismissed
-            assert not fake_client.deletes
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("d")  # delete → confirm modal
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("q")
+        await pilot.pause()  # let the (inert) keypress settle, then assert a non-event
+        assert app.is_running
+        assert isinstance(app.screen, ConfirmModal)  # modal still up, undecided
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)  # modal dismissed
+        assert not fake_client.deletes
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
@@ -627,14 +588,12 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = ReconciliationDetailScreen(dict(DRAFT))
-            await app.push_screen(screen)
-            await wait_for(pilot, lambda: notices)
-            assert notices and "engine down" in notices[0]
-            assert app.is_running
-            assert app.screen is screen
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: notices)
+        assert notices and "engine down" in notices[0]
+        assert app.is_running
+        assert app.screen is screen
 
-    asyncio.run(scenario())
+    run_app(scenario)

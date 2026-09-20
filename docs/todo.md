@@ -17,9 +17,10 @@ Rules, unchanged from the backlog this file replaces
   quote the item's bolded title instead, so a renumber can never make them lie.
 
 **Nothing here is a regression and nothing blocks daily use.** The flat CLI and the
-TUI are both feature-complete against the engine; **1166 unit tests green
-(2026-09-13)**, contract suite **12/12** against the disposable engine on `:8001`
-(last run 2026-08-25). Exactly one item below is a genuine defect — the macOS field
+TUI are both feature-complete against the engine; **1250 unit tests green
+(2026-09-19)**, contract suite **24/24** against the disposable engine (2026-09-19 — the
+first run since 2026-08-25, and the first ever for the reconciliation, reports and
+dashboard modules added the same day). Exactly one item below is a genuine defect — the macOS field
 keys, under **Bugs**; the rest are ergonomics, engine-side asks, and one cosmetic
 follow-up.
 
@@ -155,3 +156,4 @@ engine, which is what this CLI exists to do — see CLAUDE.md "Product scope and
   swatches, `NO_COLOR` honoured via `color_supported()`). No demand established.
 - **`auth pat create` / `auth pat revoke`.** PATs are issued out-of-band; a future web
   dashboard is expected to issue them. See [cli-spec.md](cli-spec.md) "Auth model".
+

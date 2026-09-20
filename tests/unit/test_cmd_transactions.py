@@ -6,7 +6,8 @@ import respx
 from typer.testing import CliRunner
 
 from expense.commands.transactions_cmd import app as transactions_app
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_body, error_response, make_cli_app, page
 
 cli_app = make_cli_app(transactions_app, "transactions")
 
@@ -31,12 +32,7 @@ TRANSACTION_RESPONSE = {
     "deleted_at": None,
 }
 
-LIST_RESPONSE = {
-    "items": [TRANSACTION_RESPONSE],
-    "total": 1,
-    "limit": 50,
-    "offset": 0,
-}
+LIST_RESPONSE = page([TRANSACTION_RESPONSE], total=1, limit=50, offset=0)
 
 
 # The three reference lists the human list renderer joins against for names.
@@ -46,7 +42,7 @@ HASHTAG_ROW = {"id": "h-1", "name": "lunch"}
 
 
 def _reference_envelope(rows: list[dict]) -> dict:
-    return {"items": rows, "total": len(rows), "limit": 200, "offset": 0}
+    return page(rows, total=len(rows), limit=200, offset=0)
 
 
 def _mock_name_maps() -> tuple:
@@ -56,13 +52,13 @@ def _mock_name_maps() -> tuple:
     `{}`, and every reference cell degrades to an 8-char short id.
     """
     return (
-        respx.get("https://api.example.com/v1/accounts").mock(
+        respx.get(f"{BASE}/v1/accounts").mock(
             return_value=httpx.Response(200, json=_reference_envelope([ACCOUNT_ROW]))
         ),
-        respx.get("https://api.example.com/v1/categories").mock(
+        respx.get(f"{BASE}/v1/categories").mock(
             return_value=httpx.Response(200, json=_reference_envelope([CATEGORY_ROW]))
         ),
-        respx.get("https://api.example.com/v1/hashtags").mock(
+        respx.get(f"{BASE}/v1/hashtags").mock(
             return_value=httpx.Response(200, json=_reference_envelope([HASHTAG_ROW]))
         ),
     )
@@ -75,7 +71,7 @@ def _mock_name_maps() -> tuple:
 
 @respx.mock
 def test_list_happy(configured):
-    route = respx.get("https://api.example.com/v1/transactions").mock(
+    route = respx.get(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["transactions", "list"])
@@ -95,10 +91,8 @@ def test_list_happy(configured):
 def test_list_resolves_names_from_live_reference_lists(configured):
     """The renderer joins account/category/hashtag ids against live lists."""
     item = {**TRANSACTION_RESPONSE, "hashtag_ids": ["h-1"]}
-    respx.get("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(
-            200, json={"items": [item], "total": 1, "limit": 50, "offset": 0}
-        )
+    respx.get(f"{BASE}/v1/transactions").mock(
+        return_value=httpx.Response(200, json=page([item], total=1, limit=50, offset=0))
     )
     reference_routes = _mock_name_maps()
     result = runner.invoke(cli_app, ["transactions", "list"])
@@ -118,10 +112,8 @@ def test_list_unresolvable_names_degrade_to_short_ids(configured):
         "category_id": "ab99cc11-0000-0000-0000-000000000000",
         "hashtag_ids": [],
     }
-    respx.get("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(
-            200, json={"items": [item], "total": 1, "limit": 50, "offset": 0}
-        )
+    respx.get(f"{BASE}/v1/transactions").mock(
+        return_value=httpx.Response(200, json=page([item], total=1, limit=50, offset=0))
     )
     result = runner.invoke(cli_app, ["transactions", "list"])
     assert result.exit_code == 0, result.output
@@ -131,7 +123,7 @@ def test_list_unresolvable_names_degrade_to_short_ids(configured):
 
 @respx.mock
 def test_list_all_filters_pass_through(configured):
-    route = respx.get("https://api.example.com/v1/transactions").mock(
+    route = respx.get(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(
@@ -193,10 +185,8 @@ def test_list_include_deleted_renders_deleted_column(configured):
         "title": "dropped row",
         "deleted_at": "2026-04-24T10:00:00Z",
     }
-    body = {"items": [TRANSACTION_RESPONSE, deleted], "total": 2, "limit": 50, "offset": 0}
-    respx.get("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(200, json=body)
-    )
+    body = page([TRANSACTION_RESPONSE, deleted], total=2, limit=50, offset=0)
+    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=body))
     result = runner.invoke(cli_app, ["transactions", "list", "--include-deleted"])
     assert result.exit_code == 0, result.output
 
@@ -215,9 +205,7 @@ def test_list_include_deleted_renders_deleted_column(configured):
 @respx.mock
 def test_list_without_include_deleted_has_no_deleted_column(configured):
     """The column is keyed to the flag, not the data — a plain list is unchanged."""
-    respx.get("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
+    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
     result = runner.invoke(cli_app, ["transactions", "list"])
     assert result.exit_code == 0, result.output
     assert "Deleted" not in result.output
@@ -241,15 +229,8 @@ def test_list_rejects_retired_cleared_flag(configured):
 
 @respx.mock
 def test_list_pagination_hint_when_truncated(configured):
-    paged = {
-        "items": [TRANSACTION_RESPONSE, TRANSACTION_RESPONSE],
-        "total": 17,
-        "limit": 2,
-        "offset": 0,
-    }
-    respx.get("https://api.example.com/v1/transactions").mock(
-        return_value=httpx.Response(200, json=paged)
-    )
+    paged = page([TRANSACTION_RESPONSE, TRANSACTION_RESPONSE], total=17, limit=2, offset=0)
+    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=paged))
     result = runner.invoke(cli_app, ["transactions", "list", "--limit", "2"])
     assert result.exit_code == 0, result.output
     assert "showing 2 of 17" in result.output
@@ -258,7 +239,7 @@ def test_list_pagination_hint_when_truncated(configured):
 
 @respx.mock
 def test_list_json_pass_through(configured):
-    route = respx.get("https://api.example.com/v1/transactions").mock(
+    route = respx.get(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["transactions", "list", "--json"])
@@ -275,7 +256,7 @@ def test_list_json_pass_through(configured):
 
 @respx.mock
 def test_get_happy(configured):
-    respx.get("https://api.example.com/v1/transactions/abc").mock(
+    respx.get(f"{BASE}/v1/transactions/abc").mock(
         return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(cli_app, ["transactions", "get", "abc"])
@@ -287,7 +268,7 @@ def test_get_happy(configured):
 
 @respx.mock
 def test_get_always_sends_debit_as_negative(configured):
-    route = respx.get("https://api.example.com/v1/transactions/abc").mock(
+    route = respx.get(f"{BASE}/v1/transactions/abc").mock(
         return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(cli_app, ["transactions", "get", "abc"])
@@ -297,17 +278,8 @@ def test_get_always_sends_debit_as_negative(configured):
 
 @respx.mock
 def test_get_404(configured):
-    respx.get("https://api.example.com/v1/transactions/missing").mock(
-        return_value=httpx.Response(
-            404,
-            json={
-                "error": {
-                    "code": "NOT_FOUND",
-                    "message": "Transaction not found",
-                    "fields": None,
-                }
-            },
-        )
+    respx.get(f"{BASE}/v1/transactions/missing").mock(
+        return_value=error_response(404, "NOT_FOUND", "Transaction not found", None)
     )
     result = runner.invoke(cli_app, ["transactions", "get", "missing"])
     assert result.exit_code == 1
@@ -327,7 +299,7 @@ def test_update_no_flags_errors(configured):
 
 @respx.mock
 def test_update_partial_payload(configured):
-    route = respx.put("https://api.example.com/v1/transactions/abc").mock(
+    route = respx.put(f"{BASE}/v1/transactions/abc").mock(
         return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(
@@ -342,7 +314,7 @@ def test_update_partial_payload(configured):
 
 @respx.mock
 def test_update_hashtag_ids_parsed_to_list(configured):
-    route = respx.put("https://api.example.com/v1/transactions/abc").mock(
+    route = respx.put(f"{BASE}/v1/transactions/abc").mock(
         return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(
@@ -356,16 +328,12 @@ def test_update_hashtag_ids_parsed_to_list(configured):
 
 @respx.mock
 def test_update_422_reconciliation_lock_hint(configured):
-    respx.put("https://api.example.com/v1/transactions/abc").mock(
-        return_value=httpx.Response(
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Field is read-only on a completed reconciliation.",
-                    "fields": {"amount_cents": "Locked by completed reconciliation."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Field is read-only on a completed reconciliation.",
+            {"amount_cents": "Locked by completed reconciliation."},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "update", "abc", "--amount", "-100"])
@@ -390,9 +358,7 @@ def test_delete_happy_no_warnings_channel(configured):
     # Since 2026-08-11 DELETE returns the plain transaction shape — no
     # `warnings` key (restore is the channel's sole member).
     deleted = {**TRANSACTION_RESPONSE, "deleted_at": "2026-04-24T10:00:00Z"}
-    respx.delete("https://api.example.com/v1/transactions/abc").mock(
-        return_value=httpx.Response(200, json=deleted)
-    )
+    respx.delete(f"{BASE}/v1/transactions/abc").mock(return_value=httpx.Response(200, json=deleted))
     result = runner.invoke(cli_app, ["transactions", "delete", "abc", "--yes"])
     assert result.exit_code == 0, result.output
     assert "Warning:" not in result.output
@@ -400,17 +366,13 @@ def test_delete_happy_no_warnings_channel(configured):
 
 @respx.mock
 def test_delete_409_completed_reconciliation_hint(configured):
-    respx.delete("https://api.example.com/v1/transactions/abc").mock(
-        return_value=httpx.Response(
+    respx.delete(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
             409,
-            json={
-                "error": {
-                    "code": "CONFLICT",
-                    "message": "Cannot delete a transaction assigned to a completed "
-                    "reconciliation. Revert the reconciliation to draft first.",
-                    "fields": None,
-                }
-            },
+            "CONFLICT",
+            "Cannot delete a transaction assigned to a completed "
+            "reconciliation. Revert the reconciliation to draft first.",
+            None,
         )
     )
     result = runner.invoke(cli_app, ["transactions", "delete", "abc", "--yes"])
@@ -421,16 +383,12 @@ def test_delete_409_completed_reconciliation_hint(configured):
 
 @respx.mock
 def test_update_reconciliation_id_lock_422_hint(configured):
-    respx.put("https://api.example.com/v1/transactions/abc").mock(
-        return_value=httpx.Response(
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Field locked.",
-                    "fields": {"reconciliation_id": "Locked by completed reconciliation."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Field locked.",
+            {"reconciliation_id": "Locked by completed reconciliation."},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "update", "abc", "--reconciliation-id", "r1"])
@@ -442,9 +400,7 @@ def test_update_reconciliation_id_lock_422_hint(configured):
 @respx.mock
 def test_delete_json_passes_through(configured):
     deleted = {**TRANSACTION_RESPONSE, "deleted_at": "2026-04-24T10:00:00Z"}
-    respx.delete("https://api.example.com/v1/transactions/abc").mock(
-        return_value=httpx.Response(200, json=deleted)
-    )
+    respx.delete(f"{BASE}/v1/transactions/abc").mock(return_value=httpx.Response(200, json=deleted))
     result = runner.invoke(cli_app, ["transactions", "delete", "abc", "--yes", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == deleted
@@ -457,7 +413,7 @@ def test_delete_json_passes_through(configured):
 
 @respx.mock
 def test_restore_happy(configured):
-    respx.post("https://api.example.com/v1/transactions/abc/restore").mock(
+    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
         return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
     )
     result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
@@ -470,7 +426,7 @@ def test_restore_warnings_rendered(configured):
         **TRANSACTION_RESPONSE,
         "warnings": ["Transaction unlinked from completed reconciliation."],
     }
-    respx.post("https://api.example.com/v1/transactions/abc/restore").mock(
+    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
         return_value=httpx.Response(200, json=restored)
     )
     result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
@@ -480,16 +436,12 @@ def test_restore_warnings_rendered(configured):
 
 @respx.mock
 def test_restore_422_archived_hint(configured):
-    respx.post("https://api.example.com/v1/transactions/abc/restore").mock(
-        return_value=httpx.Response(
+    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Referenced rows are no longer active.",
-                    "fields": {"category_id": "Must reference an active, non-archived category."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Referenced rows are no longer active.",
+            {"category_id": "Must reference an active, non-archived category."},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
@@ -522,7 +474,7 @@ def test_batch_happy_from_stdin(configured):
         },
     ]
     response = {"created": [TRANSACTION_RESPONSE, TRANSACTION_RESPONSE]}
-    route = respx.post("https://api.example.com/v1/transactions/batch").mock(
+    route = respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json=response)
     )
     result = runner.invoke(cli_app, ["transactions", "batch"], input=json.dumps(items_in))
@@ -550,7 +502,7 @@ def test_batch_singular_count(configured):
             "category_id": "cat-1",
         }
     ]
-    respx.post("https://api.example.com/v1/transactions/batch").mock(
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json={"created": [TRANSACTION_RESPONSE]})
     )
     result = runner.invoke(cli_app, ["transactions", "batch"], input=json.dumps(items_in))
@@ -570,7 +522,7 @@ def test_batch_json_passthrough(configured):
         }
     ]
     response = {"created": [TRANSACTION_RESPONSE]}
-    respx.post("https://api.example.com/v1/transactions/batch").mock(
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json=response)
     )
     result = runner.invoke(cli_app, ["transactions", "batch", "--json"], input=json.dumps(items_in))
@@ -583,14 +535,12 @@ def test_batch_422_surfaces_engine_envelope_without_hint(configured):
     # thin wrapper: the engine owns batch validation (e.g. category_id now
     # unconditionally required, 2026-08-10); the CLI adds no local check and
     # no hint — the envelope surfaces verbatim.
-    envelope = {
-        "error": {
-            "code": "VALIDATION_ERROR",
-            "message": "Duplicate id within batch.",
-            "fields": {"transactions[1].id": "Duplicate id within batch."},
-        }
-    }
-    respx.post("https://api.example.com/v1/transactions/batch").mock(
+    envelope = error_body(
+        "VALIDATION_ERROR",
+        "Duplicate id within batch.",
+        {"transactions[1].id": "Duplicate id within batch."},
+    )
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(422, json=envelope)
     )
     items = [

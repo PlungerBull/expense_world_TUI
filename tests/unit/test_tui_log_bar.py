@@ -11,18 +11,14 @@ land, `ctrl+s` leaves an unstaged line in the bar alone, and the discard card's
 third answer saves before it leaves.
 """
 
-import asyncio
-import io
 from datetime import date
 
-from rich.console import Console
 from textual.widgets import Input, Label, Static
 
 from expense.commands._resource import QuickAddRefs
 from expense.errors import EngineConnectionError, EngineError
 from expense.quickadd.parse import parse
 from expense.quickadd.route import route
-from expense.tui.app import ExpenseApp
 from expense.tui.screens.log_bar import (
     LEGEND_LINE,
     AccountPeek,
@@ -39,7 +35,7 @@ from expense.tui.screens.log_bar import (
 )
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
-from tests.unit.helpers import wait_for
+from tests.unit.helpers import page, render_text, run_app, wait_for
 
 ACCOUNTS = [
     {"id": "acc1", "name": "BCP Signature PEN", "currency_code": "PEN", "is_person": False},
@@ -94,7 +90,7 @@ PEEK_ITEMS = [
         "hashtag_ids": [],
     },
 ]
-PEEK_BODY = {"items": PEEK_ITEMS, "total": 214, "limit": 40, "offset": 0}
+PEEK_BODY = page(PEEK_ITEMS, total=214, limit=40, offset=0)
 
 
 class _PeekFetch:
@@ -130,16 +126,12 @@ def _patch(monkeypatch, peek: "_PeekFetch | None" = None) -> "_PeekFetch":
 
 
 def _text(renderable, width: int = 120) -> str:
-    con = Console(file=io.StringIO(), width=width)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=width)
 
 
 def _styled(renderable, width: int = 120) -> str:
     """Rendered *with* its ANSI codes — the only way to see reverse video."""
-    con = Console(file=io.StringIO(), width=width, force_terminal=True)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=width, ansi=True)
 
 
 def _stage(line: str, today: date = TODAY) -> Staged:
@@ -320,74 +312,66 @@ def _type(screen, text, *, caret=None):
 def test_state1_opens_on_an_empty_bar_with_the_invitation(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            assert _bar(screen).has_focus
-            assert _label(screen) == "LOG"
-            # the grammar moved to the legend row; the hint row is for what the
-            # parser reads in the line, and an empty bar says nothing
-            assert screen._hint() == ""
-            assert "↵ stages the line" in _legend(screen)
-            assert "Nothing staged" in _text(screen._staged_renderable())
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        assert _bar(screen).has_focus
+        assert _label(screen) == "LOG"
+        # the grammar moved to the legend row; the hint row is for what the
+        # parser reads in the line, and an empty bar says nothing
+        assert screen._hint() == ""
+        assert "↵ stages the line" in _legend(screen)
+        assert "Nothing staged" in _text(screen._staged_renderable())
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus porongoche -38.60 $sig")
-            assert [name for _, name in screen._picker.candidates] == [
-                "BCP Signature PEN",
-                "BCP Signature USD",
-            ]
-            assert '"$sig" matches 2 accounts' in screen._hint()
-            assert screen._suggest_idx == 0
-            screen.action_move(1)
-            assert screen._suggest_idx == 1
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus porongoche -38.60 $sig")
+        assert [name for _, name in screen._picker.candidates] == [
+            "BCP Signature PEN",
+            "BCP Signature USD",
+        ]
+        assert '"$sig" matches 2 accounts' in screen._hint()
+        assert screen._suggest_idx == 0
+        screen.action_move(1)
+        assert screen._suggest_idx == 1
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state3_enter_completes_the_token_inside_the_line(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus porongoche -38.60 $sig")
-            screen.action_move(1)  # the USD one
-            screen.on_input_submitted()
-            assert _bar(screen).value == "tottus porongoche -38.60 $BCP Signature USD"
-            assert screen._picker is None  # it resolves now, so the picker closes
-            assert screen._staged == []  # completing is not staging
-            assert "completed the token in place" in screen._hint()
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus porongoche -38.60 $sig")
+        screen.action_move(1)  # the USD one
+        screen.on_input_submitted()
+        assert _bar(screen).value == "tottus porongoche -38.60 $BCP Signature USD"
+        assert screen._picker is None  # it resolves now, so the picker closes
+        assert screen._staged == []  # completing is not staging
+        assert "completed the token in place" in screen._hint()
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state4_enter_stages_the_line_and_clears_the_bar(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            screen.on_input_submitted()
-            assert _bar(screen).value == ""
-            assert [e.line for e in screen._staged] == [LEDGER_LINE]
-            out = _text(screen._staged_renderable())
-            assert "1 staged" in out and "-38.60 PEN" in out
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
+        assert _bar(screen).value == ""
+        assert [e.line for e in screen._staged] == [LEDGER_LINE]
+        out = _text(screen._staged_renderable())
+        assert "1 staged" in out and "-38.60 PEN" in out
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypatch):
@@ -395,114 +379,104 @@ def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypa
     it, and the staged list is untouched. The next keystroke clears the reason."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            screen.on_input_submitted()
-            _type(screen, NO_ACCOUNT_LINE)
-            screen.on_input_submitted()
-            assert len(screen._staged) == 1  # not staged
-            assert _bar(screen).value == NO_ACCOUNT_LINE  # still in the bar
-            assert screen._refused is not None
-            out = _text(screen._suggest_renderable(), width=160)
-            assert "not staged" in out
-            assert "the line names no account" in out
-            assert "not staged" in screen._hint()
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
+        _type(screen, NO_ACCOUNT_LINE)
+        screen.on_input_submitted()
+        assert len(screen._staged) == 1  # not staged
+        assert _bar(screen).value == NO_ACCOUNT_LINE  # still in the bar
+        assert screen._refused is not None
+        out = _text(screen._suggest_renderable(), width=160)
+        assert "not staged" in out
+        assert "the line names no account" in out
+        assert "not staged" in screen._hint()
 
-            _type(screen, NO_ACCOUNT_LINE + " $BCP PEN")  # any edit is a new attempt
-            assert screen._refused is None
-            screen.on_input_submitted()
-            assert len(screen._staged) == 2
+        _type(screen, NO_ACCOUNT_LINE + " $BCP PEN")  # any edit is a new attempt
+        assert screen._refused is None
+        screen.on_input_submitted()
+        assert len(screen._staged) == 2
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_line_with_no_category_stages_and_reads_as_pendiente(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, NO_CATEGORY_LINE)
-            screen.on_input_submitted()
-            assert _bar(screen).value == ""
-            assert screen._staged[0].parsed.category_id is None
-            out = _text(screen._staged_renderable(), width=160)
-            assert "1 staged" in out and "1 pendiente" in out
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, NO_CATEGORY_LINE)
+        screen.on_input_submitted()
+        assert _bar(screen).value == ""
+        assert screen._staged[0].parsed.category_id is None
+        out = _text(screen._staged_renderable(), width=160)
+        assert "1 staged" in out and "1 pendiente" in out
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state6_arrows_pick_a_staged_row_and_enter_lifts_the_typed_line(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
-                _type(screen, line)
-                screen.on_input_submitted()
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        for line in (LEDGER_LINE, NO_CATEGORY_LINE):
+            _type(screen, line)
+            screen.on_input_submitted()
 
-            screen.action_move(1)  # bar is empty, so the arrows drive the list
-            assert screen._picked == 0
-            screen.action_move(1)
-            assert screen._picked == 1
+        screen.action_move(1)  # bar is empty, so the arrows drive the list
+        assert screen._picked == 0
+        screen.action_move(1)
+        assert screen._picked == 1
 
-            screen.on_input_submitted()  # lift it
-            assert _bar(screen).value == NO_CATEGORY_LINE  # the raw line, verbatim
-            assert screen._editing == 1
-            assert _label(screen) == "EDIT 2"
-            assert "the line that made it" in screen._hint()
+        screen.on_input_submitted()  # lift it
+        assert _bar(screen).value == NO_CATEGORY_LINE  # the raw line, verbatim
+        assert screen._editing == 1
+        assert _label(screen) == "EDIT 2"
+        assert "the line that made it" in screen._hint()
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_lifted_row_is_replaced_in_place_not_appended(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
-                _type(screen, line)
-                screen.on_input_submitted()
-            screen.action_move(1)
-            screen.action_move(1)
-            screen.on_input_submitted()  # lift row 2
-
-            fixed = NO_CATEGORY_LINE + " @TRANSPORTE"
-            _type(screen, fixed)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        for line in (LEDGER_LINE, NO_CATEGORY_LINE):
+            _type(screen, line)
             screen.on_input_submitted()
+        screen.action_move(1)
+        screen.action_move(1)
+        screen.on_input_submitted()  # lift row 2
 
-            assert len(screen._staged) == 2
-            assert screen._staged[1].line == fixed
-            assert screen._staged[1].parsed.category_id == "cat2"  # classified now
-            assert screen._editing is None
-            assert _label(screen) == "LOG"
+        fixed = NO_CATEGORY_LINE + " @TRANSPORTE"
+        _type(screen, fixed)
+        screen.on_input_submitted()
 
-    asyncio.run(scenario())
+        assert len(screen._staged) == 2
+        assert screen._staged[1].line == fixed
+        assert screen._staged[1].parsed.category_id == "cat2"  # classified now
+        assert screen._editing is None
+        assert _label(screen) == "LOG"
+
+    run_app(scenario)
 
 
 def test_ctrl_x_drops_the_picked_row(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_CATEGORY_LINE):
-                _type(screen, line)
-                screen.on_input_submitted()
-            screen.action_move(1)
-            screen.action_drop_row()
-            assert [e.line for e in screen._staged] == [NO_CATEGORY_LINE]
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        for line in (LEDGER_LINE, NO_CATEGORY_LINE):
+            _type(screen, line)
+            screen.on_input_submitted()
+        screen.action_move(1)
+        screen.action_drop_row()
+        assert [e.line for e in screen._staged] == [NO_CATEGORY_LINE]
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_ctrl_x_beats_the_inputs_own_cut_binding(fake_client, monkeypatch):
@@ -510,73 +484,65 @@ def test_ctrl_x_beats_the_inputs_own_cut_binding(fake_client, monkeypatch):
     edit the line instead of dropping the row."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            screen.on_input_submitted()
-            screen.action_move(1)
-            await pilot.press("ctrl+x")
-            await wait_for(pilot, lambda: not screen._staged, message="ctrl+x never dropped it")
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
+        screen.action_move(1)
+        await pilot.press("ctrl+x")
+        await wait_for(pilot, lambda: not screen._staged, message="ctrl+x never dropped it")
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state9_escape_with_rows_staged_asks_before_leaving(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            screen.on_input_submitted()
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
 
-            screen.action_back()
-            await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
-            await pilot.press("enter")  # keep editing
-            await wait_for(pilot, lambda: app.screen is screen)
-            assert screen._staged  # nothing was thrown away
+        screen.action_back()
+        await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
+        await pilot.press("enter")  # keep editing
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert screen._staged  # nothing was thrown away
 
-            screen.action_back()
-            await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
-            await pilot.press("d")  # discard
-            await wait_for(pilot, lambda: app.screen is not screen)
+        screen.action_back()
+        await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
+        await pilot.press("d")  # discard
+        await wait_for(pilot, lambda: app.screen is not screen)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_escape_unpicks_before_it_offers_to_leave(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            screen.on_input_submitted()
-            screen.action_move(1)
-            assert screen._picked == 0
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
+        screen.action_move(1)
+        assert screen._picked == 0
 
-            screen.action_back()
-            assert screen._picked is None
-            assert app.screen is screen  # no modal yet
+        screen.action_back()
+        assert screen._picked is None
+        assert app.screen is screen  # no modal yet
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_escape_on_an_empty_screen_just_leaves(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            screen.action_back()
-            await wait_for(pilot, lambda: app.screen is not screen)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        screen.action_back()
+        await wait_for(pilot, lambda: app.screen is not screen)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
@@ -588,30 +554,28 @@ def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
     """
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            for line in (LEDGER_LINE, NO_CATEGORY_LINE, NO_TITLE_LINE):
-                _type(screen, line)
-                screen.on_input_submitted()
-            assert len(screen._staged) == 3
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        for line in (LEDGER_LINE, NO_CATEGORY_LINE, NO_TITLE_LINE):
+            _type(screen, line)
+            screen.on_input_submitted()
+        assert len(screen._staged) == 3
 
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: len(fake_client.posts) == 1)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: len(fake_client.posts) == 1)
 
-            batch_path, batch_body = fake_client.posts[0]
-            assert batch_path == "/transactions/batch"
-            rows = batch_body["transactions"]
-            assert len(rows) == 3  # ONE call for every row, not one call each
-            assert "category_id" not in rows[1] and rows[1]["title"] == "apparka mall"
-            assert "title" not in rows[2] and "category_id" not in rows[2]
+        batch_path, batch_body = fake_client.posts[0]
+        assert batch_path == "/transactions/batch"
+        rows = batch_body["transactions"]
+        assert len(rows) == 3  # ONE call for every row, not one call each
+        assert "category_id" not in rows[1] and rows[1]["title"] == "apparka mall"
+        assert "title" not in rows[2] and "category_id" not in rows[2]
 
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            assert app.screen is screen  # it stays: the ticks are the receipt
-            assert "3 logged · 2 pendiente" in _text(screen._staged_renderable())
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        assert app.screen is screen  # it stays: the ticks are the receipt
+        assert "3 logged · 2 pendiente" in _text(screen._staged_renderable())
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_the_plus_key_opens_the_log_bar(fake_client, monkeypatch):
@@ -666,38 +630,34 @@ def test_state7_every_row_ticks_and_the_screen_stays(fake_client, monkeypatch):
     """Pane 7. The save is not an exit: the ticked list is the receipt."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, USD_LINE)
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            assert app.screen is screen
-            out = _text(screen._staged_renderable())
-            assert out.count("✓") == 2
-            assert "2 logged" in out
-            assert "ctrl+s again does nothing" in out
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        assert app.screen is screen
+        out = _text(screen._staged_renderable())
+        assert out.count("✓") == 2
+        assert "2 logged" in out
+        assert "ctrl+s again does nothing" in out
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_ctrl_s_again_writes_nothing_once_every_row_is_saved(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            before = len(fake_client.calls)
-            await pilot.press("ctrl+s")
-            await pilot.pause()  # let the second chord settle, then assert a non-event
-            assert len(fake_client.calls) == before
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        before = len(fake_client.calls)
+        await pilot.press("ctrl+s")
+        await pilot.pause()  # let the second chord settle, then assert a non-event
+        assert len(fake_client.calls) == before
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch):
@@ -707,23 +667,19 @@ def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch)
     """
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            # between the save and the next line: the receipt, no table
-            assert "1 logged a moment ago" in _text(
-                staged_table([], REFS, last_save=screen._last_save)
-            )
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        # between the save and the next line: the receipt, no table
+        assert "1 logged a moment ago" in _text(staged_table([], REFS, last_save=screen._last_save))
 
-            _stage_lines(screen, USD_LINE)
-            assert len(screen._staged) == 1  # the ticked row went, this one stays
-            assert not screen._staged[0].saved
+        _stage_lines(screen, USD_LINE)
+        assert len(screen._staged) == 1  # the ticked row went, this one stays
+        assert not screen._staged[0].saved
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
@@ -733,61 +689,57 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
     lie."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, USD_LINE)
-            _script(
-                fake_client,
-                [
-                    EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
-                    {},
-                    EngineError("VALIDATION_ERROR", "engine exploded", None, 422, {}),
-                ],
-            )
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: not screen._saving)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(
+            fake_client,
+            [
+                EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                {},
+                EngineError("VALIDATION_ERROR", "engine exploded", None, 422, {}),
+            ],
+        )
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
 
-            ledger, draft = screen._staged
-            assert ledger.saved and ledger.error is None
-            assert not draft.saved and "engine exploded" in (draft.error or "")
-            out = _text(screen._staged_renderable())
-            assert "✓" in out and "1 logged" in out
-            assert "row 2: " in out and "engine exploded" in out
-            assert "ctrl+s retries just the rows without a ✓." in out
+        ledger, draft = screen._staged
+        assert ledger.saved and ledger.error is None
+        assert not draft.saved and "engine exploded" in (draft.error or "")
+        out = _text(screen._staged_renderable())
+        assert "✓" in out and "1 logged" in out
+        assert "row 2: " in out and "engine exploded" in out
+        assert "ctrl+s retries just the rows without a ✓." in out
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch):
     """Decision 2, the half that matters: nothing is ever written twice."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, USD_LINE)
-            _script(
-                fake_client,
-                [
-                    EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
-                    {},
-                    EngineError("VALIDATION_ERROR", "down", None, 422, {}),
-                ],
-            )
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: not screen._saving)
-            fake_client.calls.clear()
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(
+            fake_client,
+            [
+                EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                {},
+                EngineError("VALIDATION_ERROR", "down", None, 422, {}),
+            ],
+        )
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
+        fake_client.calls.clear()
 
-            await pilot.press("ctrl+s")  # the engine is healthy again
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
-            # the first row is already in — the retry carries the other alone
-            assert [p for _, p, _ in fake_client.calls] == ["/transactions/batch"]
-            assert len(fake_client.calls[0][2]["transactions"]) == 1
+        await pilot.press("ctrl+s")  # the engine is healthy again
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+        # the first row is already in — the retry carries the other alone
+        assert [p for _, p, _ in fake_client.calls] == ["/transactions/batch"]
+        assert len(fake_client.calls[0][2]["transactions"]) == 1
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkeypatch):
@@ -795,49 +747,45 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
     the row is already there — a tick, never a second copy."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            first_id = screen._staged[0].row_id
-            _script(
-                fake_client,
-                [
-                    EngineError("CONFLICT", "id exists", None, 409, {}),  # the batch
-                    EngineError("CONFLICT", "id exists", None, 409, {}),  # its singleton
-                ],
-            )
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: not screen._saving)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        first_id = screen._staged[0].row_id
+        _script(
+            fake_client,
+            [
+                EngineError("CONFLICT", "id exists", None, 409, {}),  # the batch
+                EngineError("CONFLICT", "id exists", None, 409, {}),  # its singleton
+            ],
+        )
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
 
-            assert screen._staged[0].saved  # ✓, not an error
-            assert screen._staged[0].error is None
-            assert screen._staged[0].row_id == first_id  # the id never changed
+        assert screen._staged[0].saved  # ✓, not an error
+        assert screen._staged[0].error is None
+        assert screen._staged[0].row_id == first_id  # the id never changed
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_connection_error_writes_nothing_and_every_row_survives(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, USD_LINE)
-            fake_client.errors["POST"] = EngineConnectionError(
-                url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
-            )
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: not screen._saving)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        fake_client.errors["POST"] = EngineConnectionError(
+            url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
+        )
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
 
-            assert len(screen._staged) == 2
-            assert not any(e.saved for e in screen._staged)
-            assert all("127.0.0.1:8000" in (e.error or "") for e in screen._staged)
-            assert app.screen is screen  # every row is still here; ctrl+s tries again
+        assert len(screen._staged) == 2
+        assert not any(e.saved for e in screen._staged)
+        assert all("127.0.0.1:8000" in (e.error or "") for e in screen._staged)
+        assert app.screen is screen  # every row is still here; ctrl+s tries again
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_ctrl_s_leaves_a_half_typed_line_in_the_bar_alone(fake_client, monkeypatch):
@@ -845,21 +793,19 @@ def test_ctrl_s_leaves_a_half_typed_line_in_the_bar_alone(fake_client, monkeypat
     something you were still in the middle of."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            _type(screen, "pollo -25 $BCP PEN @KORAKUEN")  # typed, never submitted
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        _type(screen, "pollo -25 $BCP PEN @KORAKUEN")  # typed, never submitted
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
 
-            assert len(screen._staged) == 1  # the bar's line was not staged
-            batch = fake_client.posts[0][1]["transactions"]
-            assert len(batch) == 1 and batch[0]["title"] == "tottus porongoche"
-            assert _bar(screen).value == "pollo -25 $BCP PEN @KORAKUEN"  # still yours
+        assert len(screen._staged) == 1  # the bar's line was not staged
+        batch = fake_client.posts[0][1]["transactions"]
+        assert len(batch) == 1 and batch[0]["title"] == "tottus porongoche"
+        assert _bar(screen).value == "pollo -25 $BCP PEN @KORAKUEN"  # still yours
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_saved_row_cannot_be_lifted_back_into_the_bar(fake_client, monkeypatch):
@@ -867,79 +813,71 @@ def test_a_saved_row_cannot_be_lifted_back_into_the_bar(fake_client, monkeypatch
     it only ever creates. Corrections are the edit form's job."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
 
-            screen._picked = 0
-            screen.on_input_submitted()  # ↵ on a picked row would normally lift it
-            assert screen._editing is None
-            assert _bar(screen).value == ""
+        screen._picked = 0
+        screen.on_input_submitted()  # ↵ on a picked row would normally lift it
+        assert screen._editing is None
+        assert _bar(screen).value == ""
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_escape_with_only_saved_rows_leaves_without_asking(fake_client, monkeypatch):
     """ "5 rows are staged and not written" must never count ticks."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: all(e.saved for e in screen._staged))
 
-            screen.action_back()
-            await wait_for(pilot, lambda: app.screen is not screen)
+        screen.action_back()
+        await wait_for(pilot, lambda: app.screen is not screen)
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_state9_the_discard_card_saves_first_and_then_leaves(fake_client, monkeypatch):
     """Pane 9's third answer, live now that the save it names exists."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE, USD_LINE)
-            screen.action_back()
-            await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: app.screen is not screen)
-            assert fake_client.posts  # it saved on the way out
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        screen.action_back()
+        await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is not screen)
+        assert fake_client.posts  # it saved on the way out
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 def test_a_failed_save_first_keeps_the_screen_so_the_error_is_readable(fake_client, monkeypatch):
     """You asked to leave, but an error you cannot read is the same as none."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test() as pilot:
-            screen = await _open(app, pilot)
-            _stage_lines(screen, LEDGER_LINE)
-            fake_client.errors["POST"] = EngineConnectionError(
-                url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
-            )
-            screen.action_back()
-            await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
-            await pilot.press("ctrl+s")
-            await wait_for(pilot, lambda: not screen._saving)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        fake_client.errors["POST"] = EngineConnectionError(
+            url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
+        )
+        screen.action_back()
+        await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
 
-            assert app.screen is screen  # still here
-            assert "127.0.0.1:8000" in _text(screen._staged_renderable())
+        assert app.screen is screen  # still here
+        assert "127.0.0.1:8000" in _text(screen._staged_renderable())
 
-    asyncio.run(scenario())
+    run_app(scenario)
 
 
 # ---- pure: the save's render layer ------------------------------------------
@@ -1020,123 +958,109 @@ def _peek(screen) -> AccountPeek:
 def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
     fetch = _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            assert not _peek(screen).display  # nothing named yet, no panel
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            assert fetch.accounts == ["acc1"]
-            panel = _peek(screen)
-            assert panel.display
-            assert panel.border_title == "BCP Signature PEN"
-            assert "of 214 in this account" in panel.border_subtitle
-            assert "WONG CAYMA" in _text(panel.content)
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        assert not _peek(screen).display  # nothing named yet, no panel
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        assert fetch.accounts == ["acc1"]
+        panel = _peek(screen)
+        assert panel.display
+        assert panel.border_title == "BCP Signature PEN"
+        assert "of 214 in this account" in panel.border_subtitle
+        assert "WONG CAYMA" in _text(panel.content)
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_the_peek_draws_as_many_rows_as_it_was_given(fake_client, monkeypatch):
     """Pick A: the panel is `1fr`, so it renders exactly what fits — no more."""
-    _patch(monkeypatch, _PeekFetch({"items": PEEK_ITEMS * 20, "total": 214}))
+    _patch(monkeypatch, _PeekFetch(page(PEEK_ITEMS * 20, total=214)))
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 24)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            await wait_for(pilot, lambda: _peek(screen).capacity > 0, message="no room")
-            panel = _peek(screen)
-            drawn = _text(panel.content).count("WONG CAYMA")
-            assert 0 < drawn <= panel.capacity < len(PEEK_ITEMS) * 20
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        await wait_for(pilot, lambda: _peek(screen).capacity > 0, message="no room")
+        panel = _peek(screen)
+        drawn = _text(panel.content).count("WONG CAYMA")
+        assert 0 < drawn <= panel.capacity < len(PEEK_ITEMS) * 20
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 24))
 
 
 def test_the_peek_follows_the_picker_while_the_account_is_ambiguous(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus porongoche -38.60 $sig")
-            assert screen._peek_account == "acc1"  # the highlighted candidate
-            screen.action_move(1)
-            assert screen._peek_account == "acc2"  # …and it swaps as you arrow
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus porongoche -38.60 $sig")
+        assert screen._peek_account == "acc1"  # the highlighted candidate
+        screen.action_move(1)
+        assert screen._peek_account == "acc2"  # …and it swaps as you arrow
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_the_peek_stays_on_the_last_account_the_bar_named(fake_client, monkeypatch):
     """Pick i: `↵` clears the bar, and the panel does not blink off with it."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            screen.on_input_submitted()  # stages it; the bar is empty again
-            assert _bar(screen).value == ""
-            assert screen._peek_account == "acc1"
-            assert _peek(screen).display
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        screen.on_input_submitted()  # stages it; the bar is empty again
+        assert _bar(screen).value == ""
+        assert screen._peek_account == "acc1"
+        assert _peek(screen).display
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_the_staged_rows_never_choose_the_peeks_account(fake_client, monkeypatch):
     """The account is the bar's. A staged row for another one does not vote."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)  # $BCP Signature PEN → acc1
-            screen.on_input_submitted()
-            _type(screen, "tran.cel.bm. -6.60 $BCP PEN @TRANSPORTE")
-            assert screen._peek_account == "acc3"  # the line's, not the staged row's
-            assert _peek(screen).border_title == "BCP PEN"
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)  # $BCP Signature PEN → acc1
+        screen.on_input_submitted()
+        _type(screen, "tran.cel.bm. -6.60 $BCP PEN @TRANSPORTE")
+        assert screen._peek_account == "acc3"  # the line's, not the staged row's
+        assert _peek(screen).border_title == "BCP PEN"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_an_account_token_that_resolves_to_nothing_closes_the_peek(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            _type(screen, "apparka mall -3.50 $xyz")
-            assert screen._peek_account is None
-            assert not _peek(screen).display
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        _type(screen, "apparka mall -3.50 $xyz")
+        assert screen._peek_account is None
+        assert not _peek(screen).display
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_each_account_is_fetched_once_however_often_it_is_named(fake_client, monkeypatch):
     fetch = _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            _type(screen, "")
-            _type(screen, LEDGER_LINE)
-            _type(screen, LEDGER_LINE + " ")
-            await pilot.pause()
-            assert fetch.accounts == ["acc1"]
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        _type(screen, "")
+        _type(screen, LEDGER_LINE)
+        _type(screen, LEDGER_LINE + " ")
+        await pilot.pause()
+        assert fetch.accounts == ["acc1"]
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_a_peek_that_cannot_load_says_so_and_does_not_retry(fake_client, monkeypatch):
@@ -1145,38 +1069,34 @@ def test_a_peek_that_cannot_load_says_so_and_does_not_retry(fake_client, monkeyp
         monkeypatch, _PeekFetch(error=EngineError("BOOM", "engine is down", None, 500, {}))
     )
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await wait_for(pilot, lambda: bool(screen._peek_note), message="no note")
-            assert "engine is down" in _text(_peek(screen).content)
-            _type(screen, LEDGER_LINE + " ")
-            await pilot.pause()
-            assert fetch.accounts == ["acc1"]
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await wait_for(pilot, lambda: bool(screen._peek_note), message="no note")
+        assert "engine is down" in _text(_peek(screen).content)
+        _type(screen, LEDGER_LINE + " ")
+        await pilot.pause()
+        assert fetch.accounts == ["acc1"]
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_a_save_refetches_the_account_it_just_wrote_to(fake_client, monkeypatch):
     fetch = _patch(monkeypatch)
     fake_client.get_responses["/transactions/batch"] = {}
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, LEDGER_LINE)
-            await _peeked(pilot, screen)
-            screen.on_input_submitted()
-            screen.action_save()
-            await wait_for(pilot, lambda: not screen._saving, message="save never finished")
-            await wait_for(
-                pilot, lambda: fetch.accounts == ["acc1", "acc1"], message="the peek went stale"
-            )
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        screen.on_input_submitted()
+        screen.action_save()
+        await wait_for(pilot, lambda: not screen._saving, message="save never finished")
+        await wait_for(
+            pilot, lambda: fetch.accounts == ["acc1", "acc1"], message="the peek went stale"
+        )
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 # ---- the legend row ---------------------------------------------------------
@@ -1192,62 +1112,54 @@ def test_the_legend_never_changes_whatever_the_line_says(fake_client, monkeypatc
     """It describes the grammar, not the moment — so nothing below it moves."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            before = _legend(screen)
-            for line in ("", "tottus", LEDGER_LINE, "x -5 $sig", NO_ACCOUNT_LINE):
-                _type(screen, line)
-                assert _legend(screen) == before
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        before = _legend(screen)
+        for line in ("", "tottus", LEDGER_LINE, "x -5 $sig", NO_ACCOUNT_LINE):
+            _type(screen, line)
+            assert _legend(screen) == before
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_the_hint_row_carries_what_changes_not_the_grammar(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus -38.60", caret=3)
-            assert screen._hint() == ""  # nothing to echo: the caret is in the title
-            _type(screen, "tottus -38.60")  # caret in the amount
-            assert "-38.60" in screen._hint() and "sign" in screen._hint()
-            _type(screen, "tottus -38.60 18/8/26")  # a fixed date: `hoy` moved with the calendar
-            assert "Aug" in screen._hint()  # the resolved date, in words
-            assert "$account" not in screen._hint()  # never the legend's job
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus -38.60", caret=3)
+        assert screen._hint() == ""  # nothing to echo: the caret is in the title
+        _type(screen, "tottus -38.60")  # caret in the amount
+        assert "-38.60" in screen._hint() and "sign" in screen._hint()
+        _type(screen, "tottus -38.60 18/8/26")  # a fixed date: `hoy` moved with the calendar
+        assert "Aug" in screen._hint()  # the resolved date, in words
+        assert "$account" not in screen._hint()  # never the legend's job
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_a_bare_sigil_opens_the_full_list(fake_client, monkeypatch):
     """Typing `#` alone means *show me what there is* (2026-08-29)."""
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus -38.60 #")
-            assert [n for _, n in screen._picker.candidates] == ["CAJA CHICA", "TAXI"]
-            screen.on_input_submitted()  # ↵ completes it in place, as always
-            assert _bar(screen).value == "tottus -38.60 #CAJA CHICA"
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus -38.60 #")
+        assert [n for _, n in screen._picker.candidates] == ["CAJA CHICA", "TAXI"]
+        screen.on_input_submitted()  # ↵ completes it in place, as always
+        assert _bar(screen).value == "tottus -38.60 #CAJA CHICA"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))
 
 
 def test_a_bare_dollar_offers_every_account(fake_client, monkeypatch):
     _patch(monkeypatch)
 
-    async def scenario():
-        app = ExpenseApp()
-        async with app.run_test(size=(110, 30)) as pilot:
-            screen = await _open(app, pilot)
-            _type(screen, "tottus -38.60 $")
-            assert len(screen._picker.candidates) == 3
-            # and the peek follows it like any other account token
-            assert screen._peek_account == "acc1"
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "tottus -38.60 $")
+        assert len(screen._picker.candidates) == 3
+        # and the peek follows it like any other account token
+        assert screen._peek_account == "acc1"
 
-    asyncio.run(scenario())
+    run_app(scenario, size=(110, 30))

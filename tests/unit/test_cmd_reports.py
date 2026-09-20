@@ -6,7 +6,8 @@ import respx
 from typer.testing import CliRunner
 
 from expense.commands.reports_cmd import app as reports_app
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app, page
 
 cli_app = make_cli_app(reports_app, "reports")
 
@@ -139,18 +140,13 @@ RANGE_THREE_STATES = {
 @respx.mock
 def test_monthly_single_resolves_hashtag_names_live(configured):
     """The breakdown's hashtag UUIDs resolve against a live GET /v1/hashtags."""
-    hashtags_route = respx.get("https://api.example.com/v1/hashtags").mock(
+    hashtags_route = respx.get(f"{BASE}/v1/hashtags").mock(
         return_value=httpx.Response(
             200,
-            json={
-                "items": [{"id": "aaaa", "name": "Groceries"}],
-                "total": 1,
-                "limit": 200,
-                "offset": 0,
-            },
+            json=page([{"id": "aaaa", "name": "Groceries"}], total=1, limit=200, offset=0),
         )
     )
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=SINGLE_MONTH_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-03"])
@@ -162,7 +158,7 @@ def test_monthly_single_resolves_hashtag_names_live(configured):
 @respx.mock
 def test_monthly_single_unresolvable_hashtag_falls_back_to_the_id(configured):
     """No reference list reachable → the renderer degrades to the raw id, never fails."""
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=SINGLE_MONTH_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-03"])
@@ -172,7 +168,7 @@ def test_monthly_single_unresolvable_hashtag_falls_back_to_the_id(configured):
 
 @respx.mock
 def test_monthly_single_happy(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly").mock(
+    route = respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=SINGLE_MONTH_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-03"])
@@ -196,7 +192,7 @@ def test_monthly_single_happy(configured):
 @respx.mock
 def test_monthly_range_keeps_no_activity_and_unpriceable_apart(configured):
     """The Phase 4 fix: `—` and `3 unrated` must not be the same cell."""
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=RANGE_THREE_STATES)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2025-11", "--to", "2026-01"])
@@ -221,7 +217,7 @@ def test_monthly_range_keeps_no_activity_and_unpriceable_apart(configured):
 @respx.mock
 def test_monthly_range_json_keeps_the_rows_the_table_hides(configured):
     """--json is the raw engine body — hiding is a rendering choice, not a filter."""
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=RANGE_THREE_STATES)
     )
     result = runner.invoke(
@@ -234,7 +230,7 @@ def test_monthly_range_json_keeps_the_rows_the_table_hides(configured):
 
 @respx.mock
 def test_monthly_single_json_passthrough(configured):
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=SINGLE_MONTH_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-03", "--json"])
@@ -244,7 +240,7 @@ def test_monthly_single_json_passthrough(configured):
 
 @respx.mock
 def test_monthly_range_happy(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly").mock(
+    route = respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=RANGE_RESPONSE)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2025-11", "--to", "2025-12"])
@@ -294,9 +290,7 @@ def test_monthly_range_draws_inflow_and_outflow_from_the_same_payload(configured
             }
         ]
     }
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(200, json=body)
-    )
+    respx.get(f"{BASE}/v1/reports/monthly").mock(return_value=httpx.Response(200, json=body))
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2025-11", "--to", "2025-11"])
     assert result.exit_code == 0, result.output
     assert "8,000.00" in result.output
@@ -307,7 +301,7 @@ def test_monthly_range_draws_inflow_and_outflow_from_the_same_payload(configured
 
 @respx.mock
 def test_monthly_range_json_passthrough(configured):
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=RANGE_RESPONSE)
     )
     result = runner.invoke(
@@ -319,7 +313,7 @@ def test_monthly_range_json_passthrough(configured):
 
 @respx.mock
 def test_monthly_no_args_errors_before_http(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly")
+    route = respx.get(f"{BASE}/v1/reports/monthly")
     result = runner.invoke(cli_app, ["reports", "monthly"])
     assert result.exit_code != 0
     assert "Pass either --date" in _strip_panel(result.output)
@@ -328,7 +322,7 @@ def test_monthly_no_args_errors_before_http(configured):
 
 @respx.mock
 def test_monthly_both_forms_errors_before_http(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly")
+    route = respx.get(f"{BASE}/v1/reports/monthly")
     result = runner.invoke(
         cli_app, ["reports", "monthly", "--date", "2026-03", "--from", "2025-11"]
     )
@@ -339,7 +333,7 @@ def test_monthly_both_forms_errors_before_http(configured):
 
 @respx.mock
 def test_monthly_partial_range_errors_before_http(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly")
+    route = respx.get(f"{BASE}/v1/reports/monthly")
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2025-11"])
     assert result.exit_code != 0
     assert "must be passed together" in _strip_panel(result.output)
@@ -348,16 +342,12 @@ def test_monthly_partial_range_errors_before_http(configured):
 
 @respx.mock
 def test_monthly_range_too_wide_sent_to_engine_422_surfaces(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(
+    route = respx.get(f"{BASE}/v1/reports/monthly").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Range span exceeds 24 months.",
-                    "fields": {"to_month": "Range span exceeds 24 months."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Range span exceeds 24 months.",
+            {"to_month": "Range span exceeds 24 months."},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2024-01", "--to", "2026-04"])
@@ -369,16 +359,9 @@ def test_monthly_range_too_wide_sent_to_engine_422_surfaces(configured):
 
 @respx.mock
 def test_monthly_range_inverted_sent_to_engine_422_surfaces(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(
-            422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Range start must be on or before range end.",
-                    "fields": None,
-                }
-            },
+    route = respx.get(f"{BASE}/v1/reports/monthly").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "Range start must be on or before range end.", None
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2026-04", "--to", "2025-11"])
@@ -395,16 +378,12 @@ def test_monthly_range_inverted_sent_to_engine_422_surfaces(configured):
 
 @respx.mock
 def test_monthly_out_of_range_month_sent_to_engine_422_surfaces(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(
+    route = respx.get(f"{BASE}/v1/reports/monthly").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid month payload.",
-                    "fields": {"month": "Must be between 1 and 12."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Invalid month payload.",
+            {"month": "Must be between 1 and 12."},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-13"])
@@ -420,7 +399,7 @@ def test_monthly_out_of_range_month_sent_to_engine_422_surfaces(configured):
 
 @respx.mock
 def test_monthly_invalid_date_shape_errors_before_http(configured):
-    route = respx.get("https://api.example.com/v1/reports/monthly")
+    route = respx.get(f"{BASE}/v1/reports/monthly")
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-3"])
     assert result.exit_code != 0
     assert "YYYY-MM" in _strip_panel(result.output)
@@ -429,16 +408,12 @@ def test_monthly_invalid_date_shape_errors_before_http(configured):
 
 @respx.mock
 def test_monthly_engine_422_surfaces_validation_error(configured):
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid month payload.",
-                    "fields": {"year": "Must be between 2000 and 2100."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Invalid month payload.",
+            {"year": "Must be between 2000 and 2100."},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-04"])
@@ -449,11 +424,8 @@ def test_monthly_engine_422_surfaces_validation_error(configured):
 
 @respx.mock
 def test_monthly_engine_500(configured):
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
-        return_value=httpx.Response(
-            500,
-            json={"error": {"code": "INTERNAL", "message": "boom", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/reports/monthly").mock(
+        return_value=error_response(500, "INTERNAL", "boom", None)
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-04"])
     assert result.exit_code == 1
@@ -462,9 +434,7 @@ def test_monthly_engine_500(configured):
 
 @respx.mock
 def test_monthly_connection_error(configured):
-    respx.get("https://api.example.com/v1/reports/monthly").mock(
-        side_effect=httpx.ConnectError("refused")
-    )
+    respx.get(f"{BASE}/v1/reports/monthly").mock(side_effect=httpx.ConnectError("refused"))
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-04"])
     assert result.exit_code == 6
     assert "could not reach engine" in result.output

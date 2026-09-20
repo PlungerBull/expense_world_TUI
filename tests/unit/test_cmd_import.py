@@ -14,7 +14,7 @@ from expense.import_ import plan as plan_mod
 from expense.import_.parse import OpeningRow, ParsedRow
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import error_response, real_cli_app
 
 runner = CliRunner()
 
@@ -256,10 +256,7 @@ def test_opening_409_counts_already_present(configured):
         hashtags=[],
     )
     respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=httpx.Response(
-            409,
-            json={"error": {"code": "CONFLICT", "message": "already seeded", "fields": None}},
-        )
+        return_value=error_response(409, "CONFLICT", "already seeded", None)
     )
 
     cfg = config_module.ensure_loaded()
@@ -282,15 +279,11 @@ def test_opening_engine_error_reports_sheet_line(configured):
         hashtags=[],
     )
     respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=httpx.Response(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Transaction validation failed.",
-                    "fields": {"date": "Must not be in the future."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Transaction validation failed.",
+            {"date": "Must not be in the future."},
         )
     )
 
@@ -305,9 +298,7 @@ def test_opening_engine_error_reports_sheet_line(configured):
 
 
 def _conflict() -> httpx.Response:
-    return httpx.Response(
-        409, json={"error": {"code": "CONFLICT", "message": "id exists", "fields": None}}
-    )
+    return error_response(409, "CONFLICT", "id exists", None)
 
 
 @respx.mock
@@ -379,9 +370,7 @@ def test_per_row_fallback_reports_non_409_failure(configured):
         side_effect=[
             _conflict(),
             _conflict(),
-            httpx.Response(
-                422, json={"error": {"code": "VALIDATION_ERROR", "message": "bad", "fields": {}}}
-            ),
+            error_response(422, "VALIDATION_ERROR", "bad", {}),
         ]
     )
 
@@ -442,13 +431,9 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
         side_effect=[
-            httpx.Response(
-                422, json={"error": {"code": "VALIDATION_ERROR", "message": "bad", "fields": {}}}
-            ),
+            error_response(422, "VALIDATION_ERROR", "bad", {}),
             httpx.Response(201, json={"created": []}),
-            httpx.Response(
-                422, json={"error": {"code": "VALIDATION_ERROR", "message": "bad", "fields": {}}}
-            ),
+            error_response(422, "VALIDATION_ERROR", "bad", {}),
         ]
     )
 
@@ -479,15 +464,8 @@ def test_row_failure_keeps_engine_fields_detail(configured):
         side_effect=[
             _conflict(),
             _conflict(),
-            httpx.Response(
-                422,
-                json={
-                    "error": {
-                        "code": "VALIDATION_ERROR",
-                        "message": "Invalid input.",
-                        "fields": {"amount_cents": "Must not be zero."},
-                    }
-                },
+            error_response(
+                422, "VALIDATION_ERROR", "Invalid input.", {"amount_cents": "Must not be zero."}
             ),
         ]
     )
@@ -515,9 +493,7 @@ def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(c
     respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(
-            403, json={"error": {"code": "FORBIDDEN", "message": "nope", "fields": None}}
-        )
+        return_value=error_response(403, "FORBIDDEN", "nope", None)
     )
 
     cfg = config_module.ensure_loaded()
@@ -598,10 +574,7 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
 
     def cat_post(request: httpx.Request) -> httpx.Response:
         if json.loads(request.content)["name"] == "WANTS":
-            return httpx.Response(
-                422,
-                json={"error": {"code": "VALIDATION_ERROR", "message": "bad color", "fields": {}}},
-            )
+            return error_response(422, "VALIDATION_ERROR", "bad color", {})
         return httpx.Response(201, json={"id": "cat-ok"})
 
     respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)
@@ -645,7 +618,14 @@ _HEADERS = [
 _CELLS = ["Groomers", "WANTS", "Salidas", 44896, -44, "BCP PEN", "None", "PEN", -44, "None", "None"]
 
 
-cli_app = make_cli_app(commands={"import": import_cmd.run_import})
+#: The REAL command tree, not a hand-wired stand-in. `expense import` has been a
+#: group with two doors since 2026-09-12 (`sheet` and `bank`), and these tests
+#: used to mount `run_import` as a bare command called `import` — the shape the
+#: CLI retired that day. They stayed green through the rename because they were
+#: never invoking the thing that got renamed. Driving the real app costs a
+#: Textual import on a targeted run and buys the only coverage the group name
+#: and the subcommand name have.
+cli_app = real_cli_app()
 
 
 @respx.mock
@@ -655,7 +635,7 @@ def test_dry_run_writes_nothing(configured, monkeypatch):
         "read_workbook",
         lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
     )
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx"])
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
     assert result.exit_code == 0
     assert "Dry run" in result.output
     assert not respx.calls  # nothing hit the engine
@@ -669,7 +649,7 @@ def test_dry_run_json_emits_plan(configured, monkeypatch):
         "read_workbook",
         lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
     )
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx", "--json"])
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--json"])
     assert result.exit_code == 0
     payload = json.loads(result.output)  # pure JSON, no trailer mixed in
     assert payload["valid_rows"] == 1
@@ -699,7 +679,7 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
     respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json={"created": []})
     )
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx", "--apply"])
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
     assert result.exit_code == 0, result.output
     assert "Transactions: created 1" in result.output
     assert not [c for c in respx.calls if c.request.url.path == "/v1/sync"]
@@ -729,7 +709,7 @@ def test_apply_json_result_with_failures(configured, monkeypatch):
     )
 
     result = runner.invoke(
-        cli_app, ["import", "whatever.xlsx", "--apply", "--chunk-size", "1", "--json"]
+        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "1", "--json"]
     )
     assert result.exit_code == 1
     payload = json.loads(result.output)
@@ -762,7 +742,9 @@ def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch
         side_effect=[httpx.Response(201, json={"created": []}), httpx.ConnectError("down")]
     )
 
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx", "--apply", "--chunk-size", "1"])
+    result = runner.invoke(
+        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "1"]
+    )
     assert result.exit_code == 1
     assert "Transactions: created 1" in result.output
     assert "failed 1" in result.output
@@ -790,9 +772,7 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
 
     def cat_post(request: httpx.Request) -> httpx.Response:
         if json.loads(request.content)["name"] == "WANTS":
-            return httpx.Response(
-                422, json={"error": {"code": "VALIDATION_ERROR", "message": "bad", "fields": {}}}
-            )
+            return error_response(422, "VALIDATION_ERROR", "bad", {})
         return httpx.Response(201, json={"id": "cat-ok"})
 
     respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)
@@ -801,7 +781,7 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
         return_value=httpx.Response(201, json={"created": []})
     )
 
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx", "--apply"])
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
     assert result.exit_code == 1
     assert "Resource failures" in result.output
     assert "WANTS" in result.output
@@ -815,6 +795,6 @@ def test_missing_openpyxl_friendly_error(configured, monkeypatch):
         raise ImportDependencyError("openpyxl is required for `expense import`.")
 
     monkeypatch.setattr(import_cmd, "read_workbook", boom)
-    result = runner.invoke(cli_app, ["import", "whatever.xlsx"])
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
     assert result.exit_code == 1
     assert "openpyxl" in result.output

@@ -5,7 +5,8 @@ import respx
 from typer.testing import CliRunner
 
 from expense.commands.dashboard_cmd import dashboard
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app
 
 cli_app = make_cli_app(commands={"dashboard": dashboard})
 
@@ -155,7 +156,7 @@ DASHBOARD_UNCONVERTIBLE = {
 
 @respx.mock
 def test_dashboard_happy(configured):
-    route = respx.get("https://api.example.com/v1/dashboard").mock(
+    route = respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_RESPONSE)
     )
     result = runner.invoke(cli_app, ["dashboard"])
@@ -183,7 +184,7 @@ def test_dashboard_happy(configured):
 
 @respx.mock
 def test_dashboard_include_archived(configured):
-    route = respx.get("https://api.example.com/v1/dashboard").mock(
+    route = respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_WITH_ARCHIVED)
     )
     result = runner.invoke(cli_app, ["dashboard", "--include-archived"])
@@ -212,7 +213,7 @@ def test_dashboard_include_archived(configured):
 @respx.mock
 def test_dashboard_omits_archived_people_panel_without_the_flag(configured):
     """`archived_people` is null by default, and a null panel is not drawn."""
-    respx.get("https://api.example.com/v1/dashboard").mock(
+    respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_RESPONSE)
     )
     result = runner.invoke(cli_app, ["dashboard"])
@@ -223,7 +224,7 @@ def test_dashboard_omits_archived_people_panel_without_the_flag(configured):
 @respx.mock
 def test_dashboard_folds_settled_people_behind_a_count(configured):
     """Settled people collapse to `▸ 3 settled` — folded, never silently dropped."""
-    respx.get("https://api.example.com/v1/dashboard").mock(
+    respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_WITH_SETTLED_PEOPLE)
     )
     result = runner.invoke(cli_app, ["dashboard"])
@@ -254,9 +255,7 @@ def test_dashboard_people_panel_survives_everyone_settled(configured):
             }
         ],
     }
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(200, json=payload)
-    )
+    respx.get(f"{BASE}/v1/dashboard").mock(return_value=httpx.Response(200, json=payload))
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 0, result.output
     assert "People:" in result.output
@@ -266,7 +265,7 @@ def test_dashboard_people_panel_survives_everyone_settled(configured):
 @respx.mock
 def test_dashboard_unconvertible_reports_the_count_never_zero(configured):
     """A null aggregate is neither zero nor missing — it says how many rows it hides."""
-    respx.get("https://api.example.com/v1/dashboard").mock(
+    respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_UNCONVERTIBLE)
     )
     result = runner.invoke(cli_app, ["dashboard"])
@@ -292,7 +291,7 @@ def test_dashboard_unconvertible_reports_the_count_never_zero(configured):
 @respx.mock
 def test_dashboard_json_is_untouched_by_the_hiding(configured):
     """--json stays the raw engine body — including the rows the table hides."""
-    respx.get("https://api.example.com/v1/dashboard").mock(
+    respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_UNCONVERTIBLE)
     )
     result = runner.invoke(cli_app, ["dashboard", "--json"])
@@ -302,7 +301,7 @@ def test_dashboard_json_is_untouched_by_the_hiding(configured):
 
 @respx.mock
 def test_dashboard_json_passthrough(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
+    respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=httpx.Response(200, json=DASHBOARD_RESPONSE)
     )
     result = runner.invoke(cli_app, ["dashboard", "--json"])
@@ -312,16 +311,12 @@ def test_dashboard_json_passthrough(configured):
 
 @respx.mock
 def test_dashboard_settings_missing_422(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(
+    respx.get(f"{BASE}/v1/dashboard").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "SETTINGS_MISSING",
-                    "message": "User settings have not been provisioned.",
-                    "fields": {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
-                }
-            },
+            "SETTINGS_MISSING",
+            "User settings have not been provisioned.",
+            {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
         )
     )
     result = runner.invoke(cli_app, ["dashboard"])
@@ -344,9 +339,7 @@ def test_dashboard_handles_empty_collections(configured):
         },
         "archived_accounts": None,
     }
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(200, json=payload)
-    )
+    respx.get(f"{BASE}/v1/dashboard").mock(return_value=httpx.Response(200, json=payload))
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 0, result.output
     assert "Bank accounts:" in result.output
@@ -357,11 +350,8 @@ def test_dashboard_handles_empty_collections(configured):
 
 @respx.mock
 def test_dashboard_404_surfaces_engine_error(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(
-            404,
-            json={"error": {"code": "NOT_FOUND", "message": "Not found", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/dashboard").mock(
+        return_value=error_response(404, "NOT_FOUND", "Not found", None)
     )
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 1
@@ -370,11 +360,8 @@ def test_dashboard_404_surfaces_engine_error(configured):
 
 @respx.mock
 def test_dashboard_500_surfaces_engine_error(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(
-            500,
-            json={"error": {"code": "INTERNAL", "message": "boom", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/dashboard").mock(
+        return_value=error_response(500, "INTERNAL", "boom", None)
     )
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 1
@@ -383,9 +370,7 @@ def test_dashboard_500_surfaces_engine_error(configured):
 
 @respx.mock
 def test_dashboard_connection_error(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        side_effect=httpx.ConnectError("refused")
-    )
+    respx.get(f"{BASE}/v1/dashboard").mock(side_effect=httpx.ConnectError("refused"))
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 6
     assert "could not reach engine" in result.output
@@ -393,11 +378,8 @@ def test_dashboard_connection_error(configured):
 
 @respx.mock
 def test_dashboard_401_surfaces_config_set_hint(configured):
-    respx.get("https://api.example.com/v1/dashboard").mock(
-        return_value=httpx.Response(
-            401,
-            json={"error": {"code": "UNAUTHORIZED", "message": "bad token", "fields": None}},
-        )
+    respx.get(f"{BASE}/v1/dashboard").mock(
+        return_value=error_response(401, "UNAUTHORIZED", "bad token", None)
     )
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 1

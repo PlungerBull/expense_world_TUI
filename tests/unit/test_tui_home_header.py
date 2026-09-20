@@ -9,15 +9,12 @@ that hashtag, balances in their own currency, and the screen sections always
 listed in full — they do not fold (owner, 2026-09-13).
 """
 
-import io
-
-from rich.console import Console
 from rich.text import Text
 
 import expense.tui.screens.home as home
 from expense.commands.reports_cmd import build_range_grid
 from expense.tui.theme import Palette
-from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES
+from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES, render_text
 
 PALETTE = Palette(success="#7fbf8f", error="#cf8d8d", warning="#d6b878")
 DATA = dict(dashboard=HOME_DASHBOARD, grid=build_range_grid(HOME_MONTHS), names=HOME_TAG_NAMES)
@@ -38,9 +35,7 @@ SECTIONS = [
 
 
 def _render(renderable, width=100) -> str:
-    con = Console(file=io.StringIO(), width=width)
-    con.print(renderable)
-    return con.file.getvalue()
+    return render_text(renderable, width=width)
 
 
 def _live(rows):

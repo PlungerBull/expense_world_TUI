@@ -7,7 +7,8 @@ from typer.testing import CliRunner
 
 from expense.commands import activity_cmd
 from expense.commands.activity_cmd import app as activity_app
-from tests.unit.helpers import FakeClient, make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import FakeClient, error_response, make_cli_app, page
 
 cli_app = make_cli_app(activity_app, "activity")
 
@@ -32,7 +33,7 @@ LIST_RESPONSE = [ACTIVITY_ROW]
 
 @respx.mock
 def test_list_happy_no_filters(configured):
-    route = respx.get("https://api.example.com/v1/activity").mock(
+    route = respx.get(f"{BASE}/v1/activity").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(cli_app, ["activity", "list"])
@@ -54,7 +55,7 @@ def test_list_happy_no_filters(configured):
 
 @respx.mock
 def test_list_with_filters_and_pagination_params(configured):
-    route = respx.get("https://api.example.com/v1/activity").mock(
+    route = respx.get(f"{BASE}/v1/activity").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
     result = runner.invoke(
@@ -83,15 +84,8 @@ def test_list_with_filters_and_pagination_params(configured):
 
 @respx.mock
 def test_list_pagination_hint(configured):
-    paginated = {
-        "items": [ACTIVITY_ROW],
-        "total": 5,
-        "limit": 1,
-        "offset": 0,
-    }
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=paginated)
-    )
+    paginated = page([ACTIVITY_ROW], total=5, limit=1, offset=0)
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=paginated))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     assert "showing 1 of 5" in result.output
@@ -99,9 +93,7 @@ def test_list_pagination_hint(configured):
 
 @respx.mock
 def test_list_json_mode_passthrough(configured):
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
     result = runner.invoke(cli_app, ["activity", "list", "--json"])
     assert result.exit_code == 0
     assert json.loads(result.output) == LIST_RESPONSE
@@ -109,7 +101,7 @@ def test_list_json_mode_passthrough(configured):
 
 @respx.mock
 def test_list_empty(configured):
-    respx.get("https://api.example.com/v1/activity").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     assert "(no activity)" in result.output
@@ -118,9 +110,7 @@ def test_list_empty(configured):
 @respx.mock
 def test_list_human_renderer_omits_snapshots(configured):
     """Snapshots are large nested dicts; only --json should surface them."""
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     assert "before_snapshot" not in result.output
@@ -133,9 +123,7 @@ def test_list_human_renderer_omits_snapshots(configured):
 @respx.mock
 def test_list_unknown_action_code_falls_back_to_int(configured):
     weird = {**ACTIVITY_ROW, "action": 99}
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=[weird])
-    )
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=[weird]))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     # Action column now just shows the raw int as a string.
@@ -144,16 +132,9 @@ def test_list_unknown_action_code_falls_back_to_int(configured):
 
 @respx.mock
 def test_list_422_bad_resource_id(configured):
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(
-            422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "resource_id must be a UUID",
-                    "fields": {"resource_id": "not a UUID"},
-                }
-            },
+    respx.get(f"{BASE}/v1/activity").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "resource_id must be a UUID", {"resource_id": "not a UUID"}
         )
     )
     result = runner.invoke(cli_app, ["activity", "list", "--resource-id", "not-a-uuid"])
@@ -165,10 +146,8 @@ def test_list_422_bad_resource_id(configured):
 @respx.mock
 def test_list_resource_name_resolved_live(configured):
     """The Resource column shows the human name fetched from the engine."""
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
-    respx.get("https://api.example.com/v1/transactions/22222222-2222-2222-2222-222222222222").mock(
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
+    respx.get(f"{BASE}/v1/transactions/22222222-2222-2222-2222-222222222222").mock(
         return_value=httpx.Response(200, json={"id": "22222222", "title": "Latte"})
     )
     result = runner.invoke(cli_app, ["activity", "list"])
@@ -181,13 +160,9 @@ def test_list_resource_name_resolved_live(configured):
 @respx.mock
 def test_list_resource_name_fallback_to_uuid_prefix(configured):
     """A 404 on the live lookup (deleted row) degrades to the 8-char UUID."""
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
-    respx.get("https://api.example.com/v1/transactions/22222222-2222-2222-2222-222222222222").mock(
-        return_value=httpx.Response(
-            404, json={"error": {"code": "NOT_FOUND", "message": "gone", "fields": None}}
-        )
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
+    respx.get(f"{BASE}/v1/transactions/22222222-2222-2222-2222-222222222222").mock(
+        return_value=error_response(404, "NOT_FOUND", "gone", None)
     )
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
@@ -336,22 +311,18 @@ def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configu
         }
         for i in range(5)
     ]
-    respx.get("https://api.example.com/v1/activity").mock(
-        return_value=httpx.Response(200, json=rows)
-    )
-    accounts = respx.get("https://api.example.com/v1/accounts").mock(
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=rows))
+    accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200, json=[{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)]
         )
     )
-    respx.get("https://api.example.com/v1/categories").mock(
-        return_value=httpx.Response(200, json={"items": [], "total": 0})
+    respx.get(f"{BASE}/v1/categories").mock(
+        return_value=httpx.Response(200, json=page([], total=0))
     )
-    respx.get("https://api.example.com/v1/hashtags").mock(
-        return_value=httpx.Response(200, json={"items": [], "total": 0})
-    )
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(200, json=page([], total=0)))
     per_row = [
-        respx.get(f"https://api.example.com/v1/accounts/acc-{i}").mock(
+        respx.get(f"{BASE}/v1/accounts/acc-{i}").mock(
             return_value=httpx.Response(200, json={"name": f"Account {i}"})
         )
         for i in range(5)

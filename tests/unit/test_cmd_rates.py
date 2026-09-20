@@ -7,7 +7,8 @@ from typer.testing import CliRunner
 from expense.commands.rates_cmd import app as rates_app
 from expense.commands.rates_cmd import format_rate
 from expense.currencies import RATE_SCALE
-from tests.unit.helpers import make_cli_app
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, make_cli_app, page
 
 cli_app = make_cli_app(rates_app, "rates")
 
@@ -26,7 +27,7 @@ RATE_RESPONSE = {
 
 @respx.mock
 def test_get_happy_default_base_and_date(configured):
-    route = respx.get("https://api.example.com/v1/exchange-rates").mock(
+    route = respx.get(f"{BASE}/v1/exchange-rates").mock(
         return_value=httpx.Response(200, json=RATE_RESPONSE)
     )
     result = runner.invoke(cli_app, ["rates", "get", "--target", "EUR"])
@@ -43,7 +44,7 @@ def test_get_happy_default_base_and_date(configured):
 
 @respx.mock
 def test_get_explicit_base_and_date(configured):
-    route = respx.get("https://api.example.com/v1/exchange-rates").mock(
+    route = respx.get(f"{BASE}/v1/exchange-rates").mock(
         return_value=httpx.Response(
             200,
             json={**RATE_RESPONSE, "base": "GBP", "date": "2026-04-01"},
@@ -72,7 +73,7 @@ def test_get_explicit_base_and_date(configured):
 
 @respx.mock
 def test_get_json_mode_passthrough(configured):
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
         return_value=httpx.Response(200, json=RATE_RESPONSE)
     )
     result = runner.invoke(cli_app, ["rates", "get", "--target", "EUR", "--json"])
@@ -90,16 +91,12 @@ def test_get_unsupported_currency_surfaces_engine_error(configured):
     code the engine cannot emit. Per the 2026-08-07 entry, a bad currency code is
     now field-scoped `VALIDATION_ERROR` on `base`/`target`.
     """
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
-        return_value=httpx.Response(
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
+        return_value=error_response(
             422,
-            json={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Invalid currency code.",
-                    "fields": {"target": "'EUR' is not a valid currency code."},
-                }
-            },
+            "VALIDATION_ERROR",
+            "Invalid currency code.",
+            {"target": "'EUR' is not a valid currency code."},
         )
     )
     result = runner.invoke(cli_app, ["rates", "get", "--target", "EUR"])
@@ -115,17 +112,8 @@ def test_get_no_rate_for_date_surfaces_not_found(configured):
     Verified against the live engine 2026-08-16 — `fields` is null, so the renderer
     must survive a `fields: null` envelope, not just a missing key.
     """
-    respx.get("https://api.example.com/v1/exchange-rates").mock(
-        return_value=httpx.Response(
-            404,
-            json={
-                "error": {
-                    "code": "NOT_FOUND",
-                    "message": "exchange rate for USD->PEN not found.",
-                    "fields": None,
-                }
-            },
-        )
+    respx.get(f"{BASE}/v1/exchange-rates").mock(
+        return_value=error_response(404, "NOT_FOUND", "exchange rate for USD->PEN not found.", None)
     )
     result = runner.invoke(cli_app, ["rates", "get", "--target", "PEN", "--date", "2020-01-01"])
     assert result.exit_code == 1
@@ -139,21 +127,21 @@ def test_get_target_required(configured):
     assert "target" in result.output.lower()
 
 
-HISTORY_RESPONSE = {
-    "items": [
+HISTORY_RESPONSE = page(
+    [
         {"base": "USD", "target": "PEN", "rate_date": "2026-07-05", "rate_e8": 360000000},
         {"base": "EUR", "target": "PEN", "rate_date": "2026-07-05", "rate_e8": 460000000},
         {"base": "USD", "target": "PEN", "rate_date": "2026-07-04", "rate_e8": 359000000},
     ],
-    "total": 3,
-    "limit": 50,
-    "offset": 0,
-}
+    total=3,
+    limit=50,
+    offset=0,
+)
 
 
 @respx.mock
 def test_list_renders_table_newest_first(configured):
-    route = respx.get("https://api.example.com/v1/exchange-rates/history").mock(
+    route = respx.get(f"{BASE}/v1/exchange-rates/history").mock(
         return_value=httpx.Response(200, json=HISTORY_RESPONSE)
     )
     result = runner.invoke(cli_app, ["rates", "list"])
@@ -169,7 +157,7 @@ def test_list_renders_table_newest_first(configured):
 
 @respx.mock
 def test_list_passes_date_and_pagination(configured):
-    route = respx.get("https://api.example.com/v1/exchange-rates/history").mock(
+    route = respx.get(f"{BASE}/v1/exchange-rates/history").mock(
         return_value=httpx.Response(200, json={**HISTORY_RESPONSE, "items": [], "total": 0})
     )
     result = runner.invoke(
@@ -185,7 +173,7 @@ def test_list_passes_date_and_pagination(configured):
 
 @respx.mock
 def test_list_json_mode_passthrough(configured):
-    respx.get("https://api.example.com/v1/exchange-rates/history").mock(
+    respx.get(f"{BASE}/v1/exchange-rates/history").mock(
         return_value=httpx.Response(200, json=HISTORY_RESPONSE)
     )
     result = runner.invoke(cli_app, ["rates", "list", "--json"])
@@ -242,7 +230,7 @@ def test_format_rate_never_loses_the_low_digits_to_binary():
 def test_list_says_how_to_reach_the_next_page(configured):
     """`rates list` was the one paginated list with no paging instruction: it
     printed its own `showing N of M · newest first` and stopped there."""
-    respx.get("https://api.example.com/v1/exchange-rates/history").mock(
+    respx.get(f"{BASE}/v1/exchange-rates/history").mock(
         return_value=httpx.Response(
             200,
             json={**HISTORY_RESPONSE, "total": 134, "limit": 20, "offset": 0},
@@ -252,3 +240,17 @@ def test_list_says_how_to_reach_the_next_page(configured):
     assert result.exit_code == 0, result.output
     assert "showing 3 of 134 · newest first" in result.output
     assert "pass --offset 3 --limit 20 for more" in result.output
+
+
+@respx.mock
+def test_list_surfaces_an_engine_refusal(configured):
+    """Rates come from an upstream provider, so this list has a failure mode the
+    other lists do not: the engine reached the provider and the provider said no.
+    """
+    respx.get(f"{BASE}/v1/exchange-rates/history").mock(
+        return_value=error_response(502, "UPSTREAM_ERROR", "Rate provider is unavailable.")
+    )
+    result = runner.invoke(cli_app, ["rates", "list"])
+    assert result.exit_code == 1
+    assert "UPSTREAM_ERROR" in result.output
+    assert "Rate provider is unavailable." in result.output
