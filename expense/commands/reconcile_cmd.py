@@ -18,6 +18,7 @@ from expense.commands._resource import (
     format_field_value,
     items_of,
     load_account_name_map,
+    print_warnings,
     query_params,
     render_pagination_hint,
     render_record,
@@ -132,6 +133,31 @@ _COMPLETE_EMPTY_HINT = (
     "Hint: assign at least one transaction to this reconciliation before completing. "
     "Use 'expense transactions update <tx-id> --reconciliation-id <recon-id>'."
 )
+#: The three 422s `complete` can now answer with, and the two `create`/`update`
+#: can. Matched on the engine's **message**, never on the `fields` key: the
+#: empty-batch refusal and the unfiled-rows refusal both arrive under
+#: `fields["transactions"]`, so the key cannot tell them apart. The substrings
+#: below are quoted from app/helpers/reconciliations.py and periods.py.
+_MISSING_DATE_HINT = (
+    "Hint: both dates are required to complete — a completed period seals them, "
+    "and a half-dated one seals nothing.\n"
+    "  expense reconcile update {id} --date-end <YYYY-MM-DD>"
+)
+_UNASSIGNED_HINT = (
+    "Hint: these rows are inside the period and in no batch. List them with:\n"
+    "  expense transactions list --account-id {account} --unreconciled "
+    "--date-from {start} --date-to {end}"
+)
+_UNASSIGNED_HINT_BARE = (
+    "Hint: some rows inside this period are in no batch. Find them with "
+    "'expense transactions list --account-id <id> --unreconciled "
+    "--date-from <start> --date-to <end>'."
+)
+_INVERTED_HINT = "Hint: --date-end must not be earlier than --date-start."
+_OVERLAP_HINT = (
+    "Hint: a day belongs to exactly one statement. See the neighbours in "
+    "statement order with 'expense reconcile list --account-id <id>'."
+)
 _RESTORE_NOTE = (
     "Note: assigned transactions were NOT re-linked. They may have moved to other "
     "batches or been edited. Reassign manually if needed."
@@ -225,6 +251,65 @@ def _render_reconciliation_detail(body: dict, *, json_mode: bool) -> None:
             )
 
 
+def _complete_hint(cfg, id_: str, err: EngineError, *, verbose: bool) -> str | None:
+    """The recovery line for a refused `complete`, or None.
+
+    Three refusals, and **two of them share a `fields` key** — the pre-existing
+    "At least one transaction must be assigned." and the 2026-09-20
+    "N transaction(s) dated inside this period are not assigned to any
+    reconciliation." both arrive as `fields["transactions"]`. Only the message
+    separates them, which is why this reads the haystack rather than the key.
+    """
+    if err.status != 422:
+        return None
+    haystack = error_haystack(err)
+    if "unassigned" in haystack or "not assigned to any" in haystack:
+        return _unassigned_hint(cfg, id_, verbose=verbose)
+    if "without a period" in haystack or "required to complete" in haystack:
+        return _MISSING_DATE_HINT.format(id=id_)
+    if "transaction" in haystack and (
+        "no " in haystack or "empty" in haystack or "at least" in haystack
+    ):
+        return _COMPLETE_EMPTY_HINT
+    return None
+
+
+def _unassigned_hint(cfg, id_: str, *, verbose: bool) -> str:
+    """Build a command line that actually runs.
+
+    The 422 carries the count but neither the account nor the window, so this
+    spends one extra read to fill them in — on a call that has already failed,
+    which is the one place a round trip is affordable. A hint with three
+    placeholders in it would leave the user looking all three up by hand.
+    """
+    try:
+        record = fetch_reconciliation(cfg, id_, limit=1, verbose=verbose)
+    except (EngineError, OSError):
+        return _UNASSIGNED_HINT_BARE
+    account = record.get("account_id")
+    start = (record.get("date_start") or "")[:10]
+    end = (record.get("date_end") or "")[:10]
+    if not (account and start and end):
+        return _UNASSIGNED_HINT_BARE
+    return _UNASSIGNED_HINT.format(account=account, start=start, end=end)
+
+
+def _period_hint(err: EngineError) -> str | None:
+    """The recovery line for a refused `create`/`update` window, or None.
+
+    Both rules arrived 2026-09-20, when completing a reconciliation started
+    sealing its window and the dates stopped being labels.
+    """
+    if err.status != 422:
+        return None
+    haystack = error_haystack(err)
+    if "overlaps another" in haystack:
+        return _OVERLAP_HINT
+    if "earlier than date_start" in haystack:
+        return _INVERTED_HINT
+    return None
+
+
 def _is_field_locked_422(err: EngineError) -> bool:
     if err.status != 422 or not isinstance(err.fields, dict):
         return False
@@ -304,10 +389,11 @@ def create(
         help="Required — the statement's first day; it orders the batch. "
         "YYYY-MM-DD or RFC 3339; naive forms get the local timezone attached.",
     ),
-    date_end: str | None = typer.Option(
-        None,
+    date_end: str = typer.Option(
+        ...,
         "--date-end",
-        help="YYYY-MM-DD or RFC 3339; naive forms get the local timezone attached.",
+        help="Required — the statement's last day. YYYY-MM-DD or RFC 3339; naive "
+        "forms get the local timezone attached.",
     ),
     beginning_balance: int = typer.Option(
         ...,
@@ -323,6 +409,13 @@ def create(
     (chained) beginning balances on 2026-08-06, so `beginning_balance_cents` is
     required. `--date-start` is required too: it is what orders the batch.
 
+    `--date-end` became required here on 2026-09-20, a caller-side choice: the
+    engine still accepts a half-dated draft, but such a period can never be
+    completed, because a completed reconciliation seals its window and a
+    half-dated one has no window to seal. Asking for both dates up front means
+    the refusal arrives while the statement is in front of you rather than at
+    closing time.
+
     Example: expense reconcile create --account-id <id> --name "April 2026"
              --date-start 2026-04-01 --date-end 2026-04-30
              --beginning-balance 958000 --ending-balance 946000
@@ -336,15 +429,20 @@ def create(
         "account_id": account_id,
         "name": name,
         "date_start": to_canonical_aware(date_start),
+        "date_end": to_canonical_aware(date_end),
         "beginning_balance_cents": beginning_balance,
     }
-    if date_end is not None:
-        payload["date_end"] = to_canonical_aware(date_end)
     if ending_balance is not None:
         payload["ending_balance_cents"] = ending_balance
 
     with ExpenseClient(cfg, verbose=verbose) as client:
-        body = client.post(f"/{_RESOURCE}", json_body=payload)
+        try:
+            body = client.post(f"/{_RESOURCE}", json_body=payload)
+        except EngineError as err:
+            hint = _period_hint(err)
+            if hint is not None:
+                typer.echo(hint, err=True)
+            raise
     if not json_output:
         typer.echo(f"Created: {new_id}")
     render_record(body, json_mode=json_output, skip=("transactions",))
@@ -393,6 +491,10 @@ def update(
         except EngineError as err:
             if _is_field_locked_422(err):
                 typer.echo(_FIELD_LOCKED_HINT, err=True)
+            else:
+                hint = _period_hint(err)
+                if hint is not None:
+                    typer.echo(hint, err=True)
             raise
     render_record(body, json_mode=json_output, skip=("transactions",))
 
@@ -481,17 +583,17 @@ def complete(
         try:
             body = client.post(f"/{_RESOURCE}/{id_}/complete")
         except EngineError as err:
-            if err.status == 422:
-                haystack = error_haystack(err)
-                if "transaction" in haystack and (
-                    "no " in haystack or "empty" in haystack or "at least" in haystack
-                ):
-                    typer.echo(_COMPLETE_EMPTY_HINT, err=True)
+            hint = _complete_hint(cfg, id_, err, verbose=verbose)
+            if hint is not None:
+                typer.echo(hint, err=True)
             raise
     if json_output:
         emit_json(body)
     else:
         _render_after_state_change(body, lock_verb="Locked")
+        # The gap report. `--json` needs no branch: the engine body goes
+        # through verbatim and carries `warnings` with it.
+        print_warnings(body)
 
 
 @app.command("revert")

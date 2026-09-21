@@ -291,10 +291,40 @@ def test_create_without_beginning_balance_blocks_at_parse(configured):
             "X",
             "--date-start",
             "2026-04-01",
+            "--date-end",
+            "2026-04-30",
         ],
     )
     assert result.exit_code == 2  # Click usage error
     assert "--beginning-balance" in strip_panel(result.output)
+
+
+def test_create_without_date_end_blocks_at_parse(configured):
+    """Required since 2026-09-20, and this is a CLIENT-side rule.
+
+    The engine still accepts a half-dated draft. But completing one seals its
+    window, a half-dated window seals nothing, and so a period created without
+    an end date can never be completed — the refusal would arrive at closing
+    time, months after the statement was in front of you. Asking for both dates
+    up front moves it to the moment the answer is known.
+    """
+    result = runner.invoke(
+        cli_app,
+        [
+            "reconcile",
+            "create",
+            "--account-id",
+            "acct",
+            "--name",
+            "X",
+            "--date-start",
+            "2026-04-01",
+            "--beginning-balance",
+            "100000",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "--date-end" in strip_panel(result.output)
 
 
 def test_create_without_date_start_blocks_at_parse(configured):
@@ -308,6 +338,8 @@ def test_create_without_date_start_blocks_at_parse(configured):
             "acct",
             "--name",
             "X",
+            "--date-end",
+            "2026-04-30",
             "--beginning-balance",
             "100000",
         ],
@@ -330,6 +362,8 @@ def test_create_rejects_retired_flags(configured):
                 "X",
                 "--date-start",
                 "2026-04-01",
+                "--date-end",
+                "2026-04-30",
                 "--beginning-balance",
                 "100000",
                 flag,
@@ -581,3 +615,202 @@ def test_restore_refusal_surfaces_the_engine_envelope(configured):
     assert result.exit_code == 1
     assert "CONFLICT" in result.output
     assert "Cannot restore this batch." in result.output
+
+
+# ---- sealed periods (engine, 2026-09-20) ------------------------------------
+_RID = "11111111-1111-1111-1111-111111111111"
+_COMPLETE = f"{BASE}/v1/reconciliations/{_RID}/complete"
+
+#: Quoted from the engine, app/helpers/reconciliations.py. The two refusals
+#: below arrive under the SAME `fields` key, which is the whole reason the CLI
+#: dispatches on the message.
+_UNFILED_MSG = "Cannot complete reconciliation while transactions in its period are unassigned."
+_UNFILED_FIELDS = {
+    "transactions": (
+        "3 transaction(s) dated inside this period are not assigned to any "
+        "reconciliation. Assign or delete them first."
+    )
+}
+_EMPTY_FIELDS = {"transactions": "At least one transaction must be assigned."}
+
+
+@respx.mock
+def test_complete_renders_the_gap_warning(configured):
+    """The warnings channel reaches the user.
+
+    A transaction inside an uncovered stretch moves no period's arithmetic —
+    `difference_cents` is two balances typed off a statement minus the rows
+    that were ticked — so this message is the only thing in the system that
+    will ever point at the gap.
+    """
+    body = {
+        **RECON_DRAFT_RESPONSE,
+        "status": 2,
+        "transactions_total": 4,
+        "warnings": [
+            "2026-06-26 to 2026-07-23 on this account is covered by no completed reconciliation."
+        ],
+    }
+    respx.post(_COMPLETE).mock(return_value=httpx.Response(200, json=body))
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 0, result.output
+    assert "Warning: 2026-06-26 to 2026-07-23" in result.output
+    assert "Locked 4 transactions." in result.output
+
+
+@respx.mock
+def test_complete_says_nothing_extra_when_there_is_no_gap(configured):
+    """`warnings` is always present on this endpoint and empty on a clean
+    completion — an empty list must not print a bare `Warning:` line."""
+    body = {**RECON_DRAFT_RESPONSE, "status": 2, "transactions_total": 4, "warnings": []}
+    respx.post(_COMPLETE).mock(return_value=httpx.Response(200, json=body))
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 0, result.output
+    assert "Warning" not in result.output
+
+
+@respx.mock
+def test_complete_json_passes_the_warnings_through(configured):
+    body = {**RECON_DRAFT_RESPONSE, "status": 2, "warnings": ["a gap"]}
+    respx.post(_COMPLETE).mock(return_value=httpx.Response(200, json=body))
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID, "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["warnings"] == ["a gap"]
+
+
+@respx.mock
+def test_complete_422_unfiled_rows_prints_a_command_that_runs(configured):
+    """The engine gives the count but neither the account nor the window, so
+    the CLI spends one extra read — on a call that has already failed — to
+    print a line the user can paste rather than a template with three holes."""
+    respx.post(_COMPLETE).mock(
+        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
+    )
+    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                **RECON_DRAFT_RESPONSE,
+                "account_id": "acc-1",
+                "date_start": "2026-07-24T00:00:00Z",
+                "date_end": "2026-08-25T00:00:00Z",
+            },
+        )
+    )
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 1
+    assert "--account-id acc-1" in result.output
+    assert "--unreconciled" in result.output
+    assert "--date-from 2026-07-24 --date-to 2026-08-25" in result.output
+    # and the engine's own envelope is still rendered underneath the hint
+    assert "3 transaction(s) dated inside this period" in result.output
+
+
+@respx.mock
+def test_complete_422_unfiled_rows_degrades_when_the_record_cannot_be_read(configured):
+    """The extra read is a convenience, not a dependency: if it fails the user
+    still gets the flags, just without the values filled in."""
+    respx.post(_COMPLETE).mock(
+        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
+    )
+    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
+        return_value=error_response(404, "NOT_FOUND", "gone", None)
+    )
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 1
+    assert "--unreconciled" in result.output
+
+
+@respx.mock
+def test_the_two_complete_refusals_do_not_borrow_each_others_hint(configured):
+    """Both arrive as `fields["transactions"]`; only the message separates them.
+
+    Getting this backwards would tell someone with three untick'd rows to
+    "assign at least one transaction", which is both wrong and confusing —
+    they have assigned plenty.
+    """
+    respx.post(_COMPLETE).mock(
+        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
+    )
+    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
+        return_value=error_response(404, "NOT_FOUND", "gone", None)
+    )
+    unfiled = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert "at least one transaction" not in unfiled.output
+
+    respx.post(_COMPLETE).mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "No transactions assigned.", _EMPTY_FIELDS
+        )
+    )
+    empty = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert "assign at least one transaction" in empty.output
+    assert "--unreconciled" not in empty.output
+
+
+@respx.mock
+def test_complete_422_missing_date_points_at_the_fix(configured):
+    respx.post(_COMPLETE).mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Cannot complete reconciliation without a period.",
+            {"date_end": "Required to complete — a completed period seals these dates."},
+        )
+    )
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 1
+    assert f"expense reconcile update {_RID} --date-end" in result.output
+
+
+@respx.mock
+def test_create_overlap_422_points_at_the_neighbours(configured):
+    respx.post(f"{BASE}/v1/reconciliations").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Reconciliation period overlaps another on this account.",
+            {
+                "date_start": (
+                    "Overlaps 'August 2026' (2026-07-24 to 2026-08-25). "
+                    "A day belongs to one statement."
+                )
+            },
+        )
+    )
+    result = runner.invoke(
+        cli_app,
+        [
+            "reconcile",
+            "create",
+            "--account-id",
+            "acct",
+            "--name",
+            "September 2026",
+            "--date-start",
+            "2026-08-20",
+            "--date-end",
+            "2026-09-25",
+            "--beginning-balance",
+            "100000",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "a day belongs to exactly one statement" in result.output.lower()
+    assert "reconcile list --account-id" in result.output
+    assert "Overlaps 'August 2026'" in result.output  # the engine's own words survive
+
+
+@respx.mock
+def test_update_inverted_range_422_surfaces_a_hint(configured):
+    respx.put(f"{BASE}/v1/reconciliations/{_RID}").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Reconciliation period validation failed.",
+            {"date_end": "Must not be earlier than date_start."},
+        )
+    )
+    result = runner.invoke(cli_app, ["reconcile", "update", _RID, "--date-end", "2026-01-01"])
+    assert result.exit_code == 1
+    assert "--date-end must not be earlier than --date-start" in result.output

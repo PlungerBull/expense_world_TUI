@@ -695,6 +695,29 @@ def require_yes(yes: bool, prompt_text: str, *, aborted_text: str = "Aborted.") 
         raise typer.Exit(code=1)
 
 
+def print_warnings(body: dict) -> None:
+    """Render an engine `warnings` envelope to stderr, one line each.
+
+    The warnings channel is deliberately per-endpoint rather than uniform: the
+    key exists exactly where a warning can occur (engine-spec, "Warnings
+    channel"). Two endpoints carry it — `POST /transactions/{id}/restore` since
+    2026-08-11, and `POST /reconciliations/{id}/complete` since 2026-09-20,
+    where it reports a stretch of days no completed period covers.
+
+    Worth not dropping: a transaction inside an uncovered stretch moves no
+    period's arithmetic, because `difference_cents` is two balances typed off
+    a statement minus the rows that were ticked. It is not hidden — it shows
+    in reports and balances like any other row — but nothing else in the
+    system will ever point at it.
+
+    Human mode only; `--json` already passes the engine body through verbatim.
+    """
+    warnings = body.get("warnings") if isinstance(body, dict) else None
+    if isinstance(warnings, list):
+        for warning in warnings:
+            typer.echo(f"Warning: {warning}", err=True)
+
+
 def build_update_payload(items: dict[str, Any]) -> dict[str, Any]:
     """Drop None values; exit if nothing is left to update."""
     payload = {key: value for key, value in items.items() if value is not None}

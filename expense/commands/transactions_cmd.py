@@ -23,6 +23,7 @@ from expense.commands._resource import (
     load_category_name_map,
     load_hashtag_name_map,
     parse_hashtag_ids,
+    print_warnings,
     query_params,
     render_pagination_hint,
     render_record,
@@ -103,13 +104,6 @@ def _render_transaction_list(body: dict, *, json_mode: bool, show_deleted: bool 
         align_right={"amount"},
     )
     render_pagination_hint(body, items)
-
-
-def _print_warnings(body: dict) -> None:
-    warnings = body.get("warnings") if isinstance(body, dict) else None
-    if isinstance(warnings, list):
-        for warning in warnings:
-            typer.echo(f"Warning: {warning}", err=True)
 
 
 def _update_hint_for(err: EngineError) -> str | None:
@@ -356,7 +350,7 @@ def restore(
             raise
     render_record(body, json_mode=json_output)
     if not json_output:
-        _print_warnings(body)
+        print_warnings(body)
 
 
 @app.command("batch")
