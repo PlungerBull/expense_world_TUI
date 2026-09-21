@@ -1,10 +1,18 @@
 # Sealed periods reach the user — CLI/TUI plan (drafted 2026-09-20)
 
-**Status: drafted 2026-09-20, not reviewed, not built.** This is ask **1 of 4** on
-the 2026-09-20 queue ([todo.md](todo.md) "Now"). Every numbered decision in §7 is
-a real fork that wants the owner's answer before the code is written; everything
-else is settled by the engine's contract and recorded here so a fresh session can
-act on it with no conversation history.
+**Status: reviewed and settled 2026-09-20, not yet built.** This is ask **1 of 4**
+on the 2026-09-20 queue ([todo.md](todo.md) "Now"). Every decision in §7 is
+answered; the rest is settled by the engine's contract and recorded here so a
+fresh session can act on it with no conversation history.
+
+**The [UI] gate is closed.** Three screens were drawn as a walkable prototype,
+[expense-world-reconciliation-flow.html](mockups/expense-world-reconciliation-flow.html)
+(with the static panes in
+[expense-world-sealed-period-refusals.html](mockups/expense-world-sealed-period-refusals.html)),
+and the owner picked **C**, **E** and **F** on 2026-09-20. Two of the three went
+against the recommendation in the mockup — recorded in §7 with what that costs,
+because a pick made against a written argument is the kind that gets
+second-guessed later by someone who only finds the argument.
 
 **Why this one first.** It blocks the owner's next real task: creating roughly 24
 reconciliations for 2026 by hand and closing them month by month, against windows
@@ -179,50 +187,78 @@ for the LOG bar, which has no pre-filter at all:
 - **The LOG bar:** a refused row must say which period refused it, against the
   staged row, without discarding the rest of the batch.
 
-## 7. Decisions to review
+## 7. Decisions, settled 2026-09-20
 
-**D1 — how the TUI gets the response body.** Needed for S1; nothing else in the
-app has ever wanted it.
+**D1 — how the TUI gets the response body.** `EngineWriteMixin.run_write` discards
+it, and S1 needs it. **Resolved: a new optional `on_response: Callable[[dict], None]`,
+called before `on_success`.** Purely additive — the four existing `on_success`
+callsites do not move, and the one screen that cares opts in. *Rejected:* giving
+`on_success` an optional `body` argument (every screen pays for one screen's
+need); stashing the body on the mixin for `on_success` to read (an `on_success`
+reading a body left by a previous write is a silent bug waiting to happen).
 
-| | Shape | Cost |
-|---|---|---|
-| **A** | `on_success` gains an optional `body` argument | Touches all four `on_success` callsites, or needs arity inspection — implicit either way |
-| **B** *(recommended)* | A new optional `on_response: Callable[[dict], None]`, called before `on_success` | Purely additive; the four existing callsites do not move; the one screen that cares opts in |
-| **C** | The mixin stores `self._last_write_body` for `on_success` to read | Cheapest to write, stateful and easy to misuse — an `on_success` reading a body from a previous write is a silent bug |
+**D2 — the unassigned-rows answer.** Two surfaces, two answers.
 
-**B**, because this is one screen's need and A makes every screen pay for it.
+- **TUI: pane E**, the shared results screen — not a shell command. The owner's
+  correction, and the right one: "in the TUI the answer is not a command to copy,
+  it is the rows."
+- **Flat CLI: fetch and print a command that works.** `GET /reconciliations/{id}`
+  on this 422 only, to fill in the account and both dates, so the printed line is
+  runnable rather than a template with three holes in it. One extra read on a
+  path that has already failed. *Rejected:* printing `--account-id <id>` and
+  making the user look all three up.
 
-**D2 — where the unassigned-rows hint gets the account and dates.** The 422 has
-the count but not the account id or the window.
+**D3 — before completing: pane C, drawn as a full screen.** Pressing `c` with
+unticked rows in the window opens a **pushed screen** listing them, whose one
+action is **“tick all N, then complete”**; `esc` returns to the checklist.
 
-| | Shape | Cost |
-|---|---|---|
-| **A** *(recommended)* | `GET /reconciliations/{id}` before building the hint, only on this 422 | One extra read on a path that has already failed; no cost on the happy path |
-| **B** | Print a hint with placeholders (`--account-id <id>`) | Zero cost, and the user has to go and look all three values up |
-| **C** | Read the record before every `complete` | An extra round trip on every close, to serve a case that is the exception |
+> **It was drawn as a box and redrawn the same day.** The owner's standing rule,
+> set 2026-09-20 and recorded in [tui.md](tui.md) §2: *new surfaces are full
+> screens, not modals* — anything carrying rows is a pushed `Screen`. With
+> nothing unticked there is nothing to list, so `c` still raises the plain
+> `ConfirmModal` yes/no; that is a **question**, not content, and cards are what
+> questions are for.
+>
+> **Consequence: D3 and D2's TUI half are one screen.** C lists the blocking rows
+> *before* the write; pane E lists them *after* the engine refuses anyway. Same
+> rows, same layout — build it once, entered from two directions. The second door
+> stays reachable because the engine remains the authority: a row written
+> elsewhere while the screen sat open still produces a refusal C never saw.
 
-**A**. The failure path is where a round trip is affordable.
+> ⚠️ **This deliberately reverses a settled non-goal.** “Bulk assign everything
+> shown on the reconciliation screen” was declined 2026-09-19
+> ([file-import-plan.md](file-import-plan.md) §8) because the owner is doing the
+> 2026 backfill by hand — with the note *revisit if monthly closing proves
+> tedious*. Twenty-four closes is that moment, and the owner reversed it knowingly
+> after the mockup argued the other way. **What it costs:** the button assigns
+> rows the user has not individually reviewed, which is precisely what the
+> non-goal protected against. Recorded so the reversal reads as a decision rather
+> than an oversight.
+>
+> **What it implies for the code:** “Tick all N, then complete” is *N+1 writes*,
+> not one — N × `PUT /transactions/{id}` then `POST …/complete` — so a partial
+> failure is possible and must not report a completion that did not happen.
 
-**D3 — does the TUI pre-check before offering `c` (complete)?** The engine refuses
-a close with unfiled rows. The detail screen *already* lists the account's
-unassigned transactions in range while the batch is a draft, so it holds the
-answer before the key is pressed.
+**D4 — `date_end` becomes required at create**, on both surfaces (`reconcile
+create` and the TUI new-batch form). The engine still permits a half-dated draft;
+this is a caller-side choice, in the same family as `debit_as_negative`. Its cost
+is that a batch can no longer be opened before the statement arrives — accepted,
+because a half-dated completed period seals nothing and the CLI has no way to
+read the dates off a statement (the EECC are PDFs this repo never opens).
 
-| | Shape | Notes |
-|---|---|---|
-| **A** *(recommended)* | Stay thin: press `c`, let the engine refuse, toast the message | CLAUDE.md "thin wrapper"; matches the screen's existing stance — it deliberately has no ≥1-assigned pre-guard either, for the same reason |
-| **B** | Show the count in the confirm modal before completing | Kinder, but it is client-side logic re-deriving an engine rule, and a stale list would lie |
+**D5 — the bulk refusal screen: pane F, full screen.** Reached from a refused
+bulk edit in the ledger. It shares its layout with D3's screen — a list of rows
+with a reason column — but not its content: this one carries **which period
+refused each row**, which is the column a modal could not fit and the reason
+[tui.md](tui.md) §2's full-screen rule exists. **`r retry` is dropped** — refused rows already stay selected after a bulk
+write, so pressing the same key again *is* the retry, and retrying a row a sealed
+period refused would simply be refused again.
 
-**A**, and it is also the cheapest. **If the owner wants B, it changes a screen
-and therefore needs a mockup first** — flagging that rather than assuming.
-
-**D4 — should `reconcile create` require `--date-end`?** The engine allows a
-draft without one but refuses to complete it.
-
-Recommended: **leave it optional** and say so in the help text. A draft is allowed
-to be incomplete — that is the engine's own split — and forcing the date at create
-time would make it impossible to open a batch before the statement arrives. The
-close check is where it is caught, which is the right moment.
+**Scope note.** Of the three bulk keys, only `b` (move account) can be refused by
+these rules: `c` (category) and `h` (hashtags) stay legal inside a sealed period
+by design. Today a bulk refusal raises **one ten-second error toast per row** —
+eight refusals is eight stacked toasts — which is the concrete problem this
+screen solves.
 
 ## 8. Non-goals
 
@@ -255,10 +291,12 @@ second half automatically once the tests exist.
 
 ## 10. Sequence
 
-1. D1–D4 answered by the owner.
+1. ~~D1–D5 answered by the owner.~~ Done 2026-09-20; [UI] gate closed.
 2. `_print_warnings` → `_resource.py`; flat `complete` renders warnings.
 3. `run_write` gains `on_response`; the Reconciliations screen toasts the gap.
 4. The three hint paths (`complete` ×2, `create`/`update` ×2).
 5. The two wall doors pinned by test.
-6. Contract-suite pass against the disposable engine on `:8002` — this is the
+6. The refusal results screen (D5), used by `complete` and by the ledger's bulk
+   `b`; then pane C's confirm box on top of it.
+7. Contract-suite pass against the disposable engine on `:8002` — this is the
    first change written against rules no contract test has ever exercised.

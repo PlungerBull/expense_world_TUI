@@ -62,7 +62,7 @@ its ask ships**, with the whys moving to [decisions.md](decisions.md).
 
 | # | Ask | Plan | Gate |
 |---|---|---|---|
-| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | 4 decisions open |
+| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | settled 2026-09-20 — **building** |
 | 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | accepted 2026-09-19 |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |

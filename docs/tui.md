@@ -181,6 +181,21 @@ builder they share with Home, `reports_cmd.build_range_grid`, is covered by
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").
 
+**New surfaces are full screens, not modals** *(owner rule, 2026-09-20)*. Anything
+carrying **content** — a list of rows, a set of reasons, a choice you need context to
+make — is a pushed `Screen`, never a card floating over the one behind it. Two reasons,
+both about a terminal rather than about taste: a modal costs the width its border and
+inset take, and that is exactly the width the explaining column needs (the refusal
+screen's *which period refused this* was the case that produced the rule — boxed, it
+shrinks to three letters); and it hides the screen that supplies the context for the
+question it is asking.
+
+The modals that already ship stay: `ConfirmModal`'s plain yes/no, `PickerModal`'s
+single-field pick, `HelpModal`'s `?` card, `SnapshotModal`. None of them lists rows —
+they are a *question*, not content, and a question is what a card is for. The rule
+governs what is built from 2026-09-20 onward, so a new modal now needs a reason rather
+than a precedent.
+
 ---
 
 ## 3. Theming — the terminal supplies every colour

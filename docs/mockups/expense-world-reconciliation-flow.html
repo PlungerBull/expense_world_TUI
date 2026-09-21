@@ -379,19 +379,25 @@ confirm: ()=>{
              : '<p style="color:var(--pos)">Nothing unticked, so the warning is gone. That is the whole behaviour of B.</p>' };
   }
   const rows = S.rows.filter(r=>!r.k);
-  return { crumb:crumb(['Reconcile','BCP PEN'],'August 2026'),
-    body:'\n'+rhead()+'\n'+ (u? modal(u+' rows in this period are not ticked',
-      ['<span class="d">Inside 2026-07-24 → 2026-08-25, in no batch at all.</span>',
-       '<span class="d">Completing will be refused while they are.</span>','']
-      .concat(rows.map(r=>'  <span class="d">'+r.d+'</span>   '+pad(r.t,26)+'<span class="n">'+padL(r.a,10)+'</span>'))
-      .concat(['','  <span class="rev">[ Tick all '+u+', then complete ]</span>  <span class="d">[ Just show me ]</span>  <span class="d">[ Cancel ]</span>']),68)
-      : modal('Complete reconciliation?',['Locks amount/account/title/date on the',
-       ticked()+' ticked transactions.','',
-       '                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>'],62)),
-    keys: u? [{k:'⏎',l:'tick all '+u+' and complete',act:'tickall'},{k:'esc',l:'cancel',to:'detail'}]
-           : [{k:'⏎',l:'confirm',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
-    tag:'pick', name:'Confirm · C', sub:'reopens a settled non-goal',
-    note:'<p>The box becomes the answer. <b>Note what it does:</b> it assigns rows you have not reviewed. “Bulk assign everything shown” was declined 2026-09-19 with the note <i>revisit if monthly closing proves tedious</i> — so choosing C is a deliberate reversal, which is fine, but it should be one.</p>' };
+  if(!u){
+    return { crumb:crumb(['Reconcile','BCP PEN'],'August 2026'),
+      body:'\n'+rhead()+'\n'+modal('Complete reconciliation?',
+        ['Locks amount/account/title/date on the', ticked()+' ticked transactions.','',
+         '                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>'],62),
+      keys:[{k:'\u23ce',l:'confirm',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
+      tag:'today', name:'Confirm \u00b7 C, nothing blocking', sub:'a yes/no stays a card',
+      note:'<p>Nothing unticked, so there is no content to show. This is a <b>question</b>, and a card is what a question is for \u2014 the 2026-09-20 full-screen rule governs surfaces that carry <i>rows</i>.</p><p>Untick something and press <code>c</code> again to see the other half.</p>' };
+  }
+  return { crumb:crumb(['Reconcile','August 2026'],'Not ready'),
+    body:'\n  <span class="w">'+u+' rows inside this period are in no batch.</span>\n'
+      +'  <span class="d">Completing will be refused while they are.</span>\n\n'
+      +'  <span class="d">'+pad('date',14)+pad('title',34)+padL('amount',10)+'   category</span>\n'
+      +'  <span class="d">'+'\u2500'.repeat(72)+'</span>\n'
+      + rows.map(r=>'  '+pad(r.d,14)+pad(r.t,34)+'<span class="n">'+padL(r.a,10)+'</span>   <span class="d">@Pendiente</span>').join('\n')
+      +'\n\n  <span class="d">\u23ce tick all '+u+' and complete      esc back to the checklist</span>\n',
+    keys:[{k:'\u23ce',l:'tick all '+u+' and complete',act:'tickall'},{k:'esc',l:'back to the checklist',to:'detail'}],
+    tag:'pick', name:'Not ready \u00b7 C', sub:'full screen, per the 2026-09-20 rule',
+    note:'<p>Redrawn 2026-09-20: this was a box, and boxes are out for anything carrying rows.</p><p><b>Notice it is the same screen as E.</b> Same rows, same list \u2014 C reaches it <i>before</i> the write, E <i>after</i> the engine refuses. Picking both means building one screen, entered from two directions.</p><p style="color:var(--warn)">It still assigns rows you have not individually reviewed \u2014 the thing the 2026-09-19 non-goal protected against. Your reversal, recorded.</p>' };
 },
 
 refused: ()=>{
@@ -405,7 +411,7 @@ refused: ()=>{
         +'\n\n  <span class="d">⏎ back to the batch with these ticked   esc back, change nothing</span>\n',
       keys:[{k:'⏎',l:'back with them ticked',act:'tickall_back'},{k:'esc',l:'back, change nothing',to:'detail'}],
       tag:'pick', name:'Refused · E', sub:'the shared results screen',
-      note:'<p>One widget for every refusal in the app. Consistent — at the price of leaving a screen that already had these rows on it.</p>' };
+      note:'<p>One widget for every refusal in the app.</p><p><b>With C also picked, this and C are the same screen</b> \u2014 C gets here before the write, this gets here after the engine refuses anyway (a row written elsewhere while you sat on the screen). One screen, two doors.</p>' };
   }
   S.flagged = true;
   return SCREENS.detail();
