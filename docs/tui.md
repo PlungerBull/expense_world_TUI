@@ -202,14 +202,25 @@ explaining column needs — the refusal screen's *which period refused this* shr
 to three letters once boxed. And a card hides the screen that supplies the context
 for the question it is asking.
 
-**What the list border was carrying.** The round border on every `CursorList` /
-`CheckList` (picked 2026-07-11) absorbed two things that used to be their own lines:
-the list's **title** on the top edge and the **page status** on the bottom
-(`rows 21-40 of 133 · page 2 of 7`). Removing it is therefore a rehoming, not a
-deletion. The treatment is drawn in
+**What the list border was carrying, and where it went.** The round border on every
+`CursorList` / `CheckList` (picked 2026-07-11) absorbed two things that used to be
+their own lines: the list's **title** on the top edge and the **page status** on the
+bottom (`rows 21-40 of 133 · page 2 of 7`). Removing it was therefore a rehoming, not
+a deletion. Both are drawn as ordinary content by
+`WindowedList.framed()` ([windowed.py](../expense/tui/widgets/windowed.py)) — the one
+method every repaint of both widgets passes through, so neither subclass's `_build`
+had to change: a plain rule opens the section, the page status sits dim beneath the
+rows, and **the title goes**, the breadcrumb already naming the screen. Drawn in
 [expense-world-reconciliation-flow.html](mockups/expense-world-reconciliation-flow.html)
-§5 (toggle **K**): a plain rule opens the section, the page status sits dim beneath
-the rows, and **the title goes** — the breadcrumb already names the screen.
+§5, toggle **K**.
+
+Two details that are load-bearing rather than tidy. **The status line is always
+drawn, blank when there is nothing to say** — `page_status` is `None` on a single
+page, and a line that came and went would make a widget's height depend on how many
+rows it holds, which is exactly what `AdaptiveRowsMixin` measures to decide how many
+rows to ask for. And **the rule passes an explicit style**: Rich's own default is
+`rule.line`, which resolves to a literal green that `test_no_literal_color_styles_in_tui`
+cannot see, because it greps source rather than renders.
 
 ⚠️ **With one exception, and it is a real distinction rather than a let-out.** A
 panel title that is *chrome* disappears; one that is *information* becomes a line of
@@ -466,7 +477,7 @@ sizes, both **measured**:
 | **w ≈ 75** | **truncation begins** — the first cells start eliding |
 | w ≈ 50 | title column is a bare `…`, amount `-…`; every row still drawn |
 | w ≤ 40 | date goes too — rows of pure ellipsis |
-| height | **the panel clips when content exceeds the viewport, so the threshold moves with the page size**: a 4-row page closes down to h=18, a full 8-row page already clips at h=20. Rows are cut off, never reflowed. Above the floor the page is measured to fit exactly — `LIST_FRAME_LINES` counts 6 (border 2, header, rule, and the two blank edge lines `box.SIMPLE` draws); it read 4 until 2026-08-29, which overflowed every fitted list by those two lines. |
+| height | **the panel clips when content exceeds the viewport, so the threshold moves with the page size**: a 4-row page closes down to h=18, a full 8-row page already clips at h=20. Rows are cut off, never reflowed. Above the floor the page is measured to fit exactly — `LIST_FRAME_LINES` counts 6. It read 4 until 2026-08-29, which overflowed every fitted list by two lines; the terms changed again on 2026-09-20 when the border went (section rule 1, the table's 4, page status 1) and the total did not, which is why it is now **derived from the render** by `test_the_frame_costs_exactly_list_frame_lines` rather than asserted in a comment. `_checklist_items` carried the same miscount, hand-written and unnoticed, until the same day. |
 | h ≤ 10 | no data rows at all, while the footer still offers to page through them |
 
 `PAGE_ROWS_FLOOR = 5` floors the *requested page size*, not the viewport — it cannot

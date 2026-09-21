@@ -151,7 +151,7 @@ class CursorList(WindowedList):
         *,
         align_right: Iterable[int] = (),
         empty: str = "(empty)",
-        title: str | None = None,
+        caption: str | None = None,
         page_size: int = DEFAULT_PAGE_ROWS,
         page_meta: tuple[int, int] | None = None,
         flex: Mapping[int, int] | None = None,
@@ -164,13 +164,13 @@ class CursorList(WindowedList):
         pre-truncated shorter than its column. Left empty (every list but the
         ledger), Rich spreads the slack over every column in proportion to the
         content it measured, as before."""
-        super().__init__([Row.coerce(r) for r in rows], empty=empty, page_size=page_size)
+        super().__init__(
+            [Row.coerce(r) for r in rows], empty=empty, page_size=page_size, caption=caption
+        )
         self._headers = list(headers)
         self._align = set(align_right)
         self._flex = dict(flex or {})
         self._page_meta = page_meta
-        if title is not None:
-            self.border_title = title
 
     def on_mount(self) -> None:
         self._refresh()
@@ -194,7 +194,7 @@ class CursorList(WindowedList):
 
     @property
     def page_status(self) -> str | None:
-        """The border-subtitle string, or None when everything fits one page.
+        """The page-status line, or None when everything fits one page.
 
         Fetched-page mode counts against the engine's total, not the page in
         hand: `_rows` is one page, and `rows 21-40 of 40` would claim the list

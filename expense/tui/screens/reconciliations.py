@@ -161,11 +161,19 @@ class ReconciliationsScreen(SectionScreen):
 
     # ---- adaptive window (2026-07-13): two stacked panes split #content ----
     def pane_rows(self) -> int:
-        """Rows-per-pane = an equal split of what fits (title 2 + two panel
-        frames) — auto-height panes give unused rows back when a pane has
-        fewer rows than its share. Clamped by `AdaptiveRowsMixin`, which is
-        what this used to do for itself against a hardcoded 20."""
-        return self.fit_rows(chrome=2 + 2 * self.LIST_FRAME_LINES, lines_per_row=2)
+        """Rows-per-pane = an equal split of what fits — auto-height panes give
+        unused rows back when a pane has fewer rows than its share. Clamped by
+        `AdaptiveRowsMixin`, which is what this used to do for itself against a
+        hardcoded 20.
+
+        The chrome is the section title (2) plus the two panes' frames, which
+        are **not** the same size: the batches pane keeps a caption naming the
+        account and the accounts pane does not, so it is `2 * LIST_FRAME_LINES
+        + CAPTION_LINES` rather than an even doubling.
+        """
+        return self.fit_rows(
+            chrome=2 + 2 * self.LIST_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
+        )
 
     def _viewport_resized(self) -> None:
         for lst in (getattr(self, "_accts_list", None), getattr(self, "_batch_list", None)):
@@ -188,7 +196,6 @@ class ReconciliationsScreen(SectionScreen):
             acct_rows,
             align_right={2},
             empty="(no bank accounts)",
-            title="Accounts",
             page_size=pane_size,
         )
         self._accts_list.id = "accts"
@@ -197,7 +204,7 @@ class ReconciliationsScreen(SectionScreen):
             batch_rows(self._batches, palette=palette),
             align_right={2, 3, 4},
             empty="(no batches — press n to create one)",
-            title=self._batch_caption(),  # panel title; updated as the account cursor moves
+            caption=self._batch_caption(),  # a content line; updated as the cursor moves
             page_size=pane_size,
         )
         self._batch_list.id = "batches"
@@ -232,7 +239,7 @@ class ReconciliationsScreen(SectionScreen):
         self._acct_idx = event.index
         self._rebuild_batches()
         self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
-        self._batch_list.border_title = self._batch_caption()
+        self._batch_list.set_caption(self._batch_caption())
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "accts":
@@ -535,11 +542,20 @@ class ReconciliationDetailScreen(
     def _checklist_items(self) -> int:
         """Items-per-page = what fits #rlist at two lines each.
 
-        The chrome is the panel border (2) plus the column header and its rule.
-        The clamp is `AdaptiveRowsMixin`'s; this used to spell it out with a
-        bare `5` and a hardcoded 20.
+        The chrome is `LIST_FRAME_LINES` — the same frame every other list
+        pays, with no caption here (the crumb and #rhead both name the batch).
+
+        ⚠️ **This read a hand-written `4` until 2026-09-20, and it was wrong.**
+        It counted the border plus the column header and its rule, and omitted
+        the two blank edge lines `box.SIMPLE_HEAD` draws — the identical
+        miscount that was fixed in `LIST_FRAME_LINES` on 2026-08-29 and missed
+        here because a literal does not track a constant. At two lines per
+        item it asked for one item too many and overflowed #rlist by two lines
+        at every height below the cap. #rlist is `overflow: hidden`, so it
+        clipped in silence: the page status on this screen had never once been
+        visible.
         """
-        return self.fit_rows("#rlist", chrome=4, lines_per_row=2)
+        return self.fit_rows("#rlist", chrome=self.LIST_FRAME_LINES, lines_per_row=2)
 
     def on_resize(self, _event) -> None:
         if self._list is not None and self._list.is_attached:
@@ -683,7 +699,6 @@ class ReconciliationDetailScreen(
                 palette=PALETTE,
                 page_size=self._checklist_items(),  # adaptive window (2026-07-13)
             )
-            self._list.border_title = "Transactions"
             await container.mount(self._list)
             if not self._completed:
                 self._list.focus()

@@ -222,11 +222,13 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         # a reload drops selections that left the page (option C: they left)
         self._selected &= set(self._by_id)
         flt = self._filter
+        # The panel title went with the border (2026-09-20): the crumb reads
+        # `Ledger ▸ @Pendiente` and the legend below says `filter: category
+        # @Pendiente · 57 rows`, so a third naming of the filter was chrome.
+        # Only the empty-state text is still computed from the filter.
         if flt is not None:
-            title = f"Ledger — {flt.kind} {flt.name} · most recent first"
             empty = f"(no transactions under {flt.name})"
         else:
-            title = "Ledger — posted transactions · most recent first"
             empty = "(no transactions)"
         self.call_after_refresh(self.refresh_bindings)
         return [
@@ -236,7 +238,6 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
                 align_right={2},
                 flex=_FLEX,
                 empty=empty,
-                title=title,
                 page_size=self.page_rows,
                 page_meta=self.page_meta(),
             ),

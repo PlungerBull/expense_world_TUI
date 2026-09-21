@@ -11,6 +11,8 @@ through a Rich Console; action handlers run with `_refresh`/`post_message`
 stubbed so no event loop is needed.
 """
 
+import re
+
 from textual.containers import VerticalScroll
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit
@@ -388,7 +390,10 @@ def test_transactions_screen_pages_on_the_wire(monkeypatch):
         )
         assert calls[-1] == (20, 20)
 
-    # content 28 lines − 6 frame lines − 2 legend lines → 20 rows fit
+    # content 28 lines − 6 frame lines − 2 legend lines → 20 rows fit.
+    # "Frame" means the rule, the table and the status line since 2026-09-20;
+    # it meant the border and the table before. The count is the same 6, which
+    # is why this number did not move — see LIST_FRAME_LINES.
     _drive_transactions((120, 35), calls, checks)
 
 
@@ -546,7 +551,158 @@ def test_fit_rows_falls_back_to_the_default_before_layout():
 
 
 def test_fit_rows_counts_two_line_rows_and_split_panes():
-    # the two callers that used to hand-roll this: a pane sharing #content with
-    # a sibling, and a checklist whose items are two physical lines each
-    assert _Measured(40).fit_rows(chrome=2 + 2 * 6, lines_per_row=2) == 13
-    assert _Measured(40).fit_rows("#rlist", chrome=4, lines_per_row=2) == 18
+    """The two callers that hand-roll their own chrome: a pane sharing #content
+    with a sibling, and a checklist whose items are two physical lines each.
+
+    Both numbers moved on 2026-09-20 and for different reasons. The browse
+    gained a line because its two panes stopped being the same size — the
+    batches pane keeps a caption naming the account, the accounts pane does
+    not. The checklist lost one because its `4` was simply **wrong**: it
+    omitted the two blank edge lines the table draws, so it asked for an item
+    that did not fit and #rlist, which is `overflow: hidden`, clipped it in
+    silence.
+
+    Mirrors `ReconciliationsScreen.pane_rows` and `_checklist_items`. If those
+    change, this is where the new arithmetic gets re-stated.
+    """
+    frame, caption = AdaptiveRowsMixin.LIST_FRAME_LINES, AdaptiveRowsMixin.CAPTION_LINES
+    assert _Measured(40).fit_rows(chrome=2 + 2 * frame + caption, lines_per_row=2) == 12
+    assert _Measured(40).fit_rows("#rlist", chrome=frame, lines_per_row=2) == 17
+
+
+# ---- the frame the border became (2026-09-20) -------------------------------
+def _frame_lines(widget, *, width: int = 60) -> int:
+    """Physical lines `framed()` draws, counting the trailing one."""
+    return render_text(widget.framed(), width=width).count("\n")
+
+
+def test_the_frame_costs_exactly_list_frame_lines():
+    """`LIST_FRAME_LINES` is derived from what is drawn, not from its comment.
+
+    This is the test the 2026-08-29 miscount needed and did not have. That
+    constant read 4 while the widgets drew 6, so every fitted list overflowed
+    its container by two lines — and because the containers clip in silence,
+    nothing failed. A comment cannot be wrong here any more: the number is
+    measured off the render.
+
+    `framed()` takes no app and no layout, which is the whole reason it is a
+    named method rather than an expression inside `_refresh`.
+    """
+    frame = AdaptiveRowsMixin.LIST_FRAME_LINES
+    assert _frame_lines(_list(3, page_size=10)) - 3 == frame
+    assert _frame_lines(_checklist(3, page_size=10)) - 3 * 2 == frame
+
+    captioned = _list(3, page_size=10, caption="BCP PEN · by statement start date")
+    assert _frame_lines(captioned) - 3 == frame + AdaptiveRowsMixin.CAPTION_LINES
+
+
+def test_the_frame_height_does_not_depend_on_the_page_status():
+    """The status line is reserved even when there is nothing to say.
+
+    `page_status` is None on a single page. If the line came and went, a
+    widget's height would depend on how many rows it holds — and height is
+    exactly what `AdaptiveRowsMixin` measures to decide how many rows to ask
+    for. That circularity is what makes the reserved blank line load-bearing
+    rather than tidy.
+    """
+    one_page = _list(3, page_size=10)
+    many_pages = _list(30, page_size=3)
+    assert one_page.page_status is None
+    assert many_pages.page_status is not None
+    assert _frame_lines(one_page) - 3 == _frame_lines(many_pages) - 3
+
+
+def test_the_frame_draws_no_colour():
+    """The rule, caption and status carry weight only — never a colour.
+
+    `test_no_literal_color_styles_in_tui` greps source, so it cannot see a
+    *library* default: a bare `rich.rule.Rule()` styles itself `rule.line`,
+    which resolves to bright green (SGR 92) and would paint a green line
+    across every list in the app. The frame must pass an explicit style, and
+    only a render can prove it did.
+    """
+    painted = render_text(_list(30, page_size=3, caption="BCP PEN").framed(), width=50, ansi=True)
+    colour = re.compile(r"\x1b\[(?:[0-9;]*;)?(3[0-7]|9[0-7]|4[0-7]|10[0-7])(?:;[0-9;]*)?m")
+    offenders = [ln for ln in painted.splitlines() if colour.search(ln)]
+    assert not offenders, f"the frame painted a colour: {offenders}"
+
+
+def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatch):
+    """The detail screen's checklist never overflows #rlist.
+
+    This is the one that had been failing silently. `_checklist_items` counted
+    its chrome by hand as 4 — the border plus the column header and its rule —
+    and omitted the two blank edge lines the table draws, so it asked for one
+    item too many at every height below the cap. #rlist is `overflow: hidden`,
+    so there was no scrollbar and no clipped border to notice: the page status
+    simply never appeared on that screen.
+
+    Asserted against the container rather than against a number, so it stays
+    true if the frame changes shape again.
+    """
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+
+    record = {
+        "id": "r1",
+        "account_id": "acc1",
+        "name": "August 2026",
+        "status": 1,
+        "date_start": "2026-07-24T00:00:00Z",
+        "date_end": "2026-08-25T00:00:00Z",
+        "beginning_balance_cents": 1248000,
+        "ending_balance_cents": 921540,
+        "difference_cents": -1250,
+    }
+    txns = [
+        {
+            "id": f"t{i}",
+            "title": f"row {i}",
+            "amount_cents": -100 * i,
+            "date": f"2026-08-0{i % 9 + 1}T00:00:00Z",
+            "reconciliation_id": None,
+            "hashtag_ids": [],
+        }
+        for i in range(40)
+    ]
+    monkeypatch.setattr(
+        "expense.commands.transactions_cmd.fetch_transactions",
+        lambda cfg, **k: page(txns, total=len(txns)),
+    )
+    for name in ("account", "category", "hashtag"):
+        monkeypatch.setattr(f"expense.tui.screens.reconciliations.load_{name}_name_map", dict)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(record))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None, message="no checklist")
+        await wait_for(
+            pilot,
+            lambda: screen.query_one("#rlist").content_size.height > 0,
+            message="#rlist was never laid out",
+        )
+        rlist = screen.query_one("#rlist")
+        assert screen._list.outer_size.height <= rlist.content_size.height
+
+    for size in ((120, 30), (120, 40), (180, 50)):
+        run_app(scenario, size=size)
+
+
+def test_the_batch_caption_repaints_when_the_account_changes():
+    """A caption is content, and content does not repaint itself.
+
+    The border title did: assigning it was enough. The Reconciliations browse
+    rewrites its lower caption every time the account cursor moves, so it has
+    to go through `set_caption`, which repaints. Asserted on the rendered text
+    rather than on the attribute — the attribute was never the bug.
+    """
+    lst = CursorList(["Title", "Amount"], _rows(3), caption="BCP PEN · by statement start date")
+    painted: list[str] = []
+    lst.update = lambda renderable: painted.append(render_text(renderable, width=60))
+
+    lst.set_caption("BCP USD · by statement start date")
+    assert painted, "set_caption did not repaint"
+    assert "BCP USD" in painted[-1]
+
+    before = len(painted)
+    lst.set_caption("BCP USD · by statement start date")  # unchanged
+    assert len(painted) == before, "an unchanged caption repainted anyway"

@@ -57,6 +57,7 @@ from uuid import uuid4
 
 from rich.console import Group, RenderableType
 from rich.highlighter import Highlighter
+from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 from textual import work
@@ -546,20 +547,46 @@ class AccountPeek(Static):
         self._rows: list[tuple] = []
         self._total = 0
         self._note = ""
+        self._account = ""
+        self._status = ""
         self._content: RenderableType = Text("")
 
     def show(self, account: str, rows: list[tuple], total: int, *, note: str = "") -> None:
-        self.border_title = account
+        self._account = account
         self._rows, self._total, self._note = rows, total, note
         self._rebuild()
 
     def on_resize(self) -> None:
         self._rebuild()
 
+    #: Lines the panel spends on chrome rather than ledger rows: the account
+    #: name, the rule under it, the table's column header, and the row count.
+    #: The first and last were the border's title and subtitle until
+    #: 2026-09-20; the rule replaces the border's top edge.
+    CHROME_LINES = 4
+
+    @property
+    def panel_title(self) -> str:
+        """The account this panel is showing — a content line since 2026-09-20,
+        the border title before that."""
+        return self._account
+
+    @property
+    def panel_status(self) -> str:
+        """`n of 214 in this account · newest first`, or empty on a note."""
+        return self._status
+
     @property
     def capacity(self) -> int:
-        """Rows this panel can draw right now: its height, less the header."""
-        return max(0, self.content_size.height - 1)
+        """Ledger rows this panel can draw right now.
+
+        Net of the 2026-09-20 de-boxing this went **up** by one, not down: the
+        panel is `1fr` and #inputbar above it gave back two rows of border in
+        the same change, while `content_size` — which already excluded this
+        panel's own border — grew by two. Four lines of chrome out of two more
+        rows is one row to the good.
+        """
+        return max(0, self.content_size.height - self.CHROME_LINES)
 
     @property
     def content(self) -> RenderableType:
@@ -572,10 +599,10 @@ class AccountPeek(Static):
 
     def _build(self) -> RenderableType:
         if self._note:
-            self.border_subtitle = ""
-            return Text("  " + self._note, style="dim")
+            self._status = ""
+            return Group(self._heading(), Text("  " + self._note, style="dim"))
         shown = min(len(self._rows), self.capacity)
-        self.border_subtitle = peek_status(shown, self._total)
+        self._status = peek_status(shown, self._total)
         # `expand=False`, like the staged table above it: the columns pack to
         # their content instead of spreading to the panel edge, so a row reads
         # the same in both tables.
@@ -586,7 +613,15 @@ class AccountPeek(Static):
             )
         for cells in self._rows[:shown]:
             table.add_row(*cells)
-        return table
+        return Group(self._heading(), table, Text(self._status, style="dim"))
+
+    def _heading(self) -> RenderableType:
+        """The account name over a rule — what the border's top edge carried.
+
+        `Rule` takes an explicit style: Rich's default resolves to a literal
+        green, which the source-grepping theme guard cannot see.
+        """
+        return Group(Text(self._account, style="dim"), Rule(style="dim"))
 
 
 # ---------------------------------------------------------------------------

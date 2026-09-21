@@ -966,8 +966,9 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         assert fetch.accounts == ["acc1"]
         panel = _peek(screen)
         assert panel.display
-        assert panel.border_title == "BCP Signature PEN"
-        assert "of 214 in this account" in panel.border_subtitle
+        # content lines since 2026-09-20, not border decorations (docs/tui.md §2)
+        assert panel.panel_title == "BCP Signature PEN"
+        assert "of 214 in this account" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
 
     run_app(scenario, size=(110, 30))
@@ -1028,7 +1029,7 @@ def test_the_staged_rows_never_choose_the_peeks_account(fake_client, monkeypatch
         screen.on_input_submitted()
         _type(screen, "tran.cel.bm. -6.60 $BCP PEN @TRANSPORTE")
         assert screen._peek_account == "acc3"  # the line's, not the staged row's
-        assert _peek(screen).border_title == "BCP PEN"
+        assert _peek(screen).panel_title == "BCP PEN"
 
     run_app(scenario, size=(110, 30))
 

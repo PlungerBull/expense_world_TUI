@@ -19,7 +19,9 @@ fetched and the page keys ask it for another.
 from collections.abc import Iterable
 from typing import Any
 
-from rich.console import RenderableType
+from rich.console import Group, RenderableType
+from rich.rule import Rule
+from rich.text import Text
 from textual.widgets import Static
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS
@@ -67,12 +69,16 @@ class WindowedList(Static):
         *,
         empty: str,
         page_size: int = DEFAULT_PAGE_ROWS,
+        caption: str | None = None,
     ) -> None:
         super().__init__()
         self._rows: list[Any] = list(rows)
         self._empty = empty
         self._page_size = page_size
         self._cursor = 0
+        # A line of content above the rule, not a border title. Only a caption
+        # that *disambiguates* earns one — see docs/tui.md §3.
+        self._caption = caption
 
     # ---- the window ------------------------------------------------------
     @property
@@ -99,15 +105,71 @@ class WindowedList(Static):
 
     @property
     def page_status(self) -> str | None:
-        """The border-subtitle string, or None when everything fits one page."""
+        """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all.
+
+        Rendered as the list's last line since 2026-09-20. It was the panel's
+        `border_subtitle` until the borders went; the string is unchanged, and
+        every test that reads it reads this property rather than the border.
+        """
         start, window = self._window()
         return page_indicator(
             start, len(window), len(self._rows), self._page_size, unit=self.PAGE_UNIT
         )
 
+    @property
+    def caption(self) -> str | None:
+        return self._caption
+
+    def set_caption(self, caption: str | None) -> None:
+        """Change the caption and repaint.
+
+        A border title repainted itself when assigned; a caption is ordinary
+        content and does not, so the Reconciliations browse — which rewrites
+        its lower caption every time the account cursor moves — must come
+        through here rather than assigning the attribute.
+        """
+        if caption == self._caption:
+            return
+        self._caption = caption
+        self._refresh()
+
     def _refresh(self) -> None:
-        self.border_subtitle = self.page_status or ""
-        self.update(self._build())
+        self.update(self.framed())
+
+    def framed(self) -> RenderableType:
+        """Caption, rule, the subclass's render, page status.
+
+        The panel border carried the caption on its top edge and the page
+        status on its bottom until 2026-09-20, when the owner's rule — no
+        cards, no vertical lines, horizontal rules divide sections
+        (docs/tui.md §2) — took the box away. Both become ordinary content
+        here, in the one place every repaint of both list widgets passes
+        through, so neither subclass's `_build` had to change.
+
+        **The status line is always drawn, blank when there is nothing to
+        say.** `page_status` is None on a single page, and a line that came
+        and went would make the widget's height depend on how many rows it
+        holds — which is exactly what `AdaptiveRowsMixin` measures in order to
+        decide how many rows to ask for. A constant frame is what keeps that
+        arithmetic honest; see `LIST_FRAME_LINES`.
+
+        **`Rule` is given an explicit style.** Rich's own default is
+        `rule.line`, which resolves to a literal green, and
+        `test_no_literal_color_styles_in_tui` greps *source* — it cannot see a
+        library default. `test_the_frame_draws_no_colour` pins it by render.
+
+        A named method rather than an expression inlined into `_refresh`: it
+        takes no app and no layout, so `LIST_FRAME_LINES` can be derived from
+        what is actually drawn. That is the test the 2026-08-29 miscount
+        needed and did not have.
+        """
+        parts: list[RenderableType] = []
+        if self._caption:
+            parts.append(Text(self._caption, style="dim"))
+        parts.append(Rule(style="dim"))
+        parts.append(self._build())
+        parts.append(Text(self.page_status or "", style="dim"))
+        return Group(*parts)
 
     def _build(self) -> RenderableType:
         raise NotImplementedError

@@ -296,16 +296,30 @@ class AdaptiveRowsMixin:
     the copies were one shared base class away from silently ignoring it.
     """
 
-    # Lines a CursorList spends on chrome rather than rows: panel border 2,
-    # column header 1, header rule 1, plus the blank top and bottom edge lines
-    # Rich's `box.SIMPLE` draws inside the border (2). It read 4 until
-    # 2026-08-29, which overshot by exactly those two blanks: every list whose
-    # fitted size was below the 20 cap overflowed #content by 2 lines, clipping
-    # its own bottom border and the `rows … · page …` subtitle and growing the
-    # undraggable scrollbar the 2026-07-13 decision meant to delete. Invisible
-    # while the cap hid it on tall terminals; permanent once Transactions
-    # started filling the window.
+    # Lines a CursorList spends on chrome rather than rows. Still 6 after the
+    # borders went (2026-09-20), and deliberately re-derived rather than left
+    # alone — the terms all changed even though the total did not:
+    #
+    #     section rule            1   was the top border (it carried the title)
+    #     blank edge              1   Rich's box.SIMPLE, inside what was the border
+    #     column header           1
+    #     header rule             1
+    #     blank edge              1
+    #     page-status line        1   was the bottom border (it carried the subtitle)
+    #
+    # It read 4 until 2026-08-29, which overshot by exactly those two blanks:
+    # every list whose fitted size was below the 20 cap overflowed #content by
+    # 2 lines, clipping its own bottom border and the `rows … · page …`
+    # subtitle and growing the undraggable scrollbar the 2026-07-13 decision
+    # meant to delete. Invisible while the cap hid it on tall terminals;
+    # permanent once Transactions started filling the window. That is why this
+    # number is now derived from the render by
+    # `test_the_frame_costs_exactly_LIST_FRAME_LINES` instead of from a comment.
     LIST_FRAME_LINES = 6
+    # One more line for a list that keeps a caption. Exactly one list does —
+    # the Reconciliations batch pane — but the asymmetry is named here rather
+    # than buried as a literal in that screen's arithmetic.
+    CAPTION_LINES = 1
     # Lower bound on the page size we ASK for — not a clipping guard, despite what
     # this comment claimed until 2026-08-20. It cannot make the viewport show five
     # rows: below a ~18-line terminal the extra rows are fetched and then clipped
@@ -546,7 +560,6 @@ class ResourceListScreen(SectionScreen):
             self.rows(items),
             align_right=self.ALIGN_RIGHT,
             empty=self.EMPTY,
-            title=self.TITLE,  # panel border title (L2, 2026-07-11) — no title row
             page_size=self.measure_list_rows(),  # adaptive window (2026-07-13)
         )
         # Re-select the acted-on row: _show mounts a fresh CursorList each load,
