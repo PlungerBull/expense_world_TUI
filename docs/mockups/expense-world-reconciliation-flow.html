@@ -100,6 +100,8 @@
       <button data-t="refusal" data-v="D" class="on">D banner + flags</button><button data-t="refusal" data-v="E">E results screen</button><button class="jump" data-jump="refused">show me →</button></div>
     <div class="tg"><span class="cap">§4 · bulk results</span>
       <button data-t="result" data-v="F" class="on">F full screen</button><button data-t="result" data-v="G">G modal</button><button class="jump" data-jump="bulk">show me →</button></div>
+    <div class="tg"><span class="cap">§5 · list panels · where the title and page status go</span>
+      <button data-t="panel" data-v="box">today · bordered</button><button data-t="panel" data-v="H" class="on">H heading + status right</button><button data-t="panel" data-v="J">J caps heading, status below</button><button data-t="panel" data-v="K">K no heading at all</button><button class="jump" data-jump="detail">show me →</button></div>
   </div>
   <p class="lede" style="margin-top:9px"><b>How to compare:</b> press <b>show me →</b> to jump
      straight to the screen a row governs. Once you are on it, clicking A / B / C (or D / E, or
@@ -131,6 +133,21 @@
          <b>B/D/F</b> selected, then flip a toggle and walk the same path again — the only screens that
          change are the ones the pick governs. Everything drawn in <span style="color:var(--warn)">amber</span>
          in the side panel is <b>new behaviour as of 2026-09-20</b>; everything else already works today.</p>
+    </div>
+    <div class="q">
+      <p class="qq">§5 · the list panels, and how far the change reaches</p>
+      <p class="qa">The round border around every list was picked on <b>2026-07-11</b>, and it absorbed
+         two things that used to be their own lines: the list's <b>title</b> (on the top edge) and the
+         <b>page status</b> (on the bottom edge, <code>rows 21-40 of 133 · page 2 of 7</code>). Taking the
+         border away is therefore not a deletion — both have to go somewhere, which is what H, J and K
+         differ on. <b>K is the interesting one:</b> on this screen the breadcrumb already says
+         <i>Reconcile › BCP PEN › August 2026</i> and the header repeats the period, so the word
+         “Transactions” on a border is telling you something you were told twice.</p>
+      <p class="qa"><b>Scope.</b> <code>CursorList</code> and <code>CheckList</code> share one CSS rule, so
+         this is one change that lands on <b>every list in the app at once</b> — the ledger,
+         accounts, categories, hashtags, activity, rates, both reconciliation panes. That is either
+         the point (Home is already borderless, so the app currently has two styles and this
+         converges them) or too much to ride along with ask 1. Worth saying which.</p>
     </div>
     <div class="q">
       <p class="qq">The path worth walking first</p>
@@ -167,7 +184,7 @@ let S;
 function reset(){
   S = { screen:'home', rows:ROWS.map(r=>({...r})), cur:0, status:'draft',
         flagged:false, trace:['Home'],
-        v:{confirm:'B', refusal:'D', result:'F'} , form:{step:0} };
+        v:{confirm:'B', refusal:'D', result:'F', panel:'H'} , form:{step:0} };
 }
 reset();
 // keep toggles across a restart
@@ -188,10 +205,32 @@ function rhead(){
   return '<span class="b">August 2026</span>  <span class="d">·</span>  BCP PEN  <span class="d">·</span>  <span class="d">2026-07-24 → 2026-08-25</span>\n'
        + '<span class="d">begin</span> 12,480.00    <span class="d">end</span> 9,215.40    <span class="d">diff</span> <span class="n">-12.50</span>    <span class="d">status</span> '+st+'\n';
 }
+function panel(title, status, lines, w){
+  w = w || BW;
+  const m = S.v.panel;
+  if(m==='box'){
+    let o='<span class="d">'+box(title,w)+'</span>\n';
+    lines.forEach(l=>{ o+='<span class="d">│</span>'+l+'<span class="d">│</span>\n'; });
+    const bl = status ? '╰'+'─'.repeat(Math.max(0,w-status.length-3))+' <span class="d">'+status+'</span> ╯'
+                      : boxb(w);
+    return o+'<span class="d">'+bl+'</span>\n';
+  }
+  let o='';
+  if(m==='H'){
+    const gap = Math.max(1, w+2-title.length-(status?status.length:0));
+    o += '  <span class="a b">'+title+'</span>'+' '.repeat(gap)+(status?'<span class="d">'+status+'</span>':'')+'\n';
+  } else if(m==='J'){
+    o += '  <span class="d">'+title.toUpperCase()+'</span>\n';
+  }
+  lines.forEach(l=>{ o+=' '+l+'\n'; });
+  if(status && (m==='J'||m==='K')) o += '  <span class="d">'+status+'</span>\n';
+  return o;
+}
+
 function checklist(flagIdx){
-  let out = '<span class="d">'+box('Transactions',BW)+'</span>\n';
-  out += '<span class="d">│</span>      '+pad('Title',34)+padL('Amount',11)+'  '+padL('Date',12)+'  <span class="d">│</span>\n';
-  out += '<span class="d">│</span>  <span class="d">'+'─'.repeat(BW-4)+'</span>  <span class="d">│</span>\n';
+  const lines=[];
+  lines.push('     '+pad('Title',34)+padL('Amount',11)+'  '+padL('Date',12)+'  ');
+  lines.push('  <span class="d">'+'─'.repeat(BW-4)+'</span>  ');
   S.rows.forEach((r,i)=>{
     const isFlag = flagIdx && !r.k;
     const flag = isFlag ? '<span class="e">!</span>' : ' ';
@@ -200,13 +239,13 @@ function checklist(flagIdx){
     const amtC = r.av<0?'n':'p';
     const cursor = (i===S.cur && S.status!=='completed');
     const tstyle = cursor ? '<span class="rev">'+pad(r.t,34)+'</span>' : pad(r.t,34);
-    out += '<span class="d">│</span>'+flag+mark+' '+tstyle
-         + '<span class="'+amtC+'">'+padL(r.a,11)+'</span>  <span class="d">'+padL(r.d,12)+'</span>  <span class="d">│</span>\n';
-    out += '<span class="d">│</span>      <span class="d">'+pad(r.s,34+11+2+12)+'</span>  <span class="d">│</span>\n';
+    lines.push(flag+mark+' '+tstyle+'<span class="'+amtC+'">'+padL(r.a,11)+'</span>  <span class="d">'+padL(r.d,12)+'</span>  ');
+    lines.push('     <span class="d">'+pad(r.s,34+11+2+12)+'</span>  ');
   });
-  out += '<span class="d">'+boxb(BW)+'</span>\n';
-  return out;
+  lines.push('  <span class="d">'+pad('↓ 16 more',BW-4)+'</span>  ');
+  return panel('Transactions','rows 1-7 of 23 · page 1 of 4',lines);
 }
+
 function modal(title, lines, w){
   w = w || 62; const ind = '        ';
   let out = ind+'<span class="d">'+box(title,w)+'</span>\n';
@@ -244,21 +283,21 @@ browseA: ()=>({
   crumb: crumb(['Capture & ledger'],'Reconciliations'),
   body:
    '\n  <span class="d">Reconciliations — pick an account, then a batch</span>\n\n'
-  +'<span class="d">'+box('Accounts',BW)+'</span>\n'
-  +'<span class="d">│</span>  '+pad('Account',26)+pad('Cur',6)+padL('Balance',14)+'      <span class="d">│</span>\n'
-  +'<span class="d">│</span>  <span class="rev">'+pad('BCP PEN',26)+pad('PEN',6)+padL('9,215.40',14)+'</span>      <span class="d">│</span>\n'
-  +'<span class="d">│</span>  <span class="d">'+pad('BCP USD',26)+pad('USD',6)+padL('1,204.11',14)+'</span>      <span class="d">│</span>\n'
-  +'<span class="d">│</span>  <span class="d">'+pad('BCP Signature PEN',26)+pad('PEN',6)+padL('-3,880.05',14)+'</span>      <span class="d">│</span>\n'
-  +'<span class="d">'+boxb(BW)+'</span>\n'
-  +'<span class="d">'+box('Reconciliations · BCP PEN   ·   by statement start date',BW)+'</span>\n'
-  +'<span class="d">│</span>  '+pad('Name',16)+pad('Period',26)+padL('Diff',10)+'  '+pad('Status',12)+'   <span class="d">│</span>\n'
-  +'<span class="d">│</span>  <span class="d">'+pad('June 2026',16)+pad('2026-05-26 → 06-25',26)+padL('0.00',10)+'  '+pad('completed',12)+'</span>   <span class="d">│</span>\n'
-  +'<span class="d">│</span>  '+pad('August 2026',16)+pad('2026-07-24 → 08-25',26)+'<span class="n">'+padL('-12.50',10)+'</span>  <span class="w">'+pad('draft',12)+'</span>   <span class="d">│</span>\n'
-  +'<span class="d">'+boxb(BW)+'</span>\n'
+  + panel('Accounts', null, [
+      '  '+pad('Account',26)+pad('Cur',6)+padL('Balance',14)+'      ',
+      '  <span class="rev">'+pad('BCP PEN',26)+pad('PEN',6)+padL('9,215.40',14)+'</span>      ',
+      '  <span class="d">'+pad('BCP USD',26)+pad('USD',6)+padL('1,204.11',14)+'</span>      ',
+      '  <span class="d">'+pad('BCP Signature PEN',26)+pad('PEN',6)+padL('-3,880.05',14)+'</span>      ',
+    ])
+  + panel('Reconciliations · BCP PEN   ·   by statement start date', null, [
+      '  '+pad('Name',16)+pad('Period',26)+padL('Diff',10)+'  '+pad('Status',12)+'   ',
+      '  <span class="d">'+pad('June 2026',16)+pad('2026-05-26 → 06-25',26)+padL('0.00',10)+'  '+pad('completed',12)+'</span>   ',
+      '  '+pad('August 2026',16)+pad('2026-07-24 → 08-25',26)+'<span class="n">'+padL('-12.50',10)+'</span>  <span class="w">'+pad('draft',12)+'</span>   ',
+    ])
   +'\n<span class="d">  ↑↓ account · ⏎ into the batches · n new batch · esc back</span>\n',
   keys:[{k:'⏎',l:'into the batch list',to:'browseB'},{k:'n',l:'new batch',to:'formName'}],
   tag:'today', name:'Browse · accounts', sub:'unchanged',
-  note:'<p>Account on top, that account\'s batches below. <b>July 2026 is missing</b> — June is closed, August is a draft. That gap is the thing the last screen of this walk reports.</p>'
+  note:'<p>Account on top, that account\'s batches below. <b>July 2026 is missing</b> — June is closed, August is a draft. That gap is what the last screen of this walk reports.</p>'
 }),
 
 browseB: ()=>({
