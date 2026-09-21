@@ -101,7 +101,7 @@
     <div class="tg"><span class="cap">§4 · bulk results</span>
       <button data-t="result" data-v="F" class="on">F full screen</button><button data-t="result" data-v="G">G modal</button><button class="jump" data-jump="bulk">show me →</button></div>
     <div class="tg"><span class="cap">§5 · list panels · where the title and page status go</span>
-      <button data-t="panel" data-v="box">today · bordered</button><button data-t="panel" data-v="H" class="on">H heading + status right</button><button data-t="panel" data-v="J">J caps heading, status below</button><button data-t="panel" data-v="K">K no heading at all</button><button class="jump" data-jump="detail">show me →</button></div>
+      <button data-t="panel" data-v="box">today · boxed</button><button data-t="panel" data-v="L" class="on">L labelled rule</button><button data-t="panel" data-v="M">M heading over a rule</button><button data-t="panel" data-v="K">K rule only, no label</button><button class="jump" data-jump="detail">show me →</button></div>
   </div>
   <p class="lede" style="margin-top:9px"><b>How to compare:</b> press <b>show me →</b> to jump
      straight to the screen a row governs. Once you are on it, clicking A / B / C (or D / E, or
@@ -135,19 +135,28 @@
          in the side panel is <b>new behaviour as of 2026-09-20</b>; everything else already works today.</p>
     </div>
     <div class="q">
-      <p class="qq">§5 · the list panels, and how far the change reaches</p>
-      <p class="qa">The round border around every list was picked on <b>2026-07-11</b>, and it absorbed
-         two things that used to be their own lines: the list's <b>title</b> (on the top edge) and the
-         <b>page status</b> (on the bottom edge, <code>rows 21-40 of 133 · page 2 of 7</code>). Taking the
-         border away is therefore not a deletion — both have to go somewhere, which is what H, J and K
-         differ on. <b>K is the interesting one:</b> on this screen the breadcrumb already says
-         <i>Reconcile › BCP PEN › August 2026</i> and the header repeats the period, so the word
-         “Transactions” on a border is telling you something you were told twice.</p>
+      <p class="qq">§5 · the list panels — horizontal rules only, no vertical lines</p>
+      <p class="qa"><b>The rule (owner, 2026-09-20):</b> horizontal lines are fine and are the right way
+         to divide sections; vertical ones are not. There is already precedent — the header's
+         <code>border-bottom</code> is exactly that. So the round border every list has drawn since
+         <b>2026-07-11</b> goes, and the two things it absorbed need rehoming: the list's <b>title</b>
+         (top edge) and the <b>page status</b> (bottom edge,
+         <code>rows 21-40 of 133 · page 2 of 7</code>).</p>
+      <p class="qa"><b>L</b> is the labelled rule — title on the left of the divider, page status on the
+         right, one row doing both jobs with no vertical edges. <b>M</b> splits them: a heading line,
+         then a plain rule under it. <b>K</b> drops the label and lets the breadcrumb name the screen.</p>
+      <p class="qa"><b>K breaks on the browse, and that is worth seeing before choosing.</b> That screen
+         stacks two lists, and the lower one's caption is
+         <code>Reconciliations · BCP PEN · by statement start date</code> — the only thing on screen
+         tying those batches to the account highlighted above. Drop it and two unlabelled tables sit on
+         top of each other. K reads fine on the tick window, where there is one list and the crumb
+         already names it; it fails where there are two. <b>L is the one that works on both</b>, which
+         is the argument for it over a per-screen mix.</p>
       <p class="qa"><b>Scope.</b> <code>CursorList</code> and <code>CheckList</code> share one CSS rule, so
-         this is one change that lands on <b>every list in the app at once</b> — the ledger,
-         accounts, categories, hashtags, activity, rates, both reconciliation panes. That is either
-         the point (Home is already borderless, so the app currently has two styles and this
-         converges them) or too much to ride along with ask 1. Worth saying which.</p>
+         this lands on <b>every list in the app at once</b> — ledger, accounts, categories, hashtags,
+         activity, rates, both reconciliation panes. Home is already borderless, so today the app has
+         two styles; this converges them. Either that is the point, or it is more than should ride
+         along with ask 1.</p>
     </div>
     <div class="q">
       <p class="qq">The path worth walking first</p>
@@ -184,7 +193,7 @@ let S;
 function reset(){
   S = { screen:'home', rows:ROWS.map(r=>({...r})), cur:0, status:'draft',
         flagged:false, trace:['Home'],
-        v:{confirm:'B', refusal:'D', result:'F', panel:'H'} , form:{step:0} };
+        v:{confirm:'B', refusal:'D', result:'F', panel:'L'} , form:{step:0} };
 }
 reset();
 // keep toggles across a restart
@@ -215,15 +224,24 @@ function panel(title, status, lines, w){
                       : boxb(w);
     return o+'<span class="d">'+bl+'</span>\n';
   }
+  // no vertical edges anywhere below — horizontal rules only (owner, 2026-09-20)
   let o='';
-  if(m==='H'){
-    const gap = Math.max(1, w+2-title.length-(status?status.length:0));
+  if(m==='L'){
+    const tail = status ? status.length+2 : 0;
+    const fill = Math.max(2, (w+2) - 3 - title.length - 1 - tail - 2);
+    o += '  <span class="d">──</span> <span class="a b">'+title+'</span> '
+       + '<span class="d">'+'─'.repeat(fill)+'</span>'
+       + (status ? ' <span class="d">'+status+'</span> ' : '')
+       + '<span class="d">──</span>\n';
+  } else if(m==='M'){
+    const gap = Math.max(1, (w+2)-title.length-(status?status.length:0));
     o += '  <span class="a b">'+title+'</span>'+' '.repeat(gap)+(status?'<span class="d">'+status+'</span>':'')+'\n';
-  } else if(m==='J'){
-    o += '  <span class="d">'+title.toUpperCase()+'</span>\n';
+    o += '  <span class="d">'+'─'.repeat(w+2)+'</span>\n';
+  } else {
+    o += '  <span class="d">'+'─'.repeat(w+2)+'</span>\n';
   }
   lines.forEach(l=>{ o+=' '+l+'\n'; });
-  if(status && (m==='J'||m==='K')) o += '  <span class="d">'+status+'</span>\n';
+  if(status && m==='K') o += '  <span class="d">'+status+'</span>\n';
   return o;
 }
 
