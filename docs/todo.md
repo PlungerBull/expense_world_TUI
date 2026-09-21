@@ -20,9 +20,14 @@ Rules, unchanged from the backlog this file replaces
 TUI are both feature-complete against the engine; **1250 unit tests green
 (2026-09-19)**, contract suite **24/24** against the disposable engine (2026-09-19 — the
 first run since 2026-08-25, and the first ever for the reconciliation, reports and
-dashboard modules added the same day). Exactly one item below is a genuine defect — the macOS field
-keys, under **Bugs**; the rest are ergonomics, engine-side asks, and one cosmetic
-follow-up.
+dashboard modules added the same day).
+
+**Since 2026-09-20 the file has two halves.** *Now* is the sequenced queue: four
+items the engine's 2026-09-20 changes put in front of this repo, in dependency
+order, tackled one at a time. Everything under it is the standing kind-grouped
+list — one genuine defect (the macOS field keys, under **Bugs**), the rest
+ergonomics and one cosmetic follow-up. **There are no open engine-side asks:**
+both closed on 2026-09-13 and 2026-09-20 respectively.
 
 **The Inbox was deleted 2026-09-12** — engine (`sql/038`) and CLI in one day: a ledger row
 needs an account, an amount and a date; a missing category files it under `@Pendiente`,
@@ -40,6 +45,137 @@ screens in [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-worl
 it. Its why lives in [decisions.md](decisions.md) (four entries) and its design in
 [mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html);
 per the first rule above, the item itself is gone — git history is the archive.
+
+---
+
+## Now — four items, in order (set 2026-09-20)
+
+Three things landed in the engine on 2026-09-20: `GET /categories/{id}/hashtags`,
+sealed periods (its E1–E4), and the engine half of the file-import plan. What
+they need from this repo is below, **in the order to tackle it** — the order is
+a dependency order, not a preference, and each item is about a session's worth.
+
+The owner's own steps interleave, and one of them is absolute
+([engine plan §9](../../expense_world_engine/docs/file-import-plan.md)):
+**import first, reconcile second.** A reconciliation created before its rows
+exist seals the window against them and the import is then refused.
+
+```
+item 1 ──▶ owner: update the sheet, re-import, create + close the 2026 periods
+              │
+item 2 ───────┴──▶ item 3 ──▶ item 4 ──▶ first real bank import
+```
+
+### 1. Sealed periods reach the user
+
+**Why first:** it blocks the owner's next real task — ≈24 reconciliations
+created and closed by hand for 2026, every one of them able to hit a refusal
+the CLI currently renders as a bare validation error.
+
+Four surfaces, all flat text plus one TUI toast — **no UI gate**:
+
+- **The gap report is dropped on the floor today.** `complete` now carries
+  `warnings: list[str]` (always present, empty when clean): a stretch of days
+  between the previously closed period on that account and this one that no
+  period covers. Render it the way `transactions restore` renders its own —
+  `_print_warnings` in [transactions_cmd.py](../expense/commands/transactions_cmd.py)
+  is the one copy, so share it rather than write a second. **The TUI cannot
+  show it yet at all:** `EngineWriteMixin.run_write`
+  ([_base.py](../expense/tui/screens/_base.py)) throws the response body away,
+  so it has to start handing it to `on_success`. A warning matters more than
+  most: a row inside an uncovered stretch moves no period's arithmetic, so
+  nothing else in the system would ever mention it.
+- **Two new 422s on `complete`.** Both dates are now required, and no
+  transaction dated inside the period may be unassigned — the second carries
+  the count in `fields.transactions`. Surface that count and point at the
+  query that lists them, which already exists:
+  `expense transactions list --account-id <id> --unreconciled --date-from <ds> --date-to <de>`.
+  The existing `_COMPLETE_EMPTY_HINT` matches on `"no "`/`"empty"`/`"at least"`
+  and so does **not** fire on the new wording — correct, but it leaves the new
+  case with no hint at all.
+- **Two new 422s on `create`/`update`:** `date_start ≤ date_end`, and no two
+  periods on one account may share a calendar day (the clashing period's name
+  and days are in the message).
+- **The wall, named.** Six routes now 422 for a row dated inside a completed
+  period. `expense import bank` and the LOG bar can both provoke it, and both
+  should say which period refused the row. `batch_write`'s singleton retry
+  already names the row and the engine's message names the period, so this is
+  mostly a matter of not losing it — the real fix is item 2's pre-filter.
+
+### 2. The import rules that need no screen — C2–C5
+
+**Why second:** it is everything in the import plan that has no mockup gate, and
+it is what the first real bank import rests on. Full design, with the rejected
+alternatives, in [file-import-plan.md](file-import-plan.md) §4–§7.
+
+- **C2 — the parser keeps the bank's string verbatim**, whitespace collapsed:
+  `title` = the descriptor as sent, `description` no longer written at all
+  (it is the notes field — 701 live rows have one). Deletes `clean_title()`
+  and `MERCHANT_WIDTH`.
+- **C3 — matching rule 4 is deleted** (`±1 day, amount only`). It is the only
+  rule that can make the importer *miss* a real row, and the owner's rule is
+  that more rows beats fewer: a duplicate surfaces at reconciliation, a row
+  that never arrived is invisible.
+- **C4 — the two floors.** Permanent 2026-01-01, a constant. The one-time
+  floor over the hand-typed stretch is a **`--since YYYY-MM-DD` flag**, decided
+  2026-09-20 — see below.
+- **C5 — rows inside a completed period are shown, not hidden:** dropped
+  before matching, and printed as their own visible skipped block. `GET
+  /reconciliations` has **no status filter**, so the importer filters
+  client-side on `status == 2 and date_start and date_end and not deleted_at`.
+
+> **The one-time floor is a flag, not a constant** *(owner decision
+> 2026-09-20, superseding the "hard-coded, deleted later" shape this file's
+> §6 implies)*. The ledger's hand-typed stretch ends wherever the spreadsheet
+> ends, and **the owner is going to update the spreadsheet before the first
+> bank import** — so that boundary date is not knowable while this is being
+> written, and a constant would be wrong by construction. The floor is typed
+> once, at the moment it is known.
+>
+> What pays for the flag's failure mode (forgetting it, and writing a second
+> copy of every hand-typed row in the open month): the importer can **see** the
+> risk. Ledger rows in the file's date range that carry no `operation_code` are
+> the spreadsheet era by definition, and the preview says so loudly rather than
+> matching bank wording against the owner's and declaring it all new.
+
+### 3. The tag picker, and the endpoint's flat surface
+
+**Why third:** independent of everything above — pure ergonomics, and the ask it
+closes has been open since 2026-08-29.
+
+- **`expense categories hashtags <id>`** — read, `--json`, paginated. Not
+  optional garnish: every engine endpoint gets a CLI surface, which is what
+  this repo is for (CLAUDE.md, "Product scope and role").
+- **The picker shows only the tags the named category has been used with**, and
+  `##` opens the full list — mockup pane **E**, picked by the owner
+  2026-09-20 ("make them invisible"), over pane **D** which both the mockup and
+  the engine coder recommended. The objection to E was that it makes the first
+  cross-category use of a tag unreachable; `##` is what answers it — such a tag
+  is one keystroke away, not gone. With no category in the line there is
+  nothing to filter by, so the full list stands.
+  **[UI]** — re-show the mockup before any code, per CLAUDE.md.
+- **Never cache it as a mapping.** There is no category→hashtag link in the
+  schema and deliberately never will be; the answer is derived from the ledger
+  on every read and changes the moment something is tagged. The tail of the
+  list still comes from `GET /hashtags` via `load_hashtag_name_map` — the merge
+  is this repo's, and `uses` is a transaction count, safe to show as one.
+
+### 4. The TUI import door — C1
+
+**Why last:** the largest remaining piece, and the only one with no mockup drawn
+at all. Design in [file-import-plan.md](file-import-plan.md) §3.
+
+- Dragging or pasting an `.xlsx` path into the LOG bar switches it from
+  quick-add to import. Emulators differ — Terminal.app backslash-escapes,
+  VS Code quotes — and several files arrive space-separated. Typing the path
+  must do the same thing, which keeps the decision a pure function.
+- **The account list replaces the filename memory:** ask every time, delete the
+  `bank_files` config key. `Sueldo Soles (1).xlsx` is what a re-download
+  produces, so the memory grows forever and prompts anyway.
+- **[UI]** — needs a mockup, and it is the one place the layout is undecided.
+- **Open question for the owner, carried from §3:** the bank's product names do
+  not match the account names (`VISA Infinite Sapphire` vs `BCP Signature`).
+  Is the Signature account the Infinite card renamed, or is a card missing?
 
 ---
 
@@ -117,25 +253,6 @@ per the first rule above, the item itself is gone — git history is the archive
    buried a real diff under noise. `EditFormScreen` / `edit_form.py` is the obvious
    target. If the module is renamed, [tui.md](tui.md) links to it and
    `test_relative_doc_links_resolve` will catch a miss.
-
-## Engine-side asks — raise with the engine coder, do not fix here
-
-*(This repo never writes the engine repo. These are contract gaps found by using the
-engine, which is what this CLI exists to do — see CLAUDE.md "Product scope and role".)*
-
-8. **No way to ask which hashtags a category has been used with.** *(user, 2026-08-29:
-   "can we only suggest hashtags that exist on the category if a category exists?")* A
-   hashtag is a flat global label joined only to transactions — there is no category
-   link on it and no endpoint that answers this. The only source is the user's own
-   history, and reading all of it is the engine's job: a client would have to page
-   thousands of transactions and guess from a window of them, and web and iOS would each
-   have to guess the same way. **The ask:** something like
-   `GET /categories/{id}/hashtags` — the tags that category has been used with,
-   most-used first. Small, read-only, and every client gets it for free. What the CLI
-   would do with it is already drawn, both shapes (ranked, so every tag stays reachable;
-   or filtered, with a way out) — send the ask with
-   [mockups/expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
-   attached. Nothing is buildable here until the endpoint exists.
 
 ---
 
