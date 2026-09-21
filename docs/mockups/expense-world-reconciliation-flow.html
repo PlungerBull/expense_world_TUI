@@ -94,14 +94,14 @@
      has something to tell you.</p>
 
   <div class="toggles">
-    <div class="tg"><span class="cap">§2 · before completing</span>
-      <button data-t="confirm" data-v="A">A silent</button><button data-t="confirm" data-v="B" class="on">B warn</button><button data-t="confirm" data-v="C">C name + fix</button><button class="jump" data-jump="confirm">show me →</button></div>
+    <div class="tg"><span class="cap">§2 · the plain confirm · <i>no cards</i></span>
+      <button data-t="plain" data-v="P" class="on">P full screen</button><button data-t="plain" data-v="Q">Q inline, no navigation</button><button class="jump" data-jump="plainconfirm">show me →</button></div>
     <div class="tg"><span class="cap">§3 · after a refusal</span>
       <button data-t="refusal" data-v="D" class="on">D banner + flags</button><button data-t="refusal" data-v="E">E results screen</button><button class="jump" data-jump="refused">show me →</button></div>
     <div class="tg"><span class="cap">§4 · bulk results</span>
       <button data-t="result" data-v="F" class="on">F full screen</button><button data-t="result" data-v="G">G modal</button><button class="jump" data-jump="bulk">show me →</button></div>
     <div class="tg"><span class="cap">§5 · list panels · where the title and page status go</span>
-      <button data-t="panel" data-v="box">today · boxed</button><button data-t="panel" data-v="L" class="on">L labelled rule</button><button data-t="panel" data-v="M">M heading over a rule</button><button data-t="panel" data-v="K">K rule only, no label</button><button class="jump" data-jump="detail">show me →</button></div>
+      <button data-t="panel" data-v="box">today · boxed</button><button data-t="panel" data-v="L">L labelled rule</button><button data-t="panel" data-v="M">M heading over a rule</button><button data-t="panel" data-v="K" class="on">K rule only, no label</button><button class="jump" data-jump="detail">show me →</button></div>
   </div>
   <p class="lede" style="margin-top:9px"><b>How to compare:</b> press <b>show me →</b> to jump
      straight to the screen a row governs. Once you are on it, clicking A / B / C (or D / E, or
@@ -193,7 +193,7 @@ let S;
 function reset(){
   S = { screen:'home', rows:ROWS.map(r=>({...r})), cur:0, status:'draft',
         flagged:false, trace:['Home'],
-        v:{confirm:'B', refusal:'D', result:'F', panel:'L'} , form:{step:0} };
+        v:{confirm:'C', refusal:'E', result:'F', panel:'K', plain:'P'} , form:{step:0} };
 }
 reset();
 // keep toggles across a restart
@@ -214,7 +214,7 @@ function rhead(){
   return '<span class="b">August 2026</span>  <span class="d">·</span>  BCP PEN  <span class="d">·</span>  <span class="d">2026-07-24 → 2026-08-25</span>\n'
        + '<span class="d">begin</span> 12,480.00    <span class="d">end</span> 9,215.40    <span class="d">diff</span> <span class="n">-12.50</span>    <span class="d">status</span> '+st+'\n';
 }
-function panel(title, status, lines, w){
+function panel(title, status, lines, w, essential){
   w = w || BW;
   const m = S.v.panel;
   if(m==='box'){
@@ -238,6 +238,10 @@ function panel(title, status, lines, w){
     o += '  <span class="a b">'+title+'</span>'+' '.repeat(gap)+(status?'<span class="d">'+status+'</span>':'')+'\n';
     o += '  <span class="d">'+'─'.repeat(w+2)+'</span>\n';
   } else {
+    // K — the label goes, UNLESS it is information rather than chrome: the
+    // browse's lower caption is the only thing tying those batches to the
+    // account above, so under K it becomes a content line, not a border.
+    if(essential) o += '  <span class="d">'+title+'</span>\n';
     o += '  <span class="d">'+'─'.repeat(w+2)+'</span>\n';
   }
   lines.forEach(l=>{ o+=' '+l+'\n'; });
@@ -307,11 +311,11 @@ browseA: ()=>({
       '  <span class="d">'+pad('BCP USD',26)+pad('USD',6)+padL('1,204.11',14)+'</span>      ',
       '  <span class="d">'+pad('BCP Signature PEN',26)+pad('PEN',6)+padL('-3,880.05',14)+'</span>      ',
     ])
-  + panel('Reconciliations · BCP PEN   ·   by statement start date', null, [
+  + panel('BCP PEN  ·  by statement start date', null, [
       '  '+pad('Name',16)+pad('Period',26)+padL('Diff',10)+'  '+pad('Status',12)+'   ',
       '  <span class="d">'+pad('June 2026',16)+pad('2026-05-26 → 06-25',26)+padL('0.00',10)+'  '+pad('completed',12)+'</span>   ',
       '  '+pad('August 2026',16)+pad('2026-07-24 → 08-25',26)+'<span class="n">'+padL('-12.50',10)+'</span>  <span class="w">'+pad('draft',12)+'</span>   ',
-    ])
+    ], null, true)
   +'\n<span class="d">  ↑↓ account · ⏎ into the batches · n new batch · esc back</span>\n',
   keys:[{k:'⏎',l:'into the batch list',to:'browseB'},{k:'n',l:'new batch',to:'formName'}],
   tag:'today', name:'Browse · accounts', sub:'unchanged',
@@ -333,9 +337,8 @@ browseB: ()=>({
 formName: ()=>({
   crumb: crumb(['Reconciliations','BCP PEN'],'New'),
   body:
-   '\n<span class="d">╭'+'─'.repeat(W-2)+'╮</span>\n'
-  +'<span class="d">│</span> <span class="a">NAME    </span> September 2026<span class="cur">█</span>'+' '.repeat(W-27)+'<span class="d">│</span>\n'
-  +'<span class="d">╰'+'─'.repeat(W-2)+'╯</span>\n'
+   '\n  <span class="a b">NAME</span>   September 2026<span class="cur">█</span>\n'
+  +'  <span class="d">'+'─'.repeat(W-2)+'</span>\n'
   +'  <span class="d">e.g. “April 2026” · enter to save</span>\n\n'
   +'  <span class="b">name</span>           September 2026\n'
   +'  <span class="d">account</span>        BCP PEN\n'
@@ -351,9 +354,8 @@ formName: ()=>({
 formDates: ()=>({
   crumb: crumb(['Reconciliations','BCP PEN'],'New'),
   body:
-   '\n<span class="d">╭'+'─'.repeat(W-2)+'╮</span>\n'
-  +'<span class="d">│</span> <span class="a">DATE END</span> 2026-08-20<span class="cur">█</span>'+' '.repeat(W-23)+'<span class="d">│</span>\n'
-  +'<span class="d">╰'+'─'.repeat(W-2)+'╯</span>\n'
+   '\n  <span class="a b">DATE END</span>   2026-08-20<span class="cur">█</span>\n'
+  +'  <span class="d">'+'─'.repeat(W-2)+'</span>\n'
   +'  <span class="d">YYYY-MM-DD · the statement\'s last day · required</span>\n\n'
   +'  <span class="d">name</span>           September 2026\n'
   +'  <span class="d">account</span>        BCP PEN\n'
@@ -369,9 +371,8 @@ formDates: ()=>({
 formRefused: ()=>({
   crumb: crumb(['Reconciliations','BCP PEN'],'New'),
   body:
-   '\n<span class="d">╭'+'─'.repeat(W-2)+'╮</span>\n'
-  +'<span class="d">│</span> <span class="a">DATE END</span> 2026-08-20'+' '.repeat(W-22)+'<span class="d">│</span>\n'
-  +'<span class="d">╰'+'─'.repeat(W-2)+'╯</span>\n\n'
+   '\n  <span class="a b">DATE END</span>   2026-08-20\n'
+  +'  <span class="d">'+'─'.repeat(W-2)+'</span>\n\n'
   +'  <span class="e">✗ Not created.</span>\n'
   +'  <span class="d">date_start — these days already belong to</span> <span class="w">August 2026</span>\n'
   +'  <span class="d">             (2026-07-24 → 2026-08-25) on BCP PEN.</span>\n'
@@ -411,50 +412,39 @@ detail: ()=>{
 },
 
 confirm: ()=>{
-  const v = S.v.confirm, u = unticked();
-  if(v==='A'){
-    return { crumb:crumb(['Reconcile','BCP PEN'],'August 2026'),
-      body:'\n'+rhead()+'\n'+modal('Complete reconciliation?',[
-        'Locks amount/account/title/date on the',
-        ticked()+' assigned transaction(s).','',
-        '                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>'],62),
-      keys:[{k:'⏎',l:'confirm',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
-      tag:'today', name:'Confirm · A', sub:'today, unchanged',
-      note:'<p>Says nothing about the '+u+' unticked rows. You find out after you commit.</p>' };
+  const u = unticked(), rows = S.rows.filter(r=>!r.k);
+  if(u){   // settled: pick C, a full screen listing what blocks the close
+    return { crumb:crumb(['Reconcile','August 2026'],'Not ready'),
+      body:'\n  <span class="w">'+u+' rows inside this period are in no batch.</span>\n'
+        +'  <span class="d">Completing will be refused while they are.</span>\n\n'
+        +'  <span class="d">'+pad('date',14)+pad('title',34)+padL('amount',10)+'   category</span>\n'
+        +'  <span class="d">'+'─'.repeat(74)+'</span>\n'
+        + rows.map(r=>'  '+pad(r.d,14)+pad(r.t,34)+'<span class="n">'+padL(r.a,10)+'</span>   <span class="d">@Pendiente</span>').join('\n')
+        +'\n\n  <span class="d">⏎ tick all '+u+' and complete      esc back to the checklist</span>\n',
+      keys:[{k:'⏎',l:'tick all '+u+' and complete',act:'tickall'},{k:'esc',l:'back to the checklist',to:'detail'}],
+      tag:'pick', name:'Not ready', sub:'settled 2026-09-20 (pick C)',
+      note:'<p>Same screen as the refusal — C reaches it before the write, E after. One screen, two doors.</p><p style="color:var(--warn)">It assigns rows you have not individually reviewed, reversing the 2026-09-19 non-goal. Recorded as a deliberate reversal.</p>' };
   }
-  if(v==='B'){
+  if(S.v.plain==='Q'){
     return { crumb:crumb(['Reconcile','BCP PEN'],'August 2026'),
-      body:'\n'+rhead()+'\n'+modal('Complete reconciliation?',[
-        'Locks amount/account/title/date on the',
-        ticked()+' ticked transactions.','']
-        .concat(u? ['<span class="w">⚠ '+u+' rows in this period are not ticked.</span>',
-                    '<span class="d">  Completing will be refused while they are.</span>','']:[])
-        .concat(['                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>']),62),
-      keys:[{k:'⏎',l:'confirm',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
-      tag:'new', name:'Confirm · B', sub:u?'warns about '+u+' rows':'clean — no warning',
-      note: u? '<p>One line. It does not block you and does not act for you. If you tick the rows and come back, <b>the line disappears</b> — try it.</p>'
-             : '<p style="color:var(--pos)">Nothing unticked, so the warning is gone. That is the whole behaviour of B.</p>' };
+      body:'\n'+rhead()+'\n'+checklist(false)
+        +'\n  <span class="w">Complete August 2026?</span> <span class="d">Locks '+ticked()+' rows · seals 07-24 → 08-25</span>   <span class="a">⏎ yes</span>   <span class="d">esc no</span>\n',
+      keys:[{k:'⏎',l:'yes, complete',act:'complete'},{k:'esc',l:'no',to:'detail'}],
+      tag:'pick', name:'Plain confirm · Q', sub:'inline — you never leave',
+      note:'<p>The question replaces the hint line on the screen you are already on. No card, no navigation, and the checklist stays visible while you answer.</p><p>The cost: one line, so it can only say the short version.</p>' };
   }
-  const rows = S.rows.filter(r=>!r.k);
-  if(!u){
-    return { crumb:crumb(['Reconcile','BCP PEN'],'August 2026'),
-      body:'\n'+rhead()+'\n'+modal('Complete reconciliation?',
-        ['Locks amount/account/title/date on the', ticked()+' ticked transactions.','',
-         '                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>'],62),
-      keys:[{k:'\u23ce',l:'confirm',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
-      tag:'today', name:'Confirm \u00b7 C, nothing blocking', sub:'a yes/no stays a card',
-      note:'<p>Nothing unticked, so there is no content to show. This is a <b>question</b>, and a card is what a question is for \u2014 the 2026-09-20 full-screen rule governs surfaces that carry <i>rows</i>.</p><p>Untick something and press <code>c</code> again to see the other half.</p>' };
-  }
-  return { crumb:crumb(['Reconcile','August 2026'],'Not ready'),
-    body:'\n  <span class="w">'+u+' rows inside this period are in no batch.</span>\n'
-      +'  <span class="d">Completing will be refused while they are.</span>\n\n'
-      +'  <span class="d">'+pad('date',14)+pad('title',34)+padL('amount',10)+'   category</span>\n'
-      +'  <span class="d">'+'\u2500'.repeat(72)+'</span>\n'
-      + rows.map(r=>'  '+pad(r.d,14)+pad(r.t,34)+'<span class="n">'+padL(r.a,10)+'</span>   <span class="d">@Pendiente</span>').join('\n')
-      +'\n\n  <span class="d">\u23ce tick all '+u+' and complete      esc back to the checklist</span>\n',
-    keys:[{k:'\u23ce',l:'tick all '+u+' and complete',act:'tickall'},{k:'esc',l:'back to the checklist',to:'detail'}],
-    tag:'pick', name:'Not ready \u00b7 C', sub:'full screen, per the 2026-09-20 rule',
-    note:'<p>Redrawn 2026-09-20: this was a box, and boxes are out for anything carrying rows.</p><p><b>Notice it is the same screen as E.</b> Same rows, same list \u2014 C reaches it <i>before</i> the write, E <i>after</i> the engine refuses. Picking both means building one screen, entered from two directions.</p><p style="color:var(--warn)">It still assigns rows you have not individually reviewed \u2014 the thing the 2026-09-19 non-goal protected against. Your reversal, recorded.</p>' };
+  return { crumb:crumb(['Reconcile','August 2026'],'Complete?'),
+    body:'\n  <span class="b">Complete August 2026 on BCP PEN?</span>\n\n'
+      +'  <span class="d">Locks amount, account, title, date and the bank\'s operation</span>\n'
+      +'  <span class="d">number on all '+ticked()+' ticked transactions.</span>\n\n'
+      +'  <span class="w">Seals 2026-07-24 → 2026-08-25.</span> <span class="d">No transaction dated inside</span>\n'
+      +'  <span class="d">that window can be written on BCP PEN afterwards — not by the</span>\n'
+      +'  <span class="d">bank importer, not by the LOG bar, not by hand.</span>\n\n'
+      +'  <span class="d">The way back is  u revert → edit → c complete again.</span>\n\n'
+      +'  <span class="d">⏎ complete      esc cancel</span>\n',
+    keys:[{k:'⏎',l:'complete',act:'complete'},{k:'esc',l:'cancel',to:'detail'}],
+    tag:'pick', name:'Plain confirm · P', sub:'full screen — room to say what sealing is',
+    note:'<p>A card could never have said the middle paragraph. Sealing is the consequence that actually matters now, and the old box only mentioned the field lock.</p><p>The cost: a screen push for a yes/no.</p>' };
 },
 
 refused: ()=>{
@@ -491,16 +481,18 @@ completed: ()=>{
 },
 
 revertConfirm: ()=>({
-  crumb: crumb(['Reconcile','BCP PEN'],'August 2026'),
-  body:'\n'+rhead()+'\n'+modal('Revert to draft?',[
-    'Unlocks the assigned transactions and this',
-    'batch\'s balances.','',
-    '<span class="d">The window stops sealing: rows dated inside</span>',
-    '<span class="d">it can be written again.</span>','',
-    '                 <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>'],62),
+  crumb: crumb(['Reconcile','August 2026'],'Revert?'),
+  body:'\n  <span class="b">Revert August 2026 to draft?</span>\n\n'
+    +'  <span class="d">Unlocks the '+ticked()+' assigned transactions and this batch\'s</span>\n'
+    +'  <span class="d">balances and dates.</span>\n\n'
+    +'  <span class="w">The window stops sealing.</span> <span class="d">Rows dated inside</span>\n'
+    +'  <span class="d">2026-07-24 → 2026-08-25 can be written on BCP PEN again — which</span>\n'
+    +'  <span class="d">is the point: revert, insert, complete again is the only way</span>\n'
+    +'  <span class="d">into a sealed period.</span>\n\n'
+    +'  <span class="d">⏎ revert      esc cancel</span>\n',
   keys:[{k:'⏎',l:'revert',act:'revert'},{k:'esc',l:'cancel',act:'toCompleted'}],
-  tag:'new', name:'Revert', sub:'one line is new',
-  note:'<p>Revert is the only escape hatch from a sealed window — revert, insert, complete again. Deliberately inconvenient.</p><p>The second line is new: it is worth saying out loud that reverting <b>unseals</b>, because that is now the consequence that matters, not the field unlock.</p>'
+  tag:'new', name:'Revert', sub:'full screen — and one new line',
+  note:'<p>Was a card; now a screen, per the no-cards rule.</p><p>The middle paragraph is new, and it is what earns the screen its space: revert used to mean “unlock the fields”. It now also means <b>this window stops sealing</b> — the consequence that actually matters, which a box had no room to say.</p>'
 }),
 
 bulk: ()=>{
@@ -594,6 +586,7 @@ document.getElementById('reset').onclick=()=>{ const v=keepV(); reset(); S.v=v; 
 document.querySelectorAll('.tg button.jump').forEach(b=>{
   b.onclick=()=>{
     const target=b.dataset.jump;
+    if(target==='plainconfirm'){ S.rows.forEach(r=>r.k=1); S.status='draft'; S.flagged=false; go('confirm'); return; }
     if(target==='confirm'||target==='refused'){
       // three rows unticked is what gives B and C something to warn about,
       // and what makes `c` actually refuse

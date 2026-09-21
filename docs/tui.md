@@ -181,20 +181,46 @@ builder they share with Home, `reports_cmd.build_range_grid`, is covered by
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").
 
-**New surfaces are full screens, not modals** *(owner rule, 2026-09-20)*. Anything
-carrying **content** — a list of rows, a set of reasons, a choice you need context to
-make — is a pushed `Screen`, never a card floating over the one behind it. Two reasons,
-both about a terminal rather than about taste: a modal costs the width its border and
-inset take, and that is exactly the width the explaining column needs (the refusal
-screen's *which period refused this* was the case that produced the rule — boxed, it
-shrinks to three letters); and it hides the screen that supplies the context for the
-question it is asking.
+**No cards. No vertical lines. Horizontal rules divide sections.** *(Owner rule,
+2026-09-20 — stated twice that day, each time wider than the last, and this is the
+settled form.)*
 
-The modals that already ship stay: `ConfirmModal`'s plain yes/no, `PickerModal`'s
-single-field pick, `HelpModal`'s `?` card, `SnapshotModal`. None of them lists rows —
-they are a *question*, not content, and a question is what a card is for. The rule
-governs what is built from 2026-09-20 onward, so a new modal now needs a reason rather
-than a precedent.
+- **Nothing is drawn inside a box.** Not a modal, not a list panel, not the input
+  bar — a box needs vertical edges, and vertical edges are what the rule bars.
+  This includes plain yes/no questions: `ConfirmModal` is not an exception, it is
+  the case that produced the final wording.
+- **Horizontal rules are the divider**, and the right one. The header already uses
+  a `border-bottom` for exactly this, so the app had the pattern before it had the
+  rule.
+- **A question that was a card becomes a screen**, and gains from it: the complete
+  and revert confirmations now have room to say *what sealing is*, which a 72-column
+  card never had.
+
+Two reasons, both about a terminal rather than taste. A vertical edge costs the
+width its border and padding take, on both sides, and that is exactly the width the
+explaining column needs — the refusal screen's *which period refused this* shrinks
+to three letters once boxed. And a card hides the screen that supplies the context
+for the question it is asking.
+
+**What the list border was carrying.** The round border on every `CursorList` /
+`CheckList` (picked 2026-07-11) absorbed two things that used to be their own lines:
+the list's **title** on the top edge and the **page status** on the bottom
+(`rows 21-40 of 133 · page 2 of 7`). Removing it is therefore a rehoming, not a
+deletion. The treatment is drawn in
+[expense-world-reconciliation-flow.html](mockups/expense-world-reconciliation-flow.html)
+§5 (toggle **K**): a plain rule opens the section, the page status sits dim beneath
+the rows, and **the title goes** — the breadcrumb already names the screen.
+
+⚠️ **With one exception, and it is a real distinction rather than a let-out.** A
+panel title that is *chrome* disappears; one that is *information* becomes a line of
+content above the rule. The case that proves it is the Reconciliations browse, which
+stacks two lists: its lower caption (`BCP PEN · by statement start date`) is the only
+thing tying those batches to the account highlighted above, and dropping it leaves
+two unlabelled tables on top of each other. Ask "would the screen still be
+unambiguous without this?" — not "is this a title?".
+
+**Home was already borderless**, so until this lands the app has two styles; this
+converges them.
 
 ---
 

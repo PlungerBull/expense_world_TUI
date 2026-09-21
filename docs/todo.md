@@ -151,6 +151,16 @@ ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first re
 
 ## Cosmetic — safe to leave
 
+0. **Four modals still draw a box** — `PickerModal` (the bulk `c`/`b`/`h` picks),
+   `HelpModal` (`?`), `PromptModal` (the engine-URL edit) and `DiscardStagedModal`
+   (the LOG bar's unsaved-rows guard). The no-cards rule was set 2026-09-20
+   ([tui.md](tui.md) §2) and ask 1 converts only what it touches —
+   `ConfirmModal` (one caller) and the reconciliation screens. These four are
+   reachable, correct and boxed. **[UI]** — `PickerModal` is the interesting one:
+   it lists rows, so it is the clearest violation and the one whose replacement
+   needs drawing; the other three are short questions that convert mechanically.
+
+
 7. **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Its create
    mode was retired 2026-08-25 when `+` moved to the LOG bar
    ([mockups/expense-world-two-doors.html](mockups/expense-world-two-doors.html)); the
