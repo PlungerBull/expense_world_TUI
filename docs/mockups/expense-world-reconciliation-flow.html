@@ -29,6 +29,8 @@
              border:1px solid #2a2a33;border-radius:6px;padding:4px 10px;margin-right:5px;cursor:pointer}
   .tg button:hover{color:var(--text);border-color:#3d3d49}
   .tg button.on{background:var(--text);color:#0b0b0e;border-color:var(--text);font-weight:700}
+  .tg button.jump{margin-left:10px;border-style:dashed;border-color:#2f4256;color:var(--accent)}
+  .tg button.jump:hover{background:#12202b;border-color:var(--accent);border-style:solid}
 
   .stage{display:grid;grid-template-columns:1fr 330px;gap:18px;margin-top:18px;align-items:start}
   @media (max-width:1000px){.stage{grid-template-columns:1fr}}
@@ -93,12 +95,16 @@
 
   <div class="toggles">
     <div class="tg"><span class="cap">§2 · before completing</span>
-      <button data-t="confirm" data-v="A">A silent</button><button data-t="confirm" data-v="B" class="on">B warn</button><button data-t="confirm" data-v="C">C name + fix</button></div>
+      <button data-t="confirm" data-v="A">A silent</button><button data-t="confirm" data-v="B" class="on">B warn</button><button data-t="confirm" data-v="C">C name + fix</button><button class="jump" data-jump="confirm">show me →</button></div>
     <div class="tg"><span class="cap">§3 · after a refusal</span>
-      <button data-t="refusal" data-v="D" class="on">D banner + flags</button><button data-t="refusal" data-v="E">E results screen</button></div>
+      <button data-t="refusal" data-v="D" class="on">D banner + flags</button><button data-t="refusal" data-v="E">E results screen</button><button class="jump" data-jump="refused">show me →</button></div>
     <div class="tg"><span class="cap">§4 · bulk results</span>
-      <button data-t="result" data-v="F" class="on">F full screen</button><button data-t="result" data-v="G">G modal</button></div>
+      <button data-t="result" data-v="F" class="on">F full screen</button><button data-t="result" data-v="G">G modal</button><button class="jump" data-jump="bulk">show me →</button></div>
   </div>
+  <p class="lede" style="margin-top:9px"><b>How to compare:</b> press <b>show me →</b> to jump
+     straight to the screen a row governs. Once you are on it, clicking A / B / C (or D / E, or
+     F / G) <b>changes it under you</b> — no need to walk back. The jump also sets the scenario up
+     so there is something to warn about.</p>
 
   <div class="stage">
     <div>
@@ -520,6 +526,19 @@ document.querySelectorAll('.tg button').forEach(b=>{
   };
 });
 document.getElementById('reset').onclick=()=>{ const v=keepV(); reset(); S.v=v; render(); };
+
+// "show me" — set the scenario up so the screen has something to say, then jump
+document.querySelectorAll('.tg button.jump').forEach(b=>{
+  b.onclick=()=>{
+    const target=b.dataset.jump;
+    if(target==='confirm'||target==='refused'){
+      // three rows unticked is what gives B and C something to warn about,
+      // and what makes `c` actually refuse
+      S.rows=ROWS.map(r=>({...r})); S.status='draft'; S.flagged=false; S.cur=2;
+    }
+    go(target);
+  };
+});
 
 // a side entry to the bulk screen, since it is reached from the ledger
 const extra=document.createElement('button');
