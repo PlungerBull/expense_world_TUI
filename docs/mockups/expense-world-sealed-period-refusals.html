@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sealed periods — what a refusal looks like</title>
+<style>
+  :root{
+    --page:#050506; --pad:#000; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68;
+    --dimmer:#3c3f47; --accent:#7fa6d6; --pos:#7fbf8f; --neg:#cf8d8d; --warn:#d6b97f;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 20px 90px;font-family:var(--mono);color:var(--text);
+       -webkit-font-smoothing:antialiased}
+  .head{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:82ch}
+  .head b{color:var(--text)}
+  .chg{width:min(1080px,100%);border:1px solid #23232a;border-radius:10px;padding:14px 18px;margin-top:14px}
+  .chg h2{margin:0 0 8px;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .chg ul{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.75}
+  .chg b{color:var(--text)} .chg code{color:var(--text);font-size:12px}
+  .sec{width:min(1080px,100%);margin-top:46px;border-top:1px solid #23232a;padding-top:22px}
+  .sec h2{margin:0 0 10px;font-size:13px;letter-spacing:.08em;color:var(--text);font-weight:700}
+  .sec p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:86ch}
+  .sec p b{color:var(--text)} .sec code{color:var(--text);font-size:12px}
+  .pane{width:min(1080px,100%);margin-top:28px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl b{color:var(--text)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:86ch}
+  .blurb b{color:var(--text)} .blurb i{color:var(--muted)} .blurb code{color:var(--text);font-size:12px}
+  .term{border:1px solid #23232a;border-radius:12px;overflow:hidden;
+        box-shadow:0 22px 56px -34px #000;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#000}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:14px 18px 18px}
+  pre.scr{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;
+          color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700;color:#fff} .a{color:var(--accent)}
+  .n{color:var(--neg)} .p{color:var(--pos)} .e{color:var(--neg)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:#0b0b0e}
+  .qs{margin-top:16px}
+  .q{border-top:1px solid #1c1c22;padding:14px 2px}
+  .qq{margin:0 0 6px;color:var(--text);font-size:13.5px}
+  .qa{margin:0;color:var(--muted);font-size:13px;line-height:1.7;max-width:88ch}
+  .qa b{color:var(--text)} .qa code{color:var(--text);font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Sealed periods — what a refusal looks like</h1>
+  <p>From 2026-09-20 the engine <b>refuses</b> writes it used to accept: a row dated inside a
+     completed reconciliation, and a <code>complete</code> over a period that still holds an
+     unticked row. Those refusals have to land somewhere a person can act on. Today every one
+     of them is a <b>toast that disappears</b>.</p>
+  <p>Three sketches, three separate picks: <b>§2</b> what the confirm box says <i>before</i> you
+     complete, <b>§3</b> what you see <i>after</i> the engine refuses, and <b>§4</b> the results
+     screen for a bulk operation, which you have already said yes to in principle — only its
+     layout is open.</p>
+</div>
+
+<div class="chg">
+  <h2>One fact that makes §2 nearly free</h2>
+  <ul>
+    <li>The draft screen <b>already fetches and lists the account's unticked rows inside the
+        period</b> — they are the unchecked <code>[ ]</code> lines in the checklist. So the rows
+        that will refuse the close are already on screen and already counted.</li>
+    <li>That means a warning costs one <code>len()</code>, not a round trip. It also means it can
+        go <b>stale</b> if something else writes a row while the screen sits open — the engine
+        stays the authority either way.</li>
+  </ul>
+</div>
+
+<!-- ============================ 1 ============================ -->
+<div class="sec">
+  <h2>1 · Today — the refusal exists for two seconds</h2>
+  <p>You press <code>c</code>, the engine refuses, and a toast slides in over the bottom-right
+     of the screen and then goes away. Nothing names the rows, and nothing survives long enough
+     to act on. The same shape covers all three refusal sites.</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>Today</b> <span>· the reconciliation screen after a refused complete</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Reconcile <span class="d">›</span> BCP PEN <span class="d">›</span> <span class="b">August 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="b">August 2026</span>  <span class="d">·</span>  BCP PEN  <span class="d">·</span>  <span class="d">2026-07-24 → 2026-08-25</span>
+<span class="d">begin</span> 12,480.00    <span class="d">end</span> 9,215.40    <span class="d">diff</span> <span class="n">-12.50</span>    <span class="d">status</span> <span class="w">draft</span>
+
+<span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+<span class="d">╭─ Transactions ─────────────────────────────────────────────────────────────────────╮</span>
+<span class="d">│</span>      Title                                    Amount          Date                <span class="d">│</span>
+<span class="d">│</span>  <span class="d">─────────────────────────────────────────────────────────────────────────────</span>     <span class="d">│</span>
+<span class="d">│</span>  <span class="p">[x]</span> MAR DE COLAS LIMA PE                  <span class="n">-97.00</span>    2026-07-25                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">Comida · #ALMUERZO</span>                                                        <span class="d">│</span>
+<span class="d">│</span>  <span class="p">[x]</span> TOTTUS AQP PORONGOCHE                 <span class="n">-10.74</span>    2026-07-28                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">Mercado</span>                                                                   <span class="d">│</span>
+<span class="d">│</span>  <span class="d">[ ]</span> EXPERTDENT Miraflores PE             <span class="n">-180.00</span>    2026-08-14                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">@Pendiente</span>                                                                <span class="d">│</span>
+<span class="d">│</span>  <span class="p">[x]</span> PAGO BANCA MOVIL                    <span class="p">1,490.19</span>    2026-08-16                <span class="d">│</span>
+<span class="d">╰────────────────────────────────────────────────────────────────────────────────────╯</span>
+                                        <span class="d">╭──────────────────────────────────────╮</span>
+                                        <span class="d">│</span> <span class="e">Failed</span>                               <span class="d">│</span>
+                                        <span class="d">│</span> <span class="d">3 transaction(s) dated inside this</span>   <span class="d">│</span>
+                                        <span class="d">│</span> <span class="d">period are not assigned to any</span>       <span class="d">│</span>
+                                        <span class="d">│</span> <span class="d">reconciliation. Assign or delete…</span>    <span class="d">│</span>
+                                        <span class="d">╰──────────────────────────────────────╯</span></pre></div></div>
+</section>
+
+<!-- ============================ 2 ============================ -->
+<div class="sec">
+  <h2>2 · Before you press <code>c</code> — what the confirm box says</h2>
+  <p>This is decision <b>D3</b>. The count is free (see the note above), so the question is not
+     cost — it is whether the client should say something the engine is about to say anyway,
+     and how far it should go.</p>
+</div>
+
+<section class="pane">
+<div class="lbl"><b>A</b> <span>· today's confirm, unchanged — let the engine refuse</span></div>
+<p class="blurb">The screen's existing stance for every other error: press the key, find out. Nothing to build, nothing to go stale, and you learn about the three rows one keystroke later than you could have.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">              <span class="d">╭─ Complete reconciliation? ───────────────────────────────╮</span>
+              <span class="d">│</span>                                                          <span class="d">│</span>
+              <span class="d">│</span>  Locks amount/account/title/date on the                  <span class="d">│</span>
+              <span class="d">│</span>  12 assigned transaction(s).                             <span class="d">│</span>
+              <span class="d">│</span>                                                          <span class="d">│</span>
+              <span class="d">│</span>                       <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>       <span class="d">│</span>
+              <span class="d">╰──────────────────────────────────────────────────────────╯</span></pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>B</b> <span>· the same box, plus what will happen</span></div>
+<p class="blurb">One extra line. It does not block you and it does not act for you — it tells you the close is going to be refused and why, at the moment you are deciding. If the count is stale the engine still has the last word.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">              <span class="d">╭─ Complete reconciliation? ───────────────────────────────╮</span>
+              <span class="d">│</span>                                                          <span class="d">│</span>
+              <span class="d">│</span>  Locks amount/account/title/date on the                  <span class="d">│</span>
+              <span class="d">│</span>  12 ticked transactions.                                 <span class="d">│</span>
+              <span class="d">│</span>                                                          <span class="d">│</span>
+              <span class="d">│</span>  <span class="w">⚠ 3 rows in this period are not ticked.</span>                 <span class="d">│</span>
+              <span class="d">│</span>  <span class="d">  Completing will be refused while they are.</span>            <span class="d">│</span>
+              <span class="d">│</span>                                                          <span class="d">│</span>
+              <span class="d">│</span>                       <span class="d">[ Cancel ]</span>      <span class="rev">[ Confirm ]</span>       <span class="d">│</span>
+              <span class="d">╰──────────────────────────────────────────────────────────╯</span></pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>C</b> <span>· names them, and offers the one action that fixes it</span></div>
+<p class="blurb">The box becomes the answer rather than a warning about one. <b>Note this reopens a settled non-goal</b> — “bulk assign everything shown” was declined 2026-09-19 because you are doing the backfill by hand, with the note “revisit if monthly closing proves tedious”. Twenty-four closes is arguably that moment; your call, not mine.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">        <span class="d">╭─ 3 rows in this period are not ticked ─────────────────────────╮</span>
+        <span class="d">│</span>                                                                <span class="d">│</span>
+        <span class="d">│</span>  <span class="d">Inside 2026-07-24 → 2026-08-25, in no batch at all.</span>           <span class="d">│</span>
+        <span class="d">│</span>  <span class="d">Completing will be refused while they are.</span>                    <span class="d">│</span>
+        <span class="d">│</span>                                                                <span class="d">│</span>
+        <span class="d">│</span>    2026-08-14   EXPERTDENT Miraflores PE        <span class="n">-180.00</span>       <span class="d">│</span>
+        <span class="d">│</span>    2026-08-19   DLC*UBER RIDES                   <span class="n">-24.50</span>       <span class="d">│</span>
+        <span class="d">│</span>    2026-08-22   PLAZA VEA SURCO                 <span class="n">-312.80</span>       <span class="d">│</span>
+        <span class="d">│</span>                                                                <span class="d">│</span>
+        <span class="d">│</span>   <span class="rev">[ Tick all 3, then complete ]</span>  <span class="d">[ Just show me ]</span>  <span class="d">[ Cancel ]</span> <span class="d">│</span>
+        <span class="d">╰────────────────────────────────────────────────────────────────╯</span></pre></div></div>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<div class="sec">
+  <h2>3 · After the engine refuses — where the answer lives</h2>
+  <p>This is decision <b>D2</b>, which I first asked as a flat-CLI question and you correctly
+     sent back: in the TUI the answer is not a shell command to copy, it is the rows. Both
+     sketches keep the refusal on screen until you deal with it.</p>
+</div>
+
+<section class="pane">
+<div class="lbl"><b>D</b> <span>· a banner that stays, and the offending rows flagged in place</span></div>
+<p class="blurb">The refusal becomes a line under the header instead of a toast, and the three rows get a <code>!</code> against them in the list you are already looking at. Nothing new opens; you tick them and press <code>c</code> again. The flag clears on the next refresh.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Reconcile <span class="d">›</span> BCP PEN <span class="d">›</span> <span class="b">August 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="b">August 2026</span>  <span class="d">·</span>  BCP PEN  <span class="d">·</span>  <span class="d">2026-07-24 → 2026-08-25</span>
+<span class="d">begin</span> 12,480.00    <span class="d">end</span> 9,215.40    <span class="d">diff</span> <span class="n">-12.50</span>    <span class="d">status</span> <span class="w">draft</span>
+
+<span class="e">⚠ Refused — 3 rows inside this period are in no batch. Flagged below.</span>
+
+<span class="d">╭─ Transactions ─────────────────────────────────────────────────────────────────────╮</span>
+<span class="d">│</span>      Title                                    Amount          Date                <span class="d">│</span>
+<span class="d">│</span>  <span class="d">─────────────────────────────────────────────────────────────────────────────</span>     <span class="d">│</span>
+<span class="d">│</span>  <span class="p">[x]</span> MAR DE COLAS LIMA PE                  <span class="n">-97.00</span>    2026-07-25                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">Comida · #ALMUERZO</span>                                                        <span class="d">│</span>
+<span class="d">│</span> <span class="e">!</span><span class="d">[ ]</span> EXPERTDENT Miraflores PE             <span class="n">-180.00</span>    2026-08-14                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">@Pendiente</span>                                                                <span class="d">│</span>
+<span class="d">│</span> <span class="e">!</span><span class="d">[ ]</span> DLC*UBER RIDES                        <span class="n">-24.50</span>    2026-08-19                <span class="d">│</span>
+<span class="d">│</span>      <span class="d">@Pendiente</span>                                                                <span class="d">│</span>
+<span class="d">│</span> <span class="e">!</span><span class="d">[ ]</span> PLAZA VEA SURCO                      <span class="n">-312.80</span>    2026-08-22                <span class="d">│</span>
+<span class="d">╰────────────────────────────────────────────────────────────────────────────────────╯</span>
+<span class="d">space ticks a row · a ticks every flagged row · c complete · esc back</span></pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>E</b> <span>· the refusal opens the results screen from §4</span></div>
+<p class="blurb">One widget for every refusal in the app: this one, the bulk move, the import. You read it, press <code>⏎</code> to go back with those rows filtered, or <code>esc</code> to drop it. Consistent — at the cost of leaving a screen that already had the rows on it.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Reconcile <span class="d">›</span> August 2026 <span class="d">›</span> <span class="b">Refused</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="e">Not completed.</span>  <span class="d">3 rows inside 2026-07-24 → 2026-08-25 are in no batch.</span>
+
+  <span class="d">date          title                              amount     category</span>
+  <span class="d">────────────────────────────────────────────────────────────────────────</span>
+  2026-08-14    EXPERTDENT Miraflores PE          <span class="n">-180.00</span>     <span class="d">@Pendiente</span>
+  2026-08-19    DLC*UBER RIDES                     <span class="n">-24.50</span>     <span class="d">@Pendiente</span>
+  2026-08-22    PLAZA VEA SURCO                   <span class="n">-312.80</span>     <span class="d">@Pendiente</span>
+
+  <span class="d">⏎ back to the batch with these ticked   esc back, change nothing</span></pre></div></div>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<div class="sec">
+  <h2>4 · The results screen for a bulk operation — layout only</h2>
+  <p>You have picked this in principle: an operation that refuses rows shows them instead of a
+     vanishing toast, appears only when something was refused, and <b>keeps nothing between
+     runs</b> — the last point is what stops it becoming the Inbox again.</p>
+  <p>The case that needs it most is not reconciliation: it is selecting forty rows in Home,
+     pressing <code>b</code> to move them, and having eight refused. Only the layout is open.</p>
+</div>
+
+<section class="pane">
+<div class="lbl"><b>F</b> <span>· a full screen, pushed like any other</span></div>
+<p class="blurb">Room for every refused row with its reason, and the reason can be long — a sealed period names its month and both dates. Reads like the import preview you already know.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> Move to account <span class="d">›</span> <span class="b">Result</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="p">32 of 40 rows moved to BCP USD.</span>
+  <span class="e">8 refused</span> <span class="d">— every one by a completed reconciliation.</span>
+
+  <span class="d">#    date          title                          amount     refused by</span>
+  <span class="d">──────────────────────────────────────────────────────────────────────────────────</span>
+   3   2026-08-14    EXPERTDENT Miraflores PE      <span class="n">-180.00</span>     <span class="w">Aug 2026</span> <span class="d">· 07-24→08-25</span>
+   7   2026-08-19    DLC*UBER RIDES                 <span class="n">-24.50</span>     <span class="w">Aug 2026</span> <span class="d">· 07-24→08-25</span>
+  11   2026-08-22    PLAZA VEA SURCO               <span class="n">-312.80</span>     <span class="w">Aug 2026</span> <span class="d">· 07-24→08-25</span>
+  18   2026-07-30    SODIMAC AREQUIPA              <span class="n">-88.40</span>      <span class="w">Jul 2026</span> <span class="d">· 06-26→07-23</span>
+  22   2026-07-12    REPSOL LA MOLINA             <span class="n">-140.00</span>     <span class="w">Jul 2026</span> <span class="d">· 06-26→07-23</span>
+  <span class="d">  … 3 more</span>
+
+  <span class="d">⏎ open the batch that refused   r retry the 8   esc back to the ledger</span></pre></div></div>
+</section>
+
+<section class="pane">
+<div class="lbl"><b>G</b> <span>· a modal over the list you were working in</span></div>
+<p class="blurb">You never lose your place — the ledger and your selection are still behind it. Costs width, so the reason has to shorten to the month's name alone, and a long list scrolls inside the box.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> <span class="b">Ledger</span>
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">  2026-08-22   PLAZA VEA SURCO              -312.80   BCP PEN    @Pendiente</span>
+    <span class="d">╭─ 8 of 40 refused ──────────────────────────────────────────────╮</span>
+    <span class="d">│</span>                                                                <span class="d">│</span>
+    <span class="d">│</span>  <span class="p">32 moved to BCP USD.</span>  <span class="e">8 refused</span> <span class="d">— all by a closed month.</span>      <span class="d">│</span>
+    <span class="d">│</span>                                                                <span class="d">│</span>
+    <span class="d">│</span>   <span class="d">3</span>   2026-08-14   EXPERTDENT Miraflores    <span class="n">-180.00</span>  <span class="w">Aug</span>    <span class="d">│</span>
+    <span class="d">│</span>   <span class="d">7</span>   2026-08-19   DLC*UBER RIDES            <span class="n">-24.50</span>  <span class="w">Aug</span>    <span class="d">│</span>
+    <span class="d">│</span>  <span class="d">11</span>   2026-08-22   PLAZA VEA SURCO          <span class="n">-312.80</span>  <span class="w">Aug</span>    <span class="d">│</span>
+    <span class="d">│</span>  <span class="d">18</span>   2026-07-30   SODIMAC AREQUIPA          <span class="n">-88.40</span>  <span class="w">Jul</span>    <span class="d">│</span>
+    <span class="d">│</span>  <span class="d">↓ 4 more</span>                                                     <span class="d">│</span>
+    <span class="d">│</span>                                                                <span class="d">│</span>
+    <span class="d">│</span>                          <span class="d">r retry the 8</span>      <span class="rev">esc close</span>         <span class="d">│</span>
+    <span class="d">╰────────────────────────────────────────────────────────────────╯</span>
+<span class="d">  2026-07-12   REPSOL LA MOLINA             -140.00   BCP PEN    Transporte</span></pre></div></div>
+</section>
+
+<!-- ============================ Q ============================ -->
+<section class="pane">
+<div class="lbl"><b>Q</b> <span>· what I need from you</span></div>
+<div class="qs">
+  <div class="q">
+    <p class="qq">1 — before completing: <b>A</b> say nothing, <b>B</b> one warning line, or <b>C</b> name them and offer to tick them?</p>
+    <p class="qa"><b>B</b> is the one I would build. It costs a <code>len()</code>, it cannot mislead you into
+       an action, and it turns the most likely failure of your twenty-four closes into something you
+       see before you commit rather than after. <b>C</b> is genuinely better <i>if</i> you find yourself
+       ticking every listed row anyway — but it reopens a non-goal you settled on 2026-09-19, so it
+       should be a deliberate reversal, not a side effect of this sketch.</p>
+  </div>
+  <div class="q">
+    <p class="qq">2 — after a refusal: <b>D</b> banner plus flags in the list, or <b>E</b> the shared results screen?</p>
+    <p class="qa"><b>D</b>, because this screen is the one place that already holds the rows — sending you
+       to another screen to read three rows you were already looking at is motion for consistency's
+       sake. <b>E</b>'s argument is real but it is about the other two sites, not this one; note that
+       picking <b>B</b> above makes this case rare, since you would have been told first.</p>
+  </div>
+  <div class="q">
+    <p class="qq">3 — the bulk results: <b>F</b> full screen or <b>G</b> modal over the ledger?</p>
+    <p class="qa"><b>F</b>. The reason column is the point of the screen — “which month refused this” — and
+       <b>G</b> has to cut it to three letters to fit. Losing your place matters less than it sounds,
+       because <code>esc</code> comes back to the ledger with the selection intact either way.</p>
+  </div>
+  <div class="q">
+    <p class="qq">4 — does <code>r retry</code> belong on it?</p>
+    <p class="qa">It is drawn on both <b>F</b> and <b>G</b> and I am not sure it should be. Retrying a row a
+       sealed period refused will be refused identically — the only thing that changes the answer is
+       reverting the month. It is useful for a <i>connection</i> failure and misleading for this one.
+       I would drop it and let <code>⏎</code> take you to the batch instead.</p>
+  </div>
+</div>
+</section>
+
+</body>
+</html>
