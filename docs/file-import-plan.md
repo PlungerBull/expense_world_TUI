@@ -13,6 +13,22 @@ deleted — per the "each fact has one home" rule.
 The engine half of the same plan is
 [expense_world_engine/docs/file-import-plan.md](../../expense_world_engine/docs/file-import-plan.md).
 
+**This file is two asks, not one** *(split 2026-09-20, [todo.md](todo.md)
+"Now")*. They are separated by the mockup gate, and by the fact that the first
+is what the first real import rests on while the second is convenience over it:
+
+| Ask | Sections | Gate |
+|---|---|---|
+| **2 of 4** — the import rules that need no screen | §4 C2, §5 C3, §6 C4, §7 C5 | none — build on review |
+| **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet |
+
+§1–§2 and §8–§10 are context for both. **§6's one-time floor is superseded**: it
+is a `--since YYYY-MM-DD` flag, not the constant this file implies — the owner
+decided 2026-09-20, on the grounds that the hand-typed stretch ends wherever the
+spreadsheet ends and the spreadsheet is being updated before the first import, so
+the date is not knowable while the code is being written. The permanent
+2026-01-01 floor is unaffected.
+
 ---
 
 ## 1. The change
