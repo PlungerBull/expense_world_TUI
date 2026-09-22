@@ -93,8 +93,14 @@ ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first re
 **Raising these is encouraged, not a last resort** — CLAUDE.md "Ask the engine to change".
 Each entry says what to ask for, why no client can do it properly today, and **what this
 repo deletes when it lands**, so the workaround does not outlive its reason. Never edited
-here: they are handed to the owner for the engine coder
-([memory: never modify the engine repo]).
+here: they are handed to the owner for the engine coder.
+
+**The hand-over copy, written for the engine coder, is
+[engine-asks-brief.md](engine-asks-brief.md)** (2026-09-22) — evidence, file references,
+acceptance criteria and honest priorities, including two asks it argues *against* and one
+wording bug (`A5`: the gap message names the fences, not the uncovered days, so the dates
+the user reads are both off by one). That file is deleted when these resolve; the entries
+below stay as the queue's own record.
 
 1. **`?sort=date_asc` on `GET /transactions`** (raised 2026-09-22, owner's own
    observation). The list is always `date DESC` (`app/routers/transactions.py`, no
