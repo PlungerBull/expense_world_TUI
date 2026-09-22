@@ -528,11 +528,13 @@ class ReconciliationDetailScreen(
     def compose(self) -> ComposeResult:
         yield Breadcrumb(("Reconciliations", self._record.get("name") or "—"), id="crumb")
         yield Static("", id="rhead")
+        yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
         yield Container(id="rlist")
         yield Static("", id="rhint")
         yield Footer()
 
     def on_mount(self) -> None:
+        self.query_one("#rwarn", Static).display = False
         self._render_header()
         # First fetch waits for the first layout pass: _populate sizes the
         # checklist to #rlist's real height (adaptive rows, 2026-07-13).
@@ -743,7 +745,11 @@ class ReconciliationDetailScreen(
             "Complete reconciliation?",
             f"Locks amount/account/title/date on the {n} assigned transaction(s).",
             lambda: self._status_action(
-                "POST", f"/reconciliations/{self._id}/complete", 2, "completed"
+                "POST",
+                f"/reconciliations/{self._id}/complete",
+                2,
+                "completed",
+                on_response=self._report_gap,
             ),
         )
 
@@ -775,16 +781,47 @@ class ReconciliationDetailScreen(
 
         self.app.push_screen(ConfirmModal(title, message), cb)
 
-    def _status_action(self, method: str, path: str, new_status, verb: str) -> None:
+    def _status_action(self, method: str, path: str, new_status, verb: str, **kw) -> None:
         if self._busy:
             return
         self._busy = True
+        # Any status change invalidates a gap report: it was true of the record
+        # as it stood one write ago (a revert unseals the very window it named).
+        self._show_warnings([])
         self.run_write(
             method,
             path,
             on_success=lambda: self._action_done(new_status, verb),
             on_error=lambda m: self._action_failed(m, verb),
+            **kw,
         )
+
+    def _report_gap(self, body: dict) -> None:
+        """Surface `complete`'s `warnings` — the uncovered-days report (2026-09-20).
+
+        Shown as a line under the header rather than a toast: the whole value of
+        this message is not being missed, and a toast fades in five seconds. It
+        stays for as long as the screen does, survives `r`, and clears on the
+        next status change. Pick B of
+        mockups/expense-world-gap-warning.html (owner, 2026-09-22).
+
+        The text is the engine's own sentence, verbatim — the dates in it are
+        prose, not fields, so this side neither parses them nor goes looking for
+        the rows they name. The review surface for that is
+        `transactions list --unreconciled`.
+        """
+        warnings = body.get("warnings")
+        self._show_warnings(warnings if isinstance(warnings, list) else [])
+
+    def _show_warnings(self, warnings: list) -> None:
+        line = self.query_one("#rwarn", Static)
+        lines = [str(w) for w in warnings if w]
+        if not lines:
+            line.display = False
+            line.update("")
+            return
+        line.update(Text("\n".join(f"⚠ {text}" for text in lines), style=PALETTE.warning))
+        line.display = True
 
     def _action_failed(self, message: str, verb: str) -> None:
         self._busy = False

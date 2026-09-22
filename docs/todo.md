@@ -120,6 +120,25 @@ ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first re
 
 ## Ergonomics
 
+2. **A standing "unreconciled" view in the TUI.** The flat CLI has had this since
+   2026-09-12 — `expense transactions list --unreconciled [--account-id X] [--to DATE]`,
+   the engine's own `?unreconciled=true` — and the TUI has no door to it: `LedgerFilter`
+   ([transactions.py](../expense/tui/screens/transactions.py)) understands a category, an
+   account and a hashtag, and nothing else. **No engine work** — the filter exists.
+   Raised by the owner 2026-09-22 while picking the gap warning's rendering: *"I need a
+   way to review everything that's not reconciled, so I can see if there are rows from
+   many periods ago — those are a problem."* That review is what makes the gap line
+   ([decisions.md](decisions.md) "The gap report is a line under the header") actionable,
+   and it is deliberately **not** inside ask 1: a review needed after every close should
+   not be reachable only *from* a close. **[UI]** — nothing drawn. Open questions for the
+   mockup: one list across all accounts or grouped by account; the sort (the engine
+   returns newest-first and takes no sort parameter, and it is the *oldest* rows that
+   matter here, so an explicit date window may be the honest answer); whether "older than
+   this account's last completed period" earns a marker of its own; and which door opens
+   it — a Home row under LEDGER, or a key on the ledger. Note the list is the whole ledger
+   until the 2026 backfill closes its periods (3553 rows before 2026-06-30 on
+   2026-09-22), so it only becomes a short list once the owner's backfill lands.
+
 3. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands,
    `expense auth <TAB>` shows subcommands. Lowest-effort discoverability win for the
    flat path; no design questions open.

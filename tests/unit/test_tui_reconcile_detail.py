@@ -417,6 +417,96 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
     run_app(scenario)
 
 
+GAP = (
+    "2026-02-25 to 2026-04-01 is not covered by any completed reconciliation on this "
+    "account — the days after 'February 2026' and before this period are sealed by nothing."
+)
+
+
+def _complete_with_warnings(fake_client, warnings: list[str]) -> None:
+    fake_client.write_responses["/reconciliations/r1/complete"] = {
+        **DRAFT,
+        "status": 2,
+        "warnings": warnings,
+    }
+
+
+def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
+    """`complete`'s `warnings` reach the screen as a persistent line (pick B,
+    mockups/expense-world-gap-warning.html, owner 2026-09-22).
+
+    A toast was the plan's first sketch and was rejected in review: the whole
+    value of this message is not being missed, and a toast fades. The success
+    feedback is NOT replaced — both are shown.
+    """
+    _patch(monkeypatch)
+    _complete_with_warnings(fake_client, [GAP])
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        line = screen.query_one("#rwarn", Static)
+        assert not line.display  # nothing before the write
+        screen.action_complete()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: line.display)
+        text = str(line.visual)
+        assert "not covered by any completed reconciliation" in text
+        assert "2026-02-25 to 2026-04-01" in text  # the engine's own sentence, verbatim
+        # the gap never replaces the success feedback
+        await wait_for(pilot, lambda: notices)
+        assert any("completed" in m for m in notices)
+
+    run_app(scenario)
+
+
+def test_complete_without_warnings_draws_no_line(fake_client, monkeypatch):
+    """The clean close is unchanged — an empty `warnings` leaves no line."""
+    _patch(monkeypatch)
+    _complete_with_warnings(fake_client, [])
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        screen.action_complete()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert not screen.query_one("#rwarn", Static).display
+
+    run_app(scenario)
+
+
+def test_revert_clears_a_shown_gap(fake_client, monkeypatch):
+    """A gap report is true of one moment: revert unseals the very window it
+    named, so the line goes with the status change rather than lingering."""
+    _patch(monkeypatch)
+    _complete_with_warnings(fake_client, [GAP])
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        line = screen.query_one("#rwarn", Static)
+        screen.action_complete()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: line.display)
+        screen.action_revert()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: not line.display)
+
+    run_app(scenario)
+
+
 def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
     """No completed-only pre-guard (backlog 2.5): revert on a draft POSTs and
     the engine's idempotent 200 no-op reads as success."""

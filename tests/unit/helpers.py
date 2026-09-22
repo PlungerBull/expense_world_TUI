@@ -187,11 +187,16 @@ class FakeClient:
     `requests`/`posts`/`puts`/`deletes` properties are filtered views. GETs
     answer from `get_responses` (miss → EngineError 404, matching the engine's
     not-provisioned behavior). Set `errors["POST"] = exc` to make a verb raise.
+
+    Writes answer `{}` unless `write_responses[path]` says otherwise — needed
+    since `run_write`'s `on_response` reads the engine's own body (`complete`
+    carries a `warnings` envelope).
     """
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, Any]] = []
         self.get_responses: dict[str, Any] = {}
+        self.write_responses: dict[str, Any] = {}
         self.errors: dict[str, Exception] = {}
 
     def __enter__(self):
@@ -214,11 +219,11 @@ class FakeClient:
 
     def post(self, path: str, json_body: dict | None = None) -> dict:
         self._record("POST", path, json_body)
-        return {}
+        return self.write_responses.get(path, {})
 
     def put(self, path: str, json_body: dict | None = None) -> dict:
         self._record("PUT", path, json_body)
-        return {}
+        return self.write_responses.get(path, {})
 
     def delete(self, path: str) -> dict:
         self._record("DELETE", path)

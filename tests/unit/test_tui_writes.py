@@ -127,3 +127,31 @@ def test_concurrent_content_swaps_mount_one_card(fake_client, monkeypatch):
         assert len(screen.query("#card")) == 1
 
     run_app(scenario)
+
+
+def test_on_response_hands_over_the_body_before_on_success(fake_client, monkeypatch):
+    """`run_write(on_response=…)` sees the engine's own body (D1, 2026-09-20).
+
+    Order is the assertion: a screen that reads the body repaints from it in
+    `on_success`, so the body must already be in hand by then. The hook is
+    opt-in — every callsite that passes only `on_success` is unaffected, which
+    the rest of this file exercises.
+    """
+    _stub_accounts(monkeypatch)
+    fake_client.write_responses["/accounts/a1/archive"] = {"id": "a1", "warnings": ["mind the gap"]}
+    seen: list = []
+
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        screen.run_write(
+            "POST",
+            "/accounts/a1/archive",
+            on_response=lambda body: seen.append(body.get("warnings")),
+            on_success=lambda: seen.append("success"),
+        )
+        await wait_for(pilot, lambda: len(seen) == 2)
+        assert seen == [["mind the gap"], "success"]
+
+    run_app(scenario)

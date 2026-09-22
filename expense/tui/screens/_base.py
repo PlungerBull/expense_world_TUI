@@ -46,6 +46,7 @@ class _QueuedWrite:
     success: str
     on_success: Callable[[], None] | None
     on_error: Callable[[str], None] | None
+    on_response: Callable[[dict], None] | None = None
 
 
 class EngineWriteMixin:
@@ -78,11 +79,17 @@ class EngineWriteMixin:
         success: str = "Done.",
         on_success: Callable[[], None] | None = None,
         on_error: Callable[[str], None] | None = None,
+        on_response: Callable[[dict], None] | None = None,
     ) -> None:
+        """Queue one engine write. `on_response` receives the engine's own body
+        (before `on_success`) for the one caller that needs it: a `complete`
+        carries a `warnings` envelope nothing else can reconstruct. Opt-in, so
+        the callbackless callsites are untouched — decisions.md "The TUI sees
+        the response body only where it asks for it"."""
         if self._write_queue is None:
             self._write_queue = deque()
         self._write_queue.append(
-            _QueuedWrite(method, path, json_body, success, on_success, on_error)
+            _QueuedWrite(method, path, json_body, success, on_success, on_error, on_response)
         )
         self._pump_writes()
 
@@ -100,22 +107,25 @@ class EngineWriteMixin:
         from expense.http import ExpenseClient
 
         error: str | None = None
+        body: dict | None = None
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 if item.method == "POST":
-                    client.post(item.path, json_body=item.json_body)
+                    body = client.post(item.path, json_body=item.json_body)
                 elif item.method == "PUT":
-                    client.put(item.path, json_body=item.json_body)
+                    body = client.put(item.path, json_body=item.json_body)
                 elif item.method == "DELETE":
-                    client.delete(item.path)
+                    body = client.delete(item.path)
                 else:
                     raise ValueError(f"unsupported write method: {item.method}")
         except Exception as exc:
             error = format_error(exc)
-        self.app.call_from_thread(self._write_finished, item, error)
+        self.app.call_from_thread(self._write_finished, item, error, body)
 
-    def _write_finished(self, item: _QueuedWrite, error: str | None) -> None:
+    def _write_finished(
+        self, item: _QueuedWrite, error: str | None, body: dict | None = None
+    ) -> None:
         # UI thread: report the outcome, then pump the next write.
         self._write_inflight = False
         if error is not None:
@@ -126,6 +136,10 @@ class EngineWriteMixin:
             else:
                 self.notify(error, title="Failed", severity="error")
         else:
+            # Before on_success: a screen that reads the body typically repaints
+            # in on_success, and the repaint has to see what the body said.
+            if item.on_response is not None and isinstance(body, dict):
+                item.on_response(body)
             if item.on_success is not None:
                 item.on_success()
             else:

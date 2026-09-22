@@ -283,8 +283,9 @@ Unit, respx-mocked, one happy path plus one error shape per command touched:
 - `create` / `update` render the inverted-range and overlap 422s with their hints.
 - A sealed-period `422` inside an `import bank` batch names the period in the
   per-row line and exits 1.
-- TUI: a complete whose response carries warnings raises a warning toast without
-  suppressing the success path (D1's `on_response`).
+- TUI: a complete whose response carries warnings draws the `#rwarn` line and
+  does **not** suppress the success path (D1's `on_response`); an empty
+  `warnings` draws no line; a revert clears a shown one.
 
 `test_command_surface.py::test_every_command_has_an_error_shape_test` covers the
 second half automatically once the tests exist.
@@ -292,8 +293,18 @@ second half automatically once the tests exist.
 ## 10. Sequence
 
 1. ~~D1–D5 answered by the owner.~~ Done 2026-09-20; [UI] gate closed.
-2. `_print_warnings` → `_resource.py`; flat `complete` renders warnings.
-3. `run_write` gains `on_response`; the Reconciliations screen toasts the gap.
+2. ~~`_print_warnings` → `_resource.py`; flat `complete` renders warnings.~~
+   Done 2026-09-21 (`bf5ffd0`), together with step 4.
+3. ~~`run_write` gains `on_response`; the Reconciliations screen shows the gap.~~
+   Done 2026-09-22. **Not a toast** — the owner picked a persistent line under the
+   header (pick B of
+   [mockups/expense-world-gap-warning.html](mockups/expense-world-gap-warning.html)),
+   and the D/E variants that would have listed the uncovered rows were dropped
+   with the engine-side ask they needed. Both whys are in
+   [decisions.md](decisions.md) ("The TUI sees the response body only where it
+   asks for it", "The gap report is a line under the header"). What came out of
+   that review and is **not** part of ask 1: a standing unreconciled view, now
+   its own item in [todo.md](todo.md).
 4. The three hint paths (`complete` ×2, `create`/`update` ×2).
 5. The two wall doors pinned by test.
 6. The refusal results screen (D5), used by `complete` and by the ledger's bulk
