@@ -317,7 +317,16 @@ second half automatically once the tests exist.
    Each also pins the half that matters more: **the other rows still land.** The
    flat `expense log` needs no test of its own — one line is one row through the
    ordinary single-row path.
-6. The refusal results screen (D5), used by `complete` and by the ledger's bulk
-   `b`; then pane C's confirm box on top of it.
+6. ~~The refusal results screen (D5), used by `complete` and by the ledger's bulk
+   `b`; then pane C's confirm box on top of it.~~ **Re-scoped and done 2026-09-22.**
+   The screen was not built: the owner took D3/D5 apart in review and the
+   replacement is smaller and better — `u` on the Reconciliations browse swaps
+   the lower pane to the account's rows in no batch, `⏎` fixes one in the
+   existing edit form, `d` deletes it, and the ledger's bulk refusals collapse to
+   one line per reason. D3's "tick all N, then complete" is **dropped**: it would
+   have sealed a month with a corrupted `difference_cents`. Mockup
+   [mockups/expense-world-rows-in-no-batch.html](mockups/expense-world-rows-in-no-batch.html);
+   the why and the six rejected alternatives in [decisions.md](decisions.md)
+   "Rows in no batch live in the reconciliation view".
 7. Contract-suite pass against the disposable engine on `:8002` — this is the
    first change written against rules no contract test has ever exercised.

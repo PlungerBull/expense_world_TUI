@@ -181,6 +181,16 @@ class CursorList(WindowedList):
         self._cursor = min(self._cursor, max(0, len(self._rows) - 1))
         self._refresh()
 
+    def set_headers(self, headers: Sequence[str], *, align_right: Iterable[int] = ()) -> None:
+        """Relabel the columns in place — for a pane that lists two different
+        things (the Reconciliations lower pane: batches, or the account's rows in
+        no batch, 2026-09-22). Rebuilding the widget instead would drop the
+        caption, the page size the screen computed and the focus.
+        """
+        self._headers = list(headers)
+        self._align = set(align_right)
+        self._refresh()
+
     def index_of(self, key: object) -> int:
         for i, row in enumerate(self._rows):
             if row.key == key:

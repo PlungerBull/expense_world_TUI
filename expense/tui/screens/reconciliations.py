@@ -28,6 +28,7 @@ import uuid
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Container
 from textual.screen import Screen
 from textual.widget import Widget
@@ -70,6 +71,72 @@ from expense.tui.widgets.header import Breadcrumb
 _period = reconcile_cmd.format_period
 
 _BATCH_HEADERS = ["Name", "Period", "Begin", "End", "Diff", "Status"]
+_UNFILED_HEADERS = ["", "Date", "Title", "Amount", "Category"]
+
+#: How many unfiled rows the pane asks for. It lands on the OLDEST rows, which
+#: is the whole point of the view, and the engine has no sort parameter — so the
+#: page is fetched from the tail by offset and reversed for display. One page is
+#: deliberate: the pane is a work queue (fix these, press `r`, the next oldest
+#: arrive), not a browser over a ledger that can hold thousands of unfiled rows.
+UNFILED_PAGE = 40
+
+
+def unfiled_offset(total: int, limit: int) -> int:
+    """Offset of the last page of `total` rows — the oldest ones, since
+    `GET /transactions` is always `date DESC` and takes no sort parameter."""
+    return max(0, total - limit)
+
+
+def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str]]:
+    """`(first_day, last_day, name)` for every dated batch on this account.
+
+    Used only to draw the `!` hint beside a row (see `unfiled_rows`). Drafts are
+    included on purpose: a draft's window is exactly what an unfiled row inside
+    it will refuse when you try to close it, which is the question the flag
+    answers. Completed windows are in here too — an unfiled row inside one is an
+    anomaly the engine's close check would not allow to arise today, and it is
+    precisely what the pane exists to surface in pre-2026-09-20 data.
+    """
+    windows = []
+    for r in recons:
+        if r.get("account_id") != account_id:
+            continue
+        start, end = (r.get("date_start") or "")[:10], (r.get("date_end") or "")[:10]
+        if start and end:
+            windows.append((start, end, r.get("name") or "—"))
+    return windows
+
+
+def unfiled_rows(items: list[dict], cat_names: dict, windows, palette=None) -> list:
+    """Rows for the unfiled pane, oldest first, `!` on the ones inside a window.
+
+    **The flag is a hint, not a ruling.** It compares each row's date against
+    windows this screen already holds, so it costs no request — but the engine
+    is the authority at close time (it resolves a window in the user's
+    timezone), so an edge day may differ. Nothing downstream reads the flag: it
+    only tells you which rows are worth opening first.
+    """
+    rows = []
+    for it in reversed(items):  # the page arrives date DESC; the pane reads oldest first
+        day = (it.get("date") or "")[:10]
+        blocked = any(start <= day <= end for start, end, _name in windows)
+        if not blocked:
+            flag: object = ""
+        else:
+            flag = Text("!", style=palette.warning) if palette else "!"
+        rows.append(
+            (
+                it.get("id"),
+                [
+                    flag,
+                    day,
+                    it.get("title") or "—",
+                    amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
+                    resolve_name(it.get("category_id"), cat_names),
+                ],
+            )
+        )
+    return rows
 
 
 def _batch_sort_key(r: dict):
@@ -112,8 +179,10 @@ class ReconciliationsScreen(SectionScreen):
     crumb = ("Capture & ledger", "Reconciliations")
     CARD_WIDTH = 100
     BINDINGS = [
-        ("escape", "back", "Back"),  # not the inherited pop: two-stage batches → accounts → home
+        ("escape", "back", "Back"),  # not the inherited pop: three-stage unfiled/batches → accts
         ("n", "new", "New"),
+        Binding("u", "unfiled", "No batch", tooltip="This account's rows that are in no batch"),
+        Binding("d", "delete_row", "Delete", show=False),  # unfiled pane only
     ]
 
     def __init__(self) -> None:
@@ -121,7 +190,10 @@ class ReconciliationsScreen(SectionScreen):
         self._recons: list = []
         self._accounts: list = []  # (id, name, currency, balance_cents)
         self._acct_idx = 0
-        self._mode = "accts"  # "accts" | "batches"
+        self._mode = "accts"  # "accts" | "batches" | "unfiled"
+        self._unfiled: list = []  # the fetched page of unfiled rows, newest first
+        self._unfiled_total: int | None = None
+        self._unfiled_busy = False
         self._batches: list = []  # recon dicts for the selected account (sorted)
         self._by_id: dict = {}
         self._resume_batch = False
@@ -242,6 +314,19 @@ class ReconciliationsScreen(SectionScreen):
         self._batch_list.set_caption(self._batch_caption())
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
+        if self._mode == "unfiled":
+            # `⏎` opens the form that already edits date and account — the two
+            # remedies for a row that is in no batch (owner, 2026-09-22).
+            record = self._unfiled_record()
+            if record is not None:
+                acct = self._selected_account()
+                from expense.tui.screens.quick_log import QuickAddLogScreen
+
+                self.app.push_screen(
+                    QuickAddLogScreen(record=record),
+                    lambda _result: self._reload_unfiled(acct),
+                )
+            return
         if self._mode == "accts":
             if not self._batches:
                 self.notify("No batches for this account — press n to create one.")
@@ -256,11 +341,173 @@ class ReconciliationsScreen(SectionScreen):
             self.app.push_screen(ReconciliationDetailScreen(item), lambda _result: self._load())
 
     def action_back(self) -> None:
-        if self._mode == "batches":
+        if self._mode == "unfiled":
+            # the pane swaps back; the screen and the account cursor stay put
+            self._mode = "batches" if self._batches else "accts"
+            self._unfiled, self._unfiled_total = [], None
+            self._batch_list.set_headers(_BATCH_HEADERS, align_right={2, 3, 4})
+            self._batch_list.set_caption(self._batch_caption())
+            self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
+            (self._batch_list if self._batches else self._accts_list).focus()
+        elif self._mode == "batches":
             self._mode = "accts"
             self._accts_list.focus()
         else:
             self.app.pop_screen()
+
+    def _reload_unfiled(self, acct) -> None:
+        """Refetch the pane after an edit — a row whose date or account moved is
+        no longer in this list, which is the point of editing it."""
+        if acct and self._mode == "unfiled":
+            self._unfiled_busy = True
+            self._load_unfiled(acct[0])
+
+    # ---- the unfiled pane (2026-09-22) -----------------------------------
+    def action_unfiled(self) -> None:
+        """`u` — swap the lower pane to this account's rows in no batch.
+
+        The screen does not change and the account cursor does not move: only
+        what the lower list is listing. `esc` swaps it back. Owner's shape,
+        mockup expense-world-rows-in-no-batch.html — reconciliation work stays
+        in the reconciliation view, so this is a pane, not a filtered ledger.
+        """
+        acct = self._selected_account()
+        if not acct:
+            self.notify("No account selected.", severity="error")
+            return
+        if self._unfiled_busy:
+            return
+        self._unfiled_busy = True
+        self._mode = "unfiled"
+        self._batch_list.set_headers(_UNFILED_HEADERS, align_right={3})
+        self._batch_list.set_caption(f"In no batch · {acct[1]}   ·   loading…")
+        self._batch_list.set_rows([])
+        self._load_unfiled(acct[0])
+
+    @work(thread=True, exclusive=True, group="recon-unfiled")
+    def _load_unfiled(self, account_id: str) -> None:
+        from expense import config as config_module
+
+        worker = get_current_worker()
+        try:
+            cfg = config_module.ensure_loaded()
+            kw = screen_fetch_kwargs(self.app)
+            # Two reads, deliberately: the first says how many there are, the
+            # second asks for the LAST page — the oldest rows, which is the
+            # question this pane answers. `GET /transactions` is always
+            # `date DESC` and takes no sort parameter (engine-spec), so the tail
+            # is the only honest way to reach them without pulling everything.
+            head = transactions_cmd.fetch_transactions(
+                cfg, account=account_id, unreconciled=True, limit=1, **kw
+            )
+            total = head.get("total")
+            if not isinstance(total, int):
+                total = len(items_of(head))
+            items = items_of(head)
+            if total > 1:
+                body = transactions_cmd.fetch_transactions(
+                    cfg,
+                    account=account_id,
+                    unreconciled=True,
+                    limit=UNFILED_PAGE,
+                    offset=unfiled_offset(total, UNFILED_PAGE),
+                    **kw,
+                )
+                items = items_of(body)
+            cat_names = load_category_name_map()
+        except Exception as exc:
+            if not worker.is_cancelled:
+                self.app.call_from_thread(self._unfiled_failed, format_error(exc))
+            return
+        if worker.is_cancelled:
+            return
+        self.app.call_from_thread(self._show_unfiled, account_id, items, total, cat_names)
+
+    def _unfiled_failed(self, message: str) -> None:
+        self._unfiled_busy = False
+        self._mode = "batches" if self._batches else "accts"
+        self._batch_list.set_headers(_BATCH_HEADERS, align_right={2, 3, 4})
+        self._batch_list.set_caption(self._batch_caption())
+        self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
+        self.notify(message, title="Failed", severity="error")
+
+    def _show_unfiled(self, account_id: str, items: list, total: int, cat_names: dict) -> None:
+        self._unfiled_busy = False
+        if self._mode != "unfiled":  # esc landed while the read was in flight
+            return
+        self._unfiled = items
+        self._unfiled_total = total
+        acct = self._selected_account()
+        label = acct[1] if acct else "—"
+        windows = blocking_windows(self._recons, account_id)
+        rows = unfiled_rows(items, cat_names, windows, palette=PALETTE)
+        shown = len(rows)
+        head = f"In no batch · {label}   ·   {total} row{'' if total == 1 else 's'}"
+        if shown < total:
+            head += f" · the {shown} oldest"
+        self._batch_list.set_caption(f"{head} · oldest first   ·   ! blocks a batch's close")
+        self._batch_list.set_rows(rows)
+        self._batch_list.set_cursor(0)
+        self._batch_list.focus()
+
+    def _unfiled_record(self) -> dict | None:
+        key = self._batch_list.cursor_key if self._batch_list is not None else None
+        return next((it for it in self._unfiled if it.get("id") == key), None)
+
+    def action_delete_row(self) -> None:
+        """`d` — delete the row under the cursor, in the unfiled pane only.
+
+        The one destructive key in the TUI (owner, 2026-09-22). Cursor row only,
+        never a selection: `a`-style page selects live on the ledger and this
+        pane deliberately has none. The engine's delete is a soft delete, but no
+        TUI door restores one — so the confirm says so.
+        """
+        if self._mode != "unfiled":
+            return
+        record = self._unfiled_record()
+        if record is None:
+            return
+        title = record.get("title") or "—"
+        amount = format_cents(record.get("amount_cents"))
+        day = (record.get("date") or "")[:10]
+        acct = self._selected_account()
+        self._confirm_delete(
+            record,
+            f"{title} · {amount} · {day} · {acct[1] if acct else '—'}\n"
+            "It leaves every balance and report. The engine keeps it recoverable, "
+            "but nothing in the TUI can bring it back.",
+        )
+
+    def _confirm_delete(self, record: dict, message: str) -> None:
+        def cb(ok: bool) -> None:
+            if ok:
+                self._delete_row(record)
+
+        self.app.push_screen(ConfirmModal("Delete this transaction?", message), cb)
+
+    @work(thread=True, group="engine-write")
+    def _delete_row(self, record: dict) -> None:
+        from expense import config as config_module
+        from expense.http import ExpenseClient
+
+        error = None
+        try:
+            cfg = config_module.ensure_loaded()
+            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
+                client.delete(f"/transactions/{record.get('id')}")
+        except Exception as exc:
+            error = format_error(exc)
+        self.app.call_from_thread(self._delete_finished, error)
+
+    def _delete_finished(self, error: str | None) -> None:
+        if error is not None:
+            self.notify(error, title="Failed", severity="error")
+            return
+        self.notify("Transaction deleted.")
+        acct = self._selected_account()
+        if acct and self._mode == "unfiled":
+            self._unfiled_busy = True
+            self._load_unfiled(acct[0])
 
     def action_new(self) -> None:
         acct = self._selected_account()

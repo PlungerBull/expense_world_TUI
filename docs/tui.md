@@ -178,6 +178,34 @@ hashtag rows, inflow/outflow and the month keys — moved onto Home. The flat
 builder they share with Home, `reports_cmd.build_range_grid`, is covered by
 [test_range_grid.py](../tests/unit/test_range_grid.py).
 
+**`u` on the Reconciliations browse — the account's rows in no batch** (2026-09-22,
+mockup [expense-world-rows-in-no-batch.html](mockups/expense-world-rows-in-no-batch.html)).
+The **lower pane swaps**: same screen, same account cursor, and the batch list is
+replaced by that account's transactions belonging to no reconciliation
+(`GET /transactions?account_id=&unreconciled=true`). `esc` swaps it back, `⏎` opens the
+edit form the ledger already uses — date and account are the two remedies for a row in
+no batch — and `d` deletes the cursor row after a confirm. **This is deliberately not a
+filtered ledger** (the first mockup drew one and the owner rejected it): reconciliation
+work stays in the reconciliation view.
+
+Two details it is easy to get wrong later. **The pane lands on the oldest rows**, which
+is the whole point — old orphans are the problem, recent unfiled rows are just waiting
+for a statement — and `GET /transactions` is always `date DESC` with **no sort
+parameter**, so the pane reads `total` from a `limit=1` probe and asks for the tail by
+offset (`unfiled_offset`), then reverses that one page for display. One page, by
+decision: the pane is a work queue (fix these, press `r`, the next oldest arrive), not a
+browser over a ledger that can hold thousands of unfiled rows. And the **`!` flag is a
+hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
+already holds, so it costs no request; the engine stays the authority at close time. The
+owner declined an explanatory line beside it ("I can see myself by the date column").
+
+**`d` is the TUI's one destructive key** (2026-09-22). Cursor row only, never a
+selection — `a`-style page selects live on the ledger and this pane has none — and the
+confirm says the part that matters: the engine's delete is a soft delete, but **no TUI
+door restores one**, so from in here it is one-way. Before this the TUI could not delete
+a ledger row at all, which left a re-import duplicate blocking a close with no in-app
+remedy.
+
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").
 
@@ -329,6 +357,13 @@ selection if there is one, else goes back to the screen that opened the ledger. 
 `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open` goes through on the
 `?` card, so the Manage lists neither react to it nor advertise it. `h` is a *command*
 letter here, which is exactly what deleting the vim aliases on 2026-08-27 freed it for.
+
+**The Reconciliations browse keys**: `n` new batch, `u` swaps the lower pane to the
+account's rows in no batch, `d` deletes the cursor row **in that pane only** (it is a
+no-op on the batch list, where a batch's own delete lives one screen deeper), `esc`
+retreats one step — unfiled pane → batches → accounts → Home. `u` means *revert* on the
+batch screen one keypress away: the overlap was put to the owner with `o`/`f`/`x` as
+alternatives on 2026-09-22 and `u` was chosen knowingly.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like

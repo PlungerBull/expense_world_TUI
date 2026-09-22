@@ -281,3 +281,162 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
 
     screen._recompute("interbank")
     assert [a[0] for a in screen._suggestions] == ["acc2"]
+
+
+# ---- the unfiled pane (`u`, 2026-09-22) -------------------------------------
+# Shape: mockups/expense-world-rows-in-no-batch.html. Reconciliation work stays
+# in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
+# does not push a filtered ledger, and it does not touch the account cursor.
+UNFILED = [
+    # the engine answers date DESC; the pane reads oldest first
+    {"id": "t3", "date": "2026-03-20T12:00:00-05:00", "title": "RAPPI", "amount_cents": -3890},
+    {"id": "t2", "date": "2026-03-10T12:00:00-05:00", "title": "UBER", "amount_cents": -2450},
+    {"id": "t1", "date": "2026-01-04T12:00:00-05:00", "title": "NETFLIX", "amount_cents": -4490},
+]
+
+
+def test_blocking_windows_takes_this_account_and_needs_both_dates():
+    from expense.tui.screens.reconciliations import blocking_windows
+
+    assert blocking_windows(ITEMS, "acc1") == [("2026-03-01", "2026-03-31", "March 2026")]
+    # r2 is acc2's and carries no dates at all — a window needs both ends
+    assert blocking_windows(ITEMS, "acc2") == []
+
+
+def test_unfiled_rows_read_oldest_first_and_flag_the_blocking_ones():
+    from expense.tui.screens.reconciliations import blocking_windows, unfiled_rows
+
+    windows = blocking_windows(ITEMS, "acc1")
+    rows = unfiled_rows(UNFILED, {}, windows)
+    assert [r[0] for r in rows] == ["t1", "t2", "t3"]  # reversed into date order
+    flags = [r[1][0] for r in rows]
+    # January is in no window; both March rows sit inside 'March 2026'
+    assert flags == ["", "!", "!"]
+    assert [r[1][1] for r in rows] == ["2026-01-04", "2026-03-10", "2026-03-20"]
+
+
+def test_unfiled_offset_asks_for_the_last_page():
+    """`GET /transactions` is always date DESC and takes no sort parameter, so
+    the oldest rows are the tail — the pane asks for them by offset."""
+    from expense.tui.screens.reconciliations import unfiled_offset
+
+    assert unfiled_offset(3553, 40) == 3513
+    assert unfiled_offset(12, 40) == 0  # fewer than one page: no offset at all
+
+
+def _patch_unfiled(monkeypatch, items=None, total=None):
+    calls: list = []
+    rows = UNFILED if items is None else items
+
+    def fetch(_cfg, **kw):
+        calls.append(kw)
+        count = len(rows) if total is None else total
+        if kw.get("limit") == 1:
+            return page(rows[:1], total=count, limit=1)
+        return page(rows, total=count, limit=kw.get("limit") or 40, offset=kw.get("offset") or 0)
+
+    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fetch)
+    monkeypatch.setattr("expense.tui.screens.reconciliations.load_category_name_map", lambda: {})
+    return calls
+
+
+def test_u_swaps_the_lower_pane_and_leaves_the_account_cursor_alone(monkeypatch):
+    _patch_browse(monkeypatch)
+    calls = _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert screen._mode == "accts" and screen._acct_idx == 0
+
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        # the account cursor never moved, and no screen was pushed
+        assert screen._acct_idx == 0 and app.screen is screen
+        # oldest first, in the lower pane, under its own column labels
+        assert [r.key for r in screen._batch_list._rows] == ["t1", "t2", "t3"]
+        assert screen._batch_list._headers[1] == "Date"
+        assert "In no batch · BCP PEN" in (screen._batch_list._caption or "")
+        # the request was the engine's own filter, scoped to this account
+        assert calls and calls[-1]["account"] == "acc1" and calls[-1]["unreconciled"] is True
+
+    run_app(scenario)
+
+
+def test_esc_swaps_the_pane_back_to_the_batches(monkeypatch):
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._unfiled)
+
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: screen._mode != "unfiled")
+        assert app.screen is screen  # esc swapped the pane, it did not pop the screen
+        assert [r.key for r in screen._batch_list._rows] == ["r1"]  # acc1's batch is back
+        assert screen._batch_list._headers[0] == "Name"
+
+    run_app(scenario)
+
+
+def test_the_pane_asks_for_the_oldest_page_when_there_are_many(monkeypatch):
+    _patch_browse(monkeypatch)
+    calls = _patch_unfiled(monkeypatch, total=3553)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._unfiled)
+        # one probe for the count, then the tail — never the whole ledger
+        assert [c.get("limit") for c in calls] == [1, 40]
+        assert calls[-1]["offset"] == 3513
+        assert "3553 rows · the 3 oldest" in (screen._batch_list._caption or "")
+
+    run_app(scenario)
+
+
+def test_d_deletes_the_cursor_row_after_a_confirm(monkeypatch, fake_client):
+    from expense.tui.screens.modals import ConfirmModal
+
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._unfiled)
+
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.deletes)
+        assert fake_client.deletes == ["/transactions/t1"]  # the cursor row, oldest first
+
+    run_app(scenario)
+
+
+def test_d_does_nothing_outside_the_unfiled_pane(monkeypatch, fake_client):
+    """`d` is the pane's key, not the screen's: on the batches it must not fire
+    — one key per job, and a batch's own delete lives on the batch screen."""
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("d")
+        await pilot.pause()
+        assert app.screen is screen  # no confirm opened
+        assert not fake_client.deletes
+
+    run_app(scenario)

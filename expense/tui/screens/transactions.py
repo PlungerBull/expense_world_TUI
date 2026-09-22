@@ -144,6 +144,44 @@ def legend_text(filter: LedgerFilter | None, total: int | None, selected: int) -
     return " · ".join(parts)
 
 
+#: Row numbers listed in full before a refusal summary starts counting instead.
+REFUSAL_ROWS_SHOWN = 8
+
+
+def group_refusals(failed: list[tuple[object, int, str]]) -> list[str]:
+    """One line per distinct reason — `rows 1, 2, 3: <the engine's message>`.
+
+    Sealed periods (2026-09-20) made the old one-toast-per-row shape unusable: a
+    bulk account move across a closed month refuses every row it touches for the
+    *same* reason, so eight rows meant eight ten-second toasts saying the same
+    sentence (owner, 2026-09-22 — mockup expense-world-rows-in-no-batch.html §4).
+
+    Grouping is by the message **as the engine wrote it**, never by anything read
+    out of it. The period's name lives inside that sentence and nothing here goes
+    looking for it: identical refusals collapse because the strings are equal.
+    """
+    order: list[str] = []
+    rows: dict[str, list[int]] = {}
+    for _key, number, message in failed:
+        if message not in rows:
+            order.append(message)
+            rows[message] = []
+        if number:
+            rows[message].append(number)
+    lines = []
+    for message in order:
+        numbers = rows[message]
+        if not numbers:
+            lines.append(message)
+            continue
+        shown = ", ".join(str(n) for n in numbers[:REFUSAL_ROWS_SHOWN])
+        if len(numbers) > REFUSAL_ROWS_SHOWN:
+            shown += f" +{len(numbers) - REFUSAL_ROWS_SHOWN} more"
+        label = "row" if len(numbers) == 1 else "rows"
+        lines.append(f"{label} {shown}: {message}")
+    return lines
+
+
 def bulk_receipt(count: int, label: str) -> str:
     """The toast after a bulk write: `3 rows → KORAKUEN`."""
     return f"{count} {'row' if count == 1 else 'rows'} → {label}"
@@ -406,9 +444,11 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         self._bulk_busy = False
         if done:
             self.notify(bulk_receipt(done, label))
-        for _key, number, message in failed:
-            where = f"row {number}: " if number else ""
-            self.notify(f"{where}{message}", title="Refused", severity="error", timeout=10)
+        # One toast per distinct reason, not per row — see `group_refusals`.
+        lines = group_refusals(failed)
+        head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
+        for line in lines:
+            self.notify(line, title=head, severity="error", timeout=10)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once (pane 6, option C). A refused row stays selected, so
         # once its lock is lifted the same key retries exactly it.

@@ -352,3 +352,94 @@ def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
         await wait_for(pilot, lambda: results == [None])
 
     run_app(scenario, size=(100, 30))
+
+
+# ---- refusals collapse by reason (2026-09-22) --------------------------------
+SEALED_AUG = (
+    "VALIDATION_ERROR — Transaction falls inside a sealed reconciliation period.\n"
+    "  account_id: Period 2026-07-24 to 2026-08-25 is sealed by completed "
+    "reconciliation 'August 2026'. Revert it to draft to change anything inside it."
+)
+SEALED_JUL = SEALED_AUG.replace("2026-07-24 to 2026-08-25", "2026-06-26 to 2026-07-23").replace(
+    "'August 2026'", "'July 2026'"
+)
+
+
+def test_refusals_collapse_to_one_line_per_reason():
+    """Eight rows refused by two closed periods is two lines, not eight toasts.
+
+    The grouping key is the engine's sentence exactly as it arrived — the period
+    name is inside it and nothing here parses it out (mockup §4, owner
+    2026-09-22).
+    """
+    from expense.tui.screens.transactions import group_refusals
+
+    failed = [(f"t{n}", n, SEALED_AUG) for n in (1, 2, 3, 4, 5)]
+    failed += [(f"t{n}", n, SEALED_JUL) for n in (7, 8, 9)]
+    lines = group_refusals(failed)
+    assert len(lines) == 2
+    assert lines[0].startswith("rows 1, 2, 3, 4, 5: ")
+    assert "'August 2026'" in lines[0]
+    assert lines[1].startswith("rows 7, 8, 9: ") and "'July 2026'" in lines[1]
+
+
+def test_one_refusal_still_reads_as_one_row():
+    from expense.tui.screens.transactions import group_refusals
+
+    assert group_refusals([("t2", 2, "nope")]) == ["row 2: nope"]
+
+
+def test_a_long_refused_run_stops_listing_numbers_and_counts_them():
+    from expense.tui.screens.transactions import REFUSAL_ROWS_SHOWN, group_refusals
+
+    failed = [(f"t{n}", n, SEALED_AUG) for n in range(1, 13)]
+    (line,) = group_refusals(failed)
+    assert f"+{12 - REFUSAL_ROWS_SHOWN} more" in line
+
+
+def test_a_chunk_level_refusal_with_no_row_number_keeps_its_message():
+    """A whole-run failure arrives as `(None, 0, message)` — it must not be
+    dressed up as a row."""
+    from expense.tui.screens.transactions import group_refusals
+
+    assert group_refusals([(None, 0, "could not reach engine")]) == ["could not reach engine"]
+
+
+def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+
+    def put(path, json_body=None):
+        raise EngineError(
+            "VALIDATION_ERROR",
+            "Transaction falls inside a sealed reconciliation period.",
+            {"account_id": "Period … is sealed by completed reconciliation 'August 2026'."},
+            422,
+            {},
+        )
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: toasts)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        # every row shares one reason → exactly one refusal toast, counted
+        refusals = [(t, m) for t, m in toasts if "refused" in t or t == "Refused"]
+        assert len(refusals) == 1
+        title, message = refusals[0]
+        assert title == "3 of 3 refused"
+        assert message.startswith("rows 1, 2, 3: ")
+        assert "'August 2026'" in message
+        assert screen._selected == {"t1", "t2", "t3"}  # all stay selected for the retry
+
+    run_app(scenario, size=(120, 30))

@@ -476,8 +476,8 @@ completed: ()=>{
       +'  <span class="d">only sums rows you ticked. It still shows in reports and balances.</span>\n\n'
       +'  <span class="d">⏎ continue   esc back to the batch</span>\n',
     keys:[{k:'⏎',l:'see the completed batch',act:'toCompleted'},{k:'esc',l:'back',act:'toCompleted'}],
-    tag:'new', name:'Completed — with a warning', sub:'the gap report',
-    note:'<p style="color:var(--warn)"><b>This is the screen that cannot be replaced.</b></p><p>July was skipped. Nothing else in the system will ever mention it: a stray row there does not move any period\'s arithmetic, and <code>difference_cents</code> is computed from two balances you typed plus the rows you ticked.</p><p>Today the CLI throws this array away, and the TUI\'s write code cannot even see it.</p>' };
+    tag:'new', name:'Completed — with a warning (SUPERSEDED)', sub:'the gap report — not built this way',
+    note:'<p style="color:var(--warn)"><b>SUPERSEDED 2026-09-22 — the gap report was NOT built as a screen.</b> The owner picked a persistent line under the reconciliation header instead (pick B of <code>expense-world-gap-warning.html</code>; shipped that day). The panes around this one still stand; this one is kept only so the option is not re-proposed as new.</p><p style="color:var(--warn)"><b>What the argument below got right, and it still holds:</b> this message cannot be replaced by anything else in the system.</p><p>July was skipped. Nothing else in the system will ever mention it: a stray row there does not move any period\'s arithmetic, and <code>difference_cents</code> is computed from two balances you typed plus the rows you ticked.</p><p>Today the CLI throws this array away, and the TUI\'s write code cannot even see it.</p>' };
 },
 
 revertConfirm: ()=>({

@@ -62,7 +62,7 @@ its ask ships**, with the whys moving to [decisions.md](decisions.md).
 
 | # | Ask | Plan | Gate |
 |---|---|---|---|
-| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | settled 2026-09-20 — **building** |
+| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | **built 2026-09-21/22 — only the contract run (§10 step 7) is left** |
 | 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | accepted 2026-09-19 |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
@@ -120,25 +120,6 @@ ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first re
 
 ## Ergonomics
 
-2. **A standing "unreconciled" view in the TUI.** The flat CLI has had this since
-   2026-09-12 — `expense transactions list --unreconciled [--account-id X] [--to DATE]`,
-   the engine's own `?unreconciled=true` — and the TUI has no door to it: `LedgerFilter`
-   ([transactions.py](../expense/tui/screens/transactions.py)) understands a category, an
-   account and a hashtag, and nothing else. **No engine work** — the filter exists.
-   Raised by the owner 2026-09-22 while picking the gap warning's rendering: *"I need a
-   way to review everything that's not reconciled, so I can see if there are rows from
-   many periods ago — those are a problem."* That review is what makes the gap line
-   ([decisions.md](decisions.md) "The gap report is a line under the header") actionable,
-   and it is deliberately **not** inside ask 1: a review needed after every close should
-   not be reachable only *from* a close. **[UI]** — nothing drawn. Open questions for the
-   mockup: one list across all accounts or grouped by account; the sort (the engine
-   returns newest-first and takes no sort parameter, and it is the *oldest* rows that
-   matter here, so an explicit date window may be the honest answer); whether "older than
-   this account's last completed period" earns a marker of its own; and which door opens
-   it — a Home row under LEDGER, or a key on the ledger. Note the list is the whole ledger
-   until the 2026 backfill closes its periods (3553 rows before 2026-06-30 on
-   2026-09-22), so it only becomes a short list once the owner's backfill lands.
-
 3. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands,
    `expense auth <TAB>` shows subcommands. Lowest-effort discoverability win for the
    flat path; no design questions open.
@@ -170,14 +151,17 @@ ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first re
 
 ## Cosmetic — safe to leave
 
-0. **Four modals still draw a box** — `PickerModal` (the bulk `c`/`b`/`h` picks),
+0. **Four modals are still modals** — `PickerModal` (the bulk `c`/`b`/`h` picks),
    `HelpModal` (`?`), `PromptModal` (the engine-URL edit) and `DiscardStagedModal`
-   (the LOG bar's unsaved-rows guard). The no-cards rule was set 2026-09-20
-   ([tui.md](tui.md) §2) and ask 1 converts only what it touches —
-   `ConfirmModal` (one caller) and the reconciliation screens. These four are
-   reachable, correct and boxed. **[UI]** — `PickerModal` is the interesting one:
-   it lists rows, so it is the clearest violation and the one whose replacement
-   needs drawing; the other three are short questions that convert mechanically.
+   (the LOG bar's unsaved-rows guard). **The box itself is already gone** (`1c3b2de`,
+   2026-09-20: `#modal` draws `border-top`/`border-bottom` only, so every modal that
+   shares it lost its vertical edges — this item said "still draw a box" until
+   2026-09-22, which was false). What is left is the other half of the rule: a surface
+   carrying **rows** should be a pushed screen. `PickerModal` is the only one that
+   does — the other three are short questions, which is what a modal is for.
+   **[UI]** — `PickerModal`'s replacement needs drawing. `ConfirmModal` is settled:
+   it stays a modal (a question), unboxed, and gained a second caller on 2026-09-22
+   (the unfiled pane's `d`).
 
 
 7. **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Its create
