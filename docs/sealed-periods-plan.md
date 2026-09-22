@@ -305,8 +305,18 @@ second half automatically once the tests exist.
    asks for it", "The gap report is a line under the header"). What came out of
    that review and is **not** part of ask 1: a standing unreconciled view, now
    its own item in [todo.md](todo.md).
-4. The three hint paths (`complete` ×2, `create`/`update` ×2).
-5. The two wall doors pinned by test.
+4. ~~The three hint paths (`complete` ×2, `create`/`update` ×2).~~ Done
+   2026-09-21 (`bf5ffd0`), with D4's required `--date-end`.
+5. ~~The two wall doors pinned by test.~~ Done 2026-09-22 — **tests only, no
+   code changed**: both doors already carried the refusal, and what was missing
+   was anything holding them to it. The period's *name* lives only in the 422's
+   field text, so each test follows it through the chunk → singleton fallback,
+   `format_error` and the per-row line: `import bank` (the batch and the
+   operation-code backfill, [test_cmd_import_bank.py](../tests/unit/test_cmd_import_bank.py))
+   and the LOG bar save ([test_tui_log_bar.py](../tests/unit/test_tui_log_bar.py)).
+   Each also pins the half that matters more: **the other rows still land.** The
+   flat `expense log` needs no test of its own — one line is one row through the
+   ordinary single-row path.
 6. The refusal results screen (D5), used by `complete` and by the ledger's bulk
    `b`; then pane C's confirm box on top of it.
 7. Contract-suite pass against the disposable engine on `:8002` — this is the

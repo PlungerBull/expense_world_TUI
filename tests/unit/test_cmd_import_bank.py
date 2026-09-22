@@ -287,6 +287,99 @@ def test_apply_reports_a_refused_row_and_exits_1(configured, monkeypatch):
     assert "! row 3:" in result.output
 
 
+#: The engine's sealed-period refusal, verbatim (engine periods.py
+#: `sealed_message` + `reject_sealed_date`, 2026-09-20). The batch door names
+#: `transactions.<index>.date`; the window's days and the period's NAME live in
+#: the field text, which is the only place they appear.
+SEALED_FIELD = (
+    "Period 2026-09-01 to 2026-09-10 is sealed by completed reconciliation "
+    "'September 2026'. Revert it to draft to change anything inside it."
+)
+
+
+def _sealed_response(index: int = 0) -> httpx.Response:
+    return httpx.Response(
+        422,
+        json=error_body(
+            "VALIDATION_ERROR",
+            "Transaction falls inside a sealed reconciliation period.",
+            {f"transactions.{index}.date": SEALED_FIELD},
+        ),
+    )
+
+
+@respx.mock
+def test_a_sealed_row_names_its_period_and_the_others_still_import(configured, monkeypatch):
+    """The wall, at the importer's door (sealed-periods plan S4).
+
+    A download that reaches back into a closed month must not lose the reason:
+    the period's name is in the 422's field text and nowhere else, and it has to
+    survive the chunk → singleton fallback, `format_error`, and the per-row line.
+    The rest of the file still lands — one refused row has never cancelled a
+    batch here, and this pins that it stays that way for THIS refusal.
+
+    Note the row number: the singleton re-post sends one row, so the engine's
+    key reads `transactions.0.date` for every refusal. The line the user reads
+    must carry the FILE's line (3), never the engine's index.
+    """
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])  # line 2: 2026-09-11, line 3: 2026-09-09
+    _engine()
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=[
+            _sealed_response(1),  # the chunk — the engine names the second row
+            httpx.Response(201, json={"created": []}),  # line 2 alone: outside the window
+            _sealed_response(),  # line 3 alone: inside it
+        ]
+    )
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "1 written" in result.output  # the good row landed
+    assert "! row 3:" in result.output  # the file's line, not the engine's index
+    assert "sealed by completed reconciliation 'September 2026'" in result.output
+    assert "Revert it to draft" in result.output  # the way out survives too
+    assert "row 2:" not in result.output  # the row that went through is not named
+
+
+@respx.mock
+def test_a_sealed_backfill_row_is_named_and_the_new_rows_still_go(configured, monkeypatch):
+    """The second half of the same door: the operation-code backfill is a PUT
+    per matched row, and a PUT into a sealed window is refused too (the engine's
+    six doors include `PUT` moving `date`/`account_id` in). The refusal is
+    reported against its row and the new rows are written anyway.
+    """
+    _feed(
+        monkeypatch,
+        ACCOUNT_HEADERS,
+        [
+            ("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753"),  # matches → backfill
+            ("12/09/2026", "PLAZA VEA", "S/", -25, "03144999"),  # new → batch
+        ],
+    )
+    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
+    respx.put(f"{BASE}/v1/transactions/t1").mock(
+        return_value=httpx.Response(
+            422,
+            json=error_body(
+                "VALIDATION_ERROR",
+                "Transaction falls inside a sealed reconciliation period.",
+                {"date": SEALED_FIELD},
+            ),
+        )
+    )
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "sealed by completed reconciliation 'September 2026'" in result.output
+    assert "! row 2 (code 03144753)" in result.output
+    assert "1 written" in result.output  # the new row was not held back
+
+
 # ---- the operation-code backfill --------------------------------------------
 @respx.mock
 def test_preview_says_which_matched_rows_will_get_a_code(configured, monkeypatch):

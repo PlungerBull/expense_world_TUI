@@ -714,6 +714,51 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
     run_app(scenario)
 
 
+def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_client, monkeypatch):
+    """The wall, at the LOG bar's door (sealed-periods plan S4).
+
+    The bar has no pre-filter — you can type any date, including one inside a
+    month you closed — so the engine's refusal is the only thing standing
+    between a backdated line and silence. The period's NAME lives in the 422's
+    field text and nowhere else, so what this pins is that it survives the
+    chunk → singleton fallback, `format_error`, and the per-row error block,
+    while the row that was fine still ticks.
+    """
+    _patch(monkeypatch)
+    sealed = EngineError(
+        "VALIDATION_ERROR",
+        "Transaction falls inside a sealed reconciliation period.",
+        {
+            "transactions.0.date": (
+                "Period 2026-08-01 to 2026-08-25 is sealed by completed reconciliation "
+                "'August 2026'. Revert it to draft to change anything inside it."
+            )
+        },
+        422,
+        {},
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(fake_client, [sealed, {}, sealed])  # chunk refused, row 1 lands, row 2 sealed
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
+
+        ledger, backdated = screen._staged
+        assert ledger.saved and ledger.error is None  # one refused row cancels nothing
+        assert not backdated.saved
+        # flattened: the engine's sentence is long enough to wrap in the block,
+        # and where it wraps is a width detail, not the assertion
+        out = " ".join(_text(screen._staged_renderable()).split())
+        assert "1 logged" in out
+        assert "row 2: " in out
+        assert "sealed by completed reconciliation 'August 2026'" in out
+        assert "Revert it to draft to change anything inside it." in out  # the way out survives
+
+    run_app(scenario)
+
+
 def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch):
     """Decision 2, the half that matters: nothing is ever written twice."""
     _patch(monkeypatch)
