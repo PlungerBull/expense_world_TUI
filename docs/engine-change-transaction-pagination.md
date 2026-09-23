@@ -7,8 +7,9 @@ broken until this is done.** Six call sites fail with a `422` on their first req
 when the work below lands. Do the same with the engine's `docs/open-bugs.md` entry
 `transaction-cursor`.
 
-This also answers ask **A1** in `docs/engine-asks-brief.md` ("`GET /transactions` cannot be
-asked for oldest-first"): `?sort=date_asc` now exists.
+This also answers ask **A1** of the 2026-09-22 engine-asks brief ("`GET /transactions` cannot be
+asked for oldest-first"): `?sort=date_asc` now exists. The brief itself is deleted; `docs/todo.md`
+→ "Engine asks" says where each ask ended up.
 
 **Two changes, one file.** Sections 1–5 cover the cursor change (A1), which is **breaking**.
 Section 6 covers the coverage-gap fix on `POST /reconciliations/{id}/complete` (asks **A2** and
@@ -282,11 +283,10 @@ sentence, count included.
   filter includes and the count doesn't. The engine has this logged as
   `open-bugs.md` → `date-filter-not-calendar-days`, unfixed for now.
 
-### 6.5 In `docs/engine-asks-brief.md`
+### 6.5 The other two asks
 
-A2 and A5 are done. A3 (a per-row window flag) and A4 (`?status=` on reconciliations) are declined.
-The engine side will record why in its own docs. Once A1, A2 and A5 are all done, the brief says to
-delete it.
+A3 (a per-row window flag) and A4 (`?status=` on reconciliations) are declined; the engine's
+`docs/open-bugs.md` → D13 and D14 say why. The brief that carried all five is deleted.
 
 ---
 
@@ -297,7 +297,6 @@ delete it.
 - [ ] Ledger screen: cursor stack, `/count` for the total, resize and empty-page handling
 - [ ] Unfiled pane: `sort=date_asc` + `/count`; delete `unfiled_offset`
 - [ ] LOG bar peek: total from `/count`
-- [ ] Update `docs/engine-asks-brief.md` (A1, A2, A5 done; A3, A4 declined), then delete it
 - [ ] *(optional)* Read `coverage_gap` where the count or dates are useful; never parse the sentence
 - [ ] *(optional)* Any `date_to` built from `last_uncovered_day` uses the next day's midnight in the user's zone
 - [ ] Delete this file; tell the engine side to delete `open-bugs.md` → `transaction-cursor`

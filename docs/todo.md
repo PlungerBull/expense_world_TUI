@@ -95,53 +95,16 @@ Each entry says what to ask for, why no client can do it properly today, and **w
 repo deletes when it lands**, so the workaround does not outlive its reason. Never edited
 here: they are handed to the owner for the engine coder.
 
-**The hand-over copy, written for the engine coder, is
-[engine-asks-brief.md](engine-asks-brief.md)** (2026-09-22) — evidence, file references,
-acceptance criteria and honest priorities, including two asks it argues *against* and one
-wording bug (`A5`: the gap message names the fences, not the uncovered days, so the dates
-the user reads are both off by one). That file is deleted when these resolve; the entries
-below stay as the queue's own record.
+**All four asks of 2026-09-22 are answered (2026-09-23)**, and the hand-over brief is
+deleted, as it said it would be:
 
-1. **`?sort=date_asc` on `GET /transactions`** (raised 2026-09-22, owner's own
-   observation). The list is always `date DESC` (`app/routers/transactions.py`, no
-   parameter), so **no client can ask for oldest-first at all**. The unfiled pane needs
-   exactly that — old orphans are the problem, recent unfiled rows are just waiting for a
-   statement — and reaches it by reading `total` from a `limit=1` probe, requesting the
-   tail by offset, and reversing that page ([reconciliations.py](../expense/tui/screens/reconciliations.py)
-   `unfiled_offset`). Three things wrong with that: two reads instead of one; a **race** —
-   a row written between the probe and the page shifts the window, so an edge row can be
-   missed or shown twice; and it **cannot page backwards**, which is why the pane is
-   capped at one page. Web and iOS would each copy it. *Default order unchanged, opt-in
-   parameter, documented in the spec's ordering section.* Note the engine's own principle
-   —  "a list's order is part of its contract; two orders is two contracts"
-   (`app/constants.py`, 2026-09-14) — which is about **accidental** inconsistency between
-   endpoints, not an explicit documented parameter; worth saying so when the ask is made.
-   **Deletes when it lands:** the probe read, `unfiled_offset`, the `reversed()` in
-   `unfiled_rows`, the one-page cap, and their tests.
-
-2. **Structured gap fields on `POST /reconciliations/{id}/complete`** (first dropped
-   2026-09-22, re-opened by the same rule). `warnings` carries the uncovered stretch as
-   **one English sentence**, so the two dates exist nowhere a client can read: showing the
-   rows sitting in that stretch would mean parsing prose or re-deriving the engine's rule
-   (previous *completed*, dated, same account, account timezone). The ask is the first and
-   last uncovered day as fields beside the message, ideally with the count of unfiled rows
-   in it. **Why it is still second:** the need it served — "review everything unfiled,
-   spot rows from long-closed months" — is now served better by the `u` pane, so this buys
-   a nicer gap warning (picks D/E of
-   [mockups/expense-world-gap-warning.html](mockups/expense-world-gap-warning.html)),
-   not a missing capability. **Deletes when it lands:** nothing yet; it *adds* the count
-   and the door.
-
-3. **A window/coverage flag on transaction reads** (candidate, not yet argued through).
-   The `u` pane's `!` marks a row whose date falls inside one of that account's batch
-   windows, computed client-side from windows the screen already holds — a hint the engine
-   could state outright, and the only place this repo compares a date against an engine
-   rule. Cheap and correct today because the engine remains the authority at close time;
-   worth raising if a second client wants the same marker.
-
-4. **`?status=` on `GET /reconciliations`** (candidate). The browse screen fetches every
-   batch unscoped and slices per account client-side, and `blocking_windows` then filters
-   to dated ones. Small, and it is the kind of filter every client will want.
+- **`?sort=date_asc`** (and cursor paging with it) and **the gap fields + wording fix**
+  shipped in the engine. The uptake — six broken call sites, the importer among them — is
+  [engine-change-transaction-pagination.md](engine-change-transaction-pagination.md).
+- **A window flag on transaction reads** and **`?status=` on `GET /reconciliations`** were
+  declined; the reasons are the engine's `docs/open-bugs.md` → D13 and D14. D13 matters here:
+  the `u` pane's `!` hint is right only because every row is stored at midnight Lima —
+  anything that writes a real time of day (file import) makes it drift near midnight.
 
 ## Bugs
 
