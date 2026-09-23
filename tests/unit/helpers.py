@@ -171,6 +171,12 @@ def page(items: list, *, total: int | None = None, limit: int = 50, offset: int 
     }
 
 
+def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50) -> dict:
+    """The `GET /transactions` envelope — cursor-paged, so no `total` and no
+    `offset`. `next_cursor=None` (the default) is the last page."""
+    return {"items": items, "limit": limit, "next_cursor": next_cursor}
+
+
 # ---------------------------------------------------------------------------
 # TUI fakes and waits
 # ---------------------------------------------------------------------------

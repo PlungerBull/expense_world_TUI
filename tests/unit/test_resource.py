@@ -16,6 +16,7 @@ from expense import config as config_module
 from expense.commands._resource import (
     account_choices,
     build_update_payload,
+    fetch_all_cursor_pages,
     fetch_all_pages,
     fetch_body,
     format_aggregate,
@@ -45,7 +46,7 @@ from expense.commands._resource import (
 )
 from expense.errors import EngineError, handle_errors
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, page
+from tests.unit.helpers import cursor_page, error_response, page
 
 runner = CliRunner()
 
@@ -796,6 +797,60 @@ def test_fetch_all_pages_custom_page_size():
     fetch_page, calls = _pager([full, short])
     assert len(fetch_all_pages(fetch_page, page_size=2)) == 3
     assert calls == [(2, 0), (2, 2)]
+
+
+def test_fetch_all_cursor_pages_walks_by_next_cursor():
+    """Each page's `next_cursor` goes back as `after`; null is the stop."""
+    fetch_page, calls = _pager(
+        [
+            cursor_page([{"id": "a"}, {"id": "b"}], next_cursor="c1"),
+            cursor_page([{"id": "c"}, {"id": "d"}], next_cursor="c2"),
+            cursor_page([{"id": "e"}]),
+        ]
+    )
+    rows = fetch_all_cursor_pages(fetch_page, page_size=2)
+    assert [r["id"] for r in rows] == ["a", "b", "c", "d", "e"]
+    assert calls == [(2, None), (2, "c1"), (2, "c2")]
+
+
+def test_fetch_all_cursor_pages_short_page_with_cursor_keeps_going():
+    """A short page is not the end — only a null cursor is (engine-spec)."""
+    fetch_page, calls = _pager(
+        [cursor_page([{"id": "a"}], next_cursor="c1"), cursor_page([{"id": "b"}])]
+    )
+    assert [r["id"] for r in fetch_all_cursor_pages(fetch_page)] == ["a", "b"]
+    assert calls == [(200, None), (200, "c1")]
+
+
+def test_fetch_all_cursor_pages_full_page_with_null_cursor_stops():
+    """A page holding exactly the remaining rows comes back null — no empty fetch."""
+    fetch_page, calls = _pager([cursor_page([{"id": f"t{i}"} for i in range(200)])])
+    assert len(fetch_all_cursor_pages(fetch_page)) == 200
+    assert calls == [(200, None)]
+
+
+@respx.mock
+def test_fetch_all_cursor_pages_never_sends_offset(configured):
+    """Through the real fetch: `offset` is a 422 on `GET /transactions`."""
+    from expense import config as config_module
+    from expense.commands.transactions_cmd import fetch_transactions
+
+    route = respx.get(f"{BASE}/v1/transactions").mock(
+        side_effect=[
+            httpx.Response(200, json=cursor_page([{"id": "a"}], next_cursor="c1")),
+            httpx.Response(200, json=cursor_page([{"id": "b"}])),
+        ]
+    )
+    cfg = config_module.ensure_loaded()
+    rows = fetch_all_cursor_pages(
+        lambda limit, after: fetch_transactions(cfg, account="acct", limit=limit, after=after)
+    )
+    assert [r["id"] for r in rows] == ["a", "b"]
+    first, second = (call.request.url.params for call in route.calls)
+    assert "offset" not in first and "offset" not in second
+    assert "after" not in first
+    assert second["after"] == "c1"
+    assert second["account_id"] == "acct"
 
 
 # ---------------------------------------------------------------------------

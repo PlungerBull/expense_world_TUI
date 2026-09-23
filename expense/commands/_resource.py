@@ -308,6 +308,26 @@ def fetch_all_pages(
         offset += len(page)
 
 
+def fetch_all_cursor_pages(
+    fetch_page: Callable[[int, str | None], Any], *, page_size: int = ENGINE_PAGE_CAP
+) -> list[dict]:
+    """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
+
+    `GET /transactions` is the one cursor-paged endpoint; every other list stays
+    on `fetch_all_pages`. The only stop is `next_cursor` being null (engine-spec)
+    — not a short page, not a count: a page holding exactly the remaining rows
+    already comes back null, and a short page with a cursor still has more.
+    """
+    out: list[dict] = []
+    after: str | None = None
+    while True:
+        body = fetch_page(page_size, after)
+        out.extend(items_of(body))
+        after = body.get("next_cursor") if isinstance(body, dict) else None
+        if after is None:
+            return out
+
+
 def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     """Live id → name map over one reference-list endpoint. Empty on any failure.
 

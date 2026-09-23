@@ -115,6 +115,38 @@ def _update_hint_for(err: EngineError) -> str | None:
     return None
 
 
+def _filter_params(
+    *,
+    account: str | None,
+    category: str | None,
+    hashtag: str | None,
+    reconciliation: str | None,
+    unreconciled: bool,
+    date_from: str | None,
+    date_to: str | None,
+    search: str | None,
+    include_deleted: bool,
+) -> dict:
+    """The filters `GET /transactions` and `/transactions/count` share — one copy.
+
+    The engine declares them once for both endpoints, so the list and its count
+    describe the same rows by construction; this mirrors that. Filters only:
+    paging, `sort` and `debit_as_negative` are the list's own, and the count
+    422s on any parameter it does not declare.
+    """
+    return query_params(
+        account_id=account,
+        category_id=category,
+        hashtag_id=hashtag,
+        reconciliation_id=reconciliation,
+        unreconciled=unreconciled,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        include_deleted=include_deleted,
+    )
+
+
 def fetch_transactions(
     cfg,
     *,
@@ -126,38 +158,90 @@ def fetch_transactions(
     date_from: str | None = None,
     date_to: str | None = None,
     search: str | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
     include_deleted: bool = False,
+    sort: str | None = None,
+    after: str | None = None,
+    limit: int | None = None,
     verbose: bool = False,
 ) -> dict:
     """GET /v1/transactions → the raw engine body. Pure data, no render.
 
-    Shared by the flat `transactions list` command and the TUI's Transactions
-    screen.
+    Cursor-paged: pass the previous page's `next_cursor` as `after`; `null`
+    means the last page. There is no `offset` and no `total` — the count is
+    `count_transactions`. A cursor belongs to one filter + sort, so a caller
+    that changes either starts again from `after=None`.
+
+    Shared by the flat `transactions list` command and the TUI screens.
     """
-    params = query_params(
-        account_id=account,
-        category_id=category,
-        hashtag_id=hashtag,
-        reconciliation_id=reconciliation,
-        unreconciled=unreconciled,
-        date_from=date_from,
-        date_to=date_to,
-        search=search,
-        limit=limit,
-        offset=offset,
-        include_deleted=include_deleted,
-        # Always signed: every CLI/TUI surface renders debits negative, so the
-        # request pins the flag rather than depending on the engine default.
-        debit_as_negative=True,
-    )
+    params = {
+        **_filter_params(
+            account=account,
+            category=category,
+            hashtag=hashtag,
+            reconciliation=reconciliation,
+            unreconciled=unreconciled,
+            date_from=date_from,
+            date_to=date_to,
+            search=search,
+            include_deleted=include_deleted,
+        ),
+        **query_params(
+            sort=sort,
+            after=after,
+            limit=limit,
+            # Always signed: every CLI/TUI surface renders debits negative, so the
+            # request pins the flag rather than depending on the engine default.
+            debit_as_negative=True,
+        ),
+    }
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
         params=params,
         verbose=verbose,
     )
+
+
+def count_transactions(
+    cfg,
+    *,
+    account: str | None = None,
+    category: str | None = None,
+    hashtag: str | None = None,
+    reconciliation: str | None = None,
+    unreconciled: bool = False,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    search: str | None = None,
+    include_deleted: bool = False,
+    verbose: bool = False,
+) -> int:
+    """GET /v1/transactions/count → how many rows the same filters match.
+
+    Raises when the body carries no int `count`. A count that falls back to a
+    guess (`len(items)`) is how two panes showed "1 to file" over 1,716 rows
+    with no error; a pane that cannot get the number fails instead.
+    """
+    body = fetch_body(
+        cfg,
+        path=f"/{_RESOURCE}/count",
+        params=_filter_params(
+            account=account,
+            category=category,
+            hashtag=hashtag,
+            reconciliation=reconciliation,
+            unreconciled=unreconciled,
+            date_from=date_from,
+            date_to=date_to,
+            search=search,
+            include_deleted=include_deleted,
+        ),
+        verbose=verbose,
+    )
+    count = body.get("count") if isinstance(body, dict) else None
+    if not isinstance(count, int) or isinstance(count, bool):
+        raise ValueError(f"GET /transactions/count answered without a count: {body!r}")
+    return count
 
 
 @app.command("list")
