@@ -1,24 +1,53 @@
-# Engine changes: `GET /transactions` is cursor-paged, and the gap warning is fixed (2026-09-23)
+# Engine debrief: everything that changed on 2026-09-23, and what the CLI must do
 
-**For:** whoever changes the CLI/TUI next. **Status:** shipped in the engine, and **the CLI is
-broken until this is done.** Six call sites fail with a `422` on their first request.
-**Authority:** `expense_world_engine/docs/engine-spec.md` → `GET /transactions` and
-`GET /transactions/count`. If this note and the spec disagree, the spec wins. Delete this file
-when the work below lands. Do the same with the engine's `docs/open-bugs.md` entry
+**For:** whoever changes the CLI/TUI next. **Status:** all of it is shipped and pushed in the
+engine. **The CLI is broken until §3 is done.** Four call sites fail with a `422`, and two keep
+running but show wrong numbers without any error.
+**Authority:** `expense_world_engine/docs/engine-spec.md`. If this note and the spec disagree,
+the spec wins.
+**When done:** delete this file, and tell the engine side to delete its `docs/open-bugs.md` entry
 `transaction-cursor`.
 
-This also answers ask **A1** of the 2026-09-22 engine-asks brief ("`GET /transactions` cannot be
-asked for oldest-first"): `?sort=date_asc` now exists. The brief itself is deleted; `docs/todo.md`
-→ "Engine asks" says where each ask ended up.
-
-**Two changes, one file.** Sections 1–5 cover the cursor change (A1), which is **breaking**.
-Section 6 covers the coverage-gap fix on `POST /reconciliations/{id}/complete` (asks **A2** and
-**A5**), which is **additive**: nothing breaks, and the corrected sentence already reaches the
-user through the existing verbatim rendering.
+This one file replaces `engine-change-transaction-pagination.md` and the 2026-09-22
+`engine-asks-brief.md`. Both are gone.
 
 ---
 
-## 1. What changed and why
+## 0. The day at a glance
+
+Five engine commits, in order:
+
+| Commit | What | For the CLI |
+|---|---|---|
+| `f6a3181` | The pagination plan written down (`docs/transaction-pagination-plan.md`) | Nothing. Background only. |
+| `6e93a16` | The manual "erase everything" procedure fixed (`deploy/local/README.md`) | Nothing to fix. One CLI fact now lives there, see §6.2. |
+| `7997fc6` | **`GET /transactions` is cursor-paged, gains `?sort=`, and the count moves to `GET /transactions/count`** (ask A1) | ⚠️ **Breaking.** §1–§4 |
+| `7788252` | **The coverage-gap warning on `complete` names the right days, and returns them as data** (asks A2 + A5) | ➕ Additive. Nothing breaks. §5 |
+| `acbd10f` | Asks A3 and A4 declined, with reasons (engine `open-bugs.md` D13, D14) | Read §6.1. One CLI hint is right only by luck. |
+
+---
+
+## 1. What is broken right now, and how it shows
+
+It fails in two ways, and **the silent one is the dangerous one**:
+
+| Site | What happens today | Visible? |
+|---|---|---|
+| **Unfiled pane** (`tui/screens/reconciliations.py:395-420`) | The `limit=1` probe succeeds but has no `total`, so it falls back to `len(items)` = 1, skips the second read, and shows **one row and "1 to file"** | ❌ **Silent, wrong** |
+| **LOG bar account peek** (`tui/screens/log_bar.py:1109-1127`) | No `total`, so it falls back to `len(items)` and the account's row count is understated | ❌ **Silent, wrong** |
+| **Ledger screen** (`tui/screens/transactions.py`, via `PagedListMixin.page_fetch_kwargs`) | Always sends `offset`, so `422` | ✅ Loud |
+| **Bank importer's duplicate matching** (`commands/bank_import_cmd.py:181` `fetch_ledger`) | `fetch_all_pages` sends `offset=0`, so `422`. **The importer is down.** | ✅ Loud |
+| **Reconciliation checklist** (`tui/screens/reconciliations.py:707` `_fetch_all_txns`) | `fetch_all_pages` sends `offset=0`, so `422` | ✅ Loud |
+| **Flat `expense transactions list`** | Works for page 1 (no `--offset` sent). `--offset` is a `422` | Partly |
+
+Fix the two silent ones even if you do nothing else. A pane that says "1 to file" when the
+real figure is 1,716 looks correct to the owner, so they will believe it.
+
+---
+
+## 2. The cursor change (A1)
+
+### 2.1 What changed and why
 
 `GET /transactions` used to page by position (`limit` / `offset`, with a `total`). It now pages by
 **bookmark**: every page hands back a `next_cursor`, and you pass that back as `?after=` to get the
@@ -29,15 +58,12 @@ paging, filing 40 rows shifts every remaining row up by 40, so "the next page" s
 owner had never seen. That happened silently, on every batch. A bookmark points at the last row you
 saw, so rows filed behind it don't move anything ahead of it.
 
-**Only this one endpoint changed.** Every other list keeps `limit` / `offset` / `total` exactly as before:
-`/accounts`, `/categories`, `/hashtags`, `/reconciliations`, `/activity`, `/exchange-rates/history`,
-`/categories/{id}/hashtags`. So does the transaction list embedded in `GET /reconciliations/{id}`.
+**Only this one endpoint changed.** Every other list keeps `limit` / `offset` / `total` exactly as
+before: `/accounts`, `/categories`, `/hashtags`, `/reconciliations`, `/activity`,
+`/exchange-rates/history`, `/categories/{id}/hashtags`. So does the transaction list embedded in
+`GET /reconciliations/{id}`.
 
----
-
-## 2. The new contract
-
-### `GET /transactions`
+### 2.2 `GET /transactions`
 
 | Param | Meaning |
 |---|---|
@@ -67,7 +93,7 @@ Response (shape taken from the running engine; values shortened):
 - **Order:** `date`, then `created_at`, then `id`, all in the direction `sort` names. `date_asc` is
   the exact reverse of `date_desc`.
 
-### `GET /transactions/count`
+### 2.3 `GET /transactions/count`
 
 Same filter params as the list (`sort` / `after` / `limit` don't apply). Returns:
 
@@ -75,9 +101,10 @@ Same filter params as the list (`sort` / `after` / `limit` don't apply). Returns
 {"count": 1716}
 ```
 
-It takes exactly the same filters, from the same code, so the count and the list always describe the same rows.
+It takes exactly the same filters, from the same code, so the count and the list always describe
+the same rows.
 
-### The `422`s you can now hit
+### 2.4 The `422`s you can now hit
 
 All in the standard error shape. `fields` names the parameter.
 
@@ -88,9 +115,12 @@ All in the standard error shape. `fields` names the parameter.
 | `after=<cursor>` with different filters or sort than the cursor was issued under | `after` | The message names what differs, e.g. ``This cursor was issued for a different `sort`, `unreconciled`.`` Drop the cursor and start from page 1. |
 | `after=<anything the engine didn't issue>` | `after` | Corrupt or hand-built cursor. |
 
----
+⚠️ **A misspelled parameter *name* is not a `422`.** `?sorrt=date_asc` is silently ignored and
+you get newest-first (engine `open-bugs.md` → `query-params-open`, not fixed). Only a wrong
+*value* for `sort` is caught. Have a test check that the rows really come back oldest-first,
+not only that the request succeeded.
 
-## 3. Rules for the client
+### 2.5 Rules for the client
 
 1. **The cursor is a black box.** Store it, send it back, never parse or build one. Its
    contents are the engine's to change without notice.
@@ -103,22 +133,22 @@ All in the standard error shape. `fields` names the parameter.
    page. Not having to count on every page is the reason the count got its own endpoint.
 5. **Forward only.** There is no `before=`. For "previous page", keep the cursors you've already
    been given (see the Ledger screen below).
-6. **To start at the oldest rows, use `sort=date_asc`.** Don't jump to "the last page"; that concept is gone.
+6. **To start at the oldest rows, use `sort=date_asc`.** Don't jump to "the last page"; that
+   concept is gone.
 
 ---
 
-## 4. Site by site
+## 3. Site by site
 
-Six call sites use `offset` on `/transactions` today. Every one of them now fails with a `422`.
-
-### 4.1 `commands/transactions_cmd.py`: `fetch_transactions` + `transactions list`
+### 3.1 `commands/transactions_cmd.py`: `fetch_transactions` + `transactions list`
 
 `fetch_transactions(…, limit, offset, …)` drops `offset` and gains `sort: str | None` and
-`after: str | None`. The flat `expense transactions list` command loses `--offset` (`OFFSET_OPT`). Give it
-`--sort` and, if you want flat-CLI paging, `--after`. Print `next_cursor` in `--json` mode (it's
-already in the body) and, in table mode, a hint to pass it back.
+`after: str | None`. The flat `expense transactions list` command loses `--offset` (`OFFSET_OPT`
+stays, since other commands still use it). Give it `--sort` and, if you want flat-CLI paging,
+`--after`. Print `next_cursor` in `--json` mode (it's already in the body) and, in table mode, a
+hint to pass it back.
 
-### 4.2 A cursor version of `fetch_all_pages` (`commands/_resource.py`)
+### 3.2 A cursor version of `fetch_all_pages` (`commands/_resource.py`)
 
 `fetch_all_pages(fetch_page(limit, offset))` is shared with the offset endpoints, so **don't change
 it.** Add a sibling for this one endpoint, e.g.:
@@ -137,16 +167,15 @@ def fetch_all_cursor_pages(fetch_page: Callable[[int, str | None], Any], *,
 
 Two callers move to it:
 
-- **`commands/bank_import_cmd.py:193` `fetch_ledger`.** The importer's duplicate matching over the
-  leg accounts. **This breaks the importer outright until fixed**: its first request sends
-  `offset=0`.
+- **`commands/bank_import_cmd.py:181` `fetch_ledger`.** The importer's duplicate matching over the
+  leg accounts. **This breaks the importer outright until fixed.**
 - **`tui/screens/reconciliations.py:707` `_fetch_all_txns`.** The reconciliation working screen's
   checklist.
 
-### 4.3 Ledger screen: `tui/screens/transactions.py`
+### 3.3 Ledger screen: `tui/screens/transactions.py`
 
-It uses `PagedListMixin` (`tui/screens/_base.py`), which **Activity and Rates also use**, and they stay
-offset-paged. So don't convert the mixin. Give the Ledger screen a cursor variant (a
+It uses `PagedListMixin` (`tui/screens/_base.py:172`), which **Activity and Rates also use**, and
+they stay offset-paged. So don't convert the mixin. Give the Ledger screen a cursor variant (a
 `CursorPagedListMixin`, or the same logic inline):
 
 - **Next page:** fetch with `after=<the current page's next_cursor>`. Disable "next" when it is `null`.
@@ -158,37 +187,36 @@ offset-paged. So don't convert the mixin. Give the Ledger screen a cursor varian
   list makes rows leave). Y = `ceil(count / page_rows)`.
 - **Terminal resize (`_viewport_resized`):** you can't re-anchor by offset any more. Refetch the
   current page with its own starting cursor and the new `limit`. The first visible row stays first,
-  which is what the old re-anchoring was trying to achieve. The stack of *earlier* cursors stays valid
-  (they're bookmarks, not positions), but the page count shifts. Clearing the stack and recounting is
-  the simple, correct choice.
-- **"Past the end" snapping** (`fetch_page_body`'s refetch when a delete emptied the last page) is no
-  longer needed. A cursor page is never "past the end". If a page comes back empty after
+  which is what the old re-anchoring was trying to achieve. The stack of *earlier* cursors stays
+  valid (they're bookmarks, not positions), but the page count shifts. Clearing the stack and
+  recounting is the simple, correct choice.
+- **"Past the end" snapping** (`fetch_page_body`'s refetch when a delete emptied the last page) is
+  no longer needed. A cursor page is never "past the end". If a page comes back empty after
   deletes, step back one cursor.
 - **Jump to last page** is gone. If you want "oldest first", flip to `sort=date_asc`.
 
-### 4.4 Unfiled pane: `tui/screens/reconciliations.py:390-415`
+### 3.4 Unfiled pane: `tui/screens/reconciliations.py:390-420` (silently wrong today, §1)
 
-Today it makes two reads: `limit=1` to learn `total`, then `offset=unfiled_offset(total, UNFILED_PAGE)` to
-reach the oldest rows, reversed for display. Replace both:
+Today it makes two reads: `limit=1` to learn `total`, then `offset=unfiled_offset(total, UNFILED_PAGE)`
+to reach the oldest rows, reversed for display. Replace both:
 
 - `sort=date_asc`, `unreconciled=true`, `account_id=…` → the oldest rows first, directly. Nothing to
   reverse and no second read.
 - **"N to file"** comes from `GET /transactions/count` with the same three filters.
-- `unfiled_offset()` and its docstring's "the engine has no sort parameter" can be deleted.
+- `unfiled_offset()` (line 84) and its comment's "the engine has no sort parameter" can be deleted.
 - **The 40-row cap (`UNFILED_PAGE`)** existed because offset paging couldn't survive rows being
   filed mid-scroll. With `after=`, it can: file some rows, fetch the next page with the cursor you
   already hold, and nothing is skipped. Keeping one page plus `r` to reload still works if you'd
   rather not change the UX now. Just know the reason for the cap is gone.
 
-### 4.5 LOG bar account peek: `tui/screens/log_bar.py:1110-1130`
+### 3.5 LOG bar account peek: `tui/screens/log_bar.py:1109-1127` (silently wrong today, §1)
 
 `_load_peek` fetches `limit=PEEK_LIMIT` and `_peek_loaded` reads `body["total"]`, which no longer
 exists. Get the total from `GET /transactions/count?account_id=…`, fetched alongside the peek. The
-fallback `len(items)` would silently understate it.
+fallback `len(items)` is what understates it now. Delete the fallback rather than keep it, so a
+missing count shows up as an error instead of a wrong number.
 
----
-
-## 5. Unchanged, so don't touch these
+### 3.6 Unchanged, so don't touch these
 
 - Every other list endpoint's `limit` / `offset` / `total`, and `fetch_all_pages` for them.
 - `GET /reconciliations/{id}`'s embedded `transactions` + `transactions_total` / `_limit` /
@@ -196,13 +224,28 @@ fallback `len(items)` would silently understate it.
   (`date DESC, created_at DESC, id DESC`), so it's now fully deterministic.
 - Transaction objects themselves, all write endpoints, and `debit_as_negative`.
 
-## 6. `complete` names the gap correctly and returns it as data (A2 + A5)
+---
+
+## 4. Checking it works
+
+- **Unfiled pane on the real ledger:** the header count matches
+  `GET /transactions/count?account_id=…&unreconciled=true`, the rows start from the oldest date,
+  and filing a page then scrolling on neither skips nor repeats a row.
+- **Importer:** a dry run over a statement you have already imported flags every row as a
+  duplicate, as it did before today.
+- **Ledger screen:** `date_asc` page 1 equals the old last page, reversed. The ledger has 744
+  groups of rows sharing both `date` and `created_at`, so paging through all of it and comparing
+  the ids to one full fetch catches any tie-handling mistake.
+
+---
+
+## 5. `complete` names the gap correctly and returns it as data (A2 + A5)
 
 **Status:** shipped in the engine, commit `7788252`. **Additive**, so nothing in the CLI breaks.
-**Authority:** `expense_world_engine/docs/engine-spec.md` → `POST /reconciliations/{id}/complete`,
-the `warnings` and `coverage_gap` paragraph.
+**Authority:** `engine-spec.md` → `POST /reconciliations/{id}/complete`, the `warnings` and
+`coverage_gap` paragraph.
 
-### 6.1 What was wrong
+### 5.1 What was wrong
 
 When you complete a period after skipping days, the engine warns you. The warning named the
 **wrong two days**: it used the last *covered* day and the first *covered* day. With June closed on
@@ -214,7 +257,7 @@ When you complete a period after skipping days, the engine warns you. The warnin
 The uncovered days are really **2026-06-26 to 2026-07-23**. On top of that, the dates existed only
 inside the sentence, so no screen could use them.
 
-### 6.2 The new response
+### 5.2 The new response
 
 Two keys, both **always present** on `complete`, both built from the same object in the engine so
 they can never disagree:
@@ -243,7 +286,7 @@ With no gap: `"warnings": []` and `"coverage_gap": null`.
 The sentence's count wording is "no unfiled transactions in them" at zero, "1 unfiled transaction
 in them" at one, and "N unfiled transactions in them" above that.
 
-### 6.3 Behaviour worth knowing
+### 5.3 Behaviour worth knowing
 
 - **An empty gap still warns.** `unfiled_count: 0` is the usual case. The skipped days are the
   finding, whether or not anything is in them.
@@ -251,26 +294,25 @@ in them" at one, and "N unfiled transactions in them" above that.
   nothing happened. Now `null` / `[]` only ever means "there is no gap", never "the engine didn't
   look".
 - **Only the gap *before* the period is reported.** If you close an older period late, when a
-  later one is already completed, the days *after* it are not reported. The engine has this logged
-  (`open-bugs.md` → `gap-after-unreported`). Don't build anything on the assumption that it
-  reports both sides.
+  later one is already completed, the days *after* it are not reported (engine `open-bugs.md` →
+  `gap-after-unreported`). Don't build anything on the assumption that it reports both sides.
 - **Old idempotent replays** return their stored snapshot as-is. A key used before 2026-09-23 comes
   back without a `coverage_gap` key. Treat a missing key as "unknown", not as "no gap".
 - `revert` is unchanged and carries neither key.
 
-### 6.4 What the CLI needs to do
+### 5.4 What the CLI needs to do
 
 **Required: nothing.** Both surfaces already print `warnings` verbatim:
 `commands/reconcile_cmd.py:596` (via `print_warnings`) and
-`tui/screens/reconciliations.py:1047-1065` (`_show_warnings`). They now print the corrected
-sentence, count included.
+`tui/screens/reconciliations.py:1063` (`_show_warnings`). They now print the corrected sentence,
+count included.
 
 **Optional:**
 
 - Read `coverage_gap` when you want the numbers, e.g. to style an empty gap differently from one
   holding rows. **Never parse the sentence.** The fields are the contract, and the prose may be
   reworded.
-- **To show the rows in the gap, use the unfiled pane (§4.4), not a date-filtered query.** With
+- **To show the rows in the gap, use the unfiled pane (§3.4), not a date-filtered query.** With
   `sort=date_asc`, the pane lists an account's unfiled rows oldest-first. A completed period can
   never contain an unfiled row, so any old unfiled row sits in a gap and shows up at the top.
   The owner agreed this is enough, so no dedicated "open the gap" view is needed.
@@ -280,23 +322,47 @@ sentence, count included.
   23rd (stored as midnight Lima, 05:00 UTC) is dropped. For an inclusive last day, pass the **next
   day's midnight in the user's zone**, e.g. `date_to=2026-07-24T00:00:00-05:00`. Only a filter
   built this way returns the same rows `unfiled_count` counted, apart from `@Opening`, which the
-  filter includes and the count doesn't. The engine has this logged as
-  `open-bugs.md` → `date-filter-not-calendar-days`, unfixed for now.
+  filter includes and the count doesn't. Engine `open-bugs.md` → `date-filter-not-calendar-days`,
+  not fixed yet.
 
-### 6.5 The other two asks
+---
 
-A3 (a per-row window flag) and A4 (`?status=` on reconciliations) are declined; the engine's
-`docs/open-bugs.md` → D13 and D14 say why. The brief that carried all five is deleted.
+## 6. Declined asks, and one other change
+
+### 6.1 A3 and A4 are declined (engine `open-bugs.md` → D13, D14)
+
+- **A3, a per-row "inside a reconciliation window" flag:** declined. The unfiled pane's `!` hint
+  stays client-side. It uses only structured fields from `GET /reconciliations`, and the engine
+  still makes the real decision at close time. **But it is right only by luck, and this is the part
+  that matters for the CLI.** The engine treats a period as whole calendar days in the user's
+  timezone. The client compares the ISO date prefix of `date`. The two agree today only because
+  every live row is stored at exactly 00:00 America/Lima (3,895 of 3,895, checked 2026-09-23), and
+  Lima has no daylight saving. **Nothing enforces midnight.** If file import (`file-import-plan.md`)
+  or anything else starts writing a real time of day, the `!` will be wrong on rows near midnight.
+  At that point, ask the engine again: D13 names that as the condition for reopening.
+- **A4, `?status=` on `GET /reconciliations`:** declined. `?account_id=` exists, the browse
+  screen deliberately fetches everything and slices client-side, and the collection is small.
+  Nothing to do.
+
+### 6.2 The erasure procedure now names the CLI's config temp file (`6e93a16`)
+
+`deploy/local/README.md` → "Erasing everything", step 5, now deletes `~/.expense-config*`, not
+just `~/.expense-config`. `config.save()` (`expense/config.py:73`) writes a `NamedTemporaryFile`
+beside the real file and then `os.replace()`s it, so a crash mid-write leaves a file holding the same
+live token. **Nothing to fix.** If you ever change where or how `config.save()` writes its temp
+file, tell the engine side so that step still catches it.
 
 ---
 
 ## 7. Checklist
 
-- [ ] `fetch_transactions`: drop `offset`, add `sort` / `after`; `transactions list` flags
-- [ ] `fetch_all_cursor_pages`; move `bank_import_cmd.fetch_ledger` and `_fetch_all_txns` to it
+- [ ] **Unfiled pane:** `sort=date_asc` + `/count`; delete `unfiled_offset` *(silently wrong today)*
+- [ ] **LOG bar peek:** total from `/count`, delete the `len(items)` fallback *(silently wrong today)*
+- [ ] `fetch_all_cursor_pages`; move `bank_import_cmd.fetch_ledger` and `_fetch_all_txns` to it *(importer down today)*
 - [ ] Ledger screen: cursor stack, `/count` for the total, resize and empty-page handling
-- [ ] Unfiled pane: `sort=date_asc` + `/count`; delete `unfiled_offset`
-- [ ] LOG bar peek: total from `/count`
+- [ ] `fetch_transactions`: drop `offset`, add `sort` / `after`; `transactions list` flags
+- [ ] Tests assert that `sort=date_asc` really comes back oldest-first (a misspelled param name is not caught, §2.4)
+- [ ] Run the §4 checks against the real ledger
 - [ ] *(optional)* Read `coverage_gap` where the count or dates are useful; never parse the sentence
 - [ ] *(optional)* Any `date_to` built from `last_uncovered_day` uses the next day's midnight in the user's zone
 - [ ] Delete this file; tell the engine side to delete `open-bugs.md` → `transaction-cursor`

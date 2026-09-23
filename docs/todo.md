@@ -100,7 +100,8 @@ deleted, as it said it would be:
 
 - **`?sort=date_asc`** (and cursor paging with it) and **the gap fields + wording fix**
   shipped in the engine. The uptake — six broken call sites, the importer among them — is
-  [engine-change-transaction-pagination.md](engine-change-transaction-pagination.md).
+  [engine-debrief-2026-09-23.md](engine-debrief-2026-09-23.md), which covers
+  everything the engine changed that day.
 - **A window flag on transaction reads** and **`?status=` on `GET /reconciliations`** were
   declined; the reasons are the engine's `docs/open-bugs.md` → D13 and D14. D13 matters here:
   the `u` pane's `!` hint is right only because every row is stored at midnight Lima —
