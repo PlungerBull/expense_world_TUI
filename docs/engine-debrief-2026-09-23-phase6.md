@@ -170,26 +170,19 @@ sends `limit` and `offset` and gets a `422`.
 | `commands/reconcile_cmd.py` `reconcile list` | Works without an account | Require `--account` (or loop over accounts if an "all" view is wanted). Drop `--offset` / `--limit` / `--include-deleted`. |
 | `commands/reconcile_cmd.py:352` `reconcile get` and `fetch_reconciliation` (:102) | `GET /reconciliations/{id}` with an embedded page | **Delete the command.** To show a batch's transactions, use `transactions list --reconciliation <id>` (cursor). |
 | **Working screen refresh** `tui/screens/reconciliations.py:878` | `fetch_reconciliation(cfg, self._id, limit=1)` by id; treats `404` as "record gone" (backlog 6.2b) | Re-read the batch's account list (the screen knows `account_id`) and find the row by id. **Not found there** now means it is gone (deleted). That check is reliable, because the list is whole and not paged, which was 6.2b's original worry. |
-| **`reconcile complete` hint** `commands/reconcile_cmd.py:286` | After a `422` for unassigned rows, reads the record by id to fill in account and window for the hint | ⚠️ **No by-id read any more, and the command knows only the id.** See §4.3. |
+| **`reconcile complete` hint** `commands/reconcile_cmd.py:286` | After a `422` for unassigned rows, reads the record by id to fill in account and window for the hint | Falls back to the generic hint on its own. Accepted; see §4.3. Optionally delete the dead read. |
 | Checklist `tui/screens/reconciliations.py:713` `_fetch_all_txns` | Already covered by the cursor debrief | No change here. |
 | Unfiled pane `!` hint | Uses `GET /reconciliations` fields per account | Needs the per-account fetch like the browse screen. Nothing else changes. D13's caveat still applies. |
 
-### 4.3 One open gap: the `complete` hint
+### 4.3 The `complete` hint degrades, and that is accepted
 
-`reconcile complete <id>` gets a `422` when rows in the window are unassigned. That `422` carries
-the count but not the account or the window, so the command used to spend one by-id read to fill
-in its hint. That read is gone, and the flat command has only the id. Options, in order of
-preference:
-
-1. **Ask the engine** to put `account_id`, `date_start` and `date_end` in that `422`'s
-   `fields`/message. It is the refusal's own subject, so it arguably belongs there. **This is
-   an engine ask. It is not decided yet.**
-2. Until then, fall back to `_UNASSIGNED_HINT_BARE`. The code already does this when the read
-   fails, so today it degrades to the bare hint on its own. It does not crash.
-3. Take `--account` on `reconcile complete` and read the list. This adds a flag for the sake of a
-   hint.
-
-The TUI working screen is unaffected: it already knows the record.
+`reconcile complete <id>` gets a `422` when rows in the period belong to no batch. It used to
+spend one by-id read to put the account and dates into its hint's example command. That read is
+gone, and the code already falls back to `_UNASSIGNED_HINT_BARE` (the same command with
+placeholders) when the read fails. The refusal and its count are unchanged. **Owner decision
+(2026-09-23): accept the generic hint.** No engine change and no new flag. The unfiled pane is the
+real way to find those rows. Optionally, delete the now-dead read in `_unassigned_hint` and
+always print the bare hint.
 
 ---
 
@@ -220,6 +213,6 @@ The TUI working screen is unaffected: it already knows the record.
 - [ ] `fetch_reconciliations` requires `account_id`; `reconcile list` requires `--account` *(6.4)*
 - [ ] Delete `reconcile get` / `fetch_reconciliation`; point users at `transactions list --reconciliation` *(6.4)*
 - [ ] Working-screen refresh: read the account list, not by id *(6.4)*
-- [ ] `reconcile complete` hint: decide §4.3 (engine ask vs bare hint) *(6.4)*
+- [ ] *(optional)* `reconcile complete` hint: delete the dead by-id read, always print the bare hint *(6.4, §4.3)*
 - [ ] Run §5 after the engine restart
 - [ ] Delete this file; tell the engine side to delete `open-bugs.md` → `phase-6-lists`
