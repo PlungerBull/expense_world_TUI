@@ -3,7 +3,7 @@
 **For:** whoever changes the CLI/TUI next. **Status:** shipped and pushed in the engine
 (`51cce79`, `eac853b`, `716fa21`, all 2026-09-23). **The running engine on `:8000` is still the
 old process.** Nothing breaks until it is restarted. Restart it only once this work has landed,
-the same rule as `cursor-uptake-plan.md`.
+the same rule as `engine-uptake-plan.md`.
 **Authority:** `expense_world_engine/docs/engine-spec.md`, in two places: *Lists come in three
 shapes*, *Cursors* and *Date windows* under Base Conventions, and then the `GET /activity` and
 `GET /exchange-rates/history` sections. If this note and the spec disagree, the spec wins. The

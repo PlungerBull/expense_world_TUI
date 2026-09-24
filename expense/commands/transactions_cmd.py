@@ -125,7 +125,6 @@ def _filter_params(
     date_from: str | None,
     date_to: str | None,
     search: str | None,
-    include_deleted: bool,
 ) -> dict:
     """The filters `GET /transactions` and `/transactions/count` share — one copy.
 
@@ -143,7 +142,6 @@ def _filter_params(
         date_from=date_from,
         date_to=date_to,
         search=search,
-        include_deleted=include_deleted,
     )
 
 
@@ -158,7 +156,6 @@ def fetch_transactions(
     date_from: str | None = None,
     date_to: str | None = None,
     search: str | None = None,
-    include_deleted: bool = False,
     sort: str | None = None,
     after: str | None = None,
     limit: int | None = None,
@@ -183,7 +180,6 @@ def fetch_transactions(
             date_from=date_from,
             date_to=date_to,
             search=search,
-            include_deleted=include_deleted,
         ),
         **query_params(
             sort=sort,
@@ -213,7 +209,6 @@ def count_transactions(
     date_from: str | None = None,
     date_to: str | None = None,
     search: str | None = None,
-    include_deleted: bool = False,
     verbose: bool = False,
 ) -> int:
     """GET /v1/transactions/count → how many rows the same filters match.
@@ -234,7 +229,6 @@ def count_transactions(
             date_from=date_from,
             date_to=date_to,
             search=search,
-            include_deleted=include_deleted,
         ),
         verbose=verbose,
     )

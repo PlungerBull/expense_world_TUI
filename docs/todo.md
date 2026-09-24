@@ -16,102 +16,116 @@ Rules, unchanged from the backlog this file replaces
   time an item closes, and it has shifted twice already. Code and docs that point here
   quote the item's bolded title instead, so a renumber can never make them lie.
 
-**Nothing here is a regression and nothing blocks daily use.** The flat CLI and the
-TUI are both feature-complete against the engine; **1250 unit tests green
-(2026-09-19)**, contract suite **24/24** against the disposable engine (2026-09-19 — the
-first run since 2026-08-25, and the first ever for the reconciliation, reports and
-dashboard modules added the same day).
+**The CLI is broken against the engine's current code (2026-09-23).** On that day the engine
+changed every list endpoint, deleted restore and the by-id reconciliation read, and began
+refusing unknown query parameters. The running engines are still the old process, so nothing
+has failed yet, but the restart cannot happen until this repo has caught up. **That uptake is
+the first item under *Now*, and it blocks everything else.** Last green baseline before it:
+**1250 unit tests (2026-09-19)**, contract suite **24/24** against the disposable engine
+(2026-09-19).
 
-**Since 2026-09-20 the file has two halves.** *Now* is the sequenced queue: four
-items the engine's 2026-09-20 changes put in front of this repo, in dependency
-order, tackled one at a time. Everything under it is the standing kind-grouped
-list — one genuine defect (the macOS field keys, under **Bugs**), the rest
-ergonomics and one cosmetic follow-up, plus **Engine asks** — a section that exists
-because of the rule added 2026-09-22 (CLAUDE.md "Ask the engine to change — that is
-not a last resort"): an engine ask is a normal, preferred outcome, so the queue keeps
-a home for the ones that are open.
+**The file has four working sections,** in this order:
 
-**The Inbox was deleted 2026-09-12** — engine (`sql/038`) and CLI in one day: a ledger row
-needs an account, an amount and a date; a missing category files it under `@Pendiente`,
-which counts everywhere; the LOG bar refuses a line it cannot stage instead of parking it;
-and — since the same evening — Home is the month itself (four months since 2026-09-13, with Overview folded in and deleted), with `⏎` on `@Pendiente` opening
-the ledger filtered to it and `space` + `c`/`b`/`h` editing rows in bulk (the `p` filter
-and the stats line lasted the day; [decisions.md](decisions.md) "Home is the month"). The why, with the
-rejected alternatives, is in [decisions.md](decisions.md) "The Inbox is deleted"; the
-screens in [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-world-pendiente-not-inbox.html)
-(pane 6 option A). Per the first rule above, the item is gone — git history is the archive.
-
-**The quick-add bar closed 2026-08-25** — all four phases: the grammar
-([expense/quickadd/](../expense/quickadd/)), `expense log "<line>"`, the TUI LOG bar
-([log_bar.py](../expense/tui/screens/log_bar.py)) and its save, with `+` now opening
-it. Its why lives in [decisions.md](decisions.md) (four entries) and its design in
-[mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html);
-per the first rule above, the item itself is gone — git history is the archive.
+- **Now**: the sequenced queue, one plan document per item.
+- **Engine asks**: what this repo needs from the engine and has not got.
+- **Small defects**: real bugs found along the way, each small and self-contained. They are
+  kept apart from *Now* so they don't get lost in a large plan or hold one up.
+- **Ergonomics**, **Cosmetic** and **Parked**: the standing list, none of it blocking.
 
 ---
 
-## Now — four asks, in order (set 2026-09-20)
+## Now (re-sequenced 2026-09-23)
 
-Three things landed in the engine on 2026-09-20: `GET /categories/{id}/hashtags`,
-sealed periods (its E1–E4), and the engine half of the file-import plan. What they
-need from this repo is **four asks, each with its own plan document** — so one can
-be picked up, reviewed in depth and built without the other three in context.
+**This section is an index. The depth lives in the plan docs**, per the "each fact has one
+home" rule. Each plan carries its own decisions and is **deleted when it ships**, with the
+whys moving to [decisions.md](decisions.md).
 
-**This section is an index. The depth lives in the plan docs**, per the "each fact
-has one home" rule; nothing below is restated there and nothing there is restated
-here. Each doc carries its own decisions-to-review section, and is **deleted when
-its ask ships**, with the whys moving to [decisions.md](decisions.md).
-
-| # | Ask | Plan | Gate |
+| # | Item | Plan | Gate |
 |---|---|---|---|
-| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | **built 2026-09-21/22 — only the contract run (§10 step 7) is left** |
-| 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | accepted 2026-09-19 |
+| **0** | **Engine uptake: everything the engine changed on 2026-09-23** | [engine-uptake-plan.md](engine-uptake-plan.md) | Phase 1 done; **one mockup (M1–M6) before any screen phase** |
+| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | Built 2026-09-21/22. Its last step, the contract run, **is the engine uptake's Phase 12** |
+| 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | Accepted 2026-09-19 |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 
-**Why this order.** Ask 1 is first because it blocks the owner's next real task —
-≈24 reconciliations created and closed by hand for 2026, every one able to hit a
-refusal this repo currently renders as a bare validation error. Ask 2 is what the
-first real bank import rests on. Ask 3 is independent of both and could move
-earlier if wanted. Ask 4 is the largest and the only one with nothing drawn.
+**Why this order.** The engine uptake comes first because nothing else can be tested against
+the engine until it lands, and it closes sealed periods on the way. The import rules are what
+the first real bank import rests on. Tags that know the category is independent of them and
+could move earlier. The import door is the largest and the only one with nothing drawn.
+
+**What the engine uptake changed in the others:**
+
+- **Sealed periods**: the restore door in its §1 table no longer exists, and its flat hint's by-id read
+  (D2) is gone. The owner accepted the generic hint on 2026-09-23. Nothing is left to build.
+- **Import rules**: C5 reads the account's completed reconciliations. That read is now
+  `GET /reconciliations?account_id=`, which returns the whole list, so it fits.
+- **Tags that know the category**: `GET /categories/{id}/hashtags` now returns every row with no paging, so the plan's
+  `--limit`/`--offset`, `fetch_all_pages` and pagination-hint lines are void (corrected in the
+  plan).
 
 One rule from the engine side is **absolute**
 ([engine plan §9](../../expense_world_engine/docs/file-import-plan.md)):
-**import first, reconcile second.** A reconciliation created before its rows
-exist seals the window against them, and the import is then refused.
+**import first, reconcile second.** A reconciliation created before its rows exist seals the
+window against them, and the import is then refused.
 
 ```
-ask 1 ──▶ owner: update the sheet, re-import, create + close the 2026 periods
-             │
-ask 2 ───────┴──▶ ask 3 ──▶ ask 4 ──▶ first real bank import
+engine uptake ──▶ restart ──▶ owner: update the sheet, re-import, create + close the 2026 periods
+                                │
+import rules ───────────────────┴──▶ category tags ──▶ import door ──▶ first real bank import
 ```
 
 ---
 
 ## Engine asks
 
-**Raising these is encouraged, not a last resort** — CLAUDE.md "Ask the engine to change".
-Each entry says what to ask for, why no client can do it properly today, and **what this
-repo deletes when it lands**, so the workaround does not outlive its reason. Never edited
-here: they are handed to the owner for the engine coder.
+**Raising these is encouraged, not a last resort** (CLAUDE.md "Ask the engine to change").
+Each entry says what to ask for, why no client can do it properly today, and **what this repo
+deletes when it lands**. Never edited here: they are handed to the owner for the engine coder.
 
-**All four asks of 2026-09-22 are answered (2026-09-23)**, and the hand-over brief is
-deleted, as it said it would be:
+1. **Date filters on `GET /transactions` in calendar days.** `date_from` / `date_to` compare
+   exact instants, and a bare date is read as midnight UTC. A row dated the 31st in Lima is stored
+   at 05:00 UTC, so `date_to=…-31` drops it (see the defect "The reconciliation checklist never offers
+   rows dated on the period's last day"). The engine already
+   logs this as `date-filter-not-calendar-days` and `transaction-date-filter-naive`, to be fixed
+   together. **The ask is to schedule it**, and to accept a bare date as a whole calendar day in
+   the user's `display_timezone`, not to refuse it: every client otherwise re-derives
+   "next day's midnight in the user's zone". **Deletes here:** the bare-date → instant conversion
+   the flat `--from`/`--to` gain in [engine-uptake-plan.md](engine-uptake-plan.md) Phase 9.
 
-- **`?sort=date_asc`** (and cursor paging with it) and **the gap fields + wording fix**
-  shipped in the engine. The uptake — six broken call sites, the importer among them — is
-  [engine-debrief-2026-09-23.md](engine-debrief-2026-09-23.md), which covers
-  everything the engine changed that day; the work, phase by phase, is
-  [cursor-uptake-plan.md](cursor-uptake-plan.md). **It comes before ask 1's contract run**,
-  which it absorbs (the plan's Phase 7).
-- **A window flag on transaction reads** and **`?status=` on `GET /reconciliations`** were
-  declined; the reasons are the engine's `docs/open-bugs.md` → D13 and D14. D13 matters here:
-  the `u` pane's `!` hint is right only because every row is stored at midnight Lima —
-  anything that writes a real time of day (file import) makes it drift near midnight.
+Answered on 2026-09-23: `?sort=date_asc` with cursor paging, and the gap fields with the wording
+fix, both shipped (the engine uptake takes them up). A window flag on transaction reads and `?status=` on
+`GET /reconciliations` were declined (engine `open-bugs.md` D13, D14). D13's midnight caveat
+moves to [file-import-plan.md](file-import-plan.md) in the engine uptake's Phase 11.
 
-## Bugs
+## Small defects
 
-1. **Field navigation in the edit form is broken on macOS.** `⌃↑` is Mission Control
+Real bugs, each small and self-contained. None of them waits on the engine uptake unless it says so.
+
+1. **The reconciliation checklist never offers rows dated on the period's last day.** Found
+   2026-09-23. The draft working screen lists the account's unassigned rows "in range" with
+   `date_to=<date_end>` taken straight from the reconciliation
+   ([reconciliations.py](../expense/tui/screens/reconciliations.py), the `available` read). The
+   engine reads that bare date as midnight UTC at the **start** of `date_end`, 19:00 the evening
+   before in Lima, so every row dated on the last day (stored 05:00 UTC) is left out. On a
+   month-end statement that is the 31st's rows, which then block the close as "unassigned" with
+   no way to tick them from this screen. **The complete fix is the engine ask on calendar-day date filters.** Until then the
+   `u` pane still reaches those rows. Pin with a test either way.
+
+2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side: the
+   help text says "(inclusive)", and the docstring's own example
+   (`--to 2026-08-31 --unreconciled`) misses the 31st. Fixed on the client side by
+   [engine-uptake-plan.md](engine-uptake-plan.md) Phase 9, or by the same engine ask, whichever lands
+   first.
+
+3. **The fixture-drift check cannot see stale envelope keys.**
+   [check_fixture_drift.py](../scripts/check_fixture_drift.py) checks each fixture key against
+   every engine schema at once, so a transaction fixture still carrying `total` or `offset`
+   passes, because those keys are real on other endpoints. Found 2026-09-23. After the engine uptake no
+   endpoint serves `total` or `offset` at all, so the first run after the restart will catch them.
+   The general fix (mapping each fixture to the endpoint it mocks) is the script's own documented
+   limitation. Low priority.
+
+4. **Field navigation in the edit form is broken on macOS.** `⌃↑` is Mission Control
    and `⌃↓` is Application Windows — the OS claims both before the terminal sees them,
    so `^↑ Prev field` / `^↓ Next field` have very likely never worked. Raised by the
    user 2026-08-20 ("normal arrows up and down should switch between fields"), then
@@ -143,11 +157,11 @@ deleted, as it said it would be:
 
 ## Ergonomics
 
-3. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands,
+1. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands,
    `expense auth <TAB>` shows subcommands. Lowest-effort discoverability win for the
    flat path; no design questions open.
 
-4. **Human-name resolution for reference flags.** Accept either a UUID or a
+2. **Human-name resolution for reference flags.** Accept either a UUID or a
    human-readable name on every `--account-id` / `--category-id` / `--hashtag-id` /
    `--reconciliation-id`. Client-side lookup via the existing list endpoints:
    case-insensitive exact match, ambiguous matches rejected with a "be more specific"
@@ -158,7 +172,7 @@ deleted, as it said it would be:
    deliberately whether the flag path reuses that matcher or keeps its stricter
    exact-match rule, rather than ending up with two by accident.
 
-5. **"Move between accounts" convenience** — one command writing the two ordinary
+3. **"Move between accounts" convenience** — one command writing the two ordinary
    `POST /transactions` calls a transfer now consists of (out one account, in the
    other). The engine has had no transfer concept since 2026-08-10, so this is purely
    client-side sugar over two writes — which is also the argument *against* it, since
@@ -167,14 +181,14 @@ deleted, as it said it would be:
    legs' titles and categories default to. See [decisions.md](decisions.md) "Transfers
    are two ordinary transactions".
 
-6. **`expense import csv`** — CSV variant of the shipped `.xlsx` importer. **Conditional:
+4. **`expense import csv`** — CSV variant of the shipped `.xlsx` importer. **Conditional:
    only if a real migration needs it**; the xlsx path already covered the original one.
    Cheaper now than when it was written down — the write half is shared
    ([batch_write.py](../expense/batch_write.py)), so only a reader would be new.
 
 ## Cosmetic — safe to leave
 
-0. **Four modals are still modals** — `PickerModal` (the bulk `c`/`b`/`h` picks),
+1. **Four modals are still modals** — `PickerModal` (the bulk `c`/`b`/`h` picks),
    `HelpModal` (`?`), `PromptModal` (the engine-URL edit) and `DiscardStagedModal`
    (the LOG bar's unsaved-rows guard). **The box itself is already gone** (`1c3b2de`,
    2026-09-20: `#modal` draws `border-top`/`border-bottom` only, so every modal that
@@ -187,7 +201,7 @@ deleted, as it said it would be:
    (the unfiled pane's `d`).
 
 
-7. **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Its create
+2. **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Its create
    mode was retired 2026-08-25 when `+` moved to the LOG bar
    ([mockups/expense-world-two-doors.html](mockups/expense-world-two-doors.html)); the
    class, and the module `quick_log.py`, still carry the name of the door that closed.

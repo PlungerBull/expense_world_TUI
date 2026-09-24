@@ -1,5 +1,8 @@
 # Sealed periods reach the user — CLI/TUI plan (drafted 2026-09-20)
 
+> **2026-09-23:** everything here is built. The one step left, the contract run (§10 step 7),
+> is Phase 12 of [engine-uptake-plan.md](engine-uptake-plan.md); this file is deleted then.
+
 **Status: reviewed and settled 2026-09-20, not yet built.** This is ask **1 of 4**
 on the 2026-09-20 queue ([todo.md](todo.md) "Now"). Every decision in §7 is
 answered; the rest is settled by the engine's contract and recorded here so a
@@ -46,7 +49,7 @@ transaction may come to exist on that account with a date inside
 | `POST /transactions/batch` | `transactions.<index>.date` | **`import bank`, the LOG bar save** |
 | `PUT /transactions/{id}` moving `date` in | `date` | `transactions update`, TUI edit form |
 | `PUT /transactions/{id}` moving `account_id` in | `account_id` | `transactions update`, Home's bulk `b` |
-| `POST /transactions/{id}/restore` | `date` | `transactions restore` |
+| ~~`POST /transactions/{id}/restore`~~ | `date` | *Route deleted by the engine 2026-09-23 (Phase 6.1)* |
 | `POST /accounts/{id}/opening-balance` | `date` | `accounts opening-balance` |
 
 The message names the sealing period's days and name. Only a **COMPLETED,
@@ -202,7 +205,9 @@ reading a body left by a previous write is a silent bug waiting to happen).
 - **TUI: pane E**, the shared results screen — not a shell command. The owner's
   correction, and the right one: "in the TUI the answer is not a command to copy,
   it is the rows."
-- **Flat CLI: fetch and print a command that works.** `GET /reconciliations/{id}`
+- *(Superseded 2026-09-23: `GET /reconciliations/{id}` is gone and the owner accepted the
+  generic hint, [engine-uptake-plan.md](engine-uptake-plan.md) Phase 5.)*
+  **Flat CLI: fetch and print a command that works.** `GET /reconciliations/{id}`
   on this 422 only, to fill in the account and both dates, so the printed line is
   runnable rather than a template with three holes in it. One extra read on a
   path that has already failed. *Rejected:* printing `--account-id <id>` and

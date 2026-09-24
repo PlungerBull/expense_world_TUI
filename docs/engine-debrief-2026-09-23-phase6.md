@@ -3,7 +3,7 @@
 **For:** whoever changes the CLI/TUI next. **Status:** shipped and pushed in the engine
 (`545872f`, `5a32e97`, `013e18d`, `9b8ae28`, all 2026-09-23). **The running engine on `:8000` is
 still the old process.** Nothing breaks until it is restarted, and it should be restarted only
-once this work lands (same rule as `cursor-uptake-plan.md`).
+once this work lands (same rule as `engine-uptake-plan.md`).
 **Authority:** `expense_world_engine/docs/engine-spec.md`. If this note and the spec disagree,
 the spec wins. The design reasoning is in `expense_world_engine/docs/transaction-pagination-plan.md`
 §4.1 and §4.4.

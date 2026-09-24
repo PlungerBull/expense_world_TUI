@@ -617,14 +617,12 @@ def test_count_transactions_sends_the_filters_and_nothing_else(configured):
         account="acct-id",
         unreconciled=True,
         date_from="2026-06-01",
-        include_deleted=True,
     )
     assert count == 1716
     assert dict(route.calls.last.request.url.params) == {
         "account_id": "acct-id",
         "unreconciled": "true",
         "date_from": "2026-06-01",
-        "include_deleted": "true",
     }
 
 

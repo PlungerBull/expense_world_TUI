@@ -20,20 +20,19 @@ on the category if a category exists?"*). When it ships, its why moves to
 ## 1. What the engine now does
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
-used with, most-used first. Read-only, paginated, no side effects.
+used with, most-used first. Read-only, no side effects. **Returns the whole list, unpaged,
+since 2026-09-23** (engine Phase 6.3; [engine-debrief-2026-09-23-phase6.md](engine-debrief-2026-09-23-phase6.md) §3):
+`?limit=` / `?offset=` are a `422`.
 
 ```json
 { "items": [ {"id": "<uuid>", "name": "ALQUILER", "uses": 142},
-             {"id": "<uuid>", "name": "LUZ",      "uses": 25} ],
-  "total": 6, "limit": 50, "offset": 0 }
+             {"id": "<uuid>", "name": "LUZ",      "uses": 25} ] }
 ```
 
 Four field rules that matter to this repo:
 
 - **`uses` counts transactions, not junction rows.** A row carrying two tags adds
   1 to each, never 2 to either. Safe to show as a transaction count.
-- **`total` is the number of distinct hashtags**, so pagination arithmetic works
-  the way every other list's does.
 - **Ordering is `uses DESC, created_at ASC`** — the tie-break is deliberately
   *not* name, because a name is mutable and ties are the ordinary case at the
   tail of any real picker.
@@ -71,7 +70,7 @@ suggested.
 
 ## 3. H1 — the flat command
 
-`expense categories hashtags <id>` — a read, with `--json`, `--limit`, `--offset`.
+`expense categories hashtags <id>` — a read, with `--json`. No paging flags: the endpoint returns every row.
 
 Not garnish. This repo exists to exercise every engine endpoint through real use
 before the web and iOS clients are built (CLAUDE.md, "Product scope and role"), so
@@ -134,8 +133,8 @@ The category changes per keystroke, so this cannot ride the one-shot
 - cache per category id **for the life of the screen** — this is not the
   forbidden mapping, it is one screen's session, and without it every keystroke
   is an HTTP call;
-- `fetch_all_pages`, because the default limit is 50 and a well-used category can
-  pass that.
+- one plain GET: the list comes back whole (bounded by the 500-hashtag cap), so there is
+  nothing to page.
 
 ### 4d. The states the mockup does not draw
 
@@ -206,7 +205,7 @@ costs width; in `categories hashtags` it is the whole point of the read.
 ## 8. Tests
 
 - `categories hashtags` happy path + error shape + `--json` passthrough;
-  pagination hint on a truncated page.
+  no pagination hint (the list is whole).
 - **The critical one:** a full tag name typed against a category that has never
   used it still resolves and still stages. §4a is the regression this guards.
 - `#` with a resolved category offers only that category's tags; `##` offers all.
