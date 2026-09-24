@@ -53,7 +53,7 @@ to [decisions.md](decisions.md) in Phase 11.
 
 ## Open decisions, all in one mockup
 
-Everything the owner will see changing goes in **one mockup file in [mockups/](mockups/)**,
+Everything the owner will see changing goes in **one mockup file**, [mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html) (drawn 2026-09-23),
 reviewed and picked **before any phase that touches a screen or a table** (CLAUDE.md "Mock every
 screen before building it"). It covers:
 
@@ -63,7 +63,7 @@ screen before building it"). It covers:
 | **M2** | Reconciliations browse: fetch the account's batches when the cursor moves, or every account's up front (about 9 reads) (6a §4.2) | 5 |
 | **M3** | Ledger screen after a terminal resize: keep your place, or go back to page 1 | 7 |
 | **M4** | The `u` pane and the LOG bar peek: unchanged look, oldest first, the count-failure state | 2 |
-| **M5** | Flat output: the `transactions list` cursor hint; the small lists losing their "showing 20 of 56" hint; `activity list` / `rates list` printing their window and "older: `--to …`"; `reconcile list` requiring `--account` | 4, 5, 8, 9 |
+| **M5** | Flat output: the `transactions list` cursor hint; the small lists losing their "showing 20 of 56" hint; `activity list` / `rates list` printing their window and "older: `--to …`"; `reconcile list` requiring `--account-id` | 4, 5, 8, 9 |
 | **M6** *(optional)* | Real scrolling in the `u` pane, now that the reason for the 40-row cap is gone (cursor §3.4) | later |
 
 Phases 1, 3, 6 and 10 change nothing the owner sees and can be built before the pick.
@@ -158,7 +158,7 @@ No screen changes: the TUI never called restore or sent `include_deleted`.
 - `fetch_reconciliations` requires `account_id` and loses `include_deleted`, `limit`, `offset`.
 - **Browse screen:** per-account fetch, shape decided by **M2**. The list arrives in period
   order, so check whether `_batch_sort_key` is still needed.
-- **`reconcile list` requires `--account`** (**M5**).
+- **`reconcile list` requires `--account-id`** (**M5**).
 - **Delete `reconcile get` and `fetch_reconciliation`.** A batch's rows are
   `transactions list --reconciliation-id <id>`.
 - **Working-screen refresh:** re-read the account's list and find the row by id. "Not there"

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engine uptake — what you will see change</title>
+<style>
+  :root{
+    --page:#050506; --pad:#000; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68;
+    --dimmer:#3c3f47; --accent:#7fa6d6; --pos:#7fbf8f; --neg:#cf8d8d; --warn:#d6b97f;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);
+       -webkit-font-smoothing:antialiased}
+  .head,.chg,.sec,.pane,.qs{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:84ch}
+  .head b{color:var(--text)} .head code{color:var(--text);font-size:12px} .head i{color:var(--muted)}
+  .chg{border:1px solid #23232a;border-radius:10px;padding:14px 18px;margin-top:14px}
+  .chg h2{margin:0 0 8px;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .chg ul{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.75}
+  .chg b{color:var(--text)} .chg code{color:var(--text);font-size:12px}
+  .sec{margin-top:44px;border-top:1px solid #23232a;padding-top:22px}
+  .sec h2{margin:0 0 10px;font-size:13px;letter-spacing:.08em;color:var(--text);font-weight:700}
+  .sec p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:86ch}
+  .sec p b{color:var(--text)} .sec code{color:var(--text);font-size:12px} .sec i{color:var(--muted)}
+  .pane{margin-top:20px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl b{color:var(--text)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:86ch}
+  .blurb b{color:var(--text)} .blurb code{color:var(--text);font-size:12px}
+  .term{border:1px solid #23232a;border-radius:12px;overflow:hidden;
+        box-shadow:0 22px 56px -34px #000;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#000}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:14px 18px 18px;position:relative;overflow-x:auto}
+  pre.scr{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;
+          color:var(--text);white-space:pre}
+  .d{color:var(--dim)} .b{font-weight:700;color:#fff} .a{color:var(--accent)}
+  .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)} .e{color:var(--neg)}
+  .k{color:var(--accent);font-weight:700}
+  .rev{background:var(--text);color:#0b0b0e}
+  .new{color:var(--warn);font-weight:700}
+  .gone{color:var(--neg);text-decoration:line-through}
+  .arrow{color:var(--accent);font-size:12.5px;margin:14px 0 0;letter-spacing:.04em}
+  .arrow b{color:var(--text)}
+  .qs{margin-top:18px}
+  .q{border-top:1px solid #1c1c22;padding:14px 2px}
+  .qq{margin:0 0 6px;color:var(--text);font-size:13.5px}
+  .qa{margin:0;color:var(--muted);font-size:13px;line-height:1.7;max-width:88ch}
+  .qa b{color:var(--text)} .qa code{color:var(--text);font-size:12px} .qa i{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Engine uptake — what you will see change</h1>
+  <p><b>Drawn 2026-09-23</b> for <code>docs/engine-uptake-plan.md</code>.
+     On that day the engine changed how every list is read. Most of the catch-up is invisible, and
+     this file draws only the parts you will see: six items, <b>M1–M6</b>.</p>
+  <p>Everything <span class="new">in yellow</span> is new, and <span class="gone">struck red</span>
+     is going away. Everything else is on screen today, drawn from the code. Rows and amounts are
+     made up.</p>
+</div>
+
+<div class="chg">
+  <h2>What you are asked</h2>
+  <ul>
+    <li><b>Three real choices:</b> M2 (reconciliations: load each account's batches when you land on
+        it, or all at the start), M3 (ledger after a terminal resize: keep your place, or back to
+        page 1), M6 (real scrolling in the <code>u</code> pane: now or later).</li>
+    <li><b>Three to confirm:</b> M1 (Home loses Activity and Rates, which you already decided), M4
+        (the <code>u</code> pane and the LOG bar peek look the same as today), M5 (the typed
+        commands' footers).</li>
+  </ul>
+</div>
+
+<!-- ============================ M1 ============================ -->
+<div class="sec">
+  <h2>M1 · Home without Activity and Rates</h2>
+  <p>Your decision on 2026-09-23. The two screens are deleted, and SYSTEM keeps two entries. The
+     typed <code>expense activity list</code> and <code>expense rates list</code> stay (M5).</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>Bottom of Home</b> <span>· before → after</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="d">LEDGER</span>                                      <span class="d">LEDGER</span>
+    Transactions                                Transactions
+    Reconciliations                             Reconciliations
+  <span class="d">MANAGE</span>                                      <span class="d">MANAGE</span>
+    Accounts                                    Accounts
+    Categories                                  Categories
+    Hashtags                                    Hashtags
+  <span class="d">SYSTEM</span>                                      <span class="d">SYSTEM</span>
+    Config                                      Config
+    Auth &amp; profile                              Auth &amp; profile
+    <span class="gone">Activity</span>
+    <span class="gone">Rates</span>
+
+  <span class="d">today</span>                                       <span class="new">after</span></pre></div></div>
+</section>
+
+<!-- ============================ M2 ============================ -->
+<div class="sec">
+  <h2>M2 · Reconciliations: when each account's batches load</h2>
+  <p><b>Why this changes:</b> the engine no longer hands out every account's batches in one read.
+     It now answers one account at a time. Today the screen reads everything once and switches the
+     lower pane instantly as you move. Two ways to keep that working:</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>A</b> <span>· load an account's batches when you stop on it · one read per account, remembered</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> <span class="b">Reconciliations</span>
+
+<span class="b">Reconciliations — pick an account, then a batch</span>
+
+  Account                       Cur         Balance
+  <span class="d">──────────────────────────────────────────────────</span>
+  <span class="d">BCP PEN                       PEN        9,215.40</span>
+<span class="rev"> ▸ BCP Signature PEN             PEN       -2,480.10 </span>
+  <span class="d">BCP Signature USD             USD         -312.44</span>
+
+  <span class="d">Reconciliations · BCP Signature PEN   ·</span>   <span class="new">loading…</span>
+  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+
+<span class="k">⏎</span> <span class="d">Batches</span>  <span class="k">n</span> <span class="d">New</span>  <span class="k">u</span> <span class="d">No batch</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">esc</span> <span class="d">Back</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="blurb">The screen opens as fast as today. The first time you stop on an account, its pane
+   shows <code>loading…</code> for one read, then its batches. Arrowing <i>through</i> accounts
+   does not read each one (the same wait-until-you-stop rule the LOG bar peek uses), and an account
+   you have already seen is instant. <code>r</code> reloads.</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>B</b> <span>· read every account's batches when the screen opens · about 9 reads</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> <span class="b">Reconciliations</span>
+
+<span class="b">Reconciliations — pick an account, then a batch</span>
+
+  <span class="new">loading…</span>
+
+
+
+<span class="d">          (a moment later: today's screen, unchanged, and every move instant)</span></pre></div></div>
+<p class="blurb">Looks exactly like today once open, but opening waits for one read per account
+   (nine today, more as accounts are added). Every client would have to repeat this pattern, and it
+   grows with the account list.</p>
+</section>
+
+<!-- ============================ M3 ============================ -->
+<div class="sec">
+  <h2>M3 · The ledger after you resize the terminal</h2>
+  <p><b>Why this changes:</b> the ledger used to jump to "row 41". Now it can only say "the page
+     after this one". Pages are cut at the size the terminal had when you walked them, so a resize
+     leaves the pages you already walked cut at the old size. You are on page 3 of a filtered
+     ledger, and you make the window taller:</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>A</b> <span>· keep your place · the same first row, more rows under it</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> BCP PEN
+
+  <span class="d">Title                      Amount       Date      Category</span>
+  <span class="d">────────────────────────────────────────────────────────────</span>
+<span class="rev"> ▸ NETFLIX.COM                 -44.90  11 Aug 26   Ocio        </span>
+  <span class="d">  GRIFO PRIMAX               -215.60  09 Aug 26   Transporte</span>
+  <span class="d">  …                                                         </span>
+  <span class="d">  (26 rows where there were 20)</span>
+
+  <span class="d">rows 41–66 of 214 ·</span> <span class="new">page 3</span></pre></div></div>
+<p class="blurb">You stay where you were. The cost is that <code>pgup</code> back to page 2 fetches
+   26 rows from where page 2 <i>started</i>, so it can repeat some of page 3's rows (or, after a
+   shrink, skip some) until you are back at page 1. And "page 3 <i>of 11</i>" can no longer be
+   stated, so the footer shows only the page number until you return to page 1.</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>B</b> <span>· back to page 1 · exact, but you lose your place</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> BCP PEN
+
+  <span class="d">Title                      Amount       Date      Category</span>
+  <span class="d">────────────────────────────────────────────────────────────</span>
+<span class="rev"> ▸ PLAZA VEA AREQUIPA         -152.40  21 Sep 26   Mercado     </span>
+  <span class="d">  DLC*UBER RIDES              -24.50  19 Sep 26   @Pendiente</span>
+  <span class="d">  …</span>
+
+  <span class="d">rows 1–26 of 214 · page 1 of 9</span></pre></div></div>
+<p class="blurb">Every page after that is exact again. A resize is rare, so losing your place is
+   rare too. Filters stay as they were; only the page resets.</p>
+</section>
+
+<!-- ============================ M4 ============================ -->
+<div class="sec">
+  <h2>M4 · The <code>u</code> pane and the LOG bar peek look the same as today</h2>
+  <p><b>Why this is here at all:</b> both read differently under the hood, and the old way would now
+     show <i>wrong</i> rows with no error. After the fix they look as they do today. The one new rule
+     (your decision, 2026-09-23) is that <b>the row count and the rows load together</b>, and if the
+     count cannot be read, the whole pane fails. It never shows rows next to a guessed number.</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>The <code>u</code> pane</b> <span>· unchanged: still the 40 oldest, still oldest at the top</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   1716 rows · the 40 oldest · oldest first   ·   ! blocks a batch's close
+  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+<span class="rev"> ▸   2024-04-06   PLAZA VEA AREQUIPA             -152.40   Mercado            </span>
+  <span class="d">  2024-04-09   GRIFO PRIMAX                   -215.60   Transporte</span>
+  <span class="d">  2024-04-11   NETFLIX.COM                     -44.90   Ocio</span>
+  <span class="d">  …</span></pre></div></div>
+<p class="blurb">The "1716" now comes from the engine's own count, not from the last page's
+   length.</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>If the count fails</b> <span>· the same as a failed read today: the pane goes back to the batches and says why</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="d">Reconciliations · BCP PEN   ·   by statement start date (oldest → newest)</span>
+  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+  <span class="d">June 2026      2026-05-26 → 06-25    12,900.00   12,480.00    0.00   completed</span>
+  <span class="d">August 2026    2026-07-24 → 08-25    12,480.00    9,215.40  -12.50   draft</span></pre>
+<div style="position:absolute;right:18px;bottom:16px;width:min(360px,60%);background:#16161b;padding:8px 12px;font-size:12px;line-height:1.5;border-left:5px solid var(--neg)">
+  <b style="color:var(--neg);display:block">Failed</b>engine unreachable — is it running?
+</div></div></div>
+</section>
+<section class="pane">
+<div class="lbl"><b>The LOG bar peek</b> <span>· unchanged; a failed count is shown like any failed read, in the panel</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="b">BCP PEN</span>                                          <span class="b">BCP PEN</span>
+  <span class="d">──────────────────────────────────</span>               <span class="d">──────────────────────────────────</span>
+  <span class="d">date    title             amount   category</span>        <span class="d">engine unreachable — is it running?</span>
+  21 Sep  PLAZA VEA AREQ.   -152.40  Mercado
+  19 Sep  DLC*UBER RIDES     -24.50  @Pendiente
+  <span class="d">12 of 214 in this account · newest first</span>
+
+  <span class="d">ok</span>                                              <span class="d">count failed</span></pre></div></div>
+</section>
+
+<!-- ============================ M5 ============================ -->
+<div class="sec">
+  <h2>M5 · The typed commands: what the footers say</h2>
+  <p>Only the line under each table changes, apart from <code>reconcile list</code>, which now needs
+     an account. Tables and columns stay as they are.</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>transactions list</b> <span>· page by bookmark, not by number</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense transactions list --account-id &lt;id&gt; --limit 20
+  … 20 rows …
+
+<span class="gone">(showing 20 of 214; pass --offset 20 --limit 20 for more)</span>
+<span class="new">(more: pass --after eyJrIjpbIjIwMjYtMDktMDFUMDU6MDA6MDAr… with the same filters)</span>
+
+<span class="d">$</span> expense transactions list --account-id &lt;id&gt; <span class="new">--sort date_asc</span>     <span class="d"># oldest first, new flag</span></pre></div></div>
+<p class="blurb">No total: counting would cost a second read on every list, and <code>--json</code>
+   users can call the count themselves. On the last page there is no footer. <code>--offset</code> is
+   gone, and <code>--from</code>/<code>--to</code> now include the whole last day (this also fixes
+   the "--to drops the last day" defect).</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>accounts / categories / hashtags list</b> <span>· everything, always</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense hashtags list
+  … all 56 rows …
+<span class="gone">(showing 20 of 56; pass --offset 20 --limit 20 for more)</span></pre></div></div>
+<p class="blurb">No footer, and no <code>--limit</code>/<code>--offset</code>. Today the list stops
+   at 20 and six tags are missing wherever something forgot to page. That bug goes away.</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>activity list / rates list</b> <span>· the last 30 days, and how to go further back</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense activity list
+Date        Time      Action   Actor  Type     Resource
+----------  --------  -------  -----  -------  -------------
+2026-09-19  20:19:32  UPDATED  —      account  BCP Oro PEN
+  …
+
+<span class="new">(2026-08-24 → 2026-09-23 · more in this window: pass --after eyJrIjpb…)</span>
+<span class="d">   … and on the window's last page:</span>
+<span class="new">(2026-08-24 → 2026-09-23 · older: pass --to 2026-08-24)</span>
+
+<span class="d">$</span> expense rates list
+  …
+<span class="new">(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)</span></pre></div></div>
+<p class="blurb">The engine now reads these 30 days at a time (up to a year if you pass
+   <code>--from</code>/<code>--to</code>). The footer always says which stretch you are looking at,
+   because an empty table otherwise looks like "no history". <code>rates list --date X</code> still
+   works. <code>activity list --resource-id X</code> also shows only the last 30 days, per your
+   decision; its help text will say so.</p>
+</section>
+<section class="pane">
+<div class="lbl"><b>reconcile list</b> <span>· one account at a time</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense reconcile list
+<span class="new">Error: Missing option '--account-id'.</span>  <span class="d">(Typer's standard message, with usage)</span>
+
+<span class="d">$</span> expense reconcile list --account-id &lt;id&gt;
+  … that account's batches, statement order, same columns as today …
+
+<span class="d">$</span> <span class="gone">expense reconcile get &lt;id&gt;</span>   <span class="d">deleted: its rows are `transactions list --reconciliation-id &lt;id&gt;`</span></pre></div></div>
+</section>
+
+<!-- ============================ M6 ============================ -->
+<div class="sec">
+  <h2>M6 · Optional: real scrolling in the <code>u</code> pane</h2>
+  <p>The pane stops at the 40 oldest because reaching the oldest rows used to cost two reads and a
+     trick. That reason is gone, so <code>pgdn</code> could now load the next 40 oldest, the same way
+     the ledger pages.</p>
+</div>
+<section class="pane">
+<div class="lbl"><b>Yes</b> <span>· pgdn / pgup inside the pane</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   1716 rows · <span class="new">41–80</span> · oldest first   ·   ! blocks a batch's close
+  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+<span class="rev"> ▸   2024-05-02   TOTTUS AQP PORONGOCHE           -10.74   Mercado            </span>
+  <span class="d">  …</span>
+
+<span class="k">⏎</span> <span class="d">Edit</span>  <span class="k">d</span> <span class="d">Delete</span>  <span class="new">pgdn</span> <span class="new">Older→newer</span>  <span class="k">esc</span> <span class="d">Batches</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="blurb"><b>No</b> keeps today's work queue: fix the oldest, press <code>r</code>, and the next
+   oldest arrive. <b>Later</b> puts it on the list without building it now. It does not block the
+   rest either way.</p>
+</section>
+
+<!-- ============================ questions ============================ -->
+<div class="sec">
+  <h2>What I need you to pick</h2>
+</div>
+<div class="qs">
+  <div class="q">
+    <p class="qq">M2 · A or B?</p>
+    <p class="qa">I recommend <b>A</b>. It opens as fast as today, costs one read per account you
+       actually look at, and does not grow with the account list.</p>
+  </div>
+  <div class="q">
+    <p class="qq">M3 · A or B?</p>
+    <p class="qa">I recommend <b>B</b>. Resizes are rare, and every page after one stays exact. A
+       keeps your place but can repeat or skip rows on the way back up.</p>
+  </div>
+  <div class="q">
+    <p class="qq">M6 · yes, no, or later?</p>
+    <p class="qa">I recommend <b>later</b>. It is new behaviour, not catch-up, and the uptake is big
+       enough already.</p>
+  </div>
+  <div class="q">
+    <p class="qq">M1, M4, M5 · confirm, or tell me what to change</p>
+    <p class="qa">M1 is your earlier decision drawn out. M4 is "the same as today". M5 is the footer
+       wording, and <code>reconcile list</code> needing <code>--account-id</code>.</p>
+  </div>
+</div>
+
+</body>
+</html>
