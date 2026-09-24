@@ -87,7 +87,9 @@ Phases 1, 3, 6 and 10 change nothing the owner sees and can be built before the 
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
-**Order.** Phase 2 comes first because it is the one silent failure. Phases 3–9 are
+**Order.** The mockup comes first, because it gates Phases 2, 4, 5, 7, 8 and 9. Phases 3 and 6
+are built while the owner reviews it. After the pick, Phase 2 comes first among the screen
+phases because it is the one silent failure. Phases 3–9 are
 independent of each other except that **4 and 5 must land before 10** (they remove the last
 unpaged callers of `fetch_all_pages`), and **6 must land before 10** too.
 
@@ -257,5 +259,9 @@ engine.
    - a small list returns everything with no `total`; `GET /reconciliations` without
      `account_id` is a `422`;
    - an activity window walked to null, then the older window from the echoed `date_from`.
-6. Delete this file and the three debriefs. Tell the engine side to delete `open-bugs.md` →
-   `transaction-cursor` and `phase-6-lists`.
+6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
+   In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
+   the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's
+   open-work paragraph, and the 6a debrief link in
+   [category-hashtags-plan.md](category-hashtags-plan.md) §1 (point it at engine-spec instead).
+   Tell the engine side to delete `open-bugs.md` → `transaction-cursor` and `phase-6-lists`.

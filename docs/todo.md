@@ -16,13 +16,9 @@ Rules, unchanged from the backlog this file replaces
   time an item closes, and it has shifted twice already. Code and docs that point here
   quote the item's bolded title instead, so a renumber can never make them lie.
 
-**The CLI is broken against the engine's current code (2026-09-23).** On that day the engine
-changed every list endpoint, deleted restore and the by-id reconciliation read, and began
-refusing unknown query parameters. The running engines are still the old process, so nothing
-has failed yet, but the restart cannot happen until this repo has caught up. **That uptake is
-the first item under *Now*, and it blocks everything else.** Last green baseline before it:
-**1250 unit tests (2026-09-19)**, contract suite **24/24** against the disposable engine
-(2026-09-19).
+**The CLI is behind the engine's current code (2026-09-23).** Catching up is the first item
+under *Now*, and it blocks everything else. Last green baseline before it: **1250 unit tests
+(2026-09-19)**, contract suite **24/24** against the disposable engine (2026-09-19).
 
 **The file has four working sections,** in this order:
 
@@ -40,10 +36,10 @@ the first item under *Now*, and it blocks everything else.** Last green baseline
 home" rule. Each plan carries its own decisions and is **deleted when it ships**, with the
 whys moving to [decisions.md](decisions.md).
 
-| # | Item | Plan | Gate |
+| # | Item | Plan | Status |
 |---|---|---|---|
-| **0** | **Engine uptake: everything the engine changed on 2026-09-23** | [engine-uptake-plan.md](engine-uptake-plan.md) | Phase 1 done; **one mockup (M1–M6) before any screen phase** |
-| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | Built 2026-09-21/22. Its last step, the contract run, **is the engine uptake's Phase 12** |
+| **0** | **Engine uptake: everything the engine changed on 2026-09-23** | [engine-uptake-plan.md](engine-uptake-plan.md) | In progress since 2026-09-23 |
+| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | Built 2026-09-21/22; closes with the engine uptake's contract run |
 | 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | Accepted 2026-09-19 |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
@@ -52,16 +48,6 @@ whys moving to [decisions.md](decisions.md).
 the engine until it lands, and it closes sealed periods on the way. The import rules are what
 the first real bank import rests on. Tags that know the category is independent of them and
 could move earlier. The import door is the largest and the only one with nothing drawn.
-
-**What the engine uptake changed in the others:**
-
-- **Sealed periods**: the restore door in its §1 table no longer exists, and its flat hint's by-id read
-  (D2) is gone. The owner accepted the generic hint on 2026-09-23. Nothing is left to build.
-- **Import rules**: C5 reads the account's completed reconciliations. That read is now
-  `GET /reconciliations?account_id=`, which returns the whole list, so it fits.
-- **Tags that know the category**: `GET /categories/{id}/hashtags` now returns every row with no paging, so the plan's
-  `--limit`/`--offset`, `fetch_all_pages` and pagination-hint lines are void (corrected in the
-  plan).
 
 One rule from the engine side is **absolute**
 ([engine plan §9](../../expense_world_engine/docs/file-import-plan.md)):
@@ -89,13 +75,13 @@ deletes when it lands**. Never edited here: they are handed to the owner for the
    logs this as `date-filter-not-calendar-days` and `transaction-date-filter-naive`, to be fixed
    together. **The ask is to schedule it**, and to accept a bare date as a whole calendar day in
    the user's `display_timezone`, not to refuse it: every client otherwise re-derives
-   "next day's midnight in the user's zone". **Deletes here:** the bare-date → instant conversion
-   the flat `--from`/`--to` gain in [engine-uptake-plan.md](engine-uptake-plan.md) Phase 9.
+   "next day's midnight in the user's zone". **Deletes here:** the client-side bare-date →
+   instant conversion on the flat `--from`/`--to` of `transactions list` and `activity list`
+   (added by the engine uptake).
 
 Answered on 2026-09-23: `?sort=date_asc` with cursor paging, and the gap fields with the wording
-fix, both shipped (the engine uptake takes them up). A window flag on transaction reads and `?status=` on
-`GET /reconciliations` were declined (engine `open-bugs.md` D13, D14). D13's midnight caveat
-moves to [file-import-plan.md](file-import-plan.md) in the engine uptake's Phase 11.
+fix, both shipped. A window flag on transaction reads and `?status=` on `GET /reconciliations`
+were declined (engine `open-bugs.md` D13, D14).
 
 ## Small defects
 
@@ -113,9 +99,8 @@ Real bugs, each small and self-contained. None of them waits on the engine uptak
 
 2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side: the
    help text says "(inclusive)", and the docstring's own example
-   (`--to 2026-08-31 --unreconciled`) misses the 31st. Fixed on the client side by
-   [engine-uptake-plan.md](engine-uptake-plan.md) Phase 9, or by the same engine ask, whichever lands
-   first.
+   (`--to 2026-08-31 --unreconciled`) misses the 31st. Fixed on the client side by the engine
+   uptake, or by the same engine ask, whichever lands first.
 
 3. **The fixture-drift check cannot see stale envelope keys.**
    [check_fixture_drift.py](../scripts/check_fixture_drift.py) checks each fixture key against

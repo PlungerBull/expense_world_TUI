@@ -193,6 +193,10 @@ something inside a month already closed. The engine rule
 ([engine plan §2](../../expense_world_engine/docs/file-import-plan.md)) is the floor under
 this, not the mechanism.
 
+The read is `GET /reconciliations?account_id=<id>`, which since 2026-09-23 returns the
+account's whole list, unpaged, so no paging loop is needed; keep the `status == "completed"`
+rows (`?status=` was declined, engine `open-bugs.md` D14).
+
 ---
 
 ## 8. Settled non-goals
