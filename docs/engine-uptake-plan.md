@@ -63,7 +63,7 @@ picked**, so no phase is gated any more.
 | **M2** | Reconciliations browse | **Owner's shape.** The screen opens with **accounts only**, and no lower panel. `⏎` on an account reads *that* account's reconciliations and opens the panel under the list, with the cursor in it. `esc` closes the panel. **`u` works only while an account's panel is open**, never on the plain account list, and is not in the footer there. It swaps the panel for that account's "no batch" list **in the same place** | 5 |
 | **M3** | The ledger | **One growing list** (option C): opens with **10** rows, `pgdn` **appends** the next 10, and `↑↓` scroll the whole of it. A resize keeps you where you are. `a` selects every row loaded so far. The footer reads `N of M loaded` | 7 |
 | **M4** | Count next to rows (`u` pane, LOG bar peek) | No pick: the look is unchanged, and a failed count fails the pane (2026-09-23) | 2 |
-| **M5** | Typed-command output | **The builder's call**: the owner never uses the typed commands. Build as drawn in round 1 | 4, 5, 8, 9 |
+| **M5** | Typed-command output | **The builder's call**: the owner never uses the typed commands. The exact output is written into Phases 4, 5, 8 and 9 | 4, 5, 8, 9 |
 | **M6** | The "no batch" (`u`) list | **Owner's shape.** Opens with the **10** oldest, and `pgdn` **appends** the next 10. **The cursor jumps to the first new row.** At the end, `pgdn` does nothing and leaves the footer. `r` starts again from the 10 oldest. Caption: `N of M loaded` | 2 |
 
 **One builder's call, left open by the mockup:** when you come back to the `u` list from the edit
@@ -90,9 +90,46 @@ the list is now shorter.
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
-**Order.** Phase 2 comes first because it is the one silent failure. Phases 3–9 are
-independent of each other except that **4 and 5 must land before 10** (they remove the last
-unpaged callers of `fetch_all_pages`), and **6 must land before 10** too.
+**Order and dependencies.** Each phase can go to a different coder. What must land first:
+
+| Phase | Needs first | Why |
+|---|---|---|
+| 3, 4, 6, 9 | nothing | |
+| 5 | 2 (done) | The "no batch" list it rehouses is Phase 2's |
+| 7 | 2 (done), **8** | Reuses Phase 2's growing list; converts `PagedListMixin` in place, which Activity and Rates use until Phase 8 deletes them |
+| 8 | nothing | |
+| 10 | 3, 4, 5, 6, 8, 9 | Deletes `fetch_all_pages` and `OFFSET_OPT`, which those phases stop using |
+| 11 | 3–10 | Documents what they built |
+| 12 | 11, plus the owner | Push, restart, contract run |
+
+**Shared files.** Phases that edit the same file should not run at the same time, or the
+second coder rebases: [reconciliations.py](../expense/tui/screens/reconciliations.py) (5, 6),
+[transactions_cmd.py](../expense/commands/transactions_cmd.py) (3, 9),
+[_base.py](../expense/tui/screens/_base.py) `PagedListMixin` (7, 8),
+[_resource.py](../expense/commands/_resource.py) (3, 4, 10).
+
+## How to build a phase
+
+For whoever picks up one phase. Read this section, the table above, and **your phase only**.
+Your phase names the debrief sections that carry the engine facts.
+
+- **The decisions are made.** Everything the owner sees was picked on 2026-09-25 (the table
+  above). Build what your phase says. Do not re-open a pick. If something your phase needs is
+  not written down, **stop and ask the owner**, and add the answer to your phase.
+- **Commit on `main`, do not push.** Nothing is pushed until Phase 12 step 1, so `main` never
+  carries a red CI run. Commit through `PATH="$PWD/.venv/bin:$PATH" git commit` (pre-commit runs
+  mypy from the venv). Never `--no-verify`.
+- **The unit suite is red at the start, on purpose.** After Phase 2 there are **32 known
+  failures**: 24 in `test_cmd_import_bank.py` (fixed by Phase 6) and 8 in
+  `test_cmd_transactions.py` (fixed by Phases 3 and 9). Your phase must leave no failure outside
+  that set, and must fix the ones it owns.
+- **Test fakes refuse `offset`.** Any fake for a transaction read uses `cursor_page()` from
+  [tests/unit/helpers.py](../tests/unit/helpers.py) and asserts `"offset" not in kw`. Phase 2's
+  `_patch_unfiled` in [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)
+  is the model.
+- **Done means:** `pytest tests/unit` (known failures only), `ruff check . && ruff format .`,
+  `mypy`; every doc paragraph your change makes false is corrected in the same commit (tui.md,
+  cli-spec.md); and your phase's row in the table above is marked **done** with the commit hash.
 
 ---
 
@@ -149,7 +186,8 @@ No screen changes: the TUI never called restore or sent `include_deleted`.
 ## Phase 4: small lists come back whole (6a §3)
 
 - `fetch_accounts` / `fetch_categories` / `fetch_hashtags` and their `list` commands: drop
-  `limit`, `offset`, `--limit`, `--offset`, and the pagination hint (**M5**).
+  `limit`, `offset`, `--limit`, `--offset`, and the pagination hint. **M5:** the table prints
+  every row and **no footer line** at all.
 - One GET each instead of `fetch_all_pages`: the TUI categories and hashtags screens, the picker
   loaders, `_load_name_map`, and the sheet importer's reference fetch
   ([import_/apply.py](../expense/import_/apply.py)).
@@ -161,20 +199,36 @@ No screen changes: the TUI never called restore or sent `include_deleted`.
 ## Phase 5: reconciliations, one account at a time (6a §4)
 
 - `fetch_reconciliations` requires `account_id` and loses `include_deleted`, `limit`, `offset`.
-- **Browse screen (M2):** opens with the account list only. `⏎` reads that account's
-  reconciliations and opens the panel; `esc` closes it. `u` is bound only while the panel is
-  open, and swaps it for the "no batch" list in the same place. The list arrives in period order,
-  so check whether `_batch_sort_key` is still needed. Tests: nothing is read for
-  reconciliations until `⏎`; `u` on the plain list does nothing; `esc` closes the panel.
-- **`reconcile list` requires `--account-id`** (**M5**).
+- **Browse screen (M2, owner's shape; round 2 of the mockup draws it).**
+  - Opens with the **account list only**: no lower panel, and no reconciliations read.
+    Heading `Reconciliations — pick an account`. Footer: `⏎ Its reconciliations`, `n New`,
+    `esc Back`, `? Keys`. **No `u`** here.
+  - `⏎` on an account: `GET /reconciliations?account_id=<id>`, then the panel opens under the
+    list with the cursor in it. Caption `Reconciliations · <account> · oldest → newest`. The
+    account row keeps an accent `▸` so you can see which one is open. An account with none shows
+    `none yet · n to create one` inside the panel. A failed read toasts and leaves the panel
+    closed.
+  - In the panel: `⏎` opens that reconciliation (as today), `n` creates one for this account,
+    `u` swaps the panel for this account's "no batch" list **in the same place**, and `esc`
+    closes the panel, back to the account list.
+  - In the "no batch" list, `esc` returns to the reconciliations panel, not to the plain account
+    list. Everything else there is Phase 2's, unchanged.
+  - Coming back from an opened reconciliation re-reads that account's list and lands on the same
+    row in the open panel. After `n` saves, the panel re-reads and lands on the new one.
+  - `blocking_windows` (the `!` flag) takes the open account's list, which the panel already
+    holds, so the "no batch" list costs no extra read.
+  - The list arrives in period order, so check whether `_batch_sort_key` is still needed.
+  - Tests: nothing is read for reconciliations until `⏎`; `u` on the plain list does nothing and
+    is not in the footer; `esc` from the panel closes it; `esc` from "no batch" returns to the
+    panel; returning from a reconciliation keeps the panel open on the same row.
+- **`reconcile list` requires `--account-id`** (**M5**): Typer's own "Missing option
+  '--account-id'" when it is left out. Same columns as today, in the engine's period order.
 - **Delete `reconcile get` and `fetch_reconciliation`.** A batch's rows are
   `transactions list --reconciliation-id <id>`.
 - **Working-screen refresh:** re-read the account's list and find the row by id. "Not there"
   now reliably means deleted, because the list is whole.
 - **`reconcile complete`'s hint:** delete the dead by-id read and always print the bare hint
   (owner decision, 6a §4.3).
-- **The `u` pane's `!` hint** needs the per-account reconciliations read, the same as the browse
-  screen.
 
 ## Phase 6: the two whole-list readers of transactions
 
@@ -186,9 +240,16 @@ and the checklist's `_fetch_all_txns` move from `fetch_all_pages(lambda limit, o
 
 ## Phase 7: the ledger becomes one growing list (M3)
 
-With Activity and Rates gone (Phase 8), **the ledger is the only user of `PagedListMixin`**, so
-the mixin is **converted in place**. There is no second mixin. The owner's shape replaces pages
-with one list that grows:
+**Needs Phase 8 first**: with Activity and Rates gone, **the ledger is the only user of
+`PagedListMixin`**, so the mixin is **converted in place**. There is no second mixin. The owner's
+shape replaces pages with one list that grows.
+
+**Reuse Phase 2's growing list; do not build another.** [cursor_list.py](../expense/tui/widgets/cursor_list.py)
+already has it: `GROW_STEP` (10), `set_growth(more=…)`, `append_rows(rows, more=…)` (which puts
+the cursor on the first new row) and the `MoreRequested` message, posted by `pgdn` and shown in
+the footer as `pgdn 10 more`. The `?` card lists that key only on screens that handle
+`on_cursor_list_more_requested`. The "no batch" list in
+[reconciliations.py](../expense/tui/screens/reconciliations.py) is the working example.
 
 - It opens with **10** rows (`sort` default, newest first) and holds the loaded rows, the last
   `next_cursor`, and the count.
@@ -201,8 +262,10 @@ with one list that grows:
 - A bulk edit on a filtered ledger removes the changed rows locally, as today. The kept cursor is
   still valid, because the engine's cursor is a bookmark on the last row read, not a row number.
 - **Resize:** nothing is fetched. The list keeps its rows and the cursor stays on its row.
-- `a` selects every loaded row. The footer is `N of M loaded`. `fetch_page_body`'s "past the end"
-  snapping and `page_meta` are deleted.
+- `a` selects every loaded row. The line under the list reads `N of M loaded` (mockup round 2,
+  M3 option C), where the old `rows 41–60 of 214 · page 3 of 11` was. `fetch_page_body`'s "past
+  the end" snapping and `page_meta` are deleted, and so is `CursorList`'s fetched-page mode
+  (`page_meta`, `PageRequested`) once the ledger stops using it.
 
 **Tests:** replace the fakes in [test_tui_paging.py](../tests/unit/test_tui_paging.py) and
 [test_tui_transactions.py](../tests/unit/test_tui_transactions.py) with cursor fakes that
@@ -214,20 +277,38 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 
 - **TUI:** delete `ActivityScreen` and `RatesScreen` from
   [system.py](../expense/tui/screens/system.py), their Home entries (**M1**), and their tests.
-- **`activity list`:** drop `--offset`; add `--from` / `--to` (a bare date becomes midnight in
-  `display_timezone` with an offset, because the engine refuses naive instants) and `--after`.
-  Print the echoed window and "older: `--to <date_from>`" (**M5**). `--resource-id` help says
-  the 30-day window still applies (owner decision in 6b §2.1).
-- **`rates list`:** `--date X` sends `date_from=X&date_to=X`; drop `--offset`; optionally
-  `--from` / `--to`. The "omit for full history" help text is no longer true.
+- **`activity list`:** drop `--offset`; add `--from` / `--to` and `--after`. A bare date becomes
+  an instant with an offset through the **shared calendar-day helper** (see below), because the
+  engine refuses naive instants. `--resource-id` help says the 30-day window still applies
+  (owner decision in 6b §2.1).
+- **`rates list`:** `--date X` sends `date_from=X&date_to=X`; drop `--offset`; add `--from` /
+  `--to` (plain ISO dates here, no conversion). The "omit for full history" help text is no
+  longer true: omitting both gives the last 30 days.
+- **M5, the line under both tables** (dates from the window the engine echoes):
+  - more rows in this window: `(2026-08-24 → 2026-09-23 · more in this window: pass --after <cursor>)`
+  - the window's last page, activity: `(2026-08-24 → 2026-09-23 · older: pass --to 2026-08-24)`,
+    i.e. `--to` = the echoed `date_from`
+  - the window's last page, rates: `(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)`,
+    i.e. `--to` = the echoed `date_from` **minus one day**, because rate dates are inclusive
+    (6b §3)
+  - The line is printed even when the table is empty, so an empty window never reads as "no history".
+- **The shared calendar-day helper** is built by whichever of Phases 8 and 9 lands first, in
+  [dates.py](../expense/dates.py), and reused by the other. A bare `YYYY-MM-DD` becomes the
+  start of that day in the user's `display_timezone` for `--from`, and the start of the **next**
+  day for `--to`, so `--to` includes the whole day. A value that already carries a time passes
+  through unchanged. This is the conversion the calendar-day engine ask in [todo.md](todo.md)
+  would delete.
 - Both mocks move to the windowed envelope.
 
 ## Phase 9: the flat `expense transactions list`
 
 - Remove `--offset`; add `--sort` (passed through unchecked, so the engine's `422` is the one
   error) and `--after`.
-- The cursor hint, only when `next_cursor` is not null, with no extra `/count` call (**M5**).
-- **`--from` / `--to` become calendar days**, the same conversion as `activity list`. This fixes
+- **M5, the line under the table**, only when `next_cursor` is not null:
+  `(more: pass --after <cursor> with the same filters)`. No total, so no extra `/count` call.
+  Nothing on the last page.
+- **`--from` / `--to` become calendar days** through the shared helper described in Phase 8
+  (build it here if Phase 8 has not landed). This fixes
   the `--to` defect in [todo.md](todo.md) "Small defects" on the flat side, and gets ahead of
   6b §5 (the engine will soon refuse bare dates here).
 - Tests: `--sort` and `--after` reach the request, `--offset` is gone, the hint appears only
@@ -244,12 +325,19 @@ engine.
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
 - [cli-runtime.md](cli-runtime.md): a short "three list shapes" section pointing at engine-spec.
 - [tui.md](tui.md): the growing-list `PagedListMixin` (ledger and `u` list), the new
-  Reconciliations browse, and Activity and Rates gone.
+  Reconciliations browse, Activity and Rates gone, and in §4 (the keymap) that `pgdn` means
+  "10 more" in a growing list and "next page" everywhere else.
 - [decisions.md](decisions.md), new entries:
   - "The transaction list pages by cursor": the shrinking work queue, and the
     probe-then-offset-then-reverse read rejected.
   - "Activity and Rates leave the TUI".
   - "Deleted is deleted": restore is an operator task now.
+  - "Long lists grow, they do not page": the owner's 2026-09-25 shape for the ledger and the
+    "no batch" list (10 at a time, `pgdn` appends, the cursor on the first new row, a resize
+    keeps your place). Rejected: page swapping with its resize trade-off (M3 options A and B in
+    round 1 of the mockup).
+  - "Reconciliations opens on the accounts": nothing is read until `⏎`. Rejected: read on
+    cursor move, and read every account up front (M2 options A and B).
 - [file-import-plan.md](file-import-plan.md): move in the **midnight caveat** (cursor §6.1). The
   `u` pane's `!` hint is right only because every row is stored at 00:00 Lima; the first import
   that writes a real time of day is the point to ask the engine again (engine `open-bugs.md` D13).
