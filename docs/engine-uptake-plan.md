@@ -78,7 +78,7 @@ the list is now shorter.
 | Phase | What | Debrief | Mockup |
 |---|---|---|---|
 | 1 | Shared pieces for the transaction cursor | cursor §3.1–3.2 | — (**done**) |
-| 2 | The two panes that would show wrong numbers without an error | cursor §3.4–3.5 | M4 |
+| 2 | The two panes that would show wrong numbers without an error | cursor §3.4–3.5 | M4, M6 (**done**, `be85a8b`) |
 | 3 | Deleted is deleted: restore commands and `include_deleted` removed | 6a §1 | — |
 | 4 | Small lists come back whole | 6a §3 | M5 |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 |
@@ -113,7 +113,7 @@ unpaged callers of `fetch_all_pages`), and **6 must land before 10** too.
   `fetch_transactions` with fakes that still accept `offset`, so they stay green against broken
   screens. Phases 2 and 7 **replace** those fakes rather than adjusting them.
 
-## Phase 2: the two panes that show wrong numbers without an error
+## Phase 2: the two panes that show wrong numbers without an error (done 2026-09-25, `be85a8b`)
 
 **The unfiled pane (`u`)**, [reconciliations.py](../expense/tui/screens/reconciliations.py)
 `_load_unfiled`: one list read (`sort="date_asc"`, `unreconciled=True`, `account_id`,
