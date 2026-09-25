@@ -51,36 +51,25 @@ to [decisions.md](decisions.md) in Phase 11.
 - **The `reconcile complete` hint degrades to the generic one** now that the by-id read is gone
   (6a §4.3).
 
-## Open decisions, all in one mockup
+## Mockup decisions (settled 2026-09-25)
 
-Everything the owner will see changing goes in **one mockup file**, [mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html) (drawn 2026-09-23),
-reviewed and picked **before any phase that touches a screen or a table** (CLAUDE.md "Mock every
-screen before building it"). It covers:
+Mockup: [mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html)
+(round 1 drawn 2026-09-23, round 2 on 2026-09-25; round 1 is in git history). **Every item is
+picked**, so no phase is gated any more.
 
-| # | What | Phase |
-|---|---|---|
-| **M1** | Home without Activity and Rates | 8 |
-| **M2** | Reconciliations browse: fetch the account's batches when the cursor moves, or every account's up front (about 9 reads) (6a §4.2) | 5 |
-| **M3** | Ledger screen after a terminal resize: keep your place, or go back to page 1 | 7 |
-| **M4** | The `u` pane and the LOG bar peek: unchanged look, oldest first, the count-failure state | 2 |
-| **M5** | Flat output: the `transactions list` cursor hint; the small lists losing their "showing 20 of 56" hint; `activity list` / `rates list` printing their window and "older: `--to …`"; `reconcile list` requiring `--account-id` | 4, 5, 8, 9 |
-| **M6** *(optional)* | Real scrolling in the `u` pane, now that the reason for the 40-row cap is gone (cursor §3.4) | later |
+| # | What | Decision | Phase |
+|---|---|---|---|
+| **M1** | Home without Activity and Rates | **Yes.** SYSTEM keeps Config and Auth & profile | 8 |
+| **M2** | Reconciliations browse | **Owner's shape.** The screen opens with **accounts only**, and no lower panel. `⏎` on an account reads *that* account's reconciliations and opens the panel under the list, with the cursor in it. `esc` closes the panel. **`u` works only while an account's panel is open**, never on the plain account list, and is not in the footer there. It swaps the panel for that account's "no batch" list **in the same place** | 5 |
+| **M3** | The ledger | **One growing list** (option C): opens with **10** rows, `pgdn` **appends** the next 10, and `↑↓` scroll the whole of it. A resize keeps you where you are. `a` selects every row loaded so far. The footer reads `N of M loaded` | 7 |
+| **M4** | Count next to rows (`u` pane, LOG bar peek) | No pick: the look is unchanged, and a failed count fails the pane (2026-09-23) | 2 |
+| **M5** | Typed-command output | **The builder's call**: the owner never uses the typed commands. Build as drawn in round 1 | 4, 5, 8, 9 |
+| **M6** | The "no batch" (`u`) list | **Owner's shape.** Opens with the **10** oldest, and `pgdn` **appends** the next 10. **The cursor jumps to the first new row.** At the end, `pgdn` does nothing and leaves the footer. `r` starts again from the 10 oldest. Caption: `N of M loaded` | 2 |
 
-Phases 1, 3, 6 and 10 change nothing the owner sees and can be built before the pick.
-
-**Owner's first pass (2026-09-25):**
-
-- **M1:** picked, yes.
-- **M5:** not the owner's to pick. They never use the typed commands, so the builder decides them.
-  Build them as drawn in round 1 of the mockup (git history).
-- **M4:** no pick needed. The look is unchanged, and the failure rule was decided on 2026-09-23.
-- **M2, owner's own shape:** the screen opens with accounts only, and `⏎` opens that account's
-  reconciliations panel, read at that moment. This replaces both drawn options.
-- **M6, owner's own shape:** the pane loads 10 rows, and `pgdn` *appends* the next 10.
-- **M3** gained option C: the ledger becomes the same growing list, and the resize question goes
-  away.
-
-Round 2 of the mockup draws these and asks what is left open.
+**One builder's call, left open by the mockup:** when you come back to the `u` list from the edit
+form (or after `d`), it re-reads as many rows as were loaded (capped at the engine's 200), so a
+long walk is not thrown back to 10. The cursor goes to the same position, or to the last row if
+the list is now shorter.
 
 ---
 
@@ -94,16 +83,14 @@ Round 2 of the mockup draws these and asks what is left open.
 | 4 | Small lists come back whole | 6a §3 | M5 |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — |
-| 7 | The ledger screen pages by cursor | cursor §3.3 | M3 |
+| 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
 | 10 | Offset code deleted | 6b §4 | — |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
-**Order.** The mockup comes first, because it gates Phases 2, 4, 5, 7, 8 and 9. Phases 3 and 6
-are built while the owner reviews it. After the pick, Phase 2 comes first among the screen
-phases because it is the one silent failure. Phases 3–9 are
+**Order.** Phase 2 comes first because it is the one silent failure. Phases 3–9 are
 independent of each other except that **4 and 5 must land before 10** (they remove the last
 unpaged callers of `fetch_all_pages`), and **6 must land before 10** too.
 
@@ -132,15 +119,19 @@ unpaged callers of `fetch_all_pages`), and **6 must land before 10** too.
 `_load_unfiled`: one list read (`sort="date_asc"`, `unreconciled=True`, `account_id`,
 `limit=UNFILED_PAGE`) plus one `count_transactions` with the same three filters, in the same
 worker. Stop reversing the rows. Delete `unfiled_offset()` and the "no sort parameter" comment.
-Keep 40 rows plus `r` (M6 decides whether that changes).
+**M6:** `UNFILED_PAGE` becomes 10. `pgdn` fetches `after=next_cursor` and appends; the cursor lands
+on the first new row. The count is read with the first page and on `r`, not on each `pgdn`. The
+reload after an edit or a delete follows the builder's call above.
 
 **The LOG bar peek**, [log_bar.py](../expense/tui/screens/log_bar.py): `_load_peek` fetches the
 page and `count_transactions(account=…)` together; `_peek_loaded` takes the total from the count;
 the `len(items)` fallback is deleted, and a failed count goes to `_peek_failed`.
 
 **Tests:** the request carries `sort=date_asc`, **and** a mock returning rows oldest-first
-renders them oldest at the top. "N to file" is the count figure (1716 against a 40-row page). A
-failed count shows as a failed pane or peek, not as a number.
+renders them oldest at the top. The caption's total is the count figure (1716 against a 10-row
+page). A failed count shows as a failed pane or peek, not as a number. `pgdn` sends the previous
+`next_cursor`, appends (20 rows, the first 10 unchanged), and puts the cursor on row 11. `pgdn`
+on a null cursor sends nothing. `r` returns to 10.
 
 ## Phase 3: deleted is deleted (6a §1)
 
@@ -170,8 +161,11 @@ No screen changes: the TUI never called restore or sent `include_deleted`.
 ## Phase 5: reconciliations, one account at a time (6a §4)
 
 - `fetch_reconciliations` requires `account_id` and loses `include_deleted`, `limit`, `offset`.
-- **Browse screen:** per-account fetch, shape decided by **M2**. The list arrives in period
-  order, so check whether `_batch_sort_key` is still needed.
+- **Browse screen (M2):** opens with the account list only. `⏎` reads that account's
+  reconciliations and opens the panel; `esc` closes it. `u` is bound only while the panel is
+  open, and swaps it for the "no batch" list in the same place. The list arrives in period order,
+  so check whether `_batch_sort_key` is still needed. Tests: nothing is read for
+  reconciliations until `⏎`; `u` on the plain list does nothing; `esc` closes the panel.
 - **`reconcile list` requires `--account-id`** (**M5**).
 - **Delete `reconcile get` and `fetch_reconciliation`.** A batch's rows are
   `transactions list --reconciliation-id <id>`.
@@ -190,26 +184,31 @@ and the checklist's `_fetch_all_txns` move from `fetch_all_pages(lambda limit, o
 
 **Tests:** a mock serving two cursor pages; both pages' rows are matched or listed.
 
-## Phase 7: the ledger screen pages by cursor
+## Phase 7: the ledger becomes one growing list (M3)
 
 With Activity and Rates gone (Phase 8), **the ledger is the only user of `PagedListMixin`**, so
-the mixin is **converted in place** to cursor paging. There is no second mixin.
+the mixin is **converted in place**. There is no second mixin. The owner's shape replaces pages
+with one list that grows:
 
-- It holds the stack of cursors used to reach each page (page 1 = `None`), the current page's
+- It opens with **10** rows (`sort` default, newest first) and holds the loaded rows, the last
   `next_cursor`, and the count.
-- `pgdn` pushes and fetches with `after=next_cursor`, and does nothing when it is null. `pgup`
-  pops and refetches.
-- The count is fetched when the screen opens, when the filter changes (which also clears the
-  stack), and after a `c`/`b`/`h` bulk edit. **Not** on page turns.
-- `page_meta` is `(depth × page_rows, count)`. An empty page after deletes steps back one cursor;
-  `fetch_page_body`'s "past the end" snapping is deleted.
-- **Resize:** decided by **M3**.
+- `pgdn` fetches `after=next_cursor` and **appends** 10 rows; `↑↓` scroll across everything loaded.
+  `pgdn` does nothing when the cursor is null. `pgup` has no fetch to do: it scrolls up a
+  screenful, as in any list.
+- The cursor lands on the first new row, the same as the `u` list (M6).
+- The count is fetched when the screen opens, when the filter changes (which also empties the
+  list and drops the cursor), and after a `c`/`b`/`h` bulk edit. **Not** on `pgdn`.
+- A bulk edit on a filtered ledger removes the changed rows locally, as today. The kept cursor is
+  still valid, because the engine's cursor is a bookmark on the last row read, not a row number.
+- **Resize:** nothing is fetched. The list keeps its rows and the cursor stays on its row.
+- `a` selects every loaded row. The footer is `N of M loaded`. `fetch_page_body`'s "past the end"
+  snapping and `page_meta` are deleted.
 
 **Tests:** replace the fakes in [test_tui_paging.py](../tests/unit/test_tui_paging.py) and
 [test_tui_transactions.py](../tests/unit/test_tui_transactions.py) with cursor fakes that
-**refuse** `offset`. `pgdn` sends the previous `next_cursor`; `pgup` returns to the right cursor;
-`pgdn` is a no-op on the last page; a filter change clears the stack and recounts; a bulk edit
-recounts; an empty page steps back.
+**refuse** `offset`. `pgdn` sends the previous `next_cursor` and appends; the cursor lands on the
+first new row; `pgdn` on a null cursor sends nothing; a filter change empties the list and
+recounts; a bulk edit recounts; a resize sends no request; `a` selects all loaded rows.
 
 ## Phase 8: Activity and Rates (6b §2–3, owner decision)
 
@@ -244,7 +243,8 @@ engine.
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
 - [cli-runtime.md](cli-runtime.md): a short "three list shapes" section pointing at engine-spec.
-- [tui.md](tui.md): the cursor `PagedListMixin`; Activity and Rates gone.
+- [tui.md](tui.md): the growing-list `PagedListMixin` (ledger and `u` list), the new
+  Reconciliations browse, and Activity and Rates gone.
 - [decisions.md](decisions.md), new entries:
   - "The transaction list pages by cursor": the shrinking work queue, and the
     probe-then-offset-then-reverse read rejected.
@@ -264,7 +264,7 @@ engine.
 3. `python scripts/check_fixture_drift.py` against the new engine.
 4. The debriefs' own checks on the real ledger (reads plus importer dry runs): cursor §4, 6a §5.
    The cursor debrief's "file a page, then scroll on" check runs on the ledger (a filtered
-   ledger, a bulk re-category, then `pgdn`) unless M6 gave the `u` pane real scrolling.
+   ledger, a bulk re-category, then `pgdn`) and on the `u` list (edit a row, then `pgdn`).
 5. **Contract suite** against `:8002` (`PYTEST_LIVE=1`). This also closes ask 1's pending
    contract run ([sealed-periods-plan.md](sealed-periods-plan.md) §10 step 7). First add contract
    tests for what nothing has checked against a real engine:
