@@ -61,254 +61,162 @@
 
 <div class="head">
   <h1>Engine uptake — what you will see change</h1>
-  <p><b>Drawn 2026-09-23</b> for <code>docs/engine-uptake-plan.md</code>.
-     On that day the engine changed how every list is read. Most of the catch-up is invisible, and
-     this file draws only the parts you will see: six items, <b>M1–M6</b>.</p>
+  <p><b>Round 2, 2026-09-25.</b> Redrawn after your first pass. Items on the typed commands are
+     gone (you never use them, so those calls are mine). What is left is the screens.</p>
   <p>Everything <span class="new">in yellow</span> is new, and <span class="gone">struck red</span>
-     is going away. Everything else is on screen today, drawn from the code. Rows and amounts are
-     made up.</p>
+     is going away. Everything else is on screen today. Rows and amounts are made up.</p>
 </div>
 
 <div class="chg">
-  <h2>What you are asked</h2>
+  <h2>Where each item stands</h2>
   <ul>
-    <li><b>Three real choices:</b> M2 (reconciliations: load each account's batches when you land on
-        it, or all at the start), M3 (ledger after a terminal resize: keep your place, or back to
-        page 1), M6 (real scrolling in the <code>u</code> pane: now or later).</li>
-    <li><b>Three to confirm:</b> M1 (Home loses Activity and Rates, which you already decided), M4
-        (the <code>u</code> pane and the LOG bar peek look the same as today), M5 (the typed
-        commands' footers).</li>
+    <li><b>M1 · Home without Activity and Rates</b>: <b>picked, yes</b> (2026-09-25). Not redrawn.</li>
+    <li><b>M2 · Reconciliations</b>: your shape (accounts only, <code>⏎</code> opens the batches) is
+        drawn below. <b>Two small questions</b> about it.</li>
+    <li><b>M6 · The "no batch" list loads 10 at a time</b>, and <code>pgdn</code> adds 10 more
+        underneath. Drawn below with <b>one question</b>.</li>
+    <li><b>M3 · The ledger</b>: explained in plain words below. Your M6 idea offers a third answer
+        that makes the problem go away.</li>
+    <li><b>M4</b>: nothing to pick. Explained below.</li>
   </ul>
 </div>
 
-<!-- ============================ M1 ============================ -->
-<div class="sec">
-  <h2>M1 · Home without Activity and Rates</h2>
-  <p>Your decision on 2026-09-23. The two screens are deleted, and SYSTEM keeps two entries. The
-     typed <code>expense activity list</code> and <code>expense rates list</code> stay (M5).</p>
-</div>
-<section class="pane">
-<div class="lbl"><b>Bottom of Home</b> <span>· before → after</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="d">LEDGER</span>                                      <span class="d">LEDGER</span>
-    Transactions                                Transactions
-    Reconciliations                             Reconciliations
-  <span class="d">MANAGE</span>                                      <span class="d">MANAGE</span>
-    Accounts                                    Accounts
-    Categories                                  Categories
-    Hashtags                                    Hashtags
-  <span class="d">SYSTEM</span>                                      <span class="d">SYSTEM</span>
-    Config                                      Config
-    Auth &amp; profile                              Auth &amp; profile
-    <span class="gone">Activity</span>
-    <span class="gone">Rates</span>
-
-  <span class="d">today</span>                                       <span class="new">after</span></pre></div></div>
-</section>
-
 <!-- ============================ M2 ============================ -->
 <div class="sec">
-  <h2>M2 · Reconciliations: when each account's batches load</h2>
-  <p><b>Why this changes:</b> the engine no longer hands out every account's batches in one read.
-     It now answers one account at a time. Today the screen reads everything once and switches the
-     lower pane instantly as you move. Two ways to keep that working:</p>
+  <h2>M2 · Reconciliations: accounts first, batches on <code>⏎</code></h2>
+  <p>Your shape. The screen opens with only the account list. <code>⏎</code> on an account opens
+     the panel with that account's reconciliations. Only then does the app ask the engine for them,
+     so nothing is loaded that you did not ask for.</p>
 </div>
 <section class="pane">
-<div class="lbl"><b>A</b> <span>· load an account's batches when you stop on it · one read per account, remembered</span></div>
+<div class="lbl"><b>1 · You open Reconciliations</b> <span>· accounts only</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> <span class="b">Reconciliations</span>
 
-<span class="b">Reconciliations — pick an account, then a batch</span>
+<span class="b">Reconciliations — pick an account</span>
 
   Account                       Cur         Balance
   <span class="d">──────────────────────────────────────────────────</span>
-  <span class="d">BCP PEN                       PEN        9,215.40</span>
-<span class="rev"> ▸ BCP Signature PEN             PEN       -2,480.10 </span>
+<span class="rev"> ▸ BCP PEN                       PEN        9,215.40 </span>
+  <span class="d">BCP Signature PEN             PEN       -2,480.10</span>
   <span class="d">BCP Signature USD             USD         -312.44</span>
+  <span class="d">Interbank USD                 USD        1,140.00</span>
 
-  <span class="d">Reconciliations · BCP Signature PEN   ·</span>   <span class="new">loading…</span>
-  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
 
-<span class="k">⏎</span> <span class="d">Batches</span>  <span class="k">n</span> <span class="d">New</span>  <span class="k">u</span> <span class="d">No batch</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">esc</span> <span class="d">Back</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
-<p class="blurb">The screen opens as fast as today. The first time you stop on an account, its pane
-   shows <code>loading…</code> for one read, then its batches. Arrowing <i>through</i> accounts
-   does not read each one (the same wait-until-you-stop rule the LOG bar peek uses), and an account
-   you have already seen is instant. <code>r</code> reloads.</p>
+
+
+<span class="k">⏎</span> <span class="d">Its reconciliations</span>  <span class="k">n</span> <span class="d">New</span>  <span class="k">u</span> <span class="d">No batch</span>  <span class="k">esc</span> <span class="d">Back</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="arrow">you press <b>⏎</b> on BCP PEN ▼</p>
 </section>
 <section class="pane">
-<div class="lbl"><b>B</b> <span>· read every account's batches when the screen opens · about 9 reads</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> <span class="b">Reconciliations</span>
+<div class="lbl"><b>2 · The panel opens</b> <span>· that account's reconciliations, the cursor in them</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Capture &amp; ledger <span class="d">›</span> Reconciliations <span class="d">›</span> <span class="b">BCP PEN</span>
 
-<span class="b">Reconciliations — pick an account, then a batch</span>
+<span class="b">Reconciliations — pick an account</span>
 
-  <span class="new">loading…</span>
+  Account                       Cur         Balance
+  <span class="d">──────────────────────────────────────────────────</span>
+  <span class="a">▸ BCP PEN                       PEN        9,215.40</span>
+  <span class="d">BCP Signature PEN             PEN       -2,480.10</span>
+  <span class="d">BCP Signature USD             USD         -312.44</span>
+  <span class="d">Interbank USD                 USD        1,140.00</span>
 
-
-
-<span class="d">          (a moment later: today's screen, unchanged, and every move instant)</span></pre></div></div>
-<p class="blurb">Looks exactly like today once open, but opening waits for one read per account
-   (nine today, more as accounts are added). Every client would have to repeat this pattern, and it
-   grows with the account list.</p>
-</section>
-
-<!-- ============================ M3 ============================ -->
-<div class="sec">
-  <h2>M3 · The ledger after you resize the terminal</h2>
-  <p><b>Why this changes:</b> the ledger used to jump to "row 41". Now it can only say "the page
-     after this one". Pages are cut at the size the terminal had when you walked them, so a resize
-     leaves the pages you already walked cut at the old size. You are on page 3 of a filtered
-     ledger, and you make the window taller:</p>
-</div>
-<section class="pane">
-<div class="lbl"><b>A</b> <span>· keep your place · the same first row, more rows under it</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> BCP PEN
-
-  <span class="d">Title                      Amount       Date      Category</span>
-  <span class="d">────────────────────────────────────────────────────────────</span>
-<span class="rev"> ▸ NETFLIX.COM                 -44.90  11 Aug 26   Ocio        </span>
-  <span class="d">  GRIFO PRIMAX               -215.60  09 Aug 26   Transporte</span>
-  <span class="d">  …                                                         </span>
-  <span class="d">  (26 rows where there were 20)</span>
-
-  <span class="d">rows 41–66 of 214 ·</span> <span class="new">page 3</span></pre></div></div>
-<p class="blurb">You stay where you were. The cost is that <code>pgup</code> back to page 2 fetches
-   26 rows from where page 2 <i>started</i>, so it can repeat some of page 3's rows (or, after a
-   shrink, skip some) until you are back at page 1. And "page 3 <i>of 11</i>" can no longer be
-   stated, so the footer shows only the page number until you return to page 1.</p>
-</section>
-<section class="pane">
-<div class="lbl"><b>B</b> <span>· back to page 1 · exact, but you lose your place</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> BCP PEN
-
-  <span class="d">Title                      Amount       Date      Category</span>
-  <span class="d">────────────────────────────────────────────────────────────</span>
-<span class="rev"> ▸ PLAZA VEA AREQUIPA         -152.40  21 Sep 26   Mercado     </span>
-  <span class="d">  DLC*UBER RIDES              -24.50  19 Sep 26   @Pendiente</span>
-  <span class="d">  …</span>
-
-  <span class="d">rows 1–26 of 214 · page 1 of 9</span></pre></div></div>
-<p class="blurb">Every page after that is exact again. A resize is rare, so losing your place is
-   rare too. Filters stay as they were; only the page resets.</p>
-</section>
-
-<!-- ============================ M4 ============================ -->
-<div class="sec">
-  <h2>M4 · The <code>u</code> pane and the LOG bar peek look the same as today</h2>
-  <p><b>Why this is here at all:</b> both read differently under the hood, and the old way would now
-     show <i>wrong</i> rows with no error. After the fix they look as they do today. The one new rule
-     (your decision, 2026-09-23) is that <b>the row count and the rows load together</b>, and if the
-     count cannot be read, the whole pane fails. It never shows rows next to a guessed number.</p>
-</div>
-<section class="pane">
-<div class="lbl"><b>The <code>u</code> pane</b> <span>· unchanged: still the 40 oldest, still oldest at the top</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   1716 rows · the 40 oldest · oldest first   ·   ! blocks a batch's close
-  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
-<span class="rev"> ▸   2024-04-06   PLAZA VEA AREQUIPA             -152.40   Mercado            </span>
-  <span class="d">  2024-04-09   GRIFO PRIMAX                   -215.60   Transporte</span>
-  <span class="d">  2024-04-11   NETFLIX.COM                     -44.90   Ocio</span>
-  <span class="d">  …</span></pre></div></div>
-<p class="blurb">The "1716" now comes from the engine's own count, not from the last page's
-   length.</p>
-</section>
-<section class="pane">
-<div class="lbl"><b>If the count fails</b> <span>· the same as a failed read today: the pane goes back to the batches and says why</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="d">Reconciliations · BCP PEN   ·   by statement start date (oldest → newest)</span>
+  <span class="new">Reconciliations · BCP PEN   ·   oldest → newest</span>
   <span class="d">──────────────────────────────────────────────────────────────────────────</span>
   <span class="d">June 2026      2026-05-26 → 06-25    12,900.00   12,480.00    0.00   completed</span>
-  <span class="d">August 2026    2026-07-24 → 08-25    12,480.00    9,215.40  -12.50   draft</span></pre>
-<div style="position:absolute;right:18px;bottom:16px;width:min(360px,60%);background:#16161b;padding:8px 12px;font-size:12px;line-height:1.5;border-left:5px solid var(--neg)">
-  <b style="color:var(--neg);display:block">Failed</b>engine unreachable — is it running?
-</div></div></div>
-</section>
-<section class="pane">
-<div class="lbl"><b>The LOG bar peek</b> <span>· unchanged; a failed count is shown like any failed read, in the panel</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  <span class="b">BCP PEN</span>                                          <span class="b">BCP PEN</span>
-  <span class="d">──────────────────────────────────</span>               <span class="d">──────────────────────────────────</span>
-  <span class="d">date    title             amount   category</span>        <span class="d">engine unreachable — is it running?</span>
-  21 Sep  PLAZA VEA AREQ.   -152.40  Mercado
-  19 Sep  DLC*UBER RIDES     -24.50  @Pendiente
-  <span class="d">12 of 214 in this account · newest first</span>
+<span class="rev"> ▸ August 2026    2026-07-24 → 08-25    12,480.00    9,215.40  -12.50   draft     </span>
 
-  <span class="d">ok</span>                                              <span class="d">count failed</span></pre></div></div>
-</section>
-
-<!-- ============================ M5 ============================ -->
-<div class="sec">
-  <h2>M5 · The typed commands: what the footers say</h2>
-  <p>Only the line under each table changes, apart from <code>reconcile list</code>, which now needs
-     an account. Tables and columns stay as they are.</p>
-</div>
-<section class="pane">
-<div class="lbl"><b>transactions list</b> <span>· page by bookmark, not by number</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense transactions list --account-id &lt;id&gt; --limit 20
-  … 20 rows …
-
-<span class="gone">(showing 20 of 214; pass --offset 20 --limit 20 for more)</span>
-<span class="new">(more: pass --after eyJrIjpbIjIwMjYtMDktMDFUMDU6MDA6MDAr… with the same filters)</span>
-
-<span class="d">$</span> expense transactions list --account-id &lt;id&gt; <span class="new">--sort date_asc</span>     <span class="d"># oldest first, new flag</span></pre></div></div>
-<p class="blurb">No total: counting would cost a second read on every list, and <code>--json</code>
-   users can call the count themselves. On the last page there is no footer. <code>--offset</code> is
-   gone, and <code>--from</code>/<code>--to</code> now include the whole last day (this also fixes
-   the "--to drops the last day" defect).</p>
-</section>
-<section class="pane">
-<div class="lbl"><b>accounts / categories / hashtags list</b> <span>· everything, always</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense hashtags list
-  … all 56 rows …
-<span class="gone">(showing 20 of 56; pass --offset 20 --limit 20 for more)</span></pre></div></div>
-<p class="blurb">No footer, and no <code>--limit</code>/<code>--offset</code>. Today the list stops
-   at 20 and six tags are missing wherever something forgot to page. That bug goes away.</p>
-</section>
-<section class="pane">
-<div class="lbl"><b>activity list / rates list</b> <span>· the last 30 days, and how to go further back</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense activity list
-Date        Time      Action   Actor  Type     Resource
-----------  --------  -------  -----  -------  -------------
-2026-09-19  20:19:32  UPDATED  —      account  BCP Oro PEN
-  …
-
-<span class="new">(2026-08-24 → 2026-09-23 · more in this window: pass --after eyJrIjpb…)</span>
-<span class="d">   … and on the window's last page:</span>
-<span class="new">(2026-08-24 → 2026-09-23 · older: pass --to 2026-08-24)</span>
-
-<span class="d">$</span> expense rates list
-  …
-<span class="new">(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)</span></pre></div></div>
-<p class="blurb">The engine now reads these 30 days at a time (up to a year if you pass
-   <code>--from</code>/<code>--to</code>). The footer always says which stretch you are looking at,
-   because an empty table otherwise looks like "no history". <code>rates list --date X</code> still
-   works. <code>activity list --resource-id X</code> also shows only the last 30 days, per your
-   decision; its help text will say so.</p>
-</section>
-<section class="pane">
-<div class="lbl"><b>reconcile list</b> <span>· one account at a time</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">zsh</span></div><div class="app"><pre class="scr"><span class="d">$</span> expense reconcile list
-<span class="new">Error: Missing option '--account-id'.</span>  <span class="d">(Typer's standard message, with usage)</span>
-
-<span class="d">$</span> expense reconcile list --account-id &lt;id&gt;
-  … that account's batches, statement order, same columns as today …
-
-<span class="d">$</span> <span class="gone">expense reconcile get &lt;id&gt;</span>   <span class="d">deleted: its rows are `transactions list --reconciliation-id &lt;id&gt;`</span></pre></div></div>
+<span class="k">⏎</span> <span class="d">Open</span>  <span class="k">n</span> <span class="d">New</span>  <span class="k">u</span> <span class="d">No batch</span>  <span class="k">esc</span> <span class="d">Close the panel</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="blurb"><code>esc</code> closes the panel and puts you back on the account list (picture 1).
+   <code>⏎</code> on a reconciliation opens it, as today. An account with none says so inside the
+   panel: <code>none yet · n to create one</code>.</p>
 </section>
 
 <!-- ============================ M6 ============================ -->
 <div class="sec">
-  <h2>M6 · Optional: real scrolling in the <code>u</code> pane</h2>
-  <p>The pane stops at the 40 oldest because reaching the oldest rows used to cost two reads and a
-     trick. That reason is gone, so <code>pgdn</code> could now load the next 40 oldest, the same way
-     the ledger pages.</p>
+  <h2>M6 · The "no batch" list: 10 at a time, <code>pgdn</code> adds 10 more</h2>
+  <p>Your shape. <code>u</code> shows the account's 10 oldest rows that are in no reconciliation.
+     <code>pgdn</code> does not swap them for the next 10: it <b>adds</b> the next 10 under them,
+     so the list grows to 20, then 30, and you scroll through all of them with <code>↑↓</code>.</p>
 </div>
 <section class="pane">
-<div class="lbl"><b>Yes</b> <span>· pgdn / pgup inside the pane</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   1716 rows · <span class="new">41–80</span> · oldest first   ·   ! blocks a batch's close
+<div class="lbl"><b>After <code>u</code></b> <span>· 10 loaded</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   <span class="new">10 of 1716 loaded</span> · oldest first   ·   ! blocks a batch's close
   <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+<span class="rev"> ▸   2024-04-06   PLAZA VEA AREQUIPA             -152.40   Mercado            </span>
+  <span class="d">  2024-04-09   GRIFO PRIMAX                   -215.60   Transporte</span>
+  <span class="d">  …  (8 more)</span>
+  <span class="d">  2024-04-30   NETFLIX.COM                     -44.90   Ocio</span>
+
+<span class="k">⏎</span> <span class="d">Edit</span>  <span class="k">d</span> <span class="d">Delete</span>  <span class="new">pgdn</span> <span class="new">10 more</span>  <span class="k">esc</span> <span class="d">Back</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="arrow">you press <b>pgdn</b> ▼ <span style="color:var(--dim)">— the next 10 are added underneath</span></p>
+</section>
+<section class="pane">
+<div class="lbl"><b>After <code>pgdn</code></b> <span>· 20 loaded, the first 10 still there</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr">  In no batch · BCP PEN   ·   <span class="new">20 of 1716 loaded</span> · oldest first   ·   ! blocks a batch's close
+  <span class="d">──────────────────────────────────────────────────────────────────────────</span>
+  <span class="d">  2024-04-06   PLAZA VEA AREQUIPA             -152.40   Mercado</span>
+  <span class="d">  …  (rows 2–9)</span>
+  <span class="d">  2024-04-30   NETFLIX.COM                     -44.90   Ocio</span>
 <span class="rev"> ▸   2024-05-02   TOTTUS AQP PORONGOCHE           -10.74   Mercado            </span>
+  <span class="d">  …  (rows 12–20, new)</span>
+
+<span class="k">⏎</span> <span class="d">Edit</span>  <span class="k">d</span> <span class="d">Delete</span>  <span class="new">pgdn</span> <span class="new">10 more</span>  <span class="k">esc</span> <span class="d">Back</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
+<p class="blurb">Drawn with the cursor jumping to the first new row (row 11). The other way is that
+   it stays where it was, and you arrow down to the new rows yourself. When all 1716 are loaded,
+   <code>pgdn</code> does nothing and the <code>pgdn</code> key leaves the footer. <code>r</code>
+   starts again from the 10 oldest.</p>
+</section>
+
+<!-- ============================ M3 ============================ -->
+<div class="sec">
+  <h2>M3 · The ledger (Transactions), in plain words</h2>
+  <p><b>What happens today.</b> The ledger shows one screenful at a time: "rows 41–60 of 214,
+     page 3 of 11". <code>pgdn</code> swaps in the next screenful. If you make the terminal window
+     bigger while on page 3, the page grows to fit and you stay on the same rows.</p>
+  <p><b>What changes.</b> The engine now hands out rows only as "the next batch after this one". It
+     no longer does "jump to row 41". That is fine while the window stays the same size. The
+     question is only <b>what happens when you resize the window in the middle of the ledger</b>:</p>
+  <ul style="color:var(--muted);font-size:13px;line-height:1.75;max-width:86ch">
+    <li><b style="color:var(--text)">A · Stay where you are.</b> You keep looking at the same rows.
+        But if you then press <code>pgup</code> to go back, the earlier pages come back a different
+        size, so you may see a few rows twice, or miss a few, until you are back at the top.</li>
+    <li><b style="color:var(--text)">B · Jump back to the top.</b> The ledger returns to the newest
+        rows, the same as opening it again. Filters and selections stay. No doubled or missing rows.</li>
+    <li><b style="color:var(--text)">C · The ledger works like your M6.</b> No pages at all: it is one
+        list that grows. <code>pgdn</code> adds the next rows underneath, and you scroll with
+        <code>↑↓</code>. Resizing just shows more or less of the same list, so the question
+        disappears. Drawn below.</li>
+  </ul>
+</div>
+<section class="pane">
+<div class="lbl"><b>C</b> <span>· the ledger as one growing list</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense&nbsp;world</span></div><div class="app"><pre class="scr"><span class="a">▍</span> Ledger <span class="d">›</span> BCP PEN
+
+  <span class="d">Title                      Amount       Date      Category</span>
+  <span class="d">────────────────────────────────────────────────────────────</span>
+  <span class="d">  PLAZA VEA AREQUIPA         -152.40  21 Sep 26   Mercado</span>
+  <span class="d">  DLC*UBER RIDES              -24.50  19 Sep 26   @Pendiente</span>
+  <span class="d">  …</span>
+<span class="rev"> ▸ NETFLIX.COM                 -44.90  11 Aug 26   Ocio        </span>
   <span class="d">  …</span>
 
-<span class="k">⏎</span> <span class="d">Edit</span>  <span class="k">d</span> <span class="d">Delete</span>  <span class="new">pgdn</span> <span class="new">Older→newer</span>  <span class="k">esc</span> <span class="d">Batches</span>  <span class="k">r</span> <span class="d">Refresh</span>  <span class="k">?</span> <span class="d">Keys</span></pre></div></div>
-<p class="blurb"><b>No</b> keeps today's work queue: fix the oldest, press <code>r</code>, and the next
-   oldest arrive. <b>Later</b> puts it on the list without building it now. It does not block the
-   rest either way.</p>
+  <span class="gone">rows 41–60 of 214 · page 3 of 11</span>
+  <span class="new">60 of 214 loaded</span> <span class="d">·</span> <span class="new">pgdn</span> <span class="d">loads more</span></pre></div></div>
+<p class="blurb">One thing moves with it: <code>a</code> ("select the page") becomes "select every row
+   loaded so far". My recommendation is <b>C</b>. It is the same rule in both lists, and the resize
+   question has no answer to get wrong.</p>
 </section>
+
+<!-- ============================ M4 ============================ -->
+<div class="sec">
+  <h2>M4 · Nothing to pick: what it was about</h2>
+  <p>Two places show a number next to a few rows. The "no batch" list says <i>"1716 rows"</i>, and the
+     LOG bar's account panel says <i>"12 of 214 in this account"</i>. Behind the scenes, the app now
+     asks the engine for that number separately. <b>On screen nothing changes.</b></p>
+  <p>The only new case is when the rows arrive but the number doesn't. You already decided that on
+     2026-09-23: the panel shows the error instead of rows next to a wrong number. So nothing here is
+     waiting on you.</p>
+</div>
 
 <!-- ============================ questions ============================ -->
 <div class="sec">
@@ -316,24 +224,25 @@ Date        Time      Action   Actor  Type     Resource
 </div>
 <div class="qs">
   <div class="q">
-    <p class="qq">M2 · A or B?</p>
-    <p class="qa">I recommend <b>A</b>. It opens as fast as today, costs one read per account you
-       actually look at, and does not grow with the account list.</p>
+    <p class="qq">M2a · With the panel open, where does <code>u</code> go?</p>
+    <p class="qa"><b>From the account list only</b> (you <code>esc</code> out of the panel first), or
+       <b>from either place</b>, meaning the same account's "no batch" list replaces the
+       reconciliations panel.</p>
   </div>
   <div class="q">
-    <p class="qq">M3 · A or B?</p>
-    <p class="qa">I recommend <b>B</b>. Resizes are rare, and every page after one stays exact. A
-       keeps your place but can repeat or skip rows on the way back up.</p>
+    <p class="qq">M2b · Is the panel the same "no batch" slot?</p>
+    <p class="qa">Today <code>u</code> shows the "no batch" list in the lower half. With your shape the
+       lower half is empty until you press <code>⏎</code> or <code>u</code>, so both would open in
+       that same place. Yes, or a different place?</p>
   </div>
   <div class="q">
-    <p class="qq">M6 · yes, no, or later?</p>
-    <p class="qa">I recommend <b>later</b>. It is new behaviour, not catch-up, and the uptake is big
-       enough already.</p>
+    <p class="qq">M6 · After <code>pgdn</code>, does the cursor jump to the first new row, or stay put?</p>
+    <p class="qa">Drawn: it jumps.</p>
   </div>
   <div class="q">
-    <p class="qq">M1, M4, M5 · confirm, or tell me what to change</p>
-    <p class="qa">M1 is your earlier decision drawn out. M4 is "the same as today". M5 is the footer
-       wording, and <code>reconcile list</code> needing <code>--account-id</code>.</p>
+    <p class="qq">M3 · A, B or C?</p>
+    <p class="qa">If C: does the ledger also add <b>10</b> at a time, or a screenful (about 25)? With
+       10, a tall terminal opens half empty.</p>
   </div>
 </div>
 

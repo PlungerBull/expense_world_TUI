@@ -68,6 +68,20 @@ screen before building it"). It covers:
 
 Phases 1, 3, 6 and 10 change nothing the owner sees and can be built before the pick.
 
+**Owner's first pass (2026-09-25):**
+
+- **M1:** picked, yes.
+- **M5:** not the owner's to pick. They never use the typed commands, so the builder decides them.
+  Build them as drawn in round 1 of the mockup (git history).
+- **M4:** no pick needed. The look is unchanged, and the failure rule was decided on 2026-09-23.
+- **M2, owner's own shape:** the screen opens with accounts only, and `⏎` opens that account's
+  reconciliations panel, read at that moment. This replaces both drawn options.
+- **M6, owner's own shape:** the pane loads 10 rows, and `pgdn` *appends* the next 10.
+- **M3** gained option C: the ledger becomes the same growing list, and the resize question goes
+  away.
+
+Round 2 of the mockup draws these and asks what is left open.
+
 ---
 
 ## The phases at a glance
