@@ -86,6 +86,10 @@ class WindowedList(Static):
         return self._rows[self._cursor].key if self._rows else None
 
     @property
+    def cursor_index(self) -> int:
+        return self._cursor
+
+    @property
     def _window_start(self) -> int:
         return (self._cursor // self._page_size) * self._page_size
 

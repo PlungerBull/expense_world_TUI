@@ -69,6 +69,7 @@ EXCLUDED_ACTIONS = frozenset({"help"})
 NEEDS_SCREEN_HANDLER = {
     "select": "on_cursor_list_selected",
     "toggle": "on_cursor_list_toggled",
+    "more": "on_cursor_list_more_requested",
 }
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66

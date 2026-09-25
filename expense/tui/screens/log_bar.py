@@ -1107,23 +1107,25 @@ class LogBarScreen(Screen):
 
     @work(thread=True, group="peek")
     def _load_peek(self, account_id: str) -> None:
-        """`GET /transactions?account_id=…` — the read the ledger screen makes."""
+        """`GET /transactions?account_id=…` — the read the ledger screen makes —
+        and the account's count, together. A count that cannot be read fails
+        the peek (owner, 2026-09-23): no rows beside a guessed number."""
         from expense import config as config_module
 
         try:
             cfg = config_module.ensure_loaded()
+            kw = screen_fetch_kwargs(self.app)
             body = transactions_cmd.fetch_transactions(
-                cfg, account=account_id, limit=PEEK_LIMIT, **screen_fetch_kwargs(self.app)
+                cfg, account=account_id, limit=PEEK_LIMIT, **kw
             )
+            total = transactions_cmd.count_transactions(cfg, account=account_id, **kw)
         except Exception as exc:  # a peek is a courtesy: it reports, never raises
             self.app.call_from_thread(self._peek_failed, account_id, format_error(exc))
             return
-        self.app.call_from_thread(self._peek_loaded, account_id, body)
+        self.app.call_from_thread(self._peek_loaded, account_id, items_of(body), total)
 
-    def _peek_loaded(self, account_id: str, body: object) -> None:
-        items = items_of(body)
-        total = body.get("total") if isinstance(body, dict) else None
-        self._peek_cache[account_id] = (items, total if isinstance(total, int) else len(items))
+    def _peek_loaded(self, account_id: str, items: list, total: int) -> None:
+        self._peek_cache[account_id] = (items, total)
         self._peek_note.pop(account_id, None)
         self._refresh_view()
 

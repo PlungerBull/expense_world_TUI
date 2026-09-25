@@ -35,7 +35,7 @@ from expense.tui.screens.log_bar import (
 )
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
-from tests.unit.helpers import page, render_text, run_app, wait_for
+from tests.unit.helpers import cursor_page, render_text, run_app, wait_for
 
 ACCOUNTS = [
     {"id": "acc1", "name": "BCP Signature PEN", "currency_code": "PEN", "is_person": False},
@@ -90,22 +90,40 @@ PEEK_ITEMS = [
         "hashtag_ids": [],
     },
 ]
-PEEK_BODY = page(PEEK_ITEMS, total=214, limit=40, offset=0)
+PEEK_BODY = cursor_page(PEEK_ITEMS, next_cursor="c40", limit=40)
 
 
 class _PeekFetch:
-    """Stands in for `fetch_transactions`, recording the account of each call."""
+    """Stands in for `fetch_transactions` (called) and `count_transactions`
+    (`.count`), recording the account of each read. Refuses `offset`, as the
+    engine does."""
 
-    def __init__(self, body=None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        body=None,
+        error: Exception | None = None,
+        total: int = 214,
+        count_error: Exception | None = None,
+    ) -> None:
         self.body = PEEK_BODY if body is None else body
         self.error = error
+        self.total = total
+        self.count_error = count_error
         self.accounts: list[str] = []
+        self.counted: list[str] = []
 
     def __call__(self, _cfg, **kw):
+        assert "offset" not in kw, "the engine refuses offset"
         self.accounts.append(kw.get("account"))
         if self.error is not None:
             raise self.error
         return self.body
+
+    def count(self, _cfg, **kw):
+        self.counted.append(kw.get("account"))
+        if self.count_error is not None:
+            raise self.count_error
+        return self.total
 
 
 def _patch(monkeypatch, peek: "_PeekFetch | None" = None) -> "_PeekFetch":
@@ -122,6 +140,7 @@ def _patch(monkeypatch, peek: "_PeekFetch | None" = None) -> "_PeekFetch":
     monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: HASHTAGS)
     peek = peek or _PeekFetch()
     monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", peek)
+    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", peek.count)
     return peek
 
 
@@ -1021,7 +1040,7 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
 
 def test_the_peek_draws_as_many_rows_as_it_was_given(fake_client, monkeypatch):
     """Pick A: the panel is `1fr`, so it renders exactly what fits — no more."""
-    _patch(monkeypatch, _PeekFetch(page(PEEK_ITEMS * 20, total=214)))
+    _patch(monkeypatch, _PeekFetch(cursor_page(PEEK_ITEMS * 20, next_cursor="c40")))
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -1123,6 +1142,38 @@ def test_a_peek_that_cannot_load_says_so_and_does_not_retry(fake_client, monkeyp
         _type(screen, LEDGER_LINE + " ")
         await pilot.pause()
         assert fetch.accounts == ["acc1"]
+
+    run_app(scenario, size=(110, 30))
+
+
+def test_the_peek_total_is_the_engine_count_read_with_the_rows(fake_client, monkeypatch):
+    fetch = _patch(monkeypatch, _PeekFetch(total=1716))
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await _peeked(pilot, screen)
+        assert fetch.accounts == ["acc1"] and fetch.counted == ["acc1"]
+        # the figure is the count, not the length of the page in hand
+        assert "of 1716 in this account" in _peek(screen).panel_status
+
+    run_app(scenario, size=(110, 30))
+
+
+def test_a_count_that_cannot_be_read_fails_the_peek(fake_client, monkeypatch):
+    """No rows beside a guessed number (owner, 2026-09-23): the rows arrived,
+    the count did not, so the panel says why and shows no rows."""
+    _patch(
+        monkeypatch,
+        _PeekFetch(count_error=EngineError("BOOM", "count is down", None, 500, {})),
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)
+        await wait_for(pilot, lambda: bool(screen._peek_note), message="no note")
+        text = _text(_peek(screen).content)
+        assert "count is down" in text and "NETFLIX" not in text
 
     run_app(scenario, size=(110, 30))
 

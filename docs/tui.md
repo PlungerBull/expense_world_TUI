@@ -190,11 +190,15 @@ work stays in the reconciliation view.
 
 Two details it is easy to get wrong later. **The pane lands on the oldest rows**, which
 is the whole point — old orphans are the problem, recent unfiled rows are just waiting
-for a statement — and `GET /transactions` is always `date DESC` with **no sort
-parameter**, so the pane reads `total` from a `limit=1` probe and asks for the tail by
-offset (`unfiled_offset`), then reverses that one page for display. One page, by
-decision: the pane is a work queue (fix these, press `r`, the next oldest arrive), not a
-browser over a ledger that can hold thousands of unfiled rows. And the **`!` flag is a
+for a statement — so it reads with `sort=date_asc`, **ten rows at a time**, and `pgdn`
+**appends** the next ten under them, with the cursor on the first new row (owner,
+2026-09-25, mockup `expense-world-engine-uptake.html` M6: `CursorList`'s growing mode,
+`set_growth` / `append_rows`). The caption's `N of M loaded` takes M from
+`GET /transactions/count`, read together with the first rows. A count that cannot be read
+fails the pane, never rows beside a guessed number. `r` starts again from the oldest ten,
+and an edit or a delete re-reads as many rows as were loaded and keeps the cursor where it
+was. Until 2026-09-25 the engine had no sort parameter, and the pane probed a total and
+read the tail by offset, then reversed it. That trick is gone with offset. And the **`!` flag is a
 hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
 already holds, so it costs no request; the engine stays the authority at close time. The
 owner declined an explanatory line beside it ("I can see myself by the date column").

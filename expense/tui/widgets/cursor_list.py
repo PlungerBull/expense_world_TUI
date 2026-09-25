@@ -18,6 +18,13 @@ one widget:
   screen fetched with real limit/offset; the page keys post `PageRequested`
   and the screen refetches (see `PagedListMixin`). `↑`/`↓` clamp at the edge —
   paging is always a deliberate keypress (mockup pick A).
+- growing mode (`set_growth(more=…)`, 2026-09-25, mockup
+  expense-world-engine-uptake.html M3/M6): `_rows` is every row loaded so far
+  and the window follows the cursor, as in window mode. `pgdn` does not turn a
+  page: it posts `MoreRequested`, the screen fetches the next `GROW_STEP` rows
+  by cursor and appends them (`append_rows`), and the cursor lands on the first
+  new one. The engine hands out "the rows after this one", never "row 41", so
+  a list that only ever grows at the end is the shape that fits it.
 
 The widget is its own quiet-border panel (app.tcss): screens name it via
 `title` (border title) and the page status renders in the border subtitle
@@ -40,7 +47,19 @@ from textual.widgets import OptionList
 from expense.commands._resource import DEFAULT_PAGE_ROWS
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList, page_indicator
 
-__all__ = ["CURSOR_STYLE", "CursorList", "CursorOptionList", "Row", "RowInput", "page_indicator"]
+__all__ = [
+    "CURSOR_STYLE",
+    "GROW_STEP",
+    "CursorList",
+    "CursorOptionList",
+    "Row",
+    "RowInput",
+    "page_indicator",
+]
+
+#: How many rows one `pgdn` adds to a growing list (owner, 2026-09-25: "we
+#: should work 10 by 10"). The first load is the same size.
+GROW_STEP = 10
 
 
 class Row(NamedTuple):
@@ -81,6 +100,16 @@ class CursorList(WindowedList):
         # footer both — only on a screen that handles the message, the same
         # gate `enter` goes through in help.py (`check_action` below).
         Binding("space", "toggle", "Select", tooltip="Select / unselect the cursor row"),
+        # Two bindings on one key: Textual tries the next when `check_action`
+        # refuses the first, so a growing list reads "10 more" and every other
+        # list keeps "Next".
+        Binding(
+            "pagedown",
+            "more",
+            f"{GROW_STEP} more",
+            key_display="pgdn",
+            tooltip=f"Load the next {GROW_STEP} rows under these",
+        ),
         Binding("pagedown", "page(1)", "Next", key_display="pgdn", tooltip="Next page"),
         Binding("pageup", "page(-1)", "Prev", key_display="pgup", tooltip="Previous page"),
     ]
@@ -96,6 +125,17 @@ class CursorList(WindowedList):
         def control(self) -> "CursorList":
             """The list that posted this — handlers on screens with several
             CursorLists must filter by source (backlog 6.2c)."""
+            return self._control
+
+    class MoreRequested(Message):
+        """Growing mode: `pgdn` asks the screen for the next rows."""
+
+        def __init__(self, control: "CursorList") -> None:
+            super().__init__()
+            self._control = control
+
+        @property
+        def control(self) -> "CursorList":
             return self._control
 
     class Highlighted(Message):
@@ -171,6 +211,25 @@ class CursorList(WindowedList):
         self._align = set(align_right)
         self._flex = dict(flex or {})
         self._page_meta = page_meta
+        self._more: bool | None = None  # None: not growing; else "more rows exist"
+
+    def set_growth(self, *, more: bool | None) -> None:
+        """Enter growing mode and say whether the engine has rows past these;
+        `None` leaves it (a pane that swaps back to listing something whole)."""
+        self._more = more
+        self.refresh_bindings()
+
+    def append_rows(self, rows: Iterable[RowInput], *, more: bool) -> None:
+        """Add rows at the end and put the cursor on the first new one (owner,
+        2026-09-25). An empty batch leaves the cursor where it was."""
+        first_new = len(self._rows)
+        self._rows.extend(Row.coerce(r) for r in rows)
+        self._more = more
+        if len(self._rows) > first_new:
+            self._cursor = first_new
+            self._cursor_moved()
+        self._refresh()
+        self.refresh_bindings()
 
     def on_mount(self) -> None:
         self._refresh()
@@ -213,6 +272,11 @@ class CursorList(WindowedList):
         if self._page_meta is not None:
             offset, total = self._page_meta
             return page_indicator(offset, len(self._rows), total, self._page_size)
+        if self._more is not None:
+            # "rows 11-20 of 20" would count what is loaded, not what exists;
+            # a growing list's screen states `N of M loaded` where its mockup
+            # put it.
+            return None
         return super().page_status
 
     @staticmethod
@@ -240,6 +304,10 @@ class CursorList(WindowedList):
     def _cursor_moved(self) -> None:
         self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))
 
+    def action_more(self) -> None:
+        if self._more:
+            self.post_message(self.MoreRequested(self))
+
     def action_page(self, delta: int) -> None:
         if self._page_meta is not None:
             # fetched-page mode: the screen owns the data; ask it to turn.
@@ -248,7 +316,11 @@ class CursorList(WindowedList):
         super().action_page(delta)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "more":
+            return bool(self._more)
         if action == "page":  # hide the page keys when one page holds it all
+            if self._more is not None and parameters and parameters[0] > 0:
+                return False  # growing: pgdn is "more", never "next page"
             if self._page_meta is not None:
                 return self._page_meta[1] > self._page_size
             return len(self._rows) > self._page_size
