@@ -8,7 +8,6 @@ from expense import config as config_module
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
-    OFFSET_OPT,
     YES_OPT,
     build_update_payload,
     effective_limit,
@@ -239,18 +238,40 @@ def list_(
         help="Only transactions assigned to no reconciliation. "
         "Over a reconciled period, these are the rows the statement never accounted for.",
     ),
-    date_from: str | None = typer.Option(None, "--from", help="ISO 8601 lower bound (inclusive)."),
-    date_to: str | None = typer.Option(None, "--to", help="ISO 8601 upper bound (inclusive)."),
+    date_from: str | None = typer.Option(
+        None,
+        "--from",
+        help="A day (YYYY-MM-DD, whole day, inclusive) or a time with an offset.",
+    ),
+    date_to: str | None = typer.Option(
+        None,
+        "--to",
+        help="A day (YYYY-MM-DD, whole day, inclusive) or a time with an offset.",
+    ),
     search: str | None = typer.Option(
         None, "--search", help="Full-text search on title/description."
     ),
+    sort: str | None = typer.Option(
+        None,
+        "--sort",
+        help="date_desc (default, newest first) or date_asc (oldest first).",
+    ),
+    after: str | None = typer.Option(
+        None,
+        "--after",
+        help="The next_cursor from the previous page; repeat the same filters and --sort.",
+    ),
     limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/transactions.
 
     Example: expense transactions list --account-id <id> --from 2026-04-01 --to 2026-04-30
+
+    The next page: the line under the table names the cursor to pass back, with
+    the same filters and --sort (the engine refuses a cursor under different ones):
+
+        expense transactions list --account-id <id> --sort date_asc --after <cursor>
 
     Run after every import, over the period you last reconciled:
 
@@ -273,8 +294,9 @@ def list_(
         date_from=date_from,
         date_to=date_to,
         search=search,
+        sort=sort,
+        after=after,
         limit=limit,
-        offset=offset,
         verbose=get_verbose(ctx),
     )
     _render_transaction_list(body, json_mode=json_output)

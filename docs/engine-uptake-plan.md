@@ -156,14 +156,13 @@ Your phase names the debrief sections that carry the engine facts.
 - **Commit on `main`, do not push.** Nothing is pushed until Phase 12 step 1, so `main` never
   carries a red CI run. Commit through `PATH="$PWD/.venv/bin:$PATH" git commit` (pre-commit runs
   mypy from the venv). Never `--no-verify`.
-- **The unit suite is red at the start, on purpose.** After Phase 6 there are **6 known
-  failures**, all in `test_cmd_transactions.py` (fixed by Phase 9). Your phase must leave no failure outside
-  that set, and must fix the ones it owns.
+- **The unit suite is green.** Phase 9 fixed the last known failures (the 6 in
+  `test_cmd_transactions.py`) on 2026-09-26. Your phase must leave it green.
 - **Test fakes refuse `offset`.** Any fake for a transaction read uses `cursor_page()` from
   [tests/unit/helpers.py](../tests/unit/helpers.py) and asserts `"offset" not in kw`. Phase 2's
   `_patch_unfiled` in [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)
   is the model.
-- **Done means:** `pytest tests/unit` (known failures only), `ruff check . && ruff format .`,
+- **Done means:** `pytest tests/unit` (green), `ruff check . && ruff format .`,
   `mypy`; every doc paragraph your change makes false is corrected in the same commit (tui.md,
   cli-spec.md); and your phase's row in the table above is marked **done** with the commit hash.
 
@@ -418,6 +417,19 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 - Tests: `--sort` and `--after` reach the request, `--offset` is gone, the hint appears only
   with a cursor, a `422` on `sort` renders through the standard envelope, and `--to 2026-08-31`
   reaches the request as exactly `date_to=2026-08-31`.
+
+**Owner answers (2026-09-26), asked while planning this phase:**
+- The hint names the sort too: `(more: pass --after <cursor> with the same filters and --sort)`,
+  because the engine refuses a cursor under a different sort as well as different filters.
+- `--sort` is sent as typed; its help lists the two values
+  (`date_desc (default, newest first) or date_asc (oldest first).`).
+- The hint is a cursor branch of the shared `render_pagination_hint`, not a local helper;
+  Phase 10 deletes only its offset branch.
+- cli-spec's flag list for the command is updated in this phase, not left to Phase 11.
+
+**What was built:** `list_` drops `--offset` and gains `--sort` / `--after`, passed to the
+unchanged `fetch_transactions`. `render_pagination_hint` prints the cursor line first when
+`next_cursor` is a string. The 6 known failures are fixed, and the suite is green.
 
 ## Phase 10: offset code deleted (6b §4)
 

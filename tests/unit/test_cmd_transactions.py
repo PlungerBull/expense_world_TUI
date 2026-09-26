@@ -13,7 +13,6 @@ from tests.unit.helpers import (
     error_body,
     error_response,
     make_cli_app,
-    page,
     strip_panel,
     whole,
 )
@@ -41,7 +40,7 @@ TRANSACTION_RESPONSE = {
     "deleted_at": None,
 }
 
-LIST_RESPONSE = page([TRANSACTION_RESPONSE], total=1, limit=50, offset=0)
+LIST_RESPONSE = cursor_page([TRANSACTION_RESPONSE])
 
 
 # The three reference lists the human list renderer joins against for names.
@@ -90,6 +89,8 @@ def test_list_happy(configured):
         "debit_as_negative": "true",
         "limit": "20",
     }
+    # The last page (next_cursor null) says nothing more.
+    assert "more:" not in result.output
 
 
 @respx.mock
@@ -97,7 +98,7 @@ def test_list_resolves_names_from_live_reference_lists(configured):
     """The renderer joins account/category/hashtag ids against live lists."""
     item = {**TRANSACTION_RESPONSE, "hashtag_ids": ["h-1"]}
     respx.get(f"{BASE}/v1/transactions").mock(
-        return_value=httpx.Response(200, json=page([item], total=1, limit=50, offset=0))
+        return_value=httpx.Response(200, json=cursor_page([item]))
     )
     reference_routes = _mock_name_maps()
     result = runner.invoke(cli_app, ["transactions", "list"])
@@ -118,7 +119,7 @@ def test_list_unresolvable_names_degrade_to_short_ids(configured):
         "hashtag_ids": [],
     }
     respx.get(f"{BASE}/v1/transactions").mock(
-        return_value=httpx.Response(200, json=page([item], total=1, limit=50, offset=0))
+        return_value=httpx.Response(200, json=cursor_page([item]))
     )
     result = runner.invoke(cli_app, ["transactions", "list"])
     assert result.exit_code == 0, result.output
@@ -150,10 +151,12 @@ def test_list_all_filters_pass_through(configured):
             "2026-04-30",
             "--search",
             "coffee",
+            "--sort",
+            "date_asc",
+            "--after",
+            "c1",
             "--limit",
             "25",
-            "--offset",
-            "10",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -167,8 +170,9 @@ def test_list_all_filters_pass_through(configured):
         "date_from": "2026-04-01",
         "date_to": "2026-04-30",
         "search": "coffee",
+        "sort": "date_asc",
+        "after": "c1",
         "limit": "25",
-        "offset": "10",
         "debit_as_negative": "true",
     }
 
@@ -197,13 +201,51 @@ def test_list_rejects_retired_include_deleted_flag(configured):
 
 
 @respx.mock
-def test_list_pagination_hint_when_truncated(configured):
-    paged = page([TRANSACTION_RESPONSE, TRANSACTION_RESPONSE], total=17, limit=2, offset=0)
+def test_list_pagination_hint_when_more(configured):
+    """A cursor means more: the line names it, and names --sort, because the
+    engine refuses a cursor under a different sort as well as other filters."""
+    paged = cursor_page([TRANSACTION_RESPONSE, TRANSACTION_RESPONSE], next_cursor="c1", limit=2)
     respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=paged))
     result = runner.invoke(cli_app, ["transactions", "list", "--limit", "2"])
     assert result.exit_code == 0, result.output
-    assert "showing 2 of 17" in result.output
-    assert "--offset 2 --limit 2" in result.output
+    assert "(more: pass --after c1 with the same filters and --sort)" in result.output
+    assert "showing" not in result.output
+
+
+def test_list_rejects_retired_offset_flag(configured):
+    """--offset left with the engine's `?offset=` (2026-09-23): sending it is a 422."""
+    result = runner.invoke(cli_app, ["transactions", "list", "--offset", "10"])
+    assert result.exit_code == 2
+    assert "No such option: --offset" in strip_panel(result.output)
+
+
+@respx.mock
+def test_list_bad_sort_renders_engine_envelope(configured):
+    """--sort is passed through unchecked, so the engine's 422 is the one error."""
+    route = respx.get(f"{BASE}/v1/transactions").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Invalid query parameter.",
+            {"sort": "Must be one of: date_desc, date_asc."},
+        )
+    )
+    result = runner.invoke(cli_app, ["transactions", "list", "--sort", "newest"])
+    assert result.exit_code == 1
+    assert route.calls.last.request.url.params.get("sort") == "newest"
+    assert "VALIDATION_ERROR" in result.output
+    assert "sort" in result.output
+
+
+@respx.mock
+def test_list_bare_day_passes_through_unconverted(configured):
+    """A bare day is the engine's to read as the whole day (2026-09-26): no client date math."""
+    route = respx.get(f"{BASE}/v1/transactions").mock(
+        return_value=httpx.Response(200, json=LIST_RESPONSE)
+    )
+    result = runner.invoke(cli_app, ["transactions", "list", "--to", "2026-08-31"])
+    assert result.exit_code == 0, result.output
+    assert route.calls.last.request.url.params.get("date_to") == "2026-08-31"
 
 
 @respx.mock
@@ -216,6 +258,15 @@ def test_list_json_pass_through(configured):
     assert json.loads(result.output) == LIST_RESPONSE
     # --json keeps the raw request: no human-mode default limit (2026-07-11)
     assert route.calls.last.request.url.params.get("limit") is None
+
+
+@respx.mock
+def test_list_json_keeps_next_cursor(configured):
+    body = cursor_page([TRANSACTION_RESPONSE], next_cursor="c1")
+    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=body))
+    result = runner.invoke(cli_app, ["transactions", "list", "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == body
 
 
 # ---------------------------------------------------------------------------

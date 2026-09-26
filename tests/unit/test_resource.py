@@ -540,6 +540,17 @@ def test_render_pagination_hint_silent_for_bare_array(capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_render_pagination_hint_names_the_cursor(capsys):
+    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": "c1"}, [{}])
+    out = capsys.readouterr().out
+    assert out == "\n(more: pass --after c1 with the same filters and --sort)\n"
+
+
+def test_render_pagination_hint_silent_on_last_cursor_page(capsys):
+    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": None}, [{}])
+    assert capsys.readouterr().out == ""
+
+
 def test_render_pagination_hint_silent_when_metadata_missing(capsys):
     render_pagination_hint({"items": []}, [])
     assert capsys.readouterr().out == ""

@@ -858,8 +858,18 @@ def render_pagination_hint(
     than use this helper, and so became the one paginated list that never
     said how to page. Its two extras cost one line each here; its missing
     instruction cost every user of it a trip to `--help`.
+
+    A cursor-paged body (`transactions list`) has no total: when it carries a
+    `next_cursor` the line says how to pass it back, and on the last page
+    (`null`) nothing is printed. The cursor is bound to the filters *and* the
+    sort, so the line names both. The offset branch below goes in engine-uptake
+    Phase 10.
     """
     if not isinstance(body, dict):
+        return
+    cursor = body.get("next_cursor")
+    if isinstance(cursor, str) and cursor:
+        typer.echo(f"\n(more: pass --after {cursor} with the same filters and --sort)")
         return
     total = body.get("total")
     limit = body.get("limit")
