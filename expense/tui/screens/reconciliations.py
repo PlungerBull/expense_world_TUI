@@ -160,6 +160,35 @@ class _AccountList(CursorList):
     BINDINGS = [Binding("enter", "select", "Its reconciliations")]
 
 
+class _PanelList(CursorList):
+    """The panel under the accounts. It lists two things (M6): a
+    reconciliation, which `enter` opens, or a row in no batch, which `enter`
+    edits — so the footer says `Edit` there, as the mockup draws it (owner,
+    2026-09-26). Two bindings on one key: Textual takes the first whose
+    `check_action` allows it."""
+
+    BINDINGS = [
+        Binding("enter", "edit_row", "Edit", tooltip="Edit the row: its date or its account"),
+        Binding("enter", "select", "Open"),
+    ]
+
+    def _listing_unfiled(self) -> bool:
+        try:
+            return getattr(self.screen, "_mode", None) == "unfiled"
+        except Exception:
+            return False
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "edit_row":
+            return self._listing_unfiled()
+        if action == "select" and self._listing_unfiled():
+            return False
+        return super().check_action(action, parameters)
+
+    def action_edit_row(self) -> None:
+        self.action_select()  # the screen's Selected handler opens the edit form
+
+
 class ReconciliationsScreen(SectionScreen):
     """Accounts first; one account's reconciliations on `⏎` (owner, 2026-09-25,
     mockup expense-world-engine-uptake.html M2).
@@ -261,7 +290,7 @@ class ReconciliationsScreen(SectionScreen):
         return rows
 
     def _new_batch_list(self) -> CursorList:
-        batch_list = CursorList(
+        batch_list = _PanelList(
             _BATCH_HEADERS,
             batch_rows(self._recons, palette=PALETTE),
             align_right={2, 3, 4},

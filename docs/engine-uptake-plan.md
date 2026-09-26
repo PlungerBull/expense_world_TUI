@@ -279,8 +279,9 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
 - The two contract checks (no account is a `422`, a GET by id is a `405`) were **written
   here**, in `test_reconciliations_lifecycle.py`. They first run at Phase 12.
 
-**Left as it was:** the "no batch" list's footer still reads `⏎ Open` and still offers `n` and
-`u`, as Phase 2 left it. The mockup draws `⏎ Edit` there, and that was not part of this phase.
+**Owner answer (2026-09-26), after review:** the "no batch" list's footer reads **`⏎ Edit`**,
+as the mockup draws it (it said `⏎ Open` until then). The reconciliation list in the same panel
+keeps `⏎ Open`.
 
 ## Phase 6: the two whole-list readers of transactions
 

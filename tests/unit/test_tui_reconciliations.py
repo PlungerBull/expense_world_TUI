@@ -290,6 +290,28 @@ def test_u_works_only_with_a_panel_open(monkeypatch):
     run_app(scenario)
 
 
+def test_enter_reads_open_on_reconciliations_and_edit_on_rows_in_no_batch(monkeypatch):
+    """One panel, two things listed, two labels for `⏎` (owner, 2026-09-26)."""
+    _patch_browse(monkeypatch)
+    _patch_unfiled(monkeypatch)
+
+    def enter_label(app):
+        active = app.screen.active_bindings.get("enter")
+        return active.binding.description if active and active.enabled else None
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert enter_label(app) == "Open"
+        await pilot.press("u")
+        await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
+        assert enter_label(app) == "Edit"
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: screen._mode == "batches")
+        assert enter_label(app) == "Open"
+
+    run_app(scenario)
+
+
 def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
     _patch_browse(monkeypatch)
 

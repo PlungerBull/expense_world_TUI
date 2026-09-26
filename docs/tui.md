@@ -184,8 +184,8 @@ The **panel swaps**: same screen, same place, and the open account's reconciliat
 are replaced by its transactions belonging to no reconciliation
 (`GET /transactions?account_id=&unreconciled=true`). `u` works only while an account's
 panel is open (owner, 2026-09-25) — on the plain account list it does nothing and is
-not in the footer. `esc` swaps it back to the panel, `⏎` opens the
-edit form the ledger already uses — date and account are the two remedies for a row in
+not in the footer. `esc` swaps it back to the panel, `⏎ Edit` (so labelled since
+2026-09-26, as the mockup draws it) opens the edit form the ledger already uses — date and account are the two remedies for a row in
 no batch — and `d` deletes the cursor row after a confirm. **This is deliberately not a
 filtered ledger** (the first mockup drew one and the owner rejected it): reconciliation
 work stays in the reconciliation view.
