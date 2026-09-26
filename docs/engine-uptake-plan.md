@@ -81,7 +81,7 @@ the list is now shorter.
 | 2 | The two panes that would show wrong numbers without an error | cursor §3.4–3.5 | M4, M6 (**done**, `be85a8b`) |
 | 3 | Deleted is deleted: restore commands and `include_deleted` removed | 6a §1 | — (**done**, `8d2fb7c`) |
 | 4 | Small lists come back whole | 6a §3 | M5 (**done**, `c65a125`) |
-| 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 |
+| 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 (**done**, `192831c`) |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — |
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
@@ -224,7 +224,7 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
   their footers (M5), with a *Pending* line naming the commands whose code has not caught up.
   Phases 5, 8 and 9 each delete their command from that line.
 
-## Phase 5: reconciliations, one account at a time (6a §4)
+## Phase 5: reconciliations, one account at a time (6a §4) (done 2026-09-26, `192831c`)
 
 - `fetch_reconciliations` requires `account_id` and loses `include_deleted`, `limit`, `offset`.
 - **Browse screen (M2, owner's shape; round 2 of the mockup draws it).**
@@ -257,6 +257,30 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
   now reliably means deleted, because the list is whole.
 - **`reconcile complete`'s hint:** delete the dead by-id read and always print the bare hint
   (owner decision, 6a §4.3).
+
+**Found while planning, not in the debrief (2026-09-25):**
+
+- `activity list` also read `GET /reconciliations/{id}`, to name each reconciliation row.
+  After the restart that is a `405`, and the row would quietly show a short id. It is now named
+  from the activity row's own snapshot (`after_snapshot`, or `before_snapshot` for a delete),
+  with no read.
+- The `complete` hint named `--date-from` / `--date-to`, flags `transactions list` never had.
+  It now names `--from` / `--to`.
+
+**Owner answers (2026-09-25), asked while planning this phase:**
+
+- The activity gap is fixed **here**. The label is **`<name> / <account>`** (`August 2026 /
+  BCP PEN`): either half alone when the other is missing, then the short id.
+- `n` on the plain account list uses **the account under the cursor**, with no ACCOUNT step.
+  Saved, **that account's panel opens with the cursor on the new one**. The form dismisses
+  with the id it minted.
+- With no panel open, the account list **fills the screen**. The panel halves it.
+- The breadcrumb **grows to `Reconciliations ▸ <account>`** while a panel is open (as drawn).
+- The two contract checks (no account is a `422`, a GET by id is a `405`) were **written
+  here**, in `test_reconciliations_lifecycle.py`. They first run at Phase 12.
+
+**Left as it was:** the "no batch" list's footer still reads `⏎ Open` and still offers `n` and
+`u`, as Phase 2 left it. The mockup draws `⏎ Edit` there, and that was not part of this phase.
 
 ## Phase 6: the two whole-list readers of transactions
 
@@ -388,8 +412,8 @@ engine.
    tests for what nothing has checked against a real engine:
    - cursor pages walked to a null cursor with no row repeated; `sort=date_asc` the exact
      reverse of the default; `/count` equal to the rows walked; `offset` a `422`;
-   - a small list returns everything with no `total`; `GET /reconciliations` without
-     `account_id` is a `422`;
+   - a small list returns everything with no `total` (the reconciliation half, including the
+     `422` without `account_id` and the `405` by id, was written in Phase 5);
    - an activity window walked to null, then the older window from the echoed `date_from`.
 6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
    In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
