@@ -40,7 +40,7 @@ from expense.commands import accounts_cmd, reconcile_cmd, transactions_cmd
 from expense.commands._resource import (
     ENGINE_PAGE_CAP,
     account_choices,
-    fetch_all_pages,
+    fetch_all_cursor_pages,
     format_cents,
     items_of,
     load_account_name_map,
@@ -904,14 +904,14 @@ class NewReconciliationScreen(FormScreen):
 # Working / detail screen — assign transactions, complete / revert / delete
 # --------------------------------------------------------------------------- #
 def _fetch_all_txns(cfg, **kw) -> list[dict]:
-    """Every matching transaction, paged at the engine cap.
+    """Every matching transaction, cursor-paged at the engine cap.
 
     A single limit=500 request 422s live (cap is 200) and silently truncates
     the checklist; page through instead (backlog 3.3 → 6.4a).
     """
-    return fetch_all_pages(
-        lambda limit, offset: transactions_cmd.fetch_transactions(
-            cfg, limit=limit, offset=offset, **kw
+    return fetch_all_cursor_pages(
+        lambda limit, after: transactions_cmd.fetch_transactions(
+            cfg, after=after, limit=limit, **kw
         )
     )
 

@@ -26,7 +26,12 @@ from expense.bank_import.match import RULES, Excess, LedgerRow, Verdict, match_r
 from expense.bank_import.parse import SHEET_NAME, BadRow, BankFormatError, BankRow, parse_bank_sheet
 from expense.batch_write import RowResult, post_transaction_batch
 from expense.commands import _resource, accounts_cmd, transactions_cmd
-from expense.commands._resource import fetch_all_pages, format_cents, items_of, render_table
+from expense.commands._resource import (
+    fetch_all_cursor_pages,
+    format_cents,
+    items_of,
+    render_table,
+)
 from expense.context import get_verbose
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.dates import to_canonical_aware
@@ -189,14 +194,14 @@ def fetch_ledger(
     date_to = to_canonical_aware(f"{(max(days) + timedelta(days=2)).isoformat()} 23:59:59")
     out: list[LedgerRow] = []
     for account_id, _name in legs.values():
-        items = fetch_all_pages(
-            lambda limit, offset, aid=account_id: transactions_cmd.fetch_transactions(
+        items = fetch_all_cursor_pages(
+            lambda limit, after, aid=account_id: transactions_cmd.fetch_transactions(
                 cfg,
                 account=aid,
                 date_from=date_from,
                 date_to=date_to,
+                after=after,
                 limit=limit,
-                offset=offset,
                 verbose=verbose,
             )
         )

@@ -6,7 +6,7 @@ from expense.errors import EngineError
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen, _txn_sub
 from expense.tui.widgets.checklist import CheckList
-from tests.unit.helpers import run_app, wait_for, whole
+from tests.unit.helpers import cursor_page, run_app, wait_for, whole
 
 CATS = {"c1": "Vivienda"}
 TAGS = {"h1": "oficina"}
@@ -302,20 +302,23 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
 
 
 def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
-    """The detail fetch never exceeds the engine's 200-row limit cap (backlog 3.3)."""
+    """The detail fetch never exceeds the engine's 200-row limit cap (backlog 3.3)
+    and follows `next_cursor` until it is null — never an offset."""
     from expense.tui.screens.reconciliations import _fetch_all_txns
 
-    calls: list[tuple[int, int]] = []
+    calls: list[tuple[int, str | None]] = []
 
-    def fake_fetch(cfg, *, limit, offset, **kw):
-        calls.append((limit, offset))
-        n = 200 if offset == 0 else 40  # one full page, then a short one
-        return {"items": [{"id": f"t{offset + i}"} for i in range(n)]}
+    def fake_fetch(cfg, *, limit, after=None, **kw):
+        assert "offset" not in kw
+        calls.append((limit, after))
+        if after is None:  # one full page with a cursor, then the last one
+            return cursor_page([{"id": f"t{i}"} for i in range(200)], next_cursor="c1")
+        return cursor_page([{"id": f"t{200 + i}"} for i in range(40)])
 
     monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
     rows = _fetch_all_txns(object(), reconciliation="r1")
-    assert calls == [(200, 0), (200, 200)]
-    assert len(rows) == 240
+    assert calls == [(200, None), (200, "c1")]
+    assert [r["id"] for r in rows] == [f"t{i}" for i in range(240)]
 
 
 def test_complete_confirms_then_posts(fake_client, monkeypatch):

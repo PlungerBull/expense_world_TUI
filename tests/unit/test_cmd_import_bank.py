@@ -15,7 +15,13 @@ from expense import config as config_module
 from expense.commands import _resource, bank_import_cmd
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_body, error_response, page, real_cli_app, whole
+from tests.unit.helpers import (
+    cursor_page,
+    error_body,
+    error_response,
+    real_cli_app,
+    whole,
+)
 
 runner = CliRunner()
 #: The real command tree — see the note in test_cmd_import.py. Mounted as a
@@ -49,14 +55,20 @@ def _feed(monkeypatch, headers, rows) -> None:
     monkeypatch.setattr(bank_import_cmd, "read_workbook", lambda path, **k: _sheet(headers, rows))
 
 
-def _engine(ledger_by_account: dict[str, list[dict]] | None = None):
-    """Mock the reads: the accounts list and one ledger page per account."""
+def _engine(ledger_by_account: dict[str, list[dict]] | None = None, *, page_rows: int = 200):
+    """Mock the reads: the accounts list and each account's ledger, cursor-paged
+    `page_rows` at a time the way the engine serves `GET /transactions`. An
+    `offset` is refused, as the engine refuses any unknown parameter."""
     respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=whole(ACCOUNTS)))
 
     def transactions(request):
-        account = request.url.params.get("account_id")
-        items = (ledger_by_account or {}).get(account, [])
-        return httpx.Response(200, json=page(items, total=len(items)))
+        params = request.url.params
+        assert "offset" not in params, "GET /transactions is cursor-paged"
+        items = (ledger_by_account or {}).get(params.get("account_id"), [])
+        start = int(params.get("after") or 0)
+        end = start + page_rows
+        more = str(end) if end < len(items) else None
+        return httpx.Response(200, json=cursor_page(items[start:end], next_cursor=more))
 
     respx.get(f"{BASE}/v1/transactions").mock(side_effect=transactions)
 
@@ -252,6 +264,36 @@ def test_apply_carries_the_operation_code(configured, monkeypatch):
     assert result.exit_code == 0, result.output
     item = json.loads(batch.calls.last.request.content)["transactions"][0]
     assert item["operation_code"] == "04330935"
+
+
+@respx.mock
+def test_a_match_on_the_ledgers_second_page_still_counts(configured, monkeypatch):
+    """The ledger read follows `next_cursor` to the end: the row that matches
+    sits on page two, and the file's row is still found to be there already."""
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine(
+        {
+            "sig-pen": [
+                _ledger("t0", "sig-pen", "2026-09-10", -1000, "OTHER"),
+                _ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR"),
+            ]
+        },
+        page_rows=1,
+    )
+    batch = respx.post(f"{BASE}/v1/transactions/batch")
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+    assert result.exit_code == 0, result.output
+    assert not batch.called
+    assert "the ledger already has every row" in result.output
+    sig_pen = [
+        c.request.url.params
+        for c in respx.calls
+        if c.request.url.path == "/v1/transactions"
+        and c.request.url.params.get("account_id") == "sig-pen"
+    ]
+    assert [p.get("after") for p in sig_pen] == [None, "1"]
 
 
 @respx.mock
