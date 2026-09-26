@@ -6,7 +6,6 @@ import typer
 
 from expense import config as config_module
 from expense.commands._resource import (
-    INCLUDE_DELETED_OPT,
     JSON_OPT,
     LIMIT_OPT,
     OFFSET_OPT,
@@ -14,7 +13,6 @@ from expense.commands._resource import (
     build_update_payload,
     effective_limit,
     fetch_body,
-    format_bool,
     format_cents,
     format_hashtag_cell,
     format_short_date,
@@ -23,7 +21,6 @@ from expense.commands._resource import (
     load_category_name_map,
     load_hashtag_name_map,
     parse_hashtag_ids,
-    print_warnings,
     query_params,
     render_pagination_hint,
     render_record,
@@ -39,7 +36,7 @@ from expense.http import ExpenseClient
 from expense.jsonout import emit_json
 
 app = typer.Typer(
-    help="Ledger transactions: list, view, edit, delete, restore, batch.",
+    help="Ledger transactions: list, view, edit, delete, batch.",
     no_args_is_help=True,
 )
 
@@ -52,16 +49,8 @@ _RECONCILIATION_LOCK_HINT = (
 )
 
 
-def _render_transaction_list(body: dict, *, json_mode: bool, show_deleted: bool = False) -> None:
-    """Print the ledger table.
-
-    `show_deleted` mirrors the caller's `--include-deleted`, not the data: the
-    column is what explains why a deleted row is in the table at all, and its
-    only real use is picking the id to hand to `transactions restore`. Keying it
-    to the flag rather than to "is anything actually deleted" keeps the column
-    set stable for a given command line — the same invocation always prints the
-    same header, whatever the ledger happens to hold that day.
-    """
+def _render_transaction_list(body: dict, *, json_mode: bool) -> None:
+    """Print the ledger table."""
     if json_mode:
         emit_json(body)
         return
@@ -82,7 +71,6 @@ def _render_transaction_list(body: dict, *, json_mode: bool, show_deleted: bool 
             "account": resolve_name(item.get("account_id"), accounts),
             "category": resolve_name(item.get("category_id"), categories),
             "hashtags": format_hashtag_cell(item.get("hashtag_ids"), hashtags, max_width=24),
-            **({"deleted": format_bool(item.get("deleted_at"))} if show_deleted else {}),
         }
         for item in items
     ]
@@ -95,9 +83,6 @@ def _render_transaction_list(body: dict, *, json_mode: bool, show_deleted: bool 
         "category": "Category",
         "hashtags": "Hashtags",
     }
-    if show_deleted:
-        # Last, matching accounts/categories/hashtags.
-        headers["deleted"] = "Deleted"
     render_table(
         headers=headers,
         rows=rows,
@@ -261,7 +246,6 @@ def list_(
     ),
     limit: int | None = LIMIT_OPT,
     offset: int | None = OFFSET_OPT,
-    include_deleted: bool = INCLUDE_DELETED_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/transactions.
@@ -291,10 +275,9 @@ def list_(
         search=search,
         limit=limit,
         offset=offset,
-        include_deleted=include_deleted,
         verbose=get_verbose(ctx),
     )
-    _render_transaction_list(body, json_mode=json_output, show_deleted=include_deleted)
+    _render_transaction_list(body, json_mode=json_output)
 
 
 @app.command("get")
@@ -397,38 +380,6 @@ def delete(
             )
         },
     )
-
-
-@app.command("restore")
-@handle_errors
-def restore(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    json_output: bool = JSON_OPT,
-) -> None:
-    """POST /v1/transactions/{id}/restore.
-
-    Re-applies the balance impact.
-
-    Example: expense transactions restore <transaction-id>
-    """
-    cfg = config_module.ensure_loaded()
-    verbose = get_verbose(ctx)
-
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            body = client.post(f"/{_RESOURCE}/{id_}/restore")
-        except EngineError as err:
-            if err.status == 422:
-                typer.echo(
-                    "Hint: An account, category, or hashtag referenced by this transaction "
-                    "is no longer active. Unarchive or restore the offending row, then retry.",
-                    err=True,
-                )
-            raise
-    render_record(body, json_mode=json_output)
-    if not json_output:
-        print_warnings(body)
 
 
 @app.command("batch")

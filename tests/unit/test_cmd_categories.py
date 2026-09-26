@@ -1,8 +1,7 @@
 """Category commands that are *not* the shared CRUD contract.
 
-The shared thirteen live in test_resource_crud_contract.py. Categories keep only
-their two hints — the 403 on a system category, and the 409 that means the name
-is taken by a deleted row you could restore instead.
+The shared tests live in test_resource_crud_contract.py. Categories keep only
+their hint — the 403 on a system category.
 """
 
 import respx
@@ -43,16 +42,3 @@ def test_delete_403_prints_system_hint(configured):
     assert result.exit_code == 1
     assert "system category (@Opening)" in result.output
     assert "FORBIDDEN" in result.output
-
-
-@respx.mock
-def test_restore_409_prints_name_hint(configured):
-    respx.post(f"{BASE}/v1/categories/abc/restore").mock(
-        return_value=error_response(
-            409, "CONFLICT", "An active category with this name already exists.", None
-        )
-    )
-    result = runner.invoke(cli_app, ["categories", "restore", "abc"])
-    assert result.exit_code == 1
-    assert "Rename the existing one first" in result.output
-    assert "CONFLICT" in result.output

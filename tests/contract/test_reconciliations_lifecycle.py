@@ -86,8 +86,9 @@ def _make_reconciliation(client, account_id: str) -> str:
 
 
 def test_reconciliations_lifecycle(client):
-    """create → get → list → update → delete → restore, the shape every
-    resource shares. The state machine is the next test."""
+    """create → get → list → update → delete, the shape every resource
+    shares, ending on "deleted is deleted" (engine, 2026-09-23): the get and
+    the old restore route are both 404. The state machine is the next test."""
     account_id = _make_account(client)
     recon_id = str(uuid4())
     name = f"contract-recon-{recon_id[:8]}"
@@ -118,8 +119,13 @@ def test_reconciliations_lifecycle(client):
         deleted = client.delete(f"/reconciliations/{recon_id}")
         assert deleted.get("deleted_at") is not None
 
-        restored = client.post(f"/reconciliations/{recon_id}/restore")
-        assert restored.get("deleted_at") is None
+        for gone in (
+            lambda: client.get(f"/reconciliations/{recon_id}"),
+            lambda: client.post(f"/reconciliations/{recon_id}/restore"),
+        ):
+            with pytest.raises(EngineError) as excinfo:
+                gone()
+            assert excinfo.value.status == 404
     finally:
         _safe_delete(client, f"/reconciliations/{recon_id}")
         _safe_delete(client, f"/accounts/{account_id}")

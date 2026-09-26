@@ -109,7 +109,6 @@ def test_list_happy_with_account_filter(configured):
         "Begin",
         "End",
         "Status",
-        "Deleted",
         "Id",
     ):
         assert header in result.output
@@ -475,21 +474,8 @@ def test_delete_409_surfaces_hint(configured):
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: restore, complete, revert (state machine)
+# Phase 2: complete, revert (state machine)
 # ---------------------------------------------------------------------------
-
-
-@respx.mock
-def test_restore_happy_with_note(configured):
-    route = respx.post(
-        f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/restore"
-    ).mock(return_value=httpx.Response(200, json=RECON_DRAFT_RESPONSE))
-    result = runner.invoke(
-        cli_app, ["reconcile", "restore", "11111111-1111-1111-1111-111111111111"]
-    )
-    assert result.exit_code == 0, result.output
-    assert "NOT re-linked" in result.output
-    assert "X-Idempotency-Key" in route.calls.last.request.headers
 
 
 @respx.mock
@@ -543,23 +529,6 @@ def test_revert_with_yes_prints_unlocked_count(configured):
 
 
 @respx.mock
-def test_list_include_deleted_param(configured):
-    deleted = {
-        **RECON_OFF_RESPONSE,
-        "id": "99999999-9999-9999-9999-999999999999",
-        "deleted_at": "2026-06-01T09:00:00Z",
-    }
-    body = page([RECON_DRAFT_RESPONSE, deleted], total=2, limit=50, offset=0)
-    route = respx.get(f"{BASE}/v1/reconciliations").mock(
-        return_value=httpx.Response(200, json=body)
-    )
-    result = runner.invoke(cli_app, ["reconcile", "list", "--include-deleted", "--json"])
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == body
-    assert route.calls.last.request.url.params.get("include_deleted") == "true"
-
-
-@respx.mock
 def test_list_resolves_account_name_from_live_accounts(configured):
     """The Account column joins account_id against the live accounts list."""
     respx.get(f"{BASE}/v1/reconciliations").mock(
@@ -602,19 +571,6 @@ def test_list_surfaces_an_engine_refusal(configured):
     result = runner.invoke(cli_app, ["reconcile", "list"])
     assert result.exit_code == 1
     assert "UNAUTHORIZED" in result.output
-
-
-@respx.mock
-def test_restore_refusal_surfaces_the_engine_envelope(configured):
-    """A completed batch's rows are locked, so restoring one is not always
-    allowed — and the refusal is the only place that rule becomes visible."""
-    respx.post(f"{BASE}/v1/reconciliations/abc/restore").mock(
-        return_value=error_response(409, "CONFLICT", "Cannot restore this batch.")
-    )
-    result = runner.invoke(cli_app, ["reconcile", "restore", "abc"])
-    assert result.exit_code == 1
-    assert "CONFLICT" in result.output
-    assert "Cannot restore this batch." in result.output
 
 
 # ---- sealed periods (engine, 2026-09-20) ------------------------------------

@@ -4,7 +4,6 @@ import typer
 
 from expense import config as config_module
 from expense.commands._resource import (
-    INCLUDE_DELETED_OPT,
     JSON_OPT,
     LIMIT_OPT,
     OFFSET_OPT,
@@ -12,7 +11,6 @@ from expense.commands._resource import (
     build_update_payload,
     effective_limit,
     fetch_body,
-    format_bool,
     format_cents,
     format_cents_or_dash,
     format_field_value,
@@ -66,7 +64,6 @@ def fetch_reconciliations(
     cfg,
     *,
     account_id: str | None = None,
-    include_deleted: bool = False,
     limit: int | None = None,
     offset: int | None = None,
     verbose: bool = False,
@@ -79,7 +76,6 @@ def fetch_reconciliations(
     """
     params = query_params(
         account_id=account_id,
-        include_deleted=include_deleted,
         limit=limit,
         offset=offset,
     )
@@ -158,10 +154,6 @@ _OVERLAP_HINT = (
     "Hint: a day belongs to exactly one statement. See the neighbours in "
     "statement order with 'expense reconcile list --account-id <id>'."
 )
-_RESTORE_NOTE = (
-    "Note: assigned transactions were NOT re-linked. They may have moved to other "
-    "batches or been edited. Reassign manually if needed."
-)
 
 
 def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
@@ -187,7 +179,6 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
             "end": format_cents_or_dash(item.get("ending_balance_cents")),
             "diff": format_cents_or_dash(item.get("difference_cents")),
             "status": format_status(item.get("status")),
-            "deleted": format_bool(item.get("deleted_at")),
             "id": item.get("id") or "—",
         }
         for item in items
@@ -201,7 +192,6 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
             "end": "End",
             "diff": "Diff",
             "status": "Status",
-            "deleted": "Deleted",
             "id": "Id",
         },
         rows=rows,
@@ -327,7 +317,6 @@ def list_(
         "--account-id",
         help="Filter by account_id (orders by statement start date, undated last).",
     ),
-    include_deleted: bool = INCLUDE_DELETED_OPT,
     limit: int | None = LIMIT_OPT,
     offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
@@ -341,7 +330,6 @@ def list_(
     body = fetch_reconciliations(
         cfg,
         account_id=account,
-        include_deleted=include_deleted,
         limit=limit,
         offset=offset,
         verbose=get_verbose(ctx),
@@ -530,35 +518,6 @@ def _render_after_state_change(body: dict, *, lock_verb: str) -> None:
     transactions_total = body.get("transactions_total")
     if isinstance(transactions_total, int):
         typer.echo(f"\n{lock_verb} {transactions_total} transactions.")
-
-
-@app.command("restore")
-@handle_errors
-def restore(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    json_output: bool = JSON_OPT,
-) -> None:
-    """POST /v1/reconciliations/{id}/restore.
-
-    The restored reconciliation comes back empty — the engine does NOT re-link
-    transactions that were unassigned during delete.
-
-    Example: expense reconcile restore <id>
-    """
-
-    def _render(body: dict) -> None:
-        render_record(body, json_mode=False, skip=("transactions",))
-        typer.echo(f"\n{_RESTORE_NOTE}")
-
-    run_toggle(
-        ctx,
-        resource=_RESOURCE,
-        id_=id_,
-        verb="restore",
-        json_output=json_output,
-        render_human=_render,
-    )
 
 
 @app.command("complete")

@@ -108,7 +108,6 @@ KNOWN_LOCAL = frozenset(
         "future_field",
         "verbose",
         # query-param / flag assertions, not response bodies
-        "include_deleted",
         "debit_as_negative",
         "hashtag_id",
         "date_from",

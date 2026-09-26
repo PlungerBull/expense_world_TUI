@@ -5,7 +5,6 @@ import typer
 from expense import config as config_module
 from expense.commands._resource import (
     INCLUDE_ARCHIVED_OPT,
-    INCLUDE_DELETED_OPT,
     JSON_OPT,
     LIMIT_OPT,
     OFFSET_OPT,
@@ -54,7 +53,6 @@ def _render_account_list(body: dict, *, json_mode: bool) -> None:
             "color": color_swatch(item.get("color"), color=color),
             "balance": format_cents(item.get("current_balance_cents")),
             "archived": format_bool(item.get("is_archived")),
-            "deleted": format_bool(item.get("deleted_at")),
         }
         for item in items
     ]
@@ -66,7 +64,6 @@ def _render_account_list(body: dict, *, json_mode: bool) -> None:
             "color": "Color",
             "balance": "Balance",
             "archived": "Archived",
-            "deleted": "Deleted",
         },
         rows=rows,
         align_right={"balance"},
@@ -78,7 +75,6 @@ def fetch_accounts(
     cfg,
     *,
     include_archived: bool = False,
-    include_deleted: bool = False,
     include_people: bool = False,
     limit: int | None = None,
     offset: int | None = None,
@@ -92,7 +88,6 @@ def fetch_accounts(
     """
     params = query_params(
         include_archived=include_archived,
-        include_deleted=include_deleted,
         include_people=include_people,
         limit=limit,
         offset=offset,
@@ -110,7 +105,6 @@ def fetch_accounts(
 def list_(
     ctx: typer.Context,
     include_archived: bool = INCLUDE_ARCHIVED_OPT,
-    include_deleted: bool = INCLUDE_DELETED_OPT,
     include_people: bool = typer.Option(
         False, "--include-people", help="Include person (payable/receivable) accounts."
     ),
@@ -127,7 +121,6 @@ def list_(
     body = fetch_accounts(
         cfg,
         include_archived=include_archived,
-        include_deleted=include_deleted,
         include_people=include_people,
         limit=limit,
         offset=offset,
@@ -218,7 +211,7 @@ def create_person(
 
     This is the only `/people` route there is, and the only moment `is_person` is
     settable. Everything afterwards is an ordinary accounts command — `update`,
-    `archive`, `unarchive`, `delete`, `restore`, `get` — and `list
+    `archive`, `unarchive`, `delete`, `get` — and `list
     --include-people` is the listing. There is no `expense people` group and no
     `GET /v1/people`; the engine will not add either.
 
@@ -373,27 +366,6 @@ def delete(
                 f"Try 'expense accounts archive {id_}' to retire it instead."
             )
         },
-    )
-
-
-@app.command("restore")
-@handle_errors
-def restore(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    json_output: bool = JSON_OPT,
-) -> None:
-    """POST /v1/accounts/{id}/restore.
-
-    Example: expense accounts restore <account-id>
-    """
-    run_toggle(
-        ctx,
-        resource=_RESOURCE,
-        id_=id_,
-        verb="restore",
-        json_output=json_output,
-        render_human=lambda body: render_record(body, json_mode=False),
     )
 
 

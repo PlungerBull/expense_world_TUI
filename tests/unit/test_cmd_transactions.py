@@ -8,7 +8,14 @@ from typer.testing import CliRunner
 
 from expense.commands.transactions_cmd import app as transactions_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import cursor_page, error_body, error_response, make_cli_app, page
+from tests.unit.helpers import (
+    cursor_page,
+    error_body,
+    error_response,
+    make_cli_app,
+    page,
+    strip_panel,
+)
 
 cli_app = make_cli_app(transactions_app, "transactions")
 
@@ -150,7 +157,6 @@ def test_list_all_filters_pass_through(configured):
             "25",
             "--offset",
             "10",
-            "--include-deleted",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -166,51 +172,8 @@ def test_list_all_filters_pass_through(configured):
         "search": "coffee",
         "limit": "25",
         "offset": "10",
-        "include_deleted": "true",
         "debit_as_negative": "true",
     }
-
-
-@respx.mock
-def test_list_include_deleted_renders_deleted_column(configured):
-    """--include-deleted brings back deleted rows, so the table must say which.
-
-    Before backlog Phase 8 (2026-08-16) the flag returned deleted rows that were
-    visually identical to live ones — the only way to tell was re-running with
-    --json and reading deleted_at. The column's job is picking the id to hand to
-    `expense transactions restore`.
-    """
-    deleted = {
-        **TRANSACTION_RESPONSE,
-        "id": "99999999-9999-9999-9999-999999999999",
-        "title": "dropped row",
-        "deleted_at": "2026-04-24T10:00:00Z",
-    }
-    body = page([TRANSACTION_RESPONSE, deleted], total=2, limit=50, offset=0)
-    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=body))
-    result = runner.invoke(cli_app, ["transactions", "list", "--include-deleted"])
-    assert result.exit_code == 0, result.output
-
-    lines = [ln for ln in result.output.splitlines() if ln.strip()]
-    header = lines[0]
-    assert "Deleted" in header
-    # Last column, matching accounts/categories/hashtags.
-    assert header.rstrip().endswith("Deleted")
-
-    live_row = next(ln for ln in lines if "coffee" in ln)
-    dead_row = next(ln for ln in lines if "dropped row" in ln)
-    assert live_row.rstrip().endswith("no")
-    assert dead_row.rstrip().endswith("yes")
-
-
-@respx.mock
-def test_list_without_include_deleted_has_no_deleted_column(configured):
-    """The column is keyed to the flag, not the data — a plain list is unchanged."""
-    respx.get(f"{BASE}/v1/transactions").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
-    result = runner.invoke(cli_app, ["transactions", "list"])
-    assert result.exit_code == 0, result.output
-    assert "Deleted" not in result.output
-    assert result.output.splitlines()[0].rstrip().endswith("Hashtags")
 
 
 @respx.mock
@@ -226,6 +189,14 @@ def test_list_rejects_retired_cleared_flag(configured):
         result = runner.invoke(cli_app, ["transactions", "list", flag])
         assert result.exit_code == 2, f"{flag} should not parse"
         assert "No such option" in result.output
+
+
+def test_list_rejects_retired_include_deleted_flag(configured):
+    """--include-deleted left with the engine's `?include_deleted=` (2026-09-23):
+    a deleted row is invisible to every client, so there is nothing to show."""
+    result = runner.invoke(cli_app, ["transactions", "list", "--include-deleted"])
+    assert result.exit_code == 2
+    assert "No such option: --include-deleted" in strip_panel(result.output)
 
 
 @respx.mock
@@ -357,7 +328,7 @@ def test_delete_requires_yes_in_non_tty(configured):
 @respx.mock
 def test_delete_happy_no_warnings_channel(configured):
     # Since 2026-08-11 DELETE returns the plain transaction shape — no
-    # `warnings` key (restore is the channel's sole member).
+    # `warnings` key.
     deleted = {**TRANSACTION_RESPONSE, "deleted_at": "2026-04-24T10:00:00Z"}
     respx.delete(f"{BASE}/v1/transactions/abc").mock(return_value=httpx.Response(200, json=deleted))
     result = runner.invoke(cli_app, ["transactions", "delete", "abc", "--yes"])
@@ -405,49 +376,6 @@ def test_delete_json_passes_through(configured):
     result = runner.invoke(cli_app, ["transactions", "delete", "abc", "--yes", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == deleted
-
-
-# ---------------------------------------------------------------------------
-# restore
-# ---------------------------------------------------------------------------
-
-
-@respx.mock
-def test_restore_happy(configured):
-    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
-        return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
-    )
-    result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
-    assert result.exit_code == 0, result.output
-
-
-@respx.mock
-def test_restore_warnings_rendered(configured):
-    restored = {
-        **TRANSACTION_RESPONSE,
-        "warnings": ["Transaction unlinked from completed reconciliation."],
-    }
-    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
-        return_value=httpx.Response(200, json=restored)
-    )
-    result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
-    assert result.exit_code == 0, result.output
-    assert "Warning: Transaction unlinked" in result.output
-
-
-@respx.mock
-def test_restore_422_archived_hint(configured):
-    respx.post(f"{BASE}/v1/transactions/abc/restore").mock(
-        return_value=error_response(
-            422,
-            "VALIDATION_ERROR",
-            "Referenced rows are no longer active.",
-            {"category_id": "Must reference an active, non-archived category."},
-        )
-    )
-    result = runner.invoke(cli_app, ["transactions", "restore", "abc"])
-    assert result.exit_code == 1
-    assert "Unarchive or restore" in result.output
 
 
 # ---------------------------------------------------------------------------

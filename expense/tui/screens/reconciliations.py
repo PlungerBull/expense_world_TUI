@@ -539,8 +539,9 @@ class ReconciliationsScreen(SectionScreen):
 
         The one destructive key in the TUI (owner, 2026-09-22). Cursor row only,
         never a selection: `a`-style page selects live on the ledger and this
-        pane deliberately has none. The engine's delete is a soft delete, but no
-        TUI door restores one — so the confirm says so.
+        pane deliberately has none. The engine keeps the row in its table, but
+        since 2026-09-23 no client can restore it (undeleting is operator SQL),
+        so the confirm says a delete is final.
         """
         if self._mode != "unfiled":
             return
@@ -554,8 +555,8 @@ class ReconciliationsScreen(SectionScreen):
         self._confirm_delete(
             record,
             f"{title} · {amount} · {day} · {acct[1] if acct else '—'}\n"
-            "It leaves every balance and report. The engine keeps it recoverable, "
-            "but nothing in the TUI can bring it back.",
+            "It leaves every balance and report, and no screen or command can bring "
+            "it back.",
         )
 
     def _confirm_delete(self, record: dict, message: str) -> None:

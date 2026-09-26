@@ -4,7 +4,6 @@ import typer
 
 from expense import config as config_module
 from expense.commands._resource import (
-    INCLUDE_DELETED_OPT,
     JSON_OPT,
     LIMIT_OPT,
     OFFSET_OPT,
@@ -21,7 +20,6 @@ from expense.commands._resource import (
     render_record,
     render_table,
     run_delete,
-    run_toggle,
 )
 from expense.context import get_verbose
 from expense.errors import handle_errors
@@ -49,7 +47,6 @@ def _render_category_list(body: dict, *, json_mode: bool) -> None:
             "name": item.get("name") or "(unnamed)",
             "color": color_swatch(item.get("color"), color=color),
             "system": format_bool(item.get("is_system")),
-            "deleted": format_bool(item.get("deleted_at")),
         }
         for item in items
     ]
@@ -58,7 +55,6 @@ def _render_category_list(body: dict, *, json_mode: bool) -> None:
             "name": "Name",
             "color": "Color",
             "system": "System",
-            "deleted": "Deleted",
         },
         rows=rows,
     )
@@ -68,7 +64,6 @@ def _render_category_list(body: dict, *, json_mode: bool) -> None:
 def fetch_categories(
     cfg,
     *,
-    include_deleted: bool = False,
     limit: int | None = None,
     offset: int | None = None,
     verbose: bool = False,
@@ -77,7 +72,7 @@ def fetch_categories(
 
     Shared by the flat `categories list` command and the TUI's Categories screen.
     """
-    params = query_params(include_deleted=include_deleted, limit=limit, offset=offset)
+    params = query_params(limit=limit, offset=offset)
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -90,7 +85,6 @@ def fetch_categories(
 @handle_errors
 def list_(
     ctx: typer.Context,
-    include_deleted: bool = INCLUDE_DELETED_OPT,
     limit: int | None = LIMIT_OPT,
     offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
@@ -103,7 +97,6 @@ def list_(
     limit = effective_limit(limit, json_mode=json_output)
     body = fetch_categories(
         cfg,
-        include_deleted=include_deleted,
         limit=limit,
         offset=offset,
         verbose=get_verbose(ctx),
@@ -213,29 +206,5 @@ def delete(
                 "Hint: This category has transactions and cannot be deleted. "
                 "Recategorize them first if you want to retire it."
             ),
-        },
-    )
-
-
-@app.command("restore")
-@handle_errors
-def restore(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    json_output: bool = JSON_OPT,
-) -> None:
-    """POST /v1/categories/{id}/restore.
-
-    Example: expense categories restore <category-id>
-    """
-    run_toggle(
-        ctx,
-        resource=_RESOURCE,
-        id_=id_,
-        verb="restore",
-        json_output=json_output,
-        render_human=lambda body: render_record(body, json_mode=False),
-        hints={
-            409: ("Hint: A category with that name already exists. Rename the existing one first."),
         },
     )

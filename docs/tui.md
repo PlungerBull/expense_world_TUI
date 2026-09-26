@@ -205,8 +205,9 @@ owner declined an explanatory line beside it ("I can see myself by the date colu
 
 **`d` is the TUI's one destructive key** (2026-09-22). Cursor row only, never a
 selection — `a`-style page selects live on the ledger and this pane has none — and the
-confirm says the part that matters: the engine's delete is a soft delete, but **no TUI
-door restores one**, so from in here it is one-way. Before this the TUI could not delete
+confirm says the part that matters: **no screen or command can bring the row back**. The
+engine keeps it in its table, but since 2026-09-23 no client can restore it (undeleting is
+operator SQL), so a delete is one-way. Before this the TUI could not delete
 a ledger row at all, which left a re-import duplicate blocking a close with no in-app
 remedy.
 

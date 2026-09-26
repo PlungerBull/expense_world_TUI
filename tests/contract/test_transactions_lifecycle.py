@@ -8,6 +8,8 @@ conftest.py.
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
+
 from expense.errors import EngineError
 
 
@@ -83,14 +85,20 @@ def test_transactions_lifecycle(client):
         deleted = client.delete(f"/transactions/{tx_id}")
         assert deleted["id"] == tx_id
         assert deleted.get("deleted_at") is not None
-        # DELETE lost its `warnings` key on 2026-08-11; restore is the channel's
-        # sole surviving member. Pin the absence, not just the presence.
+        # DELETE lost its `warnings` key on 2026-08-11. Pin the absence.
         assert "warnings" not in deleted
 
-        restored = client.post(f"/transactions/{tx_id}/restore")
-        assert restored["id"] == tx_id
-        assert restored.get("deleted_at") is None
-        assert isinstance(restored.get("warnings"), list)
+        # Deleted is deleted (engine, 2026-09-23): gone from the list, 404 on
+        # get, and the restore route itself is a 404.
+        listed = client.get("/transactions", params={"account_id": account_id})
+        assert not any(item["id"] == tx_id for item in listed["items"])
+        for gone in (
+            lambda: client.get(f"/transactions/{tx_id}"),
+            lambda: client.post(f"/transactions/{tx_id}/restore"),
+        ):
+            with pytest.raises(EngineError) as excinfo:
+                gone()
+            assert excinfo.value.status == 404
     finally:
         _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/categories/{category_id}")

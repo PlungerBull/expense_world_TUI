@@ -20,7 +20,7 @@ Flat CLI is **complete** — every engine endpoint with a CLI surface is wrapped
 - The `debit_as_negative` convention is used end-to-end (negative = expense, positive = income). Enforced at input parsing and output rendering.
 - An idempotency-key UUID is minted per logical write and sent as `X-Idempotency-Key`; on timeout or 5xx the client re-sends the same key (bounded retry, see [cli-runtime.md](cli-runtime.md) Write semantics) so a retry can never double-apply.
 - Engine errors surface intact: human mode may prettify, `--json` passes through verbatim — never swallow, never reformat lossily. (Deviations: see Sanctioned exceptions below.)
-- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. Archive/unarchive/restore are prompt-free — reversible toggles, not destruction (archive reclassified 2026-07-11; see [decisions.md](decisions.md)).
+- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client: the engine removed restore and `?include_deleted=` on 2026-09-23, and undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). Archive/unarchive are prompt-free — reversible toggles, not destruction (archive reclassified 2026-07-11; see [decisions.md](decisions.md)).
 - Archive vs delete distinction is honored (see [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md) — archive = retired-but-real, delete = mistake/scrubbed).
 
 ### Sanctioned exceptions
@@ -70,23 +70,23 @@ Config lives in `~/.expense-config` (chmod 600) with the following fields:
 - `auth pat create` / `auth pat revoke` — **deferred.** For v1, PATs are issued via direct API call to `POST /v1/auth/pat` (requires a Supabase JWT); the CLI consumes the resulting token but does not issue/revoke.
 
 ### `expense accounts`
-- `accounts list [--include-archived] [--include-deleted] [--include-people]`
+- `accounts list [--include-archived] [--include-people]`
 - `accounts get <id>`
-- `accounts create`, `update`, `delete`, `restore`
-- `accounts create-person --name <n> --currency-code <c> [--color] [--sort-order]` → `POST /v1/people` (shipped 2026-08-16). Creates a person account for debt tracking: a person *is* a bank account with `is_person = true`, money lent or borrowed is an ordinary transaction against her, and the computed balance **is** the debt (positive = they owe you). `is_person` is never sent — it is a 422 on `POST /accounts` (which stays bank-only) *and* on `/people` (which implies it); the endpoint is the flag. **Creation is the only `/people` route there is and the only moment `is_person` is settable** — rename/recolor/archive/unarchive/delete/restore/get are the ordinary `accounts` commands, which have always accepted person rows, and listing is `accounts list --include-people` plus the dashboard split. There is no `expense people` group by deliberate choice (sketch pick B); the engine will never ship `GET /v1/people`. Two engine rules the command surfaces: a **409** gets a hint that people and bank accounts share one name list per currency (a person "Eliana" in PEN collides with an *account* "Eliana" in PEN), and `accounts opening-balance` on a person is a 422 — a debt is built from recorded rows, not seeded.
+- `accounts create`, `update`, `delete`
+- `accounts create-person --name <n> --currency-code <c> [--color] [--sort-order]` → `POST /v1/people` (shipped 2026-08-16). Creates a person account for debt tracking: a person *is* a bank account with `is_person = true`, money lent or borrowed is an ordinary transaction against her, and the computed balance **is** the debt (positive = they owe you). `is_person` is never sent — it is a 422 on `POST /accounts` (which stays bank-only) *and* on `/people` (which implies it); the endpoint is the flag. **Creation is the only `/people` route there is and the only moment `is_person` is settable** — rename/recolor/archive/unarchive/delete/get are the ordinary `accounts` commands, which have always accepted person rows, and listing is `accounts list --include-people` plus the dashboard split. There is no `expense people` group by deliberate choice (sketch pick B); the engine will never ship `GET /v1/people`. Two engine rules the command surfaces: a **409** gets a hint that people and bank accounts share one name list per currency (a person "Eliana" in PEN collides with an *account* "Eliana" in PEN), and `accounts opening-balance` on a person is a 422 — a debt is built from recorded rows, not seeded.
 - `accounts archive <id>`, `accounts unarchive <id>`
 - `accounts opening-balance <id> --amount <signed-cents> [--date] [--title]` → `POST /v1/accounts/{id}/opening-balance` — seeds the account's starting balance as a transaction under the `@Opening` system category (counts toward the balance, excluded from flow reports). One active opening per account; the engine's 409 says to edit/delete the existing seed instead.
 - Currency immutability on update: pre-flight hint before the engine 422 lands.
 
 ### `expense categories`
-- `categories list [--include-deleted]`
+- `categories list`
 - `categories get <id>`
-- `categories create`, `update`, `delete`, `restore`
+- `categories create`, `update`, `delete`
 - Category archive was removed engine-side (2026-08-06 schema slimming) — accounts are the only archivable resource.
 - The system category (`@Opening` — the only one since the 2026-08-10 transfer removal deleted `@Debt`/`@Transfer`) cannot be deleted — the engine's 403 surfaces as a friendly message. (Renames are allowed; the engine resolves it by `system_key`.)
 
 ### `expense hashtags`
-- Same shape as categories: `list`, `get`, `create`, `update`, `delete`, `restore`. Hashtag archive was removed with the same 2026-08-06 slimming.
+- Same shape as categories: `list`, `get`, `create`, `update`, `delete`. Hashtag archive was removed with the same 2026-08-06 slimming.
 
 ### `expense log`
 
@@ -100,19 +100,18 @@ Two forms, one command, never mixed — passing a line **and** a content flag is
   - Refused client-side, exit 1: a line together with any content flag; neither form; the flag form missing `--amount` or `--account-id`; `--dry-run` without a line; `--json` with a line but no `--yes` (a prompt would land in the middle of the JSON).
 
 ### `expense transactions`
-- `transactions list` — filters: `--account-id`, `--category-id`, `--hashtag-id`, `--reconciliation-id`, `--unreconciled`, `--from`, `--to`, `--search`, `--include-deleted`. *(`--unreconciled` is the complement of `--reconciliation-id`: rows assigned to no reconciliation. Over a period you have already reconciled it is the orphan check to run after every import — empty means the period holds nothing the statement did not account for. Passing both is a `422`. See decisions.md, "Importer ids are positional".)* *(`--cleared/--no-cleared` removed 2026-08-16: the engine deleted the column (sql/035). It was the one filter that failed silently — the engine stopped honouring `?cleared=` without erroring, so the command returned the full list looking like a filtered answer. Confirmation is a reconciliation question now: filter by `--reconciliation-id`.)*
+- `transactions list` — filters: `--account-id`, `--category-id`, `--hashtag-id`, `--reconciliation-id`, `--unreconciled`, `--from`, `--to`, `--search`. *(`--unreconciled` is the complement of `--reconciliation-id`: rows assigned to no reconciliation. Over a period you have already reconciled it is the orphan check to run after every import — empty means the period holds nothing the statement did not account for. Passing both is a `422`. See decisions.md, "Importer ids are positional".)* *(`--cleared/--no-cleared` removed 2026-08-16: the engine deleted the column (sql/035). It was the one filter that failed silently — the engine stopped honouring `?cleared=` without erroring, so the command returned the full list looking like a filtered answer. Confirmation is a reconciliation question now: filter by `--reconciliation-id`.)*
 - `transactions get <id>` — full detail; activity entries surface via `expense activity list --resource-type transaction --resource-id <id>`.
 - `transactions update <id>` — partial update; `hashtag_ids` and `reconciliation_id` are editable via update. Field locking under completed reconciliations surfaces the engine's 422 clearly.
-- `transactions delete <id>`, `transactions restore <id>`.
+- `transactions delete <id>`.
 - `transactions batch` — atomic multi-tx create from flags or a stdin JSON payload.
 
 ### `expense reconcile`
-- `reconcile list [--account-id <id>] [--include-deleted] [--limit <n>] [--offset <n>] [--json]` — when `--account-id` is set, sorted by `date_start ASC NULLS LAST, created_at ASC` (matches engine); the cross-account list stays `created_at DESC`. Rows carry a `Diff` column — the engine's `difference_cents`.
+- `reconcile list [--account-id <id>] [--limit <n>] [--offset <n>] [--json]` — when `--account-id` is set, sorted by `date_start ASC NULLS LAST, created_at ASC` (matches engine); the cross-account list stays `created_at DESC`. Rows carry a `Diff` column — the engine's `difference_cents`.
 - `reconcile get <id> [--limit <n>] [--offset <n>] [--json]` — embeds a paged window of assigned transactions; surfaces a `transactions_truncated` hint pointing at `expense transactions list --reconciliation-id <id>` for full filter power.
 - `reconcile create --account-id <id> --name <n> --date-start <date> --beginning-balance <cents> [--date-end ...] [--ending-balance <cents>]`. `--date-start` and `--beginning-balance` are **required**: there is no derived (chained) beginning balance since 2026-08-06, and the statement start date is what orders the batch.
 - `reconcile update <id>` — partial update (`--name`, `--date-start`, `--date-end`, `--beginning-balance`, `--ending-balance`). Editing `--date-start` is how a batch is repositioned. Field locks under a completed reconciliation surface as the engine's 422 with a "revert first" hint.
 - `reconcile delete <id> [--yes]` — only allowed in draft (engine 409 otherwise; CLI hints "revert first"). Cascade-unassigns attached transactions.
-- `reconcile restore <id>` — restored row comes back empty (engine doesn't re-link transactions).
 - `reconcile complete <id>` — flips status → completed; prints count of newly-locked transactions. Locks `amount_cents`, `account_id`, `title`, `date` on every assigned transaction plus the reconciliation's own balance/date fields.
 - `reconcile revert <id> --yes` — flips status → draft; required `--yes` (audit event).
 
@@ -183,7 +182,6 @@ Two doors since 2026-09-12: `sheet` (the personal-spreadsheet importer, which wa
 | `--yes` / `-y` | every destructive command (delete, revert, clear) | Skip confirmation prompt |
 | `--verbose` | every command (root flag) | Print HTTP request/response for debugging |
 | `--include-archived` | `accounts list` + `dashboard` (accounts are the only archivable resource since 2026-08-06) | Include archived rows |
-| `--include-deleted` | every `list` | Include soft-deleted rows (recovery view). Paired with that resource's `restore` command — the flag exists to find the id to restore. `transactions list` renders a `Deleted` column when (and only when) the flag is passed; the other four render it always. |
 
 ---
 

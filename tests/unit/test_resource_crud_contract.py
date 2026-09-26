@@ -7,8 +7,8 @@ fixture. test_cmd_categories.py and test_cmd_hashtags.py had the *same test
 names in the same order*.
 
 Three copies is not three times the safety. It is one contract asserted three
-times and, in practice, extended once: `--include-deleted` gained a marked
-column on categories and accounts and never on hashtags; the pagination hint is
+times and, in practice, extended once: a flag gained a marked column on
+categories and accounts and never on hashtags; the pagination hint is
 checked with a different total in each file for no reason anyone recorded. A
 rule with three homes drifts in two of them.
 
@@ -59,8 +59,6 @@ class ResourceSpec:
     #: half of the create contract (a currency, a colour), asserted here so it
     #: does not need a per-resource copy of the whole test to carry it.
     create_expects: dict
-    #: A second, soft-deleted row: what `--include-deleted` has to surface.
-    deleted_name: str
     #: Fields `update` may change, as (flag, value, expected payload).
     update_flag: tuple[str, str] = ("--name", "renamed")
     extra: dict = field(default_factory=dict)
@@ -94,7 +92,6 @@ ACCOUNT = ResourceSpec(
     },
     create_flags=["--name", "BCP Soles", "--currency-code", "PEN"],
     create_expects={"name": "BCP Soles", "currency_code": "PEN"},
-    deleted_name="Closed Account",
 )
 
 CATEGORY = ResourceSpec(
@@ -115,7 +112,6 @@ CATEGORY = ResourceSpec(
     },
     create_flags=["--name", "Food", "--color", "#00FF00"],
     create_expects={"name": "Food", "color": "#00FF00"},
-    deleted_name="Old Hobby",
 )
 
 HASHTAG = ResourceSpec(
@@ -133,7 +129,6 @@ HASHTAG = ResourceSpec(
     },
     create_flags=["--name", "lunch"],
     create_expects={"name": "lunch"},
-    deleted_name="retired-tag",
 )
 
 RESOURCES = [ACCOUNT, CATEGORY, HASHTAG]
@@ -151,15 +146,6 @@ def _run(spec: ResourceSpec, *args: str):
     return runner.invoke(_cli(spec), [spec.name, *args])
 
 
-def _deleted_row(spec: ResourceSpec) -> dict:
-    return {
-        **spec.sample,
-        "id": "99999999-9999-9999-9999-999999999999",
-        "name": spec.deleted_name,
-        "deleted_at": "2026-06-01T09:00:00Z",
-    }
-
-
 # ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
@@ -170,7 +156,7 @@ def _deleted_row(spec: ResourceSpec) -> dict:
 def test_list_bare_sends_no_include_params(spec, configured):
     """A default list asks the engine for the default scope — no include_* flags.
 
-    Archived and deleted rows are opt-in on every resource that has them; a flag
+    Archived rows are opt-in on every resource that has them; a flag
     that leaked into the default would quietly change what the command means.
     """
     route = respx.get(f"{BASE}/v1/{spec.name}").mock(
@@ -182,38 +168,6 @@ def test_list_bare_sends_no_include_params(spec, configured):
     assert spec.label in result.output
     params = route.calls.last.request.url.params
     assert params.get("include_archived") is None
-    assert params.get("include_deleted") is None
-
-
-@resource
-@respx.mock
-def test_list_include_deleted_marks_the_rows_it_brings_back(spec, configured):
-    """The flag reaches the engine, the row reaches the screen, and the screen
-    says which row is the dead one.
-
-    All three matter. Asserting only the query param would pass on a command
-    that fetched the deleted rows and filtered them back out; asserting only the
-    name would pass on a list that showed a tombstone as if it were live.
-
-    This assertion existed twice — accounts and categories, written out
-    identically — and never for hashtags, which is the drift the shared contract
-    exists to stop: hashtags had the column all along and nothing said so.
-    """
-    route = respx.get(f"{BASE}/v1/{spec.name}").mock(
-        return_value=httpx.Response(200, json=[spec.sample, _deleted_row(spec)])
-    )
-    result = _run(spec, "list", "--include-deleted")
-
-    assert result.exit_code == 0, result.output
-    assert "Deleted" in result.output
-
-    lines = result.output.splitlines()
-    live_row = next(line for line in lines if spec.label in line)
-    dead_row = next(line for line in lines if spec.deleted_name in line)
-    assert live_row.rstrip().endswith("no")
-    assert dead_row.rstrip().endswith("yes")
-
-    assert route.calls.last.request.url.params.get("include_deleted") == "true"
 
 
 @resource
@@ -340,7 +294,7 @@ def test_update_sends_only_the_flags_given(spec, configured):
 
 
 # ---------------------------------------------------------------------------
-# delete / restore
+# delete
 # ---------------------------------------------------------------------------
 
 
@@ -367,28 +321,14 @@ def test_delete_with_yes_soft_deletes(spec, configured):
     assert route.called
 
 
-@resource
-@respx.mock
-def test_restore_is_prompt_free(spec, configured):
-    """Restore is reversible, so it asks nothing — the same call the archive
-    toggles get (docs/decisions.md, archive reclassified 2026-07-11)."""
-    route = respx.post(f"{BASE}/v1/{spec.name}/abc/restore").mock(
-        return_value=httpx.Response(200, json=spec.sample)
-    )
-    result = _run(spec, "restore", "abc")
-
-    assert result.exit_code == 0, result.output
-    assert route.called
-
-
 # ---------------------------------------------------------------------------
 # the error shape, on every verb
 # ---------------------------------------------------------------------------
 #
 # CLAUDE.md asks every command for a happy path AND an error shape. The error
-# half was missing on `list`, `create` and `restore` across all three resources
+# half was missing on `list` and `create` across all three resources
 # — the verbs whose happy path is the nicest to write. Parametrized here, the
-# rule is satisfied for nine commands by three tests, and a fourth resource
+# rule is satisfied for six commands by two tests, and a fourth resource
 # would inherit them by appearing in RESOURCES.
 
 
@@ -424,20 +364,3 @@ def test_create_conflict_surfaces_the_engine_envelope(spec, configured):
     assert result.exit_code == 1
     assert "CONFLICT" in result.output
     assert "That name is already taken." in result.output
-
-
-@resource
-@respx.mock
-def test_restore_refusal_surfaces_the_engine_envelope(spec, configured):
-    """Restoring into a name a live row now holds is refused.
-
-    Categories print an extra hint on this shape and hashtags do not; what both
-    owe the user is the engine's own sentence, which is what this asserts.
-    """
-    respx.post(f"{BASE}/v1/{spec.name}/abc/restore").mock(
-        return_value=error_response(409, "CONFLICT", "A live row holds that name.")
-    )
-    result = _run(spec, "restore", "abc")
-
-    assert result.exit_code == 1
-    assert "CONFLICT" in result.output

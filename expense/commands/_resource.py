@@ -27,7 +27,6 @@ LIMIT_OPT = typer.Option(
     help="Max rows per page (human output defaults to 20; --json sends no default).",
 )
 OFFSET_OPT = typer.Option(None, "--offset", help="Rows to skip (pagination).")
-INCLUDE_DELETED_OPT = typer.Option(False, "--include-deleted", help="Include soft-deleted rows.")
 INCLUDE_ARCHIVED_OPT = typer.Option(False, "--include-archived", help="Include archived rows.")
 YES_OPT = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
 
@@ -233,7 +232,7 @@ def render_record(body: dict, *, json_mode: bool, skip: tuple[str, ...] = ()) ->
 
 
 def format_bool(value: object) -> str:
-    """Human cell for booleans (and truthy markers like `deleted_at`)."""
+    """Human cell for booleans and truthy markers."""
     return "yes" if bool(value) else "no"
 
 
@@ -720,9 +719,10 @@ def print_warnings(body: dict) -> None:
 
     The warnings channel is deliberately per-endpoint rather than uniform: the
     key exists exactly where a warning can occur (engine-spec, "Warnings
-    channel"). Two endpoints carry it — `POST /transactions/{id}/restore` since
-    2026-08-11, and `POST /reconciliations/{id}/complete` since 2026-09-20,
-    where it reports a stretch of days no completed period covers.
+    channel"). One endpoint carries it: `POST /reconciliations/{id}/complete`
+    (since 2026-09-20), where it reports a stretch of days no completed period
+    covers. Transaction restore was the other until the engine deleted restore
+    on 2026-09-23.
 
     Worth not dropping: a transaction inside an uncovered stretch moves no
     period's arithmetic, because `difference_cents` is two balances typed off
@@ -894,14 +894,14 @@ def run_toggle(
     render_human: Callable[[dict], None],
     hints: dict[int, str] | None = None,
 ) -> None:
-    """Execute one of the {archive, unarchive, restore} toggle verbs.
+    """Execute one of the {archive, unarchive} toggle verbs.
 
-    All three are POST /{resource}/{id}/{verb} with no body and an identical
+    Both are POST /{resource}/{id}/{verb} with no body and an identical
     response shape (the resource row).
 
     `hints` maps HTTP status code → stderr hint string. When the engine
     raises an EngineError whose `.status` matches a key, the hint is
-    printed before the error envelope renders. This lets archive/restore
+    printed before the error envelope renders. This lets archive/unarchive
     on resources with domain-specific 403/409 conditions (e.g. system
     categories, name conflicts) keep their friendly recovery prompts
     without forking the call site.

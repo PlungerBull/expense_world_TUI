@@ -1,9 +1,12 @@
 """Contract lifecycle for the three named resources.
 
-Accounts: create → update → archive → unarchive → delete → restore.
-Categories and hashtags: create → update → delete → restore — they lost their
+Accounts: create → update → archive → unarchive → delete.
+Categories and hashtags: create → update → delete — they lost their
 archive routes in the 2026-08-06 schema slimming, and accounts (people included)
 are now the only archivable resource.
+
+Every lifecycle ends on "deleted is deleted" (engine, 2026-09-23): the row leaves
+every list, its get is a 404, and `restore` no longer exists.
 
 Hits a real engine. Gating, target resolution and the real-ledger guard live in
 conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
@@ -11,7 +14,10 @@ conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
 
 from uuid import uuid4
 
+import pytest
+
 from expense.commands._resource import fetch_all_pages
+from expense.errors import EngineError
 
 
 def _list_all(client, resource: str, **flags) -> list[dict]:
@@ -28,6 +34,17 @@ def _list_all(client, resource: str, **flags) -> list[dict]:
             f"/{resource}", params={**params, "limit": str(limit), "offset": str(offset)}
         )
     )
+
+
+def _assert_gone(client, resource: str, row_id: str) -> None:
+    """A deleted row is invisible: absent from the list, 404 on get and restore."""
+    assert not any(r["id"] == row_id for r in _list_all(client, resource))
+    with pytest.raises(EngineError) as got:
+        client.get(f"/{resource}/{row_id}")
+    assert got.value.status == 404
+    with pytest.raises(EngineError) as restored:
+        client.post(f"/{resource}/{row_id}/restore")
+    assert restored.value.status == 404
 
 
 def test_accounts_lifecycle(client):
@@ -60,12 +77,9 @@ def test_accounts_lifecycle(client):
 
         client.post(f"/accounts/{new_id}/unarchive")
         client.delete(f"/accounts/{new_id}")
-        deleted = _list_all(client, "accounts", include_deleted=True)
-        assert any(a["id"] == new_id for a in deleted)
-
-        client.post(f"/accounts/{new_id}/restore")
+        _assert_gone(client, "accounts", new_id)
     finally:
-        # Best-effort cleanup; ignore if already deleted/restored.
+        # Best-effort cleanup; ignore if already deleted.
         try:
             client.delete(f"/accounts/{new_id}")
         except Exception:
@@ -95,10 +109,7 @@ def test_categories_lifecycle(client):
         assert any(c["id"] == new_id for c in active)
 
         client.delete(f"/categories/{new_id}")
-        deleted = _list_all(client, "categories", include_deleted=True)
-        assert any(c["id"] == new_id for c in deleted)
-
-        client.post(f"/categories/{new_id}/restore")
+        _assert_gone(client, "categories", new_id)
     finally:
         try:
             client.delete(f"/categories/{new_id}")
@@ -125,10 +136,7 @@ def test_hashtags_lifecycle(client):
         assert any(h["id"] == new_id for h in active)
 
         client.delete(f"/hashtags/{new_id}")
-        deleted = _list_all(client, "hashtags", include_deleted=True)
-        assert any(h["id"] == new_id for h in deleted)
-
-        client.post(f"/hashtags/{new_id}/restore")
+        _assert_gone(client, "hashtags", new_id)
     finally:
         try:
             client.delete(f"/hashtags/{new_id}")

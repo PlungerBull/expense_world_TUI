@@ -1,6 +1,6 @@
 """Account commands that are *not* the shared CRUD contract.
 
-The thirteen tests every resource shares — list/get/create/update/delete/restore
+The tests every resource shares — list/get/create/update/delete
 and their flags — live in test_resource_crud_contract.py, parametrized over
 accounts, categories and hashtags. What is left here is what only accounts have:
 people (`create-person`, and the fact that `create` refuses to make one), the

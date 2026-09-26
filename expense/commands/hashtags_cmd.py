@@ -4,7 +4,6 @@ import typer
 
 from expense import config as config_module
 from expense.commands._resource import (
-    INCLUDE_DELETED_OPT,
     JSON_OPT,
     LIMIT_OPT,
     OFFSET_OPT,
@@ -12,14 +11,12 @@ from expense.commands._resource import (
     build_update_payload,
     effective_limit,
     fetch_body,
-    format_bool,
     items_of,
     query_params,
     render_pagination_hint,
     render_record,
     render_table,
     run_delete,
-    run_toggle,
 )
 from expense.context import get_verbose
 from expense.errors import handle_errors
@@ -43,14 +40,12 @@ def _render_hashtag_list(body: dict, *, json_mode: bool) -> None:
     rows = [
         {
             "name": item.get("name") or "(unnamed)",
-            "deleted": format_bool(item.get("deleted_at")),
         }
         for item in items
     ]
     render_table(
         headers={
             "name": "Name",
-            "deleted": "Deleted",
         },
         rows=rows,
     )
@@ -60,7 +55,6 @@ def _render_hashtag_list(body: dict, *, json_mode: bool) -> None:
 def fetch_hashtags(
     cfg,
     *,
-    include_deleted: bool = False,
     limit: int | None = None,
     offset: int | None = None,
     verbose: bool = False,
@@ -69,7 +63,7 @@ def fetch_hashtags(
 
     Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
     """
-    params = query_params(include_deleted=include_deleted, limit=limit, offset=offset)
+    params = query_params(limit=limit, offset=offset)
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -82,7 +76,6 @@ def fetch_hashtags(
 @handle_errors
 def list_(
     ctx: typer.Context,
-    include_deleted: bool = INCLUDE_DELETED_OPT,
     limit: int | None = LIMIT_OPT,
     offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
@@ -95,7 +88,6 @@ def list_(
     limit = effective_limit(limit, json_mode=json_output)
     body = fetch_hashtags(
         cfg,
-        include_deleted=include_deleted,
         limit=limit,
         offset=offset,
         verbose=get_verbose(ctx),
@@ -182,7 +174,7 @@ def delete(
     yes: bool = YES_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
-    """DELETE /v1/hashtags/{id}. Cascades soft-delete to junction rows; restore does NOT undo.
+    """DELETE /v1/hashtags/{id}. Cascades soft-delete to junction rows; a delete cannot be undone.
 
     Example: expense hashtags delete <hashtag-id> --yes
     """
@@ -192,29 +184,8 @@ def delete(
         id_=id_,
         confirm=(
             f"Delete hashtag {id_}? Junction rows on transactions will be cascaded "
-            "(restore does not undo this)."
+            "(a delete cannot be undone)."
         ),
         yes=yes,
         json_output=json_output,
-    )
-
-
-@app.command("restore")
-@handle_errors
-def restore(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    json_output: bool = JSON_OPT,
-) -> None:
-    """POST /v1/hashtags/{id}/restore. Does NOT restore cascaded junction rows.
-
-    Example: expense hashtags restore <hashtag-id>
-    """
-    run_toggle(
-        ctx,
-        resource=_RESOURCE,
-        id_=id_,
-        verb="restore",
-        json_output=json_output,
-        render_human=lambda body: render_record(body, json_mode=False),
     )

@@ -90,8 +90,8 @@ def test_read_command_has_json_flag(path, callback):
 # CLAUDE.md non-negotiable: deletes, reverts, and clears prompt for confirmation
 # unless --yes is passed. Matched by leaf name — a destructive command under a
 # new name (e.g. `remove`) must be added to the set. `archive`/`unarchive`
-# (accounts-only since the 2026-08-06 schema slimming) and `restore` are
-# deliberately prompt-free — reversible toggles, not destruction (archive
+# (accounts-only since the 2026-08-06 schema slimming) are deliberately
+# prompt-free — reversible toggles, not destruction (archive
 # reclassified 2026-07-11; see decisions.md).
 
 _DESTRUCTIVE_NAMES = {"delete", "revert", "clear"}
@@ -104,6 +104,20 @@ def test_destructive_walker_finds_known_commands():
     # name set above and now evades the --yes guard — extend the set instead.
     # 7 since 2026-09-12: `inbox delete` left with the inbox command group.
     assert len(_DESTRUCTIVE_LEAVES) == 7, sorted(_DESTRUCTIVE_LEAF_IDS)
+
+
+def test_no_command_restores_or_lists_deleted_rows():
+    """Deleted is deleted (engine, 2026-09-23): `POST /{resource}/{id}/restore`
+    is a 404 and `?include_deleted=` a 422 on every list. Undeleting is operator
+    SQL on the engine host, so no client command may offer either."""
+    restores = [" ".join(path) for path, _ in _LEAVES if path[-1] == "restore"]
+    assert not restores, restores
+    flagged = [
+        " ".join(path)
+        for path, cb in _LEAVES
+        if "include_deleted" in inspect.signature(cb).parameters
+    ]
+    assert not flagged, flagged
 
 
 @pytest.mark.parametrize(("path", "callback"), _DESTRUCTIVE_LEAVES, ids=_DESTRUCTIVE_LEAF_IDS)

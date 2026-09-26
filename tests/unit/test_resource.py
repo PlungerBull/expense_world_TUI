@@ -293,24 +293,6 @@ def test_fetch_body_issues_one_live_get(configured):
 
 
 @respx.mock
-def test_fetch_body_include_deleted_is_just_a_query_param(configured):
-    """No special routing left — every read is live, so --include-deleted is a param."""
-    from expense import config as config_module
-
-    route = respx.get(f"{BASE}/v1/things", params={"include_deleted": "true"}).mock(
-        return_value=httpx.Response(200, json=page([{"id": "a"}], total=1))
-    )
-    body = fetch_body(
-        config_module.ensure_loaded(),
-        path="/things",
-        params={"include_deleted": "true"},
-        verbose=False,
-    )
-    assert body == page([{"id": "a"}], total=1)
-    assert route.call_count == 1
-
-
-@respx.mock
 def test_fetch_body_empty_params_sends_no_query(configured):
     from expense import config as config_module
 
@@ -664,12 +646,12 @@ def test_run_toggle_no_hints_kwarg_means_no_hint(configured):
             ctx,
             resource="things",
             id_=id_,
-            verb="restore",
+            verb="unarchive",
             json_output=json_output,
             render_human=lambda body: typer.echo("ok"),
         )
 
-    respx.post(f"{BASE}/v1/things/abc/restore").mock(
+    respx.post(f"{BASE}/v1/things/abc/unarchive").mock(
         return_value=error_response(403, "FORBIDDEN", "x", None)
     )
     result = runner.invoke(app, ["plain", "abc"])
@@ -1049,7 +1031,7 @@ def test_query_params_drops_what_was_not_asked_for():
 
 def test_query_params_encodes_a_flag_as_the_engine_reads_it():
     # False is absent, not `"false"`: absence IS the default
-    assert query_params(include_deleted=True, include_archived=False) == {"include_deleted": "true"}
+    assert query_params(include_people=True, include_archived=False) == {"include_people": "true"}
 
 
 def test_query_params_keeps_a_zero_offset():
