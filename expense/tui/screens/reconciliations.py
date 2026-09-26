@@ -1086,8 +1086,8 @@ class ReconciliationDetailScreen(
                     for it in _fetch_all_txns(
                         cfg,
                         account=self._account_id,
-                        date_from=self._record.get("date_start") or None,
-                        date_to=self._record.get("date_end") or None,
+                        date_from=self._record["date_start"],
+                        date_to=self._record["date_end"],
                         **kw,
                     )
                     if it.get("reconciliation_id") is None
