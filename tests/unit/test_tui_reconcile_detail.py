@@ -6,7 +6,7 @@ from expense.errors import EngineError
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen, _txn_sub
 from expense.tui.widgets.checklist import CheckList
-from tests.unit.helpers import error_body, run_app, wait_for
+from tests.unit.helpers import run_app, wait_for, whole
 
 CATS = {"c1": "Vivienda"}
 TAGS = {"h1": "oficina"}
@@ -566,25 +566,22 @@ def test_revert_key_is_u(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_r_refreshes_record_by_id_and_never_writes(fake_client, monkeypatch):
-    """`r` refetches the batch by id (header + status gate) and the checklist;
-    no write, no dismiss. By id, because scanning the collection stopped at
-    page 1 and falsely reported later records as deleted (backlog 6.2b)."""
+def test_r_refreshes_record_from_its_account_list_and_never_writes(fake_client, monkeypatch):
+    """`r` re-reads the batch (header + status gate) and the checklist; no
+    write, no dismiss. There is no read by id (engine, 2026-09-23), so it reads
+    the account's list — whole, so the row is in it — and picks the row out."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
-    fresh = {
-        **completed,
-        "ending_balance_cents": 999999,
-        "transactions": [],
-        "transactions_total": 0,
-    }
-    fetched_ids: list = []
+    fresh = {**completed, "ending_balance_cents": 999999}
+    other = {**completed, "id": "r0", "name": "February 2026"}
+    reads: list = []
 
-    def fake_get(cfg, id_, **k):
-        fetched_ids.append(id_)
-        return dict(fresh)
+    def listed(cfg, *, account_id, **k):
+        assert "limit" not in k and "offset" not in k, "the list is whole"
+        reads.append(account_id)
+        return whole([dict(other), dict(fresh)])
 
-    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliation", fake_get)
+    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", listed)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(completed))
@@ -593,28 +590,22 @@ def test_r_refreshes_record_by_id_and_never_writes(fake_client, monkeypatch):
         await pilot.press("r")
         await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") == 999999)
         await pilot.pause()  # let the refresh settle, then assert a non-event
-        assert fetched_ids == ["r1"]  # single-record fetch, not a collection scan
-        assert "transactions" not in screen._record  # embedded window stripped
-        assert app.screen is screen  # not dismissed — the 6.2b false positive
+        assert reads == [DRAFT["account_id"]]  # this batch's account, once
+        assert screen._record["id"] == "r1"  # the right row, not its neighbour
+        assert app.screen is screen  # not dismissed
         assert not fake_client.posts and not fake_client.deletes
 
     run_app(scenario)
 
 
 def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
-    """Batch deleted elsewhere → the by-id fetch 404s → notify and pop."""
+    """Batch deleted elsewhere → absent from its account's whole list → notify
+    and pop. Absent is reliable now: the list is never a page of it."""
     _patch(monkeypatch)
-
-    def gone(cfg, id_, **k):
-        raise EngineError(
-            "NOT_FOUND",
-            f"reconciliation {id_} not found.",
-            None,
-            404,
-            error_body("NOT_FOUND", "x", None),
-        )
-
-    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliation", gone)
+    monkeypatch.setattr(
+        "expense.commands.reconcile_cmd.fetch_reconciliations",
+        lambda cfg, *, account_id, **k: whole([{**DRAFT, "id": "someone-else"}]),
+    )
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))

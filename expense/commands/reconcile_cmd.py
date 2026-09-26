@@ -5,20 +5,15 @@ import typer
 from expense import config as config_module
 from expense.commands._resource import (
     JSON_OPT,
-    LIMIT_OPT,
-    OFFSET_OPT,
     YES_OPT,
     build_update_payload,
-    effective_limit,
     fetch_body,
     format_cents,
     format_cents_or_dash,
-    format_field_value,
     items_of,
     load_account_name_map,
     print_warnings,
     query_params,
-    render_pagination_hint,
     render_record,
     render_table,
     require_yes,
@@ -60,59 +55,20 @@ def format_period(item: dict) -> str:
     return "—"
 
 
-def fetch_reconciliations(
-    cfg,
-    *,
-    account_id: str | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/reconciliations → the raw engine body. Pure data, no render.
+def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:
+    """GET /v1/reconciliations?account_id= → the raw engine body. Pure data.
 
     Shared by the flat `reconcile list` command and the TUI's Reconciliations
-    screen. Account-scoped reads come back `date_start ASC NULLS LAST,
-    created_at ASC`; the cross-account list stays `created_at DESC`.
+    screens. The engine lists one account at a time (since 2026-09-23): the
+    account is required, the list comes back whole as `{items}` — no `limit`,
+    no `offset`, no `total` — in period order, `date_start ASC NULLS LAST,
+    created_at ASC`. There is no read by id; a row not in its account's list
+    has been deleted.
     """
-    params = query_params(
-        account_id=account_id,
-        limit=limit,
-        offset=offset,
-    )
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
-        params=params,
-        verbose=verbose,
-    )
-
-
-def fetch_reconciliation(
-    cfg,
-    id_: str,
-    *,
-    limit: int | None = None,
-    offset: int | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/reconciliations/{id} → the raw engine body. Pure data.
-
-    Shared by the flat `reconcile get` command and the TUI detail screen's
-    refresh, which must fetch by id — scanning the collection stops at one
-    page and falsely reported later records as deleted (backlog 6.2b).
-    Missing record → EngineError(status=404).
-    """
-    params = query_params(
-        limit=limit,
-        offset=offset,
-        # Always signed: every CLI/TUI surface renders debits negative, so the
-        # request pins the flag rather than depending on the engine default.
-        debit_as_negative=True,
-    )
-    return fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}/{id_}",
-        params=params,
+        params=query_params(account_id=account_id),
         verbose=verbose,
     )
 
@@ -139,15 +95,10 @@ _MISSING_DATE_HINT = (
     "and a half-dated one seals nothing.\n"
     "  expense reconcile update {id} --date-end <YYYY-MM-DD>"
 )
-_UNASSIGNED_HINT = (
-    "Hint: these rows are inside the period and in no batch. List them with:\n"
-    "  expense transactions list --account-id {account} --unreconciled "
-    "--date-from {start} --date-to {end}"
-)
 _UNASSIGNED_HINT_BARE = (
     "Hint: some rows inside this period are in no batch. Find them with "
     "'expense transactions list --account-id <id> --unreconciled "
-    "--date-from <start> --date-to <end>'."
+    "--from <start> --to <end>'."
 )
 _INVERTED_HINT = "Hint: --date-end must not be earlier than --date-start."
 _OVERLAP_HINT = (
@@ -197,51 +148,9 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
         rows=rows,
         align_right={"begin", "end", "diff"},
     )
-    render_pagination_hint(body, items)
 
 
-def _render_reconciliation_detail(body: dict, *, json_mode: bool) -> None:
-    if json_mode:
-        emit_json(body)
-        return
-
-    render_record(body, json_mode=False, skip=("transactions",))
-
-    transactions_total = body.get("transactions_total")
-    transactions = body.get("transactions") or []
-    typer.echo("")
-    typer.echo("Transactions:")
-    if transactions_total == 0 or not transactions:
-        typer.echo("  (no transactions assigned)")
-        recon_id = body.get("id", "<id>")
-        typer.echo(
-            "  Hint: attach transactions with "
-            f"'expense transactions update <tx-id> --reconciliation-id {recon_id}'"
-        )
-        return
-
-    for index, tx in enumerate(transactions):
-        if index > 0:
-            typer.echo("")
-        for key, value in tx.items():
-            typer.echo(f"    {key}: {format_field_value(key, value)}")
-
-    if body.get("transactions_truncated"):
-        recon_id = body.get("id", "<id>")
-        shown = len(transactions)
-        if isinstance(transactions_total, int):
-            typer.echo(
-                f"\n  ({transactions_total - shown} more transactions; "
-                f"use 'expense transactions list --reconciliation-id {recon_id}' for full view)"
-            )
-        else:
-            typer.echo(
-                f"\n  (more transactions; use 'expense transactions list "
-                f"--reconciliation-id {recon_id}' for full view)"
-            )
-
-
-def _complete_hint(cfg, id_: str, err: EngineError, *, verbose: bool) -> str | None:
+def _complete_hint(id_: str, err: EngineError) -> str | None:
     """The recovery line for a refused `complete`, or None.
 
     Three refusals, and **two of them share a `fields` key** — the pre-existing
@@ -254,7 +163,11 @@ def _complete_hint(cfg, id_: str, err: EngineError, *, verbose: bool) -> str | N
         return None
     haystack = error_haystack(err)
     if "unassigned" in haystack or "not assigned to any" in haystack:
-        return _unassigned_hint(cfg, id_, verbose=verbose)
+        # The bare form, with placeholders: the refusal names neither the
+        # account nor the window, and the read by id that used to fill them
+        # in is gone from the engine (owner accepted the generic hint,
+        # 2026-09-23). The unfiled pane is the real way to find these rows.
+        return _UNASSIGNED_HINT_BARE
     if "without a period" in haystack or "required to complete" in haystack:
         return _MISSING_DATE_HINT.format(id=id_)
     if "transaction" in haystack and (
@@ -262,26 +175,6 @@ def _complete_hint(cfg, id_: str, err: EngineError, *, verbose: bool) -> str | N
     ):
         return _COMPLETE_EMPTY_HINT
     return None
-
-
-def _unassigned_hint(cfg, id_: str, *, verbose: bool) -> str:
-    """Build a command line that actually runs.
-
-    The 422 carries the count but neither the account nor the window, so this
-    spends one extra read to fill them in — on a call that has already failed,
-    which is the one place a round trip is affordable. A hint with three
-    placeholders in it would leave the user looking all three up by hand.
-    """
-    try:
-        record = fetch_reconciliation(cfg, id_, limit=1, verbose=verbose)
-    except (EngineError, OSError):
-        return _UNASSIGNED_HINT_BARE
-    account = record.get("account_id")
-    start = (record.get("date_start") or "")[:10]
-    end = (record.get("date_end") or "")[:10]
-    if not (account and start and end):
-        return _UNASSIGNED_HINT_BARE
-    return _UNASSIGNED_HINT.format(account=account, start=start, end=end)
 
 
 def _period_hint(err: EngineError) -> str | None:
@@ -312,57 +205,23 @@ def _is_field_locked_422(err: EngineError) -> bool:
 @handle_errors
 def list_(
     ctx: typer.Context,
-    account: str | None = typer.Option(
-        None,
+    account: str = typer.Option(
+        ...,
         "--account-id",
-        help="Filter by account_id (orders by statement start date, undated last).",
+        help="The account whose reconciliations to list (required: the engine lists "
+        "one account at a time). Every one comes back, in period order.",
     ),
-    limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
-    """GET /v1/reconciliations.
+    """GET /v1/reconciliations?account_id=. One account's reconciliations, whole.
+
+    A reconciliation's own rows are `expense transactions list --reconciliation-id <id>`.
 
     Example: expense reconcile list --account-id <account-id>
     """
     cfg = config_module.ensure_loaded()
-    limit = effective_limit(limit, json_mode=json_output)
-    body = fetch_reconciliations(
-        cfg,
-        account_id=account,
-        limit=limit,
-        offset=offset,
-        verbose=get_verbose(ctx),
-    )
+    body = fetch_reconciliations(cfg, account_id=account, verbose=get_verbose(ctx))
     _render_reconciliation_list(body, json_mode=json_output)
-
-
-@app.command("get")
-@handle_errors
-def get(
-    ctx: typer.Context,
-    id_: str = typer.Argument(..., metavar="ID"),
-    limit: int | None = typer.Option(
-        None,
-        "--limit",
-        help="Max transactions in the embedded window (engine default 50, max 200).",
-    ),
-    offset: int | None = OFFSET_OPT,
-    json_output: bool = JSON_OPT,
-) -> None:
-    """GET /v1/reconciliations/{id}.
-
-    Example: expense reconcile get <id> --limit 100
-    """
-    cfg = config_module.ensure_loaded()
-    body = fetch_reconciliation(
-        cfg,
-        id_,
-        limit=limit,
-        offset=offset,
-        verbose=get_verbose(ctx),
-    )
-    _render_reconciliation_detail(body, json_mode=json_output)
 
 
 @app.command("create")
@@ -542,7 +401,7 @@ def complete(
         try:
             body = client.post(f"/{_RESOURCE}/{id_}/complete")
         except EngineError as err:
-            hint = _complete_hint(cfg, id_, err, verbose=verbose)
+            hint = _complete_hint(id_, err)
             if hint is not None:
                 typer.echo(hint, err=True)
             raise

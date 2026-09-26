@@ -114,7 +114,6 @@ KNOWN_LOCAL = frozenset(
         "date_to",
         "to_month",
         "search",
-        "statement_date",
         "currency",
         # 422 `fields` payload keys and respx route names
         "user_settings",

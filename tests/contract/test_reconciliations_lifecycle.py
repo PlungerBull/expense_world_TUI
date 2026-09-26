@@ -129,6 +129,32 @@ def test_reconciliations_lifecycle(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
+def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
+    """The two reads the CLI stopped making (engine, 2026-09-23). Without an
+    account the list is a 422 naming `account_id`; one account's list comes
+    back as `{items}` alone, with no paging keys; a GET on one reconciliation
+    is a 405. The browse screen, `reconcile list --account-id` and the working
+    screen's refresh are all built on these three facts."""
+    account_id = _make_account(client)
+    recon_id = _make_reconciliation(client, account_id)
+    try:
+        with pytest.raises(EngineError) as excinfo:
+            client.get("/reconciliations")
+        assert excinfo.value.status == 422
+        assert "account_id" in (excinfo.value.fields or {})
+
+        listed = client.get("/reconciliations", params={"account_id": account_id})
+        assert set(listed) == {"items"}
+        assert [item["id"] for item in listed["items"]] == [recon_id]
+
+        with pytest.raises(EngineError) as excinfo:
+            client.get(f"/reconciliations/{recon_id}")
+        assert excinfo.value.status == 405
+    finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
 def test_beginning_balance_is_required_not_derived(client):
     """The 2026-08-06 de-chaining, pinned from the outside.
 

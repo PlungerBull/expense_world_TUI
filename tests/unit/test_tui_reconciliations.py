@@ -7,7 +7,7 @@ from expense.tui.screens.reconciliations import (
     ReconciliationsScreen,
 )
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import cursor_page, page, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import cursor_page, run_app, wait_for, wait_for_list, whole
 
 ITEMS = [
     {
@@ -126,12 +126,22 @@ def test_new_reconciliation_date_start_is_required(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def _patch_browse(monkeypatch):
-    """Two accounts, one batch each — the browse screen's standard fixture."""
-    monkeypatch.setattr(
-        "expense.commands.reconcile_cmd.fetch_reconciliations",
-        lambda *a, **k: page(ITEMS, total=2),
-    )
+def _patch_browse(monkeypatch, items=None, fail=False):
+    """Two accounts, one reconciliation each — the browse screen's standard
+    fixture. The fake reads like the engine: one account at a time (the account
+    is required), the list whole, never paged. Returns the accounts it was
+    asked for, in order."""
+    reads: list = []
+    rows = ITEMS if items is None else items
+
+    def fetch(_cfg, *, account_id, **kw):
+        assert "limit" not in kw and "offset" not in kw, "the engine refuses paging here"
+        reads.append(account_id)
+        if fail:
+            raise RuntimeError("reconciliations unavailable")
+        return whole([r for r in rows if r.get("account_id") == account_id])
+
+    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", fetch)
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts",
         lambda *a, **k: whole(
@@ -147,100 +157,233 @@ def _patch_browse(monkeypatch):
         ),
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    return reads
 
 
-def test_reconciliations_browse_account_first(monkeypatch):
-    _patch_browse(monkeypatch)
+def _footer_keys(app) -> set:
+    """The keys the footer shows right now."""
+    return {key for key, active in app.screen.active_bindings.items() if active.enabled}
+
+
+def _crumb(screen) -> tuple:
+    from expense.tui.widgets.header import Breadcrumb
+
+    return screen.query_one("#crumb", Breadcrumb)._trail
+
+
+async def _open_panel(pilot, app, *, down: int = 0):
+    """Open the browse, move the account cursor `down` rows, press `⏎`."""
+    screen = ReconciliationsScreen()
+    await app.push_screen(screen)
+    await wait_for_list(pilot, app)
+    for _ in range(down):
+        screen._accts_list.action_move(1)
+    await wait_for(pilot, lambda: screen._acct_idx == down)
+    await pilot.press("enter")
+    await wait_for(pilot, lambda: screen._mode == "batches")
+    return screen
+
+
+def test_the_browse_opens_on_the_accounts_alone_and_reads_no_reconciliations(monkeypatch):
+    reads = _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):
         screen = ReconciliationsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        # account focus: first account (acc1) selected → its batch (r1) shown below
         assert screen._mode == "accts"
-        assert set(screen._by_id) == {"r1"}
-        # arrow to the second account → batch list follows to acc2's batch (r2).
-        # Wait on the state, not a fixed sleep: the Highlighted message
-        # bubbles through several widget pumps and a 50ms nap lost that race
-        # on CI (flaked 2026-07-13 after the adaptive-rows load deferral).
+        assert screen._batch_list is None  # no lower panel at all
+        assert reads == []  # nothing is read until ⏎
+        # alone, the account list takes the whole height; the panel halves it
+        alone = screen.pane_rows()
+        screen._open_aid = "acc1"
+        assert screen.pane_rows() < alone
+        screen._open_aid = None
+        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+        # moving the account cursor costs no read either
         screen._accts_list.action_move(1)
         await wait_for(pilot, lambda: screen._acct_idx == 1)
-        assert set(screen._by_id) == {"r2"}
+        await pilot.pause()
+        assert reads == []
 
     run_app(scenario)
 
 
-def test_highlight_from_batches_pane_does_not_switch_account(monkeypatch):
-    """A Highlighted sourced from the batches pane (Tab/click focus, no select)
-    must not overwrite the selected account while in accounts mode — `n` would
-    then create the new batch under the wrong account (backlog 6.2c)."""
+def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monkeypatch):
+    reads = _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app, down=1)
+        assert reads == ["acc2"]  # that account, and only that one
+        assert [r.key for r in screen._batch_list._rows] == ["r2"]
+        assert screen._batch_list.has_focus
+        assert "Reconciliations · Interbank USD" in (screen._batch_list._caption or "")
+        assert "oldest → newest" in (screen._batch_list._caption or "")
+        assert _crumb(screen) == ("Capture & ledger", "Reconciliations", "Interbank USD")
+        # the open account keeps a ▸ so you can see whose panel this is
+        names = [str(r.cells[0]) for r in screen._accts_list._rows]
+        assert names == ["BCP PEN", "▸ Interbank USD"]
+
+    run_app(scenario)
+
+
+def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
+    _patch_browse(monkeypatch, items=[])
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert screen._batch_list._rows == []
+        assert screen._batch_list._empty == "none yet · n to create one"
+
+    run_app(scenario)
+
+
+def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
+    """The account's list arrives in period order (`date_start ASC NULLS
+    LAST, created_at ASC`); the screen no longer re-sorts it."""
+    served = [
+        {"id": "b-march", "account_id": "acc1", "name": "March", "status": 1},
+        {"id": "b-april", "account_id": "acc1", "name": "April", "status": 1},
+        {"id": "b-undated", "account_id": "acc1", "name": "Undated", "status": 1},
+    ]
+    _patch_browse(monkeypatch, items=served)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert [r.key for r in screen._batch_list._rows] == ["b-march", "b-april", "b-undated"]
+
+    run_app(scenario)
+
+
+def test_a_failed_read_leaves_the_panel_closed(monkeypatch):
+    reads = _patch_browse(monkeypatch, fail=True)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: reads)
+        await pilot.pause()
+        assert screen._mode == "accts" and screen._batch_list is None
+        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+
+    run_app(scenario)
+
+
+def test_u_works_only_with_a_panel_open(monkeypatch):
+    _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert "u" not in _footer_keys(app)  # not offered on the plain list
+        await pilot.press("u")
+        await pilot.pause()
+        assert screen._mode == "accts" and not calls
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: screen._mode == "batches")
+        assert "u" in _footer_keys(app)
+
+    run_app(scenario)
+
+
+def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
     _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
-        assert screen._mode == "accts" and screen._acct_idx == 0
-        # from the *batches* list → ignored
-        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._batch_list, "r1", 1))
-        assert screen._acct_idx == 0
-        assert set(screen._by_id) == {"r1"}
-        # the same event from the *accounts* list still drives the panes
-        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._accts_list, "acc2", 1))
-        assert screen._acct_idx == 1
-        assert set(screen._by_id) == {"r2"}
+        screen = await _open_panel(pilot, app)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: screen._mode == "accts")
+        assert app.screen is screen  # the panel closed; the screen stayed
+        assert screen._batch_list is None and screen._accts_list.has_focus
+        assert _crumb(screen) == ("Capture & ledger", "Reconciliations")
+        assert [str(r.cells[0]) for r in screen._accts_list._rows][0] == "BCP PEN"
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is not screen)
 
     run_app(scenario)
 
 
-def test_reconciliations_list_pages_past_engine_cap(monkeypatch):
-    """The browse fetch pages through the whole collection — a batch past the
-    default page must not vanish from the account's pane (backlog 6.2b, list
-    half)."""
-    total = 201
-    all_items = [
-        {"id": f"r{i}", "account_id": "acc1", "name": f"B{i}", "status": 1} for i in range(total)
+def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
+    """A Highlighted sourced from the panel (Tab/click focus, no select) must
+    not move the account cursor — `n` would then create under the wrong one
+    (backlog 6.2c)."""
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        screen.on_cursor_list_highlighted(CursorList.Highlighted(screen._batch_list, "r1", 1))
+        assert screen._acct_idx == 0
+
+    run_app(scenario)
+
+
+def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monkeypatch):
+    from expense.tui.screens.reconciliations import ReconciliationDetailScreen
+
+    two = [
+        {"id": "b1", "account_id": "acc1", "name": "March", "status": 2},
+        {"id": "b2", "account_id": "acc1", "name": "April", "status": 2},
     ]
+    reads = _patch_browse(monkeypatch, items=two)
+    # the working screen's own reads are not what this test is about
+    monkeypatch.setattr(ReconciliationDetailScreen, "_load_txns", lambda self, **k: None)
 
-    def paged(cfg, *, limit=None, offset=None, **k):
-        lo = offset or 0
-        return page(all_items[lo : lo + (limit or 100)], total=total)
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        screen._batch_list.action_move(1)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        app.screen.dismiss()
+        await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "batches")
+        await wait_for(pilot, lambda: screen._batch_list is not None)
+        assert reads == ["acc1", "acc1"]  # the open account, re-read
+        assert screen._batch_list.cursor_key == "b2"
+        assert screen._batch_list.has_focus
 
-    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", paged)
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts",
-        lambda *a, **k: whole([{"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"}]),
-    )
-    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    run_app(scenario)
+
+
+def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
+    """`n` with no panel open uses the account under the cursor; saved, that
+    account's panel opens with the cursor on the new one (owner, 2026-09-25)."""
+    rows = [dict(r) for r in ITEMS]
+    reads = _patch_browse(monkeypatch, items=rows)
 
     async def scenario(pilot, app):
         screen = ReconciliationsScreen()
         await app.push_screen(screen)
         await wait_for_list(pilot, app)
-        assert len(screen._recons) == total  # both pages collected
-        assert len(screen._batches) == total  # every batch for the account
+        screen._accts_list.action_move(1)
+        await wait_for(pilot, lambda: screen._acct_idx == 1)
+        await pilot.press("n")
+        await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
+        form = app.screen
+        assert form._values["account"] == "acc2"  # the account under the cursor
+        rows.append({"id": "new-1", "account_id": "acc2", "name": "May 2026", "status": 1})
+        form.dismiss("new-1")  # what `_done` hands back after the POST
+        await wait_for(pilot, lambda: screen._batch_list is not None)
+        assert reads == ["acc2"]
+        assert screen._mode == "batches"
+        assert screen._batch_list.cursor_key == "new-1"
+        assert _crumb(screen)[-1] == "Interbank USD"
 
     run_app(scenario)
 
 
-def test_batches_ordered_by_statement_start_date_nulls_last():
-    """The pane mirrors the engine's account-scoped key (date_start ASC NULLS
-    LAST, created_at ASC). The bulk fetch is unscoped, and *that* list is
-    created_at DESC — so without this the rows would sit in creation order."""
-    from expense.tui.screens.reconciliations import _batch_sort_key
-
-    rows = [
-        {"id": "undated", "created_at": "2026-01-01T00:00:00Z"},
-        {"id": "may", "date_start": "2026-05-01T00:00:00Z", "created_at": "2026-01-02T00:00:00Z"},
-        {"id": "march", "date_start": "2026-03-01T00:00:00Z", "created_at": "2026-07-09T00:00:00Z"},
-        {"id": "april", "date_start": "2026-04-01T00:00:00Z", "created_at": "2026-01-03T00:00:00Z"},
-    ]
-    assert [r["id"] for r in sorted(rows, key=_batch_sort_key)] == [
-        "march",
-        "april",
-        "may",
-        "undated",
-    ]
+def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
+    """The id is minted client-side in `_payload`; `_done` returns it."""
+    screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+    screen._values.update({"name": "May", "date_start": "2026-05-01", "begin": 0})
+    payload = screen._payload()
+    handed: list = []
+    monkeypatch.setattr(screen, "dismiss", lambda result=None: handed.append(result))
+    monkeypatch.setattr(screen, "notify", lambda *a, **k: None)
+    screen._done()
+    assert handed == [payload["id"]]
 
 
 def test_new_reconciliation_from_account_drops_account_field():
@@ -356,9 +499,7 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
 
 
 async def _open_unfiled(pilot, app):
-    screen = ReconciliationsScreen()
-    await app.push_screen(screen)
-    await wait_for_list(pilot, app)
+    screen = await _open_panel(pilot, app)
     await pilot.press("u")
     await wait_for(pilot, lambda: screen._mode == "unfiled" and screen._unfiled)
     return screen
@@ -385,7 +526,7 @@ def test_u_swaps_the_lower_pane_and_leaves_the_account_cursor_alone(monkeypatch)
     run_app(scenario)
 
 
-def test_esc_swaps_the_pane_back_to_the_batches(monkeypatch):
+def test_esc_in_no_batch_returns_to_the_panel(monkeypatch):
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
 
@@ -393,6 +534,8 @@ def test_esc_swaps_the_pane_back_to_the_batches(monkeypatch):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("escape")
         await wait_for(pilot, lambda: screen._mode != "unfiled")
+        assert screen._mode == "batches"  # the panel, not the plain account list
+        assert screen._batch_list.has_focus
         assert app.screen is screen  # esc swapped the pane, it did not pop the screen
         assert [r.key for r in screen._batch_list._rows] == ["r1"]  # acc1's batch is back
         assert screen._batch_list._headers[0] == "Name"
@@ -463,9 +606,7 @@ def test_a_count_that_cannot_be_read_fails_the_pane(monkeypatch):
     _patch_unfiled(monkeypatch, count_fails=True)
 
     async def scenario(pilot, app):
-        screen = ReconciliationsScreen()
-        await app.push_screen(screen)
-        await wait_for_list(pilot, app)
+        screen = await _open_panel(pilot, app)
         await pilot.press("u")
         await wait_for(pilot, lambda: not screen._unfiled_busy and screen._mode != "unfiled")
         # no rows beside a guessed number: the batches are back

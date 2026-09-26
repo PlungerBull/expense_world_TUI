@@ -209,27 +209,52 @@ def test_resolve_resource_name_miss_falls_back_to_prefix():
     assert activity_cmd._resolve_resource_name("account", "0123456789ab", client) == "01234567"
 
 
-def test_resolve_reconciliation_composite_labels():
-    """date+account → 'date / name'; degrades to date-only, name-only, then prefix."""
-    recon = {"statement_date": "2026-05-01T00:00:00Z", "account_id": "acc1"}
+def test_resolve_reconciliation_labels_come_from_the_snapshot():
+    """name + account → 'name / account'; degrades to either half, then the
+    prefix. Never a read of the reconciliation: the engine has none by id since
+    2026-09-23 (owner's label, 2026-09-25)."""
+    snap = {"name": "August 2026", "account_id": "acc1"}
 
-    client = _client({"/reconciliations/r-1": recon, "/accounts/acc1": {"name": "BCP"}})
-    assert activity_cmd._resolve_resource_name("reconciliation", "r-1", client) == (
-        "2026-05-01 / BCP"
+    client = _client({"/accounts/acc1": {"name": "BCP"}})
+    assert activity_cmd._resolve_resource_name("reconciliation", "r-1", client, snapshot=snap) == (
+        "August 2026 / BCP"
+    )
+    assert client.requests == [("GET", "/accounts/acc1")]
+
+    client = _client({})  # account gone → name only
+    assert (
+        activity_cmd._resolve_resource_name("reconciliations", "r-1", client, snapshot=snap)
+        == "August 2026"
     )
 
-    client = _client({"/reconciliations/r-1": recon})  # account gone → date only
-    assert activity_cmd._resolve_resource_name("reconciliations", "r-1", client) == "2026-05-01"
-
-    client = _client(
-        {"/reconciliations/r-1": {"account_id": "acc1"}, "/accounts/acc1": {"name": "BCP"}}
+    client = _client({"/accounts/acc1": {"name": "BCP"}})
+    no_name = {"account_id": "acc1"}
+    assert (
+        activity_cmd._resolve_resource_name("reconciliation", "r-1", client, snapshot=no_name)
+        == "BCP"
     )
-    assert activity_cmd._resolve_resource_name("reconciliation", "r-1", client) == "BCP"  # no date
 
-    client = _client({"/reconciliations/0123456789ab": {}})
+    client = _client({})
     assert activity_cmd._resolve_resource_name("reconciliation", "0123456789ab", client) == (
         "01234567"
     )
+    assert client.requests == []
+
+
+def test_a_deleted_reconciliation_is_named_from_its_before_snapshot():
+    """A delete's `after_snapshot` is empty; the row still gets its name."""
+    names = activity_cmd.NameMaps(accounts={"acc1": "BCP"})
+    item = {
+        "resource_type": "reconciliation",
+        "resource_id": "r-1",
+        "action": 3,
+        "created_at": "2026-09-24T18:02:00Z",
+        "before_snapshot": {"name": "August 2026", "account_id": "acc1"},
+        "after_snapshot": None,
+    }
+    client = _client({})
+    assert activity_cmd.activity_display_cells(item, client, names)[-1] == "August 2026 / BCP"
+    assert client.requests == []
 
 
 def test_resolve_empty_name_falls_back_to_prefix():
@@ -284,16 +309,15 @@ def test_a_transaction_row_is_still_a_per_row_read():
 
 
 def test_a_reconciliation_takes_its_account_name_from_the_map():
-    """The second of the two reads a reconciliation row used to cost."""
+    """With the maps built, a reconciliation row costs no read at all."""
     names = activity_cmd.NameMaps(accounts={"acc1": "BCP"})
-    client = _client(
-        {"/reconciliations/r-1": {"statement_date": "2026-05-01", "account_id": "acc1"}}
-    )
+    client = _client({})
+    snap = {"name": "August 2026", "account_id": "acc1"}
 
-    assert activity_cmd._resolve_resource_name("reconciliation", "r-1", client, names) == (
-        "2026-05-01 / BCP"
-    )
-    assert client.requests == [("GET", "/reconciliations/r-1")]  # the account was NOT re-read
+    assert activity_cmd._resolve_resource_name(
+        "reconciliation", "r-1", client, names, snapshot=snap
+    ) == ("August 2026 / BCP")
+    assert client.requests == []
 
 
 @respx.mock

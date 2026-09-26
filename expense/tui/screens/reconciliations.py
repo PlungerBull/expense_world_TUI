@@ -1,12 +1,13 @@
 """Reconciliations — list, new batch, and the working/detail screen (Phase 2).
 
-Per-account bank-statement batches. The browse is account-first (two panes):
-the account selector on top, the selected account's batches below in the
-engine's order (`date_start ASC NULLS LAST, created_at ASC` when account-scoped
-— a batch is a statement period, so its date is its position). `↑↓` in account
-focus swaps the account (the batch list follows); `enter` drops into batch
-focus, where `enter` opens the working screen and `esc` returns to the accounts.
-`n` creates a batch for the selected account.
+Per-account bank-statement batches. The browse opens on the accounts alone;
+`⏎` on one reads that account's reconciliations (`GET /reconciliations?
+account_id=`, whole, in the engine's period order: `date_start ASC NULLS
+LAST, created_at ASC`) and opens them in a panel under the accounts, the
+cursor in it. There `⏎` opens the working screen, `n` creates one for the
+account, `u` swaps the panel for the account's rows in no batch, and `esc`
+closes the panel (owner, 2026-09-25, mockup expense-world-engine-uptake.html
+M2). Nothing is read for an account until you press `⏎` on it.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine deleted derived (chained) begins
@@ -48,7 +49,7 @@ from expense.commands._resource import (
     resolve_name,
 )
 from expense.dates import to_canonical_aware
-from expense.errors import EngineError, format_error
+from expense.errors import format_error
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.tui.screens._base import (
@@ -61,7 +62,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens._form import FormScreen
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.theme import AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
+from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, difference_cell
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList
@@ -134,20 +135,6 @@ def unfiled_rows(items: list[dict], cat_names: dict, windows, palette=None) -> l
     return rows
 
 
-def _batch_sort_key(r: dict):
-    """The engine's account-scoped order, mirrored for a client-side slice.
-
-    `fetch()` pulls every account's batches in one unscoped read so that moving
-    the account cursor stays instant — and the unscoped list is `created_at
-    DESC`, not statement order (only account-scoped reads sort by date — engine
-    contract, unchained since 2026-08-06). So the per-account slice re-applies
-    the documented server key: `date_start ASC NULLS LAST, created_at ASC`.
-    ISO-8601 strings sort chronologically as text.
-    """
-    ds = r.get("date_start")
-    return (ds is None, ds or "", r.get("created_at") or "", r.get("id") or "")
-
-
 def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
     """Per-account batch rows (no Account column) for the browse's lower pane."""
     rows = []
@@ -165,16 +152,34 @@ def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
     return rows
 
 
+class _AccountList(CursorList):
+    """The browse's account list. Only `enter` changes: on this list it opens
+    the account's panel, so the footer names that instead of `Open` (mockup
+    expense-world-engine-uptake.html, M2)."""
+
+    BINDINGS = [Binding("enter", "select", "Its reconciliations")]
+
+
 class ReconciliationsScreen(SectionScreen):
-    """Account-first two-pane browse. Top: bank accounts. Bottom: the selected
-    account's batches in the engine's statement-date order. `↑↓` in account
-    focus swaps the account (the batch list follows); `enter` drops into batch
-    focus; there `enter` opens a batch, `esc` returns to accounts."""
+    """Accounts first; one account's reconciliations on `⏎` (owner, 2026-09-25,
+    mockup expense-world-engine-uptake.html M2).
+
+    The screen opens on the account list alone, and nothing about
+    reconciliations is read until you press `⏎` on an account: the engine lists
+    them one account at a time (`GET /reconciliations?account_id=`, whole, in
+    period order), so moving the cursor costs nothing. `⏎` reads that account's
+    list and opens the panel under the accounts with the cursor in it. There
+    `⏎` opens a reconciliation, `n` creates one, `u` swaps the panel for the
+    account's rows in no batch, and `esc` closes the panel.
+    """
 
     crumb = ("Capture & ledger", "Reconciliations")
     CARD_WIDTH = 100
     BINDINGS = [
-        ("escape", "back", "Back"),  # not the inherited pop: three-stage unfiled/batches → accts
+        # Two bindings on one key: Textual takes the first whose `check_action`
+        # allows it, so the footer reads "Close the panel" only while it would.
+        Binding("escape", "close_panel", "Close the panel"),
+        ("escape", "back", "Back"),
         ("n", "new", "New"),
         Binding("u", "unfiled", "No batch", tooltip="This account's rows that are in no batch"),
         Binding("d", "delete_row", "Delete", show=False),  # unfiled pane only
@@ -182,133 +187,159 @@ class ReconciliationsScreen(SectionScreen):
 
     def __init__(self) -> None:
         super().__init__()
-        self._recons: list = []
+        self._recons: list = []  # the open account's reconciliations, engine order
         self._accounts: list = []  # (id, name, currency, balance_cents)
         self._acct_idx = 0
+        self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
         self._unfiled: list = []  # every unfiled row loaded so far, oldest first
         self._unfiled_total: int | None = None
         self._unfiled_next: str | None = None  # the engine's cursor past the last row
         self._unfiled_cats: dict = {}
         self._unfiled_busy = False
-        self._batches: list = []  # recon dicts for the selected account (sorted)
         self._by_id: dict = {}
-        self._resume_batch = False
-        self._resume_key: object | None = None
+        self._resume_key: object | None = None  # the panel row to land on after a reload
+        self._accts_list: CursorList | None = None
+        self._batch_list: CursorList | None = None
 
     def fetch(self) -> dict:
+        """The accounts, and the open account's reconciliations when a panel is
+        open — which is how a return from a reconciliation, or from `n`, comes
+        back to the same panel."""
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
         kw = screen_fetch_kwargs(self.app)
-        # page through everything: the default ~100-row page truncated the
-        # account's batches, so the lower pane silently lost old ones (6.2b)
-        recons = fetch_all_pages(
-            lambda limit, offset: reconcile_cmd.fetch_reconciliations(
-                cfg, limit=limit, offset=offset, **kw
-            )
-        )
         accts = items_of(accounts_cmd.fetch_accounts(cfg, **kw))
         accounts = account_choices(accts, include_people=False, with_balance=True)
+        recons = None
+        if self._open_aid is not None:
+            recons = items_of(
+                reconcile_cmd.fetch_reconciliations(cfg, account_id=self._open_aid, **kw)
+            )
         return {"recons": recons, "accounts": accounts}
 
     def _selected_account(self):
         return self._accounts[self._acct_idx] if self._accounts else None
 
-    def _rebuild_batches(self) -> None:
-        acct = self._selected_account()
-        aid = acct[0] if acct else None
-        self._batches = sorted(
-            (r for r in self._recons if r.get("account_id") == aid), key=_batch_sort_key
-        )
-        self._by_id = {r.get("id"): r for r in self._batches}
+    def _open_account(self):
+        return next((a for a in self._accounts if a[0] == self._open_aid), None)
 
     def _batch_caption(self) -> str:
-        acct = self._selected_account()
-        label = acct[1] if acct else "—"
-        return f"Reconciliations · {label}   ·   by statement start date (oldest → newest)"
+        acct = self._open_account()
+        return f"Reconciliations · {acct[1] if acct else '—'}   ·   oldest → newest"
 
-    # ---- adaptive window (2026-07-13): two stacked panes split #content ----
+    # ---- adaptive window (2026-07-13): the panel splits #content ----------
     def pane_rows(self) -> int:
-        """Rows-per-pane = an equal split of what fits — auto-height panes give
-        unused rows back when a pane has fewer rows than its share. Clamped by
-        `AdaptiveRowsMixin`, which is what this used to do for itself against a
-        hardcoded 20.
+        """Rows per list. Alone, the account list fills #content (owner,
+        2026-09-25); with the panel open the two split it equally — auto-height
+        panes give unused rows back when a pane has fewer rows than its share.
 
-        The chrome is the section title (2) plus the two panes' frames, which
-        are **not** the same size: the batches pane keeps a caption naming the
-        account and the accounts pane does not, so it is `2 * LIST_FRAME_LINES
-        + CAPTION_LINES` rather than an even doubling.
+        With the panel, the chrome is the section title (2) plus the two
+        panes' frames, which are **not** the same size: the panel keeps a
+        caption naming the account and the accounts pane does not, so it is
+        `2 * LIST_FRAME_LINES + CAPTION_LINES` rather than an even doubling.
         """
+        if self._open_aid is None:
+            return self.fit_rows(chrome=2 + self.LIST_FRAME_LINES)
         return self.fit_rows(
             chrome=2 + 2 * self.LIST_FRAME_LINES + self.CAPTION_LINES, lines_per_row=2
         )
 
     def _viewport_resized(self) -> None:
-        for lst in (getattr(self, "_accts_list", None), getattr(self, "_batch_list", None)):
+        for lst in (self._accts_list, self._batch_list):
             if lst is not None and lst.is_attached:
                 lst.set_page_size(self.pane_rows())
 
+    def _account_rows(self) -> list:
+        """The open account carries an accent `▸`, so you can see whose panel
+        is showing once the cursor has gone down into it."""
+        rows = []
+        for aid, name, cur, bal in self._accounts:
+            label = Text.assemble(("▸ ", ACCENT), name) if aid == self._open_aid else name
+            rows.append((aid, [label, cur, amount_cell(bal, PALETTE, AMOUNT_RULE)]))
+        return rows
+
+    def _new_batch_list(self) -> CursorList:
+        batch_list = CursorList(
+            _BATCH_HEADERS,
+            batch_rows(self._recons, palette=PALETTE),
+            align_right={2, 3, 4},
+            empty="none yet · n to create one",
+            caption=self._batch_caption(),
+            page_size=self.pane_rows(),
+        )
+        batch_list.id = "batches"
+        return batch_list
+
     def build(self, data: dict) -> list[Widget]:
-        self._recons = data["recons"]
         self._accounts = data["accounts"]
+        if data["recons"] is None or self._open_account() is None:
+            self._open_aid, self._recons = None, []
+        else:
+            self._recons = data["recons"]
+        self._by_id = {r.get("id"): r for r in self._recons}
         self._acct_idx = min(self._acct_idx, max(0, len(self._accounts) - 1))
-        self._rebuild_batches()
-        palette = PALETTE
-        acct_rows = [
-            (aid, [name, cur, amount_cell(bal, palette, AMOUNT_RULE)])
-            for (aid, name, cur, bal) in self._accounts
-        ]
-        pane_size = self.pane_rows()
-        self._accts_list = CursorList(
+        self._accts_list = _AccountList(
             ["Account", "Cur", "Balance"],
-            acct_rows,
+            self._account_rows(),
             align_right={2},
             empty="(no bank accounts)",
-            page_size=pane_size,
+            page_size=self.pane_rows(),
         )
         self._accts_list.id = "accts"
-        self._batch_list = CursorList(
-            _BATCH_HEADERS,
-            batch_rows(self._batches, palette=palette),
-            align_right={2, 3, 4},
-            empty="(no batches — press n to create one)",
-            caption=self._batch_caption(),  # a content line; updated as the cursor moves
-            page_size=pane_size,
-        )
-        self._batch_list.id = "batches"
-        title = "Reconciliations — pick an account, then a batch"
-        return [
-            Static(Text(title), classes="section-title"),
+        widgets: list[Widget] = [
+            Static(Text("Reconciliations — pick an account"), classes="section-title"),
             self._accts_list,
-            self._batch_list,
         ]
+        self._batch_list = None
+        if self._open_aid is not None:
+            self._batch_list = self._new_batch_list()
+            widgets.append(self._batch_list)
+        return widgets
 
     async def _show(self, data: object) -> None:
         await super()._show(data)
-        if not self._accounts:
+        self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
+        if self._accts_list is None or not self._accounts:
+            self._mode = "accts"
+            self._set_crumb()
             return
         self._accts_list.set_cursor(self._acct_idx)
-        if self._resume_batch:
-            self._resume_batch = False
+        if self._batch_list is not None:
             self._mode = "batches"
-            self._batch_list.set_cursor(self._batch_list.index_of(self._resume_key))
+            if self._resume_key is not None:
+                self._batch_list.set_cursor(self._batch_list.index_of(self._resume_key))
+                self._resume_key = None
             self._batch_list.focus()
         else:
             self._mode = "accts"
             self._accts_list.focus()
+        self._set_crumb()
 
-    # ---- interaction -----------------------------------------------------
+    def _set_crumb(self) -> None:
+        acct = self._open_account()
+        trail = self.crumb + ((acct[1],) if acct else ())
+        self.query_one("#crumb", Breadcrumb).set_trail(trail)
+        self.refresh_bindings()
+
+    # ---- keys ------------------------------------------------------------
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        # False, not None: hidden from the footer as well as dead (Textual 8)
+        if action == "close_panel":
+            return self._mode == "batches"
+        if action == "back":
+            return self._mode != "batches"
+        if action == "unfiled":
+            return self._open_aid is not None
+        return True
+
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
-        # Source guard (backlog 6.2c): a Highlighted from the batches pane
-        # (reachable by Tab/click focus without a select) must not overwrite
-        # the selected account — `n` would then create under the wrong one.
-        if self._mode != "accts" or event.control is not getattr(self, "_accts_list", None):
+        # Source guard (backlog 6.2c): only the account list moves the account
+        # cursor, and only while it is the list in use. Moving it reads nothing.
+        if self._mode != "accts" or event.control is not self._accts_list:
             return
         self._acct_idx = event.index
-        self._rebuild_batches()
-        self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
-        self._batch_list.set_caption(self._batch_caption())
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "unfiled":
@@ -316,85 +347,137 @@ class ReconciliationsScreen(SectionScreen):
             # remedies for a row that is in no batch (owner, 2026-09-22).
             record = self._unfiled_record()
             if record is not None:
-                acct = self._selected_account()
                 from expense.tui.screens.quick_log import QuickAddLogScreen
 
                 self.app.push_screen(
                     QuickAddLogScreen(record=record),
-                    lambda _result: self._reload_unfiled(acct),
+                    lambda _result: self._reload_unfiled(),
                 )
             return
-        if self._mode == "accts":
-            if not self._batches:
-                self.notify("No batches for this account — press n to create one.")
-                return
-            self._mode = "batches"
-            self._batch_list.focus()
+        if event.control is self._accts_list:
+            if self._mode == "accts":
+                self._acct_idx = event.index
+                self._load_batches(event.key)
             return
         item = self._by_id.get(event.key)
         if item:
-            self._resume_batch = True
             self._resume_key = event.key
             self.app.push_screen(ReconciliationDetailScreen(item), lambda _result: self._load())
 
+    @work(thread=True, exclusive=True, group="recon-batches")
+    def _load_batches(self, account_id: str) -> None:
+        """`⏎` on an account: read its reconciliations. A read that fails
+        leaves the panel closed, with a toast."""
+        from expense import config as config_module
+
+        worker = get_current_worker()
+        try:
+            cfg = config_module.ensure_loaded()
+            body = reconcile_cmd.fetch_reconciliations(
+                cfg, account_id=account_id, **screen_fetch_kwargs(self.app)
+            )
+        except Exception as exc:
+            if not worker.is_cancelled:
+                self.app.call_from_thread(
+                    self.notify, format_error(exc), title="Failed", severity="error"
+                )
+            return
+        if worker.is_cancelled:
+            return
+        self.app.call_from_thread(self._open_panel, account_id, items_of(body))
+
+    async def _open_panel(self, account_id: str, recons: list) -> None:
+        if self._mode != "accts" or self._accts_list is None:
+            return
+        self._open_aid = account_id
+        self._recons = recons
+        self._by_id = {r.get("id"): r for r in recons}
+        async with self._content_lock():
+            self._batch_list = self._new_batch_list()
+            await self.query_one("#card").mount(self._batch_list)
+        self._accts_list.set_rows(self._account_rows())
+        self._accts_list.set_page_size(self.pane_rows())
+        self._mode = "batches"
+        self._batch_list.focus()
+        self._set_crumb()
+
+    async def action_close_panel(self) -> None:
+        """`esc` in the panel: back to the account list alone."""
+        if self._mode != "batches":
+            return
+        self._open_aid, self._recons, self._by_id = None, [], {}
+        if self._batch_list is not None:
+            async with self._content_lock():
+                await self._batch_list.remove()
+            self._batch_list = None
+        self._mode = "accts"
+        if self._accts_list is not None:
+            self._accts_list.set_rows(self._account_rows())
+            self._accts_list.set_page_size(self.pane_rows())
+            self._accts_list.focus()
+        self._set_crumb()
+
     def action_back(self) -> None:
         if self._mode == "unfiled":
-            # the pane swaps back; the screen and the account cursor stay put
-            self._mode = "batches" if self._batches else "accts"
-            self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
+            # the pane swaps back to the reconciliations; the screen stays put
+            self._show_batches()
+        elif self._mode == "accts":
+            self.app.pop_screen()
+
+    def _show_batches(self) -> None:
+        """The panel lists the open account's reconciliations again."""
+        self._mode = "batches"
+        self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
+        if self._batch_list is not None:
             self._batch_list.set_growth(more=None)
             self._batch_list.set_headers(_BATCH_HEADERS, align_right={2, 3, 4})
             self._batch_list.set_caption(self._batch_caption())
-            self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
-            (self._batch_list if self._batches else self._accts_list).focus()
-        elif self._mode == "batches":
-            self._mode = "accts"
-            self._accts_list.focus()
-        else:
-            self.app.pop_screen()
+            self._batch_list.set_rows(batch_rows(self._recons, palette=PALETTE))
+            self._batch_list.focus()
+        self.refresh_bindings()
 
-    def _reload_unfiled(self, acct) -> None:
+    def _reload_unfiled(self) -> None:
         """Refetch the pane after an edit or a delete — a row whose date or
         account moved is no longer in this list, which is the point of editing
         it. As many rows as were loaded come back, and the cursor keeps its
         position, so fixing row 34 does not throw you back to the first ten."""
-        if acct and self._mode == "unfiled":
+        if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
             self._unfiled_busy = True
             self._load_unfiled(
-                acct[0], keep=len(self._unfiled), cursor=self._batch_list.cursor_index
+                self._open_aid, keep=len(self._unfiled), cursor=self._batch_list.cursor_index
             )
 
     async def action_reload(self) -> None:
         """`r` — in the unfiled pane, start again from the oldest `GROW_STEP`;
-        anywhere else, reload the screen."""
-        acct = self._selected_account()
+        anywhere else, reload the screen (an open panel stays open)."""
         if self._mode == "unfiled":
-            if acct and not self._unfiled_busy:
+            if self._open_aid and not self._unfiled_busy:
                 self._unfiled_busy = True
-                self._load_unfiled(acct[0])
+                self._load_unfiled(self._open_aid)
             return
+        if self._batch_list is not None:
+            self._resume_key = self._batch_list.cursor_key
         await super().action_reload()
 
     # ---- the unfiled pane (2026-09-22) -----------------------------------
     def action_unfiled(self) -> None:
-        """`u` — swap the lower pane to this account's rows in no batch.
+        """`u` — swap the panel to the open account's rows in no batch.
 
-        The screen does not change and the account cursor does not move: only
-        what the lower list is listing. `esc` swaps it back. Owner's shape,
-        mockup expense-world-rows-in-no-batch.html — reconciliation work stays
-        in the reconciliation view, so this is a pane, not a filtered ledger.
+        Only while a panel is open (owner, 2026-09-25): the panel is the slot
+        it swaps into, and the account whose rows it lists is the open one.
+        `esc` swaps it back. Owner's shape, mockup
+        expense-world-rows-in-no-batch.html — reconciliation work stays in the
+        reconciliation view, so this is a pane, not a filtered ledger.
         """
-        acct = self._selected_account()
-        if not acct:
-            self.notify("No account selected.", severity="error")
-            return
-        if self._unfiled_busy:
+        acct = self._open_account()
+        if acct is None or self._batch_list is None or self._unfiled_busy:
             return
         self._unfiled_busy = True
         self._mode = "unfiled"
         self._batch_list.set_headers(_UNFILED_HEADERS, align_right={3})
         self._batch_list.set_caption(f"In no batch · {acct[1]}   ·   loading…")
         self._batch_list.set_rows([])
+        self.refresh_bindings()
         self._load_unfiled(acct[0])
 
     @work(thread=True, exclusive=True, group="recon-unfiled")
@@ -428,7 +511,6 @@ class ReconciliationsScreen(SectionScreen):
             return
         self.app.call_from_thread(
             self._show_unfiled,
-            account_id,
             items_of(body),
             total,
             body.get("next_cursor"),
@@ -438,11 +520,15 @@ class ReconciliationsScreen(SectionScreen):
 
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn` in the unfiled pane: the next `GROW_STEP` rows, appended."""
-        acct = self._selected_account()
-        if self._mode != "unfiled" or self._unfiled_busy or not self._unfiled_next or not acct:
+        if (
+            self._mode != "unfiled"
+            or self._unfiled_busy
+            or not self._unfiled_next
+            or not self._open_aid
+        ):
             return
         self._unfiled_busy = True
-        self._load_more_unfiled(acct[0], self._unfiled_next)
+        self._load_more_unfiled(self._open_aid, self._unfiled_next)
 
     @work(thread=True, exclusive=True, group="recon-unfiled")
     def _load_more_unfiled(self, account_id: str, after: str) -> None:
@@ -467,39 +553,31 @@ class ReconciliationsScreen(SectionScreen):
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(
-            self._append_unfiled, account_id, items_of(body), body.get("next_cursor")
-        )
+        self.app.call_from_thread(self._append_unfiled, items_of(body), body.get("next_cursor"))
 
     def _more_failed(self, message: str) -> None:
         """The rows already loaded stay; only the next ones did not arrive."""
         self._unfiled_busy = False
         self.notify(message, title="Failed", severity="error")
 
-    def _append_unfiled(self, account_id: str, items: list, next_cursor: str | None) -> None:
+    def _append_unfiled(self, items: list, next_cursor: str | None) -> None:
         self._unfiled_busy = False
-        if self._mode != "unfiled":  # esc landed while the read was in flight
+        if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled.extend(items)
         self._unfiled_next = next_cursor
-        windows = blocking_windows(self._recons, account_id)
+        windows = blocking_windows(self._recons, self._open_aid)
         rows = unfiled_rows(items, self._unfiled_cats, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.append_rows(rows, more=next_cursor is not None)
 
     def _unfiled_failed(self, message: str) -> None:
         self._unfiled_busy = False
-        self._mode = "batches" if self._batches else "accts"
-        self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
-        self._batch_list.set_growth(more=None)
-        self._batch_list.set_headers(_BATCH_HEADERS, align_right={2, 3, 4})
-        self._batch_list.set_caption(self._batch_caption())
-        self._batch_list.set_rows(batch_rows(self._batches, palette=PALETTE))
+        self._show_batches()
         self.notify(message, title="Failed", severity="error")
 
     def _show_unfiled(
         self,
-        account_id: str,
         items: list,
         total: int,
         next_cursor: str | None,
@@ -507,13 +585,15 @@ class ReconciliationsScreen(SectionScreen):
         cursor: int = 0,
     ) -> None:
         self._unfiled_busy = False
-        if self._mode != "unfiled":  # esc landed while the read was in flight
+        if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled = list(items)
         self._unfiled_total = total
         self._unfiled_next = next_cursor
         self._unfiled_cats = cat_names
-        windows = blocking_windows(self._recons, account_id)
+        # the panel already holds this account's reconciliations: the `!`
+        # windows cost no read of their own
+        windows = blocking_windows(self._recons, self._open_aid)
         rows = unfiled_rows(items, cat_names, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.set_rows(rows)
@@ -523,7 +603,7 @@ class ReconciliationsScreen(SectionScreen):
 
     def _unfiled_caption(self) -> str:
         """`In no batch · BCP PEN · 20 of 1716 loaded · oldest first · …`"""
-        acct = self._selected_account()
+        acct = self._open_account()
         label = acct[1] if acct else "—"
         return (
             f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_total} loaded"
@@ -551,7 +631,7 @@ class ReconciliationsScreen(SectionScreen):
         title = record.get("title") or "—"
         amount = format_cents(record.get("amount_cents"))
         day = (record.get("date") or "")[:10]
-        acct = self._selected_account()
+        acct = self._open_account()
         self._confirm_delete(
             record,
             f"{title} · {amount} · {day} · {acct[1] if acct else '—'}\n"
@@ -585,18 +665,26 @@ class ReconciliationsScreen(SectionScreen):
             self.notify(error, title="Failed", severity="error")
             return
         self.notify("Transaction deleted.")
-        self._reload_unfiled(self._selected_account())
+        self._reload_unfiled()
 
     def action_new(self) -> None:
-        acct = self._selected_account()
+        """`n` — a reconciliation for the open account, or, with no panel open,
+        for the account under the cursor. Saved, it opens that account's panel
+        with the cursor on the new one (owner, 2026-09-25)."""
+        acct = self._open_account() or self._selected_account()
         if not acct:
             self.notify("No account selected.", severity="error")
             return
-        self._resume_batch = True
-        self._resume_key = None
+
+        def saved(new_id: str | None) -> None:
+            if new_id is None:  # left without saving: nothing changed
+                return
+            self._open_aid = acct[0]
+            self._resume_key = new_id
+            self._load()
+
         self.app.push_screen(
-            NewReconciliationScreen(account_id=acct[0], account_name=acct[1]),
-            lambda _result: self._load(),
+            NewReconciliationScreen(account_id=acct[0], account_name=acct[1]), saved
         )
 
 
@@ -632,6 +720,7 @@ class NewReconciliationScreen(FormScreen):
         self._display: dict = {}
         self._accounts: list = []
         self._preset_account = account_id
+        self._new_id: str | None = None
         if account_id:  # created from within an account — don't ask for it again
             self._values["account"] = account_id
             self._display["account"] = account_name or account_id[:8]
@@ -758,8 +847,9 @@ class NewReconciliationScreen(FormScreen):
 
     # ---- submit ----------------------------------------------------------
     def _payload(self) -> dict:
+        self._new_id = str(uuid.uuid4())
         payload = {
-            "id": str(uuid.uuid4()),
+            "id": self._new_id,
             "account_id": self._values["account"],
             "name": self._values["name"],
         }
@@ -775,8 +865,10 @@ class NewReconciliationScreen(FormScreen):
         return payload
 
     def _done(self) -> None:
+        """Dismiss with the new id — minted here, in `_payload` — so the browse
+        can land its cursor on the reconciliation just made."""
         self.notify("Reconciliation created.")
-        self.dismiss()
+        self.dismiss(self._new_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -892,8 +984,7 @@ class ReconciliationDetailScreen(
         """Main-thread: rebind _record from a refreshed batch, then repaint the
         header. Called via call_from_thread so the worker never mutates screen
         state directly, and a cancelled stale load can't clobber _record (backlog §5)."""
-        # keep _record list-row-shaped: drop the embedded window keys
-        self._record = {k: v for k, v in fresh.items() if not k.startswith("transactions")}
+        self._record = fresh
         self._render_header()
 
     def _set_acct_name(self, name: str | None) -> None:
@@ -949,18 +1040,15 @@ class ReconciliationDetailScreen(
             kw = screen_fetch_kwargs(self.app)
             if refresh_record:
                 # refetch the batch itself too — a stale header/status would
-                # misrepresent balances and the read-only gate. By id: scanning
-                # the collection stops at one page and falsely reported later
-                # records as deleted (backlog 6.2b).
-                try:
-                    fresh = reconcile_cmd.fetch_reconciliation(cfg, self._id, limit=1, **kw)
-                except EngineError as err:
-                    if err.status == 404:
-                        if not worker.is_cancelled:
-                            self.app.call_from_thread(self._record_gone)
-                        return
-                    raise
+                # misrepresent balances and the read-only gate. There is no
+                # read by id (engine, 2026-09-23): the account's list is whole,
+                # so a row missing from it is a row that was deleted.
+                listed = reconcile_cmd.fetch_reconciliations(cfg, account_id=self._account_id, **kw)
+                fresh = next((r for r in items_of(listed) if r.get("id") == self._id), None)
                 if worker.is_cancelled:
+                    return
+                if fresh is None:
+                    self.app.call_from_thread(self._record_gone)
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
                 self.app.call_from_thread(self._apply_fresh_record, fresh)

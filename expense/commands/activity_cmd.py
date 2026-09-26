@@ -70,14 +70,15 @@ class NameMaps:
     """Id → name for the three reference lists an activity page keeps naming.
 
     A page of activity is mostly rows about accounts, categories and hashtags,
-    and resolving each one alone costs a live `GET /<kind>/<id>` — two for a
-    reconciliation, which also reads its account. The three whole lists are
-    small and bounded, so reading them once per page costs three engine reads
-    instead of one-to-two per row.
+    and resolving each one alone costs a live `GET /<kind>/<id>` (a
+    reconciliation reads its account). The three whole lists are small and
+    bounded, so reading them once per page costs three engine reads instead of
+    one per row.
 
-    Not a general cache: transactions and reconciliations have no listing
-    cheap enough to preload and still resolve one read at a time, and an id
-    missing from a map (a row deleted since, a list that failed to load) falls
+    Not a general cache: transactions have no listing cheap enough to preload
+    and still resolve one read at a time (a reconciliation is named from the
+    activity row's own snapshot, with no read of its own), and an id missing
+    from a map (a row deleted since, a list that failed to load) falls
     through to that same per-row read. Every map is independently
     failure-silent — an empty one costs speed, never correctness.
     """
@@ -127,28 +128,36 @@ def _display_name(
     if path == "hashtags":
         name = row.get("name")
         return f"#{name}" if name else _short_id(resource_id)
-    if path == "reconciliations":
-        date = row.get("statement_date") or row.get("date")
-        account_id = row.get("account_id")
-        account_name = None
-        if isinstance(account_id, str):
-            # The batch's account comes from the preloaded map when there is
-            # one — this is the second of the two reads a reconciliation row
-            # used to cost.
-            account_name = names.accounts.get(account_id) if names else None
-        if account_name is None and isinstance(account_id, str):
+    return row.get("name") or _short_id(resource_id)
+
+
+def _reconciliation_label(
+    snapshot: object,
+    resource_id: str,
+    client: ExpenseClient,
+    names: NameMaps | None = None,
+) -> str:
+    """`August 2026 / BCP PEN` — the reconciliation's name, then its account.
+
+    Taken from the activity row's own snapshot: the engine has no read of one
+    reconciliation by id (since 2026-09-23), and the snapshot is the record as
+    it stood at that moment, which is what a history row should name anyway.
+    Either half alone when the other is missing, then the short id (owner,
+    2026-09-25).
+    """
+    row = snapshot if isinstance(snapshot, dict) else {}
+    name = row.get("name") if isinstance(row.get("name"), str) else None
+    account_id = row.get("account_id")
+    account_name = None
+    if isinstance(account_id, str):
+        account_name = names.accounts.get(account_id) if names else None
+        if account_name is None:
             try:
                 account_name = client.get(f"/accounts/{account_id}").get("name")
-            except EngineError:
+            except Exception:
                 account_name = None
-        if isinstance(date, str) and account_name:
-            return f"{date[:10]} / {account_name}"
-        if isinstance(date, str):
-            return date[:10]
-        if account_name:
-            return account_name
-        return _short_id(resource_id)
-    return row.get("name") or _short_id(resource_id)
+    parts = [part for part in (name, account_name) if part]
+    return " / ".join(parts) if parts else _short_id(resource_id)
 
 
 def _resolve_resource_name(
@@ -156,9 +165,11 @@ def _resolve_resource_name(
     resource_id: object,
     client: ExpenseClient,
     names: NameMaps | None = None,
+    snapshot: object = None,
 ) -> str:
     """Look up a human name for the row: the preloaded maps first, then a live
-    engine read.
+    engine read — except a reconciliation, which is named from `snapshot` (the
+    activity row's own `after_snapshot`, or `before_snapshot` for a delete).
 
     Returns the short 8-char UUID prefix on any miss / error so deleted
     records still have a usable handle.
@@ -170,6 +181,8 @@ def _resolve_resource_name(
     path = _RESOURCE_PATH.get(resource_type)
     if path is None:
         return _short_id(resource_id)
+    if path == "reconciliations":
+        return _reconciliation_label(snapshot, resource_id, client, names)
     if names is not None:
         hit = names.lookup(path, resource_id)
         if hit is not None:
@@ -208,7 +221,13 @@ def activity_display_cells(
         _action_label(item.get("action")),
         str(item.get("actor_type") or "—"),
         str(item.get("resource_type") or "—"),
-        _resolve_resource_name(item.get("resource_type"), item.get("resource_id"), client, names),
+        _resolve_resource_name(
+            item.get("resource_type"),
+            item.get("resource_id"),
+            client,
+            names,
+            snapshot=item.get("after_snapshot") or item.get("before_snapshot"),
+        ),
     ]
 
 

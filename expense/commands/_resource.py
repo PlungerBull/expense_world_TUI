@@ -289,9 +289,10 @@ def fetch_all_pages(
 ) -> list[dict]:
     """Exhaust a paginated resource. `fetch_page(limit, offset)` returns one raw body.
 
-    Offset paging survives only on the lists the engine has not moved yet
-    (activity, rates, reconciliations); accounts, categories and hashtags come
-    back whole and never go through here. Stops on an empty page, a short
+    Offset paging survives only in callers not yet moved off it (the two
+    whole-list readers of transactions, engine-uptake Phase 6); accounts,
+    categories, hashtags and reconciliations come back whole and never go
+    through here. Stops on an empty page, a short
     page, or having collected >= body["total"] (when the engine sends an int
     total). One copy of the loop — the previous three hand-rolled variants each
     had their own termination rule.

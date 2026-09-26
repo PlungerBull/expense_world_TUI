@@ -180,9 +180,11 @@ builder they share with Home, `reports_cmd.build_range_grid`, is covered by
 
 **`u` on the Reconciliations browse — the account's rows in no batch** (2026-09-22,
 mockup [expense-world-rows-in-no-batch.html](mockups/expense-world-rows-in-no-batch.html)).
-The **lower pane swaps**: same screen, same account cursor, and the batch list is
-replaced by that account's transactions belonging to no reconciliation
-(`GET /transactions?account_id=&unreconciled=true`). `esc` swaps it back, `⏎` opens the
+The **panel swaps**: same screen, same place, and the open account's reconciliations
+are replaced by its transactions belonging to no reconciliation
+(`GET /transactions?account_id=&unreconciled=true`). `u` works only while an account's
+panel is open (owner, 2026-09-25) — on the plain account list it does nothing and is
+not in the footer. `esc` swaps it back to the panel, `⏎` opens the
 edit form the ledger already uses — date and account are the two remedies for a row in
 no batch — and `d` deletes the cursor row after a confirm. **This is deliberately not a
 filtered ledger** (the first mockup drew one and the owner rejected it): reconciliation
@@ -258,8 +260,8 @@ cannot see, because it greps source rather than renders.
 ⚠️ **With one exception, and it is a real distinction rather than a let-out.** A
 panel title that is *chrome* disappears; one that is *information* becomes a line of
 content above the rule. The case that proves it is the Reconciliations browse, which
-stacks two lists: its lower caption (`BCP PEN · by statement start date`) is the only
-thing tying those batches to the account highlighted above, and dropping it leaves
+stacks two lists once a panel is open: its caption (`Reconciliations · BCP PEN ·
+oldest → newest`) is the only thing tying those rows to an account in the list above, and dropping it leaves
 two unlabelled tables on top of each other. Ask "would the screen still be
 unambiguous without this?" — not "is this a title?".
 
@@ -363,10 +365,22 @@ selection if there is one, else goes back to the screen that opened the ledger. 
 `?` card, so the Manage lists neither react to it nor advertise it. `h` is a *command*
 letter here, which is exactly what deleting the vim aliases on 2026-08-27 freed it for.
 
-**The Reconciliations browse keys**: `n` new batch, `u` swaps the lower pane to the
-account's rows in no batch, `d` deletes the cursor row **in that pane only** (it is a
-no-op on the batch list, where a batch's own delete lives one screen deeper), `esc`
-retreats one step — unfiled pane → batches → accounts → Home. `u` means *revert* on the
+**The Reconciliations browse** (owner's shape, 2026-09-25, mockup
+[expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html) M2) opens on
+the **account list alone**, full height, and reads no reconciliations: the engine lists
+them one account at a time (`GET /reconciliations?account_id=`, whole, in period order),
+so moving the account cursor costs nothing. `⏎ Its reconciliations` reads that account's
+list and opens the **panel** under the accounts, halving the height, with the cursor in
+it; the open account keeps an accent `▸`, and the breadcrumb grows to
+`Reconciliations ▸ <account>`. An account with none says `none yet · n to create one`
+inside the panel; a read that fails toasts and leaves the panel closed. Coming back from
+a reconciliation re-reads that account and lands on the same row. **Keys**: `n` new
+batch — for the open account, or with no panel for the account under the cursor, and once
+saved the panel opens on the new one; `u` swaps the panel to the account's rows in no
+batch (panel open only); `d` deletes the cursor row **in that pane only** (it is a
+no-op on the reconciliation list, where a batch's own delete lives one screen deeper);
+`esc` retreats one step — no-batch rows → the panel → the account list (`esc Close the
+panel`) → Home. `u` means *revert* on the
 batch screen one keypress away: the overlap was put to the owner with `o`/`f`/`x` as
 alternatives on 2026-09-22 and `u` was chosen knowingly.
 
@@ -493,8 +507,8 @@ meaning, "the next window of data", whether the window is rows or months.
 
 Transactions / Activity / Rates fetch real `limit`/`offset` pages sized to the
 window via `PagedListMixin` (`↑`/`↓` clamp at the fetched edge; a resize refetches with
-the offset re-anchored). Full-data screens window locally — Manage, the two
-Reconciliations panes splitting the space equally, the recon checklist at fit÷2 items —
+the offset re-anchored). Full-data screens window locally — Manage, the
+Reconciliations account list (full height alone, an equal split with the open panel), the recon checklist at fit÷2 items —
 where `↑`/`↓` walk through and cursor-restore lands on its page. Lists are quiet-border
 panels: border title carries the screen title, border subtitle the page status
 (`rows 21-40 of 133 · page 2 of 7`). Exempt: Home's month grid, static tables,

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from expense.commands.reconcile_cmd import app as reconcile_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page, strip_panel, whole
+from tests.unit.helpers import error_response, make_cli_app, strip_panel, whole
 
 cli_app = make_cli_app(reconcile_app, "reconcile")
 
@@ -52,44 +52,10 @@ RECON_UNENTERED_RESPONSE = {
     "difference_cents": None,
 }
 
-LIST_RESPONSE = page(
-    [RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE, RECON_UNENTERED_RESPONSE],
-    total=3,
-    limit=50,
-    offset=0,
-)
+LIST_RESPONSE = whole([RECON_DRAFT_RESPONSE, RECON_OFF_RESPONSE, RECON_UNENTERED_RESPONSE])
 
-DETAIL_WITH_TRANSACTIONS = {
-    **RECON_DRAFT_RESPONSE,
-    "transactions": [
-        {
-            "id": "tx-001",
-            "title": "Lunch",
-            "amount_cents": -1500,
-            "account_id": "22222222-2222-2222-2222-222222222222",
-            "category_id": "cat-food",
-            "date": "2026-04-15T12:00:00Z",
-            "reconciliation_id": RECON_DRAFT_RESPONSE["id"],
-            "version": 1,
-            "created_at": "2026-04-15T12:05:00Z",
-            "updated_at": "2026-04-15T12:05:00Z",
-            "deleted_at": None,
-        }
-    ],
-    "transactions_total": 3,
-    "transactions_limit": 1,
-    "transactions_offset": 0,
-    "transactions_truncated": True,
-}
-
-DETAIL_EMPTY_TRANSACTIONS = {
-    **RECON_DRAFT_RESPONSE,
-    "transactions": [],
-    "transactions_total": 0,
-    "transactions_limit": 50,
-    "transactions_offset": 0,
-    "transactions_truncated": False,
-}
+#: Every `reconcile list` names its account: the engine lists one at a time.
+ACCOUNT = ["--account-id", "22222222-2222-2222-2222-222222222222"]
 
 
 @respx.mock
@@ -120,8 +86,29 @@ def test_list_happy_with_account_filter(configured):
     balanced_row = next(line for line in lines if RECON_DRAFT_RESPONSE["id"] in line)
     assert "draft" in balanced_row
 
-    request = route.calls.last.request
-    assert request.url.params.get("account_id") == "22222222-2222-2222-2222-222222222222"
+    params = route.calls.last.request.url.params
+    assert params.get("account_id") == "22222222-2222-2222-2222-222222222222"
+    # whole since 2026-09-23: the engine refuses both paging parameters
+    assert "limit" not in params and "offset" not in params
+    # and no footer line under a whole list (M5)
+    assert "showing" not in result.output and "--offset" not in result.output
+
+
+def test_list_without_an_account_is_refused_before_any_request(configured):
+    """The engine lists one account at a time; Typer names the missing flag."""
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.get(f"{BASE}/v1/reconciliations")
+        result = runner.invoke(cli_app, ["reconcile", "list"])
+    assert result.exit_code != 0
+    assert "Missing option" in strip_panel(result.output)
+    assert "--account-id" in result.output
+    assert not route.called
+
+
+def test_list_takes_no_paging_flags(configured):
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT, "--limit", "5"])
+    assert result.exit_code != 0
+    assert "No such option" in strip_panel(result.output)
 
 
 @respx.mock
@@ -132,7 +119,7 @@ def test_list_renders_difference_column(configured):
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 0, result.output
     assert "Diff" in result.output
 
@@ -157,7 +144,7 @@ def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 0, result.output
 
     lines = result.output.splitlines()
@@ -175,10 +162,8 @@ def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
 
 @respx.mock
 def test_list_empty(configured):
-    respx.get(f"{BASE}/v1/reconciliations").mock(
-        return_value=httpx.Response(200, json=page([], total=0, limit=50, offset=0))
-    )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    respx.get(f"{BASE}/v1/reconciliations").mock(return_value=httpx.Response(200, json=whole([])))
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 0, result.output
     assert "(no reconciliations)" in result.output
 
@@ -188,51 +173,9 @@ def test_list_json_passthrough(configured):
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    result = runner.invoke(cli_app, ["reconcile", "list", "--json"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT, "--json"])
     assert result.exit_code == 0
     assert json.loads(result.output) == LIST_RESPONSE
-
-
-@respx.mock
-def test_get_with_transactions_window(configured):
-    route = respx.get(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
-        return_value=httpx.Response(200, json=DETAIL_WITH_TRANSACTIONS)
-    )
-    result = runner.invoke(
-        cli_app,
-        ["reconcile", "get", "11111111-1111-1111-1111-111111111111", "--limit", "1"],
-    )
-    assert result.exit_code == 0, result.output
-    assert "Statement April 2026" in result.output
-    assert "Transactions:" in result.output
-    assert "Lunch" in result.output
-    assert "more transactions" in result.output
-    assert "transactions list --reconciliation" in result.output
-
-    request = route.calls.last.request
-    assert request.url.params.get("limit") == "1"
-    assert request.url.params.get("debit_as_negative") == "true"
-
-
-@respx.mock
-def test_get_empty_transactions_hint(configured):
-    respx.get(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
-        return_value=httpx.Response(200, json=DETAIL_EMPTY_TRANSACTIONS)
-    )
-    result = runner.invoke(cli_app, ["reconcile", "get", "11111111-1111-1111-1111-111111111111"])
-    assert result.exit_code == 0, result.output
-    assert "(no transactions assigned)" in result.output
-    assert "transactions update <tx-id> --reconciliation-id" in result.output
-
-
-@respx.mock
-def test_get_404(configured):
-    respx.get(f"{BASE}/v1/reconciliations/missing").mock(
-        return_value=error_response(404, "NOT_FOUND", "Not found", None)
-    )
-    result = runner.invoke(cli_app, ["reconcile", "get", "missing"])
-    assert result.exit_code == 1
-    assert "NOT_FOUND" in result.output
 
 
 @respx.mock
@@ -540,7 +483,7 @@ def test_list_resolves_account_name_from_live_accounts(configured):
             json=whole([{"id": RECON_DRAFT_RESPONSE["account_id"], "name": "BCP Soles"}]),
         )
     )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 0, result.output
     assert accounts_route.called
     assert "BCP Soles" in result.output
@@ -552,7 +495,7 @@ def test_list_unresolvable_account_degrades_to_short_id(configured):
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 0, result.output
     assert "22222222" in result.output
     assert "BCP Soles" not in result.output
@@ -563,7 +506,7 @@ def test_list_surfaces_an_engine_refusal(configured):
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=error_response(401, "UNAUTHORIZED", "Token is not valid.")
     )
-    result = runner.invoke(cli_app, ["reconcile", "list"])
+    result = runner.invoke(cli_app, ["reconcile", "list", *ACCOUNT])
     assert result.exit_code == 1
     assert "UNAUTHORIZED" in result.output
 
@@ -629,47 +572,22 @@ def test_complete_json_passes_the_warnings_through(configured):
     assert json.loads(result.output)["warnings"] == ["a gap"]
 
 
-@respx.mock
-def test_complete_422_unfiled_rows_prints_a_command_that_runs(configured):
-    """The engine gives the count but neither the account nor the window, so
-    the CLI spends one extra read — on a call that has already failed — to
-    print a line the user can paste rather than a template with three holes."""
-    respx.post(_COMPLETE).mock(
-        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
-    )
-    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                **RECON_DRAFT_RESPONSE,
-                "account_id": "acc-1",
-                "date_start": "2026-07-24T00:00:00Z",
-                "date_end": "2026-08-25T00:00:00Z",
-            },
+def test_complete_422_unfiled_rows_prints_the_bare_hint_and_reads_nothing(configured):
+    """The engine gives the count but neither the account nor the window, and
+    the read by id that used to fill them in is gone (engine, 2026-09-23). The
+    owner accepted the placeholder hint: no extra request, and the flags the
+    hint names are the ones `transactions list` really has."""
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post(_COMPLETE).mock(
+            return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
         )
-    )
-    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+        result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+        assert [call.request.method for call in mock.calls] == ["POST"]
     assert result.exit_code == 1
-    assert "--account-id acc-1" in result.output
     assert "--unreconciled" in result.output
-    assert "--date-from 2026-07-24 --date-to 2026-08-25" in result.output
+    assert "--from <start> --to <end>" in result.output
     # and the engine's own envelope is still rendered underneath the hint
     assert "3 transaction(s) dated inside this period" in result.output
-
-
-@respx.mock
-def test_complete_422_unfiled_rows_degrades_when_the_record_cannot_be_read(configured):
-    """The extra read is a convenience, not a dependency: if it fails the user
-    still gets the flags, just without the values filled in."""
-    respx.post(_COMPLETE).mock(
-        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
-    )
-    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
-        return_value=error_response(404, "NOT_FOUND", "gone", None)
-    )
-    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
-    assert result.exit_code == 1
-    assert "--unreconciled" in result.output
 
 
 @respx.mock
@@ -682,9 +600,6 @@ def test_the_two_complete_refusals_do_not_borrow_each_others_hint(configured):
     """
     respx.post(_COMPLETE).mock(
         return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
-    )
-    respx.get(f"{BASE}/v1/reconciliations/{_RID}").mock(
-        return_value=error_response(404, "NOT_FOUND", "gone", None)
     )
     unfiled = runner.invoke(cli_app, ["reconcile", "complete", _RID])
     assert "at least one transaction" not in unfiled.output

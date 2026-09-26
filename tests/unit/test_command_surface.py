@@ -57,8 +57,11 @@ def _is_read(path: tuple[str, ...]) -> bool:
 
 
 def test_typer_tree_walk_finds_expected_command_count():
-    assert len(_LEAVES) >= 50, (
-        f"Expected at least 50 leaf commands across the CLI; "
+    # A floor, not a pin: it catches a walker that finds nothing, not a
+    # deliberate deletion. 49 on 2026-09-25, after the five `restore` commands
+    # and `reconcile get` left with the engine routes they called.
+    assert len(_LEAVES) >= 45, (
+        f"Expected at least 45 leaf commands across the CLI; "
         f"walker found {len(_LEAVES)} — Typer introspection may be broken."
     )
 
@@ -122,7 +125,12 @@ def test_no_command_restores_or_lists_deleted_rows():
 
 # Lists the engine returns whole and refuses to page (2026-09-23, `?limit=` /
 # `?offset=` are a 422). A paging flag here could only ever produce that error.
-_WHOLE_LISTS = [("accounts", "list"), ("categories", "list"), ("hashtags", "list")]
+_WHOLE_LISTS = [
+    ("accounts", "list"),
+    ("categories", "list"),
+    ("hashtags", "list"),
+    ("reconcile", "list"),
+]
 
 
 def test_whole_lists_take_no_paging_flags():
