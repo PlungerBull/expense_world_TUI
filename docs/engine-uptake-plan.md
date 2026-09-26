@@ -80,7 +80,7 @@ the list is now shorter.
 | 1 | Shared pieces for the transaction cursor | cursor §3.1–3.2 | — (**done**) |
 | 2 | The two panes that would show wrong numbers without an error | cursor §3.4–3.5 | M4, M6 (**done**, `be85a8b`) |
 | 3 | Deleted is deleted: restore commands and `include_deleted` removed | 6a §1 | — (**done**, `8d2fb7c`) |
-| 4 | Small lists come back whole | 6a §3 | M5 |
+| 4 | Small lists come back whole | 6a §3 | M5 (**done**, `c65a125`) |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — |
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
@@ -119,7 +119,7 @@ Your phase names the debrief sections that carry the engine facts.
 - **Commit on `main`, do not push.** Nothing is pushed until Phase 12 step 1, so `main` never
   carries a red CI run. Commit through `PATH="$PWD/.venv/bin:$PATH" git commit` (pre-commit runs
   mypy from the venv). Never `--no-verify`.
-- **The unit suite is red at the start, on purpose.** After Phase 3 there are **30 known
+- **The unit suite is red at the start, on purpose.** After Phase 4 there are **30 known
   failures**: 24 in `test_cmd_import_bank.py` (fixed by Phase 6) and 6 in
   `test_cmd_transactions.py` (fixed by Phase 9). Your phase must leave no failure outside
   that set, and must fix the ones it owns.
@@ -189,7 +189,7 @@ on get and on the old restore route) instead of restoring it, and
 `test_command_surface.py::test_no_command_restores_or_lists_deleted_rows` keeps both from coming
 back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns it.
 
-## Phase 4: small lists come back whole (6a §3)
+## Phase 4: small lists come back whole (done 2026-09-25, `c65a125`)
 
 - `fetch_accounts` / `fetch_categories` / `fetch_hashtags` and their `list` commands: drop
   `limit`, `offset`, `--limit`, `--offset`, and the pagination hint. **M5:** the table prints
