@@ -13,6 +13,10 @@ in the three engine debriefs**, and this plan cites their sections and does not 
 | **6a** | [engine-debrief-2026-09-23-phase6.md](engine-debrief-2026-09-23-phase6.md) | Restore gone, create caps, small lists whole, reconciliations per account |
 | **6b** | [engine-debrief-2026-09-23-phase6-part2.md](engine-debrief-2026-09-23-phase6-part2.md) | Activity and rates by cursor inside a date window; offset gone everywhere |
 
+**Added 2026-09-26 (owner):** Phase 10b takes up the engine's `POST /transactions/import` of
+2026-09-25, so the bank importer stops matching on its own and the uptake closes with no
+second copy of an engine rule left in this repo. Its facts are in engine-spec, not a debrief.
+
 **When done:** delete this file and the three debriefs (Phase 12). The reasons worth keeping move
 to [decisions.md](decisions.md) in Phase 11.
 
@@ -87,6 +91,7 @@ the list is now shorter.
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
 | 10 | Offset code deleted | 6b §4 | — |
+| 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
@@ -99,12 +104,14 @@ the list is now shorter.
 | 7 | 2 (done), **8** | Reuses Phase 2's growing list; converts `PagedListMixin` in place, which Activity and Rates use until Phase 8 deletes them |
 | 8 | nothing | |
 | 10 | 3, 4, 5, 6, 8, 9 | Deletes `fetch_all_pages` and `OFFSET_OPT`, which those phases stop using |
-| 11 | 3–10 | Documents what they built |
+| 10b | 6 (done) | Deletes `fetch_ledger`, which Phase 6 moved to the cursor |
+| 11 | 3–10, 10b | Documents what they built |
 | 12 | 11, plus the owner | Push, restart, contract run |
 
 **Shared files.** Phases that edit the same file should not run at the same time, or the
 second coder rebases: [reconciliations.py](../expense/tui/screens/reconciliations.py) (5, 6),
 [transactions_cmd.py](../expense/commands/transactions_cmd.py) (3, 9),
+[bank_import_cmd.py](../expense/commands/bank_import_cmd.py) (6, 10b),
 [_base.py](../expense/tui/screens/_base.py) `PagedListMixin` (7, 8),
 [_resource.py](../expense/commands/_resource.py) (3, 4, 10).
 
@@ -301,9 +308,8 @@ written into the engine repo as `expense_world_engine/docs/ask-calendar-day-date
 date be **accepted** as a whole calendar day, not refused, because refusing would stop the
 reconcile screen loading at all.
 
-**Heads-up for whoever picks up the importer:** the engine shipped `POST /transactions/import`
-on 2026-09-25 (engine `open-bugs.md`, *bank-import*). Once the importer calls it, `fetch_ledger`
-and the local matcher are deleted, including this phase's change to them.
+**Short-lived by design:** Phase 10b deletes `fetch_ledger` and the local matcher, including
+this phase's change to them. Phase 6 keeps the importer working until then.
 
 ## Phase 7: the ledger becomes one growing list (M3)
 
@@ -387,12 +393,101 @@ Delete `fetch_all_pages`, `OFFSET_OPT` and every `--offset`, and the offset bran
 `render_pagination_hint`. **Check:** `grep -rn offset expense/` finds nothing that talks to the
 engine.
 
+## Phase 10b: bank import through the engine (added 2026-09-26)
+
+**Why.** On 2026-09-25 the engine shipped `POST /transactions/import` (engine-spec, and engine
+`open-bugs.md` → *bank-import*). It matches a bank download against the ledger, writes what is
+missing in one database transaction, writes operation codes onto matched rows that lack one,
+reports rows inside a closed period without writing them, and reports the groups where the
+ledger holds more than the file. `expense import bank` still does all of that itself
+([bank_import/match.py](../expense/bank_import/match.py), `fetch_ledger`, a `PUT` per code, a
+`POST /transactions/batch`). Two copies of the matching rule would drift, and every future
+client would need a third. **The owner's order (2026-09-26): the complete switch, no stopgap,
+inside this uptake.**
+
+**This phase absorbs todo.md's old item 2** ([file-import-plan.md](file-import-plan.md) §4–§7):
+- **C2 (the title is the bank's text, whitespace collapsed; no description)** is built here,
+  because the title is what this phase sends. The engine refuses a `description` on an import
+  row anyway.
+- **C3 (delete the amount-only rule)** is done by deleting the matcher: the engine runs only
+  operation code, same day + title, adjacent day + title.
+- **C4 (the floors)** is built here. The engine says both stay client-side: rows dated before
+  2026-01-01, or before `--since YYYY-MM-DD` (the one-time floor, owner 2026-09-20), are
+  never sent.
+- **C5 (closed periods shown, not hidden)** becomes rendering the engine's `sealed` outcome. The
+  client-side reconciliation read and pre-filter are **not** built.
+- C1 (the TUI import door) stays in file-import-plan.md, and is built on this phase's code.
+
+**The flow** (one engine call per run):
+1. Parse the file as today ([bank_import/parse.py](../expense/bank_import/parse.py)); the account
+   pick, the leg per currency and the "currency with no leg" refusal are unchanged.
+2. Drop the rows under either floor.
+3. **More than 500 rows left: refuse before sending** (owner 2026-09-26). The line names the
+   count and says to export a shorter date range. Never split a file across requests: a row in
+   a later request can be claimed by a row an earlier one just created, and silently vanish.
+4. Build the rows: a fresh `uuid4` `id`, the leg's `account_id`, `date` as the **calendar day**
+   (`YYYY-MM-DD`, no conversion to an instant), signed `amount_cents`, `title`, `operation_code`.
+5. `POST /transactions/import` with `dry_run: true` without `--apply`, `false` with it. The apply
+   is **one** call, not a dry run followed by a write: its response is what happened. The
+   standard idempotency key covers retries.
+6. Render the response. A `422` names rows as `rows.<index>.<field>`; map the index back to the
+   file's line number so the refusal reads `! row 14: …`, and nothing was written.
+
+**Where the code lives (one copy, for the TUI door to reuse):** request-building and the
+response → per-row view model go in [expense/bank_import/](../expense/bank_import/) as pure
+functions (e.g. `engine.py`), tested without HTTP. The command only reads, calls and prints.
+
+**Output (M5, the builder's call):**
+- The preview table keeps its columns. `match` reads `new`, `in ledger · operation`,
+  `in ledger · same day`, `in ledger · ± 1 day` (`adjacent_day`), with ` · +code` when
+  `backfill_code` is set, and `closed · <period name>` for `sealed`.
+- The period name comes from `GET /reconciliations?account_id=` for the legs that have a
+  `sealed` row (the response carries ids only), the same name-join pattern as elsewhere.
+- Sealed rows are also their own block under the table (C5: "a visible skipped block"), so a
+  bank restating something inside a closed month is noticed.
+- The summary line counts `new`, `matched` (by rule), `sealed`, `backfilled`, and the file's
+  refused and floor-skipped rows. `excess` renders as today's warning block.
+- **`--json` is the engine's response verbatim** (CLAUDE.md: `--json` is the raw engine body).
+  Parser refusals, floor skips and the 500-row refusal go to stderr.
+- Exit 1 on a `422` or any parser-refused row on `--apply`, as today.
+
+**Deleted:** [bank_import/match.py](../expense/bank_import/match.py) whole; in
+[bank_import_cmd.py](../expense/commands/bank_import_cmd.py) `fetch_ledger`, `_local_date`,
+`payload_for`, the backfill `PUT` loop, the `post_transaction_batch` call and the parts of
+`WriteReport` / `Placement` / `json_doc` that carried them; `clean_title` and `MERCHANT_WIDTH`
+(C2); the matcher tests in [test_bank_import.py](../tests/unit/test_bank_import.py) (the parser
+tests stay). [batch_write.py](../expense/batch_write.py) stays: the sheet importer and the LOG
+bar still use it. The `bank_files` memory is untouched (C1 deletes it).
+
+**Known consequence, not a decision:** the bank rows written on 2026-09-12 carry the old cleaned
+titles. A later card file (no operation numbers) overlapping those days would not match them
+by title. The `--since` floor at the first real import, set after the last existing row, is
+what keeps them apart.
+
+**Tests:**
+- Unit, request side: floors applied; the 501st row refused before any call; the leg per
+  currency; a bare calendar day in `date`; the title collapsed; no `description`; `dry_run`
+  true without `--apply`, false with it; exactly one `POST /transactions/import` per run and no
+  `GET /transactions`, `PUT` or `/batch`.
+- Unit, response side (respx, the fixture copied from engine-spec's shape): each outcome and
+  rule renders; `sealed` names the period; `excess` renders; `--json` is the body byte for byte;
+  a `422` on `rows.3.date` reads as the file's line.
+- Error-shape test (the command-surface guard already requires one).
+- **Contract, run at Phase 12:** a dry run writes nothing; an apply creates a row, and the same
+  file again reports it `matched` by `operation_code`; a row inside a completed period comes
+  back `sealed`.
+
+**Check:** `grep -rn "match_rows\|fetch_ledger\|transactions/batch" expense/commands/bank_import_cmd.py`
+finds nothing.
+
 ## Phase 11: docs and checks
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
   The "Pagination (human mode)" paragraph is **already rewritten** (Phase 4); only check that its
   *Pending* line is gone.
 - [cli-runtime.md](cli-runtime.md): a short "three list shapes" section pointing at engine-spec.
+- [cli-spec.md](cli-spec.md) `expense import bank`: rewritten for Phase 10b (the engine matches;
+  titles verbatim; `--since`; the 500-row refusal; `--json` is the engine body).
 - [tui.md](tui.md): the growing-list `PagedListMixin` (ledger and `u` list), the new
   Reconciliations browse, Activity and Rates gone, and in §4 (the keymap) that `pgdn` means
   "10 more" in a growing list and "next page" everywhere else.
@@ -407,6 +502,9 @@ engine.
     round 1 of the mockup).
   - "Reconciliations opens on the accounts": nothing is read until `⏎`. Rejected: read on
     cursor move, and read every account up front (M2 options A and B).
+  - "Bank downloads are matched against the ledger" is **amended**, not replaced: the matching
+    moved into the engine (Phase 10b), rule 4 is gone, titles are the bank's text. Rejected:
+    keeping the client matcher beside the engine's; splitting a file over 500 rows.
 - [file-import-plan.md](file-import-plan.md): move in the **midnight caveat** (cursor §6.1). The
   `u` pane's `!` hint is right only because every row is stored at 00:00 Lima; the first import
   that writes a real time of day is the point to ask the engine again (engine `open-bugs.md` D13).
@@ -429,10 +527,12 @@ engine.
      reverse of the default; `/count` equal to the rows walked; `offset` a `422`;
    - a small list returns everything with no `total` (the reconciliation half, including the
      `422` without `account_id` and the `405` by id, was written in Phase 5);
-   - an activity window walked to null, then the older window from the echoed `date_from`.
+   - an activity window walked to null, then the older window from the echoed `date_from`;
+   - the bank import, as listed in Phase 10b.
 6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
    In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
    the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's
    open-work paragraph, and the 6a debrief link in
    [category-hashtags-plan.md](category-hashtags-plan.md) §1 (point it at engine-spec instead).
-   Tell the engine side to delete `open-bugs.md` → `transaction-cursor` and `phase-6-lists`.
+   Tell the engine side to delete `open-bugs.md` → `transaction-cursor`, `phase-6-lists` and
+   `bank-import`.

@@ -13,14 +13,18 @@ deleted — per the "each fact has one home" rule.
 The engine half of the same plan is
 [expense_world_engine/docs/file-import-plan.md](../../expense_world_engine/docs/file-import-plan.md).
 
-**This file is two asks, not one** *(split 2026-09-20, [todo.md](todo.md)
-"Now")*. They are separated by the mockup gate, and by the fact that the first
-is what the first real import rests on while the second is convenience over it:
+**Only C1 is still owned here** *(2026-09-26)*. On 2026-09-25 the engine shipped
+`POST /transactions/import`, which does the matching, the code backfill and the closed-period
+check itself. The owner moved the switch to it into the engine uptake,
+[engine-uptake-plan.md](engine-uptake-plan.md) **Phase 10b**, which also builds C2 and C4,
+makes C3 unnecessary (the engine has no amount-only rule) and turns C5 into rendering the
+engine's `sealed` outcome. §4–§7 below stay as the record of *what* was decided; Phase 10b is
+*how* it is built. §2 describes the importer before Phase 10b.
 
 | Ask | Sections | Gate |
 |---|---|---|
-| **2 of 4** — the import rules that need no screen | §4 C2, §5 C3, §6 C4, §7 C5 | none — build on review |
-| **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet |
+| ~~2 of 4~~ the import rules | §4–§7 | **Moved** into engine-uptake Phase 10b |
+| **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet; built on Phase 10b's code |
 
 §1–§2 and §8–§10 are context for both. **§6's one-time floor is superseded**: it
 is a `--since YYYY-MM-DD` flag, not the constant this file implies — the owner
@@ -146,6 +150,9 @@ identically every time. The variation above is between *different* purchases.
 
 ## 5. C3 — matching: delete rule 4
 
+*Done by the engine (2026-09-25): `POST /transactions/import` runs rules 1–3 only. Phase 10b
+deletes the client matcher.*
+
 Rules kept, in order, each ledger row claimable once:
 
 1. operation code (exact, per account)
@@ -185,6 +192,10 @@ any edit. Not needed while the exposure is one open month.
 ---
 
 ## 7. C5 — closed periods are shown, not hidden
+
+*Superseded in mechanism (2026-09-26): the engine reports each such row as `sealed` with the
+period's id. Phase 10b renders that as the visible block; the pre-filter and read below are
+not built. The decision (shown, not hidden) stands.*
 
 The importer asks the engine for the account's completed reconciliations and drops every file
 row dated inside one *before* matching. Those rows appear in the preview as their own
@@ -236,7 +247,8 @@ month-end reconciliation difference is the only backstop.
    actually contained, since a card cycle closes mid-month and cannot be derived from dates.)
 2. Engine: the wall + `operation_code` frozen
    ([engine plan](../../expense_world_engine/docs/file-import-plan.md)).
-3. CLI: verbatim titles (§4), rule 4 deleted (§5), floors (§6), closed-period skip (§7).
+3. CLI: the importer on the engine's endpoint, with verbatim titles (§4), floors (§6) and
+   closed-period rows shown (§7): [engine-uptake-plan.md](engine-uptake-plan.md) Phase 10b.
 4. TUI import door (§3) — **mockup first**, per CLAUDE.md "Mock every screen before building
    it".
 5. First real bank import.

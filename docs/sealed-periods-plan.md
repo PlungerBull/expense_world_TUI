@@ -175,11 +175,11 @@ Off-by-one overlaps are the expected mistake, not an exotic one.
 
 ## 6. S4 — the wall, named at the two doors that can hit it
 
-The importer's real answer is ask 2's **C5** pre-filter: fetch the account's
-completed reconciliations, drop file rows dated inside one *before* matching, and
-show them as a visible skipped block. That is in
-[file-import-plan.md](file-import-plan.md) §7 and stays there — this ask does not
-duplicate it.
+The importer's real answer is now the engine's: since 2026-09-25
+`POST /transactions/import` reports a row inside a closed period as `sealed` and never
+writes it, and [engine-uptake-plan.md](engine-uptake-plan.md) Phase 10b shows those rows
+as a visible block. That replaced ask 2's **C5** pre-filter (2026-09-26); this ask does
+not duplicate it. The `import bank` bullet below describes the importer before Phase 10b.
 
 What belongs **here** is the floor under it, for the rows a pre-filter misses and
 for the LOG bar, which has no pre-filter at all:

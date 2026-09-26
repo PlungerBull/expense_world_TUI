@@ -40,14 +40,14 @@ whys moving to [decisions.md](decisions.md).
 |---|---|---|---|
 | **0** | **Engine uptake: everything the engine changed on 2026-09-23** | [engine-uptake-plan.md](engine-uptake-plan.md) | In progress since 2026-09-23 |
 | 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | Built 2026-09-21/22; closes with the engine uptake's contract run |
-| 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | Accepted 2026-09-19 |
+| 2 | ~~The import rules (C2–C5)~~ | **Moved into item 0** on 2026-09-26: [engine-uptake-plan.md](engine-uptake-plan.md) Phase 10b switches `import bank` to the engine's `POST /transactions/import` and builds C2 and C4 there | Moved |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 5 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
 
 **Why this order.** The engine uptake comes first because nothing else can be tested against
-the engine until it lands, and it closes sealed periods on the way. The import rules are what
-the first real bank import rests on. Tags that know the category is independent of them and
+the engine until it lands, and it closes sealed periods on the way. It also carries the
+import rules now (Phase 10b), since they are what the first real bank import rests on. Tags that know the category is independent of them and
 could move earlier. The import door is the largest and the only one with nothing drawn.
 
 One rule from the engine side is **absolute**
@@ -56,9 +56,13 @@ One rule from the engine side is **absolute**
 window against them, and the import is then refused.
 
 ```
-engine uptake ──▶ restart ──▶ owner: update the sheet, re-import, create + close the 2026 periods
-                                │
-import rules ───────────────────┴──▶ category tags ──▶ import door ──▶ first real bank import
+engine uptake (incl. Phase 10b, the importer on the engine)
+      │
+      ▼
+restart ──▶ owner: update the sheet, re-import, create + close the 2026 periods
+      │
+      ▼
+category tags ──▶ import door ──▶ first real bank import
 ```
 
 ---
