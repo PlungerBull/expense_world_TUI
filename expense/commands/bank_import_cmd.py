@@ -5,8 +5,9 @@ The flow, as drawn in docs/mockups/expense-world-bank-import.html and picked
 the first run — option B), then hand every row to the engine's
 `POST /transactions/import` in **one** call, which matches the rows against
 the ledger and, under `--apply`, writes what is missing in one database
-transaction. A group where the ledger holds more than the file is a loud
-warning (option D): it is the one way an earlier double entry surfaces.
+transaction. A day where the ledger holds a row of the same amount that no
+file row matched is a loud warning (option D): it is how an earlier double
+entry, or a row about to be logged twice under another wording, surfaces.
 
 Since 2026-09-26 the matching is the engine's, not this file's (engine-uptake
 Phase 10b): a second copy of the rule would drift, and every other client
@@ -30,6 +31,7 @@ from expense.bank_import.engine import (
     IMPORT_MAX_ROWS,
     RULE_LABELS,
     ExcessGroup,
+    IncompleteAnswer,
     Placed,
     SentRow,
     excess_groups,
@@ -280,8 +282,13 @@ def _file_banner(rows: list[BankRow], bad: list[BadRow]) -> str:
 def post_import(cfg, prepared: Prepared, *, dry_run: bool, verbose: bool) -> dict:
     """`POST /transactions/import`. The apply is this one call, not a dry run
     followed by a write: its response is what happened. The client's
-    idempotency key covers a retry."""
-    with ExpenseClient(cfg, verbose=verbose, timeout_read=300.0) as client:
+    idempotency key covers a retry.
+
+    The client's default read timeout (60 s). Measured 2026-09-26 against the
+    local engine: a 500-row dry run answers in 0.05 s, and an apply adds at
+    most 500 inserts in one transaction. The 300 s this used to set belonged
+    to the old chunked batch write."""
+    with ExpenseClient(cfg, verbose=verbose) as client:
         return client.post(
             "/transactions/import", json_body=request_body(prepared.sent, dry_run=dry_run)
         )
@@ -314,6 +321,7 @@ def render_result(
     names: dict[str, str],
     *,
     show_all: bool,
+    applied: bool,
 ) -> None:
     """The table, then what did not go in and why, then the summary."""
     shown = placed if show_all else placed[:PREVIEW_ROWS]
@@ -339,7 +347,7 @@ def render_result(
     if len(placed) > len(shown):
         typer.echo(f"  … {len(placed) - len(shown)} more · pass --all to print every row")
     typer.echo("")
-    typer.echo("  " + summary_line(prepared, placed))
+    typer.echo("  " + summary_line(prepared, placed, applied=applied))
     for line in sealed_lines(placed, names):
         typer.echo("  " + line)
     for line in excess_lines(excess):
@@ -354,7 +362,7 @@ def render_result(
         typer.echo(f"  ! row {b.line}: {b.reason}")
 
 
-def summary_line(prepared: Prepared, placed: list[Placed]) -> str:
+def summary_line(prepared: Prepared, placed: list[Placed], *, applied: bool) -> str:
     total = len(prepared.rows) + len(prepared.bad)
     new = sum(1 for p in placed if p.outcome == "new")
     matched = [p for p in placed if p.outcome == "matched"]
@@ -370,6 +378,10 @@ def summary_line(prepared: Prepared, placed: list[Placed]) -> str:
     parts = [f"{total} rows", f"{new} new", f"{len(matched)} in the ledger"]
     if detail:
         parts[-1] += f" ({detail})"
+    codes = sum(1 for p in placed if p.backfill_code)
+    if codes:
+        done = "written" if applied else "to write"
+        parts.append(f"{codes} code{'' if codes == 1 else 's'} {done}")
     if sealed:
         parts.append(f"{sealed} in a closed period")
     if prepared.before_floor:
@@ -462,6 +474,30 @@ def render_refusal(err: EngineError, prepared: Prepared) -> None:
     typer.echo("  Nothing was written.", err=True)
 
 
+def _check_answer(response: dict, prepared: Prepared, *, applied: bool) -> list[Placed]:
+    """Every sent row answered, or exit 1 saying so — never a count that is
+    quietly short."""
+    try:
+        return placements(response, prepared.sent)
+    except IncompleteAnswer as gap:
+        n = len(prepared.sent)
+        typer.echo(
+            f"Error: the engine answered {n - len(gap.missing)} of the {n} rows sent"
+            + (f", plus {len(gap.unknown)} it was never sent" if gap.unknown else "")
+            + " — nothing below would be complete, so nothing is shown.",
+            err=True,
+        )
+        for s in gap.missing:
+            typer.echo(f"  ! row {s.row.line}: no answer", err=True)
+        if applied:
+            typer.echo(
+                "  The import may have been written. Run the same file again without "
+                "--apply to see what the ledger holds now.",
+                err=True,
+            )
+        raise typer.Exit(code=1) from gap
+
+
 def _stderr_notes(prepared: Prepared) -> None:
     """Under `--json`, stdout is the engine's body alone; what the client
     held back is said on stderr."""
@@ -525,11 +561,19 @@ def bank(
     if json_output:
         emit_json(response)
         _stderr_notes(prepared)
+        _check_answer(response, prepared, applied=apply)
     else:
-        placed = placements(response, prepared.sent)
+        placed = _check_answer(response, prepared, applied=apply)
         names, names_error = period_names(cfg, placed, verbose=verbose)
         legs = {i: n for i, n in prepared.group.legs.values()}
-        render_result(prepared, placed, excess_groups(response, legs), names, show_all=show_all)
+        render_result(
+            prepared,
+            placed,
+            excess_groups(response, legs),
+            names,
+            show_all=show_all,
+            applied=apply,
+        )
         if names_error:
             typer.echo(f"  ! could not read the closed periods' names: {names_error}")
         render_footer(placed, applied=apply)

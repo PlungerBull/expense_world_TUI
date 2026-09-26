@@ -74,7 +74,9 @@ class Placed:
 
 @dataclass(frozen=True)
 class ExcessGroup:
-    """A day where the ledger holds more rows of one amount than the file."""
+    """A day and amount the file reports where the ledger still holds a row no
+    file row claimed (the engine's `excess`). Equal counts are included: that
+    ledger row and a `new` file row may be one movement in two wordings."""
 
     account_name: str
     date_iso: str
@@ -106,15 +108,36 @@ def request_body(sent: list[SentRow], *, dry_run: bool) -> dict:
     return {"dry_run": dry_run, "rows": [s.payload() for s in sent]}
 
 
+class IncompleteAnswer(Exception):
+    """The response does not answer exactly the rows that were sent."""
+
+    def __init__(self, missing: list[SentRow], unknown: list[str]):
+        self.missing = missing
+        self.unknown = unknown
+        super().__init__(
+            f"the engine answered {len(missing)} sent row(s) too few and "
+            f"{len(unknown)} it was never sent"
+        )
+
+
 def placements(response: dict, sent: list[SentRow]) -> list[Placed]:
     """The response's rows joined back to the file's, by the id each was sent
-    under — in the file's order."""
+    under — in the file's order.
+
+    Raises IncompleteAnswer unless every sent id comes back exactly once and
+    nothing else does: a row silently missing from the answer would make
+    every count under-report without a word.
+    """
     by_id = {s.id: s for s in sent}
+    items = response.get("rows") or []
+    returned = [str(item.get("id")) for item in items]
+    missing = [s for s in sent if s.id not in returned]
+    unknown = [i for i in returned if i not in by_id]
+    if missing or unknown or len(returned) != len(sent):
+        raise IncompleteAnswer(missing, unknown)
     out: list[Placed] = []
-    for item in response.get("rows") or []:
-        s = by_id.get(str(item.get("id")))
-        if s is None:
-            continue
+    for item in items:
+        s = by_id[str(item.get("id"))]
         out.append(
             Placed(
                 sent=s,

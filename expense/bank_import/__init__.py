@@ -6,8 +6,8 @@ Two modules, both pure (no HTTP, no typer, no config):
                (whitespace collapsed), currency, signed cents, operation code
     engine.py  BankRows → the `POST /transactions/import` body, and the
                engine's answer → one view per row (new, in the ledger by which
-               rule, or inside a closed period), plus the groups where the
-               ledger holds MORE than the file
+               rule, or inside a closed period), plus the days where the
+               ledger holds a row of the same amount that no file row matched
 
 The matching itself is the engine's (engine-spec `POST /transactions/import`,
 taken up 2026-09-26). The command that reads the file, asks which account and

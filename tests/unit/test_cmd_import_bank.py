@@ -292,7 +292,7 @@ def test_each_outcome_reads_in_the_match_column(configured, monkeypatch):
     assert "03144755  in ledger · ± 1 day" in out
     assert (
         "4 rows  ·  1 new  ·  3 in the ledger (1 by operation · 1 by same day · 1 by ± 1 day)"
-        in out
+        "  ·  1 code to write" in out
     )
     assert "1 matched row in the ledger have no operation code yet — --apply writes it" in out
 
@@ -388,6 +388,44 @@ def test_apply_reports_the_codes_it_wrote(configured, monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert "1 operation code written onto existing rows" in result.output
+    assert "1 code written" in result.output
+
+
+@respx.mock
+def test_an_answer_short_of_a_row_is_an_error_not_a_smaller_count(configured, monkeypatch):
+    """If the engine answers fewer rows than were sent, every count would be
+    quietly short. Exit 1, naming the row with no answer, and say an apply
+    may have been written."""
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])
+    _engine()
+    respx.post(f"{BASE}/v1/transactions/import").mock(
+        side_effect=lambda request: httpx.Response(
+            200,
+            json={
+                "dry_run": False,
+                "rows": [
+                    {
+                        "id": json.loads(request.content)["rows"][0]["id"],
+                        "outcome": "new",
+                        "rule": None,
+                        "ledger_id": None,
+                        "backfill_code": None,
+                        "sealed_by": None,
+                    }
+                ],
+                "excess": [],
+                "counts": {"new": 1, "matched": 0, "sealed": 0, "backfilled": 0},
+            },
+        )
+    )
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+    assert result.exit_code == 1
+    assert "the engine answered 1 of the 2 rows sent" in result.output
+    assert "! row 3: no answer" in result.output
+    assert "may have been written" in result.output
+    assert "written ·" not in result.output  # no partial summary
 
 
 @respx.mock

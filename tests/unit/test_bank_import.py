@@ -7,8 +7,11 @@ mixed S/ and $, no operation number, and padded merchant descriptors. The
 response shape is engine-spec `POST /transactions/import` (2026-09-25).
 """
 
+import pytest
+
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
+    IncompleteAnswer,
     Placed,
     excess_groups,
     match_label,
@@ -293,3 +296,18 @@ def test_a_row_whose_operation_cell_is_junk_imports_without_a_code():
     )
     assert bad == []
     assert rows[0].operation_code is None
+
+
+def test_a_response_missing_a_row_fails_loudly():
+    sent = _sent()
+    with pytest.raises(IncompleteAnswer) as gap:
+        placements({"rows": [_result(sent[0].id), _result(sent[2].id)]}, sent)
+    assert [s.row.line for s in gap.value.missing] == [3]
+
+
+def test_a_response_with_a_row_never_sent_fails_loudly():
+    sent = _sent()
+    rows = [_result(s.id) for s in sent] + [_result("stranger")]
+    with pytest.raises(IncompleteAnswer) as gap:
+        placements({"rows": rows}, sent)
+    assert gap.value.unknown == ["stranger"]
