@@ -14,17 +14,15 @@ one widget:
   window follows the cursor (`cursor // page_size`), so `↑`/`↓` walk straight
   through page boundaries and cursor-restore-after-write lands on the right
   page for free.
-- fetched-page mode (`page_meta=(offset, total)`): `_rows` is one page a
-  screen fetched with real limit/offset; the page keys post `PageRequested`
-  and the screen refetches (see `PagedListMixin`). `↑`/`↓` clamp at the edge —
-  paging is always a deliberate keypress (mockup pick A).
 - growing mode (`set_growth(more=…)`, 2026-09-25, mockup
   expense-world-engine-uptake.html M3/M6): `_rows` is every row loaded so far
   and the window follows the cursor, as in window mode. `pgdn` does not turn a
   page: it posts `MoreRequested`, the screen fetches the next `GROW_STEP` rows
   by cursor and appends them (`append_rows`), and the cursor lands on the first
   new one. The engine hands out "the rows after this one", never "row 41", so
-  a list that only ever grows at the end is the shape that fits it.
+  a list that only ever grows at the end is the shape that fits it (see
+  `GrowingListMixin`). It replaced the fetched-page mode (`page_meta`,
+  `PageRequested`) on 2026-09-26, when the ledger stopped paging by offset.
 
 The widget is its own quiet-border panel (app.tcss): screens name it via
 `title` (border title) and the page status renders in the border subtitle
@@ -169,21 +167,6 @@ class CursorList(WindowedList):
         def control(self) -> "CursorList":
             return self._control
 
-    class PageRequested(Message):
-        """Posted in fetched-page mode when a page key needs data beyond the
-        fetched window; the screen refetches (see PagedListMixin)."""
-
-        def __init__(self, control: "CursorList", delta: int) -> None:
-            super().__init__()
-            self._control = control
-            self.delta = delta
-
-        @property
-        def control(self) -> "CursorList":
-            """The list that posted this — handlers on screens with several
-            CursorLists must filter by source (backlog 6.2c)."""
-            return self._control
-
     def __init__(
         self,
         headers: Sequence[str],
@@ -193,7 +176,6 @@ class CursorList(WindowedList):
         empty: str = "(empty)",
         caption: str | None = None,
         page_size: int = DEFAULT_PAGE_ROWS,
-        page_meta: tuple[int, int] | None = None,
         flex: Mapping[int, int] | None = None,
     ) -> None:
         """``flex`` maps a column index to a Rich ``ratio`` (2026-09-12, mockup
@@ -210,7 +192,6 @@ class CursorList(WindowedList):
         self._headers = list(headers)
         self._align = set(align_right)
         self._flex = dict(flex or {})
-        self._page_meta = page_meta
         self._more: bool | None = None  # None: not growing; else "more rows exist"
 
     def set_growth(self, *, more: bool | None) -> None:
@@ -263,15 +244,7 @@ class CursorList(WindowedList):
 
     @property
     def page_status(self) -> str | None:
-        """The page-status line, or None when everything fits one page.
-
-        Fetched-page mode counts against the engine's total, not the page in
-        hand: `_rows` is one page, and `rows 21-40 of 40` would claim the list
-        ends where the fetch did.
-        """
-        if self._page_meta is not None:
-            offset, total = self._page_meta
-            return page_indicator(offset, len(self._rows), total, self._page_size)
+        """The page-status line, or None when everything fits one page."""
         if self._more is not None:
             # "rows 11-20 of 20" would count what is loaded, not what exists;
             # a growing list's screen states `N of M loaded` where its mockup
@@ -308,21 +281,12 @@ class CursorList(WindowedList):
         if self._more:
             self.post_message(self.MoreRequested(self))
 
-    def action_page(self, delta: int) -> None:
-        if self._page_meta is not None:
-            # fetched-page mode: the screen owns the data; ask it to turn.
-            self.post_message(self.PageRequested(self, delta))
-            return
-        super().action_page(delta)
-
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "more":
             return bool(self._more)
         if action == "page":  # hide the page keys when one page holds it all
             if self._more is not None and parameters and parameters[0] > 0:
                 return False  # growing: pgdn is "more", never "next page"
-            if self._page_meta is not None:
-                return self._page_meta[1] > self._page_size
             return len(self._rows) > self._page_size
         if action == "toggle":  # only where a screen owns a selection
             try:

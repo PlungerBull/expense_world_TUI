@@ -1,10 +1,12 @@
 """Pagination — widget window/indicator/keys + the shared helpers.
 
 Pages are min(PAGE_ROWS_CAP, what fits the terminal) since 2026-07-13 (adaptive
-rows, pick A): the tier-E wire tests at the bottom pin `run_test(size=…)` so the
-expected rows-per-page is deterministic — a 30-line harness proves the shrink, a
-tiny one proves the floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but
-`ENGINE_PAGE_CAP` on Transactions, which grows with the window (2026-08-29).
+rows, pick A): the ledger tests pin `run_test(size=…)` so the expected window
+is deterministic — a 30-line harness proves the shrink, a tiny one proves the
+floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but `ENGINE_PAGE_CAP` on
+Transactions, which grows with the window (2026-08-29). Since 2026-09-26 the
+ledger is one growing list (M3): the window sizes what is drawn, and every read
+is `GROW_STEP` rows by cursor.
 
 Mostly pure tests in the style of the other widget suites: `_build()` renders
 through a Rich Console; action handlers run with `_refresh`/`post_message`
@@ -13,14 +15,26 @@ stubbed so no event loop is needed.
 
 import re
 
+import pytest
 from textual.containers import VerticalScroll
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit, items_of
-from expense.tui.screens._base import AdaptiveRowsMixin, PagedListMixin
+from expense.tui.screens._base import AdaptiveRowsMixin, GrowingListMixin
 from expense.tui.widgets.checklist import CheckList
-from expense.tui.widgets.cursor_list import CursorList, page_indicator
+from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
-from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    cursor_page,
+    fake_ledger,
+    list_ready,
+    page,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    wait_for_loaded,
+    whole,
+)
 
 
 def _text(renderable) -> str:
@@ -127,40 +141,6 @@ def test_set_page_size_rewindows_around_cursor():
     assert lst._page_size == 10
 
 
-# ---- CursorList fetched-page mode (page_meta, tier E) ------------------------
-
-
-def test_fetched_page_posts_page_requested():
-    lst = _list(20, page_meta=(0, 133))
-    captured = []
-    lst.post_message = captured.append
-    lst.action_page(1)
-    assert len(captured) == 1 and isinstance(captured[0], CursorList.PageRequested)
-    assert captured[0].delta == 1 and captured[0].control is lst
-
-
-def test_fetched_page_move_clamps_at_edge():
-    # pick A (2026-07-11): j at the bottom row never turns the page itself.
-    lst = _list(20, page_meta=(0, 133))
-    captured = []
-    lst.post_message = captured.append
-    lst.set_cursor(19)
-    lst.action_move(1)
-    assert lst._cursor == 19
-    assert not any(isinstance(m, CursorList.PageRequested) for m in captured)
-
-
-def test_fetched_page_status_uses_global_offset():
-    lst = _list(20, page_meta=(20, 133))
-    assert lst.page_status == "rows 21-40 of 133 · page 2 of 7"
-
-
-def test_fetched_page_single_page_hides_keys():
-    lst = _list(15, page_meta=(0, 15))
-    assert lst.page_status is None
-    assert lst.check_action("page", ()) is False
-
-
 # ---- CheckList (always window mode; rows are two physical lines) ------------
 
 
@@ -262,110 +242,72 @@ def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
     assert len(calls) == 1
 
 
-# ---- PagedListMixin (tier-E screen plumbing) ---------------------------------
+# ---- GrowingListMixin: the ledger as one growing list (M3, 2026-09-26) -------
 
 
-class _FakeScreen(PagedListMixin):
-    def __init__(self, total=None):
-        self.loads = 0
-        self._page_total = total
-
-    def _load(self):
-        self.loads += 1
+class _Reader(GrowingListMixin):
+    """The mixin's read, without a screen."""
 
 
-class _Evt:
-    def __init__(self, delta):
-        self.delta = delta
-        self.stopped = False
-
-    def stop(self):
-        self.stopped = True
+def _ledger_rows(n: int) -> list[dict]:
+    return [
+        {"id": f"t{i}", "title": f"Txn {i}", "amount_cents": -100 - i, "date": "2026-07-01"}
+        for i in range(n)
+    ]
 
 
-def test_mixin_fetch_kwargs_and_page_turn():
-    scr = _FakeScreen(total=133)
-    assert scr.page_fetch_kwargs() == {"limit": DEFAULT_PAGE_ROWS, "offset": 0}
-    evt = _Evt(1)
-    scr.on_cursor_list_page_requested(evt)
-    assert evt.stopped and scr._page == 1 and scr.loads == 1
-    assert scr.page_fetch_kwargs() == {"limit": DEFAULT_PAGE_ROWS, "offset": 20}
+def test_read_rows_opens_with_one_step_and_counts():
+    rows = _ledger_rows(133)
+    reads: list = []
+
+    def fetch_page(limit, after):
+        reads.append((limit, after))
+        return cursor_page(rows[:limit], next_cursor=f"c{limit}")
+
+    items, nxt, total = _Reader().read_rows(fetch_page, lambda: 133)
+    assert reads == [(GROW_STEP, None)]
+    assert len(items) == GROW_STEP and nxt == "c10" and total == 133
 
 
-def test_mixin_clamps_below_zero_and_past_total():
-    scr = _FakeScreen(total=15)  # one page only
-    scr.on_cursor_list_page_requested(_Evt(-1))
-    scr.on_cursor_list_page_requested(_Evt(1))
-    assert scr._page == 0 and scr.loads == 0
+def test_read_rows_keeps_a_depth_past_the_engine_cap_in_two_reads():
+    """250 loaded, then a write: the re-read walks 200 + 50 by cursor (owner,
+    2026-09-26 — the depth stays, with no cap)."""
+    rows = _ledger_rows(400)
+    reads: list = []
+
+    def fetch_page(limit, after):
+        reads.append((limit, after))
+        start = int(after[1:]) if after else 0
+        return cursor_page(rows[start : start + limit], next_cursor=f"c{start + limit}")
+
+    reader = _Reader()
+    reader._keep = 250
+    items, nxt, _total = reader.read_rows(fetch_page, lambda: 400)
+    assert reads == [(ENGINE_PAGE_CAP, None), (50, "c200")]
+    assert len(items) == 250 and nxt == "c250"
 
 
-def test_mixin_reset_page_for_filter_changes():
-    scr = _FakeScreen(total=133)
-    scr.on_cursor_list_page_requested(_Evt(1))
-    scr.reset_page()
-    assert scr._page == 0
+def test_read_rows_stops_at_the_end_of_the_ledger():
+    reader = _Reader()
+    reader._keep = 40
+    items, nxt, _ = reader.read_rows(lambda limit, after: cursor_page(_ledger_rows(7)), lambda: 7)
+    assert len(items) == 7 and nxt is None
 
 
-def test_mixin_resize_refetches_and_reanchors():
-    """Terminal shrank 19→13 rows: refetch with the new limit, the offset
-    re-anchored so the old first visible row stays on the new page (pick A,
-    2026-07-13). An unchanged size must not refetch."""
-    scr = _FakeScreen(total=133)
-    scr._page_rows = 19
-    scr._page = 2  # first visible row 38
-    scr.measure_list_rows = lambda: 13
-    scr._viewport_resized()
-    assert scr._page_rows == 13 and scr.loads == 1
-    assert scr.page_offset <= 38 < scr.page_offset + 13
-    scr._viewport_resized()  # same measure → no spurious refetch
-    assert scr.loads == 1
-
-
-def test_fetch_page_body_snaps_back_when_page_vanishes():
-    """Rows shrank under us (e.g. a delete emptied the last page): the mixin
-    snaps to the last real page and refetches once."""
-    scr = _FakeScreen()
-    scr._page = 2  # offset 40, but only 21 rows exist now
-    fetched = []
-
-    def fetch(pkw):
-        fetched.append(dict(pkw))
-        offset = pkw["offset"]
-        items = [{"id": i} for i in range(offset, min(offset + 20, 21))]
-        return page(items, total=21, limit=pkw["limit"], offset=offset)
-
-    body = scr.fetch_page_body(fetch)
-    assert scr._page == 1 and scr._page_total == 21
-    assert fetched == [{"limit": 20, "offset": 40}, {"limit": 20, "offset": 20}]
-    assert [it["id"] for it in body["items"]] == [20]
-
-
-# ---- tier-E screens: real limit/offset on the wire ---------------------------
-
-
-def _patch_transactions(monkeypatch) -> list:
-    """133 fake transactions behind fetch_transactions; returns the calls log."""
+def _patch_transactions(monkeypatch, n: int = 133, **kw) -> tuple[list, list, list]:
+    """`n` fake transactions behind the cursor fake; returns (rows, reads, counts)."""
     import expense.tui.screens.transactions as tx_mod
 
-    calls = []
-
-    def fake_fetch(cfg, *, limit=None, offset=None, **kw):
-        calls.append((limit, offset))
-        items = [
-            {"id": f"t{i}", "title": f"Txn {i}", "amount_cents": -100 - i, "date": "2026-07-01"}
-            for i in range(offset, min(offset + limit, 133))
-        ]
-        return page(items, total=133, limit=limit, offset=offset)
-
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
+    rows = _ledger_rows(n)
+    reads, counts = fake_ledger(monkeypatch, rows, **kw)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: {})
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: {})
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: {})
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
-    return calls
+    return rows, reads, counts
 
 
-def _drive_transactions(size: tuple[int, int], calls: list, checks) -> None:
+def _drive_transactions(size: tuple[int, int], checks, *, wait=wait_for_list) -> None:
     """Push a TransactionsScreen in a `size` harness and run `checks(pilot, screen)`."""
 
     async def scenario(pilot, app):
@@ -373,39 +315,142 @@ def _drive_transactions(size: tuple[int, int], calls: list, checks) -> None:
 
         screen = TransactionsScreen()
         await app.push_screen(screen)
-        await wait_for_list(pilot, app)
+        await wait(pilot, app)
         await checks(pilot, screen)
 
     run_app(scenario, size=size)
 
 
-def test_transactions_screen_pages_on_the_wire(monkeypatch):
-    """A tall terminal keeps growing (2026-08-29: Transactions lifted the
-    20 cap to the engine's own): 35 lines fit 20 rows, so it loads with
-    limit=20&offset=0 and pgdn refetches offset=20 (picks A+B, 2026-07-11).
-    (22 until 2026-09-12 — the pendiente filter legend under the list takes
-    two lines now, as the Inbox's did.)"""
-    calls = _patch_transactions(monkeypatch)
+def _ledger(screen) -> CursorList:
+    return screen.query_one(CursorList)
+
+
+def test_the_ledger_opens_with_ten_and_the_count(monkeypatch):
+    _rows, reads, counts = _patch_transactions(monkeypatch)
 
     async def checks(pilot, screen):
-        assert calls == [(20, 0)]
-        assert screen.query(CursorList).first().page_status == "rows 1-20 of 133 · page 1 of 7"
-        await pilot.press("pagedown")
-        await wait_for(
-            pilot,
-            lambda: (
-                screen.query(CursorList)
-                and screen.query(CursorList).first().page_status
-                == "rows 21-40 of 133 · page 2 of 7"
-            ),
-        )
-        assert calls[-1] == (20, 20)
+        assert reads == [{"limit": GROW_STEP, "after": None, "verbose": False}]
+        assert len(counts) == 1
+        assert _ledger(screen).row_count == GROW_STEP
+        assert screen._legend() == "no filter · 10 of 133 loaded"
+        # a growing list states its count in the legend, never `rows 1-10 of 10`
+        assert _ledger(screen).page_status is None
 
-    # content 28 lines − 6 frame lines − 2 legend lines → 20 rows fit.
-    # "Frame" means the rule, the table and the status line since 2026-09-20;
-    # it meant the border and the table before. The count is the same 6, which
-    # is why this number did not move — see LIST_FRAME_LINES.
-    _drive_transactions((120, 35), calls, checks)
+    _drive_transactions((120, 35), checks)
+
+
+def test_pgdn_appends_the_next_ten_by_cursor_and_lands_on_the_first_new_row(monkeypatch):
+    _rows, reads, counts = _patch_transactions(monkeypatch)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        assert reads[-1] == {"limit": GROW_STEP, "after": "c10", "verbose": False}
+        assert _ledger(screen).cursor_index == 10
+        assert _ledger(screen).cursor_key == "t10"
+        assert len(counts) == 1  # `pgdn` does not recount
+        assert screen._legend() == "no filter · 20 of 133 loaded"
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
+        assert reads[-1]["after"] == "c20"
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_pgdn_at_the_end_sends_nothing(monkeypatch):
+    _rows, reads, _counts = _patch_transactions(monkeypatch, n=7)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        assert not _ledger(screen).check_action("more", ())
+        await pilot.press("pagedown")
+        await pilot.pause()
+        assert len(reads) == 1
+        screen.fetch_more(lambda limit, after: pytest.fail("read past the end"))
+        assert len(reads) == 1
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_a_write_rereads_the_loaded_depth_and_keeps_the_row_number(monkeypatch):
+    """Owner, 2026-09-26: 20 loaded, the cursor on row 16, and that row leaves
+    the filter — the list comes back 20 deep, recounted, and the cursor is on
+    the new row 16 (what was row 17)."""
+    rows, reads, counts = _patch_transactions(monkeypatch)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        _ledger(screen).set_cursor(15)
+        del rows[15]  # the engine applied the write: t15 left the filter
+        screen.reload_in_place()
+        await wait_for(pilot, lambda: len(counts) == 2 and _ledger(screen).cursor_key == "t16")
+        assert reads[-1] == {"limit": 20, "after": None, "verbose": False}
+        assert _ledger(screen).row_count == 20 and _ledger(screen).cursor_index == 15
+        assert screen._legend() == "no filter · 20 of 132 loaded"
+        # and the list still grows from where the re-read stopped
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
+        assert reads[-1]["after"] == "c20"
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_r_starts_again_from_the_newest_ten(monkeypatch):
+    _rows, reads, counts = _patch_transactions(monkeypatch)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        await pilot.press("r")
+        await wait_for(pilot, lambda: len(counts) == 2 and list_ready(pilot.app))
+        assert reads[-1] == {"limit": GROW_STEP, "after": None, "verbose": False}
+        assert _ledger(screen).row_count == GROW_STEP and _ledger(screen).cursor_index == 0
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_a_resize_reads_nothing_and_keeps_the_cursor_row(monkeypatch):
+    _rows, reads, counts = _patch_transactions(monkeypatch)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        before = len(reads)
+        await pilot.resize_terminal(120, 22)
+        await wait_for(pilot, lambda: _ledger(screen)._page_size < 20)
+        assert len(reads) == before and len(counts) == 1
+        assert _ledger(screen).cursor_key == "t10" and _ledger(screen).row_count == 20
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_a_selects_every_loaded_row(monkeypatch):
+    _patch_transactions(monkeypatch)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        await pilot.press("a")
+        await wait_for(pilot, lambda: len(screen._selected) == 20)
+        assert screen._legend() == "no filter · 20 of 133 loaded · 20 selected"
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_a_count_that_cannot_be_read_fails_the_ledger(monkeypatch):
+    """Owner, 2026-09-23: never rows beside a missing or guessed number."""
+    _patch_transactions(monkeypatch, count_fails=True)
+
+    async def checks(pilot, screen):
+        assert screen.query(".error") and not screen.query(CursorList)
+
+    _drive_transactions((120, 35), checks, wait=wait_for_loaded)
 
 
 def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
@@ -413,7 +458,7 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
     card spans #content's full width, and the panel's own height never exceeds
     it — a clipped bottom border and the undraggable scrollbar are what an
     overshooting LIST_FRAME_LINES looked like."""
-    calls = _patch_transactions(monkeypatch)
+    _patch_transactions(monkeypatch)
 
     async def checks(pilot, screen):
         content = screen.query_one("#content", VerticalScroll)
@@ -432,56 +477,27 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
         assert not content.show_vertical_scrollbar
 
     for size in ((120, 30), (180, 45), (200, 60)):
-        _drive_transactions(size, calls, checks)
+        _drive_transactions(size, checks)
 
 
-def test_transactions_page_stops_at_the_engine_cap(monkeypatch):
-    """The ledger grows with the window, but never past `limit`'s ceiling:
-    a 300-line terminal still asks for ENGINE_PAGE_CAP rows (2026-08-29)."""
-    calls = _patch_transactions(monkeypatch)
+def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
+    """The window is the screenful (a 30-line terminal fits 15 rows: chrome 13,
+    the legend 2), capped at ENGINE_PAGE_CAP and floored at 5 — and since
+    2026-09-26 it sizes only what is drawn, never a read: every open asks for
+    `GROW_STEP`."""
+    _rows, reads, _counts = _patch_transactions(monkeypatch)
 
-    async def checks(pilot, screen):
-        assert screen.page_rows == ENGINE_PAGE_CAP
-        assert calls == [(ENGINE_PAGE_CAP, 0)]
+    def sized(expected: int):
+        async def checks(pilot, screen):
+            assert screen.measure_list_rows() == expected
+            assert _ledger(screen)._page_size == expected
+            assert reads[-1]["limit"] == GROW_STEP
 
-    _drive_transactions((120, 300), calls, checks)
+        return checks
 
-
-def test_transactions_screen_adapts_rows_to_short_terminal(monkeypatch):
-    """A 30-line terminal fits 15 rows (chrome takes 13, the filter legend 2):
-    the page IS the screenful — limit=15 on the wire, 15-row pages in the
-    indicator (pick A, 2026-07-13). This is the 2026-07-12 clipped-panel
-    screenshot, fixed — and since 2026-08-29 the frame count is honest, so
-    the panel really does fit. (17 until the legend arrived, 2026-09-12.)"""
-    calls = _patch_transactions(monkeypatch)
-
-    async def checks(pilot, screen):
-        assert calls == [(15, 0)]
-        assert screen.page_rows == 15
-        assert screen.query(CursorList).first().page_status == "rows 1-15 of 133 · page 1 of 9"
-        await pilot.press("pagedown")
-        await wait_for(
-            pilot,
-            lambda: (
-                screen.query(CursorList)
-                and screen.query(CursorList).first().page_status
-                == "rows 16-30 of 133 · page 2 of 9"
-            ),
-        )
-        assert calls[-1] == (15, 15)
-
-    _drive_transactions((120, 30), calls, checks)
-
-
-def test_transactions_screen_floors_at_five_rows(monkeypatch):
-    """Below a ~16-line terminal the fit goes under 5; the floor holds (the
-    panel clips there — pre-2026-07-13 behavior, terminal was never usable)."""
-    calls = _patch_transactions(monkeypatch)
-
-    async def checks(pilot, screen):
-        assert calls == [(5, 0)]
-
-    _drive_transactions((120, 14), calls, checks)
+    _drive_transactions((120, 30), sized(15))
+    _drive_transactions((120, 14), sized(5))
+    _drive_transactions((120, 300), sized(ENGINE_PAGE_CAP))
 
 
 # ---- the shared base --------------------------------------------------------

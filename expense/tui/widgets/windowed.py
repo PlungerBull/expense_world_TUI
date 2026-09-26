@@ -12,8 +12,8 @@ with a bare `"reverse"` literal rather than the constant documented as the
 app-wide answer.
 
 What stays with each widget is what actually differs: `_build` (the render),
-and `CursorList`'s fetched-page mode, where `_rows` is one page the screen
-fetched and the page keys ask it for another.
+and `CursorList`'s growing mode, where `pgdn` asks the screen for more rows
+instead of turning a page.
 """
 
 from collections.abc import Iterable
@@ -88,6 +88,10 @@ class WindowedList(Static):
     @property
     def cursor_index(self) -> int:
         return self._cursor
+
+    @property
+    def row_count(self) -> int:
+        return len(self._rows)
 
     @property
     def _window_start(self) -> int:

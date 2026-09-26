@@ -30,7 +30,7 @@ from expense.tui.screens.help import (
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_loaded
+from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait_for_loaded
 
 
 def _stub_engine(monkeypatch, items=()):
@@ -38,10 +38,7 @@ def _stub_engine(monkeypatch, items=()):
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts", lambda cfg, **k: {"items": list(items)}
     )
-    monkeypatch.setattr(
-        "expense.commands.transactions_cmd.fetch_transactions",
-        lambda cfg, **k: page([], total=0),
-    )
+    fake_ledger(monkeypatch, [])
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
 

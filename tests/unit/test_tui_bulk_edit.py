@@ -24,7 +24,7 @@ from expense.tui.screens.transactions import (
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import page, run_app, wait_for, wait_for_list, wait_for_loaded
+from tests.unit.helpers import fake_ledger, run_app, wait_for, wait_for_list, wait_for_loaded
 
 ITEMS = [
     {
@@ -60,10 +60,7 @@ FILTER = LedgerFilter("category", "pend", "@Pendiente")
 
 
 def _stub_ledger(monkeypatch, items=ITEMS):
-    monkeypatch.setattr(
-        "expense.commands.transactions_cmd.fetch_transactions",
-        lambda *a, **k: page(list(items), total=len(items)),
-    )
+    fake_ledger(monkeypatch, list(items))
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
     monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: REFS)
@@ -96,10 +93,12 @@ def test_mark_selected_draws_the_marker_and_keeps_titles_aligned():
 
 
 def test_legend_says_filter_count_and_selection():
-    assert legend_text(FILTER, 57, 0) == "filter: category @Pendiente · 57 rows"
-    assert legend_text(FILTER, 1, 1) == "filter: category @Pendiente · 1 row · 1 selected"
-    assert legend_text(None, 133, 3) == "no filter · 133 rows · 3 selected"
-    assert legend_text(None, None, 0) == "no filter"
+    """One line (owner, 2026-09-26): `N of M loaded` took the place of `M rows`."""
+    assert legend_text(FILTER, 20, 57, 0) == "filter: category @Pendiente · 20 of 57 loaded"
+    one = "filter: category @Pendiente · 1 of 1 loaded · 1 selected"
+    assert legend_text(FILTER, 1, 1, 1) == one
+    assert legend_text(None, 10, 133, 3) == "no filter · 10 of 133 loaded · 3 selected"
+    assert legend_text(None, 0, None, 0) == "no filter"
 
 
 def test_bulk_receipt_counts_rows():
@@ -110,7 +109,7 @@ def test_bulk_receipt_counts_rows():
 # ---- selection ---------------------------------------------------------------
 
 
-def test_space_selects_and_a_selects_the_page(monkeypatch):
+def test_space_selects_and_a_selects_every_loaded_row(monkeypatch):
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
@@ -118,7 +117,7 @@ def test_space_selects_and_a_selects_the_page(monkeypatch):
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         assert screen.crumb == ("Ledger", "@Pendiente")
-        assert _legend(screen) == "filter: category @Pendiente · 3 rows"
+        assert _legend(screen) == "filter: category @Pendiente · 3 of 3 loaded"
         await pilot.press("space")  # select row 1; the cursor stays
         await wait_for(pilot, lambda: screen._selected == {"t1"})
         assert screen.query_one(CursorList)._cursor == 0
@@ -131,7 +130,7 @@ def test_space_selects_and_a_selects_the_page(monkeypatch):
         await wait_for(pilot, lambda: screen._selected == {"t1", "t2", "t3"})
         await pilot.press("a")  # none
         await wait_for(pilot, lambda: screen._selected == set())
-        assert _legend(screen) == "filter: category @Pendiente · 3 rows"
+        assert _legend(screen) == "filter: category @Pendiente · 3 of 3 loaded"
 
     run_app(scenario, size=(120, 30))
 

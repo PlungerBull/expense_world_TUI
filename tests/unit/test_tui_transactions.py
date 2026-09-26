@@ -4,7 +4,7 @@ from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.screens.transactions import TransactionsScreen, transaction_rows
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait_for_list, whole
 
 ITEMS = [
     {
@@ -53,10 +53,9 @@ def test_transaction_rows_palette_sign_colors_amounts():
 
 
 def test_transactions_screen_lists_and_opens_detail(monkeypatch):
-    import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
+    fake_ledger(monkeypatch, ITEMS)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -83,10 +82,9 @@ def test_plus_opens_the_log_bar(monkeypatch):
     """`+` on the ledger logs a new transaction (2026-08-20) — through the LOG
     bar since quick-add phase 4 (2026-08-25). The row under the cursor is
     irrelevant to it."""
-    import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
+    fake_ledger(monkeypatch, ITEMS)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -108,10 +106,9 @@ def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
     """ "Never ever mention that the arrow keys are navigation on the lower bar"
     (user, 2026-08-20). The keys still work — only the footer row is gone, and
     the `?` card still lists them."""
-    import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
 
-    monkeypatch.setattr(tc, "fetch_transactions", lambda *a, **k: page(ITEMS, total=2))
+    fake_ledger(monkeypatch, ITEMS)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -182,17 +179,10 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
 def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
     """⏎ on a hashtag row on Home (2026-09-13): the ledger asks the engine for
     that category and that hashtag, both, and says so in its crumb."""
-    import expense.commands.transactions_cmd as tc
     import expense.tui.screens.transactions as tx_mod
     from expense.tui.screens.transactions import LedgerFilter
 
-    seen: list = []
-
-    def fake(cfg, **kw):
-        seen.append(kw)
-        return page(ITEMS, total=2)
-
-    monkeypatch.setattr(tc, "fetch_transactions", fake)
+    seen, counts = fake_ledger(monkeypatch, ITEMS)
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
@@ -205,6 +195,8 @@ def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
         await wait_for_list(pilot, app)
         assert seen[0]["category"] == "cat2" and seen[0]["hashtag"] == "h1"
         assert "account" not in seen[0]
+        # the count asks the same question as the rows
+        assert counts == [{"category": "cat2", "hashtag": "h1", "verbose": False}]
         assert screen.crumb == ("Ledger", "Comida #trabajo")
 
     run_app(scenario)

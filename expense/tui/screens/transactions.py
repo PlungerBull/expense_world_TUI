@@ -1,20 +1,23 @@
 """Transactions screen — the ledger, whole or filtered, with bulk edits.
 
-Built on SectionScreen + the shared CursorList. Fetch-paged (PagedListMixin —
-real limit/offset against the engine, the page sized to the window);
-`enter` opens the record in the editable QuickAddLogScreen and `+` opens the
-LOG bar (`LogTransactionMixin`).
+Built on SectionScreen + the shared CursorList, as **one list that grows**
+(`GrowingListMixin`, M3 of docs/mockups/expense-world-engine-uptake.html,
+2026-09-26): it opens with the newest 10, `pgdn` appends the next 10 by the
+engine's cursor, and the legend reads `N of M loaded`. `enter` opens the
+record in the editable QuickAddLogScreen and `+` opens the LOG bar
+(`LogTransactionMixin`).
 
 **The filtered ledger is the categorising pass** (2026-09-12, mockup
 docs/mockups/expense-world-home-as-ledger.html). Home pushes this screen with
 a `LedgerFilter` — a category or an account — and it becomes `Ledger › NAME`:
 the same list over the engine's own `?category_id=` / `?account_id=`, with the
 legend saying what the filter is and how many rows it holds. `space` selects
-rows, `a` selects the page, and one key changes the category (`c`), the bank
+rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens `PickerModal`; the write is one
-`PUT /transactions/{id}` per row, in order, and then one reload, so on a
-filtered list the changed rows leave at once (pane 6, option C). A refused
+`PUT /transactions/{id}` per row, in order, and then one re-read of as many
+rows as were loaded, so on a filtered list the changed rows leave at once
+(pane 6, option C) and the cursor stays on the same row number. A refused
 row is named by its number; the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
@@ -39,7 +42,6 @@ from expense.commands._resource import (
     ENGINE_PAGE_CAP,
     format_hashtag_cell,
     format_short_date,
-    items_of,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
@@ -48,8 +50,8 @@ from expense.commands._resource import (
 )
 from expense.errors import format_error
 from expense.tui.screens._base import (
+    GrowingListMixin,
     LogTransactionMixin,
-    PagedListMixin,
     SectionScreen,
     screen_fetch_kwargs,
 )
@@ -132,13 +134,15 @@ def mark_selected(rows: list, selected: set) -> list:
     return marked
 
 
-def legend_text(filter: LedgerFilter | None, total: int | None, selected: int) -> str:
-    """`filter: category @Pendiente · 57 rows · 3 selected` — the filter, the
-    count the engine reported for it, and the selection when there is one."""
+def legend_text(filter: LedgerFilter | None, loaded: int, total: int | None, selected: int) -> str:
+    """`filter: category @Pendiente · 20 of 57 loaded · 3 selected` — the
+    filter, how many of the engine's count are loaded, and the selection when
+    there is one (one line, owner 2026-09-26: `of M loaded` took the place of
+    `M rows`)."""
     head = f"filter: {filter.kind} {filter.name}" if filter else "no filter"
     parts = [head]
     if isinstance(total, int):
-        parts.append(f"{total} row{'' if total == 1 else 's'}")
+        parts.append(f"{loaded} of {total} loaded")
     if selected:
         parts.append(f"{selected} selected")
     return " · ".join(parts)
@@ -187,10 +191,10 @@ def bulk_receipt(count: int, label: str) -> str:
     return f"{count} {'row' if count == 1 else 'rows'} → {label}"
 
 
-class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
+class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
     BINDINGS = [
         *LogTransactionMixin.BINDINGS,
-        Binding("a", "select_all", "All/none", tooltip="Select every row on the page, or none"),
+        Binding("a", "select_all", "All/none", tooltip="Select every loaded row, or none"),
         Binding("c", "pick('category')", "Category", tooltip="Set the category of the selection"),
         Binding("b", "pick('account')", "Account", tooltip="Move the selection to an account"),
         Binding("h", "pick('hashtags')", "Hashtags", tooltip="Replace the selection's hashtags"),
@@ -202,10 +206,11 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         ),
     ]
     crumb = ("Capture & ledger", "Transactions")
-    # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the page
-    # fill its height: the ledger is the screen you sit in, so it takes the
-    # window you gave it instead of holding a 110x20 card in the corner of a
-    # large one (2026-08-29). The cap is the engine's own `limit` ceiling.
+    # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the list
+    # window fill its height: the ledger is the screen you sit in, so it takes
+    # the window you gave it instead of holding a 110x20 card in the corner of
+    # a large one (2026-08-29). Since the list grows (2026-09-26) the cap sizes
+    # only the window, never a read.
     CARD_WIDTH = None
     PAGE_ROWS_CAP = ENGINE_PAGE_CAP
 
@@ -214,7 +219,8 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         self._by_id: dict = {}
         self._filter = filter
         self._selected: set = set()
-        self._rows: list = []  # the page's unmarked rows, in list order
+        self._rows: list = []  # every loaded row, unmarked, in list order
+        self._maps: tuple[dict, dict, dict] = ({}, {}, {})
         self._refs = None  # QuickAddRefs, loaded on the first bulk key
         self._pending_pick: str | None = None
         self._bulk_busy = False
@@ -224,24 +230,38 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         return 2  # the filter legend below the list (margin-top 1 + text)
 
     # ---- data ---------------------------------------------------------------
-    def fetch(self) -> dict:
+    def _scope(self) -> dict:
+        flt = self._filter
+        if flt is None:
+            return {}
+        scope = {"category": flt.id} if flt.kind == "category" else {"account": flt.id}
+        if flt.hashtag_id is not None:
+            scope["hashtag"] = flt.hashtag_id
+        return scope
+
+    def _page_reader(self):
+        """`(limit, after) -> body` over this ledger's filter (worker thread)."""
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
         kw = screen_fetch_kwargs(self.app)
-        flt = self._filter
-        scope = {}
-        if flt is not None:
-            scope = {"category": flt.id} if flt.kind == "category" else {"account": flt.id}
-            if flt.hashtag_id is not None:
-                scope["hashtag"] = flt.hashtag_id
+        scope = self._scope()
 
-        def page(pkw: dict) -> dict:
-            return transactions_cmd.fetch_transactions(cfg, **scope, **pkw, **kw)
+        def page(limit: int, after: str | None) -> dict:
+            return transactions_cmd.fetch_transactions(cfg, **scope, after=after, limit=limit, **kw)
 
-        body = self.fetch_page_body(page)
+        return cfg, kw, page
+
+    def fetch(self) -> dict:
+        cfg, kw, page = self._page_reader()
+        items, next_cursor, total = self.read_rows(
+            page,
+            lambda: transactions_cmd.count_transactions(cfg, **self._scope(), **kw),
+        )
         return {
-            "items": items_of(body),
+            "items": items,
+            "next_cursor": next_cursor,
+            "total": total,
             "accounts": load_account_name_map(),
             "categories": load_category_name_map(),
             "hashtags": load_hashtag_name_map(),
@@ -249,15 +269,11 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
 
     def build(self, data: dict) -> list[Widget]:
         items = data["items"]
+        self.took_rows(data["next_cursor"], data["total"])
         self._by_id = {it.get("id"): it for it in items}
-        self._rows = transaction_rows(
-            items,
-            data["accounts"],
-            data["categories"],
-            data["hashtags"],
-            palette=PALETTE,
-        )
-        # a reload drops selections that left the page (option C: they left)
+        self._maps = (data["accounts"], data["categories"], data["hashtags"])
+        self._rows = transaction_rows(items, *self._maps, palette=PALETTE)
+        # a reload drops selections that left the list (option C: they left)
         self._selected &= set(self._by_id)
         flt = self._filter
         # The panel title went with the border (2026-09-20): the crumb reads
@@ -269,21 +285,38 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         else:
             empty = "(no transactions)"
         self.call_after_refresh(self.refresh_bindings)
-        return [
-            CursorList(
-                _HEADERS,
-                mark_selected(self._rows, self._selected),
-                align_right={2},
-                flex=_FLEX,
-                empty=empty,
-                page_size=self.page_rows,
-                page_meta=self.page_meta(),
-            ),
-            Static(Text(self._legend()), classes="legend", id="legend"),
-        ]
+        listing = CursorList(
+            _HEADERS,
+            mark_selected(self._rows, self._selected),
+            align_right={2},
+            flex=_FLEX,
+            empty=empty,
+            page_size=self.measure_list_rows(),
+        )
+        self.place_list(listing)
+        return [listing, Static(Text(self._legend()), classes="legend", id="legend")]
 
     def _legend(self) -> str:
-        return legend_text(self._filter, self._page_total, len(self._selected))
+        return legend_text(self._filter, len(self._rows), self._total, len(self._selected))
+
+    # ---- growing (M3) -------------------------------------------------------
+    def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
+        """`pgdn`: the next 10, appended under the rows in hand."""
+        event.stop()
+        self.fetch_more(lambda limit, after: self._page_reader()[2](limit, after))
+
+    def append_loaded(self, items: list, *, more: bool) -> None:
+        try:
+            listing = self.query_one(CursorList)
+            legend = self.query_one("#legend", Static)
+        except Exception:
+            return  # a reload replaced the list mid-read
+        self._by_id.update((it.get("id"), it) for it in items)
+        rows = transaction_rows(items, *self._maps, palette=PALETTE)
+        self._rows.extend(rows)
+        listing.append_rows(mark_selected(rows, self._selected), more=more)
+        legend.update(Text(self._legend()))
+        self.refresh_bindings()
 
     def _repaint_selection(self) -> None:
         try:
@@ -453,18 +486,18 @@ class TransactionsScreen(LogTransactionMixin, PagedListMixin, SectionScreen):
         # leave at once (pane 6, option C). A refused row stays selected, so
         # once its lock is lifted the same key retries exactly it.
         self._selected = {key for key, _n, _m in failed if key is not None}
-        self._load()
+        self.reload_in_place()
 
     # ---- single-row doors ----------------------------------------------------
     def _after_log(self, _result=None) -> None:
-        self._load()  # a transaction written with `+` belongs in this list now
+        self.reload_in_place()  # a transaction written with `+` belongs in this list now
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         item = self._by_id.get(event.key)
         if item:
             self.app.push_screen(
                 QuickAddLogScreen(record=item, resource="transactions"),
-                lambda _result: self._load(),  # refresh the list after editing
+                lambda _result: self.reload_in_place(),  # the edit shows, the depth stays
             )
 
 

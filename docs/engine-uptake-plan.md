@@ -113,7 +113,7 @@ the list is now shorter.
 | 4 | Small lists come back whole | 6a §3 | M5 (**done**, `c65a125`) |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 (**done**, `192831c`) |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — (**done**, `b5602d7`) |
-| 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
+| 7 | The ledger becomes one growing list | cursor §3.3 | M3 (**done**) |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 (**done**, `7ce6405`) |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
 | 10 | Offset code deleted | 6b §4 | — |
@@ -340,7 +340,7 @@ reconcile screen loading at all.
 **Short-lived by design:** Phase 10b deletes `fetch_ledger` and the local matcher, including
 this phase's change to them. Phase 6 keeps the importer working until then.
 
-## Phase 7: the ledger becomes one growing list (M3)
+## Phase 7: the ledger becomes one growing list (M3) (done 2026-09-26)
 
 **Needs Phase 8 first**: with Activity and Rates gone, **the ledger is the only user of
 `PagedListMixin`**, so the mixin is **converted in place**. There is no second mixin. The owner's
@@ -361,8 +361,8 @@ the footer as `pgdn 10 more`. The `?` card lists that key only on screens that h
 - The cursor lands on the first new row, the same as the `u` list (M6).
 - The count is fetched when the screen opens, when the filter changes (which also empties the
   list and drops the cursor), and after a `c`/`b`/`h` bulk edit. **Not** on `pgdn`.
-- A bulk edit on a filtered ledger removes the changed rows locally, as today. The kept cursor is
-  still valid, because the engine's cursor is a bookmark on the last row read, not a row number.
+- After a write, see the owner's answers below (this line used to say a bulk edit "removes the
+  changed rows locally, as today", which was wrong: the ledger has always re-read after a write).
 - **Resize:** nothing is fetched. The list keeps its rows and the cursor stays on its row.
 - `a` selects every loaded row. The line under the list reads `N of M loaded` (mockup round 2,
   M3 option C), where the old `rows 41–60 of 214 · page 3 of 11` was. `fetch_page_body`'s "past
@@ -374,6 +374,23 @@ the footer as `pgdn 10 more`. The `?` card lists that key only on screens that h
 **refuse** `offset`. `pgdn` sends the previous `next_cursor` and appends; the cursor lands on the
 first new row; `pgdn` on a null cursor sends nothing; a filter change empties the list and
 recounts; a bulk edit recounts; a resize sends no request; `a` selects all loaded rows.
+
+**Owner answers (2026-09-26), asked while planning this phase:**
+- **After any write** (`c`/`b`/`h`, back from the `⏎` edit form, back from the `+` LOG bar),
+  re-read **as many rows as were loaded**, recount, and keep the cursor on the same row
+  **number**. An edit does not move a row in the order. On a filtered ledger a row that left
+  is gone and the next one takes its place ("it was 38, we should be on the new 38").
+- **Past 200 loaded:** the same rule, no cap. The re-read walks 200-row cursor pages.
+- **Legend:** one line, `filter: category @Pendiente · 20 of 57 loaded · 3 selected`.
+- `r` starts again from the newest 10, as `r` does on the `u` list (M6).
+
+**What was built:** `PagedListMixin` became `GrowingListMixin` ([_base.py](../expense/tui/screens/_base.py)):
+`read_rows` (first rows and count together, walking 200-row pages up to the kept depth),
+`reload_in_place` (after a write), `fetch_more` (`pgdn`, no recount), and a resize that only
+re-slices the window. `CursorList` lost its fetched-page mode (`page_meta`, `PageRequested`);
+`WindowedList` gained `row_count`. The test fake is `fake_ledger` in
+[helpers.py](../tests/unit/helpers.py). No in-screen filter change exists (Home pushes a new
+ledger per filter), so "a filter change empties the list" has nothing to test.
 
 ## Phase 8: Activity and Rates (6b §2–3, owner decision) (done 2026-09-26, `7ce6405`, fixed in the follow-up)
 

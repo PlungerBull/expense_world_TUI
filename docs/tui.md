@@ -32,7 +32,7 @@ expense/tui/
     windowed.py     # CURSOR_STYLE (reverse video, app-wide) + WindowedList — the
                     #   window/cursor/page arithmetic both list widgets stand on
                     #   + page_indicator() — `rows 21-40 of 133 · page 2 of 7`
-    cursor_list.py  # CursorList — arrow-key list (pickers), window + fetched-page
+    cursor_list.py  # CursorList — arrow-key list (pickers), window + growing
                     #   modes + CursorOptionList — the home menu
     checklist.py    # CheckList — multi-select (hashtag picker)
     picker.py       # suggestion_list() — the scrolling name list both quick-add
@@ -155,12 +155,14 @@ lines, and past the terminal's height the list scrolls.
 [transactions.py](../expense/tui/screens/transactions.py) with a `LedgerFilter`: the
 crumb reads `Ledger ▸ @Pendiente`, the panel is titled for the filter, the fetch is the
 engine's own `?category_id=` / `?account_id=`, and the legend says `filter: category
-@Pendiente · 57 rows · 3 selected`. `space` selects rows (a `●` in the title gutter,
-the row in the accent), `a` selects the page or clears it, and `c` / `b` / `h` open
+@Pendiente · 20 of 57 loaded · 3 selected`. `space` selects rows (a `●` in the title gutter,
+the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
 `PickerModal` over the selection — or over the cursor row when nothing is selected —
 to set the category, move to an account, or **replace** the hashtag set. The write is
-one `PUT /transactions/{id}` per row, in order, on one client, then one reload: on a
-filtered list the changed rows **leave at once** (pick C), the toast `3 rows → KORAKUEN`
+one `PUT /transactions/{id}` per row, in order, on one client, then one re-read of as
+many rows as were loaded, with the cursor kept on the same row number: on a
+filtered list the changed rows **leave at once** (pick C) and the next row takes the
+cursor's place (owner, 2026-09-26), the toast `3 rows → KORAKUEN`
 is the receipt, and a refused row (an account move a completed reconciliation locks)
 is named by number, stays selected, and does not stop the others. `esc` clears the
 selection if there is one, and otherwise goes back — to Home, for a filter Home opened
@@ -507,9 +509,18 @@ Every other list leaves `flex` empty and keeps Rich's content-proportional sprea
 They carry Home's month window too (`pgdn` older, `pgup` newer): one
 meaning, "the next window of data", whether the window is rows or months.
 
-Transactions fetches real `limit`/`offset` pages sized to the
-window via `PagedListMixin` (`↑`/`↓` clamp at the fetched edge; a resize refetches with
-the offset re-anchored). Full-data screens window locally — Manage, the
+**Transactions is one list that grows** (2026-09-26, M3 of
+[mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html)),
+through `GrowingListMixin` in [_base.py](../expense/tui/screens/_base.py): it opens with
+the newest `GROW_STEP` (10) rows and the count, read together — a count that cannot be
+read fails the screen — and `pgdn` (footer: `pgdn 10 more`) appends the next 10 by the
+engine's cursor, with no recount, the cursor landing on the first new row. `↑`/`↓` scroll
+everything loaded and `pgup` goes up a screenful. The window is the screenful, but it
+sizes only what is drawn: a resize reads nothing. After a write (a bulk key, the `⏎`
+edit, `+`) it re-reads as many rows as were loaded, 200 a request, and keeps the
+cursor's row number; `r` starts again from 10. The "no batch" pane on Reconciliations
+grows the same way. Until 2026-09-26 the ledger fetched `limit`/`offset` pages
+(`PagedListMixin`); the engine no longer pages by offset. Full-data screens window locally — Manage, the
 Reconciliations account list (full height alone, an equal split with the open panel), the recon checklist at fit÷2 items —
 where `↑`/`↓` walk through and cursor-restore lands on its page. Lists are quiet-border
 panels: border title carries the screen title, border subtitle the page status

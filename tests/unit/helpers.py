@@ -184,6 +184,34 @@ def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50)
     return {"items": items, "limit": limit, "next_cursor": next_cursor}
 
 
+def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[list, list]:
+    """`fetch_transactions` + `count_transactions` over `rows`, the engine's way:
+    it refuses `offset`, serves slices of the requested `limit`, and hands back
+    `c<next index>` as the cursor. `rows` is read on every call, so a test can
+    shrink it to play a write the engine applied. Returns the (reads, counts)
+    call logs."""
+    calls: list = []
+    counts: list = []
+
+    def fetch(_cfg=None, *, limit=None, after=None, **kw):
+        assert "offset" not in kw, "the engine refuses offset"
+        calls.append({"limit": limit, "after": after, **kw})
+        start = int(after[1:]) if after else 0
+        end = start + (limit or 50)
+        nxt = f"c{end}" if end < len(rows) else None
+        return cursor_page(rows[start:end], next_cursor=nxt, limit=limit or 50)
+
+    def count(_cfg=None, **kw):
+        counts.append(kw)
+        if count_fails:
+            raise RuntimeError("count unavailable")
+        return len(rows)
+
+    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fetch)
+    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", count)
+    return calls, counts
+
+
 def window_page(
     items: list,
     *,

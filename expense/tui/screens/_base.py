@@ -27,7 +27,7 @@ from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS
+from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, items_of
 from expense.errors import format_error
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.widgets.header import Breadcrumb
@@ -169,85 +169,148 @@ class ContentSwapLockMixin:
         return self._swap_lock
 
 
-class PagedListMixin:
-    """Fetch-side pagination for SectionScreens whose fetch sends limit/offset.
+class GrowingListMixin:
+    """A SectionScreen whose one list grows by cursor (M3, 2026-09-25).
 
-    The list widget renders one fetched page (`CursorList(page_meta=…)`) and
-    posts `PageRequested` on the page keys; this mixin clamps against the last
-    known total, bumps the page, and reloads through the normal section-load
-    worker. The subclass contract: call `page_fetch_kwargs()` inside `fetch()`,
-    record the body's `total` into `_page_total` (fetch- or build-side), pass
-    `page_size=self.page_rows` to the CursorList, and call `reset_page()`
-    whenever a filter change invalidates the offset.
+    Owner's shape, mockup expense-world-engine-uptake.html: the list opens with
+    `GROW_STEP` rows, `pgdn` appends the next `GROW_STEP` under them, and
+    `↑`/`↓` scroll across everything loaded. The engine hands out "the rows
+    after this one", never "row 41", so a list that only grows at its end is
+    the shape that fits it. It replaced page-at-a-time offset paging
+    (`PagedListMixin`, 2026-07-11 to 2026-09-26).
 
-    Rows-per-page adapt to the terminal (2026-07-13, pick A + cap 20): the
-    page IS the screenful — `_start_load` measures before the first fetch and
-    a terminal resize refetches with the new limit, re-anchoring the offset so
-    the old first visible row stays on the new page.
+    The subclass contract: `fetch()` calls `read_rows(fetch_page, count)` and
+    hands the cursor and count to `took_rows`; `build()` sizes the list with
+    `measure_list_rows()` and calls `place_list(listing)`; `pgdn` arrives as
+    `on_cursor_list_more_requested`, which calls `fetch_more(fetch_page)`, and
+    the rows come back through the `append_loaded` hook.
+
+    - **Rows and count load together** (owner, 2026-09-23): a count that cannot
+      be read fails the screen, never leaves rows beside a guessed number.
+      `pgdn` does not recount — the rows are new, the question is not.
+    - **After a write the depth stays** (owner, 2026-09-26): `reload_in_place`
+      re-reads as many rows as were loaded, 200 a request past the engine's
+      cap, and puts the cursor back on the same row *number*. On a filtered
+      list a row that left is gone, and the next one takes its place under the
+      cursor.
+    - `r` and a first open start again from `GROW_STEP`.
+    - **A resize fetches nothing**: the window re-slices the rows in hand.
     """
 
-    _page: int = 0
-    _page_total: int | None = None
-    _page_rows: int | None = None  # measured rows-per-page; None until first layout
+    _next_cursor: str | None = None
+    _total: int | None = None
+    _keep: int = 0  # rows the next full read brings back (0 → GROW_STEP)
+    _keep_cursor: int = 0  # the row number the cursor returns to after it
+    _growing: bool = False  # a `pgdn` read is in flight
 
-    @property
-    def page_rows(self) -> int:
-        return self._page_rows or DEFAULT_PAGE_ROWS
+    def read_rows(
+        self,
+        fetch_page: Callable[[int, str | None], Any],
+        count: Callable[[], int],
+    ) -> tuple[list[dict], str | None, int]:
+        """Worker thread: the first rows (as many as were loaded, at least
+        `GROW_STEP`), then the count. Returns (items, next_cursor, total)."""
+        from expense.tui.widgets.cursor_list import GROW_STEP
 
-    @property
-    def page_offset(self) -> int:
-        return self.page_rows * self._page
+        want = max(GROW_STEP, self._keep)
+        items: list[dict] = []
+        after: str | None = None
+        while True:
+            body = fetch_page(min(want - len(items), ENGINE_PAGE_CAP), after)
+            items.extend(items_of(body))
+            after = body.get("next_cursor") if isinstance(body, dict) else None
+            if after is None or len(items) >= want:
+                break
+        return items, after, count()
 
-    def page_fetch_kwargs(self) -> dict:
-        return {"limit": self.page_rows, "offset": self.page_offset}
+    def took_rows(self, next_cursor: str | None, total: int) -> None:
+        self._next_cursor = next_cursor
+        self._total = total
 
-    def reset_page(self) -> None:
-        self._page = 0
+    def place_list(self, listing) -> None:
+        """The freshly built list: growing, and the cursor back where it was."""
+        listing.set_growth(more=self._next_cursor is not None)
+        if self._keep_cursor:
+            listing.set_cursor(self._keep_cursor)
+
+    def reload_in_place(self) -> None:
+        """Re-read after a write, keeping the depth and the cursor's row number."""
+        from expense.tui.widgets.cursor_list import CursorList
+
+        try:
+            listing = self.query_one(CursorList)
+        except Exception:
+            listing = None  # loading / error state: nothing to keep
+        if listing is not None:
+            self._keep = listing.row_count
+            self._keep_cursor = listing.cursor_index
+        self._stop_growing()
+        self._load()
+
+    def _start_over(self) -> None:
+        self._keep = self._keep_cursor = 0
+        self._next_cursor = None
+        self._stop_growing()
+
+    def _stop_growing(self) -> None:
+        """A full read is coming: a `pgdn` read still in flight would append
+        onto the list that read replaces."""
+        self.workers.cancel_group(self, "grow")
+        self._growing = False
 
     def _start_load(self) -> None:
-        self._page_rows = self.measure_list_rows()
+        self._start_over()
         super()._start_load()
 
+    async def action_reload(self) -> None:
+        self._start_over()
+        await super().action_reload()
+
     def _viewport_resized(self) -> None:
-        new = self.measure_list_rows()
-        if new == self.page_rows:
+        from expense.tui.widgets.cursor_list import CursorList
+
+        try:
+            listing = self.query_one(CursorList)
+        except Exception:
+            return  # loading / error state
+        listing.set_page_size(self.measure_list_rows())
+
+    def fetch_more(self, fetch_page: Callable[[int, str], Any]) -> None:
+        """`pgdn`: the next `GROW_STEP` rows after the last cursor, appended.
+        Nothing when the engine said there are no more, or a read is in flight."""
+        if self._growing or not self._next_cursor:
             return
-        first_row = self.page_offset  # keep the old first visible row on the new page
-        self._page_rows = new
-        self._page = first_row // new
-        self._load()
+        self._growing = True
+        self._read_more(fetch_page, self._next_cursor)
 
-    def page_meta(self) -> tuple[int, int] | None:
-        """(offset, total) for the CursorList subtitle; None until a fetch
-        recorded a real total (the widget then acts single-page)."""
-        return (self.page_offset, self._page_total) if self._page_total is not None else None
+    @work(thread=True, exclusive=True, group="grow")
+    def _read_more(self, fetch_page: Callable[[int, str], Any], after: str) -> None:
+        from expense.tui.widgets.cursor_list import GROW_STEP
 
-    def fetch_page_body(self, fetch_page: Callable[[dict], Any]) -> Any:
-        """Fetch the current page via `fetch_page(page_kwargs)` and record the
-        body's total. If the page now points past the end (rows shrank since —
-        e.g. a delete emptied the last page), snap to the last real page and
-        refetch once."""
-        body = fetch_page(self.page_fetch_kwargs())
-        total = body.get("total") if isinstance(body, dict) else None
-        self._page_total = total if isinstance(total, int) else None
-        if self._page and self._page_total is not None and self.page_offset >= self._page_total:
-            last = self._page_total - 1
-            self._page = last // self.page_rows if last >= 0 else 0
-            body = fetch_page(self.page_fetch_kwargs())
-            total = body.get("total") if isinstance(body, dict) else None
-            self._page_total = total if isinstance(total, int) else None
-        return body
-
-    def on_cursor_list_page_requested(self, event) -> None:
-        event.stop()
-        target = self._page + event.delta
-        if target < 0:
+        worker = get_current_worker()
+        try:
+            body = fetch_page(GROW_STEP, after)
+        except Exception as exc:
+            if not worker.is_cancelled:
+                self.app.call_from_thread(self._more_failed, format_error(exc))
             return
-        total = self._page_total
-        if total is not None and target * self.page_rows >= total:
-            return  # no page there — the last page stays put
-        self._page = target
-        self._load()
+        if worker.is_cancelled:
+            return
+        self.app.call_from_thread(self._more_arrived, items_of(body), body.get("next_cursor"))
+
+    def _more_failed(self, message: str) -> None:
+        """The rows already loaded stay; only the next ones did not arrive."""
+        self._growing = False
+        self.notify(message, title="Failed", severity="error")
+
+    def _more_arrived(self, items: list, next_cursor: str | None) -> None:
+        self._growing = False
+        self._next_cursor = next_cursor
+        self.append_loaded(items, more=next_cursor is not None)
+
+    def append_loaded(self, items: list, *, more: bool) -> None:
+        """Hook: add `items` to the screen's rows and to its list (UI thread)."""
+        raise NotImplementedError
 
 
 class LogTransactionMixin:
@@ -420,8 +483,7 @@ class SectionScreen(
             self._viewport_resized()
 
     def _viewport_resized(self) -> None:
-        """Hook — adaptive-list screens re-window (window mode) or refetch with
-        the new limit (fetched-page mode) when the terminal size changes."""
+        """Hook — adaptive-list screens re-window when the terminal size changes."""
 
     async def action_reload(self) -> None:
         async with self._content_lock():
