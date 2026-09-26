@@ -9,7 +9,7 @@ from expense.commands.rates_cmd import app as rates_app
 from expense.commands.rates_cmd import format_rate
 from expense.currencies import RATE_SCALE
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, window_page
+from tests.unit.helpers import error_response, make_cli_app, strip_panel, window_page
 
 cli_app = make_cli_app(rates_app, "rates")
 
@@ -199,7 +199,7 @@ def test_list_passes_the_window_and_cursor_through(configured):
 def test_list_refuses_date_with_a_range(configured, extra):
     result = runner.invoke(cli_app, ["rates", "list", "--date", "2026-07-04", *extra])
     assert result.exit_code == 2
-    assert "--date" in result.output
+    assert "--date" in strip_panel(result.output)
 
 
 def test_list_has_no_offset(configured):

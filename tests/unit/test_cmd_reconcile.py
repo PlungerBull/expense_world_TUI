@@ -101,7 +101,7 @@ def test_list_without_an_account_is_refused_before_any_request(configured):
         result = runner.invoke(cli_app, ["reconcile", "list"])
     assert result.exit_code != 0
     assert "Missing option" in strip_panel(result.output)
-    assert "--account-id" in result.output
+    assert "--account-id" in strip_panel(result.output)
     assert not route.called
 
 
