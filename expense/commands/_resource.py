@@ -905,17 +905,24 @@ def render_pagination_hint(
     typer.echo(f"\n({shown}{more})")
 
 
+def _window_bound(value: object) -> str:
+    """`2026-09-25T23:59:59.999999-05:00` → `2026-09-25 23:59`; a day stays a day."""
+    text = str(value)
+    return text if len(text) <= 10 else text[:16].replace("T", " ")
+
+
 def _render_window_hint(
     body: dict, cursor: object, *, note: str, older: Literal["instant", "day_before"]
 ) -> None:
     """The date-window line of `render_pagination_hint` (engine debrief 6b §1).
 
-    The bounds print exactly as the engine echoed them. Activity's are instants,
-    in UTC when the engine chose the default window; no client-side zone math
-    reformats them (todo.md engine ask "Activity takes calendar days").
+    Rates' bounds are days and print as they are. Activity's are instants the
+    engine already renders in the user's `display_timezone` (engine `aaee6bf`),
+    so they are only cut to date and minute (`2026-09-25 23:59`), with no zone
+    math here. The `--to` in the "older" part is the echoed value, uncut.
     """
     date_from, date_to = body.get("date_from"), body.get("date_to")
-    span = f"{date_from} → {date_to}"
+    span = f"{_window_bound(date_from)} → {_window_bound(date_to)}"
     if note:
         span += f" · {note}"
     if isinstance(cursor, str) and cursor:

@@ -285,8 +285,9 @@ def fetch_activity(
 
     One date window per read (engine debrief 6b §1): omitted bounds are the
     engine's (now, and 30 days before), and `after` scrolls inside the window.
-    `date_from` / `date_to` are sent as typed: the engine takes instants with an
-    offset and refuses a bare day with a `422`, which surfaces unchanged.
+    `date_from` / `date_to` are sent as typed: a bare day is the whole day in
+    the user's `display_timezone` and a time with an offset is that instant —
+    the engine's rule (engine `aaee6bf`), not the client's.
     """
     params = query_params(
         resource_type=resource_type,
@@ -321,16 +322,16 @@ def list_(
         None,
         "--from",
         help=(
-            "Window start: a time with an offset (2026-09-01T00:00:00-05:00). "
-            "Default: 30 days before --to."
+            "Window start: a day (YYYY-MM-DD, from its start in your profile's time "
+            "zone) or a time with an offset. Default: 30 days before --to."
         ),
     ),
     date_to: str | None = typer.Option(
         None,
         "--to",
         help=(
-            "Window end: a time with an offset (2026-09-25T23:59:59-05:00). "
-            "Default: now. At most 366 days after --from."
+            "Window end: a day (YYYY-MM-DD, the whole day, inclusive) or a time with an "
+            "offset. Default: now. At most 366 days after --from."
         ),
     ),
     after: str | None = typer.Option(
@@ -350,7 +351,7 @@ def list_(
     Snapshots are omitted from the human renderer; pass --json to see
     before_snapshot / after_snapshot.
 
-    Example: expense activity list --resource-type transaction --from 2026-09-01T00:00:00-05:00
+    Example: expense activity list --resource-type transaction --from 2026-09-01 --to 2026-09-25
     """
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)

@@ -100,24 +100,44 @@ def test_list_with_filters_window_and_cursor(configured):
 
 
 @respx.mock
-def test_list_sends_a_bare_day_as_typed_and_shows_the_engines_refusal(configured):
-    """No client-side day → instant conversion: the engine owns that rule
-    (todo.md engine ask "Activity takes calendar days"). Until it lands, a bare
-    day gets the engine's 422, rendered through the standard envelope."""
+def test_list_sends_bare_days_as_typed(configured):
+    """The engine reads a bare day as that whole day in `display_timezone`
+    (engine `aaee6bf`), so the CLI converts nothing and reads no zone."""
     route = respx.get(f"{BASE}/v1/activity").mock(
-        return_value=error_response(
-            422,
-            "VALIDATION_ERROR",
-            "Invalid query parameters.",
-            {"date_from": "Must be an RFC 3339 datetime with an offset."},
+        return_value=httpx.Response(
+            200,
+            json=window_page(
+                [],
+                date_from="2026-09-01T00:00:00-05:00",
+                date_to="2026-09-25T23:59:59.999999-05:00",
+            ),
         )
     )
-    result = runner.invoke(cli_app, ["activity", "list", "--from", "2026-09-01"])
+    result = runner.invoke(
+        cli_app, ["activity", "list", "--from", "2026-09-01", "--to", "2026-09-25"]
+    )
+    assert result.exit_code == 0, result.output
+    params = route.calls.last.request.url.params
+    assert params.get("date_from") == "2026-09-01"
+    assert params.get("date_to") == "2026-09-25"
+    assert not any("/auth/me" in str(c.request.url) for c in respx.calls)
+    # the window reads in the user's own day, to the minute
+    assert "(2026-09-01 00:00 → 2026-09-25 23:59 · older: pass --to 2026-09-01T00:00:00-05:00)" in (
+        result.output
+    )
+
+
+@respx.mock
+def test_list_surfaces_the_engines_refusal_of_a_bad_day(configured):
+    respx.get(f"{BASE}/v1/activity").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "Request validation failed.", {"date_from": "Invalid day."}
+        )
+    )
+    result = runner.invoke(cli_app, ["activity", "list", "--from", "2026-02-30"])
     assert result.exit_code == 1
     assert "VALIDATION_ERROR" in result.output
     assert "date_from" in result.output
-    assert route.calls.last.request.url.params.get("date_from") == "2026-09-01"
-    assert not any("/auth/me" in str(c.request.url) for c in respx.calls)
 
 
 def test_list_has_no_offset(configured):
@@ -132,7 +152,9 @@ def test_list_says_how_to_reach_the_rest_of_the_window(configured):
     )
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert f"({FROM} → {TO} · more in this window: pass --after c2)" in result.output
+    assert "(2026-04-03 10:00 → 2026-05-03 10:00 · more in this window: pass --after c2)" in (
+        result.output
+    )
 
 
 @respx.mock
@@ -142,7 +164,7 @@ def test_list_on_the_windows_last_page_names_the_exact_older_bound(configured):
     respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert f"({FROM} → {TO} · older: pass --to {FROM})" in result.output
+    assert f"(2026-04-03 10:00 → 2026-05-03 10:00 · older: pass --to {FROM})" in result.output
 
 
 @respx.mock

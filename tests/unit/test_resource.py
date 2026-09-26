@@ -575,19 +575,18 @@ def test_render_pagination_hint_window_with_more_names_the_cursor(capsys):
 
 
 def test_render_pagination_hint_window_older_by_the_exact_instant(capsys):
-    """Activity: the echoed bounds print as the engine sent them, and the older
-    bound goes back verbatim — no client-side zone math either way."""
+    """Activity: the engine echoes instants already in the user's zone; the span
+    cuts them to the minute, and the older bound goes back uncut."""
     body = {
         **_WINDOW,
         "next_cursor": None,
-        "date_from": "2026-08-24T02:00:00.5+00:00",
-        "date_to": "2026-09-23T02:00:00.5+00:00",
+        "date_from": "2026-08-24T00:00:00-05:00",
+        "date_to": "2026-09-23T23:59:59.999999-05:00",
     }
     render_pagination_hint(body, [{}])
     out = capsys.readouterr().out
     assert out == (
-        "\n(2026-08-24T02:00:00.5+00:00 → 2026-09-23T02:00:00.5+00:00"
-        " · older: pass --to 2026-08-24T02:00:00.5+00:00)\n"
+        "\n(2026-08-24 00:00 → 2026-09-23 23:59 · older: pass --to 2026-08-24T00:00:00-05:00)\n"
     )
 
 

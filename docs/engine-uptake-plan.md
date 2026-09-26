@@ -380,9 +380,9 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 - **TUI:** delete `ActivityScreen` and `RatesScreen` from
   [system.py](../expense/tui/screens/system.py), their Home entries (**M1**), and their tests.
 - **`activity list`:** drop `--offset`; add `--from` / `--to` and `--after`, all **sent as
-  typed**. `GET /activity` refuses bare dates and naive instants, so a bare day gets the engine's
-  `422` until the ask in [todo.md](todo.md) "Activity takes calendar days" lands (see the
-  reversal paragraph below). `--resource-id` help says the 30-day window still applies (owner
+  typed**. Since engine `aaee6bf` (2026-09-26, asked after the reversal below) a bare day is
+  the whole day in `display_timezone`, ending 23:59:59.999999, and the echoed window is in
+  that zone, so the line under the table cuts it to the minute with no zone math. `--resource-id` help says the 30-day window still applies (owner
   decision in 6b §2.1).
 - **`rates list`:** `--date X` sends `date_from=X&date_to=X`; drop `--offset`; add `--from` /
   `--to` (plain ISO dates here, no conversion). The "omit for full history" help text is no
@@ -415,13 +415,13 @@ three bugs: the day was placed in the profile's zone but the window was shown in
 `tzlocal` was called from `_resource.py` instead of `dates.py`; and the zone fallback read
 `user.timezone`, which `GET /auth/me` does not send. All three came from `/activity` refusing
 bare days, so the owner chose to **ask the engine** instead ([todo.md](todo.md) "Activity
-takes calendar days"). Until it lands, `--from` / `--to` are sent as typed and the window line
-prints the echoed bounds verbatim.
+takes calendar days"). **It landed the same day** (engine `aaee6bf`): the CLI sends bare days
+as typed and converts nothing. **`:8000` must be restarted on `aaee6bf`** before the live
+check; on 2026-09-26 it still refused a bare day and echoed UTC.
 
 **Builder's calls (M5; the owner does not use the typed commands):**
 - The activity "older" hint prints the echoed `date_from` **exactly as the engine sent it** (an
-  instant), not a bare date, which the engine refuses today and, once the todo.md ask lands,
-  would read as the whole day and repeat rows.
+  instant), not a bare date, which the engine would read as the whole day, repeating rows.
 - `rates list --date` together with `--from` / `--to` is refused as a flag clash.
 - An empty window prints `(no activity in this window)` / `(no rates in this window)`, and the
   window line under it.
