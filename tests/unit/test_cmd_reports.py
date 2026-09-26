@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from expense.commands.reports_cmd import app as reports_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page
+from tests.unit.helpers import error_response, make_cli_app, whole
 
 cli_app = make_cli_app(reports_app, "reports")
 
@@ -143,7 +143,7 @@ def test_monthly_single_resolves_hashtag_names_live(configured):
     hashtags_route = respx.get(f"{BASE}/v1/hashtags").mock(
         return_value=httpx.Response(
             200,
-            json=page([{"id": "aaaa", "name": "Groceries"}], total=1, limit=200, offset=0),
+            json=whole([{"id": "aaaa", "name": "Groceries"}]),
         )
     )
     respx.get(f"{BASE}/v1/reports/monthly").mock(

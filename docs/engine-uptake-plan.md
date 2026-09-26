@@ -202,6 +202,21 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
 - Fixes a live bug in passing: 56 hashtags against a default page of 50 lost 6 tags anywhere a
   caller forgot to page.
 
+**Owner answers (2026-09-25), asked while planning this phase:**
+
+- `--limit` / `--offset` are **deleted outright**, with no stub and no friendlier message: a
+  stale `--limit` gets Typer's own "No such option". The rule behind it: **delete anything that
+  no longer points anywhere.** So `fetch_all_pages` lost its flat-list branch (no caller can
+  hand it one now), and the test mocks of these three lists moved to the real `{items}` shape
+  (`whole()` in [tests/unit/helpers.py](../tests/unit/helpers.py)); the fakes refuse `limit` /
+  `offset` the way the engine does.
+- **A guard:** `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
+- **The contract suite's `_list_all`** (handed over by Phase 3) is one read, and asserts the body
+  is exactly `{items}`. It runs for real only at Phase 12.
+- **The cli-spec pagination paragraph was rewritten whole now**, as the three list shapes and
+  their footers (M5), with a *Pending* line naming the commands whose code has not caught up.
+  Phases 5, 8 and 9 each delete their command from that line.
+
 ## Phase 5: reconciliations, one account at a time (6a §4)
 
 - `fetch_reconciliations` requires `account_id` and loses `include_deleted`, `limit`, `offset`.
@@ -329,6 +344,8 @@ engine.
 ## Phase 11: docs and checks
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
+  The "Pagination (human mode)" paragraph is **already rewritten** (Phase 4); only check that its
+  *Pending* line is gone.
 - [cli-runtime.md](cli-runtime.md): a short "three list shapes" section pointing at engine-spec.
 - [tui.md](tui.md): the growing-list `PagedListMixin` (ledger and `u` list), the new
   Reconciliations browse, Activity and Rates gone, and in §4 (the keymap) that `pgdn` means

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from expense.commands.reconcile_cmd import app as reconcile_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page, strip_panel
+from tests.unit.helpers import error_response, make_cli_app, page, strip_panel, whole
 
 cli_app = make_cli_app(reconcile_app, "reconcile")
 
@@ -537,12 +537,7 @@ def test_list_resolves_account_name_from_live_accounts(configured):
     accounts_route = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200,
-            json=page(
-                [{"id": RECON_DRAFT_RESPONSE["account_id"], "name": "BCP Soles"}],
-                total=1,
-                limit=200,
-                offset=0,
-            ),
+            json=whole([{"id": RECON_DRAFT_RESPONSE["account_id"], "name": "BCP Soles"}]),
         )
     )
     result = runner.invoke(cli_app, ["reconcile", "list"])

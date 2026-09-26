@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from expense.commands import activity_cmd
 from expense.commands.activity_cmd import app as activity_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import FakeClient, error_response, make_cli_app, page
+from tests.unit.helpers import FakeClient, error_response, make_cli_app, page, whole
 
 cli_app = make_cli_app(activity_app, "activity")
 
@@ -314,13 +314,11 @@ def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configu
     respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=rows))
     accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
-            200, json=[{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)]
+            200, json=whole([{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)])
         )
     )
-    respx.get(f"{BASE}/v1/categories").mock(
-        return_value=httpx.Response(200, json=page([], total=0))
-    )
-    respx.get(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(200, json=page([], total=0)))
+    respx.get(f"{BASE}/v1/categories").mock(return_value=httpx.Response(200, json=whole([])))
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(200, json=whole([])))
     per_row = [
         respx.get(f"{BASE}/v1/accounts/acc-{i}").mock(
             return_value=httpx.Response(200, json={"name": f"Account {i}"})

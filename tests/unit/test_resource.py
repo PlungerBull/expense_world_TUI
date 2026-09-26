@@ -46,7 +46,7 @@ from expense.commands._resource import (
 )
 from expense.errors import EngineError, handle_errors
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import cursor_page, error_response, page
+from tests.unit.helpers import cursor_page, error_response, page, whole
 
 runner = CliRunner()
 
@@ -308,9 +308,8 @@ def test_fetch_body_empty_params_sends_no_query(configured):
 # ---------------------------------------------------------------------------
 
 
-def _list_body(items: list[dict], total: int | None = None) -> httpx.Response:
-    body = page(items, total=len(items) if total is None else total, limit=200, offset=0)
-    return httpx.Response(200, json=body)
+def _list_body(items: list[dict]) -> httpx.Response:
+    return httpx.Response(200, json=whole(items))
 
 
 @respx.mock
@@ -323,8 +322,7 @@ def test_load_account_name_map_fetches_live_with_archived_and_people(configured)
     params = route.calls.last.request.url.params
     assert params["include_archived"] == "true"
     assert params["include_people"] == "true"
-    assert params["limit"] == "200"
-    assert params["offset"] == "0"
+    assert "limit" not in params and "offset" not in params
 
 
 @respx.mock
@@ -346,16 +344,15 @@ def test_load_hashtag_name_map_fetches_live(configured):
 
 
 @respx.mock
-def test_load_name_map_pages_through_every_row(configured):
-    first = [{"id": f"c{i}", "name": f"n{i}"} for i in range(200)]
-    second = [{"id": "c200", "name": "n200"}]
-    route = respx.get(f"{BASE}/v1/categories").mock(
-        side_effect=[_list_body(first, total=201), _list_body(second, total=201)]
-    )
+def test_load_name_map_is_one_read_of_the_whole_list(configured):
+    """The engine returns the list whole and refuses `limit`/`offset` (2026-09-23)."""
+    rows = [{"id": f"c{i}", "name": f"n{i}"} for i in range(201)]
+    route = respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body(rows))
     out = load_category_name_map()
     assert len(out) == 201
-    assert route.call_count == 2
-    assert route.calls[1].request.url.params["offset"] == "200"
+    assert route.call_count == 1
+    params = route.calls.last.request.url.params
+    assert "limit" not in params and "offset" not in params
 
 
 @respx.mock
@@ -457,7 +454,7 @@ def test_parse_hashtag_ids_does_not_validate_uuids():
         ({"items": []}, []),
         ({"items": None}, []),  # items present but null
         ({"total": 3}, []),  # dict without items — never a row source
-        ([{"id": "a"}], [{"id": "a"}]),  # flat list (e.g. accounts live path)
+        ([{"id": "a"}], [{"id": "a"}]),  # rows a caller already holds
         ([], []),
         (None, []),
         ("oops", []),  # scalar garbage
@@ -743,13 +740,6 @@ def test_fetch_all_pages_full_then_short_page():
     assert len(rows) == 240
 
 
-def test_fetch_all_pages_flat_list_returned_whole():
-    fetch_page, calls = _pager([[{"id": "a1"}, {"id": "a2"}]])
-    rows = fetch_all_pages(fetch_page)
-    assert calls == [(200, 0)]
-    assert rows == [{"id": "a1"}, {"id": "a2"}]
-
-
 def test_fetch_all_pages_empty_first_page():
     fetch_page, calls = _pager([page([], total=0)])
     assert fetch_all_pages(fetch_page) == []
@@ -958,12 +948,11 @@ def test_settled_label_shape():
 @respx.mock
 def test_load_quickadd_refs_shapes_all_three_lists(configured):
     respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(
-            200,
-            json=[
+        return_value=_list_body(
+            [
                 {"id": "a1", "name": "BCP PEN", "currency_code": "PEN"},
                 {"id": "a2", "name": "Retired", "currency_code": "PEN", "is_archived": True},
-            ],
+            ]
         )
     )
     respx.get(f"{BASE}/v1/categories").mock(
@@ -987,9 +976,7 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
     """You cannot type your way into an archived account or a system category,
     but a row that already names one still renders its name."""
     respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(
-            200, json=[{"id": "a2", "name": "Retired", "is_archived": True}]
-        )
+        return_value=_list_body([{"id": "a2", "name": "Retired", "is_archived": True}])
     )
     respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body([{"id": "c2", "name": "Opening", "is_system": True}])
@@ -1004,24 +991,20 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
 
 
 @respx.mock
-def test_load_quickadd_refs_pages_through_every_hashtag(configured):
-    """A tag past the engine's first page was invisible to the picker and
-    unmatchable from a typed line — one unpaginated call was the cause."""
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=[]))
+def test_load_quickadd_refs_reads_every_hashtag_in_one_call(configured):
+    """56 hashtags against the old default page of 50 lost 6 tags to the
+    picker. The engine now returns the list whole: one read, no paging."""
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=_list_body([]))
     respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body([]))
-    first = [{"id": f"h{i}", "name": f"tag{i}"} for i in range(200)]
-    route = respx.get(f"{BASE}/v1/hashtags").mock(
-        side_effect=[
-            _list_body(first, total=201),
-            _list_body([{"id": "h200", "name": "last"}], total=201),
-        ]
-    )
+    tags = [{"id": f"h{i}", "name": f"tag{i}"} for i in range(56)]
+    route = respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body(tags))
 
     refs = load_quickadd_refs(config_module.ensure_loaded())
 
-    assert len(refs.hashtags) == 201
-    assert route.call_count == 2
-    assert ("h200", "last") in refs.hashtags
+    assert len(refs.hashtags) == 56
+    assert route.call_count == 1
+    params = route.calls.last.request.url.params
+    assert "limit" not in params and "offset" not in params
 
 
 # ---- query_params -----------------------------------------------------------

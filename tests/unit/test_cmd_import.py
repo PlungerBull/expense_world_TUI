@@ -52,14 +52,21 @@ def _orow(line: int, **over: object) -> OpeningRow:
     return OpeningRow(**base)  # type: ignore[arg-type]
 
 
+def _whole_list(rows: list):
+    """The 2026-09-23 engine: the list whole, and a 422 for any paging."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if {"limit", "offset"} & set(request.url.params):
+            return error_response(422, "VALIDATION_ERROR", "unknown query parameter")
+        return httpx.Response(200, json={"items": rows})
+
+    return respond
+
+
 def _mock_existing(*, accounts: list, categories: list, hashtags: list) -> None:
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=accounts))
-    respx.get(f"{BASE}/v1/categories").mock(
-        return_value=httpx.Response(200, json={"items": categories})
-    )
-    respx.get(f"{BASE}/v1/hashtags").mock(
-        return_value=httpx.Response(200, json={"items": hashtags})
-    )
+    respx.get(f"{BASE}/v1/accounts").mock(side_effect=_whole_list(accounts))
+    respx.get(f"{BASE}/v1/categories").mock(side_effect=_whole_list(categories))
+    respx.get(f"{BASE}/v1/hashtags").mock(side_effect=_whole_list(hashtags))
 
 
 @respx.mock

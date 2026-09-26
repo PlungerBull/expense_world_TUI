@@ -5,15 +5,10 @@ import typer
 from expense import config as config_module
 from expense.commands._resource import (
     JSON_OPT,
-    LIMIT_OPT,
-    OFFSET_OPT,
     YES_OPT,
     build_update_payload,
-    effective_limit,
     fetch_body,
     items_of,
-    query_params,
-    render_pagination_hint,
     render_record,
     render_table,
     run_delete,
@@ -49,35 +44,26 @@ def _render_hashtag_list(body: dict, *, json_mode: bool) -> None:
         },
         rows=rows,
     )
-    render_pagination_hint(body, items)
 
 
 def fetch_hashtags(
     cfg,
     *,
-    limit: int | None = None,
-    offset: int | None = None,
     verbose: bool = False,
 ) -> dict:
     """GET /v1/hashtags → the raw engine body. Pure data, no render.
 
     Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
+    The engine returns every row as `{items}` and refuses `limit`/`offset`
+    (2026-09-23) — there is no page to ask for.
     """
-    params = query_params(limit=limit, offset=offset)
-    return fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}",
-        params=params,
-        verbose=verbose,
-    )
+    return fetch_body(cfg, path=f"/{_RESOURCE}", params=None, verbose=verbose)
 
 
 @app.command("list")
 @handle_errors
 def list_(
     ctx: typer.Context,
-    limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/hashtags.
@@ -85,13 +71,7 @@ def list_(
     Example: expense hashtags list
     """
     cfg = config_module.ensure_loaded()
-    limit = effective_limit(limit, json_mode=json_output)
-    body = fetch_hashtags(
-        cfg,
-        limit=limit,
-        offset=offset,
-        verbose=get_verbose(ctx),
-    )
+    body = fetch_hashtags(cfg, verbose=get_verbose(ctx))
     _render_hashtag_list(body, json_mode=json_output)
 
 

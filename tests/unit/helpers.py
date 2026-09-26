@@ -158,6 +158,13 @@ def error_response(
     return httpx.Response(status, json=error_body(code, message, fields))
 
 
+def whole(items: list) -> dict:
+    """The whole-list envelope: accounts, categories, hashtags (engine 2026-09-23).
+    No `total`, `limit` or `offset` — the engine returns every row and refuses
+    both paging parameters."""
+    return {"items": items}
+
+
 def page(items: list, *, total: int | None = None, limit: int = 50, offset: int = 0) -> dict:
     """The list envelope. `total` defaults to "this is the whole collection",
     which is what most fixtures mean; pass it explicitly to make a page a

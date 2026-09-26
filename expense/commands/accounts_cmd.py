@@ -6,19 +6,15 @@ from expense import config as config_module
 from expense.commands._resource import (
     INCLUDE_ARCHIVED_OPT,
     JSON_OPT,
-    LIMIT_OPT,
-    OFFSET_OPT,
     YES_OPT,
     build_update_payload,
     color_supported,
     color_swatch,
-    effective_limit,
     fetch_body,
     format_bool,
     format_cents,
     items_of,
     query_params,
-    render_pagination_hint,
     render_record,
     render_table,
     run_delete,
@@ -68,7 +64,6 @@ def _render_account_list(body: dict, *, json_mode: bool) -> None:
         rows=rows,
         align_right={"balance"},
     )
-    render_pagination_hint(body, items)
 
 
 def fetch_accounts(
@@ -76,22 +71,15 @@ def fetch_accounts(
     *,
     include_archived: bool = False,
     include_people: bool = False,
-    limit: int | None = None,
-    offset: int | None = None,
     verbose: bool = False,
 ):
     """GET /v1/accounts → the raw engine body. Pure data.
 
     Shared by the flat `accounts list` command and the TUI's Accounts screen.
-    Without limit/offset the body is the flat list internal consumers rely on;
-    with either set it's the standard {items,total,limit,offset} envelope.
+    The engine returns every row as `{items}` and refuses `limit`/`offset`
+    (2026-09-23) — there is no page to ask for.
     """
-    params = query_params(
-        include_archived=include_archived,
-        include_people=include_people,
-        limit=limit,
-        offset=offset,
-    )
+    params = query_params(include_archived=include_archived, include_people=include_people)
     return fetch_body(
         cfg,
         path=f"/{_RESOURCE}",
@@ -108,8 +96,6 @@ def list_(
     include_people: bool = typer.Option(
         False, "--include-people", help="Include person (payable/receivable) accounts."
     ),
-    limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/accounts.
@@ -117,13 +103,10 @@ def list_(
     Example: expense accounts list --include-archived
     """
     cfg = config_module.ensure_loaded()
-    limit = effective_limit(limit, json_mode=json_output)
     body = fetch_accounts(
         cfg,
         include_archived=include_archived,
         include_people=include_people,
-        limit=limit,
-        offset=offset,
         verbose=get_verbose(ctx),
     )
     _render_account_list(body, json_mode=json_output)

@@ -259,9 +259,9 @@ def redact_token(token: str) -> str:
 def items_of(body: object) -> list:
     """Rows of a paginated dict (`{"items": [...]}`) or a bare list; [] for anything else.
 
-    The engine's list endpoints return the paginated shape; a few (e.g.
-    /accounts) return flat lists. Strict list-or-empty — never hands a dict or
-    None to a row-builder.
+    Every engine list endpoint returns the `{items}` shape (2026-09-23); the
+    bare-list branch is for callers that already hold rows. Strict
+    list-or-empty — never hands a dict or None to a row-builder.
     """
     if isinstance(body, dict):
         items = body.get("items")
@@ -287,18 +287,17 @@ def fetch_all_pages(
 ) -> list[dict]:
     """Exhaust a paginated resource. `fetch_page(limit, offset)` returns one raw body.
 
-    A flat-list body (unpaginated endpoint, e.g. /accounts) is returned whole.
-    Stops on an empty page, a short page, or having collected >= body["total"]
-    (when the engine sends an int total). One copy of the loop — the previous
-    three hand-rolled variants each had their own termination rule.
+    Offset paging survives only on the lists the engine has not moved yet
+    (activity, rates, reconciliations); accounts, categories and hashtags come
+    back whole and never go through here. Stops on an empty page, a short
+    page, or having collected >= body["total"] (when the engine sends an int
+    total). One copy of the loop — the previous three hand-rolled variants each
+    had their own termination rule.
     """
     out: list[dict] = []
     offset = 0
     while True:
         body = fetch_page(page_size, offset)
-        if isinstance(body, list):  # flat, unpaginated endpoint
-            out.extend(body)
-            return out
         page = items_of(body)
         out.extend(page)
         total = body.get("total") if isinstance(body, dict) else None
@@ -312,10 +311,10 @@ def fetch_all_cursor_pages(
 ) -> list[dict]:
     """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
 
-    `GET /transactions` is the one cursor-paged endpoint; every other list stays
-    on `fetch_all_pages`. The only stop is `next_cursor` being null (engine-spec)
-    — not a short page, not a count: a page holding exactly the remaining rows
-    already comes back null, and a short page with a cursor still has more.
+    `GET /transactions` is the one cursor-paged endpoint. The only stop is
+    `next_cursor` being null (engine-spec) — not a short page, not a count: a
+    page holding exactly the remaining rows already comes back null, and a
+    short page with a cursor still has more.
     """
     out: list[dict] = []
     after: str | None = None
@@ -338,11 +337,7 @@ def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
     try:
         cfg = config_module.ensure_loaded()
         with ExpenseClient(cfg) as client:
-            items = fetch_all_pages(
-                lambda limit, offset: client.get(
-                    path, params={**(params or {}), "limit": limit, "offset": offset}
-                )
-            )
+            items = items_of(client.get(path, params=params))
     except Exception:
         return {}
     out: dict[str, str] = {}
@@ -495,21 +490,18 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     * **System categories are excluded** from the pool — `@Opening` is the
       engine's own bookkeeping, and `@Pendiente` is what an *empty* category
       means, so neither is something a typed line names.
-    * **Every page** — categories and hashtags go through `fetch_all_pages`.
-      A single unpaginated call left every tag past the engine's default page
-      invisible to the picker and unmatchable from a typed line.
+    * **One read each, and it is every row** — the engine returns these lists
+      whole (2026-09-23). Before that a single call stopped at the engine's
+      default page, and every tag past it was invisible to the picker and
+      unmatchable from a typed line.
     """
     from expense.commands import accounts_cmd, categories_cmd, hashtags_cmd
 
     accts = items_of(
         accounts_cmd.fetch_accounts(cfg, include_people=True, include_archived=True, **kw)
     )
-    cats = fetch_all_pages(
-        lambda limit, offset: categories_cmd.fetch_categories(cfg, limit=limit, offset=offset, **kw)
-    )
-    tags = fetch_all_pages(
-        lambda limit, offset: hashtags_cmd.fetch_hashtags(cfg, limit=limit, offset=offset, **kw)
-    )
+    cats = items_of(categories_cmd.fetch_categories(cfg, **kw))
+    tags = items_of(hashtags_cmd.fetch_hashtags(cfg, **kw))
     return QuickAddRefs(
         accounts=account_choices([a for a in accts if not a.get("is_archived")]),
         categories=[

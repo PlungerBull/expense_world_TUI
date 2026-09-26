@@ -15,7 +15,7 @@ from expense import config as config_module
 from expense.commands import _resource, bank_import_cmd
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_body, error_response, page, real_cli_app
+from tests.unit.helpers import error_body, error_response, page, real_cli_app, whole
 
 runner = CliRunner()
 #: The real command tree — see the note in test_cmd_import.py. Mounted as a
@@ -51,7 +51,7 @@ def _feed(monkeypatch, headers, rows) -> None:
 
 def _engine(ledger_by_account: dict[str, list[dict]] | None = None):
     """Mock the reads: the accounts list and one ledger page per account."""
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=ACCOUNTS))
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=whole(ACCOUNTS)))
 
     def transactions(request):
         account = request.url.params.get("account_id")

@@ -38,7 +38,7 @@ from expense.commands.accounts_cmd import app as accounts_app
 from expense.commands.categories_cmd import app as categories_app
 from expense.commands.hashtags_cmd import app as hashtags_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page
+from tests.unit.helpers import error_response, make_cli_app, whole
 
 runner = CliRunner()
 
@@ -160,7 +160,7 @@ def test_list_bare_sends_no_include_params(spec, configured):
     that leaked into the default would quietly change what the command means.
     """
     route = respx.get(f"{BASE}/v1/{spec.name}").mock(
-        return_value=httpx.Response(200, json=[spec.sample])
+        return_value=httpx.Response(200, json=whole([spec.sample]))
     )
     result = _run(spec, "list")
 
@@ -172,15 +172,23 @@ def test_list_bare_sends_no_include_params(spec, configured):
 
 @resource
 @respx.mock
-def test_list_pagination_hint_when_truncated(spec, configured):
-    """`render_pagination_hint` is shared, but each command has to call it."""
-    respx.get(f"{BASE}/v1/{spec.name}").mock(
-        return_value=httpx.Response(200, json=page([spec.sample], total=5, limit=1, offset=0))
+def test_list_prints_every_row_and_no_footer(spec, configured):
+    """The engine returns these lists whole and refuses `limit`/`offset`
+    (2026-09-23): the request carries neither, every row is printed — 56 rows
+    is the hashtag count that lost 6 tags to a default page of 50 — and there
+    is no `showing N of M` line, because there is nothing more to fetch (M5)."""
+    rows = [{**spec.sample, "id": f"id-{i}", "name": f"row{i:02d}"} for i in range(56)]
+    route = respx.get(f"{BASE}/v1/{spec.name}").mock(
+        return_value=httpx.Response(200, json=whole(rows))
     )
     result = _run(spec, "list")
 
     assert result.exit_code == 0, result.output
-    assert "showing 1 of 5" in result.output
+    params = route.calls.last.request.url.params
+    assert "limit" not in params and "offset" not in params
+    assert all(f"row{i:02d}" in result.output for i in range(56))
+    assert "showing" not in result.output
+    assert "--offset" not in result.output
 
 
 @resource
@@ -188,7 +196,7 @@ def test_list_pagination_hint_when_truncated(spec, configured):
 def test_list_json_is_the_engine_body_verbatim(spec, configured):
     """CLAUDE.md "Human default, JSON opt-in": `--json` is a pass-through, never
     a re-rendering."""
-    body = [spec.sample]
+    body = whole([spec.sample])
     respx.get(f"{BASE}/v1/{spec.name}").mock(return_value=httpx.Response(200, json=body))
     result = _run(spec, "list", "--json")
 

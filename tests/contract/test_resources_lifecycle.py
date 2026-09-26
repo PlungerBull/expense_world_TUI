@@ -16,24 +16,20 @@ from uuid import uuid4
 
 import pytest
 
-from expense.commands._resource import fetch_all_pages
 from expense.errors import EngineError
 
 
 def _list_all(client, resource: str, **flags) -> list[dict]:
-    """Page through the whole collection.
+    """The whole collection, in one read.
 
-    List endpoints serve default-limit pages — including /accounts, which
-    engine-spec.md documents as unpaginated ("returns all") but which caps at
-    50 and honors limit/offset (contract gap found by this gate 2026-07-08).
-    Unpaginated reads went flaky once gate-run tombstones passed the cap.
+    Since 2026-09-23 the engine returns accounts, categories and hashtags whole
+    as `{items}` and refuses `limit`/`offset` with a 422 — so this also pins
+    that a plain read is the entire list, not a default page.
     """
     params = {flag: "true" for flag, on in flags.items() if on}
-    return fetch_all_pages(
-        lambda limit, offset: client.get(
-            f"/{resource}", params={**params, "limit": str(limit), "offset": str(offset)}
-        )
-    )
+    body = client.get(f"/{resource}", params=params or None)
+    assert set(body) == {"items"}, f"/{resource} is no longer the whole-list shape: {sorted(body)}"
+    return body["items"]
 
 
 def _assert_gone(client, resource: str, row_id: str) -> None:

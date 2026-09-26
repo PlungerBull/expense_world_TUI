@@ -31,13 +31,9 @@ class HashtagsScreen(ResourceListScreen):
     RESOURCE = "hashtags"
 
     def fetch_items(self, cfg, **kw):
-        # All pages, not the engine default page: the 20-row window needs
-        # the full set for an honest "page 2 of N" (2026-07-11 pagination).
-        from expense.commands._resource import fetch_all_pages
-
-        return fetch_all_pages(
-            lambda limit, offset: hashtags_cmd.fetch_hashtags(cfg, limit=limit, offset=offset, **kw)
-        )
+        # The engine returns every row (2026-09-23); the 20-row window pages
+        # over the full set locally, so "page 2 of N" stays honest.
+        return hashtags_cmd.fetch_hashtags(cfg, **kw)
 
     def rows(self, items: list) -> list:
         return hashtag_rows(items)

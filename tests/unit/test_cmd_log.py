@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 from expense.commands import _resource, log_cmd
 from expense.commands.log_cmd import log as log_impl
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page
+from tests.unit.helpers import error_response, make_cli_app, whole
 
 cli_app = make_cli_app(commands={"log": log_impl})
 
@@ -188,13 +188,11 @@ TODAY = date(2026, 8, 25)
 
 def _refs() -> None:
     """Mock the three reference-list reads every parse needs."""
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=ACCOUNTS))
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=whole(ACCOUNTS)))
     respx.get(f"{BASE}/v1/categories").mock(
-        return_value=httpx.Response(200, json=page(CATEGORIES, total=3))
+        return_value=httpx.Response(200, json=whole(CATEGORIES))
     )
-    respx.get(f"{BASE}/v1/hashtags").mock(
-        return_value=httpx.Response(200, json=page(HASHTAGS, total=2))
-    )
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(200, json=whole(HASHTAGS)))
 
 
 def _run(monkeypatch, args, *, tty: bool = True, **kwargs):

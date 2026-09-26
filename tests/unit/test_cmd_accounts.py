@@ -17,7 +17,7 @@ from typer.testing import CliRunner
 
 from expense.commands.accounts_cmd import app as accounts_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app
+from tests.unit.helpers import error_response, make_cli_app, whole
 
 cli_app = make_cli_app(accounts_app, "accounts")
 
@@ -41,7 +41,7 @@ ACCOUNT_RESPONSE = {
     "current_balance_home_cents": 125000,
 }
 
-LIST_RESPONSE = [ACCOUNT_RESPONSE]
+LIST_RESPONSE = whole([ACCOUNT_RESPONSE])
 
 
 @respx.mock
@@ -67,7 +67,7 @@ def test_list_include_people_sends_param(configured):
         "current_balance_cents": -4500,
     }
     route = respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(200, json=[ACCOUNT_RESPONSE, person])
+        return_value=httpx.Response(200, json=whole([ACCOUNT_RESPONSE, person]))
     )
     result = runner.invoke(cli_app, ["accounts", "list", "--include-people"])
     assert result.exit_code == 0, result.output
@@ -85,7 +85,7 @@ def test_list_renders_balance_as_major_units(configured):
         "current_balance_cents": 5000,
     }
     respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(200, json=[ACCOUNT_RESPONSE, cash])
+        return_value=httpx.Response(200, json=whole([ACCOUNT_RESPONSE, cash]))
     )
     result = runner.invoke(cli_app, ["accounts", "list"])
     assert result.exit_code == 0, result.output
@@ -94,22 +94,6 @@ def test_list_renders_balance_as_major_units(configured):
     # Balance renders as grouped major units (Cash: 5000 cents → 50.00).
     assert "50.00" in result.output
     assert "1,250.00" in result.output
-
-
-@respx.mock
-def test_list_human_default_sends_limit_20(configured):
-    """Bare human list → the 20-row default (2026-07-11); explicit flags win."""
-    route = respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
-    )
-    result = runner.invoke(cli_app, ["accounts", "list"])
-    assert result.exit_code == 0, result.output
-    assert route.calls.last.request.url.params.get("limit") == "20"
-    assert route.calls.last.request.url.params.get("offset") is None
-
-    result = runner.invoke(cli_app, ["accounts", "list", "--limit", "5"])
-    assert result.exit_code == 0, result.output
-    assert route.calls.last.request.url.params.get("limit") == "5"
 
 
 @respx.mock

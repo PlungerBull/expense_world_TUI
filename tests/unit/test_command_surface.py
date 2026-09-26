@@ -120,6 +120,22 @@ def test_no_command_restores_or_lists_deleted_rows():
     assert not flagged, flagged
 
 
+# Lists the engine returns whole and refuses to page (2026-09-23, `?limit=` /
+# `?offset=` are a 422). A paging flag here could only ever produce that error.
+_WHOLE_LISTS = [("accounts", "list"), ("categories", "list"), ("hashtags", "list")]
+
+
+def test_whole_lists_take_no_paging_flags():
+    leaves = dict(_LEAVES)
+    assert set(_WHOLE_LISTS) <= set(leaves), "a whole-list command was renamed"
+    flagged = [
+        " ".join(path)
+        for path in _WHOLE_LISTS
+        if {"limit", "offset"} & set(inspect.signature(leaves[path]).parameters)
+    ]
+    assert not flagged, flagged
+
+
 @pytest.mark.parametrize(("path", "callback"), _DESTRUCTIVE_LEAVES, ids=_DESTRUCTIVE_LEAF_IDS)
 def test_destructive_command_requires_yes(path, callback):
     sig = inspect.signature(callback)

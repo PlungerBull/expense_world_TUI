@@ -18,7 +18,7 @@ from expense.batch_write import (
     RowResult,
     post_transaction_batch,
 )
-from expense.commands._resource import fetch_all_pages, query_params
+from expense.commands._resource import items_of, query_params
 from expense.dates import to_canonical_aware
 from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.http import ExpenseClient
@@ -61,18 +61,13 @@ class ApplyResult:
 def _list_all(
     client: ExpenseClient, resource: str, *, include_archived: bool = False
 ) -> list[dict]:
-    """GET every existing row for a resource (flat list, or paged at the engine cap).
+    """GET every existing row for a resource — one read, the engine returns it whole.
 
     `include_archived` applies to accounts only — the only archivable resource
     since the 2026-08-06 engine schema slimming.
     """
     params = query_params(include_archived=include_archived)
-    return fetch_all_pages(
-        lambda limit, offset: client.get(
-            f"/{resource}",
-            params={**params, "limit": limit, "offset": offset},
-        )
-    )
+    return items_of(client.get(f"/{resource}", params=params or None))
 
 
 def _resolve_each(

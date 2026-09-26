@@ -15,12 +15,12 @@ import re
 
 from textual.containers import VerticalScroll
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit
+from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit, items_of
 from expense.tui.screens._base import AdaptiveRowsMixin, PagedListMixin
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
-from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list
+from tests.unit.helpers import page, render_text, run_app, wait_for, wait_for_list, whole
 
 
 def _text(renderable) -> str:
@@ -223,32 +223,43 @@ def test_checklist_set_page_size_keeps_checks():
     assert chk.page_status == "items 1-6 of 25 · page 1 of 5"
 
 
-# ---- manage-list fetch: all pages, not the source default -------------------
+# ---- manage-list fetch: one read, the whole list -----------------------------
 
 
-def test_categories_manage_fetches_all_pages(monkeypatch):
-    """The manage screens window locally, so the fetch must exhaust the
-    envelope — 150 categories were silently cut at the replica's 100 before."""
+def _whole_fetch(n: int, prefix: str, calls: list):
+    """A fake that behaves like the 2026-09-23 engine: every row, and a 422
+    for paging it no longer has."""
 
-    def fake_fetch(cfg, *, limit, offset, **kw):
-        items = [{"id": f"c{i}"} for i in range(offset, min(offset + limit, 150))]
-        return page(items, total=150, limit=limit, offset=offset)
+    def fake_fetch(cfg, **kw):
+        assert "limit" not in kw and "offset" not in kw, "the engine refuses paging"
+        calls.append(kw)
+        return whole([{"id": f"{prefix}{i}"} for i in range(n)])
 
-    monkeypatch.setattr("expense.commands.categories_cmd.fetch_categories", fake_fetch)
+    return fake_fetch
+
+
+def test_categories_manage_reads_the_whole_list_once(monkeypatch):
+    """The manage screens window locally over the full set; the engine
+    returns it whole, so one read holds every row."""
+    calls: list = []
+    monkeypatch.setattr(
+        "expense.commands.categories_cmd.fetch_categories", _whole_fetch(150, "c", calls)
+    )
     from expense.tui.screens.categories import CategoriesScreen
 
-    assert len(CategoriesScreen().fetch_items(None)) == 150
+    assert len(items_of(CategoriesScreen().fetch_items(None))) == 150
+    assert len(calls) == 1
 
 
-def test_hashtags_manage_fetches_all_pages(monkeypatch):
-    def fake_fetch(cfg, *, limit, offset, **kw):
-        items = [{"id": f"h{i}"} for i in range(offset, min(offset + limit, 130))]
-        return page(items, total=130, limit=limit, offset=offset)
-
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", fake_fetch)
+def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
+    calls: list = []
+    monkeypatch.setattr(
+        "expense.commands.hashtags_cmd.fetch_hashtags", _whole_fetch(130, "h", calls)
+    )
     from expense.tui.screens.hashtags import HashtagsScreen
 
-    assert len(HashtagsScreen().fetch_items(None)) == 130
+    assert len(items_of(HashtagsScreen().fetch_items(None))) == 130
+    assert len(calls) == 1
 
 
 # ---- PagedListMixin (tier-E screen plumbing) ---------------------------------
