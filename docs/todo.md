@@ -73,7 +73,43 @@ category tags ──▶ import door ──▶ first real bank import
 Each entry says what to ask for, why no client can do it properly today, and **what this repo
 deletes when it lands**. Never edited here: they are handed to the owner for the engine coder.
 
-None open.
+### Activity takes calendar days (raised 2026-09-26, owner)
+
+**Ask.** Give `GET /activity` the day rule `/transactions` got on 2026-09-26 (engine `1f50722`):
+1. A bare `YYYY-MM-DD` in `date_from` / `date_to` is **the whole calendar day in the user's
+   `display_timezone`, both ends inclusive**. A datetime with an offset stays that instant, and a
+   naive datetime stays a `422`.
+2. **Echo the window in `display_timezone`**, so `date_from` / `date_to` in the response read
+   in the user's own day, not in UTC. Today the default window comes back as
+   `2026-08-27T17:56:28.000077+00:00`, which is a different day from Lima's for five hours of
+   every day.
+
+**Why no client can do it properly.** This reopens the engine owner's 2026-09-26 choice to keep
+`/activity` on exact instants; the CLI owner asked for it after the cost showed up in Phase 8.
+Doing it client-side means every client carries its own "day → midnight in the profile zone"
+rule, reads `GET /auth/me` for the zone on every such call, and converts the echoed window
+back for display. The first copy (Phase 8, `7ce6405`) had a bug on day one: it placed the day
+in the profile's zone but showed the window in the machine's, so `--from 2026-09-01` read
+as starting at 07:00 whenever the two differed. It also stretched `--to` to the next midnight,
+which with inclusive ends took in an event at exactly 00:00:00 of the next day. The engine
+already owns this rule for `/transactions`, so this is the same rule in one more place, not a
+new one.
+
+**Until it lands.** `activity list --from` / `--to` are sent as typed, so a bare day gets the
+engine's `422` (`date_from: Must be an RFC 3339 datetime with an offset.`). The window line
+prints the echoed bounds verbatim. The owner does not use the typed commands, so nothing
+they rely on waits on this.
+
+**When it lands, this repo:**
+- in [activity_cmd.py](../expense/commands/activity_cmd.py), changes the `--from` / `--to`
+  help to say what `transactions list` says ("a day (YYYY-MM-DD, whole day, inclusive) or a time
+  with an offset"), and the `Example:` to a bare day;
+- in `_render_window_hint` in [_resource.py](../expense/commands/_resource.py), prints the
+  bounds shorter (date and time, no seconds), which is safe once they are in the user's zone;
+- flips `test_list_sends_a_bare_day_as_typed_and_shows_the_engines_refusal` in
+  [test_cmd_activity.py](../tests/unit/test_cmd_activity.py) into a pass-through test;
+- updates [cli-spec.md](cli-spec.md)'s `activity list` entry.
+It deletes nothing: the conversion it would have deleted was taken out before it shipped.
 
 Answered on 2026-09-26: reconciliation periods are days (engine `5922bbf`, `sql/041`) and always
 have both (`8f22ebb`, `sql/042`); taken up in engine uptake Phase 10c.

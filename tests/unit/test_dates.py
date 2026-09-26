@@ -5,7 +5,6 @@ import typer
 
 from expense.dates import (
     TimezoneDetectionError,
-    calendar_day_bound,
     detect_timezone,
     is_calendar_day,
     to_canonical_aware,
@@ -117,33 +116,3 @@ def test_detect_timezone_failure_raises_neutral_error(monkeypatch, tmp_path):
 )
 def test_is_calendar_day_is_the_engines_day_shape(text, ok):
     assert is_calendar_day(text) is ok
-
-
-# --- calendar_day_bound (activity list --from / --to) ---------------------
-
-
-def test_calendar_day_bound_start_is_midnight_in_the_zone():
-    assert calendar_day_bound("2026-09-01", "America/Lima") == "2026-09-01T00:00:00-05:00"
-
-
-def test_calendar_day_bound_end_is_the_next_midnight():
-    assert calendar_day_bound("2026-09-30", "America/Lima", end=True) == (
-        "2026-10-01T00:00:00-05:00"
-    )
-
-
-def test_calendar_day_bound_takes_the_offset_of_that_day_not_today():
-    """New York is -04:00 on 2026-11-01 and -05:00 by the next midnight."""
-    assert calendar_day_bound("2026-11-01", "America/New_York") == "2026-11-01T00:00:00-04:00"
-    assert calendar_day_bound("2026-11-01", "America/New_York", end=True) == (
-        "2026-11-02T00:00:00-05:00"
-    )
-
-
-@pytest.mark.parametrize(
-    "typed", ["2026-09-01T00:00:00Z", "2026-09-01T08:00:00-05:00", "2026-09-01T00:00", "20260901"]
-)
-def test_calendar_day_bound_passes_anything_but_a_bare_day_through(typed):
-    """An aware time is already right; the rest is the engine's to refuse."""
-    assert calendar_day_bound(typed, "America/Lima") == typed
-    assert calendar_day_bound(typed, "America/Lima", end=True) == typed

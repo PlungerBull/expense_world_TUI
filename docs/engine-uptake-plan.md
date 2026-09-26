@@ -375,31 +375,26 @@ the footer as `pgdn 10 more`. The `?` card lists that key only on screens that h
 first new row; `pgdn` on a null cursor sends nothing; a filter change empties the list and
 recounts; a bulk edit recounts; a resize sends no request; `a` selects all loaded rows.
 
-## Phase 8: Activity and Rates (6b §2–3, owner decision) (done 2026-09-26, `7ce6405`)
+## Phase 8: Activity and Rates (6b §2–3, owner decision) (done 2026-09-26, `7ce6405`, fixed in the follow-up)
 
 - **TUI:** delete `ActivityScreen` and `RatesScreen` from
   [system.py](../expense/tui/screens/system.py), their Home entries (**M1**), and their tests.
-- **`activity list`:** drop `--offset`; add `--from` / `--to` and `--after`. A bare date becomes
-  an instant with an offset through the **calendar-day helper** (see below), because
-  `GET /activity` refuses bare dates and naive instants (it stays on exact times, owner
-  decision relayed by the engine 2026-09-26). `--resource-id` help says the 30-day window still applies
-  (owner decision in 6b §2.1).
+- **`activity list`:** drop `--offset`; add `--from` / `--to` and `--after`, all **sent as
+  typed**. `GET /activity` refuses bare dates and naive instants, so a bare day gets the engine's
+  `422` until the ask in [todo.md](todo.md) "Activity takes calendar days" lands (see the
+  reversal paragraph below). `--resource-id` help says the 30-day window still applies (owner
+  decision in 6b §2.1).
 - **`rates list`:** `--date X` sends `date_from=X&date_to=X`; drop `--offset`; add `--from` /
   `--to` (plain ISO dates here, no conversion). The "omit for full history" help text is no
   longer true: omitting both gives the last 30 days.
 - **M5, the line under both tables** (dates from the window the engine echoes):
   - more rows in this window: `(2026-08-24 → 2026-09-23 · more in this window: pass --after <cursor>)`
-  - the window's last page, activity: `(2026-08-24 → 2026-09-23 · older: pass --to 2026-08-24)`,
-    i.e. `--to` = the echoed `date_from`
+  - the window's last page, activity: `(<from> → <to> · older: pass --to <date_from>)`, with
+    both bounds and `--to` printed exactly as the engine echoed them (instants)
   - the window's last page, rates: `(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)`,
     i.e. `--to` = the echoed `date_from` **minus one day**, because rate dates are inclusive
     (6b §3)
   - The line is printed even when the table is empty, so an empty window never reads as "no history".
-- **The calendar-day helper** is built here, in [dates.py](../expense/dates.py), for
-  `activity list` only (Phase 9 no longer needs it: the engine reads bare dates on
-  `/transactions` since 2026-09-26). A bare `YYYY-MM-DD` becomes the start of that day in the
-  user's `display_timezone` for `--from`, and the start of the **next** day for `--to`, so `--to`
-  includes the whole day. A value that already carries an offset passes through unchanged.
 - Both mocks move to the windowed envelope.
 - **The line goes into the shared `render_pagination_hint`** in
   [_resource.py](../expense/commands/_resource.py), which both commands already call. Phase 9 gave
@@ -414,12 +409,19 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   Only the comment in [header.py](../expense/tui/widgets/header.py) that sends you to "`Rates` on
   the home menu" changes.
 
+**Reversed after review, 2026-09-26 (owner):** the calendar-day helper and the local-time
+window line were built in `7ce6405` and **taken out** in the follow-up commit. Review found
+three bugs: the day was placed in the profile's zone but the window was shown in the machine's;
+`tzlocal` was called from `_resource.py` instead of `dates.py`; and the zone fallback read
+`user.timezone`, which `GET /auth/me` does not send. All three came from `/activity` refusing
+bare days, so the owner chose to **ask the engine** instead ([todo.md](todo.md) "Activity
+takes calendar days"). Until it lands, `--from` / `--to` are sent as typed and the window line
+prints the echoed bounds verbatim.
+
 **Builder's calls (M5; the owner does not use the typed commands):**
 - The activity "older" hint prints the echoed `date_from` **exactly as the engine sent it** (an
-  instant), not a bare date. A bare date would be widened to the whole day by the calendar-day
-  helper and repeat rows. The window part of the line shows activity's bounds as **local date
-  and time** (`2026-09-20 00:00 → 2026-09-26 00:00`): found on the live check, the engine
-  echoes its default window in UTC, and cut to a date it named the wrong day.
+  instant), not a bare date, which the engine refuses today and, once the todo.md ask lands,
+  would read as the whole day and repeat rows.
 - `rates list --date` together with `--from` / `--to` is refused as a flag clash.
 - An empty window prints `(no activity in this window)` / `(no rates in this window)`, and the
   window line under it.

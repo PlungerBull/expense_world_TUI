@@ -38,13 +38,6 @@ def wpage(items: list, *, next_cursor: str | None = None) -> dict:
 
 
 LIST_RESPONSE = wpage([ACTIVITY_ROW])
-LIMA_ME = {"user": {"id": "u1"}, "settings": {"display_timezone": "America/Lima"}}
-
-
-@pytest.fixture(autouse=True)
-def pin_local_tz(monkeypatch):
-    """The window line prints its bounds in local time; pin the zone."""
-    monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/Lima")
 
 
 @respx.mock
@@ -74,7 +67,6 @@ def test_list_with_filters_window_and_cursor(configured):
     route = respx.get(f"{BASE}/v1/activity").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
-    me = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=LIMA_ME))
     result = runner.invoke(
         cli_app,
         [
@@ -105,37 +97,27 @@ def test_list_with_filters_window_and_cursor(configured):
     assert params.get("after") == "c1"
     assert params.get("limit") == "5"
     assert "offset" not in params
-    assert me.call_count == 0  # no bare day, so no zone to look up
 
 
 @respx.mock
-def test_list_bare_days_are_whole_days_in_the_profile_zone(configured):
-    """`GET /activity` refuses a bare date; the CLI places it in the profile's
-    `display_timezone`, and `--to` runs to the start of the next day."""
+def test_list_sends_a_bare_day_as_typed_and_shows_the_engines_refusal(configured):
+    """No client-side day → instant conversion: the engine owns that rule
+    (todo.md engine ask "Activity takes calendar days"). Until it lands, a bare
+    day gets the engine's 422, rendered through the standard envelope."""
     route = respx.get(f"{BASE}/v1/activity").mock(
-        return_value=httpx.Response(200, json=LIST_RESPONSE)
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Invalid query parameters.",
+            {"date_from": "Must be an RFC 3339 datetime with an offset."},
+        )
     )
-    me = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=LIMA_ME))
-    result = runner.invoke(
-        cli_app, ["activity", "list", "--from", "2026-09-01", "--to", "2026-09-25"]
-    )
-    assert result.exit_code == 0, result.output
-    params = route.calls.last.request.url.params
-    assert params.get("date_from") == "2026-09-01T00:00:00-05:00"
-    assert params.get("date_to") == "2026-09-26T00:00:00-05:00"
-    assert me.call_count == 1
-
-
-@respx.mock
-def test_list_bare_day_with_no_profile_zone_is_refused(configured):
-    respx.get(f"{BASE}/v1/auth/me").mock(
-        return_value=httpx.Response(200, json={"user": {"id": "u1"}, "settings": {}})
-    )
-    route = respx.get(f"{BASE}/v1/activity")
     result = runner.invoke(cli_app, ["activity", "list", "--from", "2026-09-01"])
-    assert result.exit_code == 2
-    assert "time zone" in result.output
-    assert route.call_count == 0
+    assert result.exit_code == 1
+    assert "VALIDATION_ERROR" in result.output
+    assert "date_from" in result.output
+    assert route.calls.last.request.url.params.get("date_from") == "2026-09-01"
+    assert not any("/auth/me" in str(c.request.url) for c in respx.calls)
 
 
 def test_list_has_no_offset(configured):
@@ -150,9 +132,7 @@ def test_list_says_how_to_reach_the_rest_of_the_window(configured):
     )
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert "(2026-04-03 10:00 → 2026-05-03 10:00 · more in this window: pass --after c2)" in (
-        result.output
-    )
+    assert f"({FROM} → {TO} · more in this window: pass --after c2)" in result.output
 
 
 @respx.mock
@@ -162,7 +142,7 @@ def test_list_on_the_windows_last_page_names_the_exact_older_bound(configured):
     respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert f"(2026-04-03 10:00 → 2026-05-03 10:00 · older: pass --to {FROM})" in result.output
+    assert f"({FROM} → {TO} · older: pass --to {FROM})" in result.output
 
 
 @respx.mock

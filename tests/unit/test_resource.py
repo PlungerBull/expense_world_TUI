@@ -574,11 +574,9 @@ def test_render_pagination_hint_window_with_more_names_the_cursor(capsys):
     assert out == "\n(2026-08-24 → 2026-09-23 · more in this window: pass --after c1)\n"
 
 
-def test_render_pagination_hint_window_older_by_the_exact_instant(capsys, monkeypatch):
-    """Activity: the echoed bound goes back verbatim, time and offset included.
-    The span shows each instant as local date and time — the engine echoes its
-    default window in UTC, and ten characters of that can name the wrong day."""
-    monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/Lima")
+def test_render_pagination_hint_window_older_by_the_exact_instant(capsys):
+    """Activity: the echoed bounds print as the engine sent them, and the older
+    bound goes back verbatim — no client-side zone math either way."""
     body = {
         **_WINDOW,
         "next_cursor": None,
@@ -588,7 +586,8 @@ def test_render_pagination_hint_window_older_by_the_exact_instant(capsys, monkey
     render_pagination_hint(body, [{}])
     out = capsys.readouterr().out
     assert out == (
-        "\n(2026-08-23 21:00 → 2026-09-22 21:00 · older: pass --to 2026-08-24T02:00:00.5+00:00)\n"
+        "\n(2026-08-24T02:00:00.5+00:00 → 2026-09-23T02:00:00.5+00:00"
+        " · older: pass --to 2026-08-24T02:00:00.5+00:00)\n"
     )
 
 

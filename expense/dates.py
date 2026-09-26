@@ -12,7 +12,7 @@ by `auth bootstrap` and the TUI Bootstrap action.
 
 import os
 import re
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -124,27 +124,6 @@ def is_calendar_day(text: str) -> bool:
     except ValueError:
         return False
     return True
-
-
-def calendar_day_bound(text: str, zone: str, *, end: bool = False) -> str:
-    """A bare day as an instant in `zone`, for a filter that takes only instants.
-
-    `GET /activity` refuses a bare date and a naive time (engine debrief
-    2026-09-23 part 2, §2.1), and stays on exact times by the engine owner's
-    choice, so `activity list --from 2026-09-01` becomes the start of that day
-    in the user's `display_timezone`. With `end=True` it becomes the start of
-    the *next* day, so `--to 2026-09-25` covers the whole of the 25th.
-
-    Only a bare `YYYY-MM-DD` is converted. Anything else — a time with an
-    offset, a naive time, a typo — is sent as typed: the first is already what
-    the engine wants, and the others get the engine's own `422`.
-    """
-    if not is_calendar_day(text):
-        return text
-    day = date.fromisoformat(text)
-    if end:
-        day += timedelta(days=1)
-    return datetime.combine(day, time(), tzinfo=ZoneInfo(zone)).isoformat(timespec="seconds")
 
 
 def parse_year_month(user_input: str, *, param_hint: str = "--date") -> tuple[int, int]:

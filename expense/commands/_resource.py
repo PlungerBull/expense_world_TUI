@@ -5,12 +5,10 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 import typer
-import tzlocal
 
 from expense import config as config_module
 from expense.config import Config
@@ -907,33 +905,17 @@ def render_pagination_hint(
     typer.echo(f"\n({shown}{more})")
 
 
-def _window_bound(value: object) -> str:
-    """One end of an echoed window, readable and still exact.
-
-    A rates bound is a plain day and prints as one. An activity bound is an
-    instant, which the engine echoes in UTC when it chose the default: cut to
-    ten characters it would name the wrong day, and a `--to 2026-09-25` (sent
-    as the start of the 26th) would read as the 26th with nothing to say why.
-    So an instant prints as local date and time — `2026-09-26 00:00`.
-    """
-    text = str(value)
-    if len(text) <= 10:
-        return text
-    try:
-        moment = datetime.fromisoformat(text)
-    except ValueError:
-        return text[:10]
-    if moment.tzinfo is None:
-        return text[:10]
-    return moment.astimezone(ZoneInfo(tzlocal.get_localzone_name())).strftime("%Y-%m-%d %H:%M")
-
-
 def _render_window_hint(
     body: dict, cursor: object, *, note: str, older: Literal["instant", "day_before"]
 ) -> None:
-    """The date-window line of `render_pagination_hint` (engine debrief 6b §1)."""
+    """The date-window line of `render_pagination_hint` (engine debrief 6b §1).
+
+    The bounds print exactly as the engine echoed them. Activity's are instants,
+    in UTC when the engine chose the default window; no client-side zone math
+    reformats them (todo.md engine ask "Activity takes calendar days").
+    """
     date_from, date_to = body.get("date_from"), body.get("date_to")
-    span = f"{_window_bound(date_from)} → {_window_bound(date_to)}"
+    span = f"{date_from} → {date_to}"
     if note:
         span += f" · {note}"
     if isinstance(cursor, str) and cursor:

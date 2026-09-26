@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 import typer
 
 from expense import config as config_module
-from expense import dates
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
@@ -17,7 +16,6 @@ from expense.commands._resource import (
     render_pagination_hint,
     render_table,
 )
-from expense.commands.auth_cmd import fetch_me
 from expense.context import get_verbose
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
@@ -287,7 +285,8 @@ def fetch_activity(
 
     One date window per read (engine debrief 6b §1): omitted bounds are the
     engine's (now, and 30 days before), and `after` scrolls inside the window.
-    `date_from` / `date_to` must already be instants with an offset.
+    `date_from` / `date_to` are sent as typed: the engine takes instants with an
+    offset and refuses a bare day with a `422`, which surfaces unchanged.
     """
     params = query_params(
         resource_type=resource_type,
@@ -299,25 +298,6 @@ def fetch_activity(
     )
 
     return fetch_body(cfg, path=f"/{_RESOURCE}", params=params, verbose=verbose)
-
-
-def _display_timezone(me: dict) -> str:
-    """The profile's zone a bare day is read in — the same fallback the TUI's
-    Auth & profile screen shows (`settings.display_timezone`, then the user's).
-
-    A profile with neither is refused here rather than guessed at: a wrong zone
-    would silently shift the window by hours.
-    """
-    settings = me.get("settings") or {}
-    user = me.get("user") or {}
-    zone = settings.get("display_timezone") or user.get("timezone")
-    if not isinstance(zone, str) or not zone:
-        raise typer.BadParameter(
-            "Your profile has no time zone, so a bare day cannot be placed. "
-            "Pass a time with an offset (e.g. 2026-09-01T00:00:00-05:00).",
-            param_hint="--from / --to",
-        )
-    return zone
 
 
 @app.command("list")
@@ -341,15 +321,15 @@ def list_(
         None,
         "--from",
         help=(
-            "Window start: a day (YYYY-MM-DD, from its start in your profile's time "
-            "zone) or a time with an offset. Default: 30 days before --to."
+            "Window start: a time with an offset (2026-09-01T00:00:00-05:00). "
+            "Default: 30 days before --to."
         ),
     ),
     date_to: str | None = typer.Option(
         None,
         "--to",
         help=(
-            "Window end: a day (YYYY-MM-DD, the whole day) or a time with an offset. "
+            "Window end: a time with an offset (2026-09-25T23:59:59-05:00). "
             "Default: now. At most 366 days after --from."
         ),
     ),
@@ -370,17 +350,11 @@ def list_(
     Snapshots are omitted from the human renderer; pass --json to see
     before_snapshot / after_snapshot.
 
-    Example: expense activity list --resource-type transaction --from 2026-09-01 --to 2026-09-25
+    Example: expense activity list --resource-type transaction --from 2026-09-01T00:00:00-05:00
     """
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)
     verbose = get_verbose(ctx)
-    if (date_from and dates.is_calendar_day(date_from)) or (
-        date_to and dates.is_calendar_day(date_to)
-    ):
-        zone = _display_timezone(fetch_me(cfg, verbose=verbose))
-        date_from = date_from and dates.calendar_day_bound(date_from, zone)
-        date_to = date_to and dates.calendar_day_bound(date_to, zone, end=True)
     body = fetch_activity(
         cfg,
         resource_type=resource_type,
