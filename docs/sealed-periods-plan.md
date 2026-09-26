@@ -99,7 +99,7 @@ because unsealing a window cannot make the ledger incoherent.
   with no hint at all.
 - **`_print_warnings`** exists once, in
   [transactions_cmd.py](../expense/commands/transactions_cmd.py), private to that
-  module and called from exactly one place: `transactions restore`.
+  module and called from exactly one place: `transactions restore`. *(That command was deleted with the engine's restore, 2026-09-23; `reconcile complete` is now the only caller.)*
 - **The TUI cannot show a warning at all.** `EngineWriteMixin.run_write`
   ([_base.py](../expense/tui/screens/_base.py)) calls `client.post(...)` and
   discards the return value; `on_success` takes no arguments. Five callsites
@@ -116,7 +116,7 @@ because unsealing a window cannot make the ledger incoherent.
 ## 3. S1 — the gap report reaches both surfaces
 
 **Flat.** `reconcile complete` prints the warnings after the record, the way
-`transactions restore` does. `--json` needs no change: it emits the engine body
+`transactions restore` did (deleted 2026-09-23). `--json` needs no change: it emits the engine body
 verbatim, so `warnings` is already there.
 
 **Shared, not copied.** `_print_warnings` moves to

@@ -86,9 +86,12 @@ def _make_reconciliation(client, account_id: str) -> str:
 
 
 def test_reconciliations_lifecycle(client):
-    """create → get → list → update → delete, the shape every resource
-    shares, ending on "deleted is deleted" (engine, 2026-09-23): the get and
-    the old restore route are both 404. The state machine is the next test."""
+    """create → list → update → delete, ending on "deleted is deleted"
+    (engine, 2026-09-23): the row leaves its account's list and the old
+    restore route is a 404. There is no get: the engine deleted the by-id read
+    the same day, and its path answers 405 because PUT and DELETE still live
+    there. An account's list comes back whole, so absence from it is proof.
+    The state machine is the next test."""
     account_id = _make_account(client)
     recon_id = str(uuid4())
     name = f"contract-recon-{recon_id[:8]}"
@@ -107,9 +110,6 @@ def test_reconciliations_lifecycle(client):
         assert created["id"] == recon_id
         assert created["beginning_balance_cents"] == 958000
 
-        fetched = client.get(f"/reconciliations/{recon_id}")
-        assert fetched["id"] == recon_id
-
         listed = client.get("/reconciliations", params={"account_id": account_id})
         assert any(item["id"] == recon_id for item in listed["items"])
 
@@ -119,13 +119,11 @@ def test_reconciliations_lifecycle(client):
         deleted = client.delete(f"/reconciliations/{recon_id}")
         assert deleted.get("deleted_at") is not None
 
-        for gone in (
-            lambda: client.get(f"/reconciliations/{recon_id}"),
-            lambda: client.post(f"/reconciliations/{recon_id}/restore"),
-        ):
-            with pytest.raises(EngineError) as excinfo:
-                gone()
-            assert excinfo.value.status == 404
+        listed = client.get("/reconciliations", params={"account_id": account_id})
+        assert not any(item["id"] == recon_id for item in listed["items"])
+        with pytest.raises(EngineError) as excinfo:
+            client.post(f"/reconciliations/{recon_id}/restore")
+        assert excinfo.value.status == 404
     finally:
         _safe_delete(client, f"/reconciliations/{recon_id}")
         _safe_delete(client, f"/accounts/{account_id}")

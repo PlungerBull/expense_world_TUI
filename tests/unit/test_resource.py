@@ -248,7 +248,7 @@ def test_render_record_json_mode_is_verbatim_and_ignores_skip(capsys):
         (True, "yes"),
         (False, "no"),
         (None, "no"),
-        ("2026-07-06T00:00:00Z", "yes"),  # truthy marker fields like deleted_at
+        ("2026-07-06T00:00:00Z", "yes"),  # truthy timestamp markers
         (0, "no"),
     ],
 )
