@@ -76,7 +76,7 @@ deletes when it lands**. Never edited here: they are handed to the owner for the
 None open.
 
 Answered on 2026-09-26: `GET /activity` takes calendar days in `display_timezone` and echoes
-its window there (engine `aaee6bf`), asked the same day after Phase 8's client-side version
+its window there (engine `aaee6bf`, follow-up `e879afc`: the 366-day cap is counted in calendar days), asked the same day after Phase 8's client-side version
 had a time-zone bug; taken up in engine uptake Phase 8.
 Answered on 2026-09-26: reconciliation periods are days (engine `5922bbf`, `sql/041`) and always
 have both (`8f22ebb`, `sql/042`); taken up in engine uptake Phase 10c.

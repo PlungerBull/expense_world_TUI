@@ -415,9 +415,9 @@ three bugs: the day was placed in the profile's zone but the window was shown in
 `tzlocal` was called from `_resource.py` instead of `dates.py`; and the zone fallback read
 `user.timezone`, which `GET /auth/me` does not send. All three came from `/activity` refusing
 bare days, so the owner chose to **ask the engine** instead ([todo.md](todo.md) "Activity
-takes calendar days"). **It landed the same day** (engine `aaee6bf`): the CLI sends bare days
-as typed and converts nothing. **`:8000` must be restarted on `aaee6bf`** before the live
-check; on 2026-09-26 it still refused a bare day and echoed UTC.
+takes calendar days"). **It landed the same day** (engine `aaee6bf`, follow-up `e879afc`): the CLI sends bare days
+as typed and converts nothing. **`:8000` was restarted on it the same day** and the live
+check passed: a bare day, its echoed Lima window, and page 2 by cursor.
 
 **Builder's calls (M5; the owner does not use the typed commands):**
 - The activity "older" hint prints the echoed `date_from` **exactly as the engine sent it** (an
