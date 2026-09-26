@@ -14,6 +14,7 @@ stubbed so no event loop is needed.
 """
 
 import re
+import threading
 
 import pytest
 from textual.containers import VerticalScroll
@@ -391,6 +392,49 @@ def test_a_write_rereads_the_loaded_depth_and_keeps_the_row_number(monkeypatch):
         assert _ledger(screen).row_count == 20 and _ledger(screen).cursor_index == 15
         assert screen._legend() == "no filter · 20 of 132 loaded"
         # and the list still grows from where the re-read stopped
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
+        assert reads[-1]["after"] == "c20"
+
+    _drive_transactions((120, 35), checks)
+
+
+def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
+    """While the re-read after a write is in flight, the old list is still on
+    screen, and its cursor points at the old list's end. A `pgdn` there must
+    read nothing: on a filtered ledger the new list already ends one row
+    further along, so rows read from the old end would repeat one (review,
+    2026-09-26)."""
+    import expense.commands.transactions_cmd as tc
+
+    rows, reads, counts = _patch_transactions(monkeypatch)
+    fetch = tc.fetch_transactions
+    gate = threading.Event()
+    held = threading.Event()
+
+    def slow_reread(*a, **kw):
+        if kw.get("after") is None and kw.get("limit") == 20:
+            held.set()
+            gate.wait(5)
+        return fetch(*a, **kw)
+
+    async def checks(pilot, screen):
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        monkeypatch.setattr(tc, "fetch_transactions", slow_reread)
+        del rows[15]  # the write took t15 out of the filter
+        screen.reload_in_place()
+        await wait_for(pilot, held.is_set)
+        before = len(reads)
+        await pilot.press("pagedown")  # the old list is still the one on screen
+        await pilot.pause()
+        gate.set()
+        await wait_for(pilot, lambda: len(counts) == 2 and list_ready(pilot.app))
+        assert [r["after"] for r in reads[before:]] == [None]  # only the re-read
+        keys = [row.key for row in _ledger(screen)._rows]
+        assert len(keys) == len(set(keys)) == 20
+        # and once the new list is in, pgdn grows it from its own end
         await pilot.press("pagedown")
         await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
         assert reads[-1]["after"] == "c20"

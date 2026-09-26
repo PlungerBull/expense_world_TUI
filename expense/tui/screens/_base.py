@@ -249,14 +249,18 @@ class GrowingListMixin:
 
     def _start_over(self) -> None:
         self._keep = self._keep_cursor = 0
-        self._next_cursor = None
         self._stop_growing()
 
     def _stop_growing(self) -> None:
         """A full read is coming: a `pgdn` read still in flight would append
-        onto the list that read replaces."""
+        onto the list that read replaces, so it is cancelled. The cursor goes
+        too — until the new list is in, the old one stays on screen, and a
+        `pgdn` there would read on from the *old* list's end: on a filtered
+        ledger the new list already ends one row further along, so the first
+        row read would repeat. `took_rows` sets the new cursor."""
         self.workers.cancel_group(self, "grow")
         self._growing = False
+        self._next_cursor = None
 
     def _start_load(self) -> None:
         self._start_over()
