@@ -43,6 +43,7 @@ whys moving to [decisions.md](decisions.md).
 | 2 | The import rules that need no screen (C2–C5) | [file-import-plan.md](file-import-plan.md) §4–§7 | Accepted 2026-09-19 |
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
+| 5 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
 
 **Why this order.** The engine uptake comes first because nothing else can be tested against
 the engine until it lands, and it closes sealed periods on the way. The import rules are what
