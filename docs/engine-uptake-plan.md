@@ -115,7 +115,7 @@ the ledger (Phase 7). It replaced a builder's call that re-read as many rows as 
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 (**done**, `9942d4d`) |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 (**done**, `7ce6405`) |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
-| 10 | Offset code deleted | 6b §4 | — |
+| 10 | Offset code deleted | 6b §4 | — (**done**, `79abe7d`) |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
 | 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`, `954a4eb`) |
 | 11 | Docs and checks | — | — |
@@ -487,11 +487,18 @@ unchanged `fetch_transactions`. `render_pagination_hint` prints the cursor line 
 `next_cursor` is a string **and the body echoes no date window**, so activity and rates pages
 (Phase 8) never get it (owner-approved fix, 2026-09-26). The 6 known failures are fixed, and the suite is green.
 
-## Phase 10: offset code deleted (6b §4)
+## Phase 10: offset code deleted (6b §4) (done 2026-09-26, `79abe7d`)
 
 Delete `fetch_all_pages`, `OFFSET_OPT` and every `--offset`, and the offset branch of
 `render_pagination_hint`. **Check:** `grep -rn offset expense/` finds nothing that talks to the
 engine.
+
+**What was built:** the three deletions, plus `render_pagination_hint` lost its now-unused
+`always` and `items` parameters (it prints the window line, the cursor line, or nothing). The
+tests' `page()` helper, the offset envelope, is gone; fixtures use `whole()` or `cursor_page()`.
+`scripts/check_fixture_drift.py` no longer excuses `total` / `offset` / `has_more`, so a
+fixture still carrying them reads as drift. New guard:
+`test_command_surface.py::test_no_command_takes_offset`. Nothing the owner sees changed.
 
 ## Phase 10b: bank import through the engine (added 2026-09-26)
 
