@@ -113,7 +113,7 @@ the list is now shorter.
 | 4 | Small lists come back whole | 6a §3 | M5 (**done**, `c65a125`) |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 (**done**, `192831c`) |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — (**done**, `b5602d7`) |
-| 7 | The ledger becomes one growing list | cursor §3.3 | M3 (**done**) |
+| 7 | The ledger becomes one growing list | cursor §3.3 | M3 (**done**, `9942d4d`) |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 (**done**, `7ce6405`) |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
 | 10 | Offset code deleted | 6b §4 | — |
@@ -340,7 +340,7 @@ reconcile screen loading at all.
 **Short-lived by design:** Phase 10b deletes `fetch_ledger` and the local matcher, including
 this phase's change to them. Phase 6 keeps the importer working until then.
 
-## Phase 7: the ledger becomes one growing list (M3) (done 2026-09-26)
+## Phase 7: the ledger becomes one growing list (M3) (done 2026-09-26, `9942d4d`)
 
 **Needs Phase 8 first**: with Activity and Rates gone, **the ledger is the only user of
 `PagedListMixin`**, so the mixin is **converted in place**. There is no second mixin. The owner's
