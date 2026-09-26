@@ -31,6 +31,11 @@ second copy of an engine rule left in this repo. Its facts are in engine-spec, n
 - **Reconciliation periods are days** (engine `5922bbf`, `sql/041`; engine `open-bugs.md` →
   *reconciliation-period-days*), shipped on this repo's ask. `date_start` / `date_end` are sent
   and returned as bare `YYYY-MM-DD`; any datetime there is `422`. **Phase 10c.**
+- **A period always has both days** (engine `8f22ebb`, `sql/042`), the follow-up ask from
+  Phase 10c's planning, shipped the same day. `date_start` / `date_end` are required on create
+  and `null` for either is `422` on update. `complete` lost its "Required to complete"
+  refusal, and the list sorts `date_start ASC, created_at ASC`. The live ledger had no
+  reconciliations, so nothing was backfilled. Also **Phase 10c**.
 
 **`:8000` already runs all of it** (checked 2026-09-26: `/transactions/import` is served, the
 restore routes are gone). The engine coder restarted it with `5922bbf`, ahead of Phase 12, so
@@ -547,8 +552,14 @@ period's days).
 **Owner answer (2026-09-26), asked while planning this phase:** the TUI form's DATE END was
 optional ("empty enter to skip") while the typed `create` has required it since 2026-09-20.
 The owner saw no use for an undated period, and ruled that it is **the engine's to refuse**. The
-form now requires DATE END, like DATE START. The engine ask ("a period always has both days")
-is in [todo.md](todo.md) "Engine asks", with what this repo deletes once it lands.
+form now requires DATE END, like DATE START.
+
+**Follow-up, same day:** the engine shipped that ask (`8f22ebb`). Deleted here: the
+missing-date hint on `reconcile complete` (and `_complete_hint`'s now-unused id), the
+half-dated branches of `format_period`, the undated guard in `blocking_windows`, and the
+`reconcile create` docstring that explained a client-side rule. Every unit fixture of a
+reconciliation now carries both days. A contract test pins the rule (a missing `date_end` on
+create, and `null` on update, are both `422`).
 
 ## Phase 11: docs and checks
 
@@ -602,7 +613,8 @@ is in [todo.md](todo.md) "Engine asks", with what this repo deletes once it land
    - the bank import, as listed in Phase 10b;
    - `transactions list --to <day>` includes a row logged late on that day; a naive datetime is
      a `422` rendered through the envelope; reconciliation create/edit round-trips its dates
-     as bare days (Phase 10c).
+     as bare days, and a missing or `null` day is a `422` (Phase 10c; both already written in
+     `test_reconciliations_lifecycle.py`).
 6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
    In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
    the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's

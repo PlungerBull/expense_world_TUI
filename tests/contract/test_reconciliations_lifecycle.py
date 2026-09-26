@@ -189,6 +189,40 @@ def test_a_period_refuses_any_datetime(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
+def test_a_period_always_has_both_days(client):
+    """Engine `8f22ebb` (`sql/042`): both days required on create, and `null`
+    refused for either on update. The CLI deleted its missing-date hint on
+    `complete`, the half-dated display branches and the undated guard in the
+    "no batch" list on the strength of this; if it relaxes, they are needed."""
+    account_id = _make_account(client)
+    recon_id = _make_reconciliation(client, account_id)
+    missing_id = str(uuid4())
+    try:
+        with pytest.raises(EngineError) as excinfo:
+            client.post(
+                "/reconciliations",
+                json_body={
+                    "id": missing_id,
+                    "account_id": account_id,
+                    "name": f"contract-recon-{missing_id[:8]}",
+                    "date_start": "2026-05-01",
+                    "beginning_balance_cents": 0,
+                },
+            )
+        assert excinfo.value.status == 422
+        assert "date_end" in (excinfo.value.fields or {})
+
+        for key in ("date_start", "date_end"):
+            with pytest.raises(EngineError) as excinfo:
+                client.put(f"/reconciliations/{recon_id}", json_body={key: None})
+            assert excinfo.value.status == 422
+            assert key in (excinfo.value.fields or {})
+    finally:
+        _safe_delete(client, f"/reconciliations/{missing_id}")
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
 def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
     """todo.md Small defects 1, closed from the outside. The working screen
     reads the account's rows with `date_from` / `date_to` set to the period's

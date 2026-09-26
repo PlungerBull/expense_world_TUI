@@ -83,7 +83,7 @@ UNFILED_FILTER = {"unreconciled": True}
 
 
 def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str]]:
-    """`(first_day, last_day, name)` for every dated batch on this account.
+    """`(first_day, last_day, name)` for every batch on this account.
 
     Used only to draw the `!` hint beside a row (see `unfiled_rows`). Drafts are
     included on purpose: a draft's window is exactly what an unfiled row inside
@@ -96,9 +96,7 @@ def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str
     for r in recons:
         if r.get("account_id") != account_id:
             continue
-        start, end = r.get("date_start") or "", r.get("date_end") or ""
-        if start and end:
-            windows.append((start, end, r.get("name") or "—"))
+        windows.append((r["date_start"], r["date_end"], r.get("name") or "—"))
     return windows
 
 
@@ -763,9 +761,8 @@ class NewReconciliationScreen(FormScreen):
 
     def _required(self) -> tuple[str, ...]:
         # begin: the engine has no derived mode left, so it is typed off the
-        # statement. date_start: it is what orders the batch (undated sorts last).
-        # date_end: a period without one can never be completed (owner,
-        # 2026-09-26; the typed `reconcile create` has required it since 09-20).
+        # statement. Both dates: the engine requires them (`8f22ebb`); asking
+        # here refuses an empty one at the field instead of as a 422 on save.
         return ("name", "account", "date_start", "date_end", "begin")
 
     def _label(self, key: str) -> str:

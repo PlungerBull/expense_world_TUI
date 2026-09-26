@@ -244,14 +244,8 @@ def test_create_without_beginning_balance_blocks_at_parse(configured):
 
 
 def test_create_without_date_end_blocks_at_parse(configured):
-    """Required since 2026-09-20, and this is a CLIENT-side rule.
-
-    The engine still accepts a half-dated draft. But completing one seals its
-    window, a half-dated window seals nothing, and so a period created without
-    an end date can never be completed — the refusal would arrive at closing
-    time, months after the statement was in front of you. Asking for both dates
-    up front moves it to the moment the answer is known.
-    """
+    """The engine requires both days (`8f22ebb`); a required Typer option says
+    so at parse time, before any request."""
     result = runner.invoke(
         cli_app,
         [
@@ -670,21 +664,6 @@ def test_the_two_complete_refusals_do_not_borrow_each_others_hint(configured):
     empty = runner.invoke(cli_app, ["reconcile", "complete", _RID])
     assert "assign at least one transaction" in empty.output
     assert "--unreconciled" not in empty.output
-
-
-@respx.mock
-def test_complete_422_missing_date_points_at_the_fix(configured):
-    respx.post(_COMPLETE).mock(
-        return_value=error_response(
-            422,
-            "VALIDATION_ERROR",
-            "Cannot complete reconciliation without a period.",
-            {"date_end": "Required to complete — a completed period seals these dates."},
-        )
-    )
-    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
-    assert result.exit_code == 1
-    assert f"expense reconcile update {_RID} --date-end" in result.output
 
 
 @respx.mock

@@ -42,17 +42,9 @@ def format_status(value: object) -> str:
 
 
 def format_period(item: dict) -> str:
-    """`date_start → date_end`, both already calendar days on the wire (engine
-    `5922bbf`). Shared by flat table + TUI."""
-    ds = item.get("date_start") or ""
-    de = item.get("date_end") or ""
-    if ds and de:
-        return f"{ds} → {de}"
-    if ds:
-        return f"{ds} → …"
-    if de:
-        return f"… → {de}"
-    return "—"
+    """`date_start → date_end`. Shared by flat table + TUI. Both are calendar
+    days on the wire (engine `5922bbf`), and every period has both (`8f22ebb`)."""
+    return f"{item['date_start']} → {item['date_end']}"
 
 
 def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:
@@ -61,7 +53,7 @@ def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dic
     Shared by the flat `reconcile list` command and the TUI's Reconciliations
     screens. The engine lists one account at a time (since 2026-09-23): the
     account is required, the list comes back whole as `{items}` — no `limit`,
-    no `offset`, no `total` — in period order, `date_start ASC NULLS LAST,
+    no `offset`, no `total` — in period order, `date_start ASC,
     created_at ASC`. There is no read by id; a row not in its account's list
     has been deleted.
     """
@@ -85,16 +77,11 @@ _COMPLETE_EMPTY_HINT = (
     "Hint: assign at least one transaction to this reconciliation before completing. "
     "Use 'expense transactions update <tx-id> --reconciliation-id <recon-id>'."
 )
-#: The three 422s `complete` can now answer with, and the two `create`/`update`
+#: The two 422s `complete` can answer with, and the two `create`/`update`
 #: can. Matched on the engine's **message**, never on the `fields` key: the
 #: empty-batch refusal and the unfiled-rows refusal both arrive under
 #: `fields["transactions"]`, so the key cannot tell them apart. The substrings
 #: below are quoted from app/helpers/reconciliations.py and periods.py.
-_MISSING_DATE_HINT = (
-    "Hint: both dates are required to complete — a completed period seals them, "
-    "and a half-dated one seals nothing.\n"
-    "  expense reconcile update {id} --date-end <YYYY-MM-DD>"
-)
 _UNASSIGNED_HINT_BARE = (
     "Hint: some rows inside this period are in no batch. Find them with "
     "'expense transactions list --account-id <id> --unreconciled "
@@ -150,10 +137,10 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
     )
 
 
-def _complete_hint(id_: str, err: EngineError) -> str | None:
+def _complete_hint(err: EngineError) -> str | None:
     """The recovery line for a refused `complete`, or None.
 
-    Three refusals, and **two of them share a `fields` key** — the pre-existing
+    Two refusals, and **they share a `fields` key** — the pre-existing
     "At least one transaction must be assigned." and the 2026-09-20
     "N transaction(s) dated inside this period are not assigned to any
     reconciliation." both arrive as `fields["transactions"]`. Only the message
@@ -168,8 +155,6 @@ def _complete_hint(id_: str, err: EngineError) -> str | None:
         # in is gone from the engine (owner accepted the generic hint,
         # 2026-09-23). The unfiled pane is the real way to find these rows.
         return _UNASSIGNED_HINT_BARE
-    if "without a period" in haystack or "required to complete" in haystack:
-        return _MISSING_DATE_HINT.format(id=id_)
     if "transaction" in haystack and (
         "no " in haystack or "empty" in haystack or "at least" in haystack
     ):
@@ -252,14 +237,8 @@ def create(
 
     Both balances are typed off the statement — the engine deleted derived
     (chained) beginning balances on 2026-08-06, so `beginning_balance_cents` is
-    required. `--date-start` is required too: it is what orders the batch.
-
-    `--date-end` became required here on 2026-09-20, a caller-side choice: the
-    engine still accepts a half-dated draft, but such a period can never be
-    completed, because a completed reconciliation seals its window and a
-    half-dated one has no window to seal. Asking for both dates up front means
-    the refusal arrives while the statement is in front of you rather than at
-    closing time.
+    required. Both dates are required too, by the engine (`8f22ebb`): a
+    period's window is what completing seals.
 
     Both dates are calendar days and go to the engine as typed: no timezone is
     attached, and a malformed day is the engine's 422 on that field.
@@ -406,7 +385,7 @@ def complete(
         try:
             body = client.post(f"/{_RESOURCE}/{id_}/complete")
         except EngineError as err:
-            hint = _complete_hint(id_, err)
+            hint = _complete_hint(err)
             if hint is not None:
                 typer.echo(hint, err=True)
             raise

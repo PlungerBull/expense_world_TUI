@@ -25,6 +25,8 @@ ITEMS = [
         "id": "r2",
         "account_id": "acc2",
         "name": "April 2026",
+        "date_start": "2026-04-01",
+        "date_end": "2026-04-30",
         "beginning_balance_cents": 958000,
         "ending_balance_cents": None,
         "difference_cents": -3500,
@@ -45,11 +47,11 @@ def test_batch_rows_format():
     # a balanced batch shows a dim em dash, not 0.00 (Phase 3 sketch, option H)
     assert str(cells[4]) == "—" and cells[5] == "completed"
     assert rows[0][2] == "dim"  # completed dimmed
-    # draft, open-ended period, null end balance — and a batch that is off by
-    # -35.00 prints the signed figure
+    # draft, null end balance — and a batch that is off by -35.00 prints the
+    # signed figure
     off = batch_rows([ITEMS[1]])[0][1]
     assert off[5] == "draft"
-    assert off[1] == "—"
+    assert off[1] == "2026-04-01 → 2026-04-30"
     assert str(off[4]) == "-35.00"
 
 
@@ -286,18 +288,40 @@ def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
 
 
 def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
-    """The account's list arrives in period order (`date_start ASC NULLS
-    LAST, created_at ASC`); the screen no longer re-sorts it."""
+    """The account's list arrives in period order (`date_start ASC,
+    created_at ASC`); the screen does not re-sort it. Served out of date order
+    on purpose, so a re-sort would show."""
     served = [
-        {"id": "b-march", "account_id": "acc1", "name": "March", "status": 1},
-        {"id": "b-april", "account_id": "acc1", "name": "April", "status": 1},
-        {"id": "b-undated", "account_id": "acc1", "name": "Undated", "status": 1},
+        {
+            "id": "b-march",
+            "account_id": "acc1",
+            "name": "March",
+            "status": 1,
+            "date_start": "2026-03-01",
+            "date_end": "2026-03-31",
+        },
+        {
+            "id": "b-april",
+            "account_id": "acc1",
+            "name": "April",
+            "status": 1,
+            "date_start": "2026-04-01",
+            "date_end": "2026-04-30",
+        },
+        {
+            "id": "b-feb",
+            "account_id": "acc1",
+            "name": "February",
+            "status": 1,
+            "date_start": "2026-02-01",
+            "date_end": "2026-02-28",
+        },
     ]
     _patch_browse(monkeypatch, items=served)
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app)
-        assert [r.key for r in screen._batch_list._rows] == ["b-march", "b-april", "b-undated"]
+        assert [r.key for r in screen._batch_list._rows] == ["b-march", "b-april", "b-feb"]
 
     run_app(scenario)
 
@@ -394,8 +418,22 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
     from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 
     two = [
-        {"id": "b1", "account_id": "acc1", "name": "March", "status": 2},
-        {"id": "b2", "account_id": "acc1", "name": "April", "status": 2},
+        {
+            "id": "b1",
+            "account_id": "acc1",
+            "name": "March",
+            "date_start": "2026-03-01",
+            "date_end": "2026-03-31",
+            "status": 2,
+        },
+        {
+            "id": "b2",
+            "account_id": "acc1",
+            "name": "April",
+            "date_start": "2026-04-01",
+            "date_end": "2026-04-30",
+            "status": 2,
+        },
     ]
     reads = _patch_browse(monkeypatch, items=two)
     # the working screen's own reads are not what this test is about
@@ -432,7 +470,16 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
-        rows.append({"id": "new-1", "account_id": "acc2", "name": "May 2026", "status": 1})
+        rows.append(
+            {
+                "id": "new-1",
+                "account_id": "acc2",
+                "name": "May 2026",
+                "date_start": "2026-05-01",
+                "date_end": "2026-05-31",
+                "status": 1,
+            }
+        )
         form.dismiss("new-1")  # what `_done` hands back after the POST
         await wait_for(pilot, lambda: screen._batch_list is not None)
         assert reads == ["acc2"]
@@ -518,12 +565,11 @@ UNFILED = [
 ]
 
 
-def test_blocking_windows_takes_this_account_and_needs_both_dates():
+def test_blocking_windows_takes_only_this_accounts_periods():
     from expense.tui.screens.reconciliations import blocking_windows
 
     assert blocking_windows(ITEMS, "acc1") == [("2026-03-01", "2026-03-31", "March 2026")]
-    # r2 is acc2's and carries no dates at all — a window needs both ends
-    assert blocking_windows(ITEMS, "acc2") == []
+    assert blocking_windows(ITEMS, "acc2") == [("2026-04-01", "2026-04-30", "April 2026")]
 
 
 def test_unfiled_rows_keep_the_engine_order_and_flag_the_blocking_ones():
