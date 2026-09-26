@@ -474,16 +474,18 @@ def test_delete_409_surfaces_hint(configured):
 
 
 @respx.mock
-def test_complete_happy_prints_locked_count(configured):
-    response_with_count = {**RECON_DRAFT_RESPONSE, "status": 2, "transactions_total": 17}
+def test_complete_happy_prints_the_record(configured):
+    """No lock count: the engine's reply is the reconciliation itself."""
+    body = {**RECON_DRAFT_RESPONSE, "status": 2, "warnings": [], "coverage_gap": None}
     route = respx.post(
         f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete"
-    ).mock(return_value=httpx.Response(200, json=response_with_count))
+    ).mock(return_value=httpx.Response(200, json=body))
     result = runner.invoke(
         cli_app, ["reconcile", "complete", "11111111-1111-1111-1111-111111111111"]
     )
     assert result.exit_code == 0, result.output
-    assert "Locked 17 transactions." in result.output
+    assert RECON_DRAFT_RESPONSE["name"] in result.output
+    assert "Locked" not in result.output
     assert "X-Idempotency-Key" in route.calls.last.request.headers
 
 
@@ -509,17 +511,18 @@ def test_revert_requires_yes_in_non_tty(configured):
 
 
 @respx.mock
-def test_revert_with_yes_prints_unlocked_count(configured):
-    response_with_count = {**RECON_DRAFT_RESPONSE, "status": 1, "transactions_total": 17}
+def test_revert_with_yes_prints_the_record(configured):
+    response = {**RECON_DRAFT_RESPONSE, "status": 1}
     route = respx.post(
         f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/revert"
-    ).mock(return_value=httpx.Response(200, json=response_with_count))
+    ).mock(return_value=httpx.Response(200, json=response))
     result = runner.invoke(
         cli_app,
         ["reconcile", "revert", "11111111-1111-1111-1111-111111111111", "--yes"],
     )
     assert result.exit_code == 0, result.output
-    assert "Unlocked 17 transactions." in result.output
+    assert RECON_DRAFT_RESPONSE["name"] in result.output
+    assert "Unlocked" not in result.output
     assert "X-Idempotency-Key" in route.calls.last.request.headers
 
 
@@ -592,7 +595,6 @@ def test_complete_renders_the_gap_warning(configured):
     body = {
         **RECON_DRAFT_RESPONSE,
         "status": 2,
-        "transactions_total": 4,
         "warnings": [
             "2026-06-26 to 2026-07-23 on this account is covered by no completed reconciliation."
         ],
@@ -601,14 +603,13 @@ def test_complete_renders_the_gap_warning(configured):
     result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
     assert result.exit_code == 0, result.output
     assert "Warning: 2026-06-26 to 2026-07-23" in result.output
-    assert "Locked 4 transactions." in result.output
 
 
 @respx.mock
 def test_complete_says_nothing_extra_when_there_is_no_gap(configured):
     """`warnings` is always present on this endpoint and empty on a clean
     completion — an empty list must not print a bare `Warning:` line."""
-    body = {**RECON_DRAFT_RESPONSE, "status": 2, "transactions_total": 4, "warnings": []}
+    body = {**RECON_DRAFT_RESPONSE, "status": 2, "warnings": []}
     respx.post(_COMPLETE).mock(return_value=httpx.Response(200, json=body))
     result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
     assert result.exit_code == 0, result.output

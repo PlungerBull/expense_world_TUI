@@ -129,6 +129,16 @@ KNOWN_LOCAL = frozenset(
         "unexpected",
         "mouse",
         "actor_type",
+        # the Python keyword names a fake's call log records for
+        # fetch_transactions / count_transactions (the wire names are
+        # account_id, category_id, hashtag_id)
+        "account",
+        "category",
+        "hashtag",
+        # the reconciliation form's internal value key for the beginning balance
+        "begin",
+        # a fake cursor value the paging tests hand back
+        "c10",
     }
 )
 
@@ -138,7 +148,13 @@ KEY_RE = re.compile(r'"([a-z][a-z0-9_]{2,})"\s*:')
 
 
 def engine_field_names(engine_url: str) -> set[str]:
-    """Every field name the engine declares across all published schemas."""
+    """Every field name the engine declares across all published schemas, plus
+    every query-parameter name it declares on any path.
+
+    The parameters are there because the tests also assert on what a request
+    *sent* (`params["sort"]`, a fake's call log), and those dict keys are engine
+    names too. Reading them from the contract, instead of listing them by hand,
+    means a parameter the engine drops is reported like a dropped field."""
     url = engine_url.rstrip("/") + "/openapi.json"
     try:
         with urllib.request.urlopen(url, timeout=10) as response:
@@ -154,6 +170,22 @@ def engine_field_names(engine_url: str) -> set[str]:
         names |= set((schema.get("properties") or {}).keys())
     if not names:
         sys.exit(f"{url} published no schema properties — wrong host?")
+    return names | _query_parameter_names(doc)
+
+
+def _query_parameter_names(doc: dict) -> set[str]:
+    """`parameters[].name` for every `in: query` parameter, path- or operation-level."""
+    shared = doc.get("components", {}).get("parameters", {})
+    names: set[str] = set()
+    for item in doc.get("paths", {}).values():
+        groups = [item.get("parameters") or []]
+        groups += [op.get("parameters") or [] for op in item.values() if isinstance(op, dict)]
+        for group in groups:
+            for param in group:
+                if "$ref" in param:  # `#/components/parameters/<name>`
+                    param = shared.get(param["$ref"].rsplit("/", 1)[-1], {})
+                if param.get("in") == "query" and param.get("name"):
+                    names.add(param["name"])
     return names
 
 

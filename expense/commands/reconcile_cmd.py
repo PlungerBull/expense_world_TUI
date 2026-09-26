@@ -356,11 +356,11 @@ def delete(
     )
 
 
-def _render_after_state_change(body: dict, *, lock_verb: str) -> None:
-    render_record(body, json_mode=False, skip=("transactions",))
-    transactions_total = body.get("transactions_total")
-    if isinstance(transactions_total, int):
-        typer.echo(f"\n{lock_verb} {transactions_total} transactions.")
+def _render_after_state_change(body: dict) -> None:
+    """The reconciliation as the engine returns it. No lock count: the engine
+    stopped sending `transactions_total` on 2026-09-23, and nothing in the
+    reply counts the rows complete/revert locked (owner, 2026-09-26: drop it)."""
+    render_record(body, json_mode=False)
 
 
 @app.command("complete")
@@ -392,7 +392,7 @@ def complete(
     if json_output:
         emit_json(body)
     else:
-        _render_after_state_change(body, lock_verb="Locked")
+        _render_after_state_change(body)
         # The gap report. `--json` needs no branch: the engine body goes
         # through verbatim and carries `warnings` with it.
         print_warnings(body)
@@ -419,14 +419,11 @@ def revert(
         "and is a meaningful audit event.",
     )
 
-    def _render(body: dict) -> None:
-        _render_after_state_change(body, lock_verb="Unlocked")
-
     run_toggle(
         ctx,
         resource=_RESOURCE,
         id_=id_,
         verb="revert",
         json_output=json_output,
-        render_human=_render,
+        render_human=_render_after_state_change,
     )
