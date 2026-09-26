@@ -19,8 +19,8 @@ RECON_DRAFT_RESPONSE = {
     "user_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
     "account_id": "22222222-2222-2222-2222-222222222222",
     "name": "Statement April 2026",
-    "date_start": "2026-04-01T00:00:00Z",
-    "date_end": "2026-04-30T23:59:59Z",
+    "date_start": "2026-04-01",
+    "date_end": "2026-04-30",
     # native cents only — the home-cent pair died with read-time conversion
     # (2026-08-05); reconciliations are single-account, so there is nothing to mix
     "beginning_balance_cents": 100000,
@@ -212,7 +212,9 @@ def test_create_sends_both_required_fields(configured):
     assert body["name"] == "Statement April 2026"
     assert body["beginning_balance_cents"] == 100000
     assert body["ending_balance_cents"] == 150000
-    assert body["date_start"].startswith("2026-04-01")
+    # calendar days, sent as typed — no midnight instant (engine `5922bbf`)
+    assert body["date_start"] == "2026-04-01"
+    assert body["date_end"] == "2026-04-30"
     # both retired by the de-chaining; the request schemas are extra="forbid"
     assert "beginning_balance_source" not in body
     assert "sort_order" not in body
@@ -338,6 +340,62 @@ def test_update_partial_payload(configured):
     body = json.loads(route.calls.last.request.content)
     assert body == {"name": "Renamed", "ending_balance_cents": 200000}
     assert "X-Idempotency-Key" in route.calls.last.request.headers
+
+
+@respx.mock
+def test_update_sends_the_typed_days(configured):
+    route = respx.put(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111").mock(
+        return_value=httpx.Response(200, json=RECON_DRAFT_RESPONSE)
+    )
+    result = runner.invoke(
+        cli_app,
+        [
+            "reconcile",
+            "update",
+            "11111111-1111-1111-1111-111111111111",
+            "--date-start",
+            "2026-04-02",
+            "--date-end",
+            "2026-05-01",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    body = json.loads(route.calls.last.request.content)
+    assert body == {"date_start": "2026-04-02", "date_end": "2026-05-01"}
+
+
+@respx.mock
+def test_create_malformed_day_is_the_engines_422(configured):
+    """No client-side date check on the flat command: an unpadded day goes out
+    as typed and the engine's refusal renders through the envelope."""
+    route = respx.post(f"{BASE}/v1/reconciliations").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            {"date_end": "Must be a calendar day, YYYY-MM-DD."},
+        )
+    )
+    result = runner.invoke(
+        cli_app,
+        [
+            "reconcile",
+            "create",
+            "--account-id",
+            "acct",
+            "--name",
+            "August 2026",
+            "--date-start",
+            "2026-08-01",
+            "--date-end",
+            "2026-8-31",
+            "--beginning-balance",
+            "0",
+        ],
+    )
+    assert result.exit_code == 1
+    assert json.loads(route.calls.last.request.content)["date_end"] == "2026-8-31"
+    assert "Must be a calendar day" in result.output
 
 
 def test_update_rejects_retired_source_flag(configured):

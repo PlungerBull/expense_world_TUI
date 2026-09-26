@@ -48,7 +48,7 @@ from expense.commands._resource import (
     load_hashtag_name_map,
     resolve_name,
 )
-from expense.dates import to_canonical_aware
+from expense.dates import is_calendar_day
 from expense.errors import format_error
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
@@ -96,7 +96,7 @@ def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str
     for r in recons:
         if r.get("account_id") != account_id:
             continue
-        start, end = (r.get("date_start") or "")[:10], (r.get("date_end") or "")[:10]
+        start, end = r.get("date_start") or "", r.get("date_end") or ""
         if start and end:
             windows.append((start, end, r.get("name") or "—"))
     return windows
@@ -732,7 +732,7 @@ _R_HINTS = {
     "name": "e.g. “April 2026” · enter to save",
     "account": "pick a bank account · ↑↓ highlight · enter select",
     "date_start": "YYYY-MM-DD · the statement's first day · it orders the batch",
-    "date_end": "YYYY-MM-DD · optional · empty enter to skip",
+    "date_end": "YYYY-MM-DD · the statement's last day",
     "begin": "signed decimal · your statement's opening balance",
     "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
@@ -764,7 +764,9 @@ class NewReconciliationScreen(FormScreen):
     def _required(self) -> tuple[str, ...]:
         # begin: the engine has no derived mode left, so it is typed off the
         # statement. date_start: it is what orders the batch (undated sorts last).
-        return ("name", "account", "date_start", "begin")
+        # date_end: a period without one can never be completed (owner,
+        # 2026-09-26; the typed `reconcile create` has required it since 09-20).
+        return ("name", "account", "date_start", "date_end", "begin")
 
     def _label(self, key: str) -> str:
         return _R_LABELS[key]
@@ -837,19 +839,16 @@ class NewReconciliationScreen(FormScreen):
             self._display["account"] = picked[1]
             self._advance()
         elif key in _DATES:
-            if text:
-                try:
-                    to_canonical_aware(text)
-                except Exception:
-                    self.notify(f"{_R_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
-                    return
-                self._values[key] = self._display[key] = text
-            elif key == "date_start":  # required — it orders the batch
-                self.notify("Date start is required.", severity="error")
+            # Both required. The check is the exact day shape the engine takes
+            # (engine-spec *Date inputs*), caught here at the field rather
+            # than as a 422 on save; the typed text is what gets sent.
+            if not text:
+                self.notify(f"{_R_LABELS[key].capitalize()} is required.", severity="error")
                 return
-            else:
-                self._values.pop(key, None)
-                self._display.pop(key, None)
+            if not is_calendar_day(text):
+                self.notify(f"{_R_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
+                return
+            self._values[key] = self._display[key] = text
             self._advance()
         elif key == "begin":
             cents = parse_amount(text)
@@ -882,10 +881,9 @@ class NewReconciliationScreen(FormScreen):
             "account_id": self._values["account"],
             "name": self._values["name"],
         }
-        if self._values.get("date_start"):
-            payload["date_start"] = to_canonical_aware(self._values["date_start"])
-        if self._values.get("date_end"):
-            payload["date_end"] = to_canonical_aware(self._values["date_end"])
+        # calendar days, sent as typed — the engine refuses any datetime here
+        payload["date_start"] = self._values["date_start"]
+        payload["date_end"] = self._values["date_end"]
         # never send beginning_balance_source — the engine's request schemas are
         # extra="forbid" since the 2026-08-06 de-chaining, so it would 422
         payload["beginning_balance_cents"] = self._values["begin"]

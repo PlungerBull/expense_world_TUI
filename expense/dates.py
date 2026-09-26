@@ -11,6 +11,7 @@ by `auth bootstrap` and the TUI Bootstrap action.
 """
 
 import os
+import re
 from datetime import date, datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -101,6 +102,28 @@ def to_canonical_aware(user_input: str) -> str:
     if dt.tzinfo is not None:
         return user_input
     return dt.replace(tzinfo=_local_tz()).isoformat(timespec="seconds")
+
+
+_CALENDAR_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def is_calendar_day(text: str) -> bool:
+    """True when `text` is exactly the day shape the engine accepts for a
+    reconciliation's `date_start` / `date_end` (engine-spec *Date inputs*):
+    zero-padded `YYYY-MM-DD`, and a real day.
+
+    The regex is not redundant: 3.11's `date.fromisoformat` also takes
+    `20260831`, which the engine refuses. The TUI form uses this to refuse a
+    bad day at the field; the flat commands send what was typed and let the
+    engine's 422 speak.
+    """
+    if not _CALENDAR_DAY.fullmatch(text):
+        return False
+    try:
+        date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def parse_year_month(user_input: str, *, param_hint: str = "--date") -> tuple[int, int]:

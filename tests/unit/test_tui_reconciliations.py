@@ -14,8 +14,8 @@ ITEMS = [
         "id": "r1",
         "account_id": "acc1",
         "name": "March 2026",
-        "date_start": "2026-03-01T00:00:00Z",
-        "date_end": "2026-03-31T00:00:00Z",
+        "date_start": "2026-03-01",
+        "date_end": "2026-03-31",
         "beginning_balance_cents": 1200000,
         "ending_balance_cents": 958000,
         "difference_cents": 0,
@@ -89,7 +89,7 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
         _enter(screen, "April 2026")  # name
         _enter(screen, "BCP")  # account → acc1
         _enter(screen, "2026-04-01")  # date_start (required)
-        _enter(screen, "")  # date_end skip
+        _enter(screen, "2026-04-30")  # date_end (required)
         _enter(screen, "9580.00")  # begin
         _enter(screen, "9460.00")  # end → submits
         await wait_for(pilot, lambda: fake_client.posts)
@@ -100,6 +100,53 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
         assert body["ending_balance_cents"] == 946000
         assert "beginning_balance_source" not in body
         assert "sort_order" not in body
+
+    run_app(scenario)
+
+
+def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
+    """A period's ends are calendar days on the wire (engine `5922bbf`): the
+    typed text goes out unconverted, and any shape the engine would 422 is
+    refused at the field instead — unpadded, compact, day-first, not a day."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        await app.push_screen(screen)
+        _enter(screen, "August 2026")  # name
+        for bad in ("2026-8-01", "20260801", "01/08/2026", "2026-02-30", "2026-08-01T00:00"):
+            _enter(screen, bad)
+            assert screen._key == "date_start", bad
+        _enter(screen, "2026-08-01")
+        for bad in ("2026-8-31", "20260831", "31/08/2026"):
+            _enter(screen, bad)
+            assert screen._key == "date_end", bad
+        _enter(screen, "2026-08-31")
+        _enter(screen, "0")  # begin
+        _enter(screen, "")  # end → submits
+        await wait_for(pilot, lambda: fake_client.posts)
+        _path, body = fake_client.posts[0]
+        assert body["date_start"] == "2026-08-01"
+        assert body["date_end"] == "2026-08-31"
+
+    run_app(scenario)
+
+
+def test_new_reconciliation_date_end_is_required(fake_client, monkeypatch):
+    """A period with no last day can never be completed (owner, 2026-09-26),
+    so an empty enter on DATE END is refused in place, as on DATE START."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        await app.push_screen(screen)
+        _enter(screen, "August 2026")
+        _enter(screen, "2026-08-01")
+        _enter(screen, "")  # date_end → rejected, stays put
+        assert screen._key == "date_end"
+        assert "date_end" in screen._required()
+        await pilot.pause()
+        assert not fake_client.posts
 
     run_app(scenario)
 
@@ -399,7 +446,9 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
 def test_the_form_hands_back_the_id_it_created(fake_client, monkeypatch):
     """The id is minted client-side in `_payload`; `_done` returns it."""
     screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
-    screen._values.update({"name": "May", "date_start": "2026-05-01", "begin": 0})
+    screen._values.update(
+        {"name": "May", "date_start": "2026-05-01", "date_end": "2026-05-31", "begin": 0}
+    )
     payload = screen._payload()
     handed: list = []
     monkeypatch.setattr(screen, "dismiss", lambda result=None: handed.append(result))

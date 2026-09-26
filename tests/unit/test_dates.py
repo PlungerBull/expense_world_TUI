@@ -3,7 +3,12 @@ from datetime import datetime
 import pytest
 import typer
 
-from expense.dates import TimezoneDetectionError, detect_timezone, to_canonical_aware
+from expense.dates import (
+    TimezoneDetectionError,
+    detect_timezone,
+    is_calendar_day,
+    to_canonical_aware,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -93,3 +98,21 @@ def test_detect_timezone_failure_raises_neutral_error(monkeypatch, tmp_path):
     monkeypatch.delenv("TZ", raising=False)
     with pytest.raises(TimezoneDetectionError):
         detect_timezone(localtime=tmp_path / "missing")
+
+
+@pytest.mark.parametrize(
+    ("text", "ok"),
+    [
+        ("2026-08-31", True),
+        ("2024-02-29", True),
+        ("2026-8-31", False),  # unpadded — the engine refuses it
+        ("20260831", False),  # compact — 3.11's fromisoformat takes it, the engine does not
+        ("31/08/2026", False),
+        ("2026-02-30", False),  # the right shape, not a day
+        ("2026-08-31T00:00:00-05:00", False),  # any datetime is a 422 on a period
+        (" 2026-08-31", False),
+        ("", False),
+    ],
+)
+def test_is_calendar_day_is_the_engines_day_shape(text, ok):
+    assert is_calendar_day(text) is ok

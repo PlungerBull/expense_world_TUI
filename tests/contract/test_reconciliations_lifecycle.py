@@ -23,6 +23,7 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 
 from datetime import UTC, datetime
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -76,8 +77,8 @@ def _make_reconciliation(client, account_id: str) -> str:
             "id": new_id,
             "account_id": account_id,
             "name": f"contract-recon-{new_id[:8]}",
-            "date_start": "2026-04-01T00:00:00Z",
-            "date_end": "2026-04-30T00:00:00Z",
+            "date_start": "2026-04-01",
+            "date_end": "2026-04-30",
             "beginning_balance_cents": 958000,
             "ending_balance_cents": 946000,
         },
@@ -103,18 +104,25 @@ def test_reconciliations_lifecycle(client):
                 "id": recon_id,
                 "account_id": account_id,
                 "name": name,
-                "date_start": "2026-04-01T00:00:00Z",
+                "date_start": "2026-04-01",
+                "date_end": "2026-04-30",
                 "beginning_balance_cents": 958000,
             },
         )
         assert created["id"] == recon_id
         assert created["beginning_balance_cents"] == 958000
+        # a period's ends are calendar days both ways (engine `5922bbf`)
+        assert (created["date_start"], created["date_end"]) == ("2026-04-01", "2026-04-30")
 
         listed = client.get("/reconciliations", params={"account_id": account_id})
         assert any(item["id"] == recon_id for item in listed["items"])
 
-        updated = client.put(f"/reconciliations/{recon_id}", json_body={"name": f"{name}-renamed"})
+        updated = client.put(
+            f"/reconciliations/{recon_id}",
+            json_body={"name": f"{name}-renamed", "date_end": "2026-05-01"},
+        )
         assert updated["name"] == f"{name}-renamed"
+        assert updated["date_end"] == "2026-05-01"
 
         deleted = client.delete(f"/reconciliations/{recon_id}")
         assert deleted.get("deleted_at") is not None
@@ -155,6 +163,72 @@ def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
+def test_a_period_refuses_any_datetime(client):
+    """Periods are days (engine `5922bbf`): a midnight instant — what the CLI
+    sent before Phase 10c — is a 422 naming the field, so a client that still
+    converts cannot save a period at all."""
+    account_id = _make_account(client)
+    recon_id = str(uuid4())
+    try:
+        with pytest.raises(EngineError) as excinfo:
+            client.post(
+                "/reconciliations",
+                json_body={
+                    "id": recon_id,
+                    "account_id": account_id,
+                    "name": f"contract-recon-{recon_id[:8]}",
+                    "date_start": "2026-04-01T00:00:00-05:00",
+                    "date_end": "2026-04-30",
+                    "beginning_balance_cents": 0,
+                },
+            )
+        assert excinfo.value.status == 422
+        assert "date_start" in (excinfo.value.fields or {})
+    finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
+    """todo.md Small defects 1, closed from the outside. The working screen
+    reads the account's rows with `date_from` / `date_to` set to the period's
+    own days; a row logged at 23:30 local on `date_end` must be in that read."""
+    zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
+    late = datetime(2026, 4, 30, 23, 30, tzinfo=zone).isoformat(timespec="seconds")
+    account_id = _make_account(client)
+    recon_id = _make_reconciliation(client, account_id)
+    txn_id = str(uuid4())
+    try:
+        client.post(
+            "/transactions",
+            json_body={
+                "id": txn_id,
+                "title": "last-day row",
+                "amount_cents": -1200,
+                "account_id": account_id,
+                "date": late,
+            },
+        )
+        period = next(
+            r
+            for r in client.get("/reconciliations", params={"account_id": account_id})["items"]
+            if r["id"] == recon_id
+        )
+        page = client.get(
+            "/transactions",
+            params={
+                "account_id": account_id,
+                "date_from": period["date_start"],
+                "date_to": period["date_end"],
+            },
+        )
+        assert txn_id in [row["id"] for row in page["items"]]
+    finally:
+        _safe_delete(client, f"/transactions/{txn_id}")
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
 def test_beginning_balance_is_required_not_derived(client):
     """The 2026-08-06 de-chaining, pinned from the outside.
 
@@ -172,7 +246,8 @@ def test_beginning_balance_is_required_not_derived(client):
                     "id": recon_id,
                     "account_id": account_id,
                     "name": f"contract-recon-{recon_id[:8]}",
-                    "date_start": "2026-04-01T00:00:00Z",
+                    "date_start": "2026-04-01",
+                    "date_end": "2026-04-30",
                 },
             )
         assert excinfo.value.status == 422

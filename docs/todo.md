@@ -73,22 +73,24 @@ category tags ──▶ import door ──▶ first real bank import
 Each entry says what to ask for, why no client can do it properly today, and **what this repo
 deletes when it lands**. Never edited here: they are handed to the owner for the engine coder.
 
-1. **Reconciliation periods are days, not moments.** *(Raised 2026-09-26, owner's pick.)*
-   **Shipped by the engine the same day (`5922bbf`); the uptake is engine-uptake Phase 10c.
-   Delete this entry when 10c lands.**
-   A reconciliation's `date_start` / `date_end` are stored as `timestamptz`, accepted only as an
-   instant with an offset (since engine `73a0bdc`) and returned as a UTC instant
-   (`2026-08-31T05:00:00Z` for 31 August in Lima). Every rule about a period is in calendar days
-   in `display_timezone`: the seal, "no two periods share a day", `coverage_gap`, and since
-   `1f50722` the transaction filters the engine asks clients to feed with "the period's days".
-   So every client must turn the returned instant back into a day in the user's zone before it
-   can filter, and invent "midnight in the user's zone" to save a period. Get it wrong (the
-   reconcile checklist today passes the instant straight through) and rows logged later on the
-   last day are missing from the tick-list. **The ask:** store, accept and return
-   `date_start` / `date_end` as plain `YYYY-MM-DD` days, on create, update, list and the
-   `complete` response; a datetime there is `422`. **Deletes here:** `to_canonical_aware` on
-   the reconciliation create/edit payloads (flat and TUI), the `[:10]` slicing in
-   `reconcile_cmd` / `reconciliations.py`, and small defect 1. Not yet handed over.
+1. **A period always has both days.** *(Raised 2026-09-26, owner's answer while planning
+   engine-uptake Phase 10c; handed to the owner to relay the same day.)* `POST /reconciliations`
+   still accepts a draft with no `date_start` and/or no `date_end`, which is a leftover from
+   before 2026-09-20, when a period's dates were only labels. Nothing in the product uses an
+   undated period, and one can never be completed: completing needs both days to seal the
+   window, so the engine's own `complete` carries a "Required to complete" refusal for
+   `date_end`. Both clients already demand both days (the typed `reconcile create` since
+   2026-09-20, the TUI form since Phase 10c), so the rule lives in two client copies, and a
+   third client could skip it. **The ask:** `date_start` and `date_end` required on create, and
+   `null` refused for both on update. The engine side decides what happens to any existing
+   undated rows (backfill or leave them to be refused). **Deletes here:** `_MISSING_DATE_HINT` on
+   `reconcile complete` ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)) and
+   `test_complete_422_missing_date_points_at_the_fix`,
+   `format_period`'s half-dated branches (`ds → …`, `… → de`, `—`) in
+   [reconcile_cmd.py](../expense/commands/reconcile_cmd.py), the `if start and end` guard in
+   `blocking_windows`
+   ([reconciliations.py](../expense/tui/screens/reconciliations.py)), and the `reconcile create`
+   docstring paragraph that explains why `--date-end` is required client-side.
 
 Answered on 2026-09-23: `?sort=date_asc` with cursor paging, and the gap fields with the wording
 fix, both shipped. A window flag on transaction reads and `?status=` on `GET /reconciliations`
@@ -106,10 +108,11 @@ Real bugs, each small and self-contained. None of them waits on the engine uptak
    before in Lima, so every row dated on the last day (stored 05:00 UTC) is left out. On a
    month-end statement that is the 31st's rows, which then block the close as "unassigned" with
    no way to tick them from this screen. **Half fixed by the engine on 2026-09-26** (`1f50722`:
-   a bare date filter is the whole day). The other half: the screen sends the period's
-   `date_end` as the engine returns it, an **instant**, so rows logged after 00:00 on the last
-   day still miss. The engine made periods days (`5922bbf`); engine uptake **Phase 10c** closes
-   this, with a test pinning it. Until then the `u` pane still reaches those rows.
+   a bare date filter is the whole day), and the other half by engine `5922bbf` (a period's
+   ends are days, so the `date_end` the screen passes through is now a day, not an instant).
+   **Code side done in engine uptake Phase 10c**: a unit test pins the read byte for byte, and a
+   contract test (a row at 23:30 on the last day is in the read) runs at Phase 12. Delete this
+   entry when that run passes.
 
 2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side.
    **Fixed by the engine on 2026-09-26** (`1f50722`); it closes at the restart (engine uptake

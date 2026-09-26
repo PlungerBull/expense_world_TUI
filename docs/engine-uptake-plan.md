@@ -113,7 +113,7 @@ the list is now shorter.
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
 | 10 | Offset code deleted | 6b §4 | — |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
-| 10c | Reconciliation periods are days | engine-spec *Date inputs* | — |
+| 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**) |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
@@ -507,7 +507,7 @@ what keeps them apart.
 **Check:** `grep -rn "match_rows\|fetch_ledger\|transactions/batch" expense/commands/bank_import_cmd.py`
 finds nothing.
 
-## Phase 10c: reconciliation periods are days (added 2026-09-26)
+## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26)
 
 **Why.** Engine `5922bbf` (this repo's ask, owner's pick 2026-09-26): a period's `date_start` /
 `date_end` are plain calendar days on the wire and in storage. Every period rule was already in
@@ -526,8 +526,9 @@ and the tick-list's last-day defect ([todo.md](todo.md) Small defects 1) closes 
 - **The tick-list** passes the returned `date_start` / `date_end` straight into `date_from` /
   `date_to`, as it already does; with bare days that is now the whole last day.
 - **Display:** delete the `[:10]` slicing in `format_period`
-  ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)) and in the browse row
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py)); the value is already a day.
+  ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)) and in `blocking_windows`
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py), the `u` pane's `!` windows);
+  the value is already a day.
 - **Tests:** every unit fixture of a reconciliation carries bare days (today several carry
   `…T00:00:00Z`); create/update send exactly the typed day; the TUI form refuses `2026-8-31`,
   `20260831` and `31/08/2026` at the field and sends `2026-08-31` unchanged; the tick-list's
@@ -537,6 +538,17 @@ and the tick-list's last-day defect ([todo.md](todo.md) Small defects 1) closes 
   row logged at 23:30 on the last day is in the tick-list read.
 - **Closes:** todo.md Small defects 1 (at the Phase 12 check), and the "periods are days"
   engine ask.
+
+**What was built:** the day check is `is_calendar_day` in [dates.py](../expense/dates.py), the
+one copy of the engine's day shape. Neither file imports `to_canonical_aware` any more. The
+tick-list needed no code change, only its first test (`date_from` / `date_to` equal to the
+period's days).
+
+**Owner answer (2026-09-26), asked while planning this phase:** the TUI form's DATE END was
+optional ("empty enter to skip") while the typed `create` has required it since 2026-09-20.
+The owner saw no use for an undated period, and ruled that it is **the engine's to refuse**. The
+form now requires DATE END, like DATE START. The engine ask ("a period always has both days")
+is in [todo.md](todo.md) "Engine asks", with what this repo deletes once it lands.
 
 ## Phase 11: docs and checks
 

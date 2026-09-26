@@ -58,8 +58,8 @@ DRAFT = {
     "id": "r1",
     "account_id": "acc1",
     "name": "April 2026",
-    "date_start": "2026-04-01T00:00:00Z",
-    "date_end": "2026-04-30T00:00:00Z",
+    "date_start": "2026-04-01",
+    "date_end": "2026-04-30",
     "beginning_balance_cents": 958000,
     "ending_balance_cents": 946000,
     "difference_cents": -3500,
@@ -116,6 +116,35 @@ def _patch(monkeypatch):
 
 async def _wait_list(screen, pilot):
     await wait_for(pilot, lambda: screen._list is not None)
+
+
+def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
+    """The tick-list's in-range read passes the period's own days to the
+    engine's day filters, unconverted: a bare `date_to` is the whole last day
+    (engine `1f50722`), so rows dated on the 30th are offered too."""
+    _patch(monkeypatch)
+    calls: list = []
+    from expense.commands import transactions_cmd
+
+    fake = transactions_cmd.fetch_transactions  # _patch's fake
+
+    def spy(cfg, **k):
+        assert "offset" not in k
+        calls.append(k)
+        return fake(cfg, **k)
+
+    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", spy)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        in_range = [k for k in calls if k.get("account") == "acc1"]
+        assert len(in_range) == 1
+        assert in_range[0]["date_from"] == "2026-04-01"
+        assert in_range[0]["date_to"] == "2026-04-30"
+
+    run_app(scenario)
 
 
 def test_header_shows_difference_not_source(fake_client, monkeypatch):

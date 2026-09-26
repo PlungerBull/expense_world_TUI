@@ -22,7 +22,6 @@ from expense.commands._resource import (
     run_toggle,
 )
 from expense.context import get_verbose
-from expense.dates import to_canonical_aware
 from expense.errors import EngineError, error_haystack, handle_errors
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
@@ -43,9 +42,10 @@ def format_status(value: object) -> str:
 
 
 def format_period(item: dict) -> str:
-    """`date_start → date_end` (date parts only). Shared by flat table + TUI."""
-    ds = (item.get("date_start") or "")[:10]
-    de = (item.get("date_end") or "")[:10]
+    """`date_start → date_end`, both already calendar days on the wire (engine
+    `5922bbf`). Shared by flat table + TUI."""
+    ds = item.get("date_start") or ""
+    de = item.get("date_end") or ""
     if ds and de:
         return f"{ds} → {de}"
     if ds:
@@ -233,14 +233,12 @@ def create(
     date_start: str = typer.Option(
         ...,
         "--date-start",
-        help="Required — the statement's first day; it orders the batch. "
-        "YYYY-MM-DD or RFC 3339; naive forms get the local timezone attached.",
+        help="Required — the statement's first day, YYYY-MM-DD; it orders the batch.",
     ),
     date_end: str = typer.Option(
         ...,
         "--date-end",
-        help="Required — the statement's last day. YYYY-MM-DD or RFC 3339; naive "
-        "forms get the local timezone attached.",
+        help="Required — the statement's last day, YYYY-MM-DD.",
     ),
     beginning_balance: int = typer.Option(
         ...,
@@ -263,6 +261,9 @@ def create(
     the refusal arrives while the statement is in front of you rather than at
     closing time.
 
+    Both dates are calendar days and go to the engine as typed: no timezone is
+    attached, and a malformed day is the engine's 422 on that field.
+
     Example: expense reconcile create --account-id <id> --name "April 2026"
              --date-start 2026-04-01 --date-end 2026-04-30
              --beginning-balance 958000 --ending-balance 946000
@@ -275,8 +276,8 @@ def create(
         "id": new_id,
         "account_id": account_id,
         "name": name,
-        "date_start": to_canonical_aware(date_start),
-        "date_end": to_canonical_aware(date_end),
+        "date_start": date_start,
+        "date_end": date_end,
         "beginning_balance_cents": beginning_balance,
     }
     if ending_balance is not None:
@@ -306,8 +307,12 @@ def update(
     ctx: typer.Context,
     id_: str = typer.Argument(..., metavar="ID"),
     name: str | None = typer.Option(None, "--name"),
-    date_start: str | None = typer.Option(None, "--date-start"),
-    date_end: str | None = typer.Option(None, "--date-end"),
+    date_start: str | None = typer.Option(
+        None, "--date-start", help="The statement's first day, YYYY-MM-DD."
+    ),
+    date_end: str | None = typer.Option(
+        None, "--date-end", help="The statement's last day, YYYY-MM-DD."
+    ),
     beginning_balance: int | None = typer.Option(None, "--beginning-balance", help="Signed cents."),
     ending_balance: int | None = typer.Option(None, "--ending-balance"),
     json_output: bool = JSON_OPT,
@@ -325,8 +330,8 @@ def update(
     payload = build_update_payload(
         {
             "name": name,
-            "date_start": to_canonical_aware(date_start) if date_start is not None else None,
-            "date_end": to_canonical_aware(date_end) if date_end is not None else None,
+            "date_start": date_start,
+            "date_end": date_end,
             "beginning_balance_cents": beginning_balance,
             "ending_balance_cents": ending_balance,
         }
