@@ -2,8 +2,8 @@
 
 Per-account bank-statement batches. The browse opens on the accounts alone;
 `⏎` on one reads that account's reconciliations (`GET /reconciliations?
-account_id=`, whole, in the engine's period order: `date_start ASC NULLS
-LAST, created_at ASC`) and opens them in a panel under the accounts, the
+account_id=`, whole, in the engine's period order: `date_start ASC,
+created_at ASC`) and opens them in a panel under the accounts, the
 cursor in it. There `⏎` opens the working screen, `n` creates one for the
 account, `u` swaps the panel for the account's rows in no batch, and `esc`
 closes the panel (owner, 2026-09-25, mockup expense-world-engine-uptake.html
@@ -12,8 +12,9 @@ M2). Nothing is read for an account until you press `⏎` on it.
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine deleted derived (chained) begins
 on 2026-08-06, so there is nothing to inherit and `beginning_balance_cents` is
-required. `date_start` is required too: it is what orders the batch.
-POST /reconciliations.
+required. Both dates are required too, by the engine (`8f22ebb`), and are
+calendar days sent as typed (`5922bbf`); the form refuses any other shape at
+the field. POST /reconciliations.
 
 Working screen (ReconciliationDetailScreen): a checklist of the account's
 unassigned + already-in-batch transactions (draft) or a read-only list of the
