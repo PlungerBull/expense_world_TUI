@@ -864,11 +864,19 @@ def render_pagination_hint(
     (`null`) nothing is printed. The cursor is bound to the filters *and* the
     sort, so the line names both. The offset branch below goes in engine-uptake
     Phase 10.
+
+    A body that echoes a date window (`date_from` / `date_to` — `activity list`
+    and `rates list` after engine-uptake Phase 8) also carries `next_cursor`,
+    but is a different shape (engine debrief 6b §0) with its own line (mockup
+    M5): the window, and no `--sort`, which neither command has. The
+    transactions line must never print for it; Phase 8 adds that shape's
+    branch here.
     """
     if not isinstance(body, dict):
         return
     cursor = body.get("next_cursor")
-    if isinstance(cursor, str) and cursor:
+    windowed = "date_from" in body or "date_to" in body
+    if isinstance(cursor, str) and cursor and not windowed:
         typer.echo(f"\n(more: pass --after {cursor} with the same filters and --sort)")
         return
     total = body.get("total")

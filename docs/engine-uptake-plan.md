@@ -401,6 +401,13 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   user's `display_timezone` for `--from`, and the start of the **next** day for `--to`, so `--to`
   includes the whole day. A value that already carries an offset passes through unchanged.
 - Both mocks move to the windowed envelope.
+- **The line goes into the shared `render_pagination_hint`** in
+  [_resource.py](../expense/commands/_resource.py), which both commands already call. Phase 9 gave
+  it a cursor branch for `transactions list` (`(more: pass --after <c> with the same filters and
+  --sort)`) that fires only on a body with **no** echoed `date_from` / `date_to`, so the windowed
+  envelope falls past it today and prints nothing. Add the window branch there; a test in
+  [test_resource.py](../tests/unit/test_resource.py) pins that a windowed body never gets the
+  transactions line.
 
 ## Phase 9: the flat `expense transactions list` (done 2026-09-26, `28572ce`)
 
@@ -428,8 +435,9 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 - cli-spec's flag list for the command is updated in this phase, not left to Phase 11.
 
 **What was built:** `list_` drops `--offset` and gains `--sort` / `--after`, passed to the
-unchanged `fetch_transactions`. `render_pagination_hint` prints the cursor line first when
-`next_cursor` is a string. The 6 known failures are fixed, and the suite is green.
+unchanged `fetch_transactions`. `render_pagination_hint` prints the cursor line when
+`next_cursor` is a string **and the body echoes no date window**, so activity and rates pages
+(Phase 8) never get it (owner-approved fix, 2026-09-26). The 6 known failures are fixed, and the suite is green.
 
 ## Phase 10: offset code deleted (6b §4)
 

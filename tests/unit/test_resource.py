@@ -551,6 +551,20 @@ def test_render_pagination_hint_silent_on_last_cursor_page(capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_render_pagination_hint_never_gives_a_windowed_body_the_transactions_line(capsys):
+    """Activity and rates pages carry a cursor too, inside an echoed date window.
+    Their line is the window's (mockup M5, Phase 8), never `--sort`, which they lack."""
+    body = {
+        "items": [{}],
+        "limit": 1,
+        "next_cursor": "c1",
+        "date_from": "2026-08-24",
+        "date_to": "2026-09-23",
+    }
+    render_pagination_hint(body, [{}])
+    assert "--sort" not in capsys.readouterr().out
+
+
 def test_render_pagination_hint_silent_when_metadata_missing(capsys):
     render_pagination_hint({"items": []}, [])
     assert capsys.readouterr().out == ""
