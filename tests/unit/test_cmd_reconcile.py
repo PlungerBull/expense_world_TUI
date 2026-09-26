@@ -606,6 +606,30 @@ def test_complete_renders_the_gap_warning(configured):
 
 
 @respx.mock
+def test_complete_prints_the_gap_once(configured):
+    """The record dump used to print `warnings: [...]` and `coverage_gap: {...}`
+    raw above the `Warning:` line — the same gap three ways. Only the line stays."""
+    gap = "The days 2026-06-26 to 2026-07-23 are not covered by any completed reconciliation."
+    body = {
+        **RECON_DRAFT_RESPONSE,
+        "status": 2,
+        "warnings": [gap],
+        "coverage_gap": {
+            "first_uncovered_day": "2026-06-26",
+            "last_uncovered_day": "2026-07-23",
+            "unfiled_count": 3,
+        },
+    }
+    respx.post(_COMPLETE).mock(return_value=httpx.Response(200, json=body))
+    result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
+    assert result.exit_code == 0, result.output
+    assert result.output.count("2026-06-26") == 1
+    assert "warnings:" not in result.output
+    assert "coverage_gap:" not in result.output
+    assert f"Warning: {gap}" in result.output
+
+
+@respx.mock
 def test_complete_says_nothing_extra_when_there_is_no_gap(configured):
     """`warnings` is always present on this endpoint and empty on a clean
     completion — an empty list must not print a bare `Warning:` line."""

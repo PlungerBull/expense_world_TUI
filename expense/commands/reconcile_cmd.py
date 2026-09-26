@@ -359,8 +359,12 @@ def delete(
 def _render_after_state_change(body: dict) -> None:
     """The reconciliation as the engine returns it. No lock count: the engine
     stopped sending `transactions_total` on 2026-09-23, and nothing in the
-    reply counts the rows complete/revert locked (owner, 2026-09-26: drop it)."""
-    render_record(body, json_mode=False)
+    reply counts the rows complete/revert locked (owner, 2026-09-26: drop it).
+
+    `warnings` and `coverage_gap` are the same gap twice, as a sentence and as
+    data; `complete` prints the sentence as its own `Warning:` line, so the
+    dump skips both rather than print it again as a raw list and dict."""
+    render_record(body, json_mode=False, skip=("warnings", "coverage_gap"))
 
 
 @app.command("complete")
