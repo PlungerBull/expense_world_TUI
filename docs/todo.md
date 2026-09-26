@@ -44,11 +44,14 @@ whys moving to [decisions.md](decisions.md).
 | 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 5 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
+| 6 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Decided 2026-09-26; runs after the re-import, before the 2026 periods are closed |
 
 **Why this order.** The engine uptake comes first because nothing else can be tested against
 the engine until it lands, and it closes sealed periods on the way. It also carries the
 import rules now (Phase 10b), since they are what the first real bank import rests on. Tags that know the category is independent of them and
-could move earlier. The import door is the largest and the only one with nothing drawn.
+could move earlier. The import door is the largest and the only one with nothing drawn. The
+title alignment waits for the official migration data (owner, 2026-09-26); it must run before
+the periods close, because a completed period locks its rows' titles.
 
 One rule from the engine side is **absolute**
 ([engine plan §9](../../expense_world_engine/docs/file-import-plan.md)):
@@ -59,7 +62,7 @@ window against them, and the import is then refused.
 engine uptake (incl. Phase 10b, the importer on the engine)
       │
       ▼
-restart ──▶ owner: update the sheet, re-import, create + close the 2026 periods
+restart ──▶ owner: update the sheet, re-import ──▶ title alignment ──▶ create + close the 2026 periods
       │
       ▼
 category tags ──▶ import door ──▶ first real bank import

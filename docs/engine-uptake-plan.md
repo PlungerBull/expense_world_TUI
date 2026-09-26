@@ -116,7 +116,7 @@ the ledger (Phase 7). It replaced a builder's call that re-read as many rows as 
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 (**done**, `7ce6405`) |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
 | 10 | Offset code deleted | 6b §4 | — (**done**, `79abe7d`) |
-| 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
+| 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — (**done**) |
 | 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`, `954a4eb`) |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
@@ -500,16 +500,15 @@ tests' `page()` helper, the offset envelope, is gone; fixtures use `whole()` or 
 fixture still carrying them reads as drift. New guard:
 `test_command_surface.py::test_no_command_takes_offset`. Nothing the owner sees changed.
 
-## Phase 10b: bank import through the engine (added 2026-09-26)
+## Phase 10b: bank import through the engine (added 2026-09-26, done 2026-09-26)
 
 **Why.** On 2026-09-25 the engine shipped `POST /transactions/import` (engine-spec, and engine
 `open-bugs.md` → *bank-import*). It matches a bank download against the ledger, writes what is
 missing in one database transaction, writes operation codes onto matched rows that lack one,
 reports rows inside a closed period without writing them, and reports the groups where the
-ledger holds more than the file. `expense import bank` still does all of that itself
-([bank_import/match.py](../expense/bank_import/match.py), `fetch_ledger`, a `PUT` per code, a
-`POST /transactions/batch`). Two copies of the matching rule would drift, and every future
-client would need a third. **The owner's order (2026-09-26): the complete switch, no stopgap,
+ledger holds more than the file. `expense import bank` still did all of that itself
+(`bank_import/match.py`, `fetch_ledger`, a `PUT` per code, a `POST /transactions/batch`).
+Two copies of the matching rule would drift, and every future client would need a third. **The owner's order (2026-09-26): the complete switch, no stopgap,
 inside this uptake.**
 
 **This phase absorbs todo.md's old item 2** ([file-import-plan.md](file-import-plan.md) §4–§7):
@@ -518,9 +517,12 @@ inside this uptake.**
   row anyway.
 - **C3 (delete the amount-only rule)** is done by deleting the matcher: the engine runs only
   operation code, same day + title, adjacent day + title.
-- **C4 (the floors)** is built here. The engine says both stay client-side: rows dated before
-  2026-01-01, or before `--since YYYY-MM-DD` (the one-time floor, owner 2026-09-20), are
-  never sent.
+- **C4 (the floor)** is built here, client-side as the engine asks: rows dated before
+  **2026-01-01** are never sent. **No `--since`** (owner, 2026-09-26, while reviewing this
+  phase): the one-time floor fenced off the hand-typed rows the bank files overlap, and a
+  typed-each-run flag was one forgotten run from duplicates. The overlap is removed at the
+  source instead, by a one-time title alignment after the official migration
+  ([file-import-plan.md](file-import-plan.md) §6, with the measurements that drove it).
 - **C5 (closed periods shown, not hidden)** becomes rendering the engine's `sealed` outcome. The
   client-side reconciliation read and pre-filter are **not** built.
 - C1 (the TUI import door) stays in file-import-plan.md, and is built on this phase's code.
@@ -528,7 +530,7 @@ inside this uptake.**
 **The flow** (one engine call per run):
 1. Parse the file as today ([bank_import/parse.py](../expense/bank_import/parse.py)); the account
    pick, the leg per currency and the "currency with no leg" refusal are unchanged.
-2. Drop the rows under either floor.
+2. Drop the rows dated before 2026-01-01.
 3. **More than 500 rows left: refuse before sending** (owner 2026-09-26). The line names the
    count and says to export a shorter date range. Never split a file across requests: a row in
    a later request can be claimed by a row an earlier one just created, and silently vanish.
@@ -558,7 +560,7 @@ functions (e.g. `engine.py`), tested without HTTP. The command only reads, calls
   Parser refusals, floor skips and the 500-row refusal go to stderr.
 - Exit 1 on a `422` or any parser-refused row on `--apply`, as today.
 
-**Deleted:** [bank_import/match.py](../expense/bank_import/match.py) whole; in
+**Deleted:** `bank_import/match.py` whole; in
 [bank_import_cmd.py](../expense/commands/bank_import_cmd.py) `fetch_ledger`, `_local_date`,
 `payload_for`, the backfill `PUT` loop, the `post_transaction_batch` call and the parts of
 `WriteReport` / `Placement` / `json_doc` that carried them; `clean_title` and `MERCHANT_WIDTH`
@@ -566,10 +568,9 @@ functions (e.g. `engine.py`), tested without HTTP. The command only reads, calls
 tests stay). [batch_write.py](../expense/batch_write.py) stays: the sheet importer and the LOG
 bar still use it. The `bank_files` memory is untouched (C1 deletes it).
 
-**Known consequence, not a decision:** the bank rows written on 2026-09-12 carry the old cleaned
-titles. A later card file (no operation numbers) overlapping those days would not match them
-by title. The `--since` floor at the first real import, set after the last existing row, is
-what keeps them apart.
+**Correction (2026-09-26):** an earlier draft said the bank rows written on 2026-09-12 carry
+the old cleaned titles. None were written: the ledger ends on 2026-09-11 and holds no operation
+codes, so 2026-09-12 was dry runs only.
 
 **Tests:**
 - Unit, request side: floors applied; the 501st row refused before any call; the leg per
@@ -586,6 +587,15 @@ what keeps them apart.
 
 **Check:** `grep -rn "match_rows\|fetch_ledger\|transactions/batch" expense/commands/bank_import_cmd.py`
 finds nothing.
+
+**What was built:** [bank_import/engine.py](../expense/bank_import/engine.py) holds the floor
+(`IMPORT_FLOOR`), the 500 cap, the request body, the response → `Placed` join by id, the
+`excess` groups (signed from `transaction_type`), the `match` words and the `rows.<i>.<field>`
+→ file-line map. The parser's `title` is the bank's text collapsed; `raw_title`, `clean_title`
+and `MERCHANT_WIDTH` are gone. The command reads, makes the one call, and prints; a failed
+period-name read still prints the import, under "a closed period", with one line saying why.
+A file with no row from 2026 on sends nothing and exits 1. The account pick and `bank_files`
+are unchanged.
 
 ## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26, `da1b8ce`, `954a4eb`)
 
@@ -643,7 +653,7 @@ create, and `null` on update, are both `422`).
   *Pending* line is gone.
 - [cli-runtime.md](cli-runtime.md): a short "three list shapes" section pointing at engine-spec.
 - [cli-spec.md](cli-spec.md) `expense import bank`: rewritten for Phase 10b (the engine matches;
-  titles verbatim; `--since`; the 500-row refusal; `--json` is the engine body).
+  titles verbatim; the 2026-01-01 floor; the 500-row refusal; `--json` is the engine body).
 - [tui.md](tui.md): the growing-list `PagedListMixin` (ledger and `u` list), the new
   Reconciliations browse, Activity and Rates gone, and in §4 (the keymap) that `pgdn` means
   "10 more" in a growing list and "next page" everywhere else.
@@ -659,8 +669,9 @@ create, and `null` on update, are both `422`).
   - "Reconciliations opens on the accounts": nothing is read until `⏎`. Rejected: read on
     cursor move, and read every account up front (M2 options A and B).
   - "Bank downloads are matched against the ledger" is **amended**, not replaced: the matching
-    moved into the engine (Phase 10b), rule 4 is gone, titles are the bank's text. Rejected:
-    keeping the client matcher beside the engine's; splitting a file over 500 rows.
+    moved into the engine (Phase 10b), rule 4 is gone, titles are the bank's text, one floor
+    (2026-01-01) plus a one-time title alignment. Rejected: keeping the client matcher beside
+    the engine's; splitting a file over 500 rows; the `--since` floor (typed, or saved once).
 - [file-import-plan.md](file-import-plan.md): move in the **midnight caveat** (cursor §6.1). The
   `u` pane's `!` hint is right only because every row is stored at 00:00 Lima; the first import
   that writes a real time of day is the point to ask the engine again (engine `open-bugs.md` D13).

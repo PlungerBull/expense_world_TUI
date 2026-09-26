@@ -1,8 +1,10 @@
-"""`expense import bank` — the command around the pure parser and matcher.
+"""`expense import bank` — the command around the parser and the engine's import.
 
-respx-mocked: the accounts list, the ledger reads the matcher needs, and the
-batch write. The sheet is a SheetData handed to the command through the
-`read_workbook` seam, the same way test_cmd_import.py feeds the sheet importer.
+respx-mocked: the accounts list, `POST /transactions/import` (answered by a
+fake that decides each row's outcome) and, when a row is sealed, the
+account's reconciliations. The sheet is a SheetData handed to the command
+through the `read_workbook` seam, the same way test_cmd_import.py feeds the
+sheet importer.
 """
 
 import json
@@ -15,13 +17,7 @@ from expense import config as config_module
 from expense.commands import _resource, bank_import_cmd
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import (
-    cursor_page,
-    error_body,
-    error_response,
-    real_cli_app,
-    whole,
-)
+from tests.unit.helpers import error_body, real_cli_app, whole
 
 runner = CliRunner()
 #: The real command tree — see the note in test_cmd_import.py. Mounted as a
@@ -55,38 +51,67 @@ def _feed(monkeypatch, headers, rows) -> None:
     monkeypatch.setattr(bank_import_cmd, "read_workbook", lambda path, **k: _sheet(headers, rows))
 
 
-def _engine(ledger_by_account: dict[str, list[dict]] | None = None, *, page_rows: int = 200):
-    """Mock the reads: the accounts list and each account's ledger, cursor-paged
-    `page_rows` at a time the way the engine serves `GET /transactions`. An
-    `offset` is refused, as the engine refuses any unknown parameter."""
+def _engine(decide=None, *, excess=None, periods=None):
+    """Mock the accounts list and the import. `decide(index, row)` returns the
+    row's result keys (default: new); the fake echoes the id, counts the
+    outcomes like the engine, and answers `excess` as given. `periods` maps an
+    account id to its reconciliations. Returns the import route."""
     respx.get(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(200, json=whole(ACCOUNTS)))
 
-    def transactions(request):
-        params = request.url.params
-        assert "offset" not in params, "GET /transactions is cursor-paged"
-        items = (ledger_by_account or {}).get(params.get("account_id"), [])
-        start = int(params.get("after") or 0)
-        end = start + page_rows
-        more = str(end) if end < len(items) else None
-        return httpx.Response(200, json=cursor_page(items[start:end], next_cursor=more))
+    def answer(request):
+        body = json.loads(request.content)
+        rows = []
+        for i, row in enumerate(body["rows"]):
+            result = {
+                "id": row["id"],
+                "outcome": "new",
+                "rule": None,
+                "ledger_id": None,
+                "backfill_code": None,
+                "sealed_by": None,
+            }
+            result.update((decide or (lambda i, r: {}))(i, row))
+            rows.append(result)
+        outcomes = [r["outcome"] for r in rows]
+        return httpx.Response(
+            200,
+            json={
+                "dry_run": body["dry_run"],
+                "rows": rows,
+                "excess": excess or [],
+                "counts": {
+                    "new": outcomes.count("new"),
+                    "matched": outcomes.count("matched"),
+                    "sealed": outcomes.count("sealed"),
+                    "backfilled": sum(1 for r in rows if r["backfill_code"]),
+                },
+            },
+        )
 
-    respx.get(f"{BASE}/v1/transactions").mock(side_effect=transactions)
+    for account_id, items in (periods or {}).items():
+        respx.get(f"{BASE}/v1/reconciliations", params={"account_id": account_id}).mock(
+            return_value=httpx.Response(200, json=whole(items))
+        )
+    return respx.post(f"{BASE}/v1/transactions/import").mock(side_effect=answer)
 
 
-def _ledger(ident, account, date, cents, title, code=None) -> dict:
-    return {
-        "id": ident,
-        "account_id": account,
-        "date": f"{date}T12:00:00-05:00",
-        "amount_cents": cents,
-        "title": title,
-        "operation_code": code,
-    }
+def _sent(route) -> dict:
+    return json.loads(route.calls.last.request.content)
 
 
 def _run(monkeypatch, args, *, tty=False, **kw):
     monkeypatch.setattr(_resource, "stdin_is_tty", lambda: tty)
     return runner.invoke(cli_app, args, **kw)
+
+
+def _only_the_import_was_written():
+    """No ledger read, no PUT, no batch — the matching is the engine's."""
+    for call in respx.calls:
+        method, path = call.request.method, call.request.url.path
+        assert path != "/v1/transactions", "the ledger is never read by the importer"
+        assert method != "PUT" and path != "/v1/transactions/batch"
+    posts = [c for c in respx.calls if c.request.method == "POST"]
+    assert len(posts) == 1
 
 
 # ---- the account ------------------------------------------------------------
@@ -149,524 +174,281 @@ def test_a_currency_the_pick_has_no_leg_for_refuses_the_file(configured, monkeyp
     assert "1 row in USD" in result.output and "BCP Signature PEN holds PEN only" in result.output
 
 
-# ---- the preview ------------------------------------------------------------
+# ---- the request ------------------------------------------------------------
 @respx.mock
-def test_dry_run_places_rows_and_writes_nothing(configured, monkeypatch):
+def test_a_dry_run_is_one_import_call_with_dry_run_true(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
-    _engine(
-        {
-            # EDO SUSHI typed in the LOG bar the day before, under its own title.
-            "sig-pen": [_ledger("t1", "sig-pen", "2026-09-10", -4900, "sushi")],
-            "sig-usd": [_ledger("t2", "sig-usd", "2026-09-09", -2117, "APPLE.COM/BILL")],
-        }
-    )
-    batch = respx.post(f"{BASE}/v1/transactions/batch")
+    route = _engine()
     result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
     assert result.exit_code == 0, result.output
-    assert not batch.called
-    out = result.output
-    assert "EDO SUSHI BAR" in out and "in ledger · ±1 day, amount only" in out
-    assert "APPLE.COM/BILL" in out and "in ledger · same day + title" in out
-    assert "4 rows  ·  2 new  ·  2 in the ledger" in out
-    assert "2 → BCP Signature PEN" in out
-    assert "Pass --apply to write the 2 new rows" in out
+    body = _sent(route)
+    assert body["dry_run"] is True
+    assert [(r["account_id"], r["date"], r["amount_cents"]) for r in body["rows"]] == [
+        ("sig-pen", "2026-09-11", -4900),
+        ("sig-usd", "2026-09-09", -2117),
+        ("sig-pen", "2026-09-07", -350),
+        ("sig-pen", "2026-09-07", -350),
+    ]
+    assert body["rows"][0]["title"] == "EDO SUSHI BAR LI"  # the bank's text, collapsed
+    assert all("description" not in r for r in body["rows"])
+    _only_the_import_was_written()
+    assert "Pass --apply to write the 4 new rows" in result.output
 
 
 @respx.mock
-def test_operation_codes_are_shown_and_decide(configured, monkeypatch):
+def test_apply_is_one_call_with_dry_run_false(configured, monkeypatch):
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("11/09/2026", "TRAN.CEL.BM.", "S/", -50, "04330935")])
+    route = _engine()
+    result = _run(
+        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+    )
+    assert result.exit_code == 0, result.output
+    body = _sent(route)
+    assert body["dry_run"] is False
+    assert body["rows"][0]["operation_code"] == "04330935"
+    _only_the_import_was_written()
+    assert "1 written · 1 → BCP PEN · all under @Pendiente" in result.output
+    assert "Categorise them: expense world → Home → @Pendiente → ⏎" in result.output
+
+
+@respx.mock
+def test_rows_before_2026_are_never_sent(configured, monkeypatch):
+    _feed(
+        monkeypatch,
+        CARD_HEADERS,
+        [("2025-12-31", "OLD", "S/", -1), ("2026-01-01", "NEW", "S/", -2)],
+    )
+    route = _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 0, result.output
+    assert [r["title"] for r in _sent(route)["rows"]] == ["NEW"]
+    assert "1 before 2026" in result.output
+    assert "1 row dated before 2026-01-01 not sent" in result.output
+
+
+@respx.mock
+def test_a_file_with_nothing_from_2026_sends_nothing(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, [("2025-12-31", "OLD", "S/", -1)])
+    route = _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 1
+    assert "nothing to import" in result.output
+    assert not route.called
+
+
+@respx.mock
+def test_more_than_500_rows_are_refused_before_any_call(configured, monkeypatch):
+    rows = [("2026-09-11", f"ROW {i}", "S/", -1) for i in range(501)]
+    _feed(monkeypatch, CARD_HEADERS, rows)
+    route = _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 1
+    assert "501 rows to import" in result.output and "at most 500" in result.output
+    assert "shorter date range" in result.output
+    assert not route.called
+
+
+@respx.mock
+def test_exactly_500_rows_go_in_one_call(configured, monkeypatch):
+    rows = [("2026-09-11", f"ROW {i}", "S/", -1) for i in range(500)]
+    _feed(monkeypatch, CARD_HEADERS, rows)
+    route = _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 0, result.output
+    assert route.call_count == 1 and len(_sent(route)["rows"]) == 500
+
+
+# ---- the preview ------------------------------------------------------------
+@respx.mock
+def test_each_outcome_reads_in_the_match_column(configured, monkeypatch):
     _feed(
         monkeypatch,
         ACCOUNT_HEADERS,
         [
             ("11/09/2026", "TRAN.CEL.BM.", "S/", -50, "04330935"),
             ("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753"),
+            ("09/09/2026", "PLAZA VEA", "S/", -70, "03144754"),
+            ("08/09/2026", "TOTTUS", "S/", -80, "03144755"),
         ],
     )
-    _engine(
-        {"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.", "03144753")]}
+    outcomes = {
+        1: {"outcome": "matched", "rule": "operation_code", "ledger_id": "t1"},
+        2: {
+            "outcome": "matched",
+            "rule": "same_day",
+            "ledger_id": "t2",
+            "backfill_code": "03144754",
+        },
+        3: {"outcome": "matched", "rule": "adjacent_day", "ledger_id": "t3"},
+    }
+    _engine(lambda i, row: outcomes.get(i, {}))
+    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "operation numbers on every row" in out
+    assert "04330935  new" in out
+    assert "03144753  in ledger · operation" in out
+    assert "03144754  in ledger · same day · +code" in out
+    assert "03144755  in ledger · ± 1 day" in out
+    assert (
+        "4 rows  ·  1 new  ·  3 in the ledger (1 by operation · 1 by same day · 1 by ± 1 day)"
+        in out
     )
-    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--all"])
-    assert result.exit_code == 0, result.output
-    assert "operation numbers on every row" in result.output
-    assert "04330935  new" in result.output
-    assert "03144753  in ledger · operation 03144753" in result.output
+    assert "1 matched row in the ledger have no operation code yet — --apply writes it" in out
 
 
 @respx.mock
-def test_the_ledger_holding_more_than_the_file_is_a_loud_warning(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[2:3])  # one 3.50 on the 7th
+def test_a_sealed_row_names_its_period_and_is_listed_apart(configured, monkeypatch):
+    """C5: rows inside a closed period are shown, never hidden, and never
+    written. The response carries the period's id; its name comes from the
+    account's reconciliations."""
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1] + CARD_ROWS[2:3])
     _engine(
-        {
-            "sig-pen": [
-                _ledger("t1", "sig-pen", "2026-09-07", -350, "APPARKA"),
-                _ledger("t2", "sig-pen", "2026-09-07", -350, "APPARKA"),
-            ]
-        }
-    )
-    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
-    assert result.exit_code == 0, result.output
-    assert "! 1 group has more in the ledger than in the file" in result.output
-    assert "2026-09-07 · -3.50 · BCP Signature PEN — ledger 2, file 1" in result.output
-
-
-@respx.mock
-def test_json_is_the_placement(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
-    _engine()
-    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--json"])
-    assert result.exit_code == 0, result.output
-    doc = json.loads(result.output)
-    assert doc["account"] == "BCP Signature"
-    assert doc["rows"][0]["title"] == "EDO SUSHI BAR"
-    assert doc["rows"][0]["description"] == "EDO SUSHI BAR             LI"
-    assert doc["rows"][0]["match"] is None and doc["rows"][0]["account_id"] == "sig-pen"
-    assert doc["written"] is None
-
-
-# ---- apply ------------------------------------------------------------------
-@respx.mock
-def test_apply_writes_only_the_new_rows_under_no_category(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
-    _engine({"sig-usd": [_ledger("t2", "sig-usd", "2026-09-09", -2117, "APPLE.COM/BILL")]})
-    batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
+        lambda i, row: {"outcome": "sealed", "sealed_by": "r1"} if i == 1 else {},
+        periods={"sig-pen": [{"id": "r1", "name": "September 2026"}]},
     )
     result = _run(
         monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
     )
-    assert result.exit_code == 0, result.output
-    body = json.loads(batch.calls.last.request.content)
-    items = body["transactions"]
-    assert [i["title"] for i in items] == [
-        "EDO SUSHI BAR",
-        "APPARKA MALL AVENTURA",
-        "APPARKA MALL AVENTURA",
-    ]
-    for item in items:
-        assert "category_id" not in item and "hashtag_ids" not in item
-        assert item["account_id"] == "sig-pen"
-        assert item["date"].startswith(("2026-09-11", "2026-09-07"))
-    assert items[0]["description"] == "EDO SUSHI BAR             LI"
-    assert "3 written · 3 → BCP Signature PEN · all under @Pendiente" in result.output
-    assert "Categorise them: expense world → Home → @Pendiente → ⏎" in result.output
+    assert result.exit_code == 0, result.output  # sealed is an outcome, not a failure
+    out = result.output
+    assert "closed · September 2026" in out
+    assert "1 in a closed period" in out
+    assert "! 1 row falls inside a closed period and never goes in" in out
+    assert "row 3 · 2026-09-07 · APPARKA MALL AVENTURA AREQU · -3.50" in out
+    assert "1 written · 1 → BCP Signature PEN" in out
 
 
 @respx.mock
-def test_apply_carries_the_operation_code(configured, monkeypatch):
-    _feed(monkeypatch, ACCOUNT_HEADERS, [("11/09/2026", "TRAN.CEL.BM.", "S/", -50, "04330935")])
-    _engine()
-    batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
+def test_a_failed_period_read_still_shows_the_import(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine(lambda i, row: {"outcome": "sealed", "sealed_by": "r1"})
+    respx.get(f"{BASE}/v1/reconciliations").mock(
+        return_value=httpx.Response(500, json=error_body("INTERNAL", "down"))
+    )
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 0, result.output
+    assert "closed · a closed period" in result.output
+    assert "could not read the closed periods' names" in result.output
+
+
+@respx.mock
+def test_an_unmatched_ledger_row_on_a_files_day_is_a_loud_warning(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[2:3])
+    _engine(
+        lambda i, row: {"outcome": "matched", "rule": "same_day", "ledger_id": "t1"},
+        excess=[
+            {
+                "account_id": "sig-pen",
+                "date": "2026-09-07",
+                "amount_cents": 350,
+                "transaction_type": 1,
+                "file_count": 1,
+                "ledger_count": 2,
+                "unclaimed_ledger_ids": ["t2"],
+            }
+        ],
+    )
+    for apply in ([], ["--apply"]):
+        result = _run(
+            monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", *apply]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            "! 1 day where the ledger holds a row of the same amount that no file row"
+            in result.output
+        )
+        assert "2026-09-07 · -3.50 · BCP Signature PEN — ledger 2, file 1" in result.output
+
+
+@respx.mock
+def test_apply_with_nothing_new_says_so(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
+    _engine(lambda i, row: {"outcome": "matched", "rule": "same_day", "ledger_id": "t1"})
+    result = _run(
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "the ledger already has every row" in result.output
+
+
+@respx.mock
+def test_apply_reports_the_codes_it_wrote(configured, monkeypatch):
+    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
+    _engine(
+        lambda i, row: {
+            "outcome": "matched",
+            "rule": "same_day",
+            "ledger_id": "t1",
+            "backfill_code": "03144753",
+        }
     )
     result = _run(
         monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
     )
     assert result.exit_code == 0, result.output
-    item = json.loads(batch.calls.last.request.content)["transactions"][0]
-    assert item["operation_code"] == "04330935"
+    assert "1 operation code written onto existing rows" in result.output
 
 
 @respx.mock
-def test_a_match_on_the_ledgers_second_page_still_counts(configured, monkeypatch):
-    """The ledger read follows `next_cursor` to the end: the row that matches
-    sits on page two, and the file's row is still found to be there already."""
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
-    _engine(
-        {
-            "sig-pen": [
-                _ledger("t0", "sig-pen", "2026-09-10", -1000, "OTHER"),
-                _ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR"),
-            ]
-        },
-        page_rows=1,
-    )
-    batch = respx.post(f"{BASE}/v1/transactions/batch")
+def test_a_parser_refused_row_is_listed_and_apply_exits_1(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, [*CARD_ROWS[:1], ("2026-09-01", "ZERO", "S/", 0)])
+    route = _engine()
     result = _run(
         monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
     )
+    assert result.exit_code == 1
+    assert len(_sent(route)["rows"]) == 1  # the good row still went
+    assert "! row 3: the amount is zero" in result.output
+    assert "1 refused" in result.output
+
+
+# ---- --json -----------------------------------------------------------------
+@respx.mock
+def test_json_is_the_engines_body_byte_for_byte(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, [("2025-12-31", "OLD", "S/", -1), *CARD_ROWS[:1]])
+    route = _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--json"])
     assert result.exit_code == 0, result.output
-    assert not batch.called
-    assert "the ledger already has every row" in result.output
-    sig_pen = [
-        c.request.url.params
-        for c in respx.calls
-        if c.request.url.path == "/v1/transactions"
-        and c.request.url.params.get("account_id") == "sig-pen"
-    ]
-    assert [p.get("after") for p in sig_pen] == [None, "1"]
+    engine_body = route.calls.last.response.json()
+    assert json.loads(result.stdout) == engine_body
+    assert "not sent" in result.stderr and "not sent" not in result.stdout
 
 
+# ---- refusals ---------------------------------------------------------------
 @respx.mock
-def test_apply_with_nothing_new_writes_nothing(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
-    _engine({"sig-pen": [_ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR")]})
-    batch = respx.post(f"{BASE}/v1/transactions/batch")
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-    assert result.exit_code == 0, result.output
-    assert not batch.called
-    assert "the ledger already has every row" in result.output
-
-
-@respx.mock
-def test_apply_reports_a_refused_row_and_exits_1(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])
+def test_a_422_names_the_files_line_and_nothing_is_written(configured, monkeypatch):
+    _feed(monkeypatch, CARD_HEADERS, [("2025-12-31", "OLD", "S/", -1), *CARD_ROWS])
     _engine()
-    error = error_body("VALIDATION_ERROR", "Batch validation failed.", {})
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            httpx.Response(422, json=error),  # the chunk
-            httpx.Response(201, json={"created": []}),  # row 1 alone
-            httpx.Response(422, json=error),  # row 2 alone
-        ]
-    )
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-    assert result.exit_code == 1, result.output
-    assert "1 written" in result.output
-    assert "! row 3:" in result.output
-
-
-#: The engine's sealed-period refusal, verbatim (engine periods.py
-#: `sealed_message` + `reject_sealed_date`, 2026-09-20). The batch door names
-#: `transactions.<index>.date`; the window's days and the period's NAME live in
-#: the field text, which is the only place they appear.
-SEALED_FIELD = (
-    "Period 2026-09-01 to 2026-09-10 is sealed by completed reconciliation "
-    "'September 2026'. Revert it to draft to change anything inside it."
-)
-
-
-def _sealed_response(index: int = 0) -> httpx.Response:
-    return httpx.Response(
-        422,
-        json=error_body(
-            "VALIDATION_ERROR",
-            "Transaction falls inside a sealed reconciliation period.",
-            {f"transactions.{index}.date": SEALED_FIELD},
-        ),
-    )
-
-
-@respx.mock
-def test_a_sealed_row_names_its_period_and_the_others_still_import(configured, monkeypatch):
-    """The wall, at the importer's door (sealed-periods plan S4).
-
-    A download that reaches back into a closed month must not lose the reason:
-    the period's name is in the 422's field text and nowhere else, and it has to
-    survive the chunk → singleton fallback, `format_error`, and the per-row line.
-    The rest of the file still lands — one refused row has never cancelled a
-    batch here, and this pins that it stays that way for THIS refusal.
-
-    Note the row number: the singleton re-post sends one row, so the engine's
-    key reads `transactions.0.date` for every refusal. The line the user reads
-    must carry the FILE's line (3), never the engine's index.
-    """
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])  # line 2: 2026-09-11, line 3: 2026-09-09
-    _engine()
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _sealed_response(1),  # the chunk — the engine names the second row
-            httpx.Response(201, json={"created": []}),  # line 2 alone: outside the window
-            _sealed_response(),  # line 3 alone: inside it
-        ]
-    )
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-    assert result.exit_code == 1, result.output
-    assert "1 written" in result.output  # the good row landed
-    assert "! row 3:" in result.output  # the file's line, not the engine's index
-    assert "sealed by completed reconciliation 'September 2026'" in result.output
-    assert "Revert it to draft" in result.output  # the way out survives too
-    assert "row 2:" not in result.output  # the row that went through is not named
-
-
-@respx.mock
-def test_a_sealed_backfill_row_is_named_and_the_new_rows_still_go(configured, monkeypatch):
-    """The second half of the same door: the operation-code backfill is a PUT
-    per matched row, and a PUT into a sealed window is refused too (the engine's
-    six doors include `PUT` moving `date`/`account_id` in). The refusal is
-    reported against its row and the new rows are written anyway.
-    """
-    _feed(
-        monkeypatch,
-        ACCOUNT_HEADERS,
-        [
-            ("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753"),  # matches → backfill
-            ("12/09/2026", "PLAZA VEA", "S/", -25, "03144999"),  # new → batch
-        ],
-    )
-    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
-    respx.put(f"{BASE}/v1/transactions/t1").mock(
+    respx.post(f"{BASE}/v1/transactions/import").mock(
         return_value=httpx.Response(
             422,
             json=error_body(
                 "VALIDATION_ERROR",
-                "Transaction falls inside a sealed reconciliation period.",
-                {"date": SEALED_FIELD},
+                "Import validation failed.",
+                {"rows.3.date": "Must not be in the future."},
             ),
         )
     )
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
     result = _run(
-        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
+        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
     )
-    assert result.exit_code == 1, result.output
-    assert "sealed by completed reconciliation 'September 2026'" in result.output
-    assert "! row 2 (code 03144753)" in result.output
-    assert "1 written" in result.output  # the new row was not held back
-
-
-# ---- the operation-code backfill --------------------------------------------
-@respx.mock
-def test_preview_says_which_matched_rows_will_get_a_code(configured, monkeypatch):
-    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
-    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
-    put = respx.put(f"{BASE}/v1/transactions/t1")
-    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP"])
-    assert result.exit_code == 0, result.output
-    assert "in ledger · same day + title · +code" in result.output
-    assert "1 matched row in the ledger have no operation code yet" in result.output
-    assert not put.called  # a dry run writes nothing
+    assert result.exit_code == 1
+    # engine index 3 is the 4th row SENT; the 2025 row on line 2 was never sent,
+    # so it is the file's line 6.
+    assert "VALIDATION_ERROR — Import validation failed." in result.output
+    assert "! row 6 (date): Must not be in the future." in result.output
+    assert "Nothing was written." in result.output
 
 
 @respx.mock
-def test_apply_writes_the_code_onto_the_matched_row_and_nothing_else(configured, monkeypatch):
-    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
-    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
-    put = respx.put(f"{BASE}/v1/transactions/t1").mock(return_value=httpx.Response(200, json={}))
-    batch = respx.post(f"{BASE}/v1/transactions/batch")
-    result = _run(
-        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
-    )
-    assert result.exit_code == 0, result.output
-    assert json.loads(put.calls.last.request.content) == {"operation_code": "03144753"}
-    assert not batch.called  # nothing was new
-    assert "1 operation code written onto existing rows" in result.output
-    assert "Nothing new to write" in result.output
-
-
-@respx.mock
-def test_a_second_download_matches_by_the_code_it_wrote(configured, monkeypatch):
-    """After the backfill the ledger row carries the code, so rule 1 decides
-    and no content rule is consulted."""
-    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
-    _engine(
-        {"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.", "03144753")]}
-    )
-    result = _run(monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP"])
-    assert result.exit_code == 0, result.output
-    assert "in ledger · operation 03144753" in result.output
-    assert "+code" not in result.output
-
-
-# ---- the JSON document ------------------------------------------------------
-#: Every key `--json` emits, on every run. The document used to be assembled in
-#: three places, so which of the write keys you got depended on which fork the
-#: run took; a consumer could not tell "no rows failed" from "this fork never
-#: told me about failures".
-DOC_KEYS = {
-    "file",
-    "account",
-    "legs",
-    "rows",
-    "refused",
-    "excess",
-    "written",
-    "already_there",
-    "codes_written",
-    "failed",
-    "stopped",
-}
-
-
-@respx.mock
-def test_the_json_document_has_one_shape_on_a_dry_run(configured, monkeypatch):
+def test_a_422_under_json_is_the_raw_envelope(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine()
+    envelope = error_body("VALIDATION_ERROR", "Import validation failed.", {"rows.0.date": "x"})
+    respx.post(f"{BASE}/v1/transactions/import").mock(
+        return_value=httpx.Response(422, json=envelope)
+    )
     result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--json"])
-    assert result.exit_code == 0, result.output
-    doc = json.loads(result.output)
-    assert set(doc) == DOC_KEYS
-    # `written` is null, not 0: nothing was attempted, which is not the same as
-    # nothing needing doing.
-    assert doc["written"] is None
-    assert doc["already_there"] == 0 and doc["codes_written"] == 0
-    assert doc["failed"] == [] and doc["stopped"] is None
-
-
-@respx.mock
-def test_the_json_document_has_one_shape_when_apply_writes(configured, monkeypatch):
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
-    _engine()
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
-    )
-    assert result.exit_code == 0, result.output
-    doc = json.loads(result.output)
-    assert set(doc) == DOC_KEYS
-    assert doc["written"] == 1 and doc["failed"] == []
-
-
-@respx.mock
-def test_the_json_document_has_one_shape_when_apply_writes_nothing(configured, monkeypatch):
-    """The fork that used to carry neither `failed` nor `already_there`."""
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
-    _engine({"sig-pen": [_ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR")]})
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply", "--json"]
-    )
-    assert result.exit_code == 0, result.output
-    doc = json.loads(result.output)
-    assert set(doc) == DOC_KEYS
-    assert doc["written"] == 0 and doc["failed"] == []
-
-
-# ---- when a write does not land ----------------------------------------------
-#
-# Three branches of write_placement/render_write had no test until 2026-09-19:
-# a backfill PUT the engine refuses, a chunk the engine already holds, and a
-# connection error that stops the run mid-batch. All three decide the exit code
-# through `WriteReport.ok`, and a partial import that reports success is one
-# nobody re-runs.
-
-
-@respx.mock
-def test_a_refused_backfill_names_the_row_and_does_not_stop_the_new_rows(configured, monkeypatch):
-    """The code write and the row write are separate asks of the engine.
-
-    Backfilling a code onto a row the ledger already has can fail on its own —
-    the engine's per-account UNIQUE on `operation_code` (sql/039) rejects a code
-    a *different* row already carries. That must not cost the run the rows that
-    are genuinely new: they are why the import was started.
-    """
-    _feed(
-        monkeypatch,
-        ACCOUNT_HEADERS,
-        [
-            ("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753"),  # matches t1 → backfill
-            ("11/09/2026", "PAGO SERVICIOS", "S/", -25, "03144999"),  # new
-        ],
-    )
-    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
-    put = respx.put(f"{BASE}/v1/transactions/t1").mock(
-        return_value=error_response(
-            409, "CONFLICT", "operation_code already used on this account.", None
-        )
-    )
-    batch = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    result = _run(
-        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
-    )
-
-    assert put.called and batch.called  # the refusal did not abort the run
-    assert "0 operation codes written onto existing rows" in result.output
-    assert "! row 2 (code 03144753): CONFLICT — operation_code already used" in result.output
-    assert "1 written" in result.output
-    assert result.exit_code == 1  # a partial run never reports success
-
-
-@respx.mock
-def test_a_refused_backfill_alone_is_still_exit_1(configured, monkeypatch):
-    """Nothing new to write, one code refused — the run did not do its job."""
-    _feed(monkeypatch, ACCOUNT_HEADERS, [("10/09/2026", "TRAN.CEL.BM.", "S/", -60, "03144753")])
-    _engine({"bcp-pen": [_ledger("t1", "bcp-pen", "2026-09-10", -6000, "TRAN.CEL.BM.")]})
-    respx.put(f"{BASE}/v1/transactions/t1").mock(
-        return_value=error_response(422, "VALIDATION_ERROR", "bad code.", None)
-    )
-
-    result = _run(
-        monkeypatch, ["import", "bank", "Sueldo Soles.xlsx", "--account", "BCP", "--apply"]
-    )
-
-    assert "! row 2 (code 03144753): VALIDATION_ERROR — bad code." in result.output
-    assert "Nothing new to write" in result.output
     assert result.exit_code == 1
-
-
-@respx.mock
-def test_rows_the_engine_already_holds_are_counted_not_failed(configured, monkeypatch):
-    """A 409 on a client-minted id means the row is already in.
-
-    This is what a re-run of a half-written import looks like, and it is the
-    reason a retry is safe — so it reports as `already there`, exit 0, not as a
-    failure. The ledger read cannot see these (the match rules missed them);
-    only the engine's own id collision can.
-    """
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:2])
-    _engine()
-    conflict = error_response(409, "CONFLICT", "a transaction with that id already exists.", None)
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[conflict, conflict, conflict]  # the chunk, then each row alone
-    )
-
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-
-    assert "0 written" in result.output
-    assert "2 already there — the engine holds that operation number" in result.output
-    assert result.exit_code == 0  # nothing failed; the rows are in
-
-
-@respx.mock
-def test_a_connection_error_mid_batch_says_how_many_were_never_sent(configured, monkeypatch):
-    """`stopped` is the one outcome where the ledger's state is unknown to us.
-
-    The rows still UNSENT were never put on the wire, so the line has to say how
-    many — that count is what tells the user a re-run is safe and finite.
-    """
-    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
-    _engine()
-    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=httpx.ConnectError("down"))
-
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-
-    assert "0 written" in result.output
-    assert "! stopped:" in result.output and "could not reach engine" in result.output
-    assert "4 rows were never sent" in result.output
-    assert result.exit_code == 1
-
-
-@respx.mock
-def test_apply_repeats_the_excess_warning_above_the_writes(configured, monkeypatch):
-    """The preview warns when the ledger holds more of a group than the file does;
-    `--apply` has to warn again.
-
-    `render_write_header` prints before the writes start, and under `--apply` the
-    preview is not shown at all — so without this line the one signal that a row
-    may already be logged twice would be visible only on the dry run nobody reads
-    twice.
-    """
-    _feed(monkeypatch, CARD_HEADERS, [("2026-09-11", "EDO SUSHI BAR             LI", "S/", -49)])
-    _engine(
-        {
-            "sig-pen": [
-                _ledger("t1", "sig-pen", "2026-09-11", -4900, "EDO SUSHI BAR"),
-                _ledger("t2", "sig-pen", "2026-09-11", -4900, "edo sushi"),
-            ]
-        }
-    )
-    batch = respx.post(f"{BASE}/v1/transactions/batch")
-
-    result = _run(
-        monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", "--apply"]
-    )
-
-    assert result.exit_code == 0, result.output
-    assert not batch.called  # the file's one row is already in the ledger
-    assert "1 group has more in the ledger than in the file" in result.output
-    assert "ledger 2, file 1" in result.output
+    assert json.loads(result.stdout) == envelope

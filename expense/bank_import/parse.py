@@ -53,17 +53,7 @@ CURRENCY_LABELS = {
     "dólares": "USD",
 }
 
-#: Where a card descriptor's merchant field ends. The bank pads the merchant
-#: to this width and appends city and country; a space exactly here is the
-#: field boundary, and the same descriptor with a shorter merchant shows the
-#: boundary as a run of spaces instead. Both cases are handled by
-#: `clean_title`; a merchant that fills the field with no space at the
-#: boundary (an airline name of 24 letters) is left whole rather than cut
-#: mid-word — the raw text is kept in the description regardless.
-MERCHANT_WIDTH = 23
-
 _DDMMYYYY = re.compile(r"^\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$")
-_RUN_OF_SPACES = re.compile(r"\s{2,}")
 
 
 @dataclass(frozen=True)
@@ -72,8 +62,10 @@ class BankRow:
 
     line: int
     date_iso: str
+    #: The bank's descriptor with whitespace runs collapsed, nothing removed
+    #: (file-import-plan §4, C2): `MAR DE COLAS           LIMA          PE`
+    #: → `MAR DE COLAS LIMA PE`. The title is exactly what the bank sent.
     title: str
-    raw_title: str
     currency: str
     amount_cents: int  # signed: negative = outflow, as the engine wants it
     operation_code: str | None
@@ -100,25 +92,6 @@ def header_index(headers: list[object]) -> dict[str, int]:
             f"The sheet is missing required column(s): {', '.join(missing)}. Found headers: {found}"
         )
     return index
-
-
-def clean_title(raw: str) -> str:
-    """The merchant part of a card descriptor; a current-account label untouched.
-
-    `LIDERMAN OUTLET AREQUI ICA           PE` → `LIDERMAN OUTLET AREQUI`.
-    `EDO SUSHI BAR             LI` → `EDO SUSHI BAR`.
-    `TRAN.CEL.BM.` → `TRAN.CEL.BM.`.
-
-    Two cuts, in order: at the first run of two or more spaces (the padding
-    after a short merchant), then at the space on the merchant field's
-    boundary when the merchant filled it exactly. Inner single spaces are the
-    merchant's own and stay.
-    """
-    text = raw.strip()
-    head = _RUN_OF_SPACES.split(text, maxsplit=1)[0]
-    if len(head) > MERCHANT_WIDTH and head[MERCHANT_WIDTH - 1] == " ":
-        head = head[: MERCHANT_WIDTH - 1]
-    return " ".join(head.split())
 
 
 def parse_date(value: object) -> str | None:
@@ -230,8 +203,7 @@ def parse_bank_sheet(sheet: SheetData) -> tuple[list[BankRow], list[BadRow]]:
             BankRow(
                 line=raw.line,
                 date_iso=date_iso,
-                title=clean_title(raw_title),
-                raw_title=raw_title,
+                title=" ".join(raw_title.split()),
                 currency=currency,
                 amount_cents=amount,
                 operation_code=parse_operation(cell("operation")) if has_operation else None,

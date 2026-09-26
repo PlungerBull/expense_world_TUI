@@ -1,23 +1,27 @@
-"""The bank importer's pure halves: the parser and the matcher.
+"""The bank importer's pure halves: the parser, and the engine request/response.
 
 Shapes come from the two real BCP downloads of 2026-09-12 (docs/mockups/
 expense-world-bank-import.html): a current-account export with `Numero de
 Operacion` and `11/09/2026` dates, and a card export with `2026-09-11` dates,
-mixed S/ and $, no operation number, and padded merchant descriptors.
+mixed S/ and $, no operation number, and padded merchant descriptors. The
+response shape is engine-spec `POST /transactions/import` (2026-09-25).
 """
 
-from expense.bank_import.match import (
-    RULE_NEAR_DAY_AMOUNT,
-    RULE_NEAR_DAY_TITLE,
-    RULE_OPERATION,
-    RULE_SAME_DAY_TITLE,
-    LedgerRow,
-    match_rows,
+from expense.bank_import.engine import (
+    IMPORT_FLOOR,
+    Placed,
+    excess_groups,
+    match_label,
+    placements,
+    request_body,
+    row_refusals,
+    sealed_accounts,
+    sent_rows,
+    split_floor,
 )
 from expense.bank_import.parse import (
     BankFormatError,
     BankRow,
-    clean_title,
     parse_bank_sheet,
     parse_date,
     parse_operation,
@@ -35,33 +39,18 @@ def _sheet(headers, *rows) -> SheetData:
 
 
 def _bank(line, date_iso, title, cents, *, currency="PEN", code=None) -> BankRow:
-    return BankRow(line, date_iso, title, title, currency, cents, code)
+    return BankRow(line, date_iso, title, currency, cents, code)
 
 
-def _ledger(ident, date_iso, cents, title, *, account="sig-pen", code=None) -> LedgerRow:
-    return LedgerRow(ident, account, date_iso, cents, title, code)
-
-
-# ---- title cleaning ---------------------------------------------------------
-def test_clean_title_cuts_the_padding_after_a_short_merchant():
-    assert clean_title("EDO SUSHI BAR             LI") == "EDO SUSHI BAR"
-    assert clean_title("Google One             650-2") == "Google One"
-
-
-def test_clean_title_cuts_at_the_field_boundary_when_the_merchant_fills_it():
-    assert clean_title("LIDERMAN OUTLET AREQUI ICA           PE") == "LIDERMAN OUTLET AREQUI"
-    assert clean_title("T6168 MAP AQP PORONGOC AREQU") == "T6168 MAP AQP PORONGOC"
-
-
-def test_clean_title_leaves_a_merchant_that_overruns_the_field_whole():
-    """No space on the boundary → not a boundary. Cutting mid-word would be worse."""
-    assert clean_title("Plus Ultra Lineas Aereas  00") == "Plus Ultra Lineas Aereas"
-
-
-def test_clean_title_leaves_current_account_labels_alone():
-    assert clean_title("TRAN.CEL.BM.") == "TRAN.CEL.BM."
-    assert clean_title("TRAN.CTAS.TERC.BM") == "TRAN.CTAS.TERC.BM"
-    assert clean_title("  IZI*Fitrex ") == "IZI*Fitrex"
+def _result(ident, outcome="new", *, rule=None, ledger_id=None, code=None, sealed_by=None) -> dict:
+    return {
+        "id": ident,
+        "outcome": outcome,
+        "rule": rule,
+        "ledger_id": ledger_id,
+        "backfill_code": code,
+        "sealed_by": sealed_by,
+    }
 
 
 # ---- cells ------------------------------------------------------------------
@@ -88,11 +77,18 @@ def test_parse_sheet_reads_a_card_export():
     )
     assert bad == []
     assert [(r.date_iso, r.title, r.currency, r.amount_cents, r.operation_code) for r in rows] == [
-        ("2026-09-11", "Plus Ultra Lineas Aereas", "USD", -146887, None),
-        ("2026-09-11", "EDO SUSHI BAR", "PEN", -4900, None),
+        ("2026-09-11", "Plus Ultra Lineas Aereas 00", "USD", -146887, None),
+        ("2026-09-11", "EDO SUSHI BAR LI", "PEN", -4900, None),
         ("2026-08-16", "PAGO BANCA MOVIL", "PEN", 149019, None),
     ]
-    assert rows[1].raw_title == "EDO SUSHI BAR             LI"  # kept for the description
+
+
+def test_the_title_is_the_banks_text_with_whitespace_collapsed():
+    """C2 (file-import-plan §4): nothing cut, only the padding runs folded."""
+    rows, _ = parse_bank_sheet(
+        _sheet(CARD_HEADERS, ("2026-09-11", "  MAR DE COLAS           LIMA          PE ", "S/", -1))
+    )
+    assert rows[0].title == "MAR DE COLAS LIMA PE"
 
 
 def test_parse_sheet_reads_a_current_account_export_with_codes():
@@ -150,139 +146,128 @@ def test_missing_columns_are_named():
         raise AssertionError("expected BankFormatError")
 
 
-# ---- matching ---------------------------------------------------------------
-def test_operation_code_decides_matched_or_not():
-    rows = [
-        _bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753"),
-        _bank(3, "2026-09-10", "TRAN.CEL.BM.", -6000, code="99999999"),
+# ---- the floor --------------------------------------------------------------
+def test_the_floor_is_2026_01_01_and_the_day_itself_goes():
+    rows = [_bank(2, "2025-12-31", "OLD", -1), _bank(3, "2026-01-01", "NEW", -1)]
+    kept, skipped = split_floor(rows)
+    assert IMPORT_FLOOR.isoformat() == "2026-01-01"
+    assert [r.line for r in kept] == [3] and [r.line for r in skipped] == [2]
+
+
+# ---- the request --------------------------------------------------------------
+def test_each_row_goes_on_its_currencys_leg_as_a_bare_day_with_the_banks_title():
+    sent = sent_rows(
+        [
+            _bank(2, "2026-09-11", "EDO SUSHI BAR LI", -4900),
+            _bank(3, "2026-09-09", "APPLE.COM/BILL", -2117, currency="USD"),
+        ],
+        LEGS,
+    )
+    body = request_body(sent, dry_run=True)
+    assert body["dry_run"] is True
+    first, second = body["rows"]
+    assert first == {
+        "id": sent[0].id,
+        "account_id": "sig-pen",
+        "date": "2026-09-11",
+        "amount_cents": -4900,
+        "title": "EDO SUSHI BAR LI",
+    }
+    assert second["account_id"] == "sig-usd" and second["date"] == "2026-09-09"
+    assert "description" not in first and "operation_code" not in first
+    assert sent[0].id != sent[1].id
+
+
+def test_an_operation_code_is_sent_when_the_file_has_one():
+    sent = sent_rows([_bank(2, "2026-09-11", "TRAN.CEL.BM.", -5000, code="04330935")], LEGS)
+    assert request_body(sent, dry_run=False)["rows"][0]["operation_code"] == "04330935"
+    assert request_body(sent, dry_run=False)["dry_run"] is False
+
+
+# ---- the response -------------------------------------------------------------
+def _sent():
+    return sent_rows(
+        [
+            _bank(2, "2026-09-11", "A", -100),
+            _bank(3, "2026-09-10", "B", -200, code="00000009"),
+            _bank(4, "2026-09-09", "C", -300),
+        ],
+        LEGS,
+    )
+
+
+def test_response_rows_join_back_to_the_file_by_id():
+    sent = _sent()
+    placed = placements(
+        {
+            "rows": [
+                _result(sent[0].id),
+                _result(sent[1].id, "matched", rule="same_day", ledger_id="t1", code="00000009"),
+                _result(sent[2].id, "sealed", sealed_by="r1"),
+            ]
+        },
+        sent,
+    )
+    assert [p.sent.row.line for p in placed] == [2, 3, 4]
+    assert [p.outcome for p in placed] == ["new", "matched", "sealed"]
+    assert sealed_accounts(placed) == ["sig-pen"]
+
+
+def test_each_outcome_and_rule_has_its_words():
+    sent = _sent()
+
+    def label(**kw):
+        return match_label(Placed(sent=sent[0], **kw), {"r1": "September 2026"})
+
+    base = {"rule": None, "ledger_id": None, "backfill_code": None, "sealed_by": None}
+    assert label(**{**base, "outcome": "new"}) == "new"
+    matched = {**base, "outcome": "matched", "ledger_id": "t1"}
+    assert label(**{**matched, "rule": "operation_code"}) == "in ledger · operation"
+    assert label(**{**matched, "rule": "same_day"}) == "in ledger · same day"
+    assert label(**{**matched, "rule": "adjacent_day"}) == "in ledger · ± 1 day"
+    coded = {**matched, "rule": "adjacent_day", "backfill_code": "1"}
+    assert label(**coded) == "in ledger · ± 1 day · +code"
+    sealed = {**base, "outcome": "sealed", "sealed_by": "r1"}
+    assert label(**sealed) == "closed · September 2026"
+    assert label(**{**sealed, "sealed_by": "gone"}) == "closed · a closed period"
+
+
+def test_excess_is_signed_by_direction_and_named_by_leg():
+    groups = excess_groups(
+        {
+            "excess": [
+                {
+                    "account_id": "sig-pen",
+                    "date": "2026-09-07",
+                    "amount_cents": 350,
+                    "transaction_type": 1,
+                    "file_count": 1,
+                    "ledger_count": 2,
+                    "unclaimed_ledger_ids": ["t2"],
+                },
+                {
+                    "account_id": "sig-usd",
+                    "date": "2026-09-08",
+                    "amount_cents": 100,
+                    "transaction_type": 2,
+                    "file_count": 1,
+                    "ledger_count": 2,
+                    "unclaimed_ledger_ids": ["t3"],
+                },
+            ]
+        },
+        {"sig-pen": "BCP Signature PEN", "sig-usd": "BCP Signature USD"},
+    )
+    assert [(g.account_name, g.amount_cents) for g in groups] == [
+        ("BCP Signature PEN", -350),
+        ("BCP Signature USD", 100),
     ]
-    # An identical row sits in the ledger with the FIRST code: only that one
-    # matches; the second is new even though every other field agrees, because
-    # the code has spoken.
-    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.", code="03144753")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert (verdicts[0].rule, verdicts[0].ledger_id) == (RULE_OPERATION, "t1")
-    assert verdicts[1].new
 
 
-def test_same_day_and_title_beats_the_looser_rules():
-    rows = [_bank(2, "2026-08-18", "SHIMAYA RAMEN", -9600)]
-    ledger = [
-        _ledger("near", "2026-08-17", -9600, "shimaya ramen"),
-        _ledger("exact", "2026-08-18", -9600, "Shimaya Ramen"),
-    ]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert (verdicts[0].rule, verdicts[0].ledger_id) == (RULE_SAME_DAY_TITLE, "exact")
-
-
-def test_a_day_either_side_with_the_title_is_the_third_rule():
-    rows = [_bank(2, "2026-08-18", "PCH AREQUIPA", -3940)]
-    ledger = [_ledger("t1", "2026-08-19", -3940, "PCH AREQUIPA")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert (verdicts[0].rule, verdicts[0].ledger_id) == (RULE_NEAR_DAY_TITLE, "t1")
-
-
-def test_amount_only_catches_a_hand_logged_row_under_its_own_title():
-    """The row typed in the LOG bar as `fitrex` on the day before."""
-    rows = [_bank(2, "2026-09-10", "IZI*Fitrex", -27390)]
-    ledger = [_ledger("t1", "2026-09-09", -27390, "fitrex")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert (verdicts[0].rule, verdicts[0].ledger_id) == (RULE_NEAR_DAY_AMOUNT, "t1")
-
-
-def test_amount_only_prefers_the_exact_day_over_a_neighbour():
-    rows = [_bank(2, "2026-09-10", "X", -5000)]
-    ledger = [
-        _ledger("monday", "2026-09-09", -5000, "a"),
-        _ledger("tuesday", "2026-09-10", -5000, "b"),
-    ]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert verdicts[0].ledger_id == "tuesday"
-
-
-def test_the_count_rule_three_in_the_file_one_in_the_ledger_means_two_new():
-    rows = [_bank(n, "2026-09-07", "APPARKA MALL AVENTURA", -350) for n in (2, 3, 4)]
-    ledger = [_ledger("t1", "2026-09-07", -350, "apparka")]
-    verdicts, excess = match_rows(rows, LEGS, ledger)
-    assert [v.new for v in verdicts] == [False, True, True]
-    assert excess == []
-
-
-def test_two_rides_at_one_fare_on_one_day_are_two_rows():
-    """The reason title sits before amount-only: same fare, different merchant."""
-    rows = [
-        _bank(2, "2026-09-11", "DLC*RIDES", -1290),
-        _bank(3, "2026-09-11", "IZI*TAXI", -1290),
-    ]
-    ledger = [_ledger("taxi", "2026-09-11", -1290, "IZI*TAXI")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert verdicts[0].new  # the ride
-    assert verdicts[1].ledger_id == "taxi"  # the taxi took its own row, not the ride's
-
-
-def test_a_ledger_row_is_claimed_once():
-    rows = [_bank(2, "2026-09-11", "A", -100), _bank(3, "2026-09-11", "A", -100)]
-    ledger = [_ledger("t1", "2026-09-11", -100, "A")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert [v.ledger_id for v in verdicts] == ["t1", None]
-
-
-def test_currency_picks_the_leg_and_the_ledger_is_per_account():
-    rows = [
-        _bank(2, "2026-09-09", "APPLE.COM/BILL", -2117, currency="USD"),
-        _bank(3, "2026-09-09", "APPLE.COM/BILL", -2117, currency="PEN"),
-    ]
-    # The USD row is in the USD account already; the PEN twin is not.
-    ledger = [_ledger("usd", "2026-09-09", -2117, "APPLE.COM/BILL", account="sig-usd")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert verdicts[0].account_id == "sig-usd" and verdicts[0].ledger_id == "usd"
-    assert verdicts[1].account_id == "sig-pen" and verdicts[1].new
-
-
-def test_excess_names_the_group_where_the_ledger_holds_more_than_the_file():
-    rows = [_bank(2, "2026-08-18", "DAJOYA SAC", -350)]
-    ledger = [
-        _ledger("t1", "2026-08-18", -350, "DAJOYA SAC"),
-        _ledger("t2", "2026-08-18", -350, "apparka"),
-    ]
-    verdicts, excess = match_rows(rows, LEGS, ledger)
-    assert not verdicts[0].new
-    assert len(excess) == 1
-    e = excess[0]
-    assert (e.date_iso, e.amount_cents, e.ledger_count, e.file_count) == ("2026-08-18", -350, 2, 1)
-    assert e.account_name == "BCP Signature PEN"
-
-
-# ---- codes the ledger does not know yet (owner call 2026-09-12) --------------
-def test_a_coded_row_with_no_coded_ledger_row_falls_through_to_the_content_rules():
-    """The ledger predates the column: a code it has never seen is not a
-    verdict. The row matches by content, and the code is what gets written."""
-    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
-    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.")]  # no code
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    v = verdicts[0]
-    assert (v.rule, v.ledger_id, v.backfill_code) == (RULE_SAME_DAY_TITLE, "t1", "03144753")
-
-
-def test_a_ledger_row_with_a_different_code_is_never_the_same_movement():
-    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
-    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.", code="99999999")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert verdicts[0].new
-
-
-def test_a_row_matched_by_its_own_code_has_nothing_to_backfill():
-    rows = [_bank(2, "2026-09-10", "TRAN.CEL.BM.", -6000, code="03144753")]
-    ledger = [_ledger("t1", "2026-09-10", -6000, "TRAN.CEL.BM.", code="03144753")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert (verdicts[0].rule, verdicts[0].backfill_code) == (RULE_OPERATION, None)
-
-
-def test_an_uncoded_file_row_never_backfills():
-    rows = [_bank(2, "2026-09-10", "EDO SUSHI BAR", -4900)]
-    ledger = [_ledger("t1", "2026-09-10", -4900, "EDO SUSHI BAR")]
-    verdicts, _ = match_rows(rows, LEGS, ledger)
-    assert verdicts[0].ledger_id == "t1" and verdicts[0].backfill_code is None
+def test_a_refusal_names_the_files_line_not_the_engines_index():
+    sent = _sent()
+    refusals = row_refusals({"rows.2.date": "Must not be in the future.", "rows": "odd"}, sent)
+    assert refusals == [(4, "date", "Must not be in the future."), (None, "rows", "odd")]
 
 
 # ---- an operation code the bank never issued --------------------------------
@@ -308,50 +293,3 @@ def test_a_row_whose_operation_cell_is_junk_imports_without_a_code():
     )
     assert bad == []
     assert rows[0].operation_code is None
-
-
-# ---- the excess warning is about ledger rows NOTHING claimed ----------------
-def test_no_excess_when_a_neighbouring_day_claimed_the_second_ledger_row():
-    """Two ledger rows on Friday, both matched — one by Friday's file row, one
-    by Saturday's under the ±1-day rule. Counting per day saw "ledger 2, file
-    1" on Friday and warned about a double entry that was fully accounted
-    for."""
-    rows = [
-        _bank(2, "2026-09-11", "APPARKA", -350),
-        _bank(3, "2026-09-12", "APPARKA", -350),
-    ]
-    ledger = [
-        _ledger("t1", "2026-09-11", -350, "APPARKA"),
-        _ledger("t2", "2026-09-11", -350, "APPARKA"),
-    ]
-    verdicts, excess = match_rows(rows, LEGS, ledger)
-    assert [v.new for v in verdicts] == [False, False]  # both matched
-    assert excess == []
-
-
-def test_excess_still_fires_when_a_ledger_row_survives_every_rule():
-    """The case the warning exists for: the file reports the movement once,
-    the ledger holds two rows of it and only one gets claimed."""
-    rows = [_bank(2, "2026-09-11", "APPARKA", -350)]
-    ledger = [
-        _ledger("t1", "2026-09-11", -350, "APPARKA"),
-        _ledger("t2", "2026-09-11", -350, "APPARKA"),
-    ]
-    verdicts, excess = match_rows(rows, LEGS, ledger)
-    assert not verdicts[0].new
-    assert [(e.date_iso, e.amount_cents, e.ledger_count, e.file_count) for e in excess] == [
-        ("2026-09-11", -350, 2, 1)
-    ]
-
-
-def test_a_ledger_row_the_file_never_mentions_is_not_an_excess():
-    """An unclaimed ledger row on a day/amount the file has nothing for is a
-    hand-logged row, not a double entry — it was never reported and is not
-    reported now."""
-    rows = [_bank(2, "2026-09-11", "APPARKA", -350)]
-    ledger = [
-        _ledger("t1", "2026-09-11", -350, "APPARKA"),
-        _ledger("t2", "2026-09-20", -9999, "EFECTIVO"),
-    ]
-    _, excess = match_rows(rows, LEGS, ledger)
-    assert excess == []

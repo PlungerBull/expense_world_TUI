@@ -26,12 +26,10 @@ engine's `sealed` outcome. §4–§7 below stay as the record of *what* was deci
 | ~~2 of 4~~ the import rules | §4–§7 | **Moved** into engine-uptake Phase 10b |
 | **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet; built on Phase 10b's code |
 
-§1–§2 and §8–§10 are context for both. **§6's one-time floor is superseded**: it
-is a `--since YYYY-MM-DD` flag, not the constant this file implies — the owner
-decided 2026-09-20, on the grounds that the hand-typed stretch ends wherever the
-spreadsheet ends and the spreadsheet is being updated before the first import, so
-the date is not knowable while the code is being written. The permanent
-2026-01-01 floor is unaffected.
+§1–§2 and §8–§10 are context for both. **§6 was rewritten on 2026-09-26**: the one-time
+floor (a `--since` flag since 2026-09-20) is gone, 2026-01-01 is the only floor, and what
+made the one-time floor necessary is fixed at the source by a one-time title alignment,
+also in §6.
 
 ---
 
@@ -166,10 +164,9 @@ never written. The owner's rule is the opposite — **more rows beats fewer**, b
 duplicate shows up at reconciliation and in the account balance, while a row that never
 arrived is invisible.
 
-Rule 4 existed to bridge hand-typed wording to the bank's. After the 2026 backfill seals
-January–August and the one-time floor skips September 1–11 (§6), no import ever compares a
-bank row against a hand-typed row again, and rules 1–3 have both sides in the bank's own
-words.
+Rule 4 existed to bridge hand-typed wording to the bank's. Once the one-time title alignment
+(§6) gives the hand-typed rows the bank's wording, and the 2026 backfill seals the closed
+months, rules 1–3 have both sides in the bank's own words.
 
 **What still produces a duplicate, accepted:** a charge that changes amount between
 authorisation and settlement, or moves more than a day. Reconciliation is the backstop.
@@ -179,17 +176,52 @@ any edit. Not needed while the exposure is one open month.
 
 ---
 
-## 6. C4 — the two floors
+## 6. C4 — one floor, and the title alignment that replaced the second
 
-- **Permanent: 2026-01-01.** Nothing dated earlier is ever considered. Cheap backstop; the
-  engine's wall does the real work.
-- **One-time: 2026-09-11, on the first real bank import.** The live ledger's last row is
-  2026-09-11 and every row in it came from the spreadsheet bootstrap. Importing only
-  2026-09-12 onward means the first import never meets a hand-typed row. September 1–11 stays
-  as the owner typed it — no operation codes, no bank wording — and the September
-  reconciliation still ties, because it ties on amounts.
+**The floor: 2026-01-01** (built in engine-uptake Phase 10b, `IMPORT_FLOOR` in
+[bank_import/engine.py](../expense/bank_import/engine.py)). Nothing dated earlier is ever sent.
+There is no `--since`.
 
----
+**Why the second floor went (owner, 2026-09-26).** It existed because the ledger's rows up to
+the end of the spreadsheet are hand-typed: no operation codes, and the owner's wording, not the
+bank's (`MAR DE COLAS LIMA` against the bank's `MAR DE COLAS LIMA PE`). The engine only
+matches identical titles, so a bank file overlapping those days would import them a second
+time. A typed-each-run floor made that one forgotten flag away, forever, because any later
+file reaching back re-opens it. The owner's answer: make the hand-typed rows carry the bank's
+wording once, and the problem is gone at the source. *Rejected:* the floor kept as a flag (the
+2026-09-20 decision); the floor saved once, on this machine or in the engine (both still fence
+off real history instead of fixing it).
+
+**What the overlap is (measured read-only 2026-09-26, on the test ledger):**
+- BCP's Excel export holds the **last 20 movements** of a current account and the **last 80** of
+  a card, so a download can never reach far back. The oldest row in the 2026-09 downloads was
+  2026-07-06 (`BCP USD`, which moves little); the card's was 2026-08-13.
+- The January–August statements exist only as **PDFs**, which cut the description to 18
+  characters and carry no operation number (`DE CONSTRUCTORA KO`, `CLAR000074096613`). Their
+  wording is not the Excel's, so they are **no use** for aligning titles.
+- So the overlap is only the few weeks before the spreadsheet ends. On the test ledger: 122
+  bank rows, of which 38 already identical, 69 with exactly one ledger row of the same account
+  and amount on the same or the adjacent day, 14 with several, 1 with none.
+
+### One-time title alignment (todo.md "One-time title alignment after the official migration")
+
+**When:** after the official migration (the sheet updated and re-imported), **before** any 2026
+period is completed — a completed period locks its rows' `title` (engine-spec *Field locking*),
+and before the first real bank import. Not now: the current ledger is test data.
+
+**How (owner, 2026-09-26: "app proposes, I approve"; no new screen, since it runs once):**
+1. Re-download every export the bank offers (they reach back as far as they reach), and read
+   them against the migrated ledger — reads only.
+2. Pair each bank row with the ledger rows of the same account and signed amount on the same or
+   the adjacent day. Identical titles need nothing. Exactly one candidate becomes a proposal
+   `ledger title → bank title`. Several candidates, or none, are listed with what there is.
+3. The list is a **local file outside the repo** (the repo is public; this is the owner's
+   financial data). The owner answers with the exceptions and the picks for the unclear rows.
+4. Apply exactly what was approved: one `PUT /transactions/{id}` with `title` only. **The old
+   title is dropped** (owner); the note (`description`) is untouched.
+5. Operation codes are not written here. The first real import writes them itself (the
+   engine's backfill on a `same_day` / `adjacent_day` match), and its dry run is the check:
+   every aligned row must read `in ledger · … · +code`, none `new`.
 
 ## 7. C5 — closed periods are shown, not hidden
 
@@ -247,8 +279,11 @@ month-end reconciliation difference is the only backstop.
    actually contained, since a card cycle closes mid-month and cannot be derived from dates.)
 2. Engine: the wall + `operation_code` frozen
    ([engine plan](../../expense_world_engine/docs/file-import-plan.md)).
-3. CLI: the importer on the engine's endpoint, with verbatim titles (§4), floors (§6) and
-   closed-period rows shown (§7): [engine-uptake-plan.md](engine-uptake-plan.md) Phase 10b.
+3. CLI: the importer on the engine's endpoint, with verbatim titles (§4), the 2026-01-01
+   floor (§6) and closed-period rows shown (§7): [engine-uptake-plan.md](engine-uptake-plan.md)
+   Phase 10b.
+3b. After the official migration, the one-time title alignment (§6), **before** step 1's
+   periods are completed.
 4. TUI import door (§3) — **mockup first**, per CLAUDE.md "Mock every screen before building
    it".
 5. First real bank import.
