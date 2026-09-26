@@ -255,9 +255,11 @@ read the dates off a statement (the EECC are PDFs this repo never opens).
 bulk edit in the ledger. It shares its layout with D3's screen — a list of rows
 with a reason column — but not its content: this one carries **which period
 refused each row**, which is the column a modal could not fit and the reason
-[tui.md](tui.md) §2's full-screen rule exists. **`r retry` is dropped** — refused rows already stay selected after a bulk
-write, so pressing the same key again *is* the retry, and retrying a row a sealed
-period refused would simply be refused again.
+[tui.md](tui.md) §2's full-screen rule exists. **`r retry` is dropped** — retrying a row a sealed
+period refused would simply be refused again. *(Amended 2026-09-26: this also said refused rows
+stay selected, so the same key is the retry. Since any write starts the ledger over from the
+newest 10, that holds only for a refused row among them; one further down is found and
+selected again — owner's pick A, mockup `expense-world-refused-row-after-reload.html`.)*
 
 **Scope note.** Of the three bulk keys, only `b` (move account) can be refused by
 these rules: `c` (category) and `h` (hashtags) stay legal inside a sealed period

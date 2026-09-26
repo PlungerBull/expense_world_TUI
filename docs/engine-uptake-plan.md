@@ -380,6 +380,11 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   list. The list reads fresh from its first 10, recounted, with the cursor on row 1 ("this
   should work like normal apps"). This replaced an earlier answer the same day that kept the
   loaded depth and the cursor's row number, which was built and then removed.
+- **A refused bulk row further down drops out of the selection** (pick A of
+  [expense-world-refused-row-after-reload.html](mockups/expense-world-refused-row-after-reload.html)):
+  it stays selected only if the fresh read brings it back among the newest 10. Option B, keeping
+  it selected off screen, was rejected: the legend would count a row you cannot see, and the next
+  bulk key would change it.
 - **Legend:** one line, `filter: category @Pendiente · 20 of 57 loaded · 3 selected`.
 - `r` starts again from the newest 10, as `r` does on the `u` list (M6).
 - **One copy** of the growing logic for both lists, built now rather than filed as a todo

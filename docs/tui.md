@@ -164,7 +164,10 @@ one `PUT /transactions/{id}` per row, in order, on one client, then the list rea
 from the newest 10 with the cursor on row 1 (owner, 2026-09-26: any write starts a
 growing list over): on a filtered list the changed rows **leave at once** (pick C), the toast `3 rows → KORAKUEN`
 is the receipt, and a refused row (an account move a completed reconciliation locks)
-is named by number, stays selected, and does not stop the others. `esc` clears the
+is named by number and does not stop the others. It stays selected only if the fresh read
+brings it back among the newest 10; further down it drops out of the selection, and you
+find it and select it again to retry (owner, 2026-09-26, pick A of
+[mockups/expense-world-refused-row-after-reload.html](mockups/expense-world-refused-row-after-reload.html)). `esc` clears the
 selection if there is one, and otherwise goes back — to Home, for a filter Home opened
 (2026-09-13; it used to clear the filter first, which left you on the whole ledger). Title, description, amount
 and date stay single-row edits behind `⏎`. No suggestions and no same-merchant
