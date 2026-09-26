@@ -115,7 +115,7 @@ the list is now shorter.
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — (**done**, `b5602d7`) |
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
-| 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
+| 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
 | 10 | Offset code deleted | 6b §4 | — |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
 | 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`, `954a4eb`) |
@@ -402,7 +402,7 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   includes the whole day. A value that already carries an offset passes through unchanged.
 - Both mocks move to the windowed envelope.
 
-## Phase 9: the flat `expense transactions list`
+## Phase 9: the flat `expense transactions list` (done 2026-09-26, `28572ce`)
 
 - Remove `--offset`; add `--sort` (passed through unchecked, so the engine's `422` is the one
   error) and `--after`.
