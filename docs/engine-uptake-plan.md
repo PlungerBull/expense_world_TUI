@@ -113,7 +113,7 @@ the list is now shorter.
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
 | 10 | Offset code deleted | 6b §4 | — |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
-| 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**) |
+| 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`) |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
@@ -507,7 +507,7 @@ what keeps them apart.
 **Check:** `grep -rn "match_rows\|fetch_ledger\|transactions/batch" expense/commands/bank_import_cmd.py`
 finds nothing.
 
-## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26)
+## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26, `da1b8ce`)
 
 **Why.** Engine `5922bbf` (this repo's ask, owner's pick 2026-09-26): a period's `date_start` /
 `date_end` are plain calendar days on the wire and in storage. Every period rule was already in
