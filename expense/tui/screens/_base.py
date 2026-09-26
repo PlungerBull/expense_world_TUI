@@ -14,7 +14,6 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from rich.console import Group
 from rich.text import Text
@@ -27,7 +26,7 @@ from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, items_of
+from expense.commands._resource import DEFAULT_PAGE_ROWS
 from expense.errors import format_error
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.widgets.header import Breadcrumb
@@ -167,154 +166,6 @@ class ContentSwapLockMixin:
         if self._swap_lock is None:  # lazily created; only ever touched on the UI thread
             self._swap_lock = asyncio.Lock()
         return self._swap_lock
-
-
-class GrowingListMixin:
-    """A SectionScreen whose one list grows by cursor (M3, 2026-09-25).
-
-    Owner's shape, mockup expense-world-engine-uptake.html: the list opens with
-    `GROW_STEP` rows, `pgdn` appends the next `GROW_STEP` under them, and
-    `↑`/`↓` scroll across everything loaded. The engine hands out "the rows
-    after this one", never "row 41", so a list that only grows at its end is
-    the shape that fits it. It replaced page-at-a-time offset paging
-    (`PagedListMixin`, 2026-07-11 to 2026-09-26).
-
-    The subclass contract: `fetch()` calls `read_rows(fetch_page, count)` and
-    hands the cursor and count to `took_rows`; `build()` sizes the list with
-    `measure_list_rows()` and calls `place_list(listing)`; `pgdn` arrives as
-    `on_cursor_list_more_requested`, which calls `fetch_more(fetch_page)`, and
-    the rows come back through the `append_loaded` hook.
-
-    - **Rows and count load together** (owner, 2026-09-23): a count that cannot
-      be read fails the screen, never leaves rows beside a guessed number.
-      `pgdn` does not recount — the rows are new, the question is not.
-    - **After a write the depth stays** (owner, 2026-09-26): `reload_in_place`
-      re-reads as many rows as were loaded, 200 a request past the engine's
-      cap, and puts the cursor back on the same row *number*. On a filtered
-      list a row that left is gone, and the next one takes its place under the
-      cursor.
-    - `r` and a first open start again from `GROW_STEP`.
-    - **A resize fetches nothing**: the window re-slices the rows in hand.
-    """
-
-    _next_cursor: str | None = None
-    _total: int | None = None
-    _keep: int = 0  # rows the next full read brings back (0 → GROW_STEP)
-    _keep_cursor: int = 0  # the row number the cursor returns to after it
-    _growing: bool = False  # a `pgdn` read is in flight
-
-    def read_rows(
-        self,
-        fetch_page: Callable[[int, str | None], Any],
-        count: Callable[[], int],
-    ) -> tuple[list[dict], str | None, int]:
-        """Worker thread: the first rows (as many as were loaded, at least
-        `GROW_STEP`), then the count. Returns (items, next_cursor, total)."""
-        from expense.tui.widgets.cursor_list import GROW_STEP
-
-        want = max(GROW_STEP, self._keep)
-        items: list[dict] = []
-        after: str | None = None
-        while True:
-            body = fetch_page(min(want - len(items), ENGINE_PAGE_CAP), after)
-            items.extend(items_of(body))
-            after = body.get("next_cursor") if isinstance(body, dict) else None
-            if after is None or len(items) >= want:
-                break
-        return items, after, count()
-
-    def took_rows(self, next_cursor: str | None, total: int) -> None:
-        self._next_cursor = next_cursor
-        self._total = total
-
-    def place_list(self, listing) -> None:
-        """The freshly built list: growing, and the cursor back where it was."""
-        listing.set_growth(more=self._next_cursor is not None)
-        if self._keep_cursor:
-            listing.set_cursor(self._keep_cursor)
-
-    def reload_in_place(self) -> None:
-        """Re-read after a write, keeping the depth and the cursor's row number."""
-        from expense.tui.widgets.cursor_list import CursorList
-
-        try:
-            listing = self.query_one(CursorList)
-        except Exception:
-            listing = None  # loading / error state: nothing to keep
-        if listing is not None:
-            self._keep = listing.row_count
-            self._keep_cursor = listing.cursor_index
-        self._stop_growing()
-        self._load()
-
-    def _start_over(self) -> None:
-        self._keep = self._keep_cursor = 0
-        self._stop_growing()
-
-    def _stop_growing(self) -> None:
-        """A full read is coming: a `pgdn` read still in flight would append
-        onto the list that read replaces, so it is cancelled. The cursor goes
-        too — until the new list is in, the old one stays on screen, and a
-        `pgdn` there would read on from the *old* list's end: on a filtered
-        ledger the new list already ends one row further along, so the first
-        row read would repeat. `took_rows` sets the new cursor."""
-        self.workers.cancel_group(self, "grow")
-        self._growing = False
-        self._next_cursor = None
-
-    def _start_load(self) -> None:
-        self._start_over()
-        super()._start_load()
-
-    async def action_reload(self) -> None:
-        self._start_over()
-        await super().action_reload()
-
-    def _viewport_resized(self) -> None:
-        from expense.tui.widgets.cursor_list import CursorList
-
-        try:
-            listing = self.query_one(CursorList)
-        except Exception:
-            return  # loading / error state
-        listing.set_page_size(self.measure_list_rows())
-
-    def fetch_more(self, fetch_page: Callable[[int, str], Any]) -> None:
-        """`pgdn`: the next `GROW_STEP` rows after the last cursor, appended.
-        Nothing when the engine said there are no more, or a read is in flight."""
-        if self._growing or not self._next_cursor:
-            return
-        self._growing = True
-        self._read_more(fetch_page, self._next_cursor)
-
-    @work(thread=True, exclusive=True, group="grow")
-    def _read_more(self, fetch_page: Callable[[int, str], Any], after: str) -> None:
-        from expense.tui.widgets.cursor_list import GROW_STEP
-
-        worker = get_current_worker()
-        try:
-            body = fetch_page(GROW_STEP, after)
-        except Exception as exc:
-            if not worker.is_cancelled:
-                self.app.call_from_thread(self._more_failed, format_error(exc))
-            return
-        if worker.is_cancelled:
-            return
-        self.app.call_from_thread(self._more_arrived, items_of(body), body.get("next_cursor"))
-
-    def _more_failed(self, message: str) -> None:
-        """The rows already loaded stay; only the next ones did not arrive."""
-        self._growing = False
-        self.notify(message, title="Failed", severity="error")
-
-    def _more_arrived(self, items: list, next_cursor: str | None) -> None:
-        self._growing = False
-        self._next_cursor = next_cursor
-        self.append_loaded(items, more=next_cursor is not None)
-
-    def append_loaded(self, items: list, *, more: bool) -> None:
-        """Hook: add `items` to the screen's rows and to its list (UI thread)."""
-        raise NotImplementedError
 
 
 class LogTransactionMixin:

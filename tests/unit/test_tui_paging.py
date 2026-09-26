@@ -6,7 +6,7 @@ is deterministic — a 30-line harness proves the shrink, a tiny one proves the
 floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but `ENGINE_PAGE_CAP` on
 Transactions, which grows with the window (2026-08-29). Since 2026-09-26 the
 ledger is one growing list (M3): the window sizes what is drawn, and every read
-is `GROW_STEP` rows by cursor.
+is `GROW_STEP` rows by cursor (`GrowingRead`, shared with the "no batch" pane).
 
 Mostly pure tests in the style of the other widget suites: `_build()` renders
 through a Rich Console; action handlers run with `_refresh`/`post_message`
@@ -20,7 +20,8 @@ import pytest
 from textual.containers import VerticalScroll
 
 from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit, items_of
-from expense.tui.screens._base import AdaptiveRowsMixin, GrowingListMixin
+from expense.tui.screens._base import AdaptiveRowsMixin
+from expense.tui.screens._growing import read_first
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
@@ -243,11 +244,7 @@ def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
     assert len(calls) == 1
 
 
-# ---- GrowingListMixin: the ledger as one growing list (M3, 2026-09-26) -------
-
-
-class _Reader(GrowingListMixin):
-    """The mixin's read, without a screen."""
+# ---- the ledger as one growing list (M3, 2026-09-26) -------------------------
 
 
 def _ledger_rows(n: int) -> list[dict]:
@@ -257,42 +254,24 @@ def _ledger_rows(n: int) -> list[dict]:
     ]
 
 
-def test_read_rows_opens_with_one_step_and_counts():
-    rows = _ledger_rows(133)
+def test_read_first_reads_one_step_then_counts():
     reads: list = []
 
     def fetch_page(limit, after):
         reads.append((limit, after))
-        return cursor_page(rows[:limit], next_cursor=f"c{limit}")
+        return cursor_page(_ledger_rows(limit), next_cursor=f"c{limit}")
 
-    items, nxt, total = _Reader().read_rows(fetch_page, lambda: 133)
+    items, nxt, total = read_first(fetch_page, lambda: 133)
     assert reads == [(GROW_STEP, None)]
     assert len(items) == GROW_STEP and nxt == "c10" and total == 133
 
 
-def test_read_rows_keeps_a_depth_past_the_engine_cap_in_two_reads():
-    """250 loaded, then a write: the re-read walks 200 + 50 by cursor (owner,
-    2026-09-26 — the depth stays, with no cap)."""
-    rows = _ledger_rows(400)
-    reads: list = []
+def test_read_first_fails_when_the_count_does():
+    def count():
+        raise RuntimeError("count unavailable")
 
-    def fetch_page(limit, after):
-        reads.append((limit, after))
-        start = int(after[1:]) if after else 0
-        return cursor_page(rows[start : start + limit], next_cursor=f"c{start + limit}")
-
-    reader = _Reader()
-    reader._keep = 250
-    items, nxt, _total = reader.read_rows(fetch_page, lambda: 400)
-    assert reads == [(ENGINE_PAGE_CAP, None), (50, "c200")]
-    assert len(items) == 250 and nxt == "c250"
-
-
-def test_read_rows_stops_at_the_end_of_the_ledger():
-    reader = _Reader()
-    reader._keep = 40
-    items, nxt, _ = reader.read_rows(lambda limit, after: cursor_page(_ledger_rows(7)), lambda: 7)
-    assert len(items) == 7 and nxt is None
+    with pytest.raises(RuntimeError):
+        read_first(lambda limit, after: cursor_page(_ledger_rows(3)), count)
 
 
 def _patch_transactions(monkeypatch, n: int = 133, **kw) -> tuple[list, list, list]:
@@ -368,16 +347,15 @@ def test_pgdn_at_the_end_sends_nothing(monkeypatch):
         await pilot.press("pagedown")
         await pilot.pause()
         assert len(reads) == 1
-        screen.fetch_more(lambda limit, after: pytest.fail("read past the end"))
+        screen._grow.grow(lambda limit, after: pytest.fail("read past the end"))
         assert len(reads) == 1
 
     _drive_transactions((120, 35), checks)
 
 
-def test_a_write_rereads_the_loaded_depth_and_keeps_the_row_number(monkeypatch):
-    """Owner, 2026-09-26: 20 loaded, the cursor on row 16, and that row leaves
-    the filter — the list comes back 20 deep, recounted, and the cursor is on
-    the new row 16 (what was row 17)."""
+def test_a_write_starts_the_list_over(monkeypatch):
+    """Owner, 2026-09-26: any write reloads the list fresh — the newest 10,
+    recounted, the cursor on row 1 — like any app's list."""
     rows, reads, counts = _patch_transactions(monkeypatch)
 
     async def checks(pilot, screen):
@@ -386,15 +364,14 @@ def test_a_write_rereads_the_loaded_depth_and_keeps_the_row_number(monkeypatch):
         await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
         _ledger(screen).set_cursor(15)
         del rows[15]  # the engine applied the write: t15 left the filter
-        screen.reload_in_place()
-        await wait_for(pilot, lambda: len(counts) == 2 and _ledger(screen).cursor_key == "t16")
-        assert reads[-1] == {"limit": 20, "after": None, "verbose": False}
-        assert _ledger(screen).row_count == 20 and _ledger(screen).cursor_index == 15
-        assert screen._legend() == "no filter · 20 of 132 loaded"
-        # and the list still grows from where the re-read stopped
+        screen._reload_fresh()
+        await wait_for(pilot, lambda: len(counts) == 2 and _ledger(screen).row_count == 10)
+        assert reads[-1] == {"limit": GROW_STEP, "after": None, "verbose": False}
+        assert _ledger(screen).cursor_index == 0 and _ledger(screen).cursor_key == "t0"
+        assert screen._legend() == "no filter · 10 of 132 loaded"
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
-        assert reads[-1]["after"] == "c20"
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        assert reads[-1]["after"] == "c10"
 
     _drive_transactions((120, 35), checks)
 
@@ -413,7 +390,7 @@ def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
     held = threading.Event()
 
     def slow_reread(*a, **kw):
-        if kw.get("after") is None and kw.get("limit") == 20:
+        if kw.get("after") is None:
             held.set()
             gate.wait(5)
         return fetch(*a, **kw)
@@ -424,7 +401,7 @@ def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
         await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
         monkeypatch.setattr(tc, "fetch_transactions", slow_reread)
         del rows[15]  # the write took t15 out of the filter
-        screen.reload_in_place()
+        screen._reload_fresh()
         await wait_for(pilot, held.is_set)
         before = len(reads)
         await pilot.press("pagedown")  # the old list is still the one on screen
@@ -433,11 +410,44 @@ def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
         await wait_for(pilot, lambda: len(counts) == 2 and list_ready(pilot.app))
         assert [r["after"] for r in reads[before:]] == [None]  # only the re-read
         keys = [row.key for row in _ledger(screen)._rows]
-        assert len(keys) == len(set(keys)) == 20
+        assert len(keys) == len(set(keys)) == 10
         # and once the new list is in, pgdn grows it from its own end
         await pilot.press("pagedown")
-        await wait_for(pilot, lambda: _ledger(screen).row_count == 30)
-        assert reads[-1]["after"] == "c20"
+        await wait_for(pilot, lambda: _ledger(screen).row_count == 20)
+        assert reads[-1]["after"] == "c10"
+
+
+def test_a_pgdn_read_that_lands_after_a_write_is_dropped(monkeypatch):
+    """The other half of the same race: `pgdn` read the next 10, a write
+    started the list over while that read was out, and the read came back
+    after the fresh list was in. Its rows belong to the old list — they are
+    dropped, never appended onto the new one."""
+    import expense.commands.transactions_cmd as tc
+
+    rows, reads, counts = _patch_transactions(monkeypatch)
+    fetch = tc.fetch_transactions
+    gate = threading.Event()
+    held = threading.Event()
+
+    def slow_more(*a, **kw):
+        if kw.get("after") == "c10":
+            held.set()
+            gate.wait(5)
+        return fetch(*a, **kw)
+
+    async def checks(pilot, screen):
+        monkeypatch.setattr(tc, "fetch_transactions", slow_more)
+        _ledger(screen).focus()
+        await pilot.press("pagedown")
+        await wait_for(pilot, held.is_set)
+        del rows[3]  # a write, and the fresh read that follows it
+        screen._reload_fresh()
+        await wait_for(pilot, lambda: len(counts) == 2 and list_ready(pilot.app))
+        gate.set()
+        await wait_for(pilot, lambda: not screen._grow.busy and len(reads) == 3)
+        await pilot.pause()
+        keys = [row.key for row in _ledger(screen)._rows]
+        assert keys == [f"t{i}" for i in (0, 1, 2, 4, 5, 6, 7, 8, 9, 10)]
 
     _drive_transactions((120, 35), checks)
 

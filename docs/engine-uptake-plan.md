@@ -96,10 +96,9 @@ picked**, so no phase is gated any more.
 | **M5** | Typed-command output | **The builder's call**: the owner never uses the typed commands. The exact output is written into Phases 4, 5, 8 and 9 | 4, 5, 8, 9 |
 | **M6** | The "no batch" (`u`) list | **Owner's shape.** Opens with the **10** oldest, and `pgdn` **appends** the next 10. **The cursor jumps to the first new row.** At the end, `pgdn` does nothing and leaves the footer. `r` starts again from the 10 oldest. Caption: `N of M loaded` | 2 |
 
-**One builder's call, left open by the mockup:** when you come back to the `u` list from the edit
-form (or after `d`), it re-reads as many rows as were loaded (capped at the engine's 200), so a
-long walk is not thrown back to 10. The cursor goes to the same position, or to the last row if
-the list is now shorter.
+**Coming back after a write (owner, 2026-09-26):** after the edit form or `d`, the `u` list reads
+fresh from the 10 oldest with the cursor on row 1, like any app's list. The same rule holds on
+the ledger (Phase 7). It replaced a builder's call that re-read as many rows as were loaded.
 
 ---
 
@@ -193,7 +192,8 @@ Your phase names the debrief sections that carry the engine facts.
 worker. Stop reversing the rows. Delete `unfiled_offset()` and the "no sort parameter" comment.
 **M6:** `UNFILED_PAGE` becomes 10. `pgdn` fetches `after=next_cursor` and appends; the cursor lands
 on the first new row. The count is read with the first page and on `r`, not on each `pgdn`. The
-reload after an edit or a delete follows the builder's call above.
+reload after an edit or a delete starts over from the 10 oldest (see "Coming back after a
+write" above).
 
 **The LOG bar peek**, [log_bar.py](../expense/tui/screens/log_bar.py): `_load_peek` fetches the
 page and `count_transactions(account=…)` together; `_peek_loaded` takes the total from the count;
@@ -375,20 +375,26 @@ the footer as `pgdn 10 more`. The `?` card lists that key only on screens that h
 first new row; `pgdn` on a null cursor sends nothing; a filter change empties the list and
 recounts; a bulk edit recounts; a resize sends no request; `a` selects all loaded rows.
 
-**Owner answers (2026-09-26), asked while planning this phase:**
-- **After any write** (`c`/`b`/`h`, back from the `⏎` edit form, back from the `+` LOG bar),
-  re-read **as many rows as were loaded**, recount, and keep the cursor on the same row
-  **number**. An edit does not move a row in the order. On a filtered ledger a row that left
-  is gone and the next one takes its place ("it was 38, we should be on the new 38").
-- **Past 200 loaded:** the same rule, no cap. The re-read walks 200-row cursor pages.
+**Owner answers (2026-09-26):**
+- **Any write starts the list over**: `+`, `⏎` edit, `c`/`b`/`h` on the ledger, `d` on the `u`
+  list. The list reads fresh from its first 10, recounted, with the cursor on row 1 ("this
+  should work like normal apps"). This replaced an earlier answer the same day that kept the
+  loaded depth and the cursor's row number, which was built and then removed.
 - **Legend:** one line, `filter: category @Pendiente · 20 of 57 loaded · 3 selected`.
 - `r` starts again from the newest 10, as `r` does on the `u` list (M6).
+- **One copy** of the growing logic for both lists, built now rather than filed as a todo
+  (answering the review of `9942d4d`).
 
-**What was built:** `PagedListMixin` became `GrowingListMixin` ([_base.py](../expense/tui/screens/_base.py)):
-`read_rows` (first rows and count together, walking 200-row pages up to the kept depth),
-`reload_in_place` (after a write), `fetch_more` (`pgdn`, no recount), and a resize that only
-re-slices the window. `CursorList` lost its fetched-page mode (`page_meta`, `PageRequested`);
-`WindowedList` gained `row_count`. The test fake is `fake_ledger` in
+**What was built:** `PagedListMixin` is deleted. Both growing lists read through `GrowingRead`
+in [_growing.py](../expense/tui/screens/_growing.py): `read_first` (the first 10 and the count
+together; a failed count raises), `grow` (`pgdn`, no recount), and `reset` (before any fresh
+read). A reader, not a screen mixin, because the `u` list is one panel inside the
+Reconciliations screen. **Review fix (`f396f49`, then carried into `GrowingRead`):** `reset`
+drops the cursor, so a `pgdn` on the old list while the fresh read runs reads nothing, and a
+`pgdn` read already in flight is dropped on arrival by a generation number. Otherwise, on a
+filtered ledger whose fresh read ends one row further along, the first appended row repeated.
+The ledger's resize only re-slices the window. `CursorList` lost its fetched-page mode
+(`page_meta`, `PageRequested`); `WindowedList` gained `row_count`. The test fake is `fake_ledger` in
 [helpers.py](../tests/unit/helpers.py). No in-screen filter change exists (Home pushes a new
 ledger per filter), so "a filter change empties the list" has nothing to test.
 

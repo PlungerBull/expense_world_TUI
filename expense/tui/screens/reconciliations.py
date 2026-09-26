@@ -39,7 +39,6 @@ from textual.worker import get_current_worker
 
 from expense.commands import accounts_cmd, reconcile_cmd, transactions_cmd
 from expense.commands._resource import (
-    ENGINE_PAGE_CAP,
     account_choices,
     fetch_all_cursor_pages,
     format_cents,
@@ -61,12 +60,13 @@ from expense.tui.screens._base import (
     screen_fetch_kwargs,
 )
 from expense.tui.screens._form import FormScreen
+from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, difference_cell
 from expense.tui.widgets.checklist import CheckList
-from expense.tui.widgets.cursor_list import GROW_STEP, CursorList
+from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
 
 # Status labels + period formatting are owned by the commands layer
@@ -221,8 +221,8 @@ class ReconciliationsScreen(SectionScreen):
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
         self._unfiled: list = []  # every unfiled row loaded so far, oldest first
-        self._unfiled_total: int | None = None
-        self._unfiled_next: str | None = None  # the engine's cursor past the last row
+        # the cursor past the last row, the count, and `pgdn` — shared with the ledger
+        self._unfiled_grow = GrowingRead(self, on_more=self._append_unfiled)
         self._unfiled_cats: dict = {}
         self._unfiled_busy = False
         self._by_id: dict = {}
@@ -328,7 +328,8 @@ class ReconciliationsScreen(SectionScreen):
 
     async def _show(self, data: object) -> None:
         await super()._show(data)
-        self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
+        self._unfiled = []
+        self._unfiled_grow.reset()
         if self._accts_list is None or not self._accounts:
             self._mode = "accts"
             self._set_crumb()
@@ -455,7 +456,8 @@ class ReconciliationsScreen(SectionScreen):
     def _show_batches(self) -> None:
         """The panel lists the open account's reconciliations again."""
         self._mode = "batches"
-        self._unfiled, self._unfiled_total, self._unfiled_next = [], None, None
+        self._unfiled = []
+        self._unfiled_grow.reset()
         if self._batch_list is not None:
             self._batch_list.set_growth(more=None)
             self._batch_list.set_headers(_BATCH_HEADERS, align_right={2, 3, 4})
@@ -465,23 +467,21 @@ class ReconciliationsScreen(SectionScreen):
         self.refresh_bindings()
 
     def _reload_unfiled(self) -> None:
-        """Refetch the pane after an edit or a delete — a row whose date or
-        account moved is no longer in this list, which is the point of editing
-        it. As many rows as were loaded come back, and the cursor keeps its
-        position, so fixing row 34 does not throw you back to the first ten."""
+        """After `⏎` edit or `d`: the oldest `GROW_STEP` again, the cursor on
+        row 1 (owner, 2026-09-26: any write starts the list over, like any
+        app's list). A row whose date or account moved is gone, which is the
+        point of editing it."""
         if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
+            self._unfiled_grow.reset()
             self._unfiled_busy = True
-            self._load_unfiled(
-                self._open_aid, keep=len(self._unfiled), cursor=self._batch_list.cursor_index
-            )
+            self._load_unfiled(self._open_aid)
 
     async def action_reload(self) -> None:
         """`r` — in the unfiled pane, start again from the oldest `GROW_STEP`;
         anywhere else, reload the screen (an open panel stays open)."""
         if self._mode == "unfiled":
-            if self._open_aid and not self._unfiled_busy:
-                self._unfiled_busy = True
-                self._load_unfiled(self._open_aid)
+            if not self._unfiled_busy:
+                self._reload_unfiled()
             return
         if self._batch_list is not None:
             self._resume_key = self._batch_list.cursor_key
@@ -508,8 +508,26 @@ class ReconciliationsScreen(SectionScreen):
         self.refresh_bindings()
         self._load_unfiled(acct[0])
 
+    def _unfiled_page(self, account_id: str):
+        """`(limit, after) -> body`: this account's rows in no batch, oldest
+        first (worker thread)."""
+        from expense import config as config_module
+
+        def page(limit: int, after: str | None) -> dict:
+            return transactions_cmd.fetch_transactions(
+                config_module.ensure_loaded(),
+                account=account_id,
+                sort="date_asc",
+                after=after,
+                limit=limit,
+                **UNFILED_FILTER,
+                **screen_fetch_kwargs(self.app),
+            )
+
+        return page
+
     @work(thread=True, exclusive=True, group="recon-unfiled")
-    def _load_unfiled(self, account_id: str, keep: int = 0, cursor: int = 0) -> None:
+    def _load_unfiled(self, account_id: str) -> None:
         """The first rows and the count, together (owner, 2026-09-23): the pane
         shows nothing until both are in, and a count that cannot be read fails
         the pane rather than leave rows beside a guessed number."""
@@ -519,16 +537,11 @@ class ReconciliationsScreen(SectionScreen):
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            body = transactions_cmd.fetch_transactions(
-                cfg,
-                account=account_id,
-                sort="date_asc",
-                limit=min(max(GROW_STEP, keep), ENGINE_PAGE_CAP),
-                **UNFILED_FILTER,
-                **kw,
-            )
-            total = transactions_cmd.count_transactions(
-                cfg, account=account_id, **UNFILED_FILTER, **kw
+            items, next_cursor, total = read_first(
+                self._unfiled_page(account_id),
+                lambda: transactions_cmd.count_transactions(
+                    cfg, account=account_id, **UNFILED_FILTER, **kw
+                ),
             )
             cat_names = load_category_name_map()
         except Exception as exc:
@@ -537,67 +550,22 @@ class ReconciliationsScreen(SectionScreen):
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(
-            self._show_unfiled,
-            items_of(body),
-            total,
-            body.get("next_cursor"),
-            cat_names,
-            cursor,
-        )
+        self.app.call_from_thread(self._show_unfiled, items, total, next_cursor, cat_names)
 
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn` in the unfiled pane: the next `GROW_STEP` rows, appended."""
-        if (
-            self._mode != "unfiled"
-            or self._unfiled_busy
-            or not self._unfiled_next
-            or not self._open_aid
-        ):
+        if self._mode != "unfiled" or self._unfiled_busy or not self._open_aid:
             return
-        self._unfiled_busy = True
-        self._load_more_unfiled(self._open_aid, self._unfiled_next)
+        self._unfiled_grow.grow(self._unfiled_page(self._open_aid))
 
-    @work(thread=True, exclusive=True, group="recon-unfiled")
-    def _load_more_unfiled(self, account_id: str, after: str) -> None:
-        """No recount on `pgdn`: the rows are new, the question is not."""
-        from expense import config as config_module
-
-        worker = get_current_worker()
-        try:
-            cfg = config_module.ensure_loaded()
-            body = transactions_cmd.fetch_transactions(
-                cfg,
-                account=account_id,
-                sort="date_asc",
-                after=after,
-                limit=GROW_STEP,
-                **UNFILED_FILTER,
-                **screen_fetch_kwargs(self.app),
-            )
-        except Exception as exc:
-            if not worker.is_cancelled:
-                self.app.call_from_thread(self._more_failed, format_error(exc))
-            return
-        if worker.is_cancelled:
-            return
-        self.app.call_from_thread(self._append_unfiled, items_of(body), body.get("next_cursor"))
-
-    def _more_failed(self, message: str) -> None:
-        """The rows already loaded stay; only the next ones did not arrive."""
-        self._unfiled_busy = False
-        self.notify(message, title="Failed", severity="error")
-
-    def _append_unfiled(self, items: list, next_cursor: str | None) -> None:
-        self._unfiled_busy = False
+    def _append_unfiled(self, items: list, more: bool) -> None:
         if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled.extend(items)
-        self._unfiled_next = next_cursor
         windows = blocking_windows(self._recons, self._open_aid)
         rows = unfiled_rows(items, self._unfiled_cats, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
-        self._batch_list.append_rows(rows, more=next_cursor is not None)
+        self._batch_list.append_rows(rows, more=more)
 
     def _unfiled_failed(self, message: str) -> None:
         self._unfiled_busy = False
@@ -610,14 +578,12 @@ class ReconciliationsScreen(SectionScreen):
         total: int,
         next_cursor: str | None,
         cat_names: dict,
-        cursor: int = 0,
     ) -> None:
         self._unfiled_busy = False
         if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled = list(items)
-        self._unfiled_total = total
-        self._unfiled_next = next_cursor
+        self._unfiled_grow.took(next_cursor, total)
         self._unfiled_cats = cat_names
         # the panel already holds this account's reconciliations: the `!`
         # windows cost no read of their own
@@ -625,8 +591,8 @@ class ReconciliationsScreen(SectionScreen):
         rows = unfiled_rows(items, cat_names, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.set_rows(rows)
-        self._batch_list.set_growth(more=next_cursor is not None)
-        self._batch_list.set_cursor(cursor)
+        self._batch_list.set_growth(more=self._unfiled_grow.more)
+        self._batch_list.set_cursor(0)
         self._batch_list.focus()
 
     def _unfiled_caption(self) -> str:
@@ -634,7 +600,7 @@ class ReconciliationsScreen(SectionScreen):
         acct = self._open_account()
         label = acct[1] if acct else "—"
         return (
-            f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_total} loaded"
+            f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
             " · oldest first   ·   ! blocks a batch's close"
         )
 

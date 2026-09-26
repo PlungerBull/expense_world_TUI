@@ -40,6 +40,7 @@ expense/tui/
   screens/
     _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
+    _growing.py     # GrowingRead — a list that grows by cursor (ledger, "no batch" pane)
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
     home.py         # four months × categories, balances today, then every screen (Overview folded in)
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
@@ -159,10 +160,9 @@ engine's own `?category_id=` / `?account_id=`, and the legend says `filter: cate
 the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
 `PickerModal` over the selection — or over the cursor row when nothing is selected —
 to set the category, move to an account, or **replace** the hashtag set. The write is
-one `PUT /transactions/{id}` per row, in order, on one client, then one re-read of as
-many rows as were loaded, with the cursor kept on the same row number: on a
-filtered list the changed rows **leave at once** (pick C) and the next row takes the
-cursor's place (owner, 2026-09-26), the toast `3 rows → KORAKUEN`
+one `PUT /transactions/{id}` per row, in order, on one client, then the list reads fresh
+from the newest 10 with the cursor on row 1 (owner, 2026-09-26: any write starts a
+growing list over): on a filtered list the changed rows **leave at once** (pick C), the toast `3 rows → KORAKUEN`
 is the receipt, and a refused row (an account move a completed reconciliation locks)
 is named by number, stays selected, and does not stop the others. `esc` clears the
 selection if there is one, and otherwise goes back — to Home, for a filter Home opened
@@ -201,9 +201,8 @@ for a statement — so it reads with `sort=date_asc`, **ten rows at a time**, an
 2026-09-25, mockup `expense-world-engine-uptake.html` M6: `CursorList`'s growing mode,
 `set_growth` / `append_rows`). The caption's `N of M loaded` takes M from
 `GET /transactions/count`, read together with the first rows. A count that cannot be read
-fails the pane, never rows beside a guessed number. `r` starts again from the oldest ten,
-and an edit or a delete re-reads as many rows as were loaded and keeps the cursor where it
-was. Until 2026-09-25 the engine had no sort parameter, and the pane probed a total and
+fails the pane, never rows beside a guessed number. `r`, an edit and a delete all start
+again from the oldest ten, the cursor on row 1 (owner, 2026-09-26). Until 2026-09-25 the engine had no sort parameter, and the pane probed a total and
 read the tail by offset, then reversed it. That trick is gone with offset. And the **`!` flag is a
 hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
 already holds, so it costs no request; the engine stays the authority at close time. The
@@ -511,15 +510,16 @@ meaning, "the next window of data", whether the window is rows or months.
 
 **Transactions is one list that grows** (2026-09-26, M3 of
 [mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html)),
-through `GrowingListMixin` in [_base.py](../expense/tui/screens/_base.py): it opens with
+through `GrowingRead` in [_growing.py](../expense/tui/screens/_growing.py): it opens with
 the newest `GROW_STEP` (10) rows and the count, read together — a count that cannot be
 read fails the screen — and `pgdn` (footer: `pgdn 10 more`) appends the next 10 by the
 engine's cursor, with no recount, the cursor landing on the first new row. `↑`/`↓` scroll
 everything loaded and `pgup` goes up a screenful. The window is the screenful, but it
 sizes only what is drawn: a resize reads nothing. After a write (a bulk key, the `⏎`
-edit, `+`) it re-reads as many rows as were loaded, 200 a request, and keeps the
-cursor's row number; `r` starts again from 10. The "no batch" pane on Reconciliations
-grows the same way. Until 2026-09-26 the ledger fetched `limit`/`offset` pages
+edit, `+`) it starts over from the newest 10 with the cursor on row 1, as `r` does
+(owner, 2026-09-26: "like normal apps"). The "no batch" pane on Reconciliations grows
+through the same `GrowingRead`, oldest first — one copy of the cursor, the count, the
+`pgdn` read and the rule that a `pgdn` read never lands on a list a fresh read replaced. Until 2026-09-26 the ledger fetched `limit`/`offset` pages
 (`PagedListMixin`); the engine no longer pages by offset. Full-data screens window locally — Manage, the
 Reconciliations account list (full height alone, an equal split with the open panel), the recon checklist at fit÷2 items —
 where `↑`/`↓` walk through and cursor-restore lands on its page. Lists are quiet-border

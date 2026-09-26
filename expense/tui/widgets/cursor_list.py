@@ -21,7 +21,7 @@ one widget:
   by cursor and appends them (`append_rows`), and the cursor lands on the first
   new one. The engine hands out "the rows after this one", never "row 41", so
   a list that only ever grows at the end is the shape that fits it (see
-  `GrowingListMixin`). It replaced the fetched-page mode (`page_meta`,
+  `GrowingRead` in `screens/_growing.py`). It replaced the fetched-page mode (`page_meta`,
   `PageRequested`) on 2026-09-26, when the ledger stopped paging by offset.
 
 The widget is its own quiet-border panel (app.tcss): screens name it via

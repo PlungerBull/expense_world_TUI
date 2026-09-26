@@ -692,7 +692,7 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
         await pilot.press("pagedown")
         await wait_for(pilot, lambda: len(screen._batch_list._rows) == 25)
         # the engine said that was the last: pgdn now asks for nothing
-        assert screen._unfiled_next is None
+        assert screen._unfiled_grow.next_cursor is None
         sent = len(calls)
         await pilot.press("pagedown")
         await pilot.pause()
@@ -733,7 +733,7 @@ def test_a_count_that_cannot_be_read_fails_the_pane(monkeypatch):
     run_app(scenario)
 
 
-def test_a_reload_after_a_delete_keeps_what_was_loaded(monkeypatch, fake_client):
+def test_a_delete_starts_the_list_over(monkeypatch, fake_client):
     from expense.tui.screens.modals import ConfirmModal
 
     _patch_browse(monkeypatch)
@@ -748,9 +748,12 @@ def test_a_reload_after_a_delete_keeps_what_was_loaded(monkeypatch, fake_client)
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.deletes)
         assert fake_client.deletes == ["/transactions/t11"]
-        # the reload asks for as many as were loaded, and the cursor stays put
-        await wait_for(pilot, lambda: calls[-1]["limit"] == 20 and not screen._unfiled_busy)
-        assert screen._batch_list.cursor_index == 10
+        # any write starts the list over (owner, 2026-09-26): the oldest 10,
+        # the cursor on row 1
+        await wait_for(pilot, lambda: len(calls) == 3 and not screen._unfiled_busy)
+        assert calls[-1]["limit"] == 10 and calls[-1]["after"] is None
+        assert screen._batch_list.cursor_index == 0
+        assert len(screen._batch_list._rows) == 10
 
     run_app(scenario)
 

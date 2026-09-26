@@ -1,9 +1,10 @@
 """Transactions screen — the ledger, whole or filtered, with bulk edits.
 
 Built on SectionScreen + the shared CursorList, as **one list that grows**
-(`GrowingListMixin`, M3 of docs/mockups/expense-world-engine-uptake.html,
+(`GrowingRead`, M3 of docs/mockups/expense-world-engine-uptake.html,
 2026-09-26): it opens with the newest 10, `pgdn` appends the next 10 by the
-engine's cursor, and the legend reads `N of M loaded`. `enter` opens the
+engine's cursor, and the legend reads `N of M loaded`. Any write starts it
+over from the newest 10. `enter` opens the
 record in the editable QuickAddLogScreen and `+` opens the LOG bar
 (`LogTransactionMixin`).
 
@@ -15,10 +16,10 @@ legend saying what the filter is and how many rows it holds. `space` selects
 rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens `PickerModal`; the write is one
-`PUT /transactions/{id}` per row, in order, and then one re-read of as many
-rows as were loaded, so on a filtered list the changed rows leave at once
-(pane 6, option C) and the cursor stays on the same row number. A refused
-row is named by its number; the others go through. Title, description,
+`PUT /transactions/{id}` per row, in order, and then the list reads fresh
+from the newest 10 (owner, 2026-09-26), so on a filtered list the changed
+rows leave at once (pane 6, option C). A refused row is named by its number;
+the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
 `esc` clears the selection when there is one; otherwise it goes back to where
@@ -50,11 +51,11 @@ from expense.commands._resource import (
 )
 from expense.errors import format_error
 from expense.tui.screens._base import (
-    GrowingListMixin,
     LogTransactionMixin,
     SectionScreen,
     screen_fetch_kwargs,
 )
+from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
@@ -191,7 +192,7 @@ def bulk_receipt(count: int, label: str) -> str:
     return f"{count} {'row' if count == 1 else 'rows'} → {label}"
 
 
-class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
+class TransactionsScreen(LogTransactionMixin, SectionScreen):
     BINDINGS = [
         *LogTransactionMixin.BINDINGS,
         Binding("a", "select_all", "All/none", tooltip="Select every loaded row, or none"),
@@ -210,7 +211,7 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
     # window fill its height: the ledger is the screen you sit in, so it takes
     # the window you gave it instead of holding a 110x20 card in the corner of
     # a large one (2026-08-29). Since the list grows (2026-09-26) the cap sizes
-    # only the window, never a read.
+    # only the window, never a read: a resize reads nothing.
     CARD_WIDTH = None
     PAGE_ROWS_CAP = ENGINE_PAGE_CAP
 
@@ -221,6 +222,7 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
         self._selected: set = set()
         self._rows: list = []  # every loaded row, unmarked, in list order
         self._maps: tuple[dict, dict, dict] = ({}, {}, {})
+        self._grow = GrowingRead(self, on_more=self._append_loaded)
         self._refs = None  # QuickAddRefs, loaded on the first bulk key
         self._pending_pick: str | None = None
         self._bulk_busy = False
@@ -239,25 +241,25 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
             scope["hashtag"] = flt.hashtag_id
         return scope
 
-    def _page_reader(self):
-        """`(limit, after) -> body` over this ledger's filter (worker thread)."""
+    def _read_page(self, limit: int, after: str | None) -> dict:
+        """One cursor page over this ledger's filter (worker thread)."""
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
-        kw = screen_fetch_kwargs(self.app)
-        scope = self._scope()
+        return transactions_cmd.fetch_transactions(
+            cfg, **self._scope(), after=after, limit=limit, **screen_fetch_kwargs(self.app)
+        )
 
-        def page(limit: int, after: str | None) -> dict:
-            return transactions_cmd.fetch_transactions(cfg, **scope, after=after, limit=limit, **kw)
+    def _count(self) -> int:
+        from expense import config as config_module
 
-        return cfg, kw, page
+        cfg = config_module.ensure_loaded()
+        return transactions_cmd.count_transactions(
+            cfg, **self._scope(), **screen_fetch_kwargs(self.app)
+        )
 
     def fetch(self) -> dict:
-        cfg, kw, page = self._page_reader()
-        items, next_cursor, total = self.read_rows(
-            page,
-            lambda: transactions_cmd.count_transactions(cfg, **self._scope(), **kw),
-        )
+        items, next_cursor, total = read_first(self._read_page, self._count)
         return {
             "items": items,
             "next_cursor": next_cursor,
@@ -269,7 +271,7 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
 
     def build(self, data: dict) -> list[Widget]:
         items = data["items"]
-        self.took_rows(data["next_cursor"], data["total"])
+        self._grow.took(data["next_cursor"], data["total"])
         self._by_id = {it.get("id"): it for it in items}
         self._maps = (data["accounts"], data["categories"], data["hashtags"])
         self._rows = transaction_rows(items, *self._maps, palette=PALETTE)
@@ -293,19 +295,37 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
             empty=empty,
             page_size=self.measure_list_rows(),
         )
-        self.place_list(listing)
+        listing.set_growth(more=self._grow.more)
         return [listing, Static(Text(self._legend()), classes="legend", id="legend")]
 
     def _legend(self) -> str:
-        return legend_text(self._filter, len(self._rows), self._total, len(self._selected))
+        return legend_text(self._filter, len(self._rows), self._grow.total, len(self._selected))
 
     # ---- growing (M3) -------------------------------------------------------
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn`: the next 10, appended under the rows in hand."""
         event.stop()
-        self.fetch_more(lambda limit, after: self._page_reader()[2](limit, after))
+        self._grow.grow(self._read_page)
 
-    def append_loaded(self, items: list, *, more: bool) -> None:
+    def _reload_fresh(self) -> None:
+        """After any write: the newest 10 again, the cursor on row 1 (owner,
+        2026-09-26). The old list stays up until the new one lands."""
+        self._grow.reset()
+        self._load()
+
+    async def action_reload(self) -> None:
+        self._grow.reset()
+        await super().action_reload()
+
+    def _viewport_resized(self) -> None:
+        """The window re-slices the rows in hand; nothing is read."""
+        try:
+            listing = self.query_one(CursorList)
+        except Exception:
+            return  # loading / error state
+        listing.set_page_size(self.measure_list_rows())
+
+    def _append_loaded(self, items: list, more: bool) -> None:
         try:
             listing = self.query_one(CursorList)
             legend = self.query_one("#legend", Static)
@@ -483,21 +503,22 @@ class TransactionsScreen(LogTransactionMixin, GrowingListMixin, SectionScreen):
         for line in lines:
             self.notify(line, title=head, severity="error", timeout=10)
         # the rows that went through no longer belong to a filtered list — they
-        # leave at once (pane 6, option C). A refused row stays selected, so
-        # once its lock is lifted the same key retries exactly it.
+        # leave at once (pane 6, option C). A refused row stays selected if the
+        # fresh read brings it back, so once its lock is lifted the same key
+        # retries exactly it; one past the newest 10 is dropped by `build`.
         self._selected = {key for key, _n, _m in failed if key is not None}
-        self.reload_in_place()
+        self._reload_fresh()
 
     # ---- single-row doors ----------------------------------------------------
     def _after_log(self, _result=None) -> None:
-        self.reload_in_place()  # a transaction written with `+` belongs in this list now
+        self._reload_fresh()  # a transaction written with `+` belongs in this list now
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         item = self._by_id.get(event.key)
         if item:
             self.app.push_screen(
                 QuickAddLogScreen(record=item, resource="transactions"),
-                lambda _result: self.reload_in_place(),  # the edit shows, the depth stays
+                lambda _result: self._reload_fresh(),
             )
 
 
