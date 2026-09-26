@@ -257,16 +257,18 @@ def redact_token(token: str) -> str:
 
 
 def items_of(body: object) -> list:
-    """Rows of a paginated dict (`{"items": [...]}`) or a bare list; [] for anything else.
+    """Rows of an engine list body (`{"items": [...]}`); [] for anything else.
 
-    Every engine list endpoint returns the `{items}` shape (2026-09-23); the
-    bare-list branch is for callers that already hold rows. Strict
-    list-or-empty — never hands a dict or None to a row-builder.
+    Every engine list endpoint returns an object with `items` — no route has
+    returned a bare array since 2026-09-23 — so a bare list is not a body and
+    yields no rows. That also makes a test fake still serving the old shape
+    fail loudly instead of passing. Strict list-or-empty — never hands a dict
+    or None to a row-builder.
     """
-    if isinstance(body, dict):
-        items = body.get("items")
-        return items if isinstance(items, list) else []
-    return body if isinstance(body, list) else []
+    if not isinstance(body, dict):
+        return []
+    items = body.get("items")
+    return items if isinstance(items, list) else []
 
 
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy (backlog 6.4a)

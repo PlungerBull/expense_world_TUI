@@ -7,7 +7,7 @@ from textual.widgets import Static
 
 from expense.errors import EngineError
 from expense.tui.screens.accounts import AccountsScreen
-from tests.unit.helpers import render_text, run_app, wait_for, wait_for_list
+from tests.unit.helpers import render_text, run_app, wait_for, wait_for_list, whole
 
 ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False, "color": None}]
 
@@ -42,7 +42,7 @@ def test_action_reload_recovers_after_error(fake_client, monkeypatch):
         attempts.append(1)
         if len(attempts) == 1:
             raise EngineError("INTERNAL", "first call fails", None, 500, {})
-        return ACCOUNTS
+        return whole(ACCOUNTS)
 
     monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", flaky)
 
@@ -68,7 +68,9 @@ def test_run_write_failure_notifies_and_skips_after_write(fake_client, monkeypat
     monkeypatch.setattr(
         AccountsScreen, "notify", lambda self, message, **kw: seen.append((message, kw))
     )
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
+    )
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())

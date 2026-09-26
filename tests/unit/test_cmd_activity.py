@@ -28,7 +28,7 @@ ACTIVITY_ROW = {
     "created_at": "2026-05-03T10:00:00Z",
 }
 
-LIST_RESPONSE = [ACTIVITY_ROW]
+LIST_RESPONSE = page([ACTIVITY_ROW])
 
 
 @respx.mock
@@ -101,7 +101,7 @@ def test_list_json_mode_passthrough(configured):
 
 @respx.mock
 def test_list_empty(configured):
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page([])))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     assert "(no activity)" in result.output
@@ -123,7 +123,7 @@ def test_list_human_renderer_omits_snapshots(configured):
 @respx.mock
 def test_list_unknown_action_code_falls_back_to_int(configured):
     weird = {**ACTIVITY_ROW, "action": 99}
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=[weird]))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page([weird])))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     # Action column now just shows the raw int as a string.
@@ -311,7 +311,7 @@ def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configu
         }
         for i in range(5)
     ]
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=rows))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page(rows)))
     accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200, json=whole([{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)])

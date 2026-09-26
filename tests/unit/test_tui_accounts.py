@@ -5,7 +5,7 @@ from rich.text import Text
 from expense.tui.screens.accounts import AccountsScreen, account_rows
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import run_app, wait_for, wait_for_list
+from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
 
 ITEMS = [
     {
@@ -55,7 +55,7 @@ def test_account_rows_type_balance_status_and_swatch():
 def test_accounts_screen_lists_and_edits(monkeypatch):
     import expense.commands.accounts_cmd as ac
 
-    monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: ITEMS)
+    monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(ITEMS))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):

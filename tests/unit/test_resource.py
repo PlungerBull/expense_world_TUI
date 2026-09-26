@@ -454,7 +454,7 @@ def test_parse_hashtag_ids_does_not_validate_uuids():
         ({"items": []}, []),
         ({"items": None}, []),  # items present but null
         ({"total": 3}, []),  # dict without items — never a row source
-        ([{"id": "a"}], [{"id": "a"}]),  # rows a caller already holds
+        ([{"id": "a"}], []),  # a bare array is not an engine body
         ([], []),
         (None, []),
         ("oops", []),  # scalar garbage

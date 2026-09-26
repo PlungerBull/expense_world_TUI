@@ -13,7 +13,7 @@ from expense.tui.screens.create_forms import EditAccountScreen, EditHashtagScree
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import run_app, wait_for, wait_for_list
+from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
 
 ACCOUNT = {
     "id": "a1",
@@ -31,7 +31,9 @@ HASHTAG = {"id": "h1", "name": "trabajo"}
 
 
 def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: [ACCOUNT])
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([ACCOUNT])
+    )
 
     async def scenario(pilot, app):
         screen = AccountsScreen()
@@ -48,7 +50,7 @@ def test_archive_is_immediate_no_modal(fake_client, monkeypatch):
 def test_unarchive_is_direct(fake_client, monkeypatch):
     """`a` on an archived row unarchives — same key, opposite verb, no prompt."""
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: [ARCHIVED_ACCOUNT]
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([ARCHIVED_ACCOUNT])
     )
 
     async def scenario(pilot, app):
@@ -66,7 +68,7 @@ def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
     """The reload after a toggle re-selects the acted-on row (fresh CursorList
     would otherwise snap to row 0, so a second `a` would hit the wrong record)."""
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: [ACCOUNT, ACCOUNT_2]
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([ACCOUNT, ACCOUNT_2])
     )
 
     async def scenario(pilot, app):
@@ -88,7 +90,9 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
     """25 accounts: act on row 22 — beyond the 20-row window (2026-07-11
     pagination). The reload must land the cursor back on that row, on its page."""
     accounts = [{**ACCOUNT, "id": f"a{i}", "name": f"Acct {i:02d}"} for i in range(25)]
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: accounts)
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(accounts)
+    )
 
     async def scenario(pilot, app):
         # tall harness: rows-per-page adapt to the terminal since 2026-07-13;
@@ -110,7 +114,9 @@ def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
 
 
 def test_edit_prefills_and_puts(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: [ACCOUNT])
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([ACCOUNT])
+    )
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())
@@ -131,7 +137,7 @@ def test_categories_have_no_archive_action(fake_client, monkeypatch):
     """Category archive died with the 2026-08-06 schema slimming: the `a`
     binding lives on AccountsScreen only, so on Categories it is inert."""
     monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: [SYS_CAT]
+        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: whole([SYS_CAT])
     )
 
     async def scenario(pilot, app):
@@ -149,7 +155,9 @@ def test_categories_have_no_archive_action(fake_client, monkeypatch):
 
 
 def test_hashtag_edit_puts(fake_client, monkeypatch):
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: [HASHTAG])
+    monkeypatch.setattr(
+        "expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: whole([HASHTAG])
+    )
 
     async def scenario(pilot, app):
         await app.push_screen(HashtagsScreen())
@@ -167,7 +175,9 @@ def test_hashtag_edit_puts(fake_client, monkeypatch):
 
 def test_enter_is_a_noop(fake_client, monkeypatch):
     """The record detail is gone: `enter` opens nothing, mutates nothing."""
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: [ACCOUNT])
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([ACCOUNT])
+    )
 
     async def scenario(pilot, app):
         screen = AccountsScreen()

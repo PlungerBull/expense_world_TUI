@@ -7,7 +7,7 @@ from expense.tui.screens.reconciliations import (
     ReconciliationsScreen,
 )
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import cursor_page, page, run_app, wait_for, wait_for_list
+from tests.unit.helpers import cursor_page, page, run_app, wait_for, wait_for_list, whole
 
 ITEMS = [
     {
@@ -57,10 +57,12 @@ def _patch(monkeypatch):
     """Screen-specific patches; the client/config seams come from fake_client."""
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts",
-        lambda *a, **k: [
-            {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"},
-            {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
-        ],
+        lambda *a, **k: whole(
+            [
+                {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"},
+                {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
+            ]
+        ),
     )
 
 
@@ -132,10 +134,17 @@ def _patch_browse(monkeypatch):
     )
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts",
-        lambda *a, **k: [
-            {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN", "current_balance_cents": 100},
-            {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
-        ],
+        lambda *a, **k: whole(
+            [
+                {
+                    "id": "acc1",
+                    "name": "BCP PEN",
+                    "currency_code": "PEN",
+                    "current_balance_cents": 100,
+                },
+                {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
+            ]
+        ),
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
@@ -200,7 +209,7 @@ def test_reconciliations_list_pages_past_engine_cap(monkeypatch):
     monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", paged)
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts",
-        lambda *a, **k: [{"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"}],
+        lambda *a, **k: whole([{"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"}]),
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 

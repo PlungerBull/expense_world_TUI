@@ -11,13 +11,15 @@ import asyncio
 import threading
 
 from expense.tui.screens.accounts import AccountsScreen
-from tests.unit.helpers import run_app, wait_for, wait_for_list
+from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
 
 ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False, "color": None}]
 
 
 def _stub_accounts(monkeypatch):
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
+    )
 
 
 def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):

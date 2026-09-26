@@ -172,3 +172,23 @@ def test_tui_tests_boot_through_the_shared_harness():
         "start the app with helpers.run_app(scenario, size=...) rather than a "
         f"local asyncio.run/run_test pair: {offenders}"
     )
+
+
+# A fake of one of the whole lists that returns a bare array. The engine answers
+# `{items}` and has no route that returns an array (2026-09-23); `items_of` reads
+# a bare array as no rows, so a non-empty one fails its test. This catches the
+# case that slips through: a fake returning `[]`, which reads the same as an empty
+# `{items}` and would pass whatever shape the code expected.
+_BARE_LIST_FAKE = re.compile(
+    r"fetch_(?:accounts|categories|hashtags)\"?,\s*(?:lambda[^:]*:\s*)?\[", re.S
+)
+
+
+def test_whole_list_fakes_serve_the_engine_shape():
+    offenders = [
+        f"{path.name}: {m.group(0)!r}"
+        for path in sorted(TESTS_DIR.glob("*.py"))
+        if path.name != SELF
+        for m in _BARE_LIST_FAKE.finditer(path.read_text())
+    ]
+    assert not offenders, f"serve these lists as whole([...]) from helpers.py: {offenders}"

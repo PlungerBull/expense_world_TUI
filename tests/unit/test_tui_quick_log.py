@@ -10,7 +10,7 @@ from textual.widgets import Input
 
 from expense.errors import EngineConnectionError
 from expense.tui.screens.quick_log import QuickAddLogScreen
-from tests.unit.helpers import render_text, run_app, wait_for
+from tests.unit.helpers import render_text, run_app, wait_for, whole
 
 ACCOUNTS = [
     {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN", "is_person": False},
@@ -32,7 +32,9 @@ def _patch(monkeypatch):
     Name maps derive from the same fetches since backlog 6.5b — no separate
     load_*_name_map seams to patch.
     """
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
+    )
     monkeypatch.setattr(
         "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: CATEGORIES
     )
@@ -77,7 +79,8 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
         return fetch
 
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", rec("accounts", [*ACCOUNTS, archived])
+        "expense.commands.accounts_cmd.fetch_accounts",
+        rec("accounts", whole([*ACCOUNTS, archived])),
     )
     monkeypatch.setattr(
         "expense.commands.categories_cmd.fetch_categories", rec("categories", CATEGORIES)

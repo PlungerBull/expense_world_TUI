@@ -211,6 +211,13 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
   (`whole()` in [tests/unit/helpers.py](../tests/unit/helpers.py)); the fakes refuse `limit` /
   `offset` the way the engine does.
 - **A guard:** `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
+- **Review fix (2026-09-25):** the first commit converted only the HTTP-level mocks. About 20
+  TUI fakes that replace `fetch_accounts` / `fetch_categories` / `fetch_hashtags` directly still
+  returned bare lists, and passed whatever shape the code expected. They are now `whole([...])`.
+  `items_of` lost its bare-list branch, because no engine route returns an array and only those
+  fakes used it. A bare list now yields no rows, which also flushed out `/v1/activity` fakes
+  serving an array. `test_suite_hygiene.py::test_whole_list_fakes_serve_the_engine_shape` catches
+  the case that still slips through: a fake returning `[]`.
 - **The contract suite's `_list_all`** (handed over by Phase 3) is one read, and asserts the body
   is exactly `{items}`. It runs for real only at Phase 12.
 - **The cli-spec pagination paragraph was rewritten whole now**, as the three list shapes and

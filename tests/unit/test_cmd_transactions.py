@@ -15,6 +15,7 @@ from tests.unit.helpers import (
     make_cli_app,
     page,
     strip_panel,
+    whole,
 )
 
 cli_app = make_cli_app(transactions_app, "transactions")
@@ -49,10 +50,6 @@ CATEGORY_ROW = {"id": "cat-id", "name": "Food"}
 HASHTAG_ROW = {"id": "h-1", "name": "lunch"}
 
 
-def _reference_envelope(rows: list[dict]) -> dict:
-    return page(rows, total=len(rows), limit=200, offset=0)
-
-
 def _mock_name_maps() -> tuple:
     """Route the three reference lists so the renderer resolves real names.
 
@@ -61,13 +58,13 @@ def _mock_name_maps() -> tuple:
     """
     return (
         respx.get(f"{BASE}/v1/accounts").mock(
-            return_value=httpx.Response(200, json=_reference_envelope([ACCOUNT_ROW]))
+            return_value=httpx.Response(200, json=whole([ACCOUNT_ROW]))
         ),
         respx.get(f"{BASE}/v1/categories").mock(
-            return_value=httpx.Response(200, json=_reference_envelope([CATEGORY_ROW]))
+            return_value=httpx.Response(200, json=whole([CATEGORY_ROW]))
         ),
         respx.get(f"{BASE}/v1/hashtags").mock(
-            return_value=httpx.Response(200, json=_reference_envelope([HASHTAG_ROW]))
+            return_value=httpx.Response(200, json=whole([HASHTAG_ROW]))
         ),
     )
 

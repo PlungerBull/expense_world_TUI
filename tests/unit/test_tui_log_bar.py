@@ -35,7 +35,7 @@ from expense.tui.screens.log_bar import (
 )
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
-from tests.unit.helpers import cursor_page, render_text, run_app, wait_for
+from tests.unit.helpers import cursor_page, render_text, run_app, wait_for, whole
 
 ACCOUNTS = [
     {"id": "acc1", "name": "BCP Signature PEN", "currency_code": "PEN", "is_person": False},
@@ -133,7 +133,9 @@ def _patch(monkeypatch, peek: "_PeekFetch | None" = None) -> "_PeekFetch":
     that assert on it: the panel fires on any line that names an account, and
     an unpatched fetch would be a real request out of a unit test.
     """
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: ACCOUNTS)
+    monkeypatch.setattr(
+        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
+    )
     monkeypatch.setattr(
         "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: CATEGORIES
     )
