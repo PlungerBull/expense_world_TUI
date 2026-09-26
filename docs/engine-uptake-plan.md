@@ -17,6 +17,18 @@ in the three engine debriefs**, and this plan cites their sections and does not 
 2026-09-25, so the bank importer stops matching on its own and the uptake closes with no
 second copy of an engine rule left in this repo. Its facts are in engine-spec, not a debrief.
 
+**Two more engine changes on 2026-09-26** (engine `1f50722`, `73a0bdc`; engine `open-bugs.md`
+→ *calendar-day-date-filters*, *strict-request-datetimes*):
+- **`GET /transactions` and `/count`:** a bare `YYYY-MM-DD` in `date_from` / `date_to` is the
+  whole calendar day in `display_timezone`, both ends inclusive. A datetime with an offset is
+  that instant. A datetime **without** an offset, and a reversed range, are `422`. Phase 9 sends
+  bare dates unconverted.
+- **Every request datetime needs an offset:** reconciliation `date_start` / `date_end` refuse a
+  bare date, a naive datetime or a number; a number is `422` everywhere. **No code change:**
+  checked 2026-09-26, every write (transactions, opening balances, reconciliation create/edit,
+  both importers, the LOG bar) goes through `to_canonical_aware` or `now_local_iso`, and nothing
+  sends a number. Phase 12's contract run confirms it.
+
 **When done:** delete this file and the three debriefs (Phase 12). The reasons worth keeping move
 to [decisions.md](decisions.md) in Phase 11.
 
@@ -351,8 +363,9 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 - **TUI:** delete `ActivityScreen` and `RatesScreen` from
   [system.py](../expense/tui/screens/system.py), their Home entries (**M1**), and their tests.
 - **`activity list`:** drop `--offset`; add `--from` / `--to` and `--after`. A bare date becomes
-  an instant with an offset through the **shared calendar-day helper** (see below), because the
-  engine refuses naive instants. `--resource-id` help says the 30-day window still applies
+  an instant with an offset through the **calendar-day helper** (see below), because
+  `GET /activity` refuses bare dates and naive instants (it stays on exact times, owner
+  decision relayed by the engine 2026-09-26). `--resource-id` help says the 30-day window still applies
   (owner decision in 6b §2.1).
 - **`rates list`:** `--date X` sends `date_from=X&date_to=X`; drop `--offset`; add `--from` /
   `--to` (plain ISO dates here, no conversion). The "omit for full history" help text is no
@@ -365,12 +378,11 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
     i.e. `--to` = the echoed `date_from` **minus one day**, because rate dates are inclusive
     (6b §3)
   - The line is printed even when the table is empty, so an empty window never reads as "no history".
-- **The shared calendar-day helper** is built by whichever of Phases 8 and 9 lands first, in
-  [dates.py](../expense/dates.py), and reused by the other. A bare `YYYY-MM-DD` becomes the
-  start of that day in the user's `display_timezone` for `--from`, and the start of the **next**
-  day for `--to`, so `--to` includes the whole day. A value that already carries a time passes
-  through unchanged. This is the conversion the calendar-day engine ask in [todo.md](todo.md)
-  would delete.
+- **The calendar-day helper** is built here, in [dates.py](../expense/dates.py), for
+  `activity list` only (Phase 9 no longer needs it: the engine reads bare dates on
+  `/transactions` since 2026-09-26). A bare `YYYY-MM-DD` becomes the start of that day in the
+  user's `display_timezone` for `--from`, and the start of the **next** day for `--to`, so `--to`
+  includes the whole day. A value that already carries an offset passes through unchanged.
 - Both mocks move to the windowed envelope.
 
 ## Phase 9: the flat `expense transactions list`
@@ -380,12 +392,17 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
 - **M5, the line under the table**, only when `next_cursor` is not null:
   `(more: pass --after <cursor> with the same filters)`. No total, so no extra `/count` call.
   Nothing on the last page.
-- **`--from` / `--to` become calendar days** through the shared helper described in Phase 8
-  (build it here if Phase 8 has not landed). This fixes
-  the `--to` defect in [todo.md](todo.md) "Small defects" on the flat side, and gets ahead of
-  6b §5 (the engine will soon refuse bare dates here).
+- **`--from` / `--to` pass through unconverted** (engine 2026-09-26: a bare date is the whole
+  day). No client date math. The help text changes from "ISO 8601 bound (inclusive)" to
+  "a day (YYYY-MM-DD, whole day, inclusive) or a time with an offset". With the restart this
+  closes the `--to` defect in [todo.md](todo.md) "Small defects".
+- **The reconcile checklist** keeps sending the period's own `date_start` / `date_end`. Those
+  are instants today, so the last-day rows stay missing until the engine ask "reconciliation
+  periods are days" ([todo.md](todo.md) Engine asks) lands; the owner chose that over a
+  client-side conversion (2026-09-26). Nothing to build here.
 - Tests: `--sort` and `--after` reach the request, `--offset` is gone, the hint appears only
-  with a cursor, and a `422` on `sort` renders through the standard envelope.
+  with a cursor, a `422` on `sort` renders through the standard envelope, and `--to 2026-08-31`
+  reaches the request as exactly `date_to=2026-08-31`.
 
 ## Phase 10: offset code deleted (6b §4)
 
@@ -528,11 +545,13 @@ finds nothing.
    - a small list returns everything with no `total` (the reconciliation half, including the
      `422` without `account_id` and the `405` by id, was written in Phase 5);
    - an activity window walked to null, then the older window from the echoed `date_from`;
-   - the bank import, as listed in Phase 10b.
+   - the bank import, as listed in Phase 10b;
+   - `transactions list --to <day>` includes a row logged late on that day; a naive datetime is
+     a `422` rendered through the envelope; reconciliation create/edit round-trips its dates.
 6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
    In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
    the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's
    open-work paragraph, and the 6a debrief link in
    [category-hashtags-plan.md](category-hashtags-plan.md) §1 (point it at engine-spec instead).
-   Tell the engine side to delete `open-bugs.md` → `transaction-cursor`, `phase-6-lists` and
-   `bank-import`.
+   Tell the engine side to delete `open-bugs.md` → `transaction-cursor`, `phase-6-lists`,
+   `bank-import`, `calendar-day-date-filters` and `strict-request-datetimes`.

@@ -73,19 +73,20 @@ category tags ──▶ import door ──▶ first real bank import
 Each entry says what to ask for, why no client can do it properly today, and **what this repo
 deletes when it lands**. Never edited here: they are handed to the owner for the engine coder.
 
-1. **Date filters on `GET /transactions` in calendar days.** `date_from` / `date_to` compare
-   exact instants, and a bare date is read as midnight UTC. A row dated the 31st in Lima is stored
-   at 05:00 UTC, so `date_to=…-31` drops it (see the defect "The reconciliation checklist never offers
-   rows dated on the period's last day"). The engine already
-   logs this as `date-filter-not-calendar-days` and `transaction-date-filter-naive`, to be fixed
-   together. **The ask is to schedule it**, and to accept a bare date as a whole calendar day in
-   the user's `display_timezone`, not to refuse it: every client otherwise re-derives
-   "next day's midnight in the user's zone", and a refusal would stop the reconcile screen
-   loading at all (it sends the period's own bare dates). **Handed over 2026-09-26** as
-   `expense_world_engine/docs/ask-calendar-day-date-filters.md`, written into the engine repo at
-   the owner's request. **Deletes here:** the client-side bare-date → instant conversion on the
-   flat `--from`/`--to` of `transactions list` (engine uptake Phase 9). `activity list` keeps
-   its own: `GET /activity` refuses bare dates by design and is not part of this ask.
+1. **Reconciliation periods are days, not moments.** *(Raised 2026-09-26, owner's pick.)*
+   A reconciliation's `date_start` / `date_end` are stored as `timestamptz`, accepted only as an
+   instant with an offset (since engine `73a0bdc`) and returned as a UTC instant
+   (`2026-08-31T05:00:00Z` for 31 August in Lima). Every rule about a period is in calendar days
+   in `display_timezone`: the seal, "no two periods share a day", `coverage_gap`, and since
+   `1f50722` the transaction filters the engine asks clients to feed with "the period's days".
+   So every client must turn the returned instant back into a day in the user's zone before it
+   can filter, and invent "midnight in the user's zone" to save a period. Get it wrong (the
+   reconcile checklist today passes the instant straight through) and rows logged later on the
+   last day are missing from the tick-list. **The ask:** store, accept and return
+   `date_start` / `date_end` as plain `YYYY-MM-DD` days, on create, update, list and the
+   `complete` response; a datetime there is `422`. **Deletes here:** `to_canonical_aware` on
+   the reconciliation create/edit payloads (flat and TUI), the `[:10]` slicing in
+   `reconcile_cmd` / `reconciliations.py`, and small defect 1. Not yet handed over.
 
 Answered on 2026-09-23: `?sort=date_asc` with cursor paging, and the gap fields with the wording
 fix, both shipped. A window flag on transaction reads and `?status=` on `GET /reconciliations`
@@ -102,14 +103,16 @@ Real bugs, each small and self-contained. None of them waits on the engine uptak
    engine reads that bare date as midnight UTC at the **start** of `date_end`, 19:00 the evening
    before in Lima, so every row dated on the last day (stored 05:00 UTC) is left out. On a
    month-end statement that is the 31st's rows, which then block the close as "unassigned" with
-   no way to tick them from this screen. **The complete fix is the engine ask on calendar-day date
-   filters** (Engine asks 1, handed over 2026-09-26); the owner chose not to patch it here. Until then the
-   `u` pane still reaches those rows. Pin with a test either way.
+   no way to tick them from this screen. **Half fixed by the engine on 2026-09-26** (`1f50722`:
+   a bare date filter is the whole day). The other half: the screen sends the period's
+   `date_end` as the engine returns it, an **instant**, so rows logged after 00:00 on the last
+   day still miss. The fix is Engine asks 1 ("periods are days"); the owner chose that over a
+   client-side conversion. Until then the `u` pane still reaches those rows. Pin with a test
+   once it lands.
 
-2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side: the
-   help text says "(inclusive)", and the docstring's own example
-   (`--to 2026-08-31 --unreconciled`) misses the 31st. Fixed on the client side by the engine
-   uptake, or by the same engine ask, whichever lands first.
+2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side.
+   **Fixed by the engine on 2026-09-26** (`1f50722`); it closes at the restart (engine uptake
+   Phase 12), with Phase 9's help-text change. Delete this entry then.
 
 3. **The fixture-drift check cannot see stale envelope keys.**
    [check_fixture_drift.py](../scripts/check_fixture_drift.py) checks each fixture key against
