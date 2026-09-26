@@ -29,7 +29,6 @@ from tests.unit.helpers import (
     cursor_page,
     fake_ledger,
     list_ready,
-    page,
     render_text,
     run_app,
     wait_for,
@@ -747,7 +746,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
     ]
     monkeypatch.setattr(
         "expense.commands.transactions_cmd.fetch_transactions",
-        lambda cfg, **k: page(txns, total=len(txns)),
+        lambda cfg, **k: cursor_page(txns),
     )
     for name in ("account", "category", "hashtag"):
         monkeypatch.setattr(f"expense.tui.screens.reconciliations.load_{name}_name_map", dict)

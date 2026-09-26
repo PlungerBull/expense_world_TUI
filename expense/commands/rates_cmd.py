@@ -228,7 +228,7 @@ def list_(
             ],
             align_right={"rate"},
         )
-    render_pagination_hint(body, items, note="newest first", older="day_before")
+    render_pagination_hint(body, note="newest first", older="day_before")
 
 
 @app.command("get")

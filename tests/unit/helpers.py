@@ -165,19 +165,6 @@ def whole(items: list) -> dict:
     return {"items": items}
 
 
-def page(items: list, *, total: int | None = None, limit: int = 50, offset: int = 0) -> dict:
-    """The list envelope. `total` defaults to "this is the whole collection",
-    which is what most fixtures mean; pass it explicitly to make a page a
-    *partial* one and exercise the pagination hint.
-    """
-    return {
-        "items": items,
-        "total": len(items) if total is None else total,
-        "limit": limit,
-        "offset": offset,
-    }
-
-
 def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50) -> dict:
     """The `GET /transactions` envelope — cursor-paged, so no `total` and no
     `offset`. `next_cursor=None` (the default) is the last page."""

@@ -27,7 +27,6 @@ LIMIT_OPT = typer.Option(
     "--limit",
     help="Max rows per page (human output defaults to 20; --json sends no default).",
 )
-OFFSET_OPT = typer.Option(None, "--offset", help="Rows to skip (pagination).")
 INCLUDE_ARCHIVED_OPT = typer.Option(False, "--include-archived", help="Include archived rows.")
 YES_OPT = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
 
@@ -283,29 +282,6 @@ def effective_limit(limit: int | None, *, json_mode: bool) -> int | None:
     the user passed --limit. `--json` requests are left untouched (no default),
     so the raw body stays exactly what the engine returns today."""
     return DEFAULT_PAGE_ROWS if limit is None and not json_mode else limit
-
-
-def fetch_all_pages(
-    fetch_page: Callable[[int, int], Any], *, page_size: int = ENGINE_PAGE_CAP
-) -> list[dict]:
-    """Exhaust a paginated resource. `fetch_page(limit, offset)` returns one raw body.
-
-    No caller is left since engine-uptake Phase 6 (the transaction readers
-    moved to `fetch_all_cursor_pages`); Phase 10 deletes it. Stops on an empty page, a short
-    page, or having collected >= body["total"] (when the engine sends an int
-    total). One copy of the loop — the previous three hand-rolled variants each
-    had their own termination rule.
-    """
-    out: list[dict] = []
-    offset = 0
-    while True:
-        body = fetch_page(page_size, offset)
-        page = items_of(body)
-        out.extend(page)
-        total = body.get("total") if isinstance(body, dict) else None
-        if not page or len(page) < page_size or (isinstance(total, int) and len(out) >= total):
-            return out
-        offset += len(page)
 
 
 def fetch_all_cursor_pages(
@@ -645,7 +621,7 @@ def query_params(**values: Any) -> dict[str, Any]:
     encode what was, one way.
 
     - `None` means "not asked for" and is left out entirely. `0` is not None,
-      so `offset=0` still goes.
+      so a zero still goes.
     - A bool is a flag. `True` becomes the string `"true"` the engine reads;
       `False` is left out, because its absence IS the default.
     - Everything else passes through unchanged.
@@ -842,42 +818,30 @@ def render_category_table(categories: list[dict] | None) -> None:
 
 def render_pagination_hint(
     body: Any,
-    items: list[Any],
     *,
     note: str = "",
-    always: bool = False,
     older: Literal["instant", "day_before"] = "instant",
 ) -> None:
-    """Print `(showing N of M)`, and how to reach the rest when there is a rest.
+    """Print how to reach the rest of a paged list, when there is a rest.
 
-    No-op when the body isn't paginated or the metadata is missing, and — by
-    default — when one page holds everything, since there is then nothing to
-    tell anyone.
-
-    `always` prints the count even on a single page, and `note` rides on the
-    same line for a list whose order is worth stating. Both exist for `rates
-    list`, which kept its own tail (`showing 3 of 3 · newest first`) rather
-    than use this helper, and so became the one paginated list that never
-    said how to page. Its two extras cost one line each here; its missing
-    instruction cost every user of it a trip to `--help`.
+    Two shapes page (engine debrief 6b §0), each with its own line (mockup M5);
+    anything else — a whole list, a missing envelope — prints nothing.
 
     A cursor-paged body (`transactions list`) has no total: when it carries a
     `next_cursor` the line says how to pass it back, and on the last page
     (`null`) nothing is printed. The cursor is bound to the filters *and* the
-    sort, so the line names both. The offset branch below goes in engine-uptake
-    Phase 10.
+    sort, so the line names both.
 
     A body that echoes a date window (`date_from` / `date_to` — `activity list`
-    and `rates list` after engine-uptake Phase 8) also carries `next_cursor`,
-    but is a different shape (engine debrief 6b §0) with its own line (mockup
-    M5): the window, and no `--sort`, which neither command has. The
-    transactions line must never print for it. Its line is always printed, even
-    under an empty table, so an empty window never reads as "no history":
-    `(from → to · more in this window: pass --after <c>)`, or on the window's
-    last page how to go further back. `older` says how: `"instant"` (activity)
-    passes the echoed `date_from` back exactly, since a bare day would widen to
-    the whole day and repeat rows; `"day_before"` (rates, whose dates are
-    inclusive days) passes the day before it. `note` rides on this line too.
+    and `rates list`) also carries `next_cursor`, but its line shows the window,
+    and no `--sort`, which neither command has. The transactions line must never
+    print for it. Its line is always printed, even under an empty table, so an
+    empty window never reads as "no history": `(from → to · more in this window:
+    pass --after <c>)`, or on the window's last page how to go further back.
+    `older` says how: `"instant"` (activity) passes the echoed `date_from` back
+    exactly, since a bare day would widen to the whole day and repeat rows;
+    `"day_before"` (rates, whose dates are inclusive days) passes the day before
+    it. `note` rides on this line, for a list whose order is worth stating.
     """
     if not isinstance(body, dict):
         return
@@ -888,21 +852,6 @@ def render_pagination_hint(
         return
     if isinstance(cursor, str) and cursor:
         typer.echo(f"\n(more: pass --after {cursor} with the same filters and --sort)")
-        return
-    total = body.get("total")
-    limit = body.get("limit")
-    offset = body.get("offset")
-    if not (isinstance(total, int) and isinstance(limit, int) and isinstance(offset, int)):
-        return
-    next_offset = offset + len(items)
-    exhausted = next_offset >= total
-    if exhausted and not always:
-        return
-    shown = f"showing {len(items)} of {total}"
-    if note:
-        shown += f" · {note}"
-    more = "" if exhausted else f"; pass --offset {next_offset} --limit {limit} for more"
-    typer.echo(f"\n({shown}{more})")
 
 
 def _window_bound(value: object) -> str:

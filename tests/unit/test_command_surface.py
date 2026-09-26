@@ -123,6 +123,18 @@ def test_no_command_restores_or_lists_deleted_rows():
     assert not flagged, flagged
 
 
+def test_no_command_takes_offset():
+    """No engine list pages by offset since 2026-09-23 (`?offset=` is a 422
+    everywhere), so an `--offset` flag could only ever produce that error."""
+    flagged = [
+        " ".join(path)
+        for path, cb in _LEAVES
+        for name, param in inspect.signature(cb).parameters.items()
+        if name == "offset" or "--offset" in (getattr(param.default, "param_decls", None) or ())
+    ]
+    assert not flagged, flagged
+
+
 # Lists the engine returns whole and refuses to page (2026-09-23, `?limit=` /
 # `?offset=` are a 422). A paging flag here could only ever produce that error.
 _WHOLE_LISTS = [

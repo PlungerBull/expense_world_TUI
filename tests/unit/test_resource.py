@@ -17,7 +17,6 @@ from expense.commands._resource import (
     account_choices,
     build_update_payload,
     fetch_all_cursor_pages,
-    fetch_all_pages,
     fetch_body,
     format_aggregate,
     format_bool,
@@ -46,7 +45,7 @@ from expense.commands._resource import (
 )
 from expense.errors import EngineError, handle_errors
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import cursor_page, error_response, page, whole
+from tests.unit.helpers import cursor_page, error_response, whole
 
 runner = CliRunner()
 
@@ -280,7 +279,7 @@ def test_fetch_body_issues_one_live_get(configured):
     from expense import config as config_module
 
     route = respx.get(f"{BASE}/v1/things", params={"limit": "5"}).mock(
-        return_value=httpx.Response(200, json=page([{"id": "a"}], total=1))
+        return_value=httpx.Response(200, json=whole([{"id": "a"}]))
     )
     body = fetch_body(
         config_module.ensure_loaded(),
@@ -288,7 +287,7 @@ def test_fetch_body_issues_one_live_get(configured):
         params={"limit": 5},
         verbose=False,
     )
-    assert body == page([{"id": "a"}], total=1)
+    assert body == whole([{"id": "a"}])
     assert route.call_count == 1
 
 
@@ -296,9 +295,7 @@ def test_fetch_body_issues_one_live_get(configured):
 def test_fetch_body_empty_params_sends_no_query(configured):
     from expense import config as config_module
 
-    route = respx.get(f"{BASE}/v1/things").mock(
-        return_value=httpx.Response(200, json=page([], total=0))
-    )
+    route = respx.get(f"{BASE}/v1/things").mock(return_value=httpx.Response(200, json=whole([])))
     fetch_body(config_module.ensure_loaded(), path="/things", params={}, verbose=False)
     assert route.calls.last.request.url.query == b""
 
@@ -450,10 +447,11 @@ def test_parse_hashtag_ids_does_not_validate_uuids():
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
-        (page([{"id": "a"}], total=1), [{"id": "a"}]),  # paginated dict
+        (whole([{"id": "a"}]), [{"id": "a"}]),  # whole list
+        (cursor_page([{"id": "a"}], next_cursor="c1"), [{"id": "a"}]),  # cursor page
         ({"items": []}, []),
         ({"items": None}, []),  # items present but null
-        ({"total": 3}, []),  # dict without items — never a row source
+        ({"limit": 3}, []),  # dict without items — never a row source
         ([{"id": "a"}], []),  # a bare array is not an engine body
         ([], []),
         (None, []),
@@ -523,31 +521,19 @@ def test_render_totals_handles_missing_keys(capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_render_pagination_hint_surfaces_when_more_to_fetch(capsys):
-    render_pagination_hint({"total": 10, "limit": 5, "offset": 0}, [{}, {}, {}, {}, {}])
-    out = capsys.readouterr().out
-    assert "showing 5 of 10" in out
-    assert "--offset 5 --limit 5" in out
-
-
-def test_render_pagination_hint_silent_when_all_visible(capsys):
-    render_pagination_hint({"total": 5, "limit": 5, "offset": 0}, [{}, {}, {}, {}, {}])
-    assert capsys.readouterr().out == ""
-
-
 def test_render_pagination_hint_silent_for_bare_array(capsys):
-    render_pagination_hint([{}, {}], [{}, {}])
+    render_pagination_hint([{}, {}])
     assert capsys.readouterr().out == ""
 
 
 def test_render_pagination_hint_names_the_cursor(capsys):
-    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": "c1"}, [{}])
+    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": "c1"})
     out = capsys.readouterr().out
     assert out == "\n(more: pass --after c1 with the same filters and --sort)\n"
 
 
 def test_render_pagination_hint_silent_on_last_cursor_page(capsys):
-    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": None}, [{}])
+    render_pagination_hint({"items": [{}], "limit": 1, "next_cursor": None})
     assert capsys.readouterr().out == ""
 
 
@@ -561,7 +547,7 @@ def test_render_pagination_hint_never_gives_a_windowed_body_the_transactions_lin
         "date_from": "2026-08-24",
         "date_to": "2026-09-23",
     }
-    render_pagination_hint(body, [{}])
+    render_pagination_hint(body)
     assert "--sort" not in capsys.readouterr().out
 
 
@@ -569,7 +555,7 @@ _WINDOW = {"items": [], "limit": 20, "date_from": "2026-08-24", "date_to": "2026
 
 
 def test_render_pagination_hint_window_with_more_names_the_cursor(capsys):
-    render_pagination_hint({**_WINDOW, "next_cursor": "c1"}, [{}])
+    render_pagination_hint({**_WINDOW, "next_cursor": "c1"})
     out = capsys.readouterr().out
     assert out == "\n(2026-08-24 → 2026-09-23 · more in this window: pass --after c1)\n"
 
@@ -583,7 +569,7 @@ def test_render_pagination_hint_window_older_by_the_exact_instant(capsys):
         "date_from": "2026-08-24T00:00:00-05:00",
         "date_to": "2026-09-23T23:59:59.999999-05:00",
     }
-    render_pagination_hint(body, [{}])
+    render_pagination_hint(body)
     out = capsys.readouterr().out
     assert out == (
         "\n(2026-08-24 00:00 → 2026-09-23 23:59 · older: pass --to 2026-08-24T00:00:00-05:00)\n"
@@ -593,7 +579,7 @@ def test_render_pagination_hint_window_older_by_the_exact_instant(capsys):
 def test_render_pagination_hint_window_older_by_the_day_before(capsys):
     """Rates: days are inclusive, so reusing `date_from` would repeat its row."""
     render_pagination_hint(
-        {**_WINDOW, "next_cursor": None}, [], note="newest first", older="day_before"
+        {**_WINDOW, "next_cursor": None}, note="newest first", older="day_before"
     )
     out = capsys.readouterr().out
     assert out == "\n(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)\n"
@@ -601,12 +587,12 @@ def test_render_pagination_hint_window_older_by_the_day_before(capsys):
 
 def test_render_pagination_hint_window_prints_under_an_empty_table(capsys):
     """An empty window must never read as "no history"."""
-    render_pagination_hint({**_WINDOW, "next_cursor": None}, [])
+    render_pagination_hint({**_WINDOW, "next_cursor": None})
     assert "2026-08-24 → 2026-09-23" in capsys.readouterr().out
 
 
 def test_render_pagination_hint_silent_when_metadata_missing(capsys):
-    render_pagination_hint({"items": []}, [])
+    render_pagination_hint({"items": []})
     assert capsys.readouterr().out == ""
 
 
@@ -781,59 +767,19 @@ def test_account_choices_with_balance_appends_cents():
 
 
 # ---------------------------------------------------------------------------
-# fetch_all_pages (backlog 6.4a — the one pagination loop)
+# fetch_all_cursor_pages (the one pagination loop)
 # ---------------------------------------------------------------------------
 
 
 def _pager(pages):
-    """fetch_page stub serving canned bodies; records (limit, offset) calls."""
-    calls: list[tuple[int, int]] = []
+    """fetch_page stub serving canned bodies; records (limit, after) calls."""
+    calls: list[tuple[int, str | None]] = []
 
-    def fetch_page(limit, offset):
-        calls.append((limit, offset))
+    def fetch_page(limit, after):
+        calls.append((limit, after))
         return pages[len(calls) - 1]
 
     return fetch_page, calls
-
-
-def test_fetch_all_pages_full_then_short_page():
-    full = page([{"id": f"t{i}"} for i in range(200)], total=240)
-    short = page([{"id": f"t{200 + i}"} for i in range(40)], total=240)
-    fetch_page, calls = _pager([full, short])
-    rows = fetch_all_pages(fetch_page)
-    assert calls == [(200, 0), (200, 200)]
-    assert len(rows) == 240
-
-
-def test_fetch_all_pages_empty_first_page():
-    fetch_page, calls = _pager([page([], total=0)])
-    assert fetch_all_pages(fetch_page) == []
-    assert calls == [(200, 0)]
-
-
-def test_fetch_all_pages_total_stops_padded_pages():
-    """A full page with total == collected stops without an extra request."""
-    full = page([{"id": f"t{i}"} for i in range(200)], total=200)
-    fetch_page, calls = _pager([full])
-    assert len(fetch_all_pages(fetch_page)) == 200
-    assert calls == [(200, 0)]
-
-
-def test_fetch_all_pages_no_total_stops_on_short_page():
-    """Missing total falls back to the short-page rule (keeps paging first)."""
-    full = {"items": [{"id": f"t{i}"} for i in range(200)]}
-    short = {"items": [{"id": "t200"}]}
-    fetch_page, calls = _pager([full, short])
-    assert len(fetch_all_pages(fetch_page)) == 201
-    assert calls == [(200, 0), (200, 200)]
-
-
-def test_fetch_all_pages_custom_page_size():
-    full = {"items": [{"id": "a"}, {"id": "b"}]}
-    short = {"items": [{"id": "c"}]}
-    fetch_page, calls = _pager([full, short])
-    assert len(fetch_all_pages(fetch_page, page_size=2)) == 3
-    assert calls == [(2, 0), (2, 2)]
 
 
 def test_fetch_all_cursor_pages_walks_by_next_cursor():
@@ -1082,10 +1028,10 @@ def test_query_params_encodes_a_flag_as_the_engine_reads_it():
     assert query_params(include_people=True, include_archived=False) == {"include_people": "true"}
 
 
-def test_query_params_keeps_a_zero_offset():
-    """`offset=0` is a real page, and `0 is None` is False — the guard has to
-    be identity, not truthiness."""
-    assert query_params(offset=0, limit=20) == {"offset": 0, "limit": 20}
+def test_query_params_keeps_a_zero():
+    """A zero was asked for, and `0 is None` is False — the guard has to be
+    identity, not truthiness."""
+    assert query_params(limit=0) == {"limit": 0}
 
 
 def test_query_params_sends_one_spelling_of_a_number():

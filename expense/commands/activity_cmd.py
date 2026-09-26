@@ -267,7 +267,7 @@ def _render_list(body: object, *, json_mode: bool, cfg, verbose: bool) -> None:
         names = load_name_maps()  # three reads for the page, not one or two per row
         with ExpenseClient(cfg, verbose=verbose) as client:
             _render_activity_rows(items, client, names)
-    render_pagination_hint(body, items, older="instant")
+    render_pagination_hint(body, older="instant")
 
 
 def fetch_activity(

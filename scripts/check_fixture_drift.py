@@ -47,16 +47,16 @@ from pathlib import Path
 DEFAULT_ENGINE_URL = "http://127.0.0.1:8000"
 UNIT_TESTS = Path(__file__).resolve().parent.parent / "tests" / "unit"
 
-# Envelope keys the engine returns that are not schema properties: pagination,
-# the error envelope (docs/cli-runtime.md "Engine errors surface cleanly"), and
-# the auth/bootstrap wrapper.
+# Envelope keys the engine returns that are not schema properties: the list
+# envelopes (whole `{items}`, cursor `{items, limit, next_cursor}`; the offset
+# envelope's `total`/`offset`/`has_more` left on 2026-09-23), the error envelope
+# (docs/cli-runtime.md "Engine errors surface cleanly"), and the auth/bootstrap
+# wrapper.
 ENVELOPE_KEYS = frozenset(
     {
         "items",
-        "total",
         "limit",
-        "offset",
-        "has_more",
+        "next_cursor",
         "error",
         "code",
         "message",

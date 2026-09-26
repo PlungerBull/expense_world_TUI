@@ -87,7 +87,7 @@ def _render_transaction_list(body: dict, *, json_mode: bool) -> None:
         rows=rows,
         align_right={"amount"},
     )
-    render_pagination_hint(body, items)
+    render_pagination_hint(body)
 
 
 def _update_hint_for(err: EngineError) -> str | None:
