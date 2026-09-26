@@ -114,7 +114,7 @@ the list is now shorter.
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 (**done**, `192831c`) |
 | 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — (**done**, `b5602d7`) |
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
-| 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
+| 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 (**done**, `7ce6405`) |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 (**done**, `28572ce`) |
 | 10 | Offset code deleted | 6b §4 | — |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
@@ -375,7 +375,7 @@ the footer as `pgdn 10 more`. The `?` card lists that key only on screens that h
 first new row; `pgdn` on a null cursor sends nothing; a filter change empties the list and
 recounts; a bulk edit recounts; a resize sends no request; `a` selects all loaded rows.
 
-## Phase 8: Activity and Rates (6b §2–3, owner decision)
+## Phase 8: Activity and Rates (6b §2–3, owner decision) (done 2026-09-26, `7ce6405`)
 
 - **TUI:** delete `ActivityScreen` and `RatesScreen` from
   [system.py](../expense/tui/screens/system.py), their Home entries (**M1**), and their tests.
