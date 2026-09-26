@@ -57,12 +57,7 @@ from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.reconciliations import ReconciliationsScreen
-from expense.tui.screens.system import (
-    ActivityScreen,
-    AuthScreen,
-    ConfigScreen,
-    RatesScreen,
-)
+from expense.tui.screens.system import AuthScreen, ConfigScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import aggregate_cell, amount_cell
@@ -90,12 +85,7 @@ _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "system",
         "SYSTEM",
-        [
-            ("config", "Config"),
-            ("auth", "Auth & profile"),
-            ("activity", "Activity"),
-            ("rates", "Rates"),
-        ],
+        [("config", "Config"), ("auth", "Auth & profile")],
     ),
 ]
 
@@ -109,8 +99,6 @@ _SCREENS: dict[str, type[Screen]] = {
     "hashtags": HashtagsScreen,
     "config": ConfigScreen,
     "auth": AuthScreen,
-    "activity": ActivityScreen,
-    "rates": RatesScreen,
 }
 
 #: Option-id prefixes; the rest of the id is the engine row.

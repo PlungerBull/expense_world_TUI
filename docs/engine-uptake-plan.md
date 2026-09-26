@@ -409,6 +409,24 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   [test_resource.py](../tests/unit/test_resource.py) pins that a windowed body never gets the
   transactions line.
 
+**Owner answer (2026-09-26), asked while planning this phase:**
+- The header's `!` (today has no rate of its own) **stays as it is**, with no screen behind it.
+  Only the comment in [header.py](../expense/tui/widgets/header.py) that sends you to "`Rates` on
+  the home menu" changes.
+
+**Builder's calls (M5; the owner does not use the typed commands):**
+- The activity "older" hint prints the echoed `date_from` **exactly as the engine sent it** (an
+  instant), not a bare date. A bare date would be widened to the whole day by the calendar-day
+  helper and repeat rows. The window part of the line shows activity's bounds as **local date
+  and time** (`2026-09-20 00:00 → 2026-09-26 00:00`): found on the live check, the engine
+  echoes its default window in UTC, and cut to a date it named the wrong day.
+- `rates list --date` together with `--from` / `--to` is refused as a flag clash.
+- An empty window prints `(no activity in this window)` / `(no rates in this window)`, and the
+  window line under it.
+- Activity action code 4 keeps its `RESTORED` label for old history rows.
+- tui.md's "one client per page" worked example moves off `ActivityScreen` to a screen that
+  still exists.
+
 ## Phase 9: the flat `expense transactions list` (done 2026-09-26, `28572ce`)
 
 - Remove `--offset`; add `--sort` (passed through unchecked, so the engine's `422` is the one

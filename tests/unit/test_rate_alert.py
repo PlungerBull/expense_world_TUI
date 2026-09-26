@@ -170,8 +170,8 @@ def test_home_header_shows_the_mark_with_no_month_yet():
 def test_breadcrumb_outside_an_app_renders_the_trail_and_no_mark():
     """`self.app` raises when unmounted, so the widget must degrade to silence
     rather than to a traceback — this is also what lets it be unit-tested."""
-    out = _render(Breadcrumb(("System", "Rates")).render())
-    assert "System" in out and "Rates" in out
+    out = _render(Breadcrumb(("System", "Config")).render())
+    assert "System" in out and "Config" in out
     assert RATE_ALERT_MARK not in out
 
 
@@ -186,7 +186,7 @@ def test_breadcrumb_outside_an_app_renders_the_trail_and_no_mark():
 def test_breadcrumb_mounted_in_the_app_follows_rate_stale():
     async def scenario(pilot, app):
         await pilot.pause()
-        crumb = Breadcrumb(("System", "Rates"))
+        crumb = Breadcrumb(("System", "Config"))
         await app.screen.mount(crumb)
         await pilot.pause()
 

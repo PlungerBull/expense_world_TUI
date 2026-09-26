@@ -4,7 +4,6 @@ from expense import config as config_module
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
-    OFFSET_OPT,
     effective_limit,
     fetch_body,
     items_of,
@@ -88,7 +87,7 @@ def fetch_rate(
     """GET /v1/exchange-rates (engine-direct). Returns the raw response body.
 
     `base` / `date` are omitted when None so the engine defaults (USD, today)
-    apply. Shared by the typer command and the TUI Rates screen.
+    apply.
     """
     params = query_params(target=target, base=base, date=date)
 
@@ -138,18 +137,20 @@ def fetch_rate_staleness(cfg, *, target: str, verbose: bool = False) -> bool | N
 def fetch_rates_history(
     cfg,
     *,
-    date: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    after: str | None = None,
     limit: int | None = None,
-    offset: int | None = None,
     verbose: bool = False,
 ) -> dict:
     """GET /v1/exchange-rates/history (engine-direct). Raw response body.
 
     Stored daily rates, newest first (`rate_date DESC, base, target`), one row
-    per pair per day; `date` is an exact-day filter — no fallback semantics.
-    Shared by the typer command and the TUI Rates screen.
+    per pair per day, inside one date window (engine debrief 6b §3): plain ISO
+    days, both inclusive; omitted bounds are the engine's (today in the user's
+    zone, and 30 days before). One day is `date_from == date_to`.
     """
-    params = query_params(date=date, limit=limit, offset=offset)
+    params = query_params(date_from=date_from, date_to=date_to, after=after, limit=limit)
 
     return fetch_body(cfg, path="/exchange-rates/history", params=params, verbose=verbose)
 
@@ -161,42 +162,73 @@ def list_(
     date: str | None = typer.Option(
         None,
         "--date",
-        help="Exact ISO date (YYYY-MM-DD) to show a single day. Omit for full history.",
+        help="One day (YYYY-MM-DD). Same as --from X --to X; not with either.",
+    ),
+    date_from: str | None = typer.Option(
+        None,
+        "--from",
+        help="Window start day (YYYY-MM-DD, inclusive). Default: 30 days before --to.",
+    ),
+    date_to: str | None = typer.Option(
+        None,
+        "--to",
+        help="Window end day (YYYY-MM-DD, inclusive). Default: today. At most 366 days wide.",
+    ),
+    after: str | None = typer.Option(
+        None,
+        "--after",
+        help="The next_cursor from the previous page; repeat the same window.",
     ),
     limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/exchange-rates/history. Engine-direct (not cached).
 
-    Stored daily rates, newest first, one row per currency pair per day.
+    Stored daily rates, newest first, one row per currency pair per day. Reads
+    one date window: the last 30 days unless --date or --from / --to say
+    otherwise. The line under the table names the cursor for the rest of the
+    window, or the --to that reaches further back.
 
     Example: expense rates list --date 2026-07-04
     """
+    if date is not None:
+        if date_from is not None or date_to is not None:
+            raise typer.BadParameter(
+                "--date is one day; use it alone, or --from / --to for a range.",
+                param_hint="--date",
+            )
+        date_from = date_to = date
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)
-    body = fetch_rates_history(cfg, date=date, limit=limit, offset=offset, verbose=get_verbose(ctx))
+    body = fetch_rates_history(
+        cfg,
+        date_from=date_from,
+        date_to=date_to,
+        after=after,
+        limit=limit,
+        verbose=get_verbose(ctx),
+    )
     if json_output:
         emit_json(body)
         return
     items = items_of(body)
     if not items:
-        typer.echo(f"No rates stored for {date}." if date else "No rates stored yet.")
-        return
-    render_table(
-        {"rate_date": "Date", "base": "Base", "target": "Target", "rate": "Rate"},
-        [
-            {
-                "rate_date": str(it.get("rate_date") or "—"),
-                "base": str(it.get("base") or "—"),
-                "target": str(it.get("target") or "—"),
-                "rate": format_rate(it.get("rate_e8")),
-            }
-            for it in items
-        ],
-        align_right={"rate"},
-    )
-    render_pagination_hint(body, items, note="newest first", always=True)
+        typer.echo("(no rates in this window)")
+    else:
+        render_table(
+            {"rate_date": "Date", "base": "Base", "target": "Target", "rate": "Rate"},
+            [
+                {
+                    "rate_date": str(it.get("rate_date") or "—"),
+                    "base": str(it.get("base") or "—"),
+                    "target": str(it.get("target") or "—"),
+                    "rate": format_rate(it.get("rate_e8")),
+                }
+                for it in items
+            ],
+            align_right={"rate"},
+        )
+    render_pagination_hint(body, items, note="newest first", older="day_before")
 
 
 @app.command("get")

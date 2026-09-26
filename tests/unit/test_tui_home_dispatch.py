@@ -25,8 +25,6 @@ _CASES = [
     ("manage", "hashtags", home.HashtagsScreen),
     ("system", "config", home.ConfigScreen),
     ("system", "auth", home.AuthScreen),
-    ("system", "activity", home.ActivityScreen),
-    ("system", "rates", home.RatesScreen),
 ]
 
 

@@ -5,9 +5,12 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from datetime import date, datetime, timedelta
+from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import typer
+import tzlocal
 
 from expense import config as config_module
 from expense.config import Config
@@ -845,6 +848,7 @@ def render_pagination_hint(
     *,
     note: str = "",
     always: bool = False,
+    older: Literal["instant", "day_before"] = "instant",
 ) -> None:
     """Print `(showing N of M)`, and how to reach the rest when there is a rest.
 
@@ -869,14 +873,22 @@ def render_pagination_hint(
     and `rates list` after engine-uptake Phase 8) also carries `next_cursor`,
     but is a different shape (engine debrief 6b §0) with its own line (mockup
     M5): the window, and no `--sort`, which neither command has. The
-    transactions line must never print for it; Phase 8 adds that shape's
-    branch here.
+    transactions line must never print for it. Its line is always printed, even
+    under an empty table, so an empty window never reads as "no history":
+    `(from → to · more in this window: pass --after <c>)`, or on the window's
+    last page how to go further back. `older` says how: `"instant"` (activity)
+    passes the echoed `date_from` back exactly, since a bare day would widen to
+    the whole day and repeat rows; `"day_before"` (rates, whose dates are
+    inclusive days) passes the day before it. `note` rides on this line too.
     """
     if not isinstance(body, dict):
         return
     cursor = body.get("next_cursor")
     windowed = "date_from" in body or "date_to" in body
-    if isinstance(cursor, str) and cursor and not windowed:
+    if windowed:
+        _render_window_hint(body, cursor, note=note, older=older)
+        return
+    if isinstance(cursor, str) and cursor:
         typer.echo(f"\n(more: pass --after {cursor} with the same filters and --sort)")
         return
     total = body.get("total")
@@ -893,6 +905,47 @@ def render_pagination_hint(
         shown += f" · {note}"
     more = "" if exhausted else f"; pass --offset {next_offset} --limit {limit} for more"
     typer.echo(f"\n({shown}{more})")
+
+
+def _window_bound(value: object) -> str:
+    """One end of an echoed window, readable and still exact.
+
+    A rates bound is a plain day and prints as one. An activity bound is an
+    instant, which the engine echoes in UTC when it chose the default: cut to
+    ten characters it would name the wrong day, and a `--to 2026-09-25` (sent
+    as the start of the 26th) would read as the 26th with nothing to say why.
+    So an instant prints as local date and time — `2026-09-26 00:00`.
+    """
+    text = str(value)
+    if len(text) <= 10:
+        return text
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return text[:10]
+    if moment.tzinfo is None:
+        return text[:10]
+    return moment.astimezone(ZoneInfo(tzlocal.get_localzone_name())).strftime("%Y-%m-%d %H:%M")
+
+
+def _render_window_hint(
+    body: dict, cursor: object, *, note: str, older: Literal["instant", "day_before"]
+) -> None:
+    """The date-window line of `render_pagination_hint` (engine debrief 6b §1)."""
+    date_from, date_to = body.get("date_from"), body.get("date_to")
+    span = f"{_window_bound(date_from)} → {_window_bound(date_to)}"
+    if note:
+        span += f" · {note}"
+    if isinstance(cursor, str) and cursor:
+        typer.echo(f"\n({span} · more in this window: pass --after {cursor})")
+        return
+    if not isinstance(date_from, str) or not date_from:
+        typer.echo(f"\n({span})")
+        return
+    back = date_from
+    if older == "day_before":
+        back = (date.fromisoformat(date_from[:10]) - timedelta(days=1)).isoformat()
+    typer.echo(f"\n({span} · older: pass --to {back})")
 
 
 def run_toggle(

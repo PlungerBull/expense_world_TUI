@@ -1,6 +1,7 @@
 import json
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -8,7 +9,7 @@ from expense.commands.rates_cmd import app as rates_app
 from expense.commands.rates_cmd import format_rate
 from expense.currencies import RATE_SCALE
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, make_cli_app, page
+from tests.unit.helpers import error_response, make_cli_app, window_page
 
 cli_app = make_cli_app(rates_app, "rates")
 
@@ -127,15 +128,14 @@ def test_get_target_required(configured):
     assert "target" in result.output.lower()
 
 
-HISTORY_RESPONSE = page(
+HISTORY_RESPONSE = window_page(
     [
         {"base": "USD", "target": "PEN", "rate_date": "2026-07-05", "rate_e8": 360000000},
         {"base": "EUR", "target": "PEN", "rate_date": "2026-07-05", "rate_e8": 460000000},
         {"base": "USD", "target": "PEN", "rate_date": "2026-07-04", "rate_e8": 359000000},
     ],
-    total=3,
-    limit=50,
-    offset=0,
+    date_from="2026-06-05",
+    date_to="2026-07-05",
 )
 
 
@@ -147,28 +147,64 @@ def test_list_renders_table_newest_first(configured):
     result = runner.invoke(cli_app, ["rates", "list"])
     assert result.exit_code == 0, result.output
     assert "3.6000" in result.output and "4.6000" in result.output  # 4-decimal display
-    assert "showing 3 of 3" in result.output
-    # bare human list → the 20-row default limit (2026-07-11); nothing else sent
-    request = route.calls.last.request
-    assert request.url.params.get("date") is None
-    assert request.url.params.get("limit") == "20"
-    assert request.url.params.get("offset") is None
+    # the window's last page: rate days are inclusive, so older starts the day before
+    assert "(2026-06-05 → 2026-07-05 · newest first · older: pass --to 2026-06-04)" in (
+        result.output
+    )
+    # bare human list → the 20-row default limit; no window sent, so the engine's applies
+    params = route.calls.last.request.url.params
+    assert params.get("limit") == "20"
+    for gone in ("date", "offset", "date_from", "date_to", "after"):
+        assert gone not in params
 
 
 @respx.mock
-def test_list_passes_date_and_pagination(configured):
+def test_list_date_is_a_one_day_window(configured):
     route = respx.get(f"{BASE}/v1/exchange-rates/history").mock(
-        return_value=httpx.Response(200, json={**HISTORY_RESPONSE, "items": [], "total": 0})
+        return_value=httpx.Response(
+            200, json=window_page([], date_from="2026-07-04", date_to="2026-07-04")
+        )
+    )
+    result = runner.invoke(cli_app, ["rates", "list", "--date", "2026-07-04", "--limit", "10"])
+    assert result.exit_code == 0, result.output
+    # an empty window still says which window it was — never "no history"
+    assert "(no rates in this window)" in result.output
+    assert "(2026-07-04 → 2026-07-04 · newest first · older: pass --to 2026-07-03)" in (
+        result.output
+    )
+    params = route.calls.last.request.url.params
+    assert params.get("date_from") == "2026-07-04"
+    assert params.get("date_to") == "2026-07-04"
+    assert params.get("limit") == "10"
+    assert "date" not in params and "offset" not in params
+
+
+@respx.mock
+def test_list_passes_the_window_and_cursor_through(configured):
+    route = respx.get(f"{BASE}/v1/exchange-rates/history").mock(
+        return_value=httpx.Response(200, json=HISTORY_RESPONSE)
     )
     result = runner.invoke(
-        cli_app, ["rates", "list", "--date", "2026-07-04", "--limit", "10", "--offset", "5"]
+        cli_app,
+        ["rates", "list", "--from", "2026-01-01", "--to", "2026-03-31", "--after", "c1"],
     )
     assert result.exit_code == 0, result.output
-    assert "No rates stored for 2026-07-04." in result.output
-    request = route.calls.last.request
-    assert request.url.params.get("date") == "2026-07-04"
-    assert request.url.params.get("limit") == "10"
-    assert request.url.params.get("offset") == "5"
+    params = route.calls.last.request.url.params
+    assert params.get("date_from") == "2026-01-01"  # plain days, sent unconverted
+    assert params.get("date_to") == "2026-03-31"
+    assert params.get("after") == "c1"
+
+
+@pytest.mark.parametrize("extra", [["--from", "2026-07-01"], ["--to", "2026-07-05"]])
+def test_list_refuses_date_with_a_range(configured, extra):
+    result = runner.invoke(cli_app, ["rates", "list", "--date", "2026-07-04", *extra])
+    assert result.exit_code == 2
+    assert "--date" in result.output
+
+
+def test_list_has_no_offset(configured):
+    result = runner.invoke(cli_app, ["rates", "list", "--offset", "5"])
+    assert result.exit_code == 2
 
 
 @respx.mock
@@ -227,19 +263,15 @@ def test_format_rate_never_loses_the_low_digits_to_binary():
 
 
 @respx.mock
-def test_list_says_how_to_reach_the_next_page(configured):
-    """`rates list` was the one paginated list with no paging instruction: it
-    printed its own `showing N of M · newest first` and stopped there."""
+def test_list_says_how_to_reach_the_rest_of_the_window(configured):
     respx.get(f"{BASE}/v1/exchange-rates/history").mock(
-        return_value=httpx.Response(
-            200,
-            json={**HISTORY_RESPONSE, "total": 134, "limit": 20, "offset": 0},
-        )
+        return_value=httpx.Response(200, json={**HISTORY_RESPONSE, "next_cursor": "c2"})
     )
     result = runner.invoke(cli_app, ["rates", "list"])
     assert result.exit_code == 0, result.output
-    assert "showing 3 of 134 · newest first" in result.output
-    assert "pass --offset 3 --limit 20 for more" in result.output
+    assert "(2026-06-05 → 2026-07-05 · newest first · more in this window: pass --after c2)" in (
+        result.output
+    )
 
 
 @respx.mock

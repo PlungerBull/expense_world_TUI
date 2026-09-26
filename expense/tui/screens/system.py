@@ -1,4 +1,4 @@
-"""System screens — Config, Auth & profile, and the system reads (Phase 2).
+"""System screens — Config and Auth & profile.
 
 Config: read view of engine URL / token (masked) / main currency; `e` edits
 the engine URL, `t` sets the token (both write ~/.expense-config). Auth &
@@ -6,9 +6,8 @@ profile: identity + settings from GET /auth/me; `b` bootstraps (provisions the
 user record). The main currency is display-only — it is locked engine-side
 (2026-08-01 rework).
 
-System reads:
-  Activity — engine-direct audit log; `enter` shows one entry's before/after.
-  Rates    — reference FX lookup (conversion on writes is automatic engine-side).
+The Activity and Rates screens left the TUI on 2026-09-26 (owner decision,
+engine uptake Phase 8); `expense activity list` and `expense rates list` stay.
 """
 
 from rich import box
@@ -17,11 +16,10 @@ from rich.text import Text
 from textual.widget import Widget
 from textual.widgets import Static
 
-from expense.commands._resource import items_of, redact_token
+from expense.commands._resource import redact_token
 from expense.errors import format_error
-from expense.tui.screens._base import PagedListMixin, SectionScreen
-from expense.tui.screens.modals import PromptModal, SnapshotModal
-from expense.tui.widgets.cursor_list import CursorList
+from expense.tui.screens._base import SectionScreen
+from expense.tui.screens.modals import PromptModal
 
 
 def _redact_token(token: str | None) -> str:
@@ -214,176 +212,3 @@ class AuthScreen(SectionScreen):
     def _done(self, message: str) -> None:
         self.notify(message)
         self._load()
-
-
-# ---------------------------------------------------------------------------
-# System reads — Activity · Rates
-# ---------------------------------------------------------------------------
-
-
-_ACTIVITY_HEADERS = ["Date", "Time", "Action", "Actor", "Type", "Record"]
-
-
-class ActivityScreen(PagedListMixin, SectionScreen):
-    """Engine-direct audit log, fetch-paged ≤20 rows at a time (PagedListMixin,
-    sized to the terminal).
-
-    `enter` opens the before/after snapshot for one entry (the nested dicts the
-    CLI human view omits). v1 is unfiltered; filters are a later pass.
-    """
-
-    crumb = ("System", "Activity")
-    CARD_WIDTH = 118
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._by_id: dict = {}
-        self._cells: dict = {}
-
-    def list_extra_lines(self) -> int:
-        return 2  # the "most recent first · ↵ view" legend below (margin-top 1 + text)
-
-    def fetch(self) -> dict:
-        # Name resolution reads the engine (three reference lists up front,
-        # then a per-row read only for what they cannot answer), so the cells
-        # are computed here in the worker thread — build() must never do HTTP.
-        from expense import config as config_module
-        from expense.commands import activity_cmd
-        from expense.http import ExpenseClient
-
-        cfg = config_module.ensure_loaded()
-        body = self.fetch_page_body(
-            lambda pkw: activity_cmd.fetch_activity(cfg, verbose=self.app._verbose, **pkw)
-        )
-        names = activity_cmd.load_name_maps()  # three reads for the page, not per row
-        rows: list[tuple[str, list[str]]] = []
-        by_id: dict = {}
-        with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-            for i, item in enumerate(items_of(body)):
-                if not isinstance(item, dict):
-                    continue
-                key = item.get("id") or f"row-{i}"
-                by_id[key] = item
-                rows.append((key, activity_cmd.activity_display_cells(item, client, names)))
-        return {"rows": rows, "by_id": by_id}
-
-    def build(self, data: dict) -> list[Widget]:
-        self._by_id = data["by_id"]
-        self._cells = dict(data["rows"])
-        return [
-            CursorList(
-                _ACTIVITY_HEADERS,
-                data["rows"],
-                empty="(no activity)",
-                page_size=self.page_rows,
-                page_meta=self.page_meta(),
-            ),
-            Static(
-                Text("most recent first   ·   ↵ view before/after"),
-                classes="legend",
-            ),
-        ]
-
-    def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
-        item = self._by_id.get(event.key)
-        if not item:
-            return
-        cells = self._cells.get(event.key) or []
-        if len(cells) >= 6:
-            title = f"{cells[2]} · {cells[4]} · {cells[5]}"  # ACTION · type · record
-        else:
-            title = "Activity"
-        self.app.push_screen(
-            SnapshotModal(title, item.get("before_snapshot"), item.get("after_snapshot"))
-        )
-
-
-_RATES_HEADERS = ["Date", "Base", "Target", "Rate"]
-
-
-class RatesScreen(PagedListMixin, SectionScreen):
-    """Stored daily FX rates — GET /v1/exchange-rates/history (backlog 4.8).
-
-    A plain read table, fetch-paged ≤20 rows at a time (PagedListMixin, sized
-    to the terminal): newest first, one row per currency pair per day.
-    Cross-currency writes convert automatically engine-side, so this is
-    reference data only. `f` filters to an exact day; blank enter clears.
-    """
-
-    crumb = ("System", "Rates")
-    CARD_WIDTH = 72
-    BINDINGS = [
-        ("f", "filter_date", "Filter date"),
-    ]
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._date: str | None = None  # exact-day filter; None = full history
-
-    def list_extra_lines(self) -> int:
-        return 4  # legends above AND below the list (each: margin-top 1 + text)
-
-    def fetch(self) -> dict:
-        from expense import config as config_module
-        from expense.commands import rates_cmd
-
-        cfg = config_module.ensure_loaded()
-        body = self.fetch_page_body(
-            lambda pkw: rates_cmd.fetch_rates_history(
-                cfg, date=self._date, verbose=self.app._verbose, **pkw
-            )
-        )
-        return {"items": items_of(body)}
-
-    def build(self, data: dict) -> list[Widget]:
-        from expense.commands.rates_cmd import format_rate
-
-        rows = [
-            (
-                f"{it.get('rate_date')}:{it.get('base')}:{it.get('target')}",
-                [
-                    str(it.get("rate_date") or "—"),
-                    str(it.get("base") or "—"),
-                    str(it.get("target") or "—"),
-                    format_rate(it.get("rate_e8")),
-                ],
-            )
-            for it in data["items"]
-            if isinstance(it, dict)
-        ]
-        filtered = f"filtered: {self._date}   ·   " if self._date else ""
-        empty = f"(no rates stored for {self._date})" if self._date else "(no rates stored yet)"
-        return [
-            Static(
-                Text(
-                    "Cross-currency writes convert automatically — this is the reference table.",
-                    style="dim",
-                ),
-                classes="legend",
-            ),
-            CursorList(
-                _RATES_HEADERS,
-                rows,
-                align_right={3},
-                empty=empty,
-                page_size=self.page_rows,
-                page_meta=self.page_meta(),
-            ),
-            Static(
-                Text(f"{filtered}newest first   ·   f filter date"),
-                classes="legend",
-            ),
-        ]
-
-    def action_filter_date(self) -> None:
-        def cb(value: str | None) -> None:
-            if value is None:
-                return  # esc — keep the current filter
-            self._date = value.strip() or None  # blank enter clears
-            self.reset_page()  # a new filter invalidates the old offset
-            self._load()
-
-        self.app.push_screen(
-            PromptModal("Filter by date", "YYYY-MM-DD · blank = all days", value=self._date or ""),
-            cb,
-        )

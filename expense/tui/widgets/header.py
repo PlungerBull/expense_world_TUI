@@ -8,8 +8,8 @@ from expense.tui.theme import PALETTE, Palette
 
 #: The whole indicator. Deliberately one character: it reports that a number
 #: elsewhere may be slightly off, which does not deserve a sentence in a header
-#: that is otherwise navigation. `Rates` on the home menu is where you go to
-#: see what is actually stored.
+#: that is otherwise navigation. A heads-up with no screen behind it (owner,
+#: 2026-09-26, when Rates left the TUI); `expense rates list` shows what is stored.
 RATE_ALERT_MARK = "!"
 
 #: Gap between the header's own content and the mark. Both hosts use it so the

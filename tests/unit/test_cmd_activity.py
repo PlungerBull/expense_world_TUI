@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from expense.commands import activity_cmd
 from expense.commands.activity_cmd import app as activity_app
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import FakeClient, error_response, make_cli_app, page, whole
+from tests.unit.helpers import FakeClient, error_response, make_cli_app, whole, window_page
 
 cli_app = make_cli_app(activity_app, "activity")
 
@@ -28,7 +28,23 @@ ACTIVITY_ROW = {
     "created_at": "2026-05-03T10:00:00Z",
 }
 
-LIST_RESPONSE = page([ACTIVITY_ROW])
+# The window the engine echoes when none is sent: now, and 30 days before.
+FROM = "2026-04-03T10:00:00.123456-05:00"
+TO = "2026-05-03T10:00:00.123456-05:00"
+
+
+def wpage(items: list, *, next_cursor: str | None = None) -> dict:
+    return window_page(items, date_from=FROM, date_to=TO, next_cursor=next_cursor)
+
+
+LIST_RESPONSE = wpage([ACTIVITY_ROW])
+LIMA_ME = {"user": {"id": "u1"}, "settings": {"display_timezone": "America/Lima"}}
+
+
+@pytest.fixture(autouse=True)
+def pin_local_tz(monkeypatch):
+    """The window line prints its bounds in local time; pin the zone."""
+    monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/Lima")
 
 
 @respx.mock
@@ -54,10 +70,11 @@ def test_list_happy_no_filters(configured):
 
 
 @respx.mock
-def test_list_with_filters_and_pagination_params(configured):
+def test_list_with_filters_window_and_cursor(configured):
     route = respx.get(f"{BASE}/v1/activity").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
+    me = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=LIMA_ME))
     result = runner.invoke(
         cli_app,
         [
@@ -67,28 +84,85 @@ def test_list_with_filters_and_pagination_params(configured):
             "expense_transactions",
             "--resource-id",
             "22222222-2222-2222-2222-222222222222",
+            "--from",
+            "2026-09-01T00:00:00Z",
+            "--to",
+            "2026-09-25T12:00:00-05:00",
+            "--after",
+            "c1",
             "--limit",
             "5",
-            "--offset",
-            "0",
         ],
     )
     assert result.exit_code == 0, result.output
 
-    request = route.calls.last.request
-    assert request.url.params.get("resource_type") == "expense_transactions"
-    assert request.url.params.get("resource_id") == "22222222-2222-2222-2222-222222222222"
-    assert request.url.params.get("limit") == "5"
-    assert request.url.params.get("offset") == "0"
+    params = route.calls.last.request.url.params
+    assert params.get("resource_type") == "expense_transactions"
+    assert params.get("resource_id") == "22222222-2222-2222-2222-222222222222"
+    # times that already carry an offset pass through as typed
+    assert params.get("date_from") == "2026-09-01T00:00:00Z"
+    assert params.get("date_to") == "2026-09-25T12:00:00-05:00"
+    assert params.get("after") == "c1"
+    assert params.get("limit") == "5"
+    assert "offset" not in params
+    assert me.call_count == 0  # no bare day, so no zone to look up
 
 
 @respx.mock
-def test_list_pagination_hint(configured):
-    paginated = page([ACTIVITY_ROW], total=5, limit=1, offset=0)
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=paginated))
+def test_list_bare_days_are_whole_days_in_the_profile_zone(configured):
+    """`GET /activity` refuses a bare date; the CLI places it in the profile's
+    `display_timezone`, and `--to` runs to the start of the next day."""
+    route = respx.get(f"{BASE}/v1/activity").mock(
+        return_value=httpx.Response(200, json=LIST_RESPONSE)
+    )
+    me = respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(200, json=LIMA_ME))
+    result = runner.invoke(
+        cli_app, ["activity", "list", "--from", "2026-09-01", "--to", "2026-09-25"]
+    )
+    assert result.exit_code == 0, result.output
+    params = route.calls.last.request.url.params
+    assert params.get("date_from") == "2026-09-01T00:00:00-05:00"
+    assert params.get("date_to") == "2026-09-26T00:00:00-05:00"
+    assert me.call_count == 1
+
+
+@respx.mock
+def test_list_bare_day_with_no_profile_zone_is_refused(configured):
+    respx.get(f"{BASE}/v1/auth/me").mock(
+        return_value=httpx.Response(200, json={"user": {"id": "u1"}, "settings": {}})
+    )
+    route = respx.get(f"{BASE}/v1/activity")
+    result = runner.invoke(cli_app, ["activity", "list", "--from", "2026-09-01"])
+    assert result.exit_code == 2
+    assert "time zone" in result.output
+    assert route.call_count == 0
+
+
+def test_list_has_no_offset(configured):
+    result = runner.invoke(cli_app, ["activity", "list", "--offset", "0"])
+    assert result.exit_code == 2
+
+
+@respx.mock
+def test_list_says_how_to_reach_the_rest_of_the_window(configured):
+    respx.get(f"{BASE}/v1/activity").mock(
+        return_value=httpx.Response(200, json=wpage([ACTIVITY_ROW], next_cursor="c2"))
+    )
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert "showing 1 of 5" in result.output
+    assert "(2026-04-03 10:00 → 2026-05-03 10:00 · more in this window: pass --after c2)" in (
+        result.output
+    )
+
+
+@respx.mock
+def test_list_on_the_windows_last_page_names_the_exact_older_bound(configured):
+    """The echoed `date_from` goes back verbatim: a bare day would widen to the
+    whole day and show that day's rows twice."""
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=LIST_RESPONSE))
+    result = runner.invoke(cli_app, ["activity", "list"])
+    assert result.exit_code == 0, result.output
+    assert f"(2026-04-03 10:00 → 2026-05-03 10:00 · older: pass --to {FROM})" in result.output
 
 
 @respx.mock
@@ -101,10 +175,12 @@ def test_list_json_mode_passthrough(configured):
 
 @respx.mock
 def test_list_empty(configured):
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page([])))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=wpage([])))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
-    assert "(no activity)" in result.output
+    # an empty window still says which window it was — never "no history"
+    assert "(no activity in this window)" in result.output
+    assert f"older: pass --to {FROM}" in result.output
 
 
 @respx.mock
@@ -123,7 +199,7 @@ def test_list_human_renderer_omits_snapshots(configured):
 @respx.mock
 def test_list_unknown_action_code_falls_back_to_int(configured):
     weird = {**ACTIVITY_ROW, "action": 99}
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page([weird])))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=wpage([weird])))
     result = runner.invoke(cli_app, ["activity", "list"])
     assert result.exit_code == 0, result.output
     # Action column now just shows the raw int as a string.
@@ -335,7 +411,7 @@ def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configu
         }
         for i in range(5)
     ]
-    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=page(rows)))
+    respx.get(f"{BASE}/v1/activity").mock(return_value=httpx.Response(200, json=wpage(rows)))
     accounts = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(
             200, json=whole([{"id": f"acc-{i}", "name": f"Account {i}"} for i in range(5)])
@@ -357,3 +433,22 @@ def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configu
     assert [r.call_count for r in per_row] == [0] * 5  # and nothing per row
     for i in range(5):
         assert f"Account {i}" in result.output
+
+
+def test_activity_resolves_singular_resource_types(fake_client):
+    # The engine writes resource_type in the SINGULAR ("transaction", …); the
+    # resolver must map those (and the older plural forms) to the collection
+    # path it reads live.
+    import expense.commands.activity_cmd as ac
+
+    fake_client.get_responses["/transactions/abc-123"] = {"title": "Groceries"}
+    fake_client.get_responses["/accounts/def-456"] = {"name": "BCP Soles"}
+    assert ac._resolve_resource_name("transaction", "abc-123", fake_client) == "Groceries"
+    alias = ac._resolve_resource_name("expense_transactions", "abc-123", fake_client)
+    assert alias == "Groceries"
+    assert ac._resolve_resource_name("account", "def-456", fake_client) == "BCP Soles"
+    # unknown type → short id, never a crash (and never an engine read)
+    assert ac._resolve_resource_name("user", "0123456789ab", fake_client) == "01234567"
+    assert not any(path.startswith("/users") for _, path in fake_client.requests)
+    # a routed miss (deleted record → 404) also degrades to the short id
+    assert ac._resolve_resource_name("account", "0123456789ab", fake_client) == "01234567"

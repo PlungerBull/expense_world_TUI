@@ -565,6 +565,48 @@ def test_render_pagination_hint_never_gives_a_windowed_body_the_transactions_lin
     assert "--sort" not in capsys.readouterr().out
 
 
+_WINDOW = {"items": [], "limit": 20, "date_from": "2026-08-24", "date_to": "2026-09-23"}
+
+
+def test_render_pagination_hint_window_with_more_names_the_cursor(capsys):
+    render_pagination_hint({**_WINDOW, "next_cursor": "c1"}, [{}])
+    out = capsys.readouterr().out
+    assert out == "\n(2026-08-24 → 2026-09-23 · more in this window: pass --after c1)\n"
+
+
+def test_render_pagination_hint_window_older_by_the_exact_instant(capsys, monkeypatch):
+    """Activity: the echoed bound goes back verbatim, time and offset included.
+    The span shows each instant as local date and time — the engine echoes its
+    default window in UTC, and ten characters of that can name the wrong day."""
+    monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/Lima")
+    body = {
+        **_WINDOW,
+        "next_cursor": None,
+        "date_from": "2026-08-24T02:00:00.5+00:00",
+        "date_to": "2026-09-23T02:00:00.5+00:00",
+    }
+    render_pagination_hint(body, [{}])
+    out = capsys.readouterr().out
+    assert out == (
+        "\n(2026-08-23 21:00 → 2026-09-22 21:00 · older: pass --to 2026-08-24T02:00:00.5+00:00)\n"
+    )
+
+
+def test_render_pagination_hint_window_older_by_the_day_before(capsys):
+    """Rates: days are inclusive, so reusing `date_from` would repeat its row."""
+    render_pagination_hint(
+        {**_WINDOW, "next_cursor": None}, [], note="newest first", older="day_before"
+    )
+    out = capsys.readouterr().out
+    assert out == "\n(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)\n"
+
+
+def test_render_pagination_hint_window_prints_under_an_empty_table(capsys):
+    """An empty window must never read as "no history"."""
+    render_pagination_hint({**_WINDOW, "next_cursor": None}, [])
+    assert "2026-08-24 → 2026-09-23" in capsys.readouterr().out
+
+
 def test_render_pagination_hint_silent_when_metadata_missing(capsys):
     render_pagination_hint({"items": []}, [])
     assert capsys.readouterr().out == ""

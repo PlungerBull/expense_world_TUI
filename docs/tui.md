@@ -45,7 +45,7 @@ expense/tui/
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
-    system.py       # Config / Auth / Activity / Rates screens
+    system.py       # Config / Auth screens (Activity and Rates left 2026-09-26)
     quick_log.py    # the transaction EDIT form (`⏎` on a row). Its create
                     #   mode moved to the LOG bar 2026-08-25 — `record` is required now
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
@@ -58,7 +58,7 @@ expense/tui/
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people
-    modals.py       # SnapshotModal, ConfirmModal, PromptModal, DiscardStagedModal
+    modals.py       # ConfirmModal, PromptModal, DiscardStagedModal
                     #   (the LOG bar's one confirmation)
 ```
 
@@ -78,8 +78,8 @@ remainder ([decisions.md](decisions.md)).
 
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
 needs resolved names, resolve them in `fetch()` and hand `build()` precomputed cells —
-`ActivityScreen` is the worked example (`fetch()` opens one client for the whole page,
-returns `{"rows": [...], "by_id": {...}}`).
+`TransactionsScreen` is the worked example (`fetch()` reads the page and the three name
+maps, and `build()` only looks names up in them).
 
 **Name resolution is live HTTP and fails silently by design.**
 `load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` each open
@@ -101,8 +101,10 @@ so it also shows on an ordinary morning before the engine's fetch job has run.
   crashed, or a rate the engine refused as implausible). `rates_cmd.rate_is_stale`
   applies it; `fetch_rate_staleness` adds the `404` case (no rate at all → stale).
   The signal is date-only, so the 2026-08-29 wire change (`rate: float` →
-  `rate_e8: int`, engine `sql/036`) did not touch it — only the Rates screen's
-  value column, which renders through `format_rate`.
+  `rate_e8: int`, engine `sql/036`) did not touch it — only `rates list`'s
+  value column, which renders through `format_rate`. The mark has had no screen
+  behind it since the Rates screen left the TUI (owner, 2026-09-26): it is a
+  heads-up, and `expense rates list` shows what is stored.
 - **App-owned, fetched once per launch.** `ExpenseApp.rate_stale` holds `True` /
   `False` / `None`, filled by one worker on mount. It lives on the app because the
   indicator is in every header and screens come and go: a screen pushed after the fetch
@@ -132,7 +134,7 @@ grew from). One worker reads `/dashboard` and `/reports/monthly` and draws:
 | **PEOPLE** | outstanding people in their own currency; settled ones folded behind `▶ N settled` (`⏎`/`→` opens it); `none` when there is nobody | the ledger filtered to that person |
 | **LEDGER** | Transactions · Reconciliations, each a row of its own | `⏎` on an entry pushes the screen |
 | **MANAGE** | Accounts · Categories · Hashtags | as above |
-| **SYSTEM** | Config · Auth & profile · Activity · Rates | as above |
+| **SYSTEM** | Config · Auth & profile (Activity and Rates left the TUI 2026-09-26; their flat commands stay) | as above |
 
 `pgdn` walks the window one month back, `pgup` one month forward and never past this
 month. Balances do not move with it — there is no balances-as-of-date endpoint — which is
@@ -505,7 +507,7 @@ Every other list leaves `flex` empty and keeps Rich's content-proportional sprea
 They carry Home's month window too (`pgdn` older, `pgup` newer): one
 meaning, "the next window of data", whether the window is rows or months.
 
-Transactions / Activity / Rates fetch real `limit`/`offset` pages sized to the
+Transactions fetches real `limit`/`offset` pages sized to the
 window via `PagedListMixin` (`↑`/`↓` clamp at the fetched edge; a resize refetches with
 the offset re-anchored). Full-data screens window locally — Manage, the
 Reconciliations account list (full height alone, an equal split with the open panel), the recon checklist at fit÷2 items —

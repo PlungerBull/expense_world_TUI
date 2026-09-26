@@ -126,7 +126,7 @@ Input {
 }
 
 /* modal screens — center the #modal box (else it collapses top-left) */
-SnapshotModal, ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
+ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
     align: center middle;
 }
 /* The dim scrim (pick H, 2026-08-19). `black`, NOT `$background`, and that is

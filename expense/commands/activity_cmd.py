@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 import typer
 
 from expense import config as config_module
+from expense import dates
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
-    OFFSET_OPT,
     effective_limit,
     fetch_body,
     items_of,
@@ -17,6 +17,7 @@ from expense.commands._resource import (
     render_pagination_hint,
     render_table,
 )
+from expense.commands.auth_cmd import fetch_me
 from expense.context import get_verbose
 from expense.errors import EngineError, handle_errors
 from expense.http import ExpenseClient
@@ -206,9 +207,8 @@ def activity_display_cells(
 ) -> list[str]:
     """The 6 human cells for one activity row: date, time, action, actor, type, resource.
 
-    Shared by the CLI table renderer and the TUI Activity list screen so both
-    resolve resource names and map action codes identically. `client` is an
-    open engine client — callers rendering many rows share one connection.
+    `client` is an open engine client — callers rendering many rows share one
+    connection.
 
     `names` is `load_name_maps()`, built ONCE per page: pass it and an account,
     category or hashtag row costs no engine read at all. Omitting it is
@@ -236,8 +236,7 @@ def _render_activity_rows(
 ) -> None:
     """Render activity rows as a 6-column table (Date · Time · Action · Actor · Type · Resource).
 
-    Module-level so alternate front doors (e.g. the TUI) can reuse it. Snapshots
-    and `changed_by` are deliberately omitted from the table; both remain
+    Snapshots and `changed_by` are deliberately omitted from the table; both remain
     accessible via --json.
     """
     keys = ("date", "time", "action", "actor", "type", "resource")
@@ -265,12 +264,12 @@ def _render_list(body: object, *, json_mode: bool, cfg, verbose: bool) -> None:
         return
     items = items_of(body)
     if not items:
-        typer.echo("(no activity)")
-        return
-    names = load_name_maps()  # three reads for the page, not one or two per row
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        _render_activity_rows(items, client, names)
-    render_pagination_hint(body, items)
+        typer.echo("(no activity in this window)")
+    else:
+        names = load_name_maps()  # three reads for the page, not one or two per row
+        with ExpenseClient(cfg, verbose=verbose) as client:
+            _render_activity_rows(items, client, names)
+    render_pagination_hint(body, items, older="instant")
 
 
 def fetch_activity(
@@ -278,23 +277,47 @@ def fetch_activity(
     *,
     resource_type: str | None = None,
     resource_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    after: str | None = None,
     limit: int | None = None,
-    offset: int | None = None,
     verbose: bool = False,
 ) -> dict:
     """GET /v1/activity (engine-direct). Returns the raw response body.
 
-    Extracted so the TUI Activity screen and the typer command share one
-    fetch path — the CLI thin-wrapper rule (no logic duplicated in the TUI).
+    One date window per read (engine debrief 6b §1): omitted bounds are the
+    engine's (now, and 30 days before), and `after` scrolls inside the window.
+    `date_from` / `date_to` must already be instants with an offset.
     """
     params = query_params(
         resource_type=resource_type,
         resource_id=resource_id,
+        date_from=date_from,
+        date_to=date_to,
+        after=after,
         limit=limit,
-        offset=offset,
     )
 
     return fetch_body(cfg, path=f"/{_RESOURCE}", params=params, verbose=verbose)
+
+
+def _display_timezone(me: dict) -> str:
+    """The profile's zone a bare day is read in — the same fallback the TUI's
+    Auth & profile screen shows (`settings.display_timezone`, then the user's).
+
+    A profile with neither is refused here rather than guessed at: a wrong zone
+    would silently shift the window by hours.
+    """
+    settings = me.get("settings") or {}
+    user = me.get("user") or {}
+    zone = settings.get("display_timezone") or user.get("timezone")
+    if not isinstance(zone, str) or not zone:
+        raise typer.BadParameter(
+            "Your profile has no time zone, so a bare day cannot be placed. "
+            "Pass a time with an offset (e.g. 2026-09-01T00:00:00-05:00).",
+            param_hint="--from / --to",
+        )
+    return zone
 
 
 @app.command("list")
@@ -309,27 +332,63 @@ def list_(
     resource_id: str | None = typer.Option(
         None,
         "--resource-id",
-        help="Filter by resource_id (UUID; engine validates).",
+        help=(
+            "Filter by resource_id (UUID; engine validates). The date window still "
+            "applies: pass --from to reach history older than 30 days."
+        ),
+    ),
+    date_from: str | None = typer.Option(
+        None,
+        "--from",
+        help=(
+            "Window start: a day (YYYY-MM-DD, from its start in your profile's time "
+            "zone) or a time with an offset. Default: 30 days before --to."
+        ),
+    ),
+    date_to: str | None = typer.Option(
+        None,
+        "--to",
+        help=(
+            "Window end: a day (YYYY-MM-DD, the whole day) or a time with an offset. "
+            "Default: now. At most 366 days after --from."
+        ),
+    ),
+    after: str | None = typer.Option(
+        None,
+        "--after",
+        help="The next_cursor from the previous page; repeat the same filters and window.",
     ),
     limit: int | None = LIMIT_OPT,
-    offset: int | None = OFFSET_OPT,
     json_output: bool = JSON_OPT,
 ) -> None:
     """GET /v1/activity. Engine-direct (not cached).
 
+    Reads one date window, the last 30 days unless --from / --to say
+    otherwise, newest first. The line under the table names the cursor for
+    the rest of the window, or the --to that reaches further back.
+
     Snapshots are omitted from the human renderer; pass --json to see
     before_snapshot / after_snapshot.
 
-    Example: expense activity list --resource-type transaction --limit 5
+    Example: expense activity list --resource-type transaction --from 2026-09-01 --to 2026-09-25
     """
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)
+    verbose = get_verbose(ctx)
+    if (date_from and dates.is_calendar_day(date_from)) or (
+        date_to and dates.is_calendar_day(date_to)
+    ):
+        zone = _display_timezone(fetch_me(cfg, verbose=verbose))
+        date_from = date_from and dates.calendar_day_bound(date_from, zone)
+        date_to = date_to and dates.calendar_day_bound(date_to, zone, end=True)
     body = fetch_activity(
         cfg,
         resource_type=resource_type,
         resource_id=resource_id,
+        date_from=date_from,
+        date_to=date_to,
+        after=after,
         limit=limit,
-        offset=offset,
-        verbose=get_verbose(ctx),
+        verbose=verbose,
     )
     _render_list(body, json_mode=json_output, cfg=cfg, verbose=get_verbose(ctx))

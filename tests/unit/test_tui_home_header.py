@@ -29,8 +29,6 @@ SECTIONS = [
     "SYSTEM",
     "  Config",
     "  Auth & profile",
-    "  Activity",
-    "  Rates",
 ]
 
 
@@ -191,8 +189,6 @@ def test_the_sections_never_fold():
         "hashtags",
         "config",
         "auth",
-        "activity",
-        "rates",
     ]
     assert "open_doors" not in home.HomeState._fields
 

@@ -184,6 +184,23 @@ def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50)
     return {"items": items, "limit": limit, "next_cursor": next_cursor}
 
 
+def window_page(
+    items: list,
+    *,
+    date_from: str,
+    date_to: str,
+    next_cursor: str | None = None,
+    limit: int = 50,
+) -> dict:
+    """The `GET /activity` and `/exchange-rates/history` envelope — cursor-paged
+    inside a date window the engine echoes back (engine debrief 6b §1)."""
+    return {
+        **cursor_page(items, next_cursor=next_cursor, limit=limit),
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+
+
 # ---------------------------------------------------------------------------
 # TUI fakes and waits
 # ---------------------------------------------------------------------------

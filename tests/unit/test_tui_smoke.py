@@ -68,8 +68,6 @@ def test_app_launches_home_with_every_screen_listed():
             "hashtags",
             "config",
             "auth",
-            "activity",
-            "rates",
         ]
         # both halves of the 2026-08-29 merge are gone as separate rows —
         # asserted negatively so a reflex re-add fails here, loudly
@@ -99,7 +97,7 @@ def test_home_month_populates_from_worker(monkeypatch):
         assert ids[:2] == ["category:c-pend", "category:c-wants"]
         assert "category:c-hogar" not in ids  # nothing in the window: hidden
         assert "account:a-pen" in ids and "account:a-usd" in ids
-        assert ids[-9:] == [
+        assert ids[-7:] == [
             "transactions",
             "reconciliations",
             "accounts",
@@ -107,8 +105,6 @@ def test_home_month_populates_from_worker(monkeypatch):
             "hashtags",
             "config",
             "auth",
-            "activity",
-            "rates",
         ]
         assert home._cursor_id() == "category:c-pend"  # the first month lands the cursor
 
