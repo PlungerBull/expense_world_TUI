@@ -28,6 +28,15 @@ second copy of an engine rule left in this repo. Its facts are in engine-spec, n
   checked 2026-09-26, every write (transactions, opening balances, reconciliation create/edit,
   both importers, the LOG bar) goes through `to_canonical_aware` or `now_local_iso`, and nothing
   sends a number. Phase 12's contract run confirms it.
+- **Reconciliation periods are days** (engine `5922bbf`, `sql/041`; engine `open-bugs.md` →
+  *reconciliation-period-days*), shipped on this repo's ask. `date_start` / `date_end` are sent
+  and returned as bare `YYYY-MM-DD`; any datetime there is `422`. **Phase 10c.**
+
+**`:8000` already runs all of it** (checked 2026-09-26: `/transactions/import` is served, the
+restore routes are gone). The engine coder restarted it with `5922bbf`, ahead of Phase 12, so
+**the current CLI fails against the real ledger on several screens until this uptake lands**.
+Accepted: the product is not in daily use. `:8002` was down on the same check. Phase 12 step 2
+shrinks to bringing `:8002` up on the same code.
 
 **When done:** delete this file and the three debriefs (Phase 12). The reasons worth keeping move
 to [decisions.md](decisions.md) in Phase 11.
@@ -104,6 +113,7 @@ the list is now shorter.
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
 | 10 | Offset code deleted | 6b §4 | — |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — |
+| 10c | Reconciliation periods are days | engine-spec *Date inputs* | — |
 | 11 | Docs and checks | — | — |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
@@ -117,7 +127,8 @@ the list is now shorter.
 | 8 | nothing | |
 | 10 | 3, 4, 5, 6, 8, 9 | Deletes `fetch_all_pages` and `OFFSET_OPT`, which those phases stop using |
 | 10b | 6 (done) | Deletes `fetch_ledger`, which Phase 6 moved to the cursor |
-| 11 | 3–10, 10b | Documents what they built |
+| 10c | nothing | |
+| 11 | 3–10, 10b, 10c | Documents what they built |
 | 12 | 11, plus the owner | Push, restart, contract run |
 
 **Shared files.** Phases that edit the same file should not run at the same time, or the
@@ -125,7 +136,9 @@ second coder rebases: [reconciliations.py](../expense/tui/screens/reconciliation
 [transactions_cmd.py](../expense/commands/transactions_cmd.py) (3, 9),
 [bank_import_cmd.py](../expense/commands/bank_import_cmd.py) (6, 10b),
 [_base.py](../expense/tui/screens/_base.py) `PagedListMixin` (7, 8),
-[_resource.py](../expense/commands/_resource.py) (3, 4, 10).
+[_resource.py](../expense/commands/_resource.py) (3, 4, 10),
+[reconciliations.py](../expense/tui/screens/reconciliations.py) and
+[reconcile_cmd.py](../expense/commands/reconcile_cmd.py) (5, 6, 10c).
 
 ## How to build a phase
 
@@ -396,10 +409,7 @@ recounts; a bulk edit recounts; a resize sends no request; `a` selects all loade
   day). No client date math. The help text changes from "ISO 8601 bound (inclusive)" to
   "a day (YYYY-MM-DD, whole day, inclusive) or a time with an offset". With the restart this
   closes the `--to` defect in [todo.md](todo.md) "Small defects".
-- **The reconcile checklist** keeps sending the period's own `date_start` / `date_end`. Those
-  are instants today, so the last-day rows stay missing until the engine ask "reconciliation
-  periods are days" ([todo.md](todo.md) Engine asks) lands; the owner chose that over a
-  client-side conversion (2026-09-26). Nothing to build here.
+- **The reconcile checklist** is Phase 10c's, not this phase's.
 - Tests: `--sort` and `--after` reach the request, `--offset` is gone, the hint appears only
   with a cursor, a `422` on `sort` renders through the standard envelope, and `--to 2026-08-31`
   reaches the request as exactly `date_to=2026-08-31`.
@@ -497,6 +507,37 @@ what keeps them apart.
 **Check:** `grep -rn "match_rows\|fetch_ledger\|transactions/batch" expense/commands/bank_import_cmd.py`
 finds nothing.
 
+## Phase 10c: reconciliation periods are days (added 2026-09-26)
+
+**Why.** Engine `5922bbf` (this repo's ask, owner's pick 2026-09-26): a period's `date_start` /
+`date_end` are plain calendar days on the wire and in storage. Every period rule was already in
+days; only the value was a moment. The app still sends a midnight instant, which is now a `422`,
+and the tick-list's last-day defect ([todo.md](todo.md) Small defects 1) closes here.
+
+- **Saving a period, flat:** `reconcile create` / `update` send `--date-start` / `--date-end`
+  **as typed**, no `to_canonical_aware`. A bad value is the engine's `422` on that field,
+  rendered through the envelope. Help text: "the statement's first/last day, YYYY-MM-DD".
+- **Saving a period, TUI form:** a bad date is still caught **at the field**, as today
+  (owner 2026-09-26: "at the field, right away"). The check is the exact shape the engine
+  accepts, `YYYY-MM-DD` zero-padded and a real day: a regex plus `date.fromisoformat`
+  (3.11's `fromisoformat` alone also takes `20260831`, which the engine refuses). The hint
+  stays "use YYYY-MM-DD". The payload is the typed text, unconverted. Not the LOG bar's
+  forgiving dates: rejected by the owner the same day.
+- **The tick-list** passes the returned `date_start` / `date_end` straight into `date_from` /
+  `date_to`, as it already does; with bare days that is now the whole last day.
+- **Display:** delete the `[:10]` slicing in `format_period`
+  ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)) and in the browse row
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py)); the value is already a day.
+- **Tests:** every unit fixture of a reconciliation carries bare days (today several carry
+  `…T00:00:00Z`); create/update send exactly the typed day; the TUI form refuses `2026-8-31`,
+  `20260831` and `31/08/2026` at the field and sends `2026-08-31` unchanged; the tick-list's
+  `available` read sends `date_to` equal to the period's `date_end`, byte for byte.
+  [test_reconciliations_lifecycle.py](../tests/contract/test_reconciliations_lifecycle.py)
+  sends bare days (it sends `2026-04-01T00:00:00Z` today), and gains the engine's own check: a
+  row logged at 23:30 on the last day is in the tick-list read.
+- **Closes:** todo.md Small defects 1 (at the Phase 12 check), and the "periods are days"
+  engine ask.
+
 ## Phase 11: docs and checks
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
@@ -532,7 +573,8 @@ finds nothing.
 ## Phase 12: the cutover
 
 1. Push to `main`, CI green.
-2. **The owner restarts `:8000` and `:8002`** on the new engine code (engine side).
+2. **`:8000` already runs the new engine code** (restarted by the engine coder 2026-09-26).
+   **The owner brings up `:8002`** on the same code (engine side).
 3. `python scripts/check_fixture_drift.py` against the new engine.
 4. The debriefs' own checks on the real ledger (reads plus importer dry runs): cursor §4, 6a §5.
    The cursor debrief's "file a page, then scroll on" check runs on the ledger (a filtered
@@ -547,11 +589,13 @@ finds nothing.
    - an activity window walked to null, then the older window from the echoed `date_from`;
    - the bank import, as listed in Phase 10b;
    - `transactions list --to <day>` includes a row logged late on that day; a naive datetime is
-     a `422` rendered through the envelope; reconciliation create/edit round-trips its dates.
+     a `422` rendered through the envelope; reconciliation create/edit round-trips its dates
+     as bare days (Phase 10c).
 6. Delete this file, the three debriefs and [sealed-periods-plan.md](sealed-periods-plan.md).
    In the same commit, remove what links to them, or `test_relative_doc_links_resolve` fails:
    the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's
    open-work paragraph, and the 6a debrief link in
    [category-hashtags-plan.md](category-hashtags-plan.md) §1 (point it at engine-spec instead).
    Tell the engine side to delete `open-bugs.md` → `transaction-cursor`, `phase-6-lists`,
-   `bank-import`, `calendar-day-date-filters` and `strict-request-datetimes`.
+   `bank-import`, `calendar-day-date-filters`, `strict-request-datetimes` and
+   `reconciliation-period-days`.

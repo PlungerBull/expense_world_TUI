@@ -74,6 +74,8 @@ Each entry says what to ask for, why no client can do it properly today, and **w
 deletes when it lands**. Never edited here: they are handed to the owner for the engine coder.
 
 1. **Reconciliation periods are days, not moments.** *(Raised 2026-09-26, owner's pick.)*
+   **Shipped by the engine the same day (`5922bbf`); the uptake is engine-uptake Phase 10c.
+   Delete this entry when 10c lands.**
    A reconciliation's `date_start` / `date_end` are stored as `timestamptz`, accepted only as an
    instant with an offset (since engine `73a0bdc`) and returned as a UTC instant
    (`2026-08-31T05:00:00Z` for 31 August in Lima). Every rule about a period is in calendar days
@@ -106,9 +108,8 @@ Real bugs, each small and self-contained. None of them waits on the engine uptak
    no way to tick them from this screen. **Half fixed by the engine on 2026-09-26** (`1f50722`:
    a bare date filter is the whole day). The other half: the screen sends the period's
    `date_end` as the engine returns it, an **instant**, so rows logged after 00:00 on the last
-   day still miss. The fix is Engine asks 1 ("periods are days"); the owner chose that over a
-   client-side conversion. Until then the `u` pane still reaches those rows. Pin with a test
-   once it lands.
+   day still miss. The engine made periods days (`5922bbf`); engine uptake **Phase 10c** closes
+   this, with a test pinning it. Until then the `u` pane still reaches those rows.
 
 2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side.
    **Fixed by the engine on 2026-09-26** (`1f50722`); it closes at the restart (engine uptake
