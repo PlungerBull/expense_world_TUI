@@ -76,9 +76,12 @@ deletes when it lands**. Never edited here: they are handed to the owner for the
    logs this as `date-filter-not-calendar-days` and `transaction-date-filter-naive`, to be fixed
    together. **The ask is to schedule it**, and to accept a bare date as a whole calendar day in
    the user's `display_timezone`, not to refuse it: every client otherwise re-derives
-   "next day's midnight in the user's zone". **Deletes here:** the client-side bare-date →
-   instant conversion on the flat `--from`/`--to` of `transactions list` and `activity list`
-   (added by the engine uptake).
+   "next day's midnight in the user's zone", and a refusal would stop the reconcile screen
+   loading at all (it sends the period's own bare dates). **Handed over 2026-09-26** as
+   `expense_world_engine/docs/ask-calendar-day-date-filters.md`, written into the engine repo at
+   the owner's request. **Deletes here:** the client-side bare-date → instant conversion on the
+   flat `--from`/`--to` of `transactions list` (engine uptake Phase 9). `activity list` keeps
+   its own: `GET /activity` refuses bare dates by design and is not part of this ask.
 
 Answered on 2026-09-23: `?sort=date_asc` with cursor paging, and the gap fields with the wording
 fix, both shipped. A window flag on transaction reads and `?status=` on `GET /reconciliations`
@@ -95,7 +98,8 @@ Real bugs, each small and self-contained. None of them waits on the engine uptak
    engine reads that bare date as midnight UTC at the **start** of `date_end`, 19:00 the evening
    before in Lima, so every row dated on the last day (stored 05:00 UTC) is left out. On a
    month-end statement that is the 31st's rows, which then block the close as "unassigned" with
-   no way to tick them from this screen. **The complete fix is the engine ask on calendar-day date filters.** Until then the
+   no way to tick them from this screen. **The complete fix is the engine ask on calendar-day date
+   filters** (Engine asks 1, handed over 2026-09-26); the owner chose not to patch it here. Until then the
    `u` pane still reaches those rows. Pin with a test either way.
 
 2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side: the

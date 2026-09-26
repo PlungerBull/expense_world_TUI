@@ -82,7 +82,7 @@ the list is now shorter.
 | 3 | Deleted is deleted: restore commands and `include_deleted` removed | 6a §1 | — (**done**, `8d2fb7c`) |
 | 4 | Small lists come back whole | 6a §3 | M5 (**done**, `c65a125`) |
 | 5 | Reconciliations: one account at a time, no by-id read | 6a §4 | M2, M5 (**done**, `192831c`) |
-| 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — |
+| 6 | The two whole-list readers of transactions move to the cursor | cursor §3.2 | — (**done**, `b5602d7`) |
 | 7 | The ledger becomes one growing list | cursor §3.3 | M3 |
 | 8 | Activity and Rates: TUI screens deleted, flat commands windowed | 6b §2–3 | M1, M5 |
 | 9 | The flat `expense transactions list` | cursor §3.1 | M5 |
@@ -119,9 +119,8 @@ Your phase names the debrief sections that carry the engine facts.
 - **Commit on `main`, do not push.** Nothing is pushed until Phase 12 step 1, so `main` never
   carries a red CI run. Commit through `PATH="$PWD/.venv/bin:$PATH" git commit` (pre-commit runs
   mypy from the venv). Never `--no-verify`.
-- **The unit suite is red at the start, on purpose.** After Phase 4 there are **30 known
-  failures**: 24 in `test_cmd_import_bank.py` (fixed by Phase 6) and 6 in
-  `test_cmd_transactions.py` (fixed by Phase 9). Your phase must leave no failure outside
+- **The unit suite is red at the start, on purpose.** After Phase 6 there are **6 known
+  failures**, all in `test_cmd_transactions.py` (fixed by Phase 9). Your phase must leave no failure outside
   that set, and must fix the ones it owns.
 - **Test fakes refuse `offset`.** Any fake for a transaction read uses `cursor_page()` from
   [tests/unit/helpers.py](../tests/unit/helpers.py) and asserts `"offset" not in kw`. Phase 2's
@@ -283,13 +282,28 @@ back. `_list_all` in the resources lifecycle still pages by offset; Phase 4 owns
 as the mockup draws it (it said `⏎ Open` until then). The reconciliation list in the same panel
 keeps `⏎ Open`.
 
-## Phase 6: the two whole-list readers of transactions
+## Phase 6: the two whole-list readers of transactions (done 2026-09-26, `b5602d7`)
 
 The bank importer's `fetch_ledger` ([bank_import_cmd.py](../expense/commands/bank_import_cmd.py))
 and the checklist's `_fetch_all_txns` move from `fetch_all_pages(lambda limit, offset: …)` to
 `fetch_all_cursor_pages(lambda limit, after: …)`. No sort, no count.
 
 **Tests:** a mock serving two cursor pages; both pages' rows are matched or listed.
+
+**What was built:** both readers call `fetch_all_cursor_pages`. `fetch_all_pages` has no caller
+left and waits for Phase 10. The bank importer's test fake pages the ledger by cursor and refuses
+`offset`.
+
+**Owner answer (2026-09-26), asked while planning this phase:** the checklist's last-day rows
+(todo.md *Small defects* 1) are **the engine's to fix**, not patched here. The request was
+written into the engine repo as `expense_world_engine/docs/ask-calendar-day-date-filters.md`
+(a one-off exception the owner granted to "never write in the engine repo"). It asks that a bare
+date be **accepted** as a whole calendar day, not refused, because refusing would stop the
+reconcile screen loading at all.
+
+**Heads-up for whoever picks up the importer:** the engine shipped `POST /transactions/import`
+on 2026-09-25 (engine `open-bugs.md`, *bank-import*). Once the importer calls it, `fetch_ledger`
+and the local matcher are deleted, including this phase's change to them.
 
 ## Phase 7: the ledger becomes one growing list (M3)
 
