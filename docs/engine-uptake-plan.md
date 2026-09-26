@@ -597,6 +597,15 @@ period-name read still prints the import, under "a closed period", with one line
 A file with no row from 2026 on sends nothing and exits 1. The account pick and `bank_files`
 are unchanged.
 
+**Review follow-ups (2026-09-26):** a response that does not answer exactly the rows sent is
+an error (exit 1, the unanswered rows named, and under `--apply` a note that the import may
+have been written), never a quietly short count. The summary line counts the codes
+(`N codes to write` / `written`). The read timeout is the client's default 60 s: a 500-row
+dry run measured 0.05 s against the local engine; the old 300 s belonged to the chunked batch
+write. Two screen changes are waiting on mockup picks, not built:
+[mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html) —
+the `#` column numbering the file's lines, and the excess warning's wording.
+
 ## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26, `da1b8ce`, `954a4eb`)
 
 **Why.** Engine `5922bbf` (this repo's ask, owner's pick 2026-09-26): a period's `date_start` /
