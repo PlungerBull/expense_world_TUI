@@ -261,9 +261,9 @@ def test_excess_is_signed_by_direction_and_named_by_leg():
         },
         {"sig-pen": "BCP Signature PEN", "sig-usd": "BCP Signature USD"},
     )
-    assert [(g.account_name, g.amount_cents) for g in groups] == [
-        ("BCP Signature PEN", -350),
-        ("BCP Signature USD", 100),
+    assert [(g.account_name, g.amount_cents, g.unclaimed) for g in groups] == [
+        ("BCP Signature PEN", -350, 1),
+        ("BCP Signature USD", 100, 1),
     ]
 
 

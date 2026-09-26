@@ -81,8 +81,9 @@ class ExcessGroup:
     account_name: str
     date_iso: str
     amount_cents: int  # signed, as everywhere else on screen
-    file_count: int
-    ledger_count: int
+    #: The ledger rows here no file row claimed — the count the warning
+    #: shows (owner's pick C, docs/mockups/expense-world-bank-import-10b.html).
+    unclaimed: int
 
 
 def split_floor(rows: list[BankRow]) -> tuple[list[BankRow], list[BankRow]]:
@@ -163,8 +164,7 @@ def excess_groups(response: dict, names: dict[str, str]) -> list[ExcessGroup]:
                 account_name=names.get(account_id, account_id),
                 date_iso=str(e.get("date")),
                 amount_cents=cents,
-                file_count=int(e.get("file_count") or 0),
-                ledger_count=int(e.get("ledger_count") or 0),
+                unclaimed=len(e.get("unclaimed_ledger_ids") or []),
             )
         )
     return out

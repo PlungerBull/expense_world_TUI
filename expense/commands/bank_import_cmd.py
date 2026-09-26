@@ -332,7 +332,9 @@ def render_result(
     headers["match"] = "match"
     table = [
         {
-            "n": str(i),
+            # The file's own line, the number every message below the table
+            # uses too (owner's pick B, expense-world-bank-import-10b.html).
+            "n": str(p.sent.row.line),
             "date": p.sent.row.date_iso,
             "title": p.sent.row.title,
             "amount": format_cents(p.sent.row.amount_cents),
@@ -340,7 +342,7 @@ def render_result(
             "op": p.sent.row.operation_code or "—",
             "match": match_label(p, names),
         }
-        for i, p in enumerate(shown, start=1)
+        for p in shown
     ]
     typer.echo("")
     render_table(headers, table, align_right={"n", "amount"})
@@ -421,18 +423,20 @@ def sealed_lines(placed: list[Placed], names: dict[str, str]) -> list[str]:
 def excess_lines(excess: list[ExcessGroup]) -> list[str]:
     if not excess:
         return []
-    n = len(excess)
     # The engine's `excess`: a day and amount the file reports where the
     # ledger still holds a row no file row claimed — equal counts included,
     # since that row and a `new` one may be the same movement in two wordings.
-    groups = f"{n} day{'' if n == 1 else 's'}"
+    # One line per day, the count of unmatched ledger rows up front (owner's
+    # pick C, docs/mockups/expense-world-bank-import-10b.html).
+    n = sum(e.unclaimed for e in excess)
+    rows_word = f"{n} ledger row{'' if n == 1 else 's'}"
     lines = [
-        f"! {groups} where the ledger holds a row of the same amount that no file row "
-        "matched — it may be logged twice"
+        f"! {rows_word} no file row matched — check",
+        f"  before --apply, {'it' if n == 1 else 'one'} may be logged twice",
     ]
     for e in excess:
         where = f"{e.date_iso} · {format_cents(e.amount_cents)} · {e.account_name}"
-        lines.append(f"    {where} — ledger {e.ledger_count}, file {e.file_count}")
+        lines.append(f"    {e.unclaimed} on {where}")
     return lines
 
 

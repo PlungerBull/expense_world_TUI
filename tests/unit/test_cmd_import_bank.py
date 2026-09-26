@@ -333,20 +333,32 @@ def test_a_failed_period_read_still_shows_the_import(configured, monkeypatch):
 
 
 @respx.mock
-def test_an_unmatched_ledger_row_on_a_files_day_is_a_loud_warning(configured, monkeypatch):
+def test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front(configured, monkeypatch):
+    """Pick C (docs/mockups/expense-world-bank-import-10b.html). The count is the
+    ledger rows no file row matched, never the ledger's total: the equal-count
+    day shows 1, and the day holding three against the file's one shows 2."""
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[2:3])
     _engine(
         lambda i, row: {"outcome": "matched", "rule": "same_day", "ledger_id": "t1"},
         excess=[
             {
                 "account_id": "sig-pen",
+                "date": "2026-09-10",
+                "amount_cents": 2800,
+                "transaction_type": 1,
+                "file_count": 1,
+                "ledger_count": 1,
+                "unclaimed_ledger_ids": ["t9"],
+            },
+            {
+                "account_id": "sig-pen",
                 "date": "2026-09-07",
                 "amount_cents": 350,
                 "transaction_type": 1,
                 "file_count": 1,
-                "ledger_count": 2,
-                "unclaimed_ledger_ids": ["t2"],
-            }
+                "ledger_count": 3,
+                "unclaimed_ledger_ids": ["t2", "t3"],
+            },
         ],
     )
     for apply in ([], ["--apply"]):
@@ -354,11 +366,36 @@ def test_an_unmatched_ledger_row_on_a_files_day_is_a_loud_warning(configured, mo
             monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature", *apply]
         )
         assert result.exit_code == 0, result.output
-        assert (
-            "! 1 day where the ledger holds a row of the same amount that no file row"
-            in result.output
-        )
-        assert "2026-09-07 · -3.50 · BCP Signature PEN — ledger 2, file 1" in result.output
+        out = result.output
+        assert "! 3 ledger rows no file row matched — check" in out
+        assert "before --apply, one may be logged twice" in out
+        assert "    1 on 2026-09-10 · -28.00 · BCP Signature PEN" in out
+        assert "    2 on 2026-09-07 · -3.50 · BCP Signature PEN" in out
+        assert "ledger 1, file 1" not in out
+
+
+@respx.mock
+def test_the_number_column_is_the_files_line(configured, monkeypatch):
+    """Pick B: `#` is the Excel row, the number every message under the table
+    uses. Line 3 is from 2025 and line 4 has a zero amount, so neither is in the
+    table and the numbers jump from 2 to 5."""
+    _feed(
+        monkeypatch,
+        CARD_HEADERS,
+        [
+            ("2026-09-11", "CAFE", "S/", -18.5),
+            ("2025-12-30", "OLD", "S/", -35),
+            ("2026-09-09", "ZERO", "S/", 0),
+            ("2026-09-08", "GRIFO", "S/", -120),
+        ],
+    )
+    _engine()
+    result = _run(monkeypatch, ["import", "bank", "x.xlsx", "--account", "BCP Signature"])
+    assert result.exit_code == 0, result.output
+    table = [ln.split() for ln in result.output.splitlines()]
+    rows = [t[0] for t in table if len(t) > 1 and t[1].startswith("2026-09-")]
+    assert rows == ["2", "5"]
+    assert "! row 4: the amount is zero" in result.output
 
 
 @respx.mock

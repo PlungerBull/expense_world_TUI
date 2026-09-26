@@ -602,9 +602,11 @@ an error (exit 1, the unanswered rows named, and under `--apply` a note that the
 have been written), never a quietly short count. The summary line counts the codes
 (`N codes to write` / `written`). The read timeout is the client's default 60 s: a 500-row
 dry run measured 0.05 s against the local engine; the old 300 s belonged to the chunked batch
-write. Two screen changes are waiting on mockup picks, not built:
-[mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html) —
-the `#` column numbering the file's lines, and the excess warning's wording.
+write. Two screen changes, drawn in
+[mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html) and
+picked by the owner the same day: **B**, the `#` column is the file's line (heading stays
+`#`), and **C**, the excess warning counts the unmatched ledger rows, one line per day
+(`unclaimed_ledger_ids`, never `ledger_count`).
 
 ## Phase 10c: reconciliation periods are days (added 2026-09-26, done 2026-09-26, `da1b8ce`, `954a4eb`)
 
