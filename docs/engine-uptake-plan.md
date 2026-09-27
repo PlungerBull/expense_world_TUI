@@ -118,7 +118,7 @@ the ledger (Phase 7). It replaced a builder's call that re-read as many rows as 
 | 10 | Offset code deleted | 6b §4 | — (**done**, `79abe7d`) |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — (**done**) |
 | 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`, `954a4eb`) |
-| 11 | Docs and checks | — | — (**done**) |
+| 11 | Docs and checks | — | — (**done**, `dac0506`) |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
 **Order and dependencies.** Each phase can go to a different coder. What must land first:
@@ -657,7 +657,7 @@ half-dated branches of `format_period`, the undated guard in `blocking_windows`,
 reconciliation now carries both days. A contract test pins the rule (a missing `date_end` on
 create, and `null` on update, are both `422`).
 
-## Phase 11: docs and checks (done 2026-09-27)
+## Phase 11: docs and checks (done 2026-09-27, `dac0506`)
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
   The "Pagination (human mode)" paragraph is **already rewritten** (Phase 4); only check that its
