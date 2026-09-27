@@ -518,8 +518,15 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if item:
             self.app.push_screen(
                 QuickAddLogScreen(record=item, resource="transactions"),
-                lambda _result: self._reload_fresh(),
+                self._after_detail,
             )
+
+    def _after_detail(self, saved: bool | None) -> None:
+        """A save reloads fresh, like every write; `esc` leaves the list as it
+        was — same rows loaded, cursor on the row it was on (owner, 2026-09-27).
+        The list underneath was never rebuilt, so doing nothing keeps it."""
+        if saved:
+            self._reload_fresh()
 
 
 def _crumb_for(flt: LedgerFilter | None) -> tuple[str, ...]:

@@ -78,6 +78,70 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     run_app(scenario)
 
 
+def _ledger_rows(n: int) -> list:
+    return [dict(ITEMS[1], id=f"t{i}", title=f"ROW {i}") for i in range(1, n + 1)]
+
+
+def _patch_detail(monkeypatch, rows: list):
+    import expense.tui.screens.transactions as tx_mod
+
+    calls, _counts = fake_ledger(monkeypatch, rows)
+    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
+    monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
+    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+    return calls
+
+
+def test_esc_from_the_detail_keeps_the_rows_and_the_cursor(monkeypatch):
+    """`⏎` then `esc` is not a write: the ledger comes back as it was — the
+    rows `pgdn` loaded and the cursor on the row it was on (owner, 2026-09-27)."""
+    calls = _patch_detail(monkeypatch, _ledger_rows(25))
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        listing = screen.query_one(CursorList)
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: len(screen._rows) == 20)
+        await pilot.press("down", "down")
+        key = listing.cursor_key
+        assert key == "t13"
+        reads = len(calls)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert len(calls) == reads  # nothing was read again
+        assert screen.query_one(CursorList) is listing
+        assert listing.cursor_key == key and len(screen._rows) == 20
+
+    run_app(scenario)
+
+
+def test_a_save_from_the_detail_still_reloads_fresh(monkeypatch):
+    """A save is a write, and after any write the ledger is the newest 10 again
+    with the cursor on row 1 (owner, 2026-09-26)."""
+    calls = _patch_detail(monkeypatch, _ledger_rows(25))
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: len(screen._rows) == 20)
+        reads = len(calls)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        app.screen._done()  # the save's success callback
+        await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 10)
+        await wait_for(pilot, lambda: screen.query_one(CursorList).cursor_index == 0)
+
+    run_app(scenario)
+
+
 def test_plus_opens_the_log_bar(monkeypatch):
     """`+` on the ledger logs a new transaction (2026-08-20) — through the LOG
     bar since quick-add phase 4 (2026-08-25). The row under the cursor is

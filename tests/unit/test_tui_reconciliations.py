@@ -701,6 +701,33 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
     run_app(scenario)
 
 
+def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
+    """`⏎` on a row in no batch, then `esc`: not a write, so nothing is read
+    again and the cursor stays on its row (owner, 2026-09-27)."""
+    from expense.tui.screens.quick_log import QuickAddLogScreen
+
+    _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
+    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
+        await pilot.press("down")
+        key = screen._batch_list.cursor_key
+        reads = len(calls)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert len(calls) == reads
+        assert screen._batch_list.cursor_key == key == "t12"
+        assert len(screen._batch_list._rows) == 20
+
+    run_app(scenario)
+
+
 def test_r_starts_again_from_the_oldest_ten(monkeypatch):
     _patch_browse(monkeypatch)
     calls, counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])

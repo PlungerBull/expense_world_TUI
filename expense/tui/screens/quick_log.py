@@ -311,4 +311,4 @@ class QuickAddLogScreen(FormScreen):
 
     def _done(self) -> None:
         self.notify("Saved.")
-        self.dismiss()
+        self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True

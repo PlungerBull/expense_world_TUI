@@ -380,7 +380,7 @@ class ReconciliationsScreen(SectionScreen):
 
                 self.app.push_screen(
                     QuickAddLogScreen(record=record),
-                    lambda _result: self._reload_unfiled(),
+                    lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
                 )
             return
         if event.control is self._accts_list:
