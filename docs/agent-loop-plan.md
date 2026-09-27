@@ -75,20 +75,10 @@ Every question is written in plain language with 2–3 options and a recommendat
 
 ## 6. What gets built
 
-### 6.1 Take up the engine's published contract (first task, before anything else)
+6.1–6.4 are built directly in a normal session, since the loop does not exist yet. 6.5 is
+the loop's first job.
 
-Today this repo still reads the engine's folder. Once this lands, it doesn't:
-
-1. Agents and `scripts/check_fixture_drift.py` read the contract from the **test engine**
-   (`:8002`), and record the contract version last checked against, so a version change is
-   noticed.
-2. Remove every link into `../expense_world_engine` — CLAUDE.md, README, cli-spec.md, other
-   docs, and the engine half of `tests/unit/test_docs_links.py`.
-3. Code comments that cite engine files (`sql/015` in `expense/currencies.py`, `sql/026` in
-   `expense/http.py`, and any others) cite the contract instead.
-4. Then "never read outside this repo" becomes absolute.
-
-### 6.2 Rules written into CLAUDE.md
+### 6.1 Rules written into CLAUDE.md
 
 - Stay inside this repo.
 - todo.md is the task list; decisions.md is the decision log; only the orchestrator edits
@@ -99,12 +89,12 @@ Today this repo still reads the engine's folder. Once this lands, it doesn't:
 - The loop and the definition of done (§4).
 - AGENTS.md and the header of todo.md updated to match.
 
-### 6.3 The three worker files
+### 6.2 The three worker files
 
 Builder, tester and reviewer, written once in the owner's personal Claude settings so every
 repo shares them. Each one's tool limits are set in its file (§3).
 
-### 6.4 Automatic guards (hooks)
+### 6.3 Automatic guards (hooks)
 
 Kept in a shared settings file inside this repo, so they travel with it:
 
@@ -121,18 +111,32 @@ Kept in a shared settings file inside this repo, so they travel with it:
   commits today).
 - Each guard is tested once by deliberately tripping it.
 
-### 6.5 Cleanup
+### 6.4 Cleanup
 
 - Trim `.claude/settings.local.json`: it pre-approves blanket actions (reading anything in the
   home folder, any `git push`, a stored cloud-database login command) that would undermine
   the guards.
 - Confirm the fast tests are green before the first loop run.
 
+### 6.5 Take up the engine's published contract (the loop's first spec and trial run)
+
+Built by the loop itself, once 6.1–6.4 exist: it is the first spec the owner writes, and the
+trial run. Today this repo still reads the engine's folder. Once this lands, it doesn't:
+
+1. Agents and `scripts/check_fixture_drift.py` read the contract from the **test engine**
+   (`:8002`), and record the contract version last checked against, so a version change is
+   noticed.
+2. Remove every link into `../expense_world_engine` — CLAUDE.md, README, cli-spec.md, other
+   docs, and the engine half of `tests/unit/test_docs_links.py`.
+3. Code comments that cite engine files (`sql/015` in `expense/currencies.py`, `sql/026` in
+   `expense/http.py`, and any others) cite the contract instead.
+4. Then "never read outside this repo" becomes absolute.
+
 ## 7. Rollout
 
 1. Owner answers the open questions (§8).
-2. Build §6.1–6.5.
-3. **Trial run:** one small task with no screen work, owner watching.
+2. Build §6.1–6.4.
+3. **Trial run:** the loop runs §6.5 as its first spec, owner watching.
 4. Adjust, record the setup in decisions.md, delete this doc.
 5. Later: copy to the engine repo (with guards for its own real database); optionally a
    read-only status board at the `productivity_world` level showing each repo's loop and
@@ -140,6 +144,6 @@ Kept in a shared settings file inside this repo, so they travel with it:
 
 ## 8. Open questions for the owner
 
-**Q8. Which work goes first after §6.1?** The "Now" list in todo.md: most items need a mockup
-or have open owner questions. Recommendation: §6.1 is the trial run itself (no screens, clear
+**Q8. Which work goes first after §6.5?** The "Now" list in todo.md: most items need a mockup
+or have open owner questions. Recommendation: §6.5 is the trial run itself (no screens, clear
 criteria), then whatever you rank next.
