@@ -1,6 +1,7 @@
 # Agent loop setup — plan
 
-**Status:** planning; nothing built yet. Written 2026-09-27. Delete this doc when the setup
+**Status:** §6.1 is built — its rules are in CLAUDE.md "How work runs (the agent loop)"; §6.2–6.4
+next. Written 2026-09-27. Delete this doc when the setup
 ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
@@ -26,7 +27,8 @@ of being guessed.
 | **The loop runs on its own** once the owner approves the task list: it builds, tests and commits without checking in per task, and stops only for §5 items and escalations. | 2026-09-27 |
 | **Push to GitHub after every finished task**, so GitHub's checks run on each one. | 2026-09-27 |
 | **Screen tasks don't stall the loop:** the loop draws the mockup, parks the task, adds a question for the owner, and moves on. | 2026-09-27 |
-| **Questions for the owner live in their own file, `docs/questions.md`**, separate from the task list. | 2026-09-27 |
+| **Questions for the owner live in [todo.md](todo.md) "Questions for the owner"**, a section of their own; every existing owner question moved there. | 2026-09-27 |
+| **Every session is the orchestrator, always** — a plain chat with the owner included. The main session never writes code or tests. | 2026-09-27 |
 | **The tester never writes tests or code.** When a criterion has no test that proves it, the tester says so in its report and the builder writes the test. | 2026-09-27 |
 | **One spec per piece of work, written by the owner** (in `docs/specs/`). The owner tells the orchestrator which spec is current; the orchestrator drafts that spec's tasks into todo.md and the owner approves them before the loop runs. The existing agent-written plan docs become drafts the owner rewrites or approves before their work starts. | 2026-09-27 |
 
@@ -56,7 +58,7 @@ wrong, where), so the orchestrator reads them reliably.
    in that same commit.
 7. **When every remaining task is waiting on the owner** (a mockup to pick, a question to
    answer), the loop stops and hands the owner a short summary: what finished, and what is
-   waiting in `docs/questions.md`. It does not keep running with nothing to do. The owner
+   waiting in todo.md "Questions for the owner". It does not keep running with nothing to do. The owner
    answers, and restarts the loop.
 
 One task at a time: the repo has a single branch, so parallel builders would collide.
@@ -75,19 +77,9 @@ Every question is written in plain language with 2–3 options and a recommendat
 
 ## 6. What gets built
 
-6.1–6.4 are built directly in a normal session, since the loop does not exist yet. 6.5 is
-the loop's first job.
-
-### 6.1 Rules written into CLAUDE.md
-
-- Stay inside this repo.
-- todo.md is the task list; decisions.md is the decision log; only the orchestrator edits
-  them.
-- The question list: `docs/questions.md`, and its format.
-- What always goes to the owner (§5).
-- The orchestrator's role, worded so the workers — who read CLAUDE.md too — don't take it on.
-- The loop and the definition of done (§4).
-- AGENTS.md and the header of todo.md updated to match.
+Every session is the orchestrator, so the main session builds only docs and Claude config:
+the worker files (6.2), the hook settings (6.3) and the settings cleanup (6.4). A hook *script*,
+a test, or any other code waits for the builder that 6.2 creates. 6.5 is the loop's first job.
 
 ### 6.2 The three worker files
 
@@ -144,6 +136,4 @@ trial run. Today this repo still reads the engine's folder. Once this lands, it 
 
 ## 8. Open questions for the owner
 
-**Q8. Which work goes first after §6.5?** The "Now" list in todo.md: most items need a mockup
-or have open owner questions. Recommendation: §6.5 is the trial run itself (no screens, clear
-criteria), then whatever you rank next.
+In [todo.md](todo.md) "Questions for the owner" ("Which spec does the loop run first?").

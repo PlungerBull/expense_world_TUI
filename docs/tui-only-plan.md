@@ -28,29 +28,8 @@ directly.
 
 ## Open questions for the owner
 
-None is decided; each gets an answer before its step starts. "Leaning" is the builder's
-suggestion, not a decision.
-
-1. **Human output.** Should the flat commands print `--json` only, which means deleting the human
-   tables, pagination footers, colour swatches and name columns? Or should they keep a plain human
-   mode? *Leaning: JSON only. The agent reads JSON, and the TUI is the human view.*
-2. **Coverage.** Should every engine endpoint keep one thin command, or only the ones the agent
-   actually uses? *Leaning: one per endpoint, so the agent can check any of them.*
-3. **Imports and `expense log`.** `import bank` and `import sheet` are flat-only today. There is
-   no TUI door until [file-import-plan.md](file-import-plan.md) §3 (C1) ships, and `import bank`
-   asks the owner which account a file belongs to. Do they stay as human commands until C1 lands?
-   What happens to them after that? The same question applies to `expense log "<line>"`, which is
-   the flat twin of the LOG bar.
-4. **Guard tests and prompts.** [test_command_surface.py](../tests/unit/test_command_surface.py)
-   requires an `Example:` docstring and an error-shape test for every command, `--json` on every
-   read and `--yes` on every destructive write. Confirmation prompts are for people, and the agent
-   always passes `--yes`. Which guards stay?
-5. **Where the shared layer lives.** The TUI imports its reads and formatters from
-   `expense/commands/*` (e.g. `_resource.py`, `transactions_cmd`, `dashboard_cmd`). If the commands
-   shrink, should the shared code move to a package that isn't named after them?
-6. **The repo's new name.** GitHub `PlungerBull/expense_CLI_menu`, local folder
-   `expense_world_CLI`. What should it be? Does the `expense` entry point keep its name?
-7. **The note to the engine coder.** Does the draft below say what you want said?
+In [todo.md](todo.md) "Questions for the owner", the entries titled "TUI-only: …". Each gets an
+answer before its step starts.
 
 ## Consequences that follow directly
 
@@ -61,19 +40,19 @@ suggestion, not a decision.
   TUI screen.
 - **todo.md items that lose their reason:** Ergonomics "Shell completions", "Human-name
   resolution for reference flags", "Move between accounts convenience", and Parked "Flat-CLI
-  color conventions". "`expense import csv`" depends on question 3.
+  color conventions". "`expense import csv`" depends on the imports question.
 - **New work goes TUI-first.** A new engine capability gets its TUI screen, plus a flat command
-  only as thin as the answer to question 1 allows.
+  only as thin as the JSON-only answer allows.
 
 ## Steps
 
 1. **Record the decision.** Add a decisions.md entry (Context / Decision / Rejected) that
    supersedes "Dual-UX strategy". Rewrite the CLAUDE.md and cli-spec.md sections above.
-2. **Trim the flat surface** to the answers to questions 1–5. That means human renderers,
+2. **Trim the flat surface** to the answers on output, coverage, imports, guard tests and shared code. That means human renderers,
    pagination footers and prompts, their tests, and the guards in `test_command_surface.py`.
-   Move the shared layer if question 5 says so. The unit suite stays green at every commit.
+   Move the shared layer if the shared-code answer says so. The unit suite stays green at every commit.
 3. **Clean todo.md.** Delete the items listed above.
-4. **Rename the repo** (question 6): `gh repo rename` on GitHub (push access needs
+4. **Rename the repo** (the new-name question): `gh repo rename` on GitHub (push access needs
    `gh auth switch --user PlungerBull`), update the local remote, rename the local folder if the
    owner wants that, and update the references in this repo: [CLAUDE.md](../CLAUDE.md),
    [README.md](../README.md), [cli-spec.md](cli-spec.md) and the "Repo name note" at the top of

@@ -24,7 +24,8 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/cli-spec.md](docs/cli-spec.md) | Command groups, output conventions | Local |
 | [docs/cli-runtime.md](docs/cli-runtime.md) | Runtime behavior — read/write semantics, error handling, working against the live engine | Local |
 | [docs/tui.md](docs/tui.md) | Textual TUI (`expense world`) — architecture, theming, keymap contract, test conventions | Local |
-| [docs/todo.md](docs/todo.md) | The **single open-work queue**. Open items only; closed work is deleted, git history is the archive | Local |
+| [docs/todo.md](docs/todo.md) | The **single open-work queue**, the current spec, and every question waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
+| [docs/specs/](docs/specs/) | The owner's specs, one per piece of work — what the loop builds | Local |
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
 | [docs/mockups/](docs/mockups/) | HTML mockups — the approval gate for every screen and table | Local |
 | `engine-spec.md` | Every endpoint, every business rule — the API contract | [../expense_world_engine/docs/engine-spec.md](../expense_world_engine/docs/engine-spec.md) |
@@ -40,6 +41,7 @@ Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone t
 - **Install:** `pip install -e ".[dev]" -c constraints.txt` — entry point is `expense` (TUI via `expense world`). `constraints.txt` pins the direct deps CI installs.
 - **Test:** `pytest tests/unit` (fast, respx-mocked, hermetic — an autouse fixture in [tests/unit/conftest.py](tests/unit/conftest.py) redirects `EXPENSE_CONFIG`; never bypass it). `tests/contract/` hits a **real engine**, gated on `PYTEST_LIVE=1` (+ `EXPENSE_PAT`); it refuses to run against the real ledger and expects the disposable `expense_world_test` engine on **`:8002`** — *not* `:8001`, which is todo_world_engine's (setup: [tests/contract/conftest.py](tests/contract/conftest.py) docstring). Unit tests mock the engine, so run `python scripts/check_fixture_drift.py` after any engine change (diffs fixture keys against the engine's `openapi.json`). Render tests go through `helpers.render_text(renderable, width=..., ansi=...)`, never a bare `Console(...)` (guarded by `test_suite_hygiene.py`).
 - **Lint/format/types:** `ruff check . && ruff format .` plus scoped `mypy` (`[tool.mypy]` covers `http.py`/`config.py`/`errors.py` — widen as modules get annotated). CI (3.11/3.12/3.13) enforces ruff, mypy and `pytest tests/unit --cov`; pre-commit runs gitleaks + ruff + mypy. Line length 100, target py311.
+- **Commit and push:** commit with `PATH="$PWD/.venv/bin:$PATH" git commit` so pre-commit finds the project's mypy; never `--no-verify` (it skips the gitleaks secret scan). Pushing needs the `PlungerBull` GitHub account (`gh auth switch --user PlungerBull`).
 - **Careful running live:** plain `expense …` commands use the real `~/.expense-config` and hit the live local engine (`127.0.0.1:8000`) — the one true ledger. Don't run writes ad hoc. Ops guide: [docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine".
 - **Env vars:** `EXPENSE_CONFIG` (config path override), `PYTEST_LIVE=1` (contract tests).
 
@@ -77,7 +79,7 @@ Deletes and reverts prompt for confirmation unless `--yes` is passed; a delete i
 Auth token + engine URL live in `~/.expense-config`. Never checked in, never shared across machines. The GitHub repo (`PlungerBull/expense_CLI_menu`) is **public** by deliberate choice, so any committed secret is public and permanent in git history; credentials must never enter the repo.
 
 **Mock every screen before building it — every time**
-Before writing or changing UI code for any user-facing view — menu, dashboard, list, form, report, TUI screen — first present its **HTML mockup in [docs/mockups/](docs/mockups/)** and wait for the user's review, **every time, even for a screen approved before** (the user re-reads the mockup each session). **Showing mockups is not approval:** never implement (even in auto-accept mode) until the user explicitly picks one. This includes CLI tables: a new `<resource> list` renderer or column change needs a proposed column set + sign-off first ([docs/cli-spec.md](docs/cli-spec.md)). When a detail is unspecified or ambiguous, **stop and ask**.
+Before writing or changing UI code for any user-facing view — menu, dashboard, list, form, report, TUI screen — first present its **HTML mockup in [docs/mockups/](docs/mockups/)** and wait for the user's review, **every time, even for a screen approved before** (the user re-reads the mockup each session). **Showing mockups is not approval:** never implement (even in auto-accept mode) until the user explicitly picks one. This includes CLI tables: a new `<resource> list` renderer or column change needs a proposed column set + sign-off first ([docs/cli-spec.md](docs/cli-spec.md)). When a detail is unspecified or ambiguous, **stop and ask** — the orchestrator asks the owner; a worker stops and puts the question in its report ("How work runs" below).
 
 **One copy of everything shared**
 Never duplicate fetch/format/write logic between CLI and TUI; extend the shared helper instead. The TUI imports `fetch_*` and formatters from `expense/commands/*`. Shared homes: read/format helpers in [expense/commands/_resource.py](expense/commands/_resource.py), `--json` serialisation in [expense/jsonout.py](expense/jsonout.py), TUI write plumbing in [expense/tui/screens/_base.py](expense/tui/screens/_base.py), list arithmetic in [expense/tui/widgets/windowed.py](expense/tui/widgets/windowed.py), cursor-grown list reads in [expense/tui/screens/_growing.py](expense/tui/screens/_growing.py), the quick-add suggestion list in [expense/tui/widgets/picker.py](expense/tui/widgets/picker.py), form scaffolding in [expense/tui/screens/_form.py](expense/tui/screens/_form.py).
@@ -91,6 +93,43 @@ The base fill is the terminal's own background (`ansi_default`, set in [expense/
 **Testing conventions**
 Every new command lands with at least one happy-path + one error-shape unit test (`test_command_surface.py::test_every_command_has_an_error_shape_test` enforces the second half; a parametrized test counts). The CRUD shape every resource shares lives once, in [tests/unit/test_resource_crud_contract.py](tests/unit/test_resource_crud_contract.py); a per-resource file holds only what is that resource's own. [tests/unit/test_command_surface.py](tests/unit/test_command_surface.py) requires every command to have a docstring with an `Example:` block, `--json` on reads, `--yes` on destructive writes.
 
+## How work runs (the agent loop)
+
+The owner is not a coder. Agents make every technical decision. The owner decides what users see (screens, flows, wording), money or business rules a spec does not cover, and anything touching real data.
+
+**Roles.** The main session is **always the orchestrator**, including a plain chat with the owner. Builder, tester and reviewer are **workers** it delegates to.
+
+| Role | Does | May touch |
+|---|---|---|
+| **Orchestrator** (main session) | Picks the next task, writes its "passes if…" criteria, delegates, reads the reports, commits and pushes, files questions and rationale. **Never writes code or tests.** | Docs and Claude config; the only role that edits [docs/todo.md](docs/todo.md) and [docs/decisions.md](docs/decisions.md) |
+| **Builder** | Implements one task under this file's rules, and updates the doc that owns what it changed (cli-spec, tui.md, README, …) | Code, tests and docs of this repo, except todo.md and decisions.md |
+| **Tester** | Checks each criterion: runs `pytest tests/unit`, runs the app against the test engine (`:8002`), reports pass/fail with evidence. A criterion no test proves is reported as such; the builder writes that test | Runs things; edits nothing |
+| **Reviewer** | Reads the change for quality, security and this file's conventions | Read-only |
+
+**If you are a worker,** you have no owner to ask and you are not the orchestrator. When something is unclear, a rationale belongs in decisions.md, or a choice belongs to the owner, stop and put it in your report; the orchestrator files it. Every worker reports in one shape: **verdict · what was checked · what is wrong · where**.
+
+**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one in todo.md's "Current spec" line. The orchestrator drafts that spec's tasks into todo.md, the owner approves them, and then the loop runs on its own. It works only on the current spec.
+
+**Per task:**
+1. Take the next approved task and write its "passes if…" criteria. No clear criteria → a question for the owner first.
+2. Builder implements → tester checks → reviewer checks. A fail or rejection goes back to the builder with that report.
+3. After **4 failed rounds**, park the task, add a question for the owner, and move on.
+4. **Done** = tester passed + reviewer approved + committed and pushed + deleted from todo.md in that same commit.
+5. **One task at a time** — the single branch means parallel builders would collide.
+6. When every remaining task waits on the owner, **stop** and give the owner a short summary: what finished and which questions wait. The owner answers and restarts the loop.
+
+A task that needs a screen does not stall the loop: draw the mockup, park the task, add a question asking the owner to pick, and move on.
+
+**What always goes to the owner — never guessed:**
+- Anything users see — "Mock every screen before building it" above.
+- Money or business rules a spec does not cover. In this repo these usually become an engine ask ("Ask the engine to change" above).
+- Anything touching real data — the live engine and `~/.expense-config` ("Careful running live" above).
+- Anything outside this repo.
+
+**Questions for the owner** live in todo.md "Questions for the owner", in the format given there: plain language, 2–3 options, a recommendation.
+
+**Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. One exception, **read-only**, until the todo.md task that takes up the engine's published contract lands: the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
+
 ## Status
 
-Both surfaces are complete: the flat CLI wraps every engine endpoint that has a CLI surface (and is the canonical contract-validator surface), and the TUI `expense world` — the owner's day-to-day surface — covers the same ground on the same fetch/write layer. What exists: [docs/cli-spec.md](docs/cli-spec.md) (commands), [docs/tui.md](docs/tui.md) (TUI), [docs/cli-runtime.md](docs/cli-runtime.md) (runtime); why: [docs/decisions.md](docs/decisions.md). **Open work, including engine asks and known defects, lives only in [docs/todo.md](docs/todo.md).**
+Both surfaces are complete: the flat CLI wraps every engine endpoint that has a CLI surface (and is the canonical contract-validator surface), and the TUI `expense world` — the owner's day-to-day surface — covers the same ground on the same fetch/write layer. What exists: [docs/cli-spec.md](docs/cli-spec.md) (commands), [docs/tui.md](docs/tui.md) (TUI), [docs/cli-runtime.md](docs/cli-runtime.md) (runtime); why: [docs/decisions.md](docs/decisions.md). **Open work, including engine asks, known defects and questions for the owner, lives only in [docs/todo.md](docs/todo.md).**

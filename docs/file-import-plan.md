@@ -57,10 +57,9 @@ key. The list shows the legs folded:
   2  BCP Signature    PEN + USD
 ```
 
-**Naming check with the owner:** the bank's product names do not match the account names
-(`VISA Infinite Sapphire` vs `BCP Signature`, `Sueldo Soles`/`Cuenta Digital Dólares` vs
-`BCP PEN`/`BCP USD`). Is the Signature account the Infinite card renamed, or is a card missing
-from the system?
+**Naming check with the owner:** the bank's product names do not match the account names. The
+question is in [todo.md](todo.md) "Questions for the owner" ("Do the bank's product names match
+your accounts?").
 
 ---
 

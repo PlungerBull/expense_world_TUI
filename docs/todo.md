@@ -1,8 +1,16 @@
 # TODO — the workpad
 
-**The single open-work queue for this repo.** Nothing else tracks pending work — no issue
-tracker, no `TODO:` comments in code.
+**The single open-work queue for this repo, and the one place questions for the owner wait.**
+Nothing else tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
+runs: CLAUDE.md "How work runs (the agent loop)".
 
+**Current spec:** none named yet. The owner writes specs in [specs/](specs/) and names the
+current one here.
+
+- **Only the orchestrator edits this file.** Workers put tasks and questions in their reports.
+- **A spec's tasks** are drafted here by the orchestrator and approved by the owner before the
+  loop runs. The plan docs linked under **Now** are drafts until the owner approves them or
+  rewrites them as specs.
 - **Closed items get deleted**, not ticked. Git history is the archive
   ([decisions.md](decisions.md) "The open-work list holds only open work").
 - Items marked **[UI]** need an HTML mockup in [mockups/](mockups/) reviewed and explicitly
@@ -10,8 +18,143 @@ tracker, no `TODO:` comments in code.
 - **Absolute dates only.**
 - **Cite items by title, never by number** — numbering shifts every time an item closes.
 
-Sections: **Now** (the sequenced queue, one plan doc per item) · **Engine asks** · **Small
-defects** · **Ergonomics**, **Cosmetic** and **Parked** (none of it blocking).
+Sections: **Questions for the owner** · **Now** (the sequenced queue) · **Engine asks** ·
+**Small defects** · **Ergonomics**, **Cosmetic** and **Parked** (none of it blocking).
+
+---
+
+## Questions for the owner
+
+Everything waiting on the owner. The orchestrator adds an entry instead of guessing; once the
+owner answers, it acts on the answer and deletes the entry. Each entry:
+
+```
+### <title>
+Asked <date> · Blocks: <task or spec>
+<the question, in plain language>
+- **A.** <option>
+- **B.** <option>
+**Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
+```
+
+### Which spec does the loop run first?
+Asked 2026-09-27 · Blocks: the agent loop's trial run
+The loop needs a first spec to try itself on.
+- **A.** Take up the engine's published contract
+  ([agent-loop-plan.md](agent-loop-plan.md) §6.5): this repo reads the contract from the test
+  engine and stops reading the engine's folder.
+- **B.** An item from **Now**, which you name.
+
+**Recommended:** A. It has no screens and clear pass/fail checks, so the loop can prove itself
+safely. After it, you rank what comes next.
+
+### Will you still log card purchases by hand after the official migration?
+Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Small defects
+"After `--apply`, the bank import's warning…"
+- **A.** Yes. The import then offers "rename your row to the bank's wording?" every time it
+  finds a match (an engine ask plus a mockup).
+- **B.** No. Nothing to build; this closes.
+
+**Recommended:** none. It depends on how you will work.
+
+### Do the bank's product names match your accounts?
+Asked 2026-09-20 · Blocks: The TUI import door (C1), [file-import-plan.md](file-import-plan.md) §3
+The bank says `VISA Infinite Sapphire`, `Sueldo Soles` and `Cuenta Digital Dólares`. Your
+accounts are `BCP Signature`, `BCP PEN` and `BCP USD`.
+- **A.** They are the same accounts under other names. Only `BCP Signature` needs confirming:
+  it is the Infinite card, renamed.
+- **B.** A card is missing from the system and needs creating.
+
+**Recommended:** none. Only you know.
+
+### Tags that know the category: the four choices in §5
+Asked 2026-09-20 · Blocks: Tags that know the category
+[category-hashtags-plan.md](category-hashtags-plan.md) §5 holds four choices, H1–H4. Each is
+laid out with its reasons and a recommendation: which screens narrow the tag list, what a
+category with no tags shows, whether the "show all tags" shortcut is `##`, and whether usage
+counts show.
+- **A.** Accept all four recommendations.
+- **B.** Go through them one by one.
+
+**Recommended:** A. Each one is argued in §5.
+
+### Tags that know the category: does the legend row change?
+Asked 2026-09-20 · Blocks: Tags that know the category
+The LOG bar's one-row legend lists the whole quick-add grammar. If `##` (show all tags) ships,
+the legend is the only place anyone would discover it, and that row is already full.
+- **A.** The legend gains `##`, and something else gets shorter.
+- **B.** The legend stays as it is. `##` goes undocumented on screen.
+
+**Recommended:** none yet. The mockup re-pick decides it.
+
+### Tags that know the category: does a deleted transaction still count as "using" a tag?
+Asked 2026-09-20 · Blocks: Tags that know the category
+The engine says no. So deleting a row can quietly drop a tag out of that category's
+suggestions.
+- **A.** That matches what you expect. Keep it.
+- **B.** A deleted row should still count. That is an engine ask.
+
+**Recommended:** A. It is how the engine already works.
+
+### TUI-only: should the flat commands print JSON only?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+- **A.** JSON only. The human tables, page footers, colour swatches and name columns go.
+- **B.** Keep a plain human mode.
+
+**Recommended:** A. The agent reads JSON, and the TUI is the human view.
+
+### TUI-only: one flat command per engine endpoint, or only the ones the agent uses?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+- **A.** One per endpoint.
+- **B.** Only the ones the agent actually uses.
+
+**Recommended:** A, so the agent can check any endpoint.
+
+### TUI-only: what happens to `import bank`, `import sheet` and `expense log`?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+The imports are flat-only until the TUI import door ships, and `import bank` asks you which
+account a file belongs to. `expense log "<line>"` is the flat twin of the LOG bar.
+- **A.** They stay as human commands until the TUI import door ships, then shrink like the
+  rest.
+- **B.** They stay as human commands for good.
+
+**Recommended:** none yet.
+
+### TUI-only: which command guard tests stay?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+Every flat command must have an `Example:`, an error test, `--json` on reads and `--yes` on
+deletes ([test_command_surface.py](../tests/unit/test_command_surface.py)). Confirmation prompts
+are for people, and the agent always passes `--yes`.
+- **A.** Keep them all.
+- **B.** Drop the people-only ones (prompts, `Example:`). Keep the error test and `--json`.
+
+**Recommended:** none yet.
+
+### TUI-only: where does the shared code live?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+The TUI takes its reads and formatters from `expense/commands/*`. If the commands shrink, that
+name stops fitting.
+- **A.** It stays in `expense/commands/`.
+- **B.** It moves to a package not named after the commands.
+
+**Recommended:** none yet.
+
+### TUI-only: what is the repo's new name?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+Today it is `PlungerBull/expense_CLI_menu` on GitHub and `expense_world_CLI` locally. Name it,
+and say whether the `expense` command keeps its name:
+- **A.** `expense` stays.
+- **B.** `expense` changes too, to a name you give.
+
+**Recommended:** A. It is what you type every day.
+
+### TUI-only: is the note to the engine coder right?
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+The draft is in [tui-only-plan.md](tui-only-plan.md) "Draft note to the engine coder".
+- **A.** Send it as written, with the new name filled in.
+- **B.** Change it. Say how.
+
+**Recommended:** A.
 
 ---
 
@@ -23,12 +166,11 @@ An index; the depth lives in each plan doc, which is deleted when it ships (its 
 | # | Item | Plan | Status |
 |---|---|---|---|
 | **0** | **The engine uptake's TUI checks** | The list below | Owner, through normal use on the real ledger |
-| 1 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
+| 1 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | Questions for the owner + **[UI]** |
 | 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
-| 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
+| 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; questions for the owner open; starts after the in-flight work |
 | 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
-| 5 | **Owner question:** after the official migration, will the owner still log card purchases by hand? If yes: a standing "rename your row to the bank's wording?" proposal in the import (an engine ask plus a mockup). If no: close this | [file-import-plan.md](file-import-plan.md) §6 | Open question, asked 2026-09-27 |
-| 6 | The agent loop: orchestrator + builder/tester/reviewer, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Decided 2026-09-27; owner to name the first spec (recommended: take up the engine's published contract) |
+| 5 | The agent loop: orchestrator + builder/tester/reviewer, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules are in CLAUDE.md; worker files, guards and cleanup (§6.2–6.4) next; the first spec is a question for the owner |
 
 **The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
 ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when
@@ -98,15 +240,19 @@ when it lands**. Handed to the owner for the engine coder; never edited in the e
    (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
    Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
    twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
-   after-apply case beside pick C and let the owner pick. **[UI]** · Tied to Now item 5 (the
-   owner question on hand-logged card purchases): if a rename proposal is built, this case
-   mostly stops happening.
+   after-apply case beside pick C and let the owner pick. **[UI]** · Tied to the question for
+   the owner on hand-logged card purchases: if a rename proposal is built, this
+   case mostly stops happening.
 
 3. **The system-category delete hint names only `@Opening`.** `_SYSTEM_HINT` in
    [categories_cmd.py](../expense/commands/categories_cmd.py) reads *"The system category
    (@Opening) can be renamed but not deleted."*, but `@Pendiente` is a system category too, so
    refusing to delete it shows a hint that names the wrong category. Name both, or word it without
    a name. Add an error-shape test deleting `@Pendiente`.
+
+4. **The docs link guard skips `docs/specs/`.** `DOC_FILES` in
+   [test_docs_links.py](../tests/unit/test_docs_links.py) globs only `docs/*.md`, so a broken
+   link in a spec goes unnoticed. Add `docs/specs/*.md`. Builder work.
 
 ## Ergonomics
 

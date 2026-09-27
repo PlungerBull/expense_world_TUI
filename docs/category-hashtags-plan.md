@@ -1,9 +1,9 @@
 # Tags that know the category — CLI/TUI plan
 
-**Status: not built.** The shape is decided (owner picked mockup pane **E**, 2026-09-20); §5
-holds four forks that are not, and §6 two questions only the owner can answer. It answers the
-owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*.
-When it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
+**Status: not built.** The shape is decided (owner picked mockup pane **E**, 2026-09-20); §5 holds
+four forks that are not, and §6 points at the questions only the owner can answer. It answers the
+owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*. When
+it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 
 **[UI].** [expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
 is re-shown and re-picked before any TUI code; it predates the endpoint, so it does not show an
@@ -169,12 +169,8 @@ costs width; in `categories hashtags` it is the whole point of the read.
 
 ## 6. Open questions for the owner
 
-1. **Does the legend row change?** It is permanent and lists the whole grammar. If
-   `##` ships, the legend is the only place it is discoverable — and the legend's
-   budget is one row, which pane C of the same mockup already spends.
-2. **Is a tag with history on a *deleted* transaction still "used"?** The engine
-   says no and excludes it. Worth confirming that matches the owner's intuition,
-   because it means deleting a row can silently drop a tag out of a picker.
+In [todo.md](todo.md) "Questions for the owner", the entries titled "Tags that know the category:
+…" — including one for the §5 choices.
 
 ## 7. Non-goals
 
