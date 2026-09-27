@@ -129,13 +129,13 @@ def test_people_lifecycle(client):
         assert renamed["is_person"] is True  # a rename never flips the flag
 
         # 6 — where she shows up, and where she moves when archived.
-        listed = client.get("/accounts", params={"include_people": "true", "limit": "200"})
-        rows = listed["items"] if isinstance(listed, dict) else listed
+        listed = client.get("/accounts", params={"include_people": "true"})
+        rows = listed["items"]
         assert person_id in {row.get("id") for row in rows}
 
         # Excluded from the default list, which is bank accounts only.
-        plain = client.get("/accounts", params={"limit": "200"})
-        plain_rows = plain["items"] if isinstance(plain, dict) else plain
+        plain = client.get("/accounts")
+        plain_rows = plain["items"]
         assert person_id not in {row.get("id") for row in plain_rows}
 
         dashboard = client.get("/dashboard", params={"include_archived": "true"})
