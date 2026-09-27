@@ -705,12 +705,31 @@ category-hashtags-plan link, which step 6 below handles.
 2. **`:8000` already runs the new engine code** (restarted by the engine coder 2026-09-26).
    **The owner brings up `:8002`** on the same code (engine side).
 3. `python scripts/check_fixture_drift.py` against the new engine.
-4. The debriefs' own checks on the real ledger (reads plus importer dry runs): cursor §4, 6a §5.
-   The cursor debrief's "file a page, then scroll on" check runs on the ledger (a filtered
-   ledger, a bulk re-category, then `pgdn`) and on the `u` list (edit a row, then `pgdn`).
+4. **Checks on the real ledger** (reads plus importer dry runs; copied here from the debriefs,
+   which step 6 deletes):
+   - **Ledger order:** the first page with `sort=date_asc` equals the old last page, reversed.
+     The ledger has 744 groups of rows sharing both `date` and `created_at`, so walk the whole
+     ledger by cursor and compare the ids to one full fetch: that catches any tie-handling
+     mistake.
+   - **"No batch" list:** its count equals `GET /transactions/count?account_id=…&unreconciled=true`,
+     and the rows start from the oldest date.
+   - **File, then scroll on:** on the ledger (a filtered ledger, a bulk re-category, then `pgdn`)
+     and on the `u` list (edit a row, then `pgdn`): no row skipped, none repeated.
+   - **Importers:** a bank dry run over a statement already imported flags every row as in the
+     ledger; the sheet and bank dry runs resolve every account, category and hashtag name.
+   - **Whole lists:** `expense accounts list`, `categories list`, `hashtags list` print every row
+     and no paging line; **hashtags shows all 56**. The TUI categories and hashtags screens show
+     a right "page N of M", and no `422` appears in the log.
+   - **Reconciliations:** `⏎` on each account shows its full history, oldest period first. On the
+     working screen, `r` keeps the header current, and **deleting the batch from another terminal
+     shows "record gone"**.
+   - `grep -rn "include_deleted\|/restore\|reconciliations/{" expense/`: only the `PUT` /
+     `DELETE` / `complete` / `revert` paths remain.
 5. **Contract suite** against `:8002` (`PYTEST_LIVE=1`). This also closes ask 1's pending
-   contract run ([sealed-periods-plan.md](sealed-periods-plan.md) §10 step 7). First add contract
-   tests for what nothing has checked against a real engine:
+   contract run ([sealed-periods-plan.md](sealed-periods-plan.md) §10 step 7). **The new
+   contract tests have to be written first:** as of 2026-09-27 `tests/contract/` checks only the
+   whole-list shape (`test_resources_lifecycle.py`) and has nothing for the cursor, `/count`,
+   `offset` → `422`, the date windows or `/transactions/import`. The tests to write:
    - cursor pages walked to a null cursor with no row repeated; `sort=date_asc` the exact
      reverse of the default; `/count` equal to the rows walked; `offset` a `422`;
    - a small list returns everything with no `total` (the reconciliation half, including the
@@ -726,6 +745,10 @@ category-hashtags-plan link, which step 6 below handles.
    the uptake and sealed-periods rows in [todo.md](todo.md) "Now", the plan link in CLAUDE.md's
    open-work paragraph, and the 6a debrief link in
    [category-hashtags-plan.md](category-hashtags-plan.md) §1 (point it at engine-spec instead).
+   The link test cannot see a file name inside `<code>` or plain text, so also
+   `grep -rn "engine-uptake-plan\|engine-debrief\|sealed-periods-plan" docs CLAUDE.md expense tests`
+   and repoint every hit. The two mockups that named these files were repointed at decisions.md
+   in Phase 11.
    Tell the engine side to delete `open-bugs.md` → `transaction-cursor`, `phase-6-lists`,
    `bank-import`, `calendar-day-date-filters`, `strict-request-datetimes` and
    `reconciliation-period-days`.

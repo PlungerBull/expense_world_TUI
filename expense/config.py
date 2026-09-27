@@ -66,6 +66,11 @@ def load() -> Config | None:
 
 
 def save(cfg: Config) -> None:
+    # The temp file lands beside the config as `.expense-config.*.tmp` and is then
+    # `os.replace`d, so a crash mid-write can leave a copy holding the live token. The
+    # engine's erasure procedure (engine repo `deploy/local/README.md`, "Erasing
+    # everything", step 5) deletes `~/.expense-config*` to catch it. If the temp file's
+    # location or name ever changes, tell the engine side so that step still matches.
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = cfg.model_dump(mode="json")

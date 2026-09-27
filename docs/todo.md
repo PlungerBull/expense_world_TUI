@@ -46,6 +46,7 @@ whys moving to [decisions.md](decisions.md).
 | 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 5 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
 | 6 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Decided 2026-09-26; runs after the re-import, before the 2026 periods are closed |
+| 7 | **Owner question:** after the official migration, will the owner still log card purchases by hand? If yes: a standing "rename your row to the bank's wording?" proposal in the import (an engine ask plus a mockup). If no: close this | [file-import-plan.md](file-import-plan.md) §6 | Open question, asked 2026-09-27; not a plan |
 
 **Why this order.** The engine uptake comes first because nothing else can be tested against
 the engine until it lands, and it closes sealed periods on the way. It also carries the
