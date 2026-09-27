@@ -85,10 +85,10 @@ def test_transactions_lifecycle(client):
         deleted = client.delete(f"/transactions/{tx_id}")
         assert deleted["id"] == tx_id
         assert deleted.get("deleted_at") is not None
-        # DELETE lost its `warnings` key on 2026-08-11. Pin the absence.
+        # DELETE carries no `warnings` key. Pin the absence.
         assert "warnings" not in deleted
 
-        # Deleted is deleted (engine, 2026-09-23): gone from the list, 404 on
+        # Deleted is deleted: gone from the list, 404 on
         # get, and the restore route itself is a 404.
         listed = client.get("/transactions", params={"account_id": account_id})
         assert not any(item["id"] == tx_id for item in listed["items"])

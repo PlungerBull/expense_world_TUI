@@ -3,19 +3,18 @@
 
 /* The app runs in ANSI mode (ExpenseApp passes ansi_color=True), so the base
    fill is the terminal's OWN background — no seam against the terminal's window
-   padding, on any terminal. Since 2026-08-19 the *foreground* is the terminal's
-   too: the old `Screen:ansi { color: $foreground }` pin is gone, so text takes
-   the terminal's default fg and the app reads on light grounds as well as dark.
+   padding, on any terminal. The *foreground* is the terminal's too, so text
+   takes the terminal's default fg and the app reads on light grounds as well as dark.
    See docs/decisions.md "The terminal supplies the palette".
 
    NOTE the literal `ansi_default` here and on #modal below: `$surface`/`$panel`
    *generate* to `transparent` under an ANSI theme, so a token would make these
    see-through rather than terminal-coloured — the opposite of what a base fill
    and a modal card need. Structural rules (the header and breadcrumb rules)
-   use `$secondary` for the same reason: they were drawn with `$surface` and
-   would now be invisible. The list panels had a border until 2026-09-20 and
-   were the third; they draw a Rich `Rule` in their own content now. The modal scrim is the one deliberate literal — see the
-   long note above ModalScreen:ansi. */
+   use `$secondary` for the same reason: drawn with `$surface` they would be
+   invisible. The list panels draw a Rich `Rule` in their own content. The
+   modal scrim is the one deliberate literal — see the long note above
+   ModalScreen:ansi. */
 Screen {
     background: ansi_default;
 }
@@ -32,7 +31,7 @@ Screen {
    itself rather than a token, for the reason given at the top of this file —
    a hardcoded fill here would relocate the seam to the menu edge. `border: none` overrides
    OptionList's default `tall` border; group headers, the inter-group
-   separators, and the selection bar carry the structure the box used to. */
+   separators, and the selection bar carry the structure. */
 #menu {
     height: 1fr;
     margin: 1 1 1 1;
@@ -62,8 +61,8 @@ Screen {
     margin-top: 1;
 }
 
-/* quick-add log bar — no box (2026-09-20). The accent that lived on the
-   border now lives only on #field's label, which is the bar's cue. */
+/* quick-add log bar — no box. The accent lives only on #field's label,
+   which is the bar's cue. */
 #inputbar {
     height: auto;
     margin: 1 2 0 2;
@@ -79,8 +78,8 @@ Screen {
 }
 /* EVERY Input, not just the bar's: Textual's own default is
    `border: tall $border-blurred`, and #prompt/#picker inside the modals are
-   not matched by an `#inputbar` selector. Once the boxes went (2026-09-20)
-   those two were the only vertical lines left on screen. */
+   not matched by an `#inputbar` selector — they would be the only vertical
+   lines on screen. */
 Input {
     border: none;
     background: transparent;
@@ -92,7 +91,7 @@ Input {
     color: $text-muted;
     padding: 0 3;
 }
-/* the LOG bar's legend — the grammar in one fixed row (pick A, 2026-08-29).
+/* the LOG bar's legend — the grammar in one fixed row.
    Same gutter as #hint, directly under it. */
 #legend {
     color: $text-muted;
@@ -113,11 +112,10 @@ Input {
     height: auto;
 }
 /* the LOG bar's account peek: the ledger of the account the line names.
-   `1fr` is the whole of mockup pick A (2026-08-29) — every widget above it is
+   `1fr` is the whole of it — every widget above it is
    `height: auto`, so the panel is handed exactly the rows the staged list is
-   not using, and AccountPeek draws that many. No box (2026-09-20): like the
-   list panels, its account name and row count moved off the border's edges
-   and into its own render. */
+   not using, and AccountPeek draws that many. No box: like the list panels,
+   its account name and row count are in its own render. */
 #peek {
     height: 1fr;
     min-height: 0;
@@ -129,7 +127,7 @@ Input {
 ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
     align: center middle;
 }
-/* The dim scrim (pick H, 2026-08-19). `black`, NOT `$background`, and that is
+/* The dim scrim. `black`, NOT `$background`, and that is
    the whole subtlety — learned by rendering it, not by reading it:
 
    `$background` is `ansi_default` under our theme, and alpha is DROPPED on an
@@ -140,11 +138,10 @@ ConfirmModal, PromptModal, PickerModal, HelpModal, DiscardStagedModal {
    `ModalScreen:ansi { background: transparent }` can't save us either: our
    `Screen { background: ansi_default }` above out-specifies it.
 
-   A literal `black 60%` composites properly over the terminal's ground, which
-   is pick H exactly as its mockup legend stated it: the scrim is the one thing
-   in the app not derived from the terminal, and on a light terminal it washes
-   toward black rather than toward the ground. That cost was on the page when
-   the pick was made. The card itself is opaque — see #modal below. */
+   A literal `black 60%` composites properly over the terminal's ground. The
+   scrim is the one thing in the app not derived from the terminal, and on a
+   light terminal it washes toward black rather than toward the ground — a
+   known, accepted cost. The card itself is opaque — see #modal below. */
 ModalScreen:ansi {
     background: black 60%;
 }
@@ -158,11 +155,8 @@ ModalScreen:ansi {
     max-width: 90%;
     height: auto;
     max-height: 80%;
-    /* Horizontal rules, no vertical edges (2026-09-20, docs/tui.md §2). The
-       four screens still using #modal are a deferred [UI] item — they are
-       still modals; they have stopped drawing a box. `background` does the
-       work the side edges used to: it is what separates the card from the
-       scrim, and it must stay the literal `ansi_default` (see the file
+    /* Horizontal rules, no vertical edges (docs/tui.md §2). `background` is
+       what separates the card from the scrim, and it must stay the literal `ansi_default` (see the file
        header) or the card goes see-through. */
     border-top: solid $accent;
     border-bottom: solid $accent;
@@ -190,14 +184,11 @@ ConfirmModal #modal, PromptModal #modal {
 }
 
 /* ---- list panels ----
-   No box (2026-09-20, docs/tui.md §2: no cards, no vertical lines). The quiet
-   round border picked 2026-07-11 carried two things on its edges — the list's
-   title on top, the page status underneath (`rows 21-40 of 133 · page 2 of 7`)
-   — so removing it was a rehoming, not a deletion. Both are drawn as ordinary
-   content now by `WindowedList.framed()`, above a horizontal rule and below
-   the rows; the title survives only where it disambiguates (one caller: the
-   Reconciliations batch caption). The padding stays: it is the gutter the
-   border used to imply. */
+   No box (docs/tui.md §2: no cards, no vertical lines). The caption and the
+   page status (`rows 21-40 of 133 · page 2 of 7`) are ordinary content drawn
+   by `WindowedList.framed()`, above a horizontal rule and below the rows; a
+   caption appears only where it disambiguates (one caller: the
+   Reconciliations batch caption). The padding is the list's gutter. */
 CursorList, CheckList {
     padding: 0 1;
 }

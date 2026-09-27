@@ -3,11 +3,10 @@
 Config: read view of engine URL / token (masked) / main currency; `e` edits
 the engine URL, `t` sets the token (both write ~/.expense-config). Auth &
 profile: identity + settings from GET /auth/me; `b` bootstraps (provisions the
-user record). The main currency is display-only — it is locked engine-side
-(2026-08-01 rework).
+user record). The main currency is display-only — it is locked engine-side.
 
-The Activity and Rates screens left the TUI on 2026-09-26 (owner decision,
-engine uptake Phase 8); `expense activity list` and `expense rates list` stay.
+Activity and Rates are flat commands only (docs/decisions.md "Activity and
+Rates leave the TUI").
 """
 
 from rich import box
@@ -103,9 +102,9 @@ class ConfigScreen(SectionScreen):
             self.notify("No config loaded.", severity="error")
             return
         if "engine_url" in updates:
-            # same save-time validation the CLI's `config set` got in backlog
-            # 3.4 — a scheme-less URL used to save fine and fail every later
-            # call with a generic connection error (backlog 6.3b)
+            # same save-time validation as the CLI's `config set`: a
+            # scheme-less URL would save fine and fail every later call with
+            # a generic connection error
             try:
                 config_module.validate_engine_url(updates["engine_url"])
             except ConfigInvalidError as exc:
@@ -190,7 +189,7 @@ class AuthScreen(SectionScreen):
         from expense import dates
 
         # Resolve before run_write: an undetectable timezone must notify, not
-        # crash the app through Textual's message pump (backlog 6.2d).
+        # crash the app through Textual's message pump.
         try:
             timezone = dates.detect_timezone()
         except dates.TimezoneDetectionError:

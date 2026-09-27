@@ -2,16 +2,14 @@
 
 One copy of the rule for both surfaces — the flat `expense log "…"` asks it
 once per line, the TUI LOG bar asks it on `↵` and either stages the row or
-leaves the line in the bar with the reason under it
-(docs/mockups/expense-world-pendiente-not-inbox.html).
+leaves the line in the bar with the reason under it.
 
-The rule, as decided 2026-09-12 (docs/decisions.md "The Inbox is deleted"): a
+The rule (docs/decisions.md "A sparse line is a ledger row"): a
 row reaches the ledger when it has an **amount** and an **account**, every
 name it typed resolved, and its date is not ahead of today. A missing title
 or category is not a reason — the engine stores a titleless row as null and
 files an uncategorised one under `@Pendiente`, and both count. Everything
-else is **refused**, never parked: the Inbox that used to hold such lines is
-gone, so the line stays where you can fix it.
+else is **refused**: the line stays where you can fix it.
 
 Deliberately not a method on `ParsedLine`: routing needs `today`, and the
 parser's job ends at "what does this line say".
@@ -77,7 +75,7 @@ def describe(token: Unresolved) -> str:
     Zero candidates and several read differently on purpose — one is a typo,
     the other is a name that needs more of itself typed. A **bare sigil** names
     nothing, so it gets its own phrase — it is not a failed match, it is a
-    token you have not finished (2026-08-29). One wording has to serve both
+    token you have not finished. One wording has to serve both
     readers: the picker header above the list, and the refusal under the bar.
     """
     if token.kind == "date":

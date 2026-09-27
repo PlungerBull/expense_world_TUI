@@ -1,15 +1,8 @@
 # Expense CLI — Spec
 
-> The `expense_CLI_menu` is the Hands. A Python (Typer) terminal interface that talks to the `expense_world_engine` via its HTTPS API. Every command is a thin wrapper around engine endpoints — no business logic lives in the CLI.
+> The flat command surface of the Hands: a Python (Typer) CLI where every command is a thin wrapper around `expense_world_engine` endpoints — no business logic lives in the CLI.
 >
-> Engine spec: [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md) — request/response conventions (error shape, null-over-omission, idempotency, sign) live in the engine's CLAUDE.md and engine-spec.md since the api-design-principles doc was retired (engine commit b75482b, 2026-08-04)
-> The TUI: [tui.md](tui.md) · Open work: [todo.md](todo.md)
-
----
-
-## Status
-
-Flat CLI is **complete** — every engine endpoint with a CLI surface is wrapped and regression-armored (gate closed 2026-05-10, plus the `expense import` bulk importer and `rates list`). This document catalogs that surface. The TUI is complete too and reachable from every one of these groups' data: [tui.md](tui.md). Anything still pending lives in [todo.md](todo.md).
+> Engine contract (error shape, null-over-omission, idempotency, sign): [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md) · Runtime behaviour: [cli-runtime.md](cli-runtime.md) · The TUI: [tui.md](tui.md) · Open work: [todo.md](todo.md)
 
 ---
 
@@ -17,41 +10,38 @@ Flat CLI is **complete** — every engine endpoint with a CLI surface is wrapped
 
 - Every command is a thin wrapper around one or more engine API calls. No business logic in the CLI.
 - Output is human-readable by default. Every read command supports `--json` for machine-readable output.
-- The `debit_as_negative` convention is used end-to-end (negative = expense, positive = income). Enforced at input parsing and output rendering.
-- An idempotency-key UUID is minted per logical write and sent as `X-Idempotency-Key`; on timeout or 5xx the client re-sends the same key (bounded retry, see [cli-runtime.md](cli-runtime.md) Write semantics) so a retry can never double-apply.
-- Engine errors surface intact: human mode may prettify, `--json` passes through verbatim — never swallow, never reformat lossily. (Deviations: see Sanctioned exceptions below.)
-- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client: the engine removed restore and `?include_deleted=` on 2026-09-23, and undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). Archive/unarchive are prompt-free — reversible toggles, not destruction (archive reclassified 2026-07-11; see [decisions.md](decisions.md)).
-- Archive vs delete distinction is honored (see [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md) — archive = retired-but-real, delete = mistake/scrubbed).
+- The `debit_as_negative` convention is used end-to-end (negative = expense, positive = income), at input parsing and output rendering.
+- Every write carries an `X-Idempotency-Key`, re-sent unchanged on a bounded retry ([cli-runtime.md](cli-runtime.md) "Write semantics").
+- Engine errors surface intact: human mode may prettify, `--json` passes through verbatim — never swallow, never reformat lossily. (Deviations: Sanctioned exceptions below.)
+- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client; undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). Archive/unarchive are prompt-free — reversible toggles, not destruction.
+- Archive = retired-but-real, delete = mistake/scrubbed (engine-spec).
 
 ### Sanctioned exceptions
 
 Deliberate, reviewed deviations from the principles above — do not re-flag in future reviews:
 
 - **`accounts update --currency-code`** — exists solely to be rejected client-side with honest help text; currency is immutable after creation (the engine would 422 anyway). Fail-fast UX, not business logic. [`expense/commands/accounts_cmd.py`]
-- **`import sheet --json`** — emits a client-composed plan/result summary. The import pipeline is a composite of many engine calls (resolve, create, batch) with no single engine response to pass through — the only non-verbatim `--json` in the layer. [`expense/commands/import_cmd.py`]
-- **`log --dry-run --json`** (2026-08-25) — emits the *parse* of a typed line, not an engine body: where the row would go, why, the payload that would be posted, and a span per token. There is no engine call to pass through, because the whole point is to see what the grammar did **before** one happens. Without `--dry-run`, `log --json` is a verbatim engine body as always. [`expense/commands/log_cmd.py`]
-
-(A fourth exception — the TUI transfer "To amount" auto-sign — was retired 2026-08-16 with the engine's transfer-feature removal of 2026-08-10; the sign convention now has no UI exceptions. See [decisions.md](decisions.md).)
+- **`import sheet --json`** — emits a client-composed plan/result summary. The import is a composite of many engine calls (resolve, create, batch) with no single engine response to pass through. [`expense/commands/import_cmd.py`]
+- **`log --dry-run --json`** — emits the *parse* of a typed line, not an engine body: where the row would go, why, the payload that would be posted, and a span per token. There is no engine call to pass through; the point is to see what the grammar did before one happens. Without `--dry-run`, `log --json` is a verbatim engine body. [`expense/commands/log_cmd.py`]
 
 ---
 
 ## Auth model
 
-**Resolved 2026-04-23 — PAT (Option B).** The engine ships long-lived Personal Access Tokens prefixed `ewe_pat_`; the middleware branches on the prefix and falls through to JWT verification (HS256 shared-secret or ES256 via Supabase JWKS) for anything else. The CLI treats the PAT as an opaque Bearer token and does no client-side validation. See engine commits `3f729b2` + `b001b85` and the PAT project memory for details.
+The engine issues long-lived Personal Access Tokens prefixed `ewe_pat_`; anything else falls through to JWT verification. The CLI treats the token as an opaque Bearer token and does no client-side validation.
 
-The user obtains a PAT out-of-band for now. Local profile (active since 2026-07-30): mint by direct insert into `personal_access_tokens` (SHA-256 of the plaintext + `token_prefix`; see engine `deploy/local/README.md`) — no JWT needed, since PATs are engine-native. Cloud profile: `POST /v1/auth/pat` with a Supabase JWT, plaintext returned exactly once. A future web dashboard will issue PATs; CLI-side `auth pat create` / `auth pat revoke` commands are deferred until the core daily-driver flow is proven.
+A PAT is obtained out-of-band: on the local deployment, by direct insert into `personal_access_tokens` (SHA-256 of the plaintext + `token_prefix`; engine `deploy/local/README.md`). No CLI command issues or revokes PATs.
 
-All engine endpoints except `GET /health` are mounted under `/v1/`. The CLI HTTP client's base path is `<engine_url>/v1` with `/health` as the one unauthenticated, un-prefixed exception.
+All engine endpoints except `GET /health` are mounted under `/v1/`. The HTTP client's base path is `<engine_url>/v1`, with `/health` the one unauthenticated, un-prefixed exception.
 
-Config lives in `~/.expense-config` (chmod 600) with the following fields:
+Config lives in `~/.expense-config` (chmod 600):
 
 | Field | Purpose |
 |---|---|
-| `engine_url` | Base URL of the engine (local profile: `http://127.0.0.1:8000`; mothballed cloud: `https://expense-world-engine.onrender.com`) |
+| `engine_url` | Base URL of the engine (`http://127.0.0.1:8000`) |
 | `token` | PAT (prefix `ewe_pat_`). Sent verbatim as `Authorization: Bearer <token>`. |
 | `main_currency` | Mirrored from `/v1/auth/me` for formatting hints |
-
-(A legacy `client_id` field may linger in configs written before 2026-08-06; it is ignored on load. It keyed the deleted `/sync` checkpoints — see [decisions.md](decisions.md) "Delete the local replica".)
+| `bank_files` | The account picked per bank-download file stem (`expense import bank`) |
 
 ---
 
@@ -59,72 +49,63 @@ Config lives in `~/.expense-config` (chmod 600) with the following fields:
 
 ### `expense config` *(CLI-local — not an engine feature)*
 - `config set [--token <t>] [--engine-url <u>] [--main-currency <code>]` — `--main-currency` caches the value for formatting; `auth me` normally sets it for you.
-- `config get`
+- `config get [--show-token] [--json]`
 - `config clear`
 
 ### `expense auth`
-- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; subsequent calls only bump `last_login_at`. Use `auth profile` / `auth settings --display-timezone` afterward to mutate.
+- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; later calls only bump `last_login_at`.
 - `auth me` (alias: `whoami`) → `GET /v1/auth/me`
-- `auth profile` → `PUT /v1/auth/profile` — partial update of identity fields on the `users` row. v1 only exposes `--display-name`; engine rejects clearing to null. Bootstrap idempotency is preserved (re-bootstrap won't overwrite a profile-set name).
-- `auth settings` → `PUT /v1/auth/settings` — `--display-timezone` is the only mutable field (2026-08-06 schema slimming removed the display preferences; the home currency was locked engine-side 2026-08-01 and is read-only everywhere, even to its current value).
-- `auth pat create` / `auth pat revoke` — **deferred.** For v1, PATs are issued via direct API call to `POST /v1/auth/pat` (requires a Supabase JWT); the CLI consumes the resulting token but does not issue/revoke.
+- `auth profile --display-name <n>` → `PUT /v1/auth/profile`. The engine rejects clearing it to null; re-bootstrap never overwrites a profile-set name.
+- `auth settings --display-timezone <tz>` → `PUT /v1/auth/settings` — the only mutable setting. The home currency is read-only.
 
 ### `expense accounts`
 - `accounts list [--include-archived] [--include-people]`
 - `accounts get <id>`
 - `accounts create`, `update`, `delete`
-- `accounts create-person --name <n> --currency-code <c> [--color] [--sort-order]` → `POST /v1/people` (shipped 2026-08-16). Creates a person account for debt tracking: a person *is* a bank account with `is_person = true`, money lent or borrowed is an ordinary transaction against her, and the computed balance **is** the debt (positive = they owe you). `is_person` is never sent — it is a 422 on `POST /accounts` (which stays bank-only) *and* on `/people` (which implies it); the endpoint is the flag. **Creation is the only `/people` route there is and the only moment `is_person` is settable** — rename/recolor/archive/unarchive/delete/get are the ordinary `accounts` commands, which have always accepted person rows, and listing is `accounts list --include-people` plus the dashboard split. There is no `expense people` group by deliberate choice (sketch pick B); the engine will never ship `GET /v1/people`. Two engine rules the command surfaces: a **409** gets a hint that people and bank accounts share one name list per currency (a person "Eliana" in PEN collides with an *account* "Eliana" in PEN), and `accounts opening-balance` on a person is a 422 — a debt is built from recorded rows, not seeded.
 - `accounts archive <id>`, `accounts unarchive <id>`
-- `accounts opening-balance <id> --amount <signed-cents> [--date] [--title]` → `POST /v1/accounts/{id}/opening-balance` — seeds the account's starting balance as a transaction under the `@Opening` system category (counts toward the balance, excluded from flow reports). One active opening per account; the engine's 409 says to edit/delete the existing seed instead.
-- Currency immutability on update: pre-flight hint before the engine 422 lands.
+- `accounts create-person --name <n> --currency-code <c> [--color] [--sort-order]` → `POST /v1/people`. A person *is* an account with `is_person = true`; money lent or borrowed is an ordinary transaction against her, and the computed balance **is** the debt (positive = they owe you). Creation is the only `/people` route: rename/recolor/archive/unarchive/delete/get are the ordinary `accounts` commands, and listing is `accounts list --include-people` plus the dashboard. There is no `expense people` group. A **409** gets a hint that people and bank accounts share one name list per currency; `accounts opening-balance` on a person is a 422.
+- `accounts opening-balance <id> --amount <signed-cents> [--date] [--title]` → `POST /v1/accounts/{id}/opening-balance` — seeds the starting balance as a transaction under the `@Opening` system category (counts toward the balance, excluded from flow reports). One per account; the engine's 409 says to edit/delete the existing seed.
+- Currency is immutable on update: pre-flight hint before the engine 422.
 
 ### `expense categories`
-- `categories list`
-- `categories get <id>`
-- `categories create`, `update`, `delete`
-- Category archive was removed engine-side (2026-08-06 schema slimming) — accounts are the only archivable resource.
-- The system category (`@Opening` — the only one since the 2026-08-10 transfer removal deleted `@Debt`/`@Transfer`) cannot be deleted — the engine's 403 surfaces as a friendly message. (Renames are allowed; the engine resolves it by `system_key`.)
+- `categories list`, `get <id>`, `create`, `update`, `delete`. Categories are not archivable.
+- System categories (`@Opening`, `@Pendiente`) can be renamed but not deleted — the engine's 403 surfaces with a hint.
 
 ### `expense hashtags`
-- Same shape as categories: `list`, `get`, `create`, `update`, `delete`. Hashtag archive was removed with the same 2026-08-06 slimming.
+- Same shape as categories: `list`, `get`, `create`, `update`, `delete`. Not archivable.
 
 ### `expense log`
 
 Two forms, one command, never mixed — passing a line **and** a content flag is refused client-side.
 
-- `log --amount <cents> --account-id <id> [--title <t>] [--category-id <id>] [--date] [--description] [--hashtag-ids]` → `POST /v1/transactions`. The original form: explicit, scriptable, no parsing, no prompt. **Only `--amount` and `--account-id` are required since 2026-09-12**: a row with no `--category-id` is filed under `@Pendiente` by the engine (and counts like any other), and a row with no `--title` is a titleless row. Neither is sent as null — omitted flags are omitted keys.
-- `log "<line>" [--dry-run] [--yes] [--json]` (2026-08-25) — one typed line in the quick-add grammar: `expense log "tottus -38.60 $signature @korakuen #caja hoy"`. The grammar itself lives in [expense/quickadd/](../expense/quickadd/) and is shared verbatim with the TUI bar — `$account`, `@category`, `#tag`, `//note`, a sign is what makes a number an amount, dates in both languages. Reference names match on "contains, anywhere"; see [decisions.md](decisions.md) "Three quick-add grammar rules".
-  - **Whether the line can be logged is decided client-side, then stated.** An amount and an account, every name resolved, not dated ahead → `POST /v1/transactions`. Anything else — no amount, no account, a name that matched none or several, a `#tag` that does not exist, a date in the future — is **refused**: the reasons are printed (with the candidates behind an ambiguous name), exit 1, nothing written. A missing title or category is not a reason (2026-09-12; the Inbox that used to take such lines is gone — [decisions.md](decisions.md) "The Inbox is deleted"). This is the same rule the TUI LOG bar uses ([expense/quickadd/route.py](../expense/quickadd/route.py)), not a second implementation.
-  - **It always asks first.** The parsed row is echoed — the date spelled out in words, the account and category by name — and waits for y/N. `--yes` skips the ask; off a TTY `--yes` is mandatory, the same rule `require_yes` applies everywhere else. Rationale in [decisions.md](decisions.md) "Two calls for the one-line `expense log`".
-  - **`--dry-run`** shows that same echo and writes nothing — the read-only way to test the grammar by hand. `--dry-run --json` emits the parse (see Sanctioned exceptions).
-  - Refused client-side, exit 1: a line together with any content flag; neither form; the flag form missing `--amount` or `--account-id`; `--dry-run` without a line; `--json` with a line but no `--yes` (a prompt would land in the middle of the JSON).
+- `log --amount <cents> --account-id <id> [--title <t>] [--category-id <id>] [--date] [--description] [--hashtag-ids]` → `POST /v1/transactions`. Explicit, scriptable, no parsing, no prompt. Only `--amount` and `--account-id` are required: with no `--category-id` the engine files the row under `@Pendiente` (which counts like any other category); with no `--title` the row is titleless. Omitted flags are omitted keys, never nulls.
+- `log "<line>" [--dry-run] [--yes] [--json]` — one typed line in the quick-add grammar: `expense log "tottus -38.60 $signature @korakuen #caja hoy"`. The grammar lives in [expense/quickadd/](../expense/quickadd/), shared verbatim with the TUI LOG bar — `$account`, `@category`, `#tag`, `//note`, a sign is what makes a number an amount, dates in both languages. Reference names match on "contains, anywhere" ([decisions.md](decisions.md) "Three quick-add grammar rules").
+  - **Whether the line can be logged is decided client-side, then stated.** An amount and an account, every name resolved, not dated ahead → `POST /v1/transactions`. Anything else — no amount, no account, a name that matched none or several, a `#tag` that does not exist, a future date — is **refused**: the reasons are printed (with the candidates behind an ambiguous name), exit 1, nothing written. A missing title or category is not a reason. The rule is [expense/quickadd/route.py](../expense/quickadd/route.py), the same one the TUI bar uses.
+  - **It always asks first.** The parsed row is echoed — the date in words, the account and category by name — and waits for y/N. `--yes` skips the ask; off a TTY `--yes` is mandatory.
+  - **`--dry-run`** shows that echo and writes nothing. `--dry-run --json` emits the parse (see Sanctioned exceptions).
+  - Refused client-side, exit 1: a line together with any content flag; neither form; the flag form missing `--amount` or `--account-id`; `--dry-run` without a line; `--json` with a line but no `--yes`.
 
 ### `expense transactions`
-- `transactions list` — filters: `--account-id`, `--category-id`, `--hashtag-id`, `--reconciliation-id`, `--unreconciled`, `--from`, `--to`, `--search`; `--from`/`--to` take a day (`YYYY-MM-DD`, the whole day, inclusive — the engine reads it in `display_timezone`, no client date math) or a time with an offset. Paging: `--limit`, `--sort date_desc|date_asc` (passed through unchecked, so a wrong value is the engine's `422`), `--after <cursor>`. *(`--unreconciled` is the complement of `--reconciliation-id`: rows assigned to no reconciliation. Over a period you have already reconciled it is the orphan check to run after every import — empty means the period holds nothing the statement did not account for. Passing both is a `422`. See decisions.md, "Importer ids are positional".)* *(`--cleared/--no-cleared` removed 2026-08-16: the engine deleted the column (sql/035). It was the one filter that failed silently — the engine stopped honouring `?cleared=` without erroring, so the command returned the full list looking like a filtered answer. Confirmation is a reconciliation question now: filter by `--reconciliation-id`.)*
-- `transactions get <id>` — full detail; activity entries surface via `expense activity list --resource-type transaction --resource-id <id>`.
-- `transactions update <id>` — partial update; `hashtag_ids` and `reconciliation_id` are editable via update. Field locking under completed reconciliations surfaces the engine's 422 clearly.
+- `transactions list` — filters: `--account-id`, `--category-id`, `--hashtag-id`, `--reconciliation-id`, `--unreconciled`, `--from`, `--to`, `--search`. `--from`/`--to` take a day (`YYYY-MM-DD`, the whole day, inclusive — read by the engine in `display_timezone`) or a time with an offset. Paging: `--limit`, `--sort date_desc|date_asc` (passed through unchecked, so a wrong value is the engine's `422`), `--after <cursor>`. `--unreconciled` is rows assigned to no reconciliation — over an already-reconciled period, the orphan check to run after every import; combining it with `--reconciliation-id` is a `422`.
+- `transactions get <id>` — full detail; history via `expense activity list --resource-type transaction --resource-id <id>`.
+- `transactions update <id>` — partial update, including `hashtag_ids` and `reconciliation_id`. Field locks under a completed reconciliation surface as the engine's 422.
 - `transactions delete <id>`.
-- `transactions batch` — atomic multi-tx create from flags or a stdin JSON payload.
+- `transactions batch` — atomic multi-create from flags or a stdin JSON payload.
 
 ### `expense reconcile`
-- `reconcile list --account-id <id> [--json]` — **the account is required** (since 2026-09-23 the engine lists reconciliations one account at a time; leaving it out gets Typer's own "Missing option '--account-id'"). The whole list, in the engine's period order (`date_start ASC, created_at ASC`), with no `--limit`/`--offset` and no footer line. Rows carry a `Diff` column — the engine's `difference_cents`.
-- *(`reconcile get` was **deleted 2026-09-26**: the engine removed `GET /reconciliations/{id}` and its embedded transaction page on 2026-09-23. A reconciliation's rows are `expense transactions list --reconciliation-id <id>`; its own fields are in its account's `reconcile list`.)*
-- `reconcile create --account-id <id> --name <n> --date-start <day> --date-end <day> --beginning-balance <cents> [--ending-balance <cents>]`. `--date-start`, `--date-end` and `--beginning-balance` are **required**: there is no derived (chained) beginning balance since 2026-08-06, the statement start date is what orders the batch, and the engine requires both days (since 2026-09-26, engine `8f22ebb`; `update` cannot clear either). **Both dates are calendar days (`YYYY-MM-DD`), sent as typed**: the engine stores and returns a period's ends as days since 2026-09-26 (engine `5922bbf`) and refuses any datetime there, so a malformed day is its `422` on that field. The TUI form requires the same two days and refuses any other shape at the field.
-- `reconcile update <id>` — partial update (`--name`, `--date-start`, `--date-end`, `--beginning-balance`, `--ending-balance`); dates are days sent as typed, as on `create`. Editing `--date-start` is how a batch is repositioned. Field locks under a completed reconciliation surface as the engine's 422 with a "revert first" hint. On `create` and `update`, the engine's two period refusals carry a hint: an inverted range says `--date-end` must not be earlier than `--date-start`, and an overlap with another period on the account points at `reconcile list --account-id <id>`, which lists the neighbours in period order.
-- `reconcile delete <id> [--yes]` — only allowed in draft (engine 409 otherwise; CLI hints "revert first"). Cascade-unassigns attached transactions.
-- `reconcile complete <id>` — flips status → completed and prints the reconciliation as the engine returns it, plus the gap warning when there is one. No lock count: the engine stopped sending one on 2026-09-23, and the line was dropped (owner, 2026-09-26). Locks `amount_cents`, `account_id`, `title`, `date` on every assigned transaction plus the reconciliation's own balance/date fields. When the engine refuses because rows inside the period are in no reconciliation, the hint is the placeholder form (`transactions list --account-id <id> --unreconciled --from <start> --to <end>`): filling it in took a read by id, which the engine removed (owner accepted the generic hint, 2026-09-23).
-- `reconcile revert <id> --yes` — flips status → draft and prints the reconciliation; required `--yes` (audit event).
-
-> `reconcile move` and `reconcile reorder` (the `$EDITOR` bulk reorder) were **deleted 2026-08-16** with the engine's `PUT /v1/accounts/{id}/reconciliations/order`. Ordering is a statement date now: `reconcile update <id> --date-start <date>`.
+- `reconcile list --account-id <id> [--json]` — the account is required. The whole list in the engine's period order (`date_start ASC, created_at ASC`), no paging flags, no footer. Rows carry a `Diff` column — the engine's `difference_cents`. A reconciliation's rows are `expense transactions list --reconciliation-id <id>`.
+- `reconcile create --account-id <id> --name <n> --date-start <day> --date-end <day> --beginning-balance <cents> [--ending-balance <cents>]`. Both dates and the beginning balance are required. Dates are calendar days (`YYYY-MM-DD`) sent as typed — the engine refuses any datetime, so a malformed day is its `422` on that field.
+- `reconcile update <id>` — partial update (`--name`, `--date-start`, `--date-end`, `--beginning-balance`, `--ending-balance`); dates as on `create`. Editing `--date-start` repositions a period. Field locks under a completed reconciliation surface as the engine's 422 with a "revert first" hint. An inverted range gets a hint that `--date-end` must not precede `--date-start`; an overlap with another period points at `reconcile list --account-id <id>`.
+- `reconcile delete <id> [--yes]` — draft only (engine 409 otherwise; hint "revert first"). Cascade-unassigns attached transactions.
+- `reconcile complete <id>` — status → completed; prints the reconciliation as returned, plus the gap warning when there is one. Locks `amount_cents`, `account_id`, `title`, `date` on every assigned transaction plus the reconciliation's own balance/date fields. When the engine refuses because rows inside the period are in no reconciliation, the hint is the placeholder form `transactions list --account-id <id> --unreconciled --from <start> --to <end>`.
+- `reconcile revert <id> --yes` — status → draft; prints the reconciliation. `--yes` required.
 
 ### `expense dashboard`
-- `dashboard` — current month: bank accounts, people, categories (with hashtag-combination breakdown), totals. Current-month-only because `GET /v1/dashboard` is current-month-only.
-- `--include-archived` — adds the `archived_accounts` **and `archived_people`** panels, in that order, both at the bottom (sketch pick D, 2026-08-16). They stay **two** panels and never merge: people and bank accounts are separate lists on every other surface, and merging them only here would sit an archived person among the archived cards. Both use the `is not None` gate — the fields are `null` without the flag and `[]` with it, so a present-but-empty list still prints its header. *(The `archived_categories` / `archived_hashtags` lifetime panels were deleted with the engine's 2026-08-05 change — an archived account still holds real money, an archived category only history.)*
-- **Settled people fold, they never disappear.** The `People:` panel draws everyone still owing or owed, then a single `▸ 3 settled` line for the zero-balance rows (`split_settled` / `settled_label` in [_resource.py](../expense/commands/_resource.py); sketch pick G). "Settled" is **exactly zero in the person's own currency** — never the home figure, since a missing exchange rate must not read as "she paid me back", and an unknown balance stays visible. The count is always printed: the engine deliberately returns settled people and refuses to filter on a computed balance, because a settled person and a never-recorded loan must not look alike, and a coincidental net zero (lent 200, borrowed 200) is two live debts. A printed page cannot be unfolded, so `expense accounts list --include-people` is where you name them. Archived people are **not** folded — folding there would hide the whole panel the flag was passed to see.
-
-> **Aggregates are home-currency and nullable** (engine, 2026-08-05). The native `spent_cents` / `{inflow,outflow,net}_cents` no longer exist — a sum across accounts in different currencies is a number in no currency — so every category/hashtag/totals table has **one** amount column, `Home`. Each figure is nullable with an `unconverted_count` beside it; a `null` renders as `3 unrated`, **never** `0.00` and never a native-currency fallback. Rows with nothing spent are not drawn (`expense categories list` is the full list); rows the engine could not price keep their line. Month-grid cells distinguish `—` (no activity) from `3 unrated`.
+- `dashboard` → `GET /v1/dashboard` — current month only: bank accounts, people, categories (with hashtag-combination breakdown), totals. Historical months: `expense reports monthly`.
+- `--include-archived` — adds the `archived_accounts` and `archived_people` panels, in that order, at the bottom, as two separate panels. The fields are `null` without the flag and `[]` with it, so a present-but-empty list still prints its header.
+- **Settled people fold, they never disappear.** The `People:` panel draws everyone still owing or owed, then one `▸ 3 settled` line for the zero-balance rows (`split_settled` / `settled_label` in [_resource.py](../expense/commands/_resource.py)). "Settled" is exactly zero in the person's **own** currency, never the home figure, so a missing rate never reads as "paid back". `expense accounts list --include-people` names them. Archived people are not folded.
+- **Aggregates are home-currency and nullable.** Every category/hashtag/totals table has one amount column, `Home`. Each figure is nullable with an `unconverted_count` beside it; a `null` renders as `3 unrated`, never `0.00` and never a native-currency fallback. Rows with nothing spent are not drawn (`expense categories list` is the full list); rows the engine could not price keep their line. Month-grid cells distinguish `—` (no activity) from `3 unrated`.
 - `--json` — raw engine response.
-- For historical months, see `expense reports monthly`.
 
 ### `expense reports`
 - `reports monthly --date YYYY-MM` — single month.
@@ -132,49 +113,39 @@ Two forms, one command, never mixed — passing a line **and** a content flag is
 - `--json` — raw engine response.
 
 ### `expense activity`
-- `activity list [--resource-type <t>] [--resource-id <id>] [--from <time>] [--to <time>] [--after <cursor>] [--limit N]` → `GET /v1/activity` (audit log, newest first, one date window per read — the last 30 days by default, at most 366 days wide). `--from` / `--to` are sent as typed: a bare `YYYY-MM-DD` is the whole day in the profile's `display_timezone` (to 23:59:59.999999, both ends inclusive), a time with an offset is that instant, and the two mix (engine `aaee6bf`). The CLI converts nothing. `--resource-id` does not lift the window (engine owner decision, 2026-09-23): pass `--from` to reach older history.
+- `activity list [--resource-type <t>] [--resource-id <id>] [--from <time>] [--to <time>] [--after <cursor>] [--limit N]` → `GET /v1/activity` (audit log, newest first, one date window per read — the last 30 days by default, at most 366 days wide). `--from` / `--to` are sent as typed: a bare `YYYY-MM-DD` is the whole day in `display_timezone`, a time with an offset is that instant, and the two mix. `--resource-id` does not lift the window: pass `--from` to reach older history.
 
 ### `expense rates`
 - `rates get --target <code> [--base USD] [--date YYYY-MM-DD]` → `GET /v1/exchange-rates`.
-- `rates list [--date YYYY-MM-DD | --from YYYY-MM-DD --to YYYY-MM-DD] [--after <cursor>] [--limit N]` → `GET /v1/exchange-rates/history`
-  (stored daily rates, newest first, one row per pair per day, one date window per read — the last 30 days by default). `--date X` is the one-day window `--from X --to X`, and is refused together with either.
-- Both carry `rate_e8: int` — the rate x 10^8 (engine `sql/036`; it was `rate: float`
-  until 2026-08-29, the last float on the money path). Human output renders 4 decimals
-  via `rates_cmd.format_rate`, which divides with integer arithmetic and never builds a
-  float; `--json` passes the raw integer through untouched. `RATE_SCALE` in
-  `expense/currencies.py` mirrors the engine constant.
+- `rates list [--date YYYY-MM-DD | --from YYYY-MM-DD --to YYYY-MM-DD] [--after <cursor>] [--limit N]` → `GET /v1/exchange-rates/history` (stored daily rates, newest first, one row per pair per day, one date window per read — the last 30 days by default). `--date X` is the window `--from X --to X`, and is refused together with either.
+- Both carry `rate_e8: int` — the rate × 10^8. Human output renders 4 decimals via `rates_cmd.format_rate`, integer arithmetic only; `--json` passes the integer through. `RATE_SCALE` in `expense/currencies.py` mirrors the engine constant.
 
 ### `expense ping`
-- `ping` → `GET /health`. Connectivity + auth sanity check. Prints `ok (0.1s)`. *(There is no `expense health` command — the heading here claimed one until 2026-08-20.)*
+- `ping` → `GET /health`. Connectivity + auth sanity check. Prints `ok (0.1s)`.
 
 ### `expense version`
-- `version` — prints the installed CLI version and nothing else. No engine call, no config read, so it answers even when nothing is provisioned. *(Shipped since the first release; this doc simply never listed it, found 2026-08-25 by diffing the live command tree against this file.)*
+- `version` — prints the installed CLI version. No engine call, no config read.
 
 ### `expense import`
 
-Two doors since 2026-09-12: `sheet` (the personal-spreadsheet importer, which was `expense import <file>` bare until then) and `bank` (a bank download, matched against the ledger).
+Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, matched against the ledger). Both read `.xlsx` via the `openpyxl` extra (`pip install -e ".[import]"`) and are dry runs unless `--apply` is passed.
 
 #### `expense import bank`
-- `import bank <file.xlsx> [--account <name>] [--apply] [--all] [--json]` — a BCP download (sheet `data`: Fecha, Descripcion, Moneda, Monto, optional Numero de Operacion; either date spelling) → the ledger, **under `@Pendiente`**, with no category and no tags. Design and the owner's picks: [mockups/expense-world-bank-import.html](mockups/expense-world-bank-import.html); the why in [decisions.md](decisions.md) "Bank downloads are matched against the ledger".
-  - **The account is asked, not read** — the file does not say. On a TTY the accounts are listed folded by base name (a card with a PEN and a USD leg is one entry; the currency column chooses the leg per row); the pick is **remembered per file stem** in `~/.expense-config` (`bank_files`), so the second run of "VISA Infinite Sapphire" needs no answer. `--account` overrides and re-remembers; off a TTY it is required until remembered. A file holding a currency the pick has no leg for is refused whole.
-  - **Duplicates are found by matching the ledger, not by hashing the file — and since 2026-09-26 the engine does the matching** (engine-uptake Phase 10b): every row goes to `POST /transactions/import` in **one** call, and the engine places it by the first rule that claims an unclaimed ledger row on the same account: the operation code; same day + amount + title; the adjacent day + amount + title. Each ledger row is claimed once. A content match onto a ledger row with no code writes the file's code onto it on `--apply` (the preview marks it `+code`). A row that moved by more than a day or changed amount imports twice — `transactions list --unreconciled` over the period is the backstop. The request/response code is [expense/bank_import/engine.py](../expense/bank_import/engine.py), one copy for the TUI door to reuse.
-  - **Titles are the bank's text**, whitespace runs collapsed and nothing cut (`MAR DE COLAS LIMA PE`); no `description` is written, because the note is the owner's to write.
-  - **Nothing dated before 2026-01-01 is sent**, counted in the summary. There is no other floor: the hand-typed rows the bank files overlap get the bank's wording in a one-time title alignment ([file-import-plan.md](file-import-plan.md) §6).
-  - **At most 500 rows** (the engine's cap). A longer file is refused before any call, asking for a shorter date range — never split, since a row in a later request could be claimed by one an earlier request just created.
-  - **Dry run is the default** (`dry_run: true`); `--apply` is the same single call with `dry_run: false`, and its response is what happened. The preview lists the first 8 rows (`--all` for every one), each numbered by **its line in the file** — the number every message under the table uses, so a refused or pre-2026 line shows as a gap (owner's pick B, [mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html)) — with the leg each lands in, the operation code when the file has one, and the `match`: `new`, `in ledger · operation`, `in ledger · same day`, `in ledger · ± 1 day` (each `· +code` when a code is written), or `closed · <period name>` for a row inside a completed reconciliation, which is **never written** and is also listed in its own block under the table. Then the counts, and — loudly — every (account, day, amount) the file reports where the ledger still holds a row no file row matched (the engine's `excess`, equal counts included): either an earlier double entry, or a row about to be logged twice under a different wording. It reads `! N ledger rows no file row matched — check before --apply`, then one line per day with the count of **unmatched** ledger rows up front (`1 on 2026-09-10 · -28.00 · BCP Signature PEN`), never the ledger's total (owner's pick C, same mockup).
-  - **A `422` refuses the whole file** and writes nothing; each refused row is named by the **file's** line (`! row 14 (date): …`), not the engine's index. A line the parser could not read is listed and not sent; under `--apply` it makes the exit code 1.
-  - **`--json` is the engine's response verbatim**; what the client held back (parser refusals, rows before 2026) goes to stderr.
+- `import bank <file.xlsx> [--account <name>] [--apply] [--all] [--json]` — a BCP download (sheet `data`: Fecha, Descripcion, Moneda, Monto, optional Numero de Operacion) → the ledger under `@Pendiente`. The engine does the duplicate matching in one `POST /transactions/import` ([expense/bank_import/engine.py](../expense/bank_import/engine.py)); the rules and their why: [decisions.md](decisions.md) "Bank downloads are matched against the ledger".
+  - **The account is asked, not read.** On a TTY the accounts are listed (a card's PEN and USD legs are one entry); the pick is remembered per file stem in `bank_files`. `--account` overrides and re-remembers; off a TTY it is required until remembered. A file holding a currency the pick has no leg for is refused whole.
+  - **Limits:** rows before 2026-01-01 are not sent (counted in the summary); a file over 500 rows is refused before any call.
+  - **Preview:** the first 8 rows (`--all` for every one), numbered by their line in the file, each with its match; then the counts and a warning for any day where the ledger holds rows no file row matched. `--apply` is the same call with `dry_run: false`.
+  - **Errors:** a `422` refuses the whole file and names each refused row by its line; a line the parser could not read is listed and not sent, and under `--apply` makes the exit code 1.
+  - **`--json`** is the engine's response verbatim; what the client held back goes to stderr.
 
 #### `expense import sheet`
-- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--json]` — bulk `.xlsx → engine` importer for the personal sheet. Parses the spreadsheet, resolves names to ids, plans, then writes via the transactions batch endpoint. **Dry-run preview is the default**; `--apply` writes. Requires the `openpyxl` extra (`pip install -e ".[import]"`). Package: [expense/import_/](../expense/import_/).
-- **Opening balances:** rows marked `SALDO INICIAL` (case/whitespace-insensitive) in **either the title or the category column** route to `POST /v1/accounts/{id}/opening-balance` instead of the batch — their category/hashtag cells may be blank, and are discarded when present, so the marker never becomes a real category. One per (account, currency): extra rows are skipped as `duplicate-opening` (first line wins) and listed in the dry-run. A 409 at apply time (re-run, or account already seeded) counts as already-present, mirroring batch dedup semantics.
-- **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches case- and whitespace-insensitively. Columns are matched by header name, not position, and each field accepts several spellings — `title` takes `descripcion`/`description`/`titulo`, `category` takes `category`/`categoria`. The alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
-- **Multi-currency account names split.** The engine gives every account exactly one currency, so a `CUENTA` name appearing under two currencies becomes two accounts — and each leg is renamed with its currency (`BCP Oro` → `BCP Oro PEN` + `BCP Oro USD`) so neither is ambiguous in a picker. A name used under one currency is passed through verbatim, and a name already ending in its own currency is not doubled. Rows resolve by the **raw sheet name**, so the derived name never moves a transaction id — re-runs stay idempotent.
+- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--json]` — the personal sheet → engine. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch`. Package: [expense/import_/](../expense/import_/).
+- **Opening balances:** rows marked `SALDO INICIAL` (case/whitespace-insensitive) in the title or category column go to `POST /v1/accounts/{id}/opening-balance` instead of the batch; their category/hashtag cells are discarded. One per (account, currency): extra rows are skipped as `duplicate-opening` (first line wins) and listed in the dry run. A 409 at apply time counts as already present.
+- **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches case- and whitespace-insensitively. Columns match by header name, each field accepting several spellings — the alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
+- **Multi-currency account names split.** A `CUENTA` name used under two currencies becomes two accounts, each renamed with its currency (`BCP Oro` → `BCP Oro PEN` + `BCP Oro USD`). A name used under one currency passes through verbatim; a name already ending in its currency is not doubled. Rows resolve by the raw sheet name, so re-runs stay idempotent.
 
 ### `expense world`
-- `world` — launches the Textual TUI, the interactive front door over the same fetch/write layer. `expense` (no args) keeps group-help behavior. Replaced the questionary `expense menu` (deleted 2026-07-02). Reference: [tui.md](tui.md).
-  - **`+` opens the LOG bar** (2026-08-25) — the same quick-add grammar as `log "<line>"` above, as a staged batch: `↵` stages a line or refuses it in place with the reason (2026-09-12), the list shows every row with a missing category already reading `@Pendiente`, `ctrl+s` writes every row in one `POST /transactions/batch`. Design: [mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html) as amended by [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-world-pendiente-not-inbox.html); behaviour of the save in [decisions.md](decisions.md) "What a half-written batch means".
-  - **Home is four months of the ledger, and `⏎` on a row is the filter** (2026-09-13, which folded the Overview screen into Home and deleted it): categories × four months in the home currency (a category with nothing in the window is hidden; `→` unfolds its hashtag rows), inflow/outflow/net, every account and person with today's own-currency balance, then the LEDGER, MANAGE and SYSTEM sections with every screen listed (never folded); `pgdn`/`pgup` walk the window a month at a time. `⏎` on a category opens the ledger filtered to it, on a hashtag row to that category and hashtag, on an account to that account. There, `space` selects rows and `c` / `b` / `h` set the category, move the account or replace the hashtags of the selection — one `PUT /transactions/{id}` per row. Design: [mockups/expense-world-home-absorbs-overview.html](mockups/expense-world-home-absorbs-overview.html) (option A) over [mockups/expense-world-home-as-ledger.html](mockups/expense-world-home-as-ledger.html) (picks A and C); the why in [decisions.md](decisions.md) "Home is the month" and "Overview folds into Home".
+- `world` — launches the Textual TUI over the same fetch/write layer. `expense` with no args prints group help. Reference: [tui.md](tui.md).
 
 ---
 
@@ -184,47 +155,30 @@ Two doors since 2026-09-12: `sheet` (the personal-spreadsheet importer, which wa
 |---|---|---|
 | `--json` | every read command | Raw engine response, passed through verbatim |
 | `--yes` / `-y` | every destructive command (delete, revert, clear) | Skip confirmation prompt |
-| `--verbose` | every command (root flag) | Print HTTP request/response for debugging |
-| `--include-archived` | `accounts list` + `dashboard` (accounts are the only archivable resource since 2026-08-06) | Include archived rows |
+| `--verbose` / `-v` | every command (root flag) | Print HTTP request/response to stderr, Authorization redacted |
+| `--include-archived` | `accounts list`, `dashboard` | Include archived rows (accounts are the only archivable resource) |
 
 ---
 
 ## Output conventions
 
-- **Tables** — Default rendering for every `<resource> list` flow. Plain ASCII columns, header row + separator dashes, two-space gap between columns. Built via the shared helpers in [expense/commands/_resource.py](../expense/commands/_resource.py): `render_table(headers, rows, *, align_right)`, `pad_left`, `pad_right`, `visible_len`. Per-resource columns are chosen for at-a-glance scannability, not field-by-field completeness — the verbose key:value dump remains the `<resource> get <id>` view, and `--json` keeps raw passthrough.
-  - **Process rule:** before adding a new `list` renderer (or new columns to an existing one), propose the column set explicitly and get user sign-off. Never invent columns from the engine response shape alone — the user has the final say on what's scannable. The recommended workflow is the HTML mockup pattern used for Step 9.5.9/9.5.10 tables: dump the available fields, propose a short list with rationale, iterate, then implement.
-  - **Color swatches** — When a column carries a `#RRGGBB` value, render as a 2-char ANSI 24-bit block via `color_swatch(hex, color=color_supported())`. `color_supported()` gates on `sys.stdout.isatty()` + the `NO_COLOR` env var ([no-color.org](https://no-color.org)). Non-TTY (pipe, file, test) falls back to the hex string so output stays grep-able.
-  - **Name resolution** — ID columns on `transactions` / `reports` resolve to human names via live reference-list maps (`load_account_name_map`, `load_category_name_map`, `load_hashtag_name_map`). Unresolvable IDs fall back silently to the first 8 chars (e.g. `de37af15`); null IDs render as `—`. No warning on miss — a name-map hiccup must never break a listing.
-  - **Truncation** — Free-text columns (`title`, `description`) truncate at 24 visible chars with a trailing `…`. The full value is still in `get` / `--json`.
-  - **Hashtag cells** — `transactions list` ends with a `Hashtags` column built by `format_hashtag_cell` (CLI width 24, TUI width 20 — widths stay per-surface). Empty renders `—`, never blank, so "no tags" and "column missing" cannot be confused. Column set signed off 2026-08-16, label unified the same day following the engine's own vocabulary (`/hashtags`, `hashtag_ids`, `?hashtag_id=`); see [decisions.md](decisions.md) "One word for hashtags". Folding tags into the `Title` cell was drawn and **rejected** — the 24-char cap silently ate a tag. (The `inbox list` twin of this column left with the inbox, 2026-09-12.)
-- **Pagination (human mode)** — since the engine's 2026-09-23 changes no list pages by offset, and every list is one of three shapes (engine-spec *Base Conventions*). The line under each table follows the shape:
-  - **Whole** — `accounts list`, `categories list`, `hashtags list`, and `reconcile list` (one account at a time, `--account-id` required). The engine returns every row as `{items}` and refuses `limit`/`offset` with a `422`, so these commands have **no** `--limit`/`--offset`, print every row, and print **no footer line** (mockup M5). Guarded by `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
-  - **Cursor** — `transactions list`. Human mode asks for 20 rows (`DEFAULT_PAGE_ROWS` in [expense/commands/_resource.py](../expense/commands/_resource.py)) unless `--limit` says otherwise; when the engine returns a `next_cursor` the table ends with `(more: pass --after <cursor> with the same filters and --sort)` — `--sort` named because the engine binds a cursor to the sort as well as the filters — and nothing on the last page. There is no total, so no extra `/count` read.
-  - **Cursor inside a date window** — `activity list` and `rates list`. The line under the table always prints the window the engine echoes, even over an empty table, so an empty window never reads as "no history": `(2026-08-24 → 2026-09-23 · more in this window: pass --after <cursor>)` while the window has more; on its last page `(2026-08-24 00:00 → 2026-09-23 23:59 · older: pass --to 2026-08-24T00:00:00-05:00)` for activity — its bounds are instants the engine echoes in the user's `display_timezone`, cut to the minute with no zone math, and `--to` is the echoed `date_from` uncut — and for rates `(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)` — `--to` one day before the echoed `date_from`, because rate dates are inclusive.
-  - `--json` sends **no** default limit and prints the engine body verbatim, whatever the shape. The TUI's own 20-row window is [tui.md](tui.md)'s, not this paragraph's.
-  - Rationale for the 20-row default and its rejected alternatives: [decisions.md](decisions.md) "Every data table pages at 20 rows".
-- **Amounts** — currency symbol prefix (`S/ 8,420.50`, `$5,200.00`). Native + home currency shown side-by-side when they differ. Outflows prefixed with `-`.
-- **Dates (output)** — ISO 8601 by default (`2026-04-19`). Relative hints (`3 days ago`) only in detail (`get`) views.
-- **Dates (input)** — Commands that accept `--date` (`expense log`, `expense transactions update`) accept `YYYY-MM-DD`, `YYYY-MM-DD HH:MM[:SS]`, `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM-DDTHH:MM:SSZ`, or `YYYY-MM-DDTHH:MM:SS±HH:MM`. Naive forms get the user's local timezone attached automatically by the CLI's normalizer in [expense/dates.py](../expense/dates.py). The engine itself rejects naive datetimes with 422 — the CLI's normalizer is the only place that accepts them. **Not** `reconcile create`/`update`: a period's `--date-start`/`--date-end` are calendar days and go out unnormalised (see `expense reconcile` above).
-- **Errors** — engine's `{ error: { code, message, fields } }` rendered as:
+- **Tables** — Default rendering for every `<resource> list`. Plain columns, header row + separator dashes, two-space gap. Built via the shared helpers in [expense/commands/_resource.py](../expense/commands/_resource.py): `render_table(headers, rows, *, align_right)`, `pad_left`, `pad_right`, `visible_len`. Columns are chosen for at-a-glance scannability, not completeness — the full key:value dump is `<resource> get <id>`, and `--json` is raw.
+  - **Process rule:** before adding a new `list` renderer (or new columns to an existing one), propose the column set explicitly and get user sign-off, via an HTML mockup in [mockups/](mockups/). Never invent columns from the engine response shape alone.
+  - **Color swatches** — a `#RRGGBB` column renders as a 2-char ANSI 24-bit block via `color_swatch(hex, color=color_supported())`. `color_supported()` gates on `sys.stdout.isatty()` + `NO_COLOR` ([no-color.org](https://no-color.org)); off a TTY the hex string is printed so output stays grep-able.
+  - **Name resolution** — ID columns resolve to names via live reference-list maps (`load_account_name_map`, `load_category_name_map`, `load_hashtag_name_map`); the engine's responses are IDs-only. Unresolvable IDs fall back silently to the first 8 chars; null IDs render as `—`. A name-map failure degrades to `{}` and never breaks a listing.
+  - **Truncation** — free-text columns (`title`, `description`) truncate at 24 visible chars with `…`. The full value is in `get` / `--json`.
+  - **Hashtag cells** — `transactions list` ends with a `Hashtags` column built by `format_hashtag_cell` (CLI width 24, TUI width 20). Empty renders `—`, never blank.
+- **Pagination (human mode)** — every list is one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). The line under each table follows the shape:
+  - **Whole** — `accounts list`, `categories list`, `hashtags list`, `reconcile list`. No `--limit`/`--offset` (the engine `422`s them), every row printed, **no footer line**. Guarded by `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
+  - **Cursor** — `transactions list`. Human mode asks for 20 rows (`DEFAULT_PAGE_ROWS` in [_resource.py](../expense/commands/_resource.py)) unless `--limit` says otherwise; when the engine returns a `next_cursor` the table ends with `(more: pass --after <cursor> with the same filters and --sort)` — the engine binds a cursor to the sort as well as the filters — and nothing on the last page. No total is printed.
+  - **Cursor inside a date window** — `activity list` and `rates list`. The line under the table always prints the window the engine echoes, even over an empty table: `(2026-08-24 → 2026-09-23 · more in this window: pass --after <cursor>)` while the window has more. On its last page, activity prints `(2026-08-24 00:00 → 2026-09-23 23:59 · older: pass --to 2026-08-24T00:00:00-05:00)` — bounds are the engine's echoed instants in `display_timezone`, cut to the minute, and `--to` is the echoed `date_from` uncut; rates print `(2026-08-24 → 2026-09-23 · newest first · older: pass --to 2026-08-23)` — one day before the echoed `date_from`, since rate dates are inclusive.
+  - `--json` sends **no** default limit and prints the engine body verbatim, whatever the shape. Why 20 rows: [decisions.md](decisions.md) "Every data table pages at 20 rows".
+- **Amounts** — currency symbol prefix (`S/ 8,420.50`, `$5,200.00`). Native + home currency side by side when they differ. Outflows prefixed with `-`.
+- **Dates (output)** — ISO 8601 (`2026-04-19`). Relative hints (`3 days ago`) only in `get` views.
+- **Dates (input)** — commands that accept `--date` (`expense log`, `expense transactions update`) take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM[:SS]`, `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM-DDTHH:MM:SSZ`, or `YYYY-MM-DDTHH:MM:SS±HH:MM`. Naive forms get the local timezone attached by [expense/dates.py](../expense/dates.py) — the engine rejects naive datetimes, so this normalizer is the only place that accepts them. **Not** `reconcile create`/`update`: a period's dates are calendar days sent unnormalised.
+- **Errors** — the engine's `{ error: { code, message, fields } }` rendered as:
   ```
   Error: VALIDATION_ERROR — Amount must not be zero.
     amount_cents: Must not be zero.
   ```
-- **`--json`** — pass-through. No reshaping, no truncation, no key renaming.
-- **`--json` serialisation** — two-space indent, keys in the engine's own order, and
-  **UTF-8 written as UTF-8**: `Café`, not `Caf\u00e9`. One serialiser
-  ([expense/jsonout.py](../expense/jsonout.py)) for every command and for the error
-  envelope, so the bytes never depend on which command produced them. Until
-  2026-09-19 thirty-one `json.dumps` calls spelled this out by hand and three of
-  them — the bank importer's — escaped differently from the rest.
-
----
-
-## To Be Defined
-
-- Shell completions (zsh, bash, fish)
-- The quick-add **launcher hotkey** — a global chord that opens the LOG bar from outside the TUI ([mockups/quick-add-launcher-options.html](mockups/quick-add-launcher-options.html)). Parked, not scheduled.
-- `expense import csv` — CSV variant of the shipped `.xlsx` importer, only if a real migration needs it (see [todo.md](todo.md))
-
-*(Resolved and moved above: the TUI quick-add bar shipped whole 2026-08-25 — the grammar, `expense log "<line>"`, the staged batch and the `+` switch — so it is documented under `expense world` rather than pending here; superseded speculative drawings, kept for the parked launcher question: [mockups/quick-add-bar.html](mockups/quick-add-bar.html), [mockups/expense-world-log-quickadd.html](mockups/expense-world-log-quickadd.html). `expense world` shipped as a command — see its group entry. The local SQLite cache shipped cache-by-default through Step 7b.3, then was deleted 2026-08-06 with the engine's `/sync` — see [decisions.md](decisions.md) "Delete the local replica".)*
+- **`--json`** — pass-through: no reshaping, no truncation, no key renaming. Two-space indent, keys in the engine's order, UTF-8 written as UTF-8 (`Café`, not `Café`). One serialiser, [expense/jsonout.py](../expense/jsonout.py), for every command and for the error envelope.

@@ -53,7 +53,7 @@ def _orow(line: int, **over: object) -> OpeningRow:
 
 
 def _whole_list(rows: list):
-    """The 2026-09-23 engine: the list whole, and a 422 for any paging."""
+    """The engine's shape: the list whole, and a 422 for any paging."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         if {"limit", "offset"} & set(request.url.params):
@@ -335,7 +335,7 @@ def test_batch_409_is_non_fatal(configured):
 
 @respx.mock
 def test_chunk_409_falls_back_to_per_row_and_imports_new_rows(configured):
-    """Appending rows to an already-imported sheet must import the new rows (backlog 1.3)."""
+    """Appending rows to an already-imported sheet must import the new rows."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
         accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
@@ -389,7 +389,7 @@ def test_per_row_fallback_reports_non_409_failure(configured):
     assert result.tx_skipped_existing == 1
     assert result.tx_failed == 1
     failed_id = plan.tx_ids[3]
-    # sheet-line context prefixed, engine text via format_error (backlog 6.3a)
+    # sheet-line context prefixed, engine text via format_error
     assert result.failures == [(0, f"sheet line 3, id {failed_id}: VALIDATION_ERROR — bad")]
 
 
@@ -427,7 +427,7 @@ def test_per_row_fallback_connection_error_stops_run(configured):
 
 @respx.mock
 def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
-    """One invalid row must not sink its whole chunk, and must name its sheet line (backlog 3.9)."""
+    """One invalid row must not sink its whole chunk, and must name its sheet line."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
         accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
@@ -458,7 +458,7 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
 @respx.mock
 def test_row_failure_keeps_engine_fields_detail(configured):
     """A 422's per-field detail must survive into the failure line — never
-    reformat lossily (backlog 6.3a)."""
+    reformat lossily."""
     plan = _plan([_prow(2), _prow(3, amount_cents=0)])
     _mock_existing(
         accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
@@ -490,7 +490,7 @@ def test_row_failure_keeps_engine_fields_detail(configured):
 
 @respx.mock
 def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(configured):
-    """A non-409/422 chunk error fails once with the sheet line range (backlog 3.9)."""
+    """A non-409/422 chunk error fails once with the sheet line range."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
         accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
@@ -567,7 +567,7 @@ def test_batch_connection_failure_marks_remaining_failed_and_stops(configured):
 def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
     """One resource that fails to create no longer aborts the whole import: it's
     collected, its dependent rows are skipped pre-flight, and the rest still
-    land (backlog 6.4)."""
+    land."""
     rows = [
         _prow(2, category="WANTS", hashtag="Salidas"),
         _prow(3, category="NEEDS", hashtag="Salidas", amount_cents=-5500),
@@ -625,13 +625,10 @@ _HEADERS = [
 _CELLS = ["Groomers", "WANTS", "Salidas", 44896, -44, "BCP PEN", "None", "PEN", -44, "None", "None"]
 
 
-#: The REAL command tree, not a hand-wired stand-in. `expense import` has been a
-#: group with two doors since 2026-09-12 (`sheet` and `bank`), and these tests
-#: used to mount `run_import` as a bare command called `import` — the shape the
-#: CLI retired that day. They stayed green through the rename because they were
-#: never invoking the thing that got renamed. Driving the real app costs a
-#: Textual import on a targeted run and buys the only coverage the group name
-#: and the subcommand name have.
+#: The REAL command tree, not a hand-wired stand-in: a hand-mounted command
+#: would stay green through a rename of the group (`import`) or the subcommand
+#: (`sheet`). Driving the real app costs a Textual import on a targeted run and
+#: buys the only coverage those names have.
 cli_app = real_cli_app()
 
 
@@ -728,7 +725,7 @@ def test_apply_json_result_with_failures(configured, monkeypatch):
 
 @respx.mock
 def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch):
-    """A mid-run connection drop still renders the summary and exits 1 (backlog 2.2)."""
+    """A mid-run connection drop still renders the summary and exits 1."""
     second_cells = list(_CELLS)
     second_cells[4] = -55  # different amount → distinct transaction
     monkeypatch.setattr(
@@ -760,7 +757,7 @@ def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch
 
 @respx.mock
 def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch):
-    """A resource create failure is rendered and forces a non-zero exit (backlog 6.4)."""
+    """A resource create failure is rendered and forces a non-zero exit."""
     second = list(_CELLS)
     second[1] = "NEEDS"  # distinct category
     second[4] = -55  # distinct amount → distinct row

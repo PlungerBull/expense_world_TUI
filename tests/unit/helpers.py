@@ -86,8 +86,7 @@ def strip_panel(output: str) -> str:
     treated as a terminal, which wraps usage errors in a box AND highlights the
     offending flag — splicing escape codes *inside* the token, so a plain
     ``"No such option: --include-deleted" in result.output`` finds nothing
-    (`--include-deleted` arrives as `-` + `-include` + `-deleted`). CI was red
-    from 2026-08-17 to 2026-08-19 for exactly that reason.
+    (`--include-deleted` arrives as `-` + `-include` + `-deleted`).
 
     Assert against this, never raw ``result.output``, whenever the expected text
     contains a flag name or could wrap at the panel edge.
@@ -109,12 +108,9 @@ def render_text(*renderables: object, width: int = 100, ansi: bool = False) -> s
     whole point. Left unset, Rich *sniffs the environment* — FORCE_COLOR, TERM,
     CI — so the same renderable comes back as plain text on one machine and as
     ANSI spans on another, which splits `-134.60 PEN` into separate spans and
-    breaks a plain substring assertion that is not wrong about anything. Six
-    tests in this suite failed that way under `FORCE_COLOR=1` (2026-09-19), and
-    CLAUDE.md carried the workaround for a year: "FORCE_COLOR must not be set
-    when you run the suite ... `env -u FORCE_COLOR pytest tests/unit` if in
-    doubt" (2026-08-29). An assertion that depends on the environment it runs in
-    is the bug; this is the fix, and the instruction is gone with it.
+    breaks a plain substring assertion that is not wrong about anything. An
+    assertion that depends on the environment it runs in is the bug; this is
+    the fix, so the suite needs no "never set FORCE_COLOR" instruction.
 
     `legacy_windows=False` is pinned for the same reason — box-drawing must not
     depend on the host OS.
@@ -133,12 +129,10 @@ def render_text(*renderables: object, width: int = 100, ansi: bool = False) -> s
 # Engine envelopes
 # ---------------------------------------------------------------------------
 #
-# The two wrappers every endpoint speaks. They were written out by hand at ~80
-# sites, which is fine until the shape moves: `warnings` left DELETE on
-# 2026-08-11 and a flat `fields` grammar arrived on 2026-09-13, and each time the
-# change had to be chased through a dozen files. One definition each means the
-# next one is a single edit — and means a fixture cannot quietly disagree with
-# its neighbours about what the engine sends.
+# The two wrappers every endpoint speaks. Written out by hand at every site, a
+# change of shape would have to be chased through a dozen files. One definition
+# each means a change is a single edit — and means a fixture cannot quietly
+# disagree with its neighbours about what the engine sends.
 
 
 def error_body(code: str, message: str = "boom", fields: object = None) -> dict:
@@ -146,7 +140,7 @@ def error_body(code: str, message: str = "boom", fields: object = None) -> dict:
     surface cleanly" and docs/cli-runtime.md.
 
     `fields` defaults to None (the shape a non-validation refusal has); pass a
-    dict for a 422, whose keys the engine has named per row since 2026-09-13.
+    dict for a 422, whose keys the engine names per row.
     """
     return {"error": {"code": code, "message": message, "fields": fields}}
 
@@ -159,7 +153,7 @@ def error_response(
 
 
 def whole(items: list) -> dict:
-    """The whole-list envelope: accounts, categories, hashtags (engine 2026-09-23).
+    """The whole-list envelope: accounts, categories, hashtags.
     No `total`, `limit` or `offset` — the engine returns every row and refuses
     both paging parameters."""
     return {"items": items}
@@ -234,7 +228,7 @@ class FakeClient:
     not-provisioned behavior). Set `errors["POST"] = exc` to make a verb raise.
 
     Writes answer `{}` unless `write_responses[path]` says otherwise — needed
-    since `run_write`'s `on_response` reads the engine's own body (`complete`
+    because `run_write`'s `on_response` reads the engine's own body (`complete`
     carries a `warnings` envelope).
     """
 
@@ -295,11 +289,10 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None):
     """Run `body(pilot, app)` inside a live ExpenseApp and return its result.
 
     Every TUI test needs the same four lines — an app, `run_test`, a pilot, and
-    an `asyncio.run` to drive it — and until 2026-09-19 all 144 of them wrote
-    their own copy. That is not only repetition: it is 144 independent chances
-    to boot the app slightly differently, and the place a suite-wide change
-    (a default size, a fixture, an exception-handling wrapper) has to be made
-    144 times or not at all.
+    an `asyncio.run` to drive it. A copy per test is not only repetition: it is
+    an independent chance to boot the app slightly differently, and a
+    suite-wide change (a default size, a fixture, an exception-handling
+    wrapper) would have to be made in every one or not at all.
 
     `size` is passed through to `run_test` only when given, so the default stays
     Textual's rather than a number this helper invented. A screen that depends
@@ -369,7 +362,7 @@ async def wait_for_list(pilot, app) -> None:
     )
 
 
-# ---- Home's month (2026-09-13) ---------------------------------------------------
+# ---- Home's month ---------------------------------------------------------------
 #: Two months as `/reports/monthly` returns them. @Pendiente holds only untagged
 #: rows, WANTS two hashtags, and HOGAR nothing in either month — so Home must not
 #: draw it. Ids carry a hyphen so scripts/check_fixture_drift.py does not read the

@@ -6,27 +6,23 @@ is carried on the `Selected` message; `cells` are the column strings. `_build()`
 is pure, so formatting is unit-testable without an event loop.
 
 Every list renders at most `page_size` rows — min(20, what fits the terminal)
-since 2026-07-13 (adaptive rows, pick A + cap 20; the screen measures and calls
-`set_page_size` on resize); `pgdn`/`pgup` page. Two modes share the
+(the screen measures and calls `set_page_size` on resize); `pgdn`/`pgup` page. Two modes share the
 one widget:
 
 - window mode (default): `_rows` holds the full dataset and the visible
   window follows the cursor (`cursor // page_size`), so `↑`/`↓` walk straight
   through page boundaries and cursor-restore-after-write lands on the right
   page for free.
-- growing mode (`set_growth(more=…)`, 2026-09-25, mockup
-  expense-world-engine-uptake.html M3/M6): `_rows` is every row loaded so far
+- growing mode (`set_growth(more=…)`): `_rows` is every row loaded so far
   and the window follows the cursor, as in window mode. `pgdn` does not turn a
   page: it posts `MoreRequested`, the screen fetches the next `GROW_STEP` rows
   by cursor and appends them (`append_rows`), and the cursor lands on the first
   new one. The engine hands out "the rows after this one", never "row 41", so
   a list that only ever grows at the end is the shape that fits it (see
-  `GrowingRead` in `screens/_growing.py`). It replaced the fetched-page mode (`page_meta`,
-  `PageRequested`) on 2026-09-26, when the ledger stopped paging by offset.
+  `GrowingRead` in `screens/_growing.py`).
 
-The widget is its own quiet-border panel (app.tcss): screens name it via
-`title` (border title) and the page status renders in the border subtitle
-(mockup pick B) — `rows 21-40 of 133 · page 2 of 7`.
+No border (app.tcss): an optional caption above a rule, and the page status
+as the list's last line — `rows 21-40 of 133 · page 2 of 7`.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -55,8 +51,8 @@ __all__ = [
     "page_indicator",
 ]
 
-#: How many rows one `pgdn` adds to a growing list (owner, 2026-09-25: "we
-#: should work 10 by 10"). The first load is the same size.
+#: How many rows one `pgdn` adds to a growing list — ten at a time. The
+#: first load is the same size.
 GROW_STEP = 10
 
 
@@ -87,14 +83,13 @@ RowInput = Row | tuple
 class CursorList(WindowedList):
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
-        # footer slot (user, 2026-08-20 — "its obvious and it just occupies space
-        # unnecessarily"). The keys are unchanged and the `?` card still lists them,
-        # which is where a key that needs explaining belongs.
+        # footer slot — it is obvious and only occupies space. The keys are
+        # unchanged and the `?` card still lists them, which is where a key that
+        # needs explaining belongs.
         Binding("down", "move(1)", "Navigate", tooltip="Down", show=False),
         Binding("up", "move(-1)", "Up", show=False),
         Binding("enter", "select", "Open"),
-        # Row selection for bulk edits (2026-09-12, mockup expense-world-home-as-
-        # ledger.html). The widget only posts `Toggled`; it is live — key and
+        # Row selection for bulk edits. The widget only posts `Toggled`; it is live — key and
         # footer both — only on a screen that handles the message, the same
         # gate `enter` goes through in help.py (`check_action` below).
         Binding("space", "toggle", "Select", tooltip="Select / unselect the cursor row"),
@@ -122,7 +117,7 @@ class CursorList(WindowedList):
         @property
         def control(self) -> "CursorList":
             """The list that posted this — handlers on screens with several
-            CursorLists must filter by source (backlog 6.2c)."""
+            CursorLists must filter by source."""
             return self._control
 
     class MoreRequested(Message):
@@ -149,7 +144,7 @@ class CursorList(WindowedList):
         @property
         def control(self) -> "CursorList":
             """The list that posted this — handlers on screens with several
-            CursorLists must filter by source (backlog 6.2c)."""
+            CursorLists must filter by source."""
             return self._control
 
     class Toggled(Message):
@@ -178,8 +173,7 @@ class CursorList(WindowedList):
         page_size: int = DEFAULT_PAGE_ROWS,
         flex: Mapping[int, int] | None = None,
     ) -> None:
-        """``flex`` maps a column index to a Rich ``ratio`` (2026-09-12, mockup
-        expense-world-ledger-column-fit.html, option A). Columns named there are
+        """``flex`` maps a column index to a Rich ``ratio``. Columns named there are
         free text: the others take their natural width first and the flex
         columns share whatever the terminal has left, in ratio, each cell cut by
         the table at the edge of the column it actually has — so a cell is never
@@ -201,8 +195,8 @@ class CursorList(WindowedList):
         self.refresh_bindings()
 
     def append_rows(self, rows: Iterable[RowInput], *, more: bool) -> None:
-        """Add rows at the end and put the cursor on the first new one (owner,
-        2026-09-25). An empty batch leaves the cursor where it was."""
+        """Add rows at the end and put the cursor on the first new one.
+        An empty batch leaves the cursor where it was."""
         first_new = len(self._rows)
         self._rows.extend(Row.coerce(r) for r in rows)
         self._more = more
@@ -224,7 +218,7 @@ class CursorList(WindowedList):
     def set_headers(self, headers: Sequence[str], *, align_right: Iterable[int] = ()) -> None:
         """Relabel the columns in place — for a pane that lists two different
         things (the Reconciliations lower pane: batches, or the account's rows in
-        no batch, 2026-09-22). Rebuilding the widget instead would drop the
+        no batch). Rebuilding the widget instead would drop the
         caption, the page size the screen computed and the focus.
         """
         self._headers = list(headers)
@@ -247,8 +241,7 @@ class CursorList(WindowedList):
         """The page-status line, or None when everything fits one page."""
         if self._more is not None:
             # "rows 11-20 of 20" would count what is loaded, not what exists;
-            # a growing list's screen states `N of M loaded` where its mockup
-            # put it.
+            # a growing list's screen states `N of M loaded` itself.
             return None
         return super().page_status
 
@@ -317,7 +310,7 @@ class CursorOptionList(OptionList):
     `text-style: reverse` — and Textual 8.2.7 drops `reverse` when both colours
     are `ansi_default`. Measured, the highlighted row rendered
     `default on default`, byte-identical to its neighbours, so the home menu had
-    no visible cursor at all (reported 2026-08-20). Overriding the rule in
+    no visible cursor at all. Overriding the rule in
     `app.tcss` does not help; the style is dropped there too.
 
     So the cursor is applied to the finished strip instead, which is the same

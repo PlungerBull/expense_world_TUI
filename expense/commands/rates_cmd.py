@@ -20,7 +20,7 @@ app = typer.Typer(help="Exchange rates.", no_args_is_help=True)
 
 
 # Display precision, in decimal places. The engine stores 8 (RATE_SCALE); the
-# approved mockup shows 4, which is where a USD/PEN rate stops being meaningful
+# display shows 4, which is where a USD/PEN rate stops being meaningful
 # to read. Kept separate from RATE_SCALE because they answer different
 # questions — one is storage fidelity, the other is how much of it is worth
 # rendering.
@@ -62,8 +62,7 @@ def _render_rate(body: object) -> None:
     `rate_e8` is the one key that gets special handling, because it is the one
     key whose raw form is unreadable: the engine sends the rate x RATE_SCALE
     (sql/036), so generic echo would print `rate_e8: 335187273`. It renders as
-    `rate: 3.3519` — the same line this command printed before the engine's wire
-    format changed. `--json` is unaffected and still shows the raw integer.
+    `rate: 3.3519`. `--json` is unaffected and still shows the raw integer.
     """
     if isinstance(body, dict):
         for key, value in body.items():

@@ -1,7 +1,7 @@
 """GrowingRead — the reads behind a list that grows. One copy, two lists.
 
-The owner's shape for a long list (2026-09-25, mockup
-expense-world-engine-uptake.html M3 and M6): it opens with `GROW_STEP` rows,
+The shape of a long list (docs/decisions.md "Long lists grow, they do not
+page"): it opens with `GROW_STEP` rows,
 `pgdn` appends the next `GROW_STEP` under them, and `↑`/`↓` scroll across
 everything loaded. The engine hands out "the rows after this one", never
 "row 41", so a list that only grows at its end is the shape that fits it.
@@ -12,18 +12,17 @@ screen). They share this reader, not a screen mixin — the pane is no screen of
 its own. Each host keeps its own widgets and failure display; what lives here
 is what must not drift between them:
 
-- **Rows and count come together** (owner, 2026-09-23): `read_first` raises
+- **Rows and count come together**: `read_first` raises
   when the count cannot be read, and the host fails its list rather than show
   rows beside a missing or guessed number. `pgdn` does not recount.
-- **Any write starts the list over** (owner, 2026-09-26): after `+`, `⏎`,
+- **Any write starts the list over**: after `+`, `⏎`,
   `c`/`b`/`h` or `d` the host calls `reset()` and reads fresh, the first
-  `GROW_STEP` with the cursor on row 1, like any app's list. An earlier answer
-  the same day kept the depth and the row number; the owner replaced it.
+  `GROW_STEP` with the cursor on row 1, like any app's list.
 - **A `pgdn` read never lands on a list it was not for.** `reset()` drops the
   cursor, so a `pgdn` on the old list — still on screen while the fresh read
   runs — reads nothing, and a read already in flight is dropped on arrival by
-  its generation number. Without that, a filtered ledger whose re-read ends
-  one row further along repeated a row (review, 2026-09-26).
+  its generation number — otherwise a filtered ledger whose re-read ends one
+  row further along repeats a row.
 """
 
 from collections.abc import Callable

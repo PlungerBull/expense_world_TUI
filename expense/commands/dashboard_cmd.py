@@ -47,11 +47,10 @@ def _render_account_table(items: list[dict] | None, *, empty_message: str) -> No
 def _render_people(people: list[dict] | None) -> None:
     """The People panel: everyone still owing or owed, then `▸ 3 settled`.
 
-    A settled person (balance exactly `0` in her own currency) is **folded, not
-    dropped** — the engine returns her deliberately and refuses to filter on a
-    computed balance, so the count line is what keeps "she paid me back" distinct
-    from "I never wrote the loan down" (sketch pick G, 2026-08-16). A printed page
-    cannot be unfolded; `expense accounts list --include-people` names them.
+    A settled person (balance exactly `0` in their own currency) is **folded, not
+    dropped** — Why: docs/decisions.md "A settled person is folded, never hidden".
+    A printed page cannot be unfolded; `expense accounts list --include-people`
+    names them.
 
     The panel is skipped entirely only when there are no people at all, matching
     the pre-existing behaviour for an empty list.
@@ -86,25 +85,15 @@ def _render_dashboard(body: dict, *, json_mode: bool) -> None:
 
     render_totals(body.get("totals"))
 
-    # The archived-categories / archived-hashtags lifetime panels were deleted
-    # from the engine on 2026-08-05: archiving a category was never a distinct
-    # feature (soft delete already hides a row from the pickers), and those
-    # panels were the `is_archived` columns' last readers. An archived *account*
-    # is different — it still holds real money — so that panel stays.
+    # An archived *account* still holds real money, so it keeps a panel.
     archived_accounts = body.get("archived_accounts")
     if archived_accounts is not None:
         typer.echo("")
         typer.echo("Archived accounts:")
         _render_account_table(archived_accounts, empty_message="  (no archived accounts)")
 
-    # `archived_people` is a *separate* panel from `archived_accounts`, never
-    # merged (engine, 2026-08-14): people and bank accounts are two lists on
-    # every other surface, and merging them only here would sit an archived
-    # person among the archived cards. Both panels sit at the bottom so
-    # `--include-archived` adds one block rather than two scattered ones
-    # (sketch pick D, 2026-08-16). Settled people are *not* folded here — an
-    # archived person is a finished story, and folding would hide the whole
-    # panel, which is the one thing the flag was passed to see.
+    # `archived_people` is its own panel after `archived_accounts`, and is not
+    # folded — Why: docs/decisions.md "A settled person is folded, never hidden".
     archived_people = body.get("archived_people")
     if archived_people is not None:
         typer.echo("")

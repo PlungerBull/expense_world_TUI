@@ -32,13 +32,13 @@ class ExpenseApp(App):
     # (letters bubble to the App). HomeScreen binds q; ctrl+q quits everywhere.
     # `?` is bound the same way, per screen root, via HelpBindingMixin.
 
-    # The command palette is OFF (2026-08-17). It offered five commands, four of
+    # The command palette is OFF. It offers five commands, four of
     # them Textual's own dev affordances (Quit — ^q already does it — Maximize,
     # Screenshot) and a theme picker over 21 built-in themes we never designed
     # against our one. Its fifth, the Keys panel, is what `?` replaces, curated
     # and themed. Turning it off also drops Textual's `^p palette` strip from
-    # every footer, since Footer gates that key on this same flag. Rationale and
-    # the rejected alternative (populating it with a Provider): docs/decisions.md.
+    # every footer, since Footer gates that key on this same flag.
+    # Why: docs/decisions.md "The command palette is removed".
     ENABLE_COMMAND_PALETTE = False
 
     # None = not yet known (pre-fetch, offline, unconfigured). Never rendered as
@@ -49,7 +49,7 @@ class ExpenseApp(App):
         # ansi_color=True makes Textual paint the terminal's OWN default
         # background (SGR 49) instead of a fixed hex, so the app fill and the
         # terminal's window padding are one continuous surface — no seam — on
-        # whatever terminal it runs in. Since 2026-08-19 the *foreground* goes
+        # whatever terminal it runs in. The *foreground* goes
         # through the terminal too: the theme is native-ANSI, every colour is a
         # slot the terminal fills in, and nothing is pinned back. That is what
         # makes the app readable on a light terminal without detecting one.
@@ -112,17 +112,16 @@ def run_world(ctx: typer.Context) -> None:
         typer.echo("Error: expense world requires an interactive terminal.", err=True)
         raise typer.Exit(code=1)
     # Wipe the screen AND the terminal's scrollback before Textual enters the
-    # alt screen (picked 2026-07-13, mockups/expense-world-adaptive-rows.html
-    # STEP 5): with mouse tracking off, wheel/scrollbar gestures go to the
+    # alt screen: with mouse tracking off, wheel/scrollbar gestures go to the
     # terminal itself, and Terminal.app reveals scrollback ABOVE the running
     # app — pre-launch prompt text floating over the TUI. CSI 3J leaves
-    # nothing to reveal; terminals without it ignore it harmlessly. Accepted
-    # cost (the tab's whole scrollback, every launch): docs/decisions.md.
+    # nothing to reveal; terminals without it ignore it harmlessly.
+    # Why: docs/decisions.md "`expense world` clears the terminal scrollback at launch".
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
     # mouse=False: the TUI is keyboard-only. Textual otherwise enables terminal
     # mouse tracking on launch (clicks/scroll act on widgets AND the terminal's
     # native text-selection/copy is suppressed). Disabling it makes the app
-    # ignore the mouse and restores native select-to-copy. Every affordance has
-    # a full keyboard path; see docs/decisions.md.
+    # ignore the mouse and restores native select-to-copy.
+    # Why: docs/decisions.md "TUI is keyboard-only".
     ExpenseApp(verbose=get_verbose(ctx)).run(mouse=False)

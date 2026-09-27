@@ -174,7 +174,7 @@ def test_connection_error_on_timeout(config):
 )
 @respx.mock
 def test_connection_error_on_full_transport_family(config, exc):
-    """Every httpx transport failure renders cleanly, not as a traceback (backlog 3.4)."""
+    """Every httpx transport failure renders cleanly, not as a traceback."""
     respx.get(f"{BASE}/v1/auth/me").mock(side_effect=exc)
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError):
         client.get("/auth/me")
@@ -198,7 +198,7 @@ def test_connection_error_on_malformed_error_envelope(config):
         client.get("/auth/me")
 
 
-# --- bounded same-key write retry (backlog 3.1) ------------------------------
+# --- bounded same-key write retry ------------------------------
 
 
 def _envelope(status: int, code: str) -> httpx.Response:

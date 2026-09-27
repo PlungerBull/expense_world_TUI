@@ -1,4 +1,4 @@
-"""Create forms — new hashtag / category / account (Phase 2).
+"""Create forms — new hashtag / category / account.
 
 A lightweight bar-cycle form (same look as Log): cycle fields with the input
 bar, pick choices from a suggestion list, `ctrl+s` (or enter on the last field)
@@ -6,7 +6,7 @@ POSTs. Reached with `n` on the Manage list screens.
 
 New account covers both kinds: its first field is TYPE (`bank` / `person`,
 prefilled `bank`), and a `person` picks `POST /people` instead of
-`POST /accounts` — the People API, shipped 2026-08-14 (backlog 6.2). `is_person`
+`POST /accounts` — the People API. `is_person`
 is never sent as a field; it is a 422 on both routes, and the endpoint is the
 flag. Editing cannot change it, so TYPE is locked read-only on the edit form.
 """
@@ -201,9 +201,9 @@ class NewAccountScreen(BarFormScreen):
 
     A person is a bank account with `is_person = true`, and the two take exactly
     the same fields; the only difference is which endpoint the save goes to
-    (`POST /accounts` vs `POST /people`). So the choice is a field rather than a
-    second screen or a second key (sketch pick L, 2026-08-16), and it is
-    **prefilled to `bank`** — `n`, `enter`, name… still adds an ordinary account
+    (`POST /accounts` vs `POST /people`). So the choice is a field (Why:
+    docs/decisions.md "A settled person is folded, never hidden"), **prefilled
+    to `bank`** — `n`, `enter`, name… still adds an ordinary account
     without an extra decision.
 
     `is_person` is never sent in the body: `POST /accounts` rejects it and

@@ -21,14 +21,13 @@ RECON_DRAFT_RESPONSE = {
     "name": "Statement April 2026",
     "date_start": "2026-04-01",
     "date_end": "2026-04-30",
-    # native cents only — the home-cent pair died with read-time conversion
-    # (2026-08-05); reconciliations are single-account, so there is nothing to mix
+    # native cents only — no home-cent pair; reconciliations are
+    # single-account, so there is nothing to mix
     "beginning_balance_cents": 100000,
     "ending_balance_cents": 150000,
     "status": 1,
-    # difference_cents replaced sort_order/beginning_balance_source/
-    # chained_from_reconciliation_id in the 2026-08-06 de-chaining: it is
-    # (ending − beginning) minus the assigned transactions, computed at read time
+    # difference_cents is (ending − beginning) minus the assigned transactions,
+    # computed at read time
     "difference_cents": 0,
     "version": 1,
     "created_at": "2026-04-15T10:00:00Z",
@@ -42,9 +41,9 @@ RECON_OFF_RESPONSE = {
     "difference_cents": -3500,
 }
 
-# A batch opened before the statement arrived. Both fields are nullable since
-# the engine's sql/040 (2026-09-14) — it stopped storing a 0 ending balance as
-# a stand-in for "not entered yet" and computing the add-up check against it.
+# A batch opened before the statement arrived. Both fields are nullable
+# (engine sql/040): an ending balance not entered yet is null, never a 0
+# stand-in with the add-up check computed against it.
 RECON_UNENTERED_RESPONSE = {
     **RECON_DRAFT_RESPONSE,
     "id": "44444444-4444-4444-4444-444444444444",
@@ -78,7 +77,7 @@ def test_list_happy_with_account_filter(configured):
         "Id",
     ):
         assert header in result.output
-    assert "Source" not in result.output  # died with the 2026-08-06 de-chaining
+    assert "Source" not in result.output  # no chained begin, so no Source column
     assert "Statement April 2026" in result.output
     assert "2026-04-01 → 2026-04-30" in result.output
 
@@ -88,9 +87,9 @@ def test_list_happy_with_account_filter(configured):
 
     params = route.calls.last.request.url.params
     assert params.get("account_id") == "22222222-2222-2222-2222-222222222222"
-    # whole since 2026-09-23: the engine refuses both paging parameters
+    # whole: the engine refuses both paging parameters
     assert "limit" not in params and "offset" not in params
-    # and no footer line under a whole list (M5)
+    # and no footer line under a whole list
     assert "showing" not in result.output and "--offset" not in result.output
 
 
@@ -115,7 +114,7 @@ def test_list_takes_no_paging_flags(configured):
 def test_list_renders_difference_column(configured):
     """The flat table always prints the number — 0.00 when the batch balances,
     the signed figure when it does not. No glyph translation: this table gets
-    piped and eyeballed (Phase 3 sketch, the CLI half of option H)."""
+    piped and eyeballed."""
     respx.get(f"{BASE}/v1/reconciliations").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
@@ -134,10 +133,8 @@ def test_list_renders_difference_column(configured):
 def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
     """A batch with no closing figure yet reads as absent, not as `(null)`.
 
-    `ending_balance_cents` and `difference_cents` are nullable since the
-    engine's sql/040: before it, an omitted ending balance was stored as 0 and
-    the add-up check was computed against that placeholder, so "not entered"
-    and "the statement says zero" were the same row. Now they differ on the
+    `ending_balance_cents` and `difference_cents` are nullable (engine
+    sql/040), so "not entered" and "the statement says zero" differ on the
     wire, and this asserts they differ on the screen too — the `0.00` on the
     balanced row is the control.
     """
@@ -215,15 +212,15 @@ def test_create_sends_both_required_fields(configured):
     # calendar days, sent as typed — no midnight instant (engine `5922bbf`)
     assert body["date_start"] == "2026-04-01"
     assert body["date_end"] == "2026-04-30"
-    # both retired by the de-chaining; the request schemas are extra="forbid"
+    # neither exists; the request schemas are extra="forbid"
     assert "beginning_balance_source" not in body
     assert "sort_order" not in body
     assert "X-Idempotency-Key" in route.calls.last.request.headers
 
 
 def test_create_without_beginning_balance_blocks_at_parse(configured):
-    """Omitting it used to mean \"chain from the previous batch\"; there is no
-    derived mode left, so the engine 422s. Typer refuses before the HTTP call."""
+    """There is no derived beginning balance, so the engine 422s. Typer refuses
+    before the HTTP call."""
     result = runner.invoke(
         cli_app,
         [
@@ -266,7 +263,7 @@ def test_create_without_date_end_blocks_at_parse(configured):
 
 
 def test_create_without_date_start_blocks_at_parse(configured):
-    """date_start is what orders a batch since the de-chaining."""
+    """date_start is what orders a batch."""
     result = runner.invoke(
         cli_app,
         [
@@ -469,7 +466,7 @@ def test_delete_409_surfaces_hint(configured):
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: complete, revert (state machine)
+# complete, revert (state machine)
 # ---------------------------------------------------------------------------
 
 
@@ -566,7 +563,7 @@ def test_list_surfaces_an_engine_refusal(configured):
     assert "UNAUTHORIZED" in result.output
 
 
-# ---- sealed periods (engine, 2026-09-20) ------------------------------------
+# ---- sealed periods ---------------------------------------------------------
 _RID = "11111111-1111-1111-1111-111111111111"
 _COMPLETE = f"{BASE}/v1/reconciliations/{_RID}/complete"
 
@@ -607,8 +604,8 @@ def test_complete_renders_the_gap_warning(configured):
 
 @respx.mock
 def test_complete_prints_the_gap_once(configured):
-    """The record dump used to print `warnings: [...]` and `coverage_gap: {...}`
-    raw above the `Warning:` line — the same gap three ways. Only the line stays."""
+    """The gap prints once, as the `Warning:` line — never also as raw
+    `warnings: [...]` or `coverage_gap: {...}` in the record dump."""
     gap = "The days 2026-06-26 to 2026-07-23 are not covered by any completed reconciliation."
     body = {
         **RECON_DRAFT_RESPONSE,
@@ -651,8 +648,8 @@ def test_complete_json_passes_the_warnings_through(configured):
 
 def test_complete_422_unfiled_rows_prints_the_bare_hint_and_reads_nothing(configured):
     """The engine gives the count but neither the account nor the window, and
-    the read by id that used to fill them in is gone (engine, 2026-09-23). The
-    owner accepted the placeholder hint: no extra request, and the flags the
+    the engine has no read to fill them in. The placeholder hint is
+    accepted: no extra request, and the flags the
     hint names are the ones `transactions list` really has."""
     with respx.mock(assert_all_called=False) as mock:
         mock.post(_COMPLETE).mock(

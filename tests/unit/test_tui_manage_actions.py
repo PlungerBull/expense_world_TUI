@@ -1,10 +1,8 @@
 """Manage list actions — `e` edit and `a` archive act on the cursor row.
 
-The record detail was deleted 2026-07-11 (decisions.md): the list is the only
-surface. `a` toggles archive/unarchive immediately — no ConfirmModal, a second
+The list is the only surface. `a` toggles archive/unarchive immediately — no ConfirmModal, a second
 `a` undoes — and the cursor stays on the acted-on row across the reload.
-`enter` is a no-op. Archive is Accounts-only since the 2026-08-06 engine
-schema slimming removed category/hashtag archive.
+`enter` is a no-op. Archive is Accounts-only.
 """
 
 from expense.tui.screens.accounts import AccountsScreen
@@ -87,15 +85,15 @@ def test_archive_toggle_keeps_cursor_on_row(fake_client, monkeypatch):
 
 
 def test_archive_toggle_restores_cursor_across_pages(fake_client, monkeypatch):
-    """25 accounts: act on row 22 — beyond the 20-row window (2026-07-11
-    pagination). The reload must land the cursor back on that row, on its page."""
+    """25 accounts: act on row 22 — beyond the 20-row window.
+    The reload must land the cursor back on that row, on its page."""
     accounts = [{**ACCOUNT, "id": f"a{i}", "name": f"Acct {i:02d}"} for i in range(25)]
     monkeypatch.setattr(
         "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(accounts)
     )
 
     async def scenario(pilot, app):
-        # tall harness: rows-per-page adapt to the terminal since 2026-07-13;
+        # tall harness: rows-per-page adapt to the terminal;
         # 40 lines keeps the manage window at the 20-row cap, so a22 is page 2
         screen = AccountsScreen()
         await app.push_screen(screen)
@@ -134,7 +132,7 @@ def test_edit_prefills_and_puts(fake_client, monkeypatch):
 
 
 def test_categories_have_no_archive_action(fake_client, monkeypatch):
-    """Category archive died with the 2026-08-06 schema slimming: the `a`
+    """Categories have no archive: the `a`
     binding lives on AccountsScreen only, so on Categories it is inert."""
     monkeypatch.setattr(
         "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: whole([SYS_CAT])

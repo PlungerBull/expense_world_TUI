@@ -115,7 +115,7 @@ def build_plan(
     tx_ids: dict[int, str] = {}
     # No content-dedup here, deliberately: stable_row_key embeds row.line, so
     # ids are line-keyed and always unique — identical content on two lines
-    # imports twice (the old `tid in seen_ids` skip was unreachable, 6.4e).
+    # imports twice.
     for row in parsed:
         tx_ids[row.line] = tx_id_for(row)
         rows.append(row)

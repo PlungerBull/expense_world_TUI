@@ -1,6 +1,6 @@
 """Contract lifecycle for the People API against a real engine.
 
-Additive engine capability, 2026-08-14 (backlog 6.2). **This is the only check
+**This is the only check
 that can see this feature at all.** The fast suite mocks the engine with recorded
 fixtures, and a recorded fixture cannot grow an endpoint that did not exist when
 it was written; `scripts/check_fixture_drift.py` is blind here too, since it only

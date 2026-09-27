@@ -50,7 +50,7 @@ def detect_timezone(localtime: Path = Path("/etc/localtime")) -> str:
 
     Neutral error on failure so each surface picks its own remedy: the CLI
     wraps it into BadParameter ("pass --timezone"), the TUI notifies with the
-    TZ-env hint instead of crashing the app (backlog 6.2d).
+    TZ-env hint instead of crashing the app.
     """
     tz_env = os.environ.get("TZ")
     if tz_env:

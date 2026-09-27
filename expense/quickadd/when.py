@@ -4,14 +4,14 @@ Emits `YYYY-MM-DD` and nothing else. The caller hands that to
 `expense.dates.to_canonical_aware` for the wire format; that function raises
 `typer.BadParameter`, so it is deliberately not reachable from here.
 
-Accepted (decided 2026-08-25, docs/decisions.md):
+Accepted (docs/decisions.md "Three quick-add grammar rules"):
   hoy / ayer / mañana        · unaccented spellings too, any case
   today / yesterday / tomorrow
   dd/mm/yyyy                 · dd/mm/yy, where yy → 20yy
   yyyy/mm/dd                 · 4-digit-first disambiguates, so it cannot
                                collide with dd/mm/yyyy
   yyyy-mm-dd                 · the form `--date` takes everywhere else
-  28Aug / 28/Aug / 28-Aug    · day + month name, this year (2026-08-29). Both
+  28Aug / 28/Aug / 28-Aug    · day + month name, this year. Both
                                languages, any prefix of the month from three
                                letters up (`ago`, `agosto`, `sept`, `set`), and
                                an optional year: `28Aug26`, `28-ago-2025`.
@@ -37,7 +37,7 @@ _DAY_FIRST = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})$")
 # Day + month *name*: `28Aug`, `28/Aug`, `28-ago-2025`. The separators are
 # optional because that is how it gets typed; the month is letters, which is
 # what keeps this shape away from `dd/mm` — a bare `28/08` is deliberately NOT
-# a date (2026-08-29), because `1/2` and `1/4` are things people write in a
+# a date, because `1/2` and `1/4` are things people write in a
 # title and a fraction must not silently become February.
 _DAY_MONTH = re.compile(r"^(\d{1,2})[/-]?([^\W\d_]{3,})(?:[/-]?(\d{2}|\d{4}))?$", re.UNICODE)
 
@@ -96,7 +96,7 @@ def parse_date(word: str, today: date) -> tuple[str | None, bool]:
         if month is not None:
             # No year means *this* year — the ledger you are typing into is
             # the current one, and the resolved date is echoed in words before
-            # the row is staged, so a wrong guess is visible (2026-08-29).
+            # the row is staged, so a wrong guess is visible.
             if year is None:
                 resolved = today.year
             else:
@@ -108,7 +108,8 @@ def parse_date(word: str, today: date) -> tuple[str | None, bool]:
         day, month, year = match.groups()
         # Two-digit years resolve to this century. Accepted because the screen
         # echoes the resolved date in words before a row is staged, so a
-        # misread is visible rather than silent (docs/decisions.md).
+        # misread is visible rather than silent (docs/decisions.md "Two calls
+        # for the one-line `expense log`").
         return _build(2000 + int(year) if len(year) == 2 else int(year), int(month), int(day))
 
     return None, False
@@ -143,7 +144,8 @@ def format_date_words(iso: str) -> str:
 
     The echo the grammar leans on: two-digit years are accepted *because* the
     resolved date is always spelled out before the row is committed, so a
-    misread is visible rather than silent (docs/decisions.md). English and
+    misread is visible rather than silent (docs/decisions.md "Two calls for
+    the one-line `expense log`"). English and
     fixed on purpose — `strftime` would follow the machine locale, and a date
     that changes shape between machines is the opposite of a check.
     """

@@ -137,7 +137,7 @@ def format_cents_or_dash(value: object) -> str:
     null means something went wrong — it is deliberately ugly so it gets
     noticed. It is the wrong output for a reconciliation's `ending_balance_cents`,
     which is null whenever you have opened a batch and not yet read the closing
-    figure off the statement (engine `sql/040`, 2026-09-14): a normal, expected,
+    figure off the statement (engine `sql/040`): a normal, expected,
     every-month state that should not read as a defect.
 
     `—` is already this repo's mark for an absent value — see `format_short_date`
@@ -168,7 +168,7 @@ def unconverted_of(payload: object) -> int:
 def format_aggregate(value: object, unconverted_count: object = 0) -> str:
     """Render a home-currency aggregate, which the engine may refuse to total.
 
-    Since the engine's read-time-currency change (2026-08-05) every aggregate is
+    The engine converts currency at read time, so every aggregate is
     nullable and paired with an `unconverted_count`: when any row in the group
     falls on a date with no resolvable rate, the figure comes back `None` and the
     count says how many rows are behind it.
@@ -176,7 +176,7 @@ def format_aggregate(value: object, unconverted_count: object = 0) -> str:
     **A `None` here is neither zero nor missing** — the engine declined to report
     a partial total — so it renders as `3 unrated`, never `0.00`, and never by
     falling back to a native figure (the exact bug the engine deleted: reading
-    USD cents as PEN cents understated by 3.58×). Phase 4 sketch, option C.
+    USD cents as PEN cents understated by 3.58×).
 
     A present figure formats exactly as `format_cents` does.
     """
@@ -194,7 +194,7 @@ def has_aggregate(value: object, unconverted_count: object = 0) -> bool:
     A category or hashtag combination with nothing spent this period is not
     rendered — the engine returns every non-deleted category whether or not it
     has activity, so the full-list view is `expense categories list`, not a
-    report (user decision, 2026-08-16; Phase 4 sketch).
+    report.
 
     A row the engine *could not price* is emphatically not empty: it keeps its
     line and says `3 unrated`, so it is never mistaken for one with no spending.
@@ -260,7 +260,7 @@ def items_of(body: object) -> list:
     """Rows of an engine list body (`{"items": [...]}`); [] for anything else.
 
     Every engine list endpoint returns an object with `items` — no route has
-    returned a bare array since 2026-09-23 — so a bare list is not a body and
+    returns a bare array — so a bare list is not a body and
     yields no rows. That also makes a test fake still serving the old shape
     fail loudly instead of passing. Strict list-or-empty — never hands a dict
     or None to a row-builder.
@@ -271,9 +271,9 @@ def items_of(body: object) -> list:
     return items if isinstance(items, list) else []
 
 
-ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy (backlog 6.4a)
+ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
 # Rows per table page, everywhere a human reads one: CLI list output and TUI
-# lists share this single copy (20-row standard, picked 2026-07-11).
+# lists share this single copy (20-row standard).
 DEFAULT_PAGE_ROWS = 20
 
 
@@ -387,7 +387,7 @@ def account_choices(
 
     Skips id-less rows and (unless `include_people`) person accounts. One copy
     of the build shared by the quick-log form, the new-reconciliation form,
-    and the reconciliations browse (backlog 6.4c).
+    and the reconciliations browse.
     """
     out: list[tuple] = []
     for a in items:
@@ -469,9 +469,8 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
       engine's own bookkeeping, and `@Pendiente` is what an *empty* category
       means, so neither is something a typed line names.
     * **One read each, and it is every row** — the engine returns these lists
-      whole (2026-09-23). Before that a single call stopped at the engine's
-      default page, and every tag past it was invisible to the picker and
-      unmatchable from a typed line.
+      whole, so no tag is invisible to the picker or unmatchable from a typed
+      line.
     """
     from expense.commands import accounts_cmd, categories_cmd, hashtags_cmd
 
@@ -508,7 +507,7 @@ def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
     * **Only an `int` counts.** A missing or non-numeric balance is *unknown*, not
       zero, so it stays in `outstanding` where it is visible.
     * **Settled is folded, never dropped.** The engine returns every person and
-      explicitly refuses to filter on a computed balance (entry 2026-08-14): a
+      explicitly refuses to filter on a computed balance: a
       settled person and a never-recorded loan must not look alike, and a
       coincidental net zero (lent 200, borrowed 200) is two live debts. Callers
       must always render the count — `▸ 3 settled` — never silently omit the rows.
@@ -561,8 +560,8 @@ def format_hashtag_cell(
 
     Empty / non-list → `—`. Shared by the CLI transactions table (width 24),
     the LOG bar's account peek (width 18) and the TUI Transactions screen, which
-    passes no width: its table cuts the cell at the column edge itself
-    (2026-09-12). Widths stay per-surface, and so does `prefix`: the peek asks
+    passes no width: its table cuts the cell at the column edge itself.
+    Widths stay per-surface, and so does `prefix`: the peek asks
     for `#` so its rows read like the staged list directly above them.
     """
     if not isinstance(ids, list) or not ids:
@@ -626,16 +625,10 @@ def query_params(**values: Any) -> dict[str, Any]:
       `False` is left out, because its absence IS the default.
     - Everything else passes through unchanged.
 
-    Ints stay ints. Thirteen hand-written builders spelled this out, and they
-    had already split on that last point: `reconcile` and `rates` sent
-    `str(limit)` while `accounts`, `categories`, `hashtags`, `activity` and
-    `transactions` sent `limit`, for the same engine parameter. httpx renders
-    both identically, so nothing was broken — but two spellings of one value
-    is how a real difference eventually hides.
+    Ints stay ints: one spelling per value, so a real difference cannot hide.
 
     Keyword names are the **wire** names, not the Python ones, so the mapping
-    a caller used to do by hand (`account` -> `account_id`) stays visible at
-    the call site.
+    (`account` -> `account_id`) stays visible at the call site.
     """
     out: dict[str, Any] = {}
     for key, value in values.items():
@@ -690,9 +683,8 @@ def print_warnings(body: dict) -> None:
     The warnings channel is deliberately per-endpoint rather than uniform: the
     key exists exactly where a warning can occur (engine-spec, "Warnings
     channel"). One endpoint carries it: `POST /reconciliations/{id}/complete`
-    (since 2026-09-20), where it reports a stretch of days no completed period
-    covers. Transaction restore was the other until the engine deleted restore
-    on 2026-09-23.
+    where it reports a stretch of days no completed period
+    covers.
 
     Worth not dropping: a transaction inside an uncovered stretch moves no
     period's arithmetic, because `difference_cents` is two balances typed off
@@ -724,10 +716,8 @@ def render_totals(totals: dict | None) -> None:
     surface the same `{inflow, outflow, net}_home_cents` + `unconverted_count`
     shape. Empty/missing totals print '(no totals)'.
 
-    Home-currency only since 2026-08-05: the native `{inflow, outflow,
-    net}_cents` were deleted engine-side, because a sum across accounts in
-    different currencies is a number in no currency at all. There is one figure
-    per line now, so the old `(home: …)` parenthetical has nothing to hold.
+    Home-currency only: a sum across accounts in different currencies is a
+    number in no currency at all.
 
     The three figures share a single `unconverted_count`, so they fail together
     — an unpriceable month collapses the whole block to one line rather than
@@ -760,16 +750,12 @@ def hashtag_label(ids: list[str], name_map: dict[str, str]) -> str:
 def render_category_table(categories: list[dict] | None) -> None:
     """Render the Categories block as Name / Home, with indented hashtag sub-rows.
 
-    Shared by `dashboard` and `reports monthly` (single-month view). Both
-    docstrings used to end by promising the other table agreed with them --
-    same rules, same column name, because the two are read side by side -- and
-    that promise was kept by two byte-identical copies. It is one function now,
-    so agreeing is not something either caller can forget.
+    Shared by `dashboard` and `reports monthly` (single-month view), which are
+    read side by side and so must agree.
 
-    The amount is `spent_home_cents` -- the only cross-account figure that
-    exists since 2026-08-05, the native `spent_cents` having been deleted
-    engine-side (a sum across currencies is a number in no currency). The
-    column is called `Home` (Phase 4 sketch, option F).
+    The amount is `spent_home_cents` -- the only cross-account figure (a sum
+    across currencies is a number in no currency). The
+    column is called `Home`.
 
     Categories and hashtag combinations with nothing spent are **not drawn**:
     the engine returns every non-deleted category whether or not it has
@@ -824,7 +810,7 @@ def render_pagination_hint(
 ) -> None:
     """Print how to reach the rest of a paged list, when there is a rest.
 
-    Two shapes page (engine-spec, Base Conventions), each with its own line (mockup M5);
+    Two shapes page (engine-spec, Base Conventions), each with its own line;
     anything else — a whole list, a missing envelope — prints nothing.
 
     A cursor-paged body (`transactions list`) has no total: when it carries a

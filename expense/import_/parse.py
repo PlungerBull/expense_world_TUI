@@ -3,7 +3,7 @@
 Handles Excel serial dates, decimal->signed-cents conversion (float-artifact
 safe via Decimal), and currency validation. A T.C. (tipo de cambio) column, if
 present, is ignored — the engine converts currency at read time and rejects
-per-row rates (2026-08-05 engine rework).
+per-row rates.
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,7 @@ EXCEL_EPOCH = date(1899, 12, 30)
 #: epoch rather than guessed. A numeric cell that is not a date at all — a
 #: phone number, ``1e309`` — lands in the date column often enough that an
 #: unbounded serial is a real hazard: ``timedelta`` and ``int(float(...))``
-#: raise OverflowError, which is not ValueError and so used to abort the whole
+#: raise OverflowError, which is not ValueError and would abort the whole
 #: import instead of skipping one row as ``bad-date``.
 MIN_EXCEL_SERIAL = (date.min - EXCEL_EPOCH).days
 MAX_EXCEL_SERIAL = (date.max - EXCEL_EPOCH).days

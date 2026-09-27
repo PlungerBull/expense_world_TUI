@@ -1,8 +1,7 @@
 """Money as text — the decimal string a human types, and its inverse.
 
-Moved here from expense/tui/screens/quick_log.py 2026-08-25: the quick-add
-grammar needs to read an amount out of a line, and the staged-row round trip
-needs to write one back into it. Behaviour is unchanged.
+Lives with the quick-add grammar, which needs to read an amount out of a
+line, and the staged-row round trip needs to write one back into it.
 """
 
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation

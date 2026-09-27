@@ -1,9 +1,7 @@
 """Write-worker isolation / content-swap serialization on a SectionScreen.
 
-Uses a fake HTTP client so nothing real is mutated. Until 2026-09-12 these
-drove the Inbox's promote/delete (ConfirmModal → run_write); the Inbox left
-with sql/038, so they now call `run_write` on the Accounts list directly —
-the mixin is what is under test, not any one screen's keys. Manage-list
+Uses a fake HTTP client so nothing real is mutated. They call `run_write` on
+the Accounts list directly — the mixin is what is under test, not any one screen's keys. Manage-list
 archive itself is covered in test_tui_manage_actions.py.
 """
 
@@ -23,10 +21,10 @@ def _stub_accounts(monkeypatch):
 
 
 def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
-    """`r` mid-write must not cancel the engine-write worker (backlog 3.2).
+    """`r` mid-write must not cancel the engine-write worker.
 
-    run_write and _load used to share the default exclusive group, so a
-    refresh or theme change cancelled an in-flight write worker. Exercised on
+    run_write and _load must not share an exclusive group, or a refresh or
+    theme change cancels an in-flight write worker. Exercised on
     a SectionScreen list write + the inherited `r` refresh.
     """
     _stub_accounts(monkeypatch)
@@ -74,8 +72,7 @@ def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):
 
 def test_rapid_writes_serialize_in_order(fake_client, monkeypatch):
     """Two immediate run_writes on any screen send both, one at a time, in
-    order — the mixin-level generalization of the checklist-toggle queue
-    (backlog 6.4b)."""
+    order — the mixin-level generalization of the checklist-toggle queue."""
     import time
 
     _stub_accounts(monkeypatch)
@@ -132,7 +129,7 @@ def test_concurrent_content_swaps_mount_one_card(fake_client, monkeypatch):
 
 
 def test_on_response_hands_over_the_body_before_on_success(fake_client, monkeypatch):
-    """`run_write(on_response=…)` sees the engine's own body (D1, 2026-09-20).
+    """`run_write(on_response=…)` sees the engine's own body.
 
     Order is the assertion: a screen that reads the body repaints from it in
     `on_success`, so the body must already be in hand by then. The hook is

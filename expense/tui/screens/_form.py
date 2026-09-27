@@ -24,17 +24,14 @@ from expense.tui.widgets.header import Breadcrumb
 def form_bindings(submit_desc: str) -> list[Binding | tuple[str, str, str]]:
     """The shared bar-form keymap; only the ctrl+s description varies.
 
-    The four navigation keys are bound but **not advertised** (2026-08-24), so
+    The four navigation keys are bound but **not advertised**, so
     the footer carries only `esc Cancel  ^s Save`:
 
-    · `↑` / `↓` walk the suggestion list — the same plain-arrow navigation the
-      list, tree and checklist widgets already stopped advertising (the 2026-08-20
-      footer trim; `cursor_list.py`, `checklist.py`, and the month grid that is Home now).
-      The forms were simply missed by that pass.
-    · `^↑` / `^↓` move between fields — and on macOS they never could, because
-      the OS claims `⌃↑` for Mission Control and `⌃↓` for Application Windows
-      before the terminal sees them. The form was advertising two dead keys.
-      They stay **bound** rather than deleted: they do work for anyone who has
+    · `↑` / `↓` walk the suggestion list — plain-arrow navigation, unadvertised
+      here as in every list widget.
+    · `^↑` / `^↓` move between fields — except on macOS, where the OS claims
+      `⌃↑` for Mission Control and `⌃↓` for Application Windows before the
+      terminal sees them. They stay **bound** rather than deleted: they do work for anyone who has
       turned those system shortcuts off, and the replacement key is still an
       open choice (docs/todo.md "Field navigation in the edit form is
       broken on macOS", options J/K in

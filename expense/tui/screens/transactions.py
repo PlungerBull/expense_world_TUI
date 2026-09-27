@@ -1,15 +1,13 @@
 """Transactions screen — the ledger, whole or filtered, with bulk edits.
 
 Built on SectionScreen + the shared CursorList, as **one list that grows**
-(`GrowingRead`, M3 of docs/mockups/expense-world-engine-uptake.html,
-2026-09-26): it opens with the newest 10, `pgdn` appends the next 10 by the
-engine's cursor, and the legend reads `N of M loaded`. Any write starts it
+(`GrowingRead`): it opens with the newest 10, `pgdn` appends the next 10 by
+the engine's cursor, and the legend reads `N of M loaded`. Any write starts it
 over from the newest 10. `enter` opens the
 record in the editable QuickAddLogScreen and `+` opens the LOG bar
 (`LogTransactionMixin`).
 
-**The filtered ledger is the categorising pass** (2026-09-12, mockup
-docs/mockups/expense-world-home-as-ledger.html). Home pushes this screen with
+**The filtered ledger is the categorising pass**. Home pushes this screen with
 a `LedgerFilter` — a category or an account — and it becomes `Ledger › NAME`:
 the same list over the engine's own `?category_id=` / `?account_id=`, with the
 legend saying what the filter is and how many rows it holds. `space` selects
@@ -17,17 +15,16 @@ rows, `a` selects every loaded row, and one key changes the category (`c`), the 
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens `PickerModal`; the write is one
 `PUT /transactions/{id}` per row, in order, and then the list reads fresh
-from the newest 10 (owner, 2026-09-26), so on a filtered list the changed
-rows leave at once (pane 6, option C). A refused row is named by its number;
+from the newest 10, so on a filtered list the changed
+rows leave at once. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
 `esc` clears the selection when there is one; otherwise it goes back to where
-you came from — Home, for a filter Home opened (owner, 2026-09-13: esc on a
+you came from — Home, for a filter Home opened (esc on a
 filtered ledger is back to Home, never to the unfiltered ledger).
 
-The `p` filter (all → pendiente) lived here from the morning of 2026-09-12 to
-the evening: `@Pendiente` is a row on Home now, and `⏎` on it is the filter.
+`@Pendiente` is a row on Home, and `⏎` on it is the filter.
 """
 
 from typing import NamedTuple
@@ -64,11 +61,8 @@ from expense.tui.widgets.cursor_list import CursorList
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
 #: The free-text columns and their share of the width left after Amount, Date,
-#: Account and Cat take their natural size (2026-09-12, option A of
-#: docs/mockups/expense-world-ledger-column-fit.html). The cells are handed to
-#: the table whole and cut by it at the column edge; the row builder used to cap
-#: them at 20/18/20 characters, a size for the 80-column card this screen left on
-#: 2026-08-29, which is why a wide terminal showed wide columns of cut text.
+#: Account and Cat take their natural size. The cells are handed to
+#: the table whole and cut by it at the column edge, never pre-truncated.
 _FLEX = {0: 3, 1: 3, 6: 2}
 
 #: The selection marker, drawn in the title cell's two-column gutter so the
@@ -84,7 +78,7 @@ class LedgerFilter(NamedTuple):
     """What Home handed the ledger: `kind` is `category` or `account`, `id` the
     engine row, `name` what the crumb and the legend say. `hashtag_id` narrows
     a category filter to one hashtag — `⏎` on a hashtag row under a category
-    on Home (2026-09-13); the name then reads `WANTS #SALIDAS`."""
+    on Home; the name then reads `WANTS #SALIDAS`."""
 
     kind: str
     id: str
@@ -138,8 +132,7 @@ def mark_selected(rows: list, selected: set) -> list:
 def legend_text(filter: LedgerFilter | None, loaded: int, total: int | None, selected: int) -> str:
     """`filter: category @Pendiente · 20 of 57 loaded · 3 selected` — the
     filter, how many of the engine's count are loaded, and the selection when
-    there is one (one line, owner 2026-09-26: `of M loaded` took the place of
-    `M rows`)."""
+    there is one, on one line."""
     head = f"filter: {filter.kind} {filter.name}" if filter else "no filter"
     parts = [head]
     if isinstance(total, int):
@@ -156,10 +149,8 @@ REFUSAL_ROWS_SHOWN = 8
 def group_refusals(failed: list[tuple[object, int, str]]) -> list[str]:
     """One line per distinct reason — `rows 1, 2, 3: <the engine's message>`.
 
-    Sealed periods (2026-09-20) made the old one-toast-per-row shape unusable: a
-    bulk account move across a closed month refuses every row it touches for the
-    *same* reason, so eight rows meant eight ten-second toasts saying the same
-    sentence (owner, 2026-09-22 — mockup expense-world-rows-in-no-batch.html §4).
+    A bulk account move across a sealed month refuses every row it touches for
+    the *same* reason; one toast per row would repeat one sentence N times.
 
     Grouping is by the message **as the engine wrote it**, never by anything read
     out of it. The period's name lives inside that sentence and nothing here goes
@@ -210,7 +201,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the list
     # window fill its height: the ledger is the screen you sit in, so it takes
     # the window you gave it instead of holding a 110x20 card in the corner of
-    # a large one (2026-08-29). Since the list grows (2026-09-26) the cap sizes
+    # a large one. The list grows, so the cap sizes
     # only the window, never a read: a resize reads nothing.
     CARD_WIDTH = None
     PAGE_ROWS_CAP = ENGINE_PAGE_CAP
@@ -275,13 +266,13 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self._by_id = {it.get("id"): it for it in items}
         self._maps = (data["accounts"], data["categories"], data["hashtags"])
         self._rows = transaction_rows(items, *self._maps, palette=PALETTE)
-        # a reload drops selections that left the list (option C: they left)
+        # a reload drops selections that left the list
         self._selected &= set(self._by_id)
         flt = self._filter
-        # The panel title went with the border (2026-09-20): the crumb reads
-        # `Ledger ▸ @Pendiente` and the legend below says `filter: category
-        # @Pendiente · 57 rows`, so a third naming of the filter was chrome.
-        # Only the empty-state text is still computed from the filter.
+        # No panel title: the crumb reads `Ledger ▸ @Pendiente` and the legend
+        # below says `filter: category @Pendiente · 57 rows`, so a third naming
+        # of the filter would be chrome. Only the empty-state text is computed
+        # from the filter.
         if flt is not None:
             empty = f"(no transactions under {flt.name})"
         else:
@@ -301,15 +292,15 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     def _legend(self) -> str:
         return legend_text(self._filter, len(self._rows), self._grow.total, len(self._selected))
 
-    # ---- growing (M3) -------------------------------------------------------
+    # ---- growing ------------------------------------------------------------
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn`: the next 10, appended under the rows in hand."""
         event.stop()
         self._grow.grow(self._read_page)
 
     def _reload_fresh(self) -> None:
-        """After any write: the newest 10 again, the cursor on row 1 (owner,
-        2026-09-26). The old list stays up until the new one lands."""
+        """After any write: the newest 10 again, the cursor on row 1.
+        The old list stays up until the new one lands."""
         self._grow.reset()
         self._load()
 
@@ -372,10 +363,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     def action_back(self) -> None:
         """Selection first, then back to the screen that pushed this one.
 
-        Until 2026-09-13 a filtered ledger cleared its filter on the second
-        `esc` and left on the third. The owner's report: from Home, `⏏` on a
-        category then `esc` should be Home again, not the whole ledger — the
-        filter is the door you came in by, not a state to step out of."""
+        From Home, `⏏` on a category then `esc` is Home again, not the whole
+        ledger — the filter is the door you came in by, not a state to step out of."""
         if self._selected:
             self._selected = set()
             self._repaint_selection()
@@ -503,7 +492,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         for line in lines:
             self.notify(line, title=head, severity="error", timeout=10)
         # the rows that went through no longer belong to a filtered list — they
-        # leave at once (pane 6, option C). A refused row stays selected if the
+        # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key
         # retries exactly it; one past the newest 10 is dropped by `build`.
         self._selected = {key for key, _n, _m in failed if key is not None}
@@ -523,7 +512,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
     def _after_detail(self, saved: bool | None) -> None:
         """A save reloads fresh, like every write; `esc` leaves the list as it
-        was — same rows loaded, cursor on the row it was on (owner, 2026-09-27).
+        was — same rows loaded, cursor on the row it was on.
         The list underneath was never rebuilt, so doing nothing keeps it."""
         if saved:
             self._reload_fresh()

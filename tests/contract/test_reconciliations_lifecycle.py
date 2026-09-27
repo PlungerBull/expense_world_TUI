@@ -9,7 +9,7 @@ what completing a batch actually does to a transaction.
 What this pins, and why each is a contract claim rather than a CLI one:
 
   · `beginning_balance_cents` is required and typed, not derived. The engine
-    deleted chained beginning balances on 2026-08-06; a re-introduction would
+    has no chained beginning balances; a re-introduction would
     show up here as a create that suddenly succeeds without it.
   · `complete` on an empty batch is a 422. The CLI prints a hint on exactly that
     shape, and the hint is only correct while the engine keeps refusing.
@@ -87,10 +87,10 @@ def _make_reconciliation(client, account_id: str) -> str:
 
 
 def test_reconciliations_lifecycle(client):
-    """create → list → update → delete, ending on "deleted is deleted"
-    (engine, 2026-09-23): the row leaves its account's list and the old
-    restore route is a 404. There is no get: the engine deleted the by-id read
-    the same day, and its path answers 405 because PUT and DELETE still live
+    """create → list → update → delete, ending on "deleted is deleted":
+    the row leaves its account's list and the old
+    restore route is a 404. There is no get: the engine has no by-id read,
+    and its path answers 405 because PUT and DELETE still live
     there. An account's list comes back whole, so absence from it is proof.
     The state machine is the next test."""
     account_id = _make_account(client)
@@ -138,7 +138,7 @@ def test_reconciliations_lifecycle(client):
 
 
 def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
-    """The two reads the CLI stopped making (engine, 2026-09-23). Without an
+    """The two reads the CLI does not make. Without an
     account the list is a 422 naming `account_id`; one account's list comes
     back as `{items}` alone, with no paging keys; a GET on one reconciliation
     is a 405. The browse screen, `reconcile list --account-id` and the working
@@ -165,7 +165,7 @@ def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
 
 def test_a_period_refuses_any_datetime(client):
     """Periods are days (engine `5922bbf`): a midnight instant — what the CLI
-    sent before Phase 10c — is a 422 naming the field, so a client that still
+    once sent — is a 422 naming the field, so a client that still
     converts cannot save a period at all."""
     account_id = _make_account(client)
     recon_id = str(uuid4())
@@ -224,8 +224,7 @@ def test_a_period_always_has_both_days(client):
 
 
 def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
-    """The last-day defect (found 2026-09-23, closed 2026-09-27 by this test's
-    first pass on the new engine: rows on `date_end` were left out). The working screen
+    """Rows on `date_end` must not be left out. The working screen
     reads the account's rows with `date_from` / `date_to` set to the period's
     own days; a row logged at 23:30 local on `date_end` must be in that read."""
     zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
@@ -265,7 +264,7 @@ def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
 
 
 def test_beginning_balance_is_required_not_derived(client):
-    """The 2026-08-06 de-chaining, pinned from the outside.
+    """No chained beginning balance, pinned from the outside.
 
     While this 422s, `expense reconcile create --beginning-balance` is right to
     be a required flag. If the engine ever derives it again, this is the test

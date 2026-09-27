@@ -1,6 +1,5 @@
 """HomeScreen dispatch — every screen entry pushes its screen, every live row
-pushes the filtered ledger, and the page keys walk the month window
-(backlog 6.3, redrawn 2026-09-12 and 2026-09-13).
+pushes the filtered ledger, and the page keys walk the month window.
 
 Each case drives the real path — focus the menu, open what needs opening,
 highlight the row, press the key — and asserts the result.
@@ -71,7 +70,7 @@ def test_section_entry_dispatch(monkeypatch, section, kind, screen_cls):
 
 
 def test_left_and_right_on_a_screen_entry_change_nothing(monkeypatch):
-    """The sections are not collapsible (owner, 2026-09-13)."""
+    """The sections are not collapsible."""
     _stub_loaders(monkeypatch)
 
     async def scenario(pilot, app):
@@ -101,14 +100,14 @@ def test_screens_map_covers_every_section_entry():
 
 
 def test_log_is_not_a_section_entry():
-    """`Log a transaction` left the menu on 2026-08-20 for `+`; guard the reflex re-add."""
+    """`Log a transaction` is not a menu row — `+` logs; guard the reflex re-add."""
     labels = [text for _section, _label, entries in home._SECTIONS for _kind, text in entries]
     assert "Log a transaction" not in labels
     assert "log" not in home._SCREENS
 
 
 def test_the_overview_screen_is_gone():
-    """Folded into Home and deleted, 2026-09-13 — "its not used anymore"."""
+    """There is no Overview screen: Home is the month grid."""
     import importlib.util
 
     assert importlib.util.find_spec("expense.tui.screens.overview") is None
@@ -161,7 +160,7 @@ def test_left_on_a_hashtag_row_folds_its_category_and_lands_on_it(monkeypatch):
 
 
 def test_esc_from_a_filtered_ledger_is_home_again(monkeypatch):
-    """The owner's report, 2026-09-13: ⏎ on a category or a hashtag, then esc,
+    """⏎ on a category or a hashtag, then esc,
     lands on Home — not on the unfiltered ledger."""
     _stub_month(monkeypatch)
 

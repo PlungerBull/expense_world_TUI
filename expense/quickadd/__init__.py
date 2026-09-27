@@ -9,6 +9,5 @@ No business logic lives here. Names are matched against reference lists the
 caller already holds; nothing is created, nothing is validated beyond shape.
 The engine remains the only authority on whether a row is acceptable.
 
-Design and the token table: docs/mockups/expense-world-quickadd-batch.html.
-Why the grammar is client-side, and the three matching rules: docs/decisions.md.
+The matching rules: docs/decisions.md "Three quick-add grammar rules".
 """

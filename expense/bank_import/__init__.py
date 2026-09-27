@@ -9,10 +9,9 @@ Two modules, both pure (no HTTP, no typer, no config):
                rule, or inside a closed period), plus the days where the
                ledger holds a row of the same amount that no file row matched
 
-The matching itself is the engine's (engine-spec `POST /transactions/import`,
-taken up 2026-09-26). The command that reads the file, asks which account and
-makes the one call is expense/commands/bank_import_cmd.py. Design and the
-owner's picks (2026-09-12): docs/mockups/expense-world-bank-import.html —
-option B (the file name → account choice is remembered in the config) and
-option D (a loud warning when the ledger holds more than the file).
+The matching itself is the engine's (engine-spec `POST /transactions/import`).
+The command that reads the file, asks which account and
+makes the one call is expense/commands/bank_import_cmd.py. The file name →
+account choice is remembered in the config, and the ledger holding more
+than the file is a loud warning.
 """

@@ -5,8 +5,7 @@ One input bar cycles through fields; a summary fills below. Entity fields
 existing entities only.
 
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)); this screen
-is reached by `⏎` on an existing row (quick-add phase 4, 2026-08-25,
-docs/mockups/expense-world-two-doors.html). Why the edit form stays: an
+is reached by `⏎` on an existing row. Why the edit form stays: an
 existing row has an id, a version and possibly a completed reconciliation
 freezing four of its fields, so the write is a PUT of just what changed; most
 rows — every one the xlsx importer made — were never a typed line and have
@@ -22,8 +21,8 @@ submits. Sign explicit (− expense / + income); currency derived from the
 account.
 
 Field navigation (`ctrl+↑/↓`) is bound but **unadvertised** — macOS claims both
-chords before the terminal sees them, so the footer stopped offering them
-2026-08-24 and the replacement key is still open (docs/todo.md "Field
+chords before the terminal sees them, so the footer does not offer them;
+the replacement key is still open (docs/todo.md "Field
 navigation in the edit form is broken on macOS"). See
 `form_bindings` in _form.py.
 """
@@ -93,8 +92,6 @@ class QuickAddLogScreen(FormScreen):
         self._hashtags: list = []
         self._original: dict = {}
 
-        # `resource` survives as a parameter for the PUT path only; the Inbox
-        # draft it used to name left on 2026-09-12 (sql/038).
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
 
@@ -120,7 +117,7 @@ class QuickAddLogScreen(FormScreen):
         if tags:
             self._values["hashtags"] = list(tags)
             # resolve_name: short-id placeholder until entities load, and a
-            # null id renders "—" instead of TypeError-ing (backlog 6.2e)
+            # null id renders "—" instead of TypeError-ing
             self._display["hashtags"] = " ".join("#" + resolve_name(t, {}) for t in tags)
         if rec.get("description"):
             self._values["note"] = self._display["note"] = rec["description"]
@@ -159,7 +156,7 @@ class QuickAddLogScreen(FormScreen):
         self._acc_names, self._cat_names, self._tag_names_map = maps
         # resolve pre-filled ids → names.
         # resolve_name (shared) renders a null reference as "—" instead of
-        # crashing on None[:8] (backlog 6.2e)
+        # crashing on None[:8]
         if "account" in self._values:
             self._display["account"] = resolve_name(self._values["account"], self._acc_names)
         if "category" in self._values:
@@ -234,7 +231,7 @@ class QuickAddLogScreen(FormScreen):
                 return
             # Mid-form ergonomics guard; mirrors the engine's 422
             # amount_cents "Must not be zero." (engine-spec.md POST
-            # /transactions). Deliberately kept client-side — backlog 2.5.
+            # /transactions). Deliberately kept client-side.
             if cents == 0:
                 self.notify("Amount must be non-zero.", severity="error")
                 return

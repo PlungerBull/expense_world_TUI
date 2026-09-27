@@ -1,5 +1,5 @@
-"""Real-workbook tests for expense/import_/reader.py — openpyxl actually runs
-(backlog 6.5); the rest of the import suite mocks read_workbook.
+"""Real-workbook tests for expense/import_/reader.py — openpyxl actually runs;
+the rest of the import suite mocks read_workbook.
 """
 
 import sys
@@ -75,7 +75,7 @@ def test_missing_file(tmp_path):
 
 @pytest.mark.parametrize("sheet", ["DATA", "data", "Data ", " dAtA"])
 def test_sheet_name_matched_case_and_space_insensitively(tmp_path, sheet):
-    """A tab exported as DATA/data/`Data ` is the same tab (real file, 2026-08-20)."""
+    """A tab exported as DATA/data/`Data ` is the same tab (seen in a real file)."""
     path = _write_xlsx(tmp_path, [_ROW], sheet=sheet)
     data = read_workbook(path)
     assert len(data.rows) == 1

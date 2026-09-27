@@ -13,11 +13,10 @@ from uuid import uuid4
 
 from expense.bank_import.parse import BankRow
 
-#: Nothing dated earlier is ever sent (decisions.md, the 2026-09-26 amendment to
-#: "Bank downloads are matched against the ledger").
-#: The only floor since 2026-09-26: the one-time `--since` was dropped once the
-#: hand-typed rows the bank files overlap are aligned to the bank's wording
-#: before the first real import (todo.md, "One-time title alignment").
+#: Nothing dated earlier is ever sent. The hand-typed rows the bank files
+#: overlap are aligned to the bank's wording before the first real import
+#: (todo.md, "One-time title alignment").
+#: Why: docs/decisions.md "Bank downloads are matched against the ledger".
 IMPORT_FLOOR = date(2026, 1, 1)
 
 #: Rows per request (engine `constants.IMPORT_MAX_ROWS`). A longer file is
@@ -83,7 +82,7 @@ class ExcessGroup:
     date_iso: str
     amount_cents: int  # signed, as everywhere else on screen
     #: The ledger rows here no file row claimed — the count the warning
-    #: shows (owner's pick C, docs/mockups/expense-world-bank-import-10b.html).
+    #: shows.
     unclaimed: int
 
 

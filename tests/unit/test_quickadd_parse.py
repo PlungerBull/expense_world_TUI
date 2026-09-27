@@ -1,7 +1,6 @@
 """Pure grammar tests for expense/quickadd/ — no Textual, no network, no clock.
 
-The checklist is the token table in docs/mockups/expense-world-quickadd-batch.html
-plus the sharp edges recorded in docs/decisions.md. `today` is passed in, so
+The checklist is docs/decisions.md "Three quick-add grammar rules". `today` is passed in, so
 nothing here depends on the machine's date.
 """
 
@@ -16,8 +15,8 @@ from expense.quickadd.when import format_date_words, parse_date
 
 TODAY = date(2026, 8, 20)
 
-# Two accounts share "Signature" so `$sig` is genuinely ambiguous (mockup pane
-# 2); "CAJA" is a prefix of "CAJA CHICA" so exact-beats-contains gets exercised.
+# Two accounts share "Signature" so `$sig` is genuinely ambiguous;
+# "CAJA" is a prefix of "CAJA CHICA" so exact-beats-contains gets exercised.
 ACCOUNTS = [
     ("a1", "BCP Signature USD", "USD"),
     ("a2", "BCP PEN", "PEN"),
@@ -41,7 +40,7 @@ def _p(line: str, *, today: date = TODAY):
     [("-99.92", -9992), ("99", 9900), ("+12.5", 1250), ("0", 0), ("abc", None), ("", None)],
 )
 def test_parse_amount(text, expected):
-    """Moved here from test_tui_quick_log.py 2026-08-25 with the function."""
+    """Signed amounts parse to cents."""
     assert parse_amount(text) == expected
 
 
@@ -56,7 +55,7 @@ def test_amount_to_text_roundtrips():
 @pytest.mark.parametrize(
     ("line", "expected"),
     [
-        ("tottus -38.60", -3860),  # the mockup's own example
+        ("tottus -38.60", -3860),  # the canonical example
         ("bonus +2450", 245000),  # + is income, literally
         ("mercado -1,311.97", -131197),  # thousands separator is part of the charset
         ("alquiler -$1800", -180000),  # $ + digits is decoration, not a currency
@@ -138,14 +137,14 @@ def test_the_same_tag_twice_is_deduped_not_rejected():
     ],
 )
 def test_unresolved_names_are_reported_with_their_candidates(line, kind, text, candidates):
-    """2026-08-25: no match and several matches both go unresolved, carrying
+    """No match and several matches both go unresolved, carrying
     whatever was found, so a caller can open a picker on it."""
     (found,) = _p(line).unresolved
     assert (found.kind, found.text, len(found.candidates)) == (kind, text, candidates)
 
 
 def test_matching_is_contains_anywhere_and_case_insensitive():
-    """Picked 2026-08-25 over whole-name and starts-with, matching every
+    """Contains-anywhere, not whole-name or starts-with, matching every
     existing TUI picker."""
     assert _p("x -5 $ECTIV").account_id == "a5"
 
@@ -186,9 +185,9 @@ def test_note_at_the_start_of_the_line():
         ("HOY", "2026-08-20"),  # case-insensitive
         ("18/08/2026", "2026-08-18"),  # dd/mm/yyyy
         ("2026/08/18", "2026-08-18"),  # yyyy/mm/dd — 4-digit-first disambiguates
-        ("2026-08-18", "2026-08-18"),  # the dashed form --date takes (2026-08-25)
+        ("2026-08-18", "2026-08-18"),  # the dashed form --date takes
         ("18/08/26", "2026-08-18"),  # yy -> 20yy
-        ("28Aug", "2026-08-28"),  # day + month name, this year (2026-08-29)
+        ("28Aug", "2026-08-28"),  # day + month name, this year
         ("28/Aug", "2026-08-28"),  # the separator is optional
         ("28-Aug", "2026-08-28"),  # …and may be a dash, unlike dd-mm-yyyy
         ("28agosto", "2026-08-28"),  # Spanish, like every other date word
@@ -236,8 +235,8 @@ def test_the_rest_is_the_title_in_order():
 
 
 def test_missing_lists_only_the_required_fields():
-    # amount and account are all a row needs since 2026-09-12; title and
-    # category are optional (docs/decisions.md "The Inbox is deleted")
+    # amount and account are all a row needs; title and
+    # category are optional (docs/decisions.md "A sparse line is a ledger row")
     assert _p("").missing == ("amount", "account")
     assert _p("-5 $efectivo").missing == ()
     assert _p("tottus -5 $efectivo @wants").missing == ()
@@ -245,7 +244,7 @@ def test_missing_lists_only_the_required_fields():
 
 def test_is_complete_needs_every_name_resolved_too():
     """A row with all four fields but an ambiguous account is not complete —
-    routing (docs/decisions.md) is still the screen's call."""
+    routing is still the screen's call."""
     assert _p("tottus -5 $efectivo @wants").is_complete is True
     assert _p("tottus -5 $sig @wants").is_complete is False
 
@@ -282,7 +281,7 @@ def test_a_multi_word_span_covers_every_word_it_took():
 
 def test_extra_columns_on_a_reference_row_are_ignored():
     """account_choices() hands back (id, name, currency) — it passes straight
-    through, unconverted (quick-add phase 1, docs/decisions.md)."""
+    through, unconverted."""
     assert _p("x -5 $bcp pen").account_id == "a2"
 
 
@@ -323,7 +322,7 @@ def test_format_date_words_passes_junk_through():
     assert format_date_words("not a date") == "not a date"
 
 
-# ---- day + month, this year (2026-08-29) ------------------------------------
+# ---- day + month, this year -----------------------------------------------
 def test_day_and_month_take_the_current_year_not_a_fixed_one():
     """`28Aug` is August 2026 today and August 2027 next year."""
     assert parse_date("28Aug", date(2027, 1, 5))[0] == "2027-08-28"
@@ -341,7 +340,7 @@ def test_a_bare_month_number_pair_is_not_a_date_because_fractions_exist():
     assert "1/2" in result.title
 
 
-# ---- the picker's two gaps (2026-08-29) -------------------------------------
+# ---- the picker's two gaps ------------------------------------------------
 def test_a_bare_sigil_stands_unresolved_carrying_every_candidate():
     """Typing `#` alone means *show me what there is* — the picker's input."""
     for sigil, kind, count in (("$", "account", 5), ("@", "category", 3), ("#", "hashtag", 4)):
@@ -382,7 +381,7 @@ def test_fold_is_the_one_copy_every_picker_matches_through():
 def test_a_bare_sigil_opens_the_picker_even_when_one_candidate_exists():
     """A bare sigil names nothing, so it cannot resolve — not even against a
     reference list of one, which is the ordinary state of a new ledger. It
-    used to pick that sole entry and skip the picker it was typed to open."""
+    must not pick that sole entry and skip the picker it was typed to open."""
     one_each = dict(
         accounts=[("a1", "BCP PEN", "PEN")], categories=[("c1", "WANTS")], hashtags=[("t1", "TAXI")]
     )

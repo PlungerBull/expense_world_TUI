@@ -1,7 +1,5 @@
 """Contract lifecycle for log against a real engine.
 
-(The inbox lifecycles that shared this file left with the inbox, 2026-09-12.)
-
 Each test creates the supporting account/category, exercises the full lifecycle,
 then cleans up. Gating, target resolution and the real-ledger guard live in
 conftest.py.

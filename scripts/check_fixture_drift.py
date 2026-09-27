@@ -2,11 +2,11 @@
 """Report unit-test fixtures that still expect fields the engine no longer serves.
 
 Why this exists: `pytest tests/unit` is respx-mocked, so it validates the CLI
-against fixtures *we* wrote, not against the engine. After the 2026-08 rework it
-stayed green while pinning several deleted fields — green meant "the CLI agrees
-with itself". This closes that gap mechanically: the engine publishes every field
-it serves in `openapi.json` (guaranteed since the 2026-08-07 shapes fix), so a
-fixture key that appears in no engine schema is either drift or a test-local key.
+against fixtures *we* wrote, not against the engine. It can stay green while
+pinning deleted fields — green means "the CLI agrees with itself". This closes
+that gap mechanically: the engine publishes every field it serves in
+`openapi.json`, so a fixture key that appears in no engine schema is either drift
+or a test-local key.
 
 Deliberately NOT a pytest file. tests/unit is hermetic — `tests/unit/conftest.py`
 blocks real sockets on purpose — and that rule is worth more than the convenience
@@ -22,12 +22,10 @@ KNOWN_LOCAL for the ones already triaged.
 
 KNOWN LIMITATION — it unions every schema rather than checking each fixture against
 the one endpoint it mocks, so a field that is real *somewhere* passes everywhere.
-That is exactly how `cleared` on the inbox fixture survived this check on
-2026-08-16: it is real on a transaction, absent from `InboxResponse`, and was found
-by reading schemas side by side instead. Tightening this means mapping each fixture
-to its endpoint, which the flat `MODULE_RESPONSE = {...}` layout does not encode
-today. Until then: a clean run means "no field is dead everywhere", not "every
-fixture matches its endpoint".
+A field real on a transaction but absent from another response passes. Tightening
+this means mapping each fixture to its endpoint, which the flat
+`MODULE_RESPONSE = {...}` layout does not encode. So a clean run means "no field
+is dead everywhere", not "every fixture matches its endpoint".
 """
 
 from __future__ import annotations
@@ -48,8 +46,7 @@ DEFAULT_ENGINE_URL = "http://127.0.0.1:8000"
 UNIT_TESTS = Path(__file__).resolve().parent.parent / "tests" / "unit"
 
 # Envelope keys the engine returns that are not schema properties: the list
-# envelopes (whole `{items}`, cursor `{items, limit, next_cursor}`; the offset
-# envelope's `total`/`offset`/`has_more` left on 2026-09-23), the error envelope
+# envelopes (whole `{items}`, cursor `{items, limit, next_cursor}`), the error envelope
 # (docs/cli-runtime.md "Engine errors surface cleanly"), and the auth/bootstrap
 # wrapper.
 ENVELOPE_KEYS = frozenset(
@@ -69,16 +66,14 @@ ENVELOPE_KEYS = frozenset(
     }
 )
 
-# Keys that are test-local bookkeeping, not engine fields — triaged 2026-08-16.
+# Keys that are test-local bookkeeping, not engine fields.
 # Each is a dict key a fixture invents for itself: TUI header stat names, sample
 # ids used as dict keys, CLI-side config fields, query-param assertions.
 #
 # An entry here only earns its place while some fixture still writes that key:
 # a dead one silently widens the exemption for whatever key is next to reuse the
 # name. tests/unit/test_suite_hygiene.py::test_known_local_exemptions_still_match
-# is the guard — it needs no engine, so it runs with the hermetic suite. Eight
-# entries had already rotted when it was added on 2026-09-19, one of them citing
-# a file deleted on 2026-09-12.
+# is the guard — it needs no engine, so it runs with the hermetic suite.
 KNOWN_LOCAL = frozenset(
     {
         "cents",
@@ -193,9 +188,8 @@ def _prose_spans(source: str) -> tuple[set[int], dict[int, int]]:
     """Where a file *talks about* keys rather than writing them.
 
     `KEY_RE` reads text, not syntax, so a docstring or comment that mentions a
-    fixture key (`... a key like "name": ...`) used to be reported as a fixture
-    claiming that field. Two showed up the moment the tests grew explanatory
-    module docstrings (2026-09-19).
+    fixture key (`... a key like "name": ...`) would be reported as a fixture
+    claiming that field.
 
     Returns the doc-comment line numbers to skip outright, plus a per-line
     column where an inline comment starts, so only the comment half of a line

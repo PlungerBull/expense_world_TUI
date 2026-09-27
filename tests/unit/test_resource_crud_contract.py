@@ -15,7 +15,7 @@ rule with three homes drifts in two of them.
 So the shared shape lives here, parametrized by `ResourceSpec`, and each
 per-resource file keeps exactly what is its own — the hints it prints, the flags
 only it has, and the arms only it can take (accounts archive and unarchive;
-categories and hashtags lost those routes on 2026-08-06).
+categories and hashtags have no such routes).
 
 **What this deliberately does NOT do:** collapse the resources' *response
 fixtures* into one. Those dicts are what `scripts/check_fixture_drift.py` reads
@@ -173,10 +173,10 @@ def test_list_bare_sends_no_include_params(spec, configured):
 @resource
 @respx.mock
 def test_list_prints_every_row_and_no_footer(spec, configured):
-    """The engine returns these lists whole and refuses `limit`/`offset`
-    (2026-09-23): the request carries neither, every row is printed — 56 rows
+    """The engine returns these lists whole and refuses `limit`/`offset`:
+    the request carries neither, every row is printed — 56 rows
     is the hashtag count that lost 6 tags to a default page of 50 — and there
-    is no `showing N of M` line, because there is nothing more to fetch (M5)."""
+    is no `showing N of M` line, because there is nothing more to fetch."""
     rows = [{**spec.sample, "id": f"id-{i}", "name": f"row{i:02d}"} for i in range(56)]
     route = respx.get(f"{BASE}/v1/{spec.name}").mock(
         return_value=httpx.Response(200, json=whole(rows))

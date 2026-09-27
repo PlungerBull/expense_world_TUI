@@ -2,11 +2,9 @@
 
 One copy for every picker in the app: the quick-add grammar
 ([parse.py](parse.py)) and the two TUI form pickers
-(`quick_log.py`, `create_forms.py`) all matched with a bare `.lower()`, which
-is case-blind but **not accent-blind** — so `#banos` found no `BAÑOS` and the
-row went to the Inbox for a tag the user actually has (2026-08-29). Folding
-accents fixes it in both directions at once: the typed side and the stored
-side go through the same function, so `#baños` still matches itself.
+(`quick_log.py`, `create_forms.py`) match case- and **accent-blind**, so
+`#banos` finds `BAÑOS`. The typed side and the stored side go through the
+same function, so `#baños` still matches itself.
 
 Nothing else about matching lives here. "Contains anywhere", exact-name-wins
 and longest-phrase-wins are the grammar's rules and stay in `parse.py`.

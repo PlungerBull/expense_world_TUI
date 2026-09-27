@@ -1,31 +1,29 @@
 """Home screen — four months of the ledger, today's balances, then the screens.
 
-Home is the month grid (2026-09-13, docs/mockups/expense-world-home-absorbs-
-overview.html, option A — which folded the Overview screen into this one and
-deleted it). One worker reads `/dashboard` for the balances and
+Home is the month grid. One worker reads `/dashboard` for the balances and
 `/reports/monthly` for a four-month window, and the page draws:
 
 - **CATEGORIES** × the four months, home currency, `—` for a month with no
   activity. A category with nothing in the whole window is not drawn at all
-  (owner pick; `build_range_grid` already drops it). `→` unfolds a category's
+  (`build_range_grid` already drops it). `→` unfolds a category's
   hashtag rows, `←` folds them. Under the categories: inflow, outflow, net.
 - **BANK ACCOUNTS** with today's balance in each account's own currency.
 - **PEOPLE** the same way, settled people folded behind `▶ N settled`.
 - **LEDGER / MANAGE / SYSTEM** — section headers with their screens always
-  listed under them; they never collapse (owner, 2026-09-13).
+  listed under them; they never collapse.
 
 `pgdn` walks the window one month back, `pgup` one month forward (never past
 this month). Balances do not move with it: there is no balances-as-of-date
 endpoint, which is why the accounts header says `balance today`.
 
-`⏎` is the ledger, filtered (owner picks, 2026-09-13):
+`⏎` is the ledger, filtered:
 
 - on a category — that category, every month;
 - on a hashtag row — that category and that hashtag;
 - on an account or a person — that account.
 
-The data has no row with two hashtags and no untagged row outside `@Pendiente`
-(checked 2026-09-13). A combo row that is either is still drawn, so the sums
+The data has no row with two hashtags and no untagged row outside `@Pendiente`.
+A combo row that is either is still drawn, so the sums
 add up, but `⏎` on it says it cannot be filtered: the engine filters by one
 hashtag and has no untagged filter, and a looser filter would show rows the
 cell does not count.
@@ -66,11 +64,11 @@ from expense.tui.widgets.header import RATE_ALERT_GAP, rate_alert
 
 _BANNER = "◈  EXPENSE WORLD"
 
-#: Months side by side. Four is the owner's number (2026-09-13).
+#: Months side by side. Four months.
 WINDOW_MONTHS = 4
 
 #: The screen sections, in order: (section id, header, [(screen kind, label)…]).
-#: Always listed in full — they do not fold (owner, 2026-09-13).
+#: Always listed in full — they do not fold.
 _SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "ledger",
@@ -176,7 +174,7 @@ def _grid_cell(value: object, palette: Palette | None, rule: str = AMOUNT_RULE) 
 
 
 def _balance_cell(item: dict, palette: Palette | None) -> Text:
-    """A balance in its own currency, the code beside it (pick A, 2026-09-12)."""
+    """A balance in its own currency, the code beside it."""
     cell = _as_text(amount_cell(item.get("current_balance_cents"), palette, AMOUNT_RULE))
     return Text.assemble(cell, " ", (item.get("currency_code") or "?", "dim"))
 
@@ -372,13 +370,12 @@ def _build_header(
 
 class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     # q lives here, not on the App — a stray q mid-flow (modal, list) must
-    # never kill the app (backlog 4.6). ctrl+q stays the everywhere-quit.
+    # never kill the app. ctrl+q stays the everywhere-quit.
     #
     # The window and fold keys are `priority=True`: the menu is an OptionList,
     # which binds pgdn/pgup to scroll a page, and a focused widget's binding
     # wins over its screen's. Without priority, pgdn would scroll the list on
-    # any terminal short enough to need it — silently, as it once did on the
-    # Overview screen these keys came from.
+    # any terminal short enough to need it.
     BINDINGS = [
         *LogTransactionMixin.BINDINGS,
         Binding(

@@ -130,7 +130,7 @@ def test_parse_pen_row_no_rate_and_description():
 @pytest.mark.parametrize("tc", [3.68, "None", "garbage", -3.629])
 def test_parse_usd_row_ignores_tc_column(tc):
     """The T.C. cell — present, absent, or garbage — is ignored: the engine
-    converts at read time and rejects per-row rates (2026-08-05 rework)."""
+    converts at read time and rejects per-row rates."""
     parsed, openings, skipped = parse_sheet(
         _sheet([_row(2, Moneda="USD", Monto=-100, **{"T.C.": tc})])
     )
@@ -151,7 +151,7 @@ def test_sheet_without_tc_column_imports():
 
 
 def test_text_iso_date_cell_imports_not_skipped():
-    """A date column typed as text (not an Excel serial) must import (backlog 6.4)."""
+    """A date column typed as text (not an Excel serial) must import."""
     parsed, openings, skipped = parse_sheet(_sheet([_row(2, Fecha="2022-12-01")]))
     assert skipped == []
     assert parsed[0].date_iso == "2022-12-01"
@@ -260,7 +260,7 @@ def test_tx_id_deterministic_and_line_sensitive():
 def test_identical_content_on_two_lines_both_planned():
     """Dedup is line-keyed, not content-based: identical rows on different
     sheet lines both import — the unreachable content-skip that advertised
-    otherwise was deleted (backlog 6.4e)."""
+    otherwise was deleted."""
     a = ParsedRow(2, "t", "c", "h", "2022-12-01", -100, "PEN", "BCP PEN", None)
     b = ParsedRow(3, "t", "c", "h", "2022-12-01", -100, "PEN", "BCP PEN", None)
     plan = plan_mod.build_plan([a, b], [], [])
@@ -316,7 +316,7 @@ def test_is_opening_category(category, expected):
 
 
 def test_opening_row_detected_from_category_column():
-    """The real sheet marks openings in CATEGORY, not in the title (2026-08-20)."""
+    """The real sheet marks openings in CATEGORY, not in the title."""
     raw = _row(
         2,
         Descripcion="REGULARIZACION SALDOS",
@@ -459,11 +459,11 @@ def test_one_unreadable_date_skips_its_row_and_the_sheet_still_imports():
     assert [p.line for p in parsed] == [3]
 
 
-# ---- one header normaliser for both importers (A6) -------------------------
+# ---- one header normaliser for both importers ------------------------------
 def test_headers_match_through_doubled_interior_spaces():
     """`normalize_header` collapses runs of whitespace, so a sheet re-exported
-    with a double space in a header still maps. The two importers disagreed on
-    this until they shared the one function."""
+    with a double space in a header still maps. Both importers share the one
+    function, so they cannot disagree on this."""
     assert mapping.normalize_header("Numero  de  Operacion") == "numero de operacion"
     assert mapping.normalize_header(" Fecha\n") == "fecha"
     assert mapping.normalize_header(None) == ""
@@ -473,8 +473,8 @@ def test_headers_match_through_doubled_interior_spaces():
 
 
 def test_both_importers_share_one_header_matcher():
-    """Both the normaliser and the nested match loop, which the two importers
-    used to spell out separately. The sheet layouts stay their own."""
+    """Both the normaliser and the nested match loop are shared by the two
+    importers. The sheet layouts stay their own."""
     from expense.bank_import import parse as bank_parse
 
     assert bank_parse.match_headers is mapping.match_headers

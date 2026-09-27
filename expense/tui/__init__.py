@@ -1,4 +1,4 @@
-"""Interactive TUI — `expense world` (Phase 0 walking skeleton).
+"""Interactive TUI — `expense world`.
 
 A retained-mode Textual app over the same engine/command layer the flat CLI
 uses (zero business logic here). The entry point is kept light: `world_command`

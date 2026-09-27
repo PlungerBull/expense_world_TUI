@@ -1,18 +1,17 @@
 """`expense import bank <file.xlsx>` — a bank download → the ledger, under @Pendiente.
 
-The flow, as drawn in docs/mockups/expense-world-bank-import.html and picked
-2026-09-12: read the sheet, ask which account (remembered per file name after
-the first run — option B), then hand every row to the engine's
+The flow: read the sheet, ask which account (remembered
+per file name after the first run), then hand every row to the engine's
 `POST /transactions/import` in **one** call, which matches the rows against
 the ledger and, under `--apply`, writes what is missing in one database
 transaction. A day where the ledger holds a row of the same amount that no
-file row matched is a loud warning (option D): it is how an earlier double
+file row matched is a loud warning: it is how an earlier double
 entry, or a row about to be logged twice under another wording, surfaces.
 
-Since 2026-09-26 the matching is the engine's, not this file's (engine-uptake
-Phase 10b): a second copy of the rule would drift, and every other client
-would need a third. What stays here is what only a client can know — the
-file's lines, the account pick, and the 2026-01-01 floor.
+The matching is the engine's, not this file's: a second copy of the rule
+would drift, and every other client would need a third. What stays here is
+what only a client can know — the file's lines, the account pick, and the
+2026-01-01 floor.
 
 Why the account is asked and not read: the file does not say. The bank names
 the file after the product ("VISA Infinite Sapphire") and the sheet after
@@ -284,10 +283,9 @@ def post_import(cfg, prepared: Prepared, *, dry_run: bool, verbose: bool) -> dic
     followed by a write: its response is what happened. The client's
     idempotency key covers a retry.
 
-    The client's default read timeout (60 s). Measured 2026-09-26 against the
+    The client's default read timeout (60 s). Measured against the
     local engine: a 500-row dry run answers in 0.05 s, and an apply adds at
-    most 500 inserts in one transaction. The 300 s this used to set belonged
-    to the old chunked batch write."""
+    most 500 inserts in one transaction."""
     with ExpenseClient(cfg, verbose=verbose) as client:
         return client.post(
             "/transactions/import", json_body=request_body(prepared.sent, dry_run=dry_run)
@@ -333,7 +331,7 @@ def render_result(
     table = [
         {
             # The file's own line, the number every message below the table
-            # uses too (owner's pick B, expense-world-bank-import-10b.html).
+            # uses too.
             "n": str(p.sent.row.line),
             "date": p.sent.row.date_iso,
             "title": p.sent.row.title,
@@ -426,8 +424,8 @@ def excess_lines(excess: list[ExcessGroup]) -> list[str]:
     # The engine's `excess`: a day and amount the file reports where the
     # ledger still holds a row no file row claimed — equal counts included,
     # since that row and a `new` one may be the same movement in two wordings.
-    # One line per day, the count of unmatched ledger rows up front (owner's
-    # pick C, docs/mockups/expense-world-bank-import-10b.html).
+    # One line per day, the count of unmatched ledger rows up front
+    # (docs/mockups/expense-world-bank-import-10b.html).
     n = sum(e.unclaimed for e in excess)
     rows_word = f"{n} ledger row{'' if n == 1 else 's'}"
     lines = [

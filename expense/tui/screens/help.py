@@ -4,9 +4,7 @@ Why this exists rather than Textual's own `action_show_help_panel`: that panel
 lists every *active* binding, which means everything we never authored (Scroll
 Left/Right, Page Left/Right, Focus Next/Previous, Copy selected text), renders
 `show=False` aliases as rows with a blank description, groups nothing, and docks
-right — squeezing the content to a third of the width. Both are captured side by
-side in docs/mockups/expense-world-phase8-discoverability.html §1.2 and §2; this
-card is variant C, approved 2026-08-17.
+right — squeezing the content to a third of the width.
 
 The inventory is **derived, never hand-listed**. It walks the screen's — and the
 focused widget's — MRO and keeps only the BINDINGS declared by classes in this
@@ -51,8 +49,8 @@ CONVENTIONS = (
     ("⏎", "never changes data"),
 )
 
-#: Textual's own keys, and all that is left app-wide since the command palette
-#: was removed 2026-08-17 (docs/decisions.md, "The command palette is removed").
+#: Textual's own keys — all that is app-wide.
+#: Why: docs/decisions.md "The command palette is removed".
 EVERYWHERE = (("^q", "Quit"), ("?", "This help"))
 
 #: `?` is declared on every screen root (Textual does not merge BINDINGS from a
@@ -73,7 +71,7 @@ NEEDS_SCREEN_HANDLER = {
 }
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
-#: interior columns; the split matches the approved mockup.
+#: interior columns.
 LEFT_WIDTH = 34
 RIGHT_WIDTH = 32
 
@@ -329,7 +327,7 @@ class HelpBindingMixin:
     app-level `?` would fire from inside a ConfirmModal (the same reason there is
     no app-level `q` — see app.py). Deliberately not on `FormScreen` either: a
     focused `Input` swallows printable keys, so `?` there types a question mark,
-    which is the wanted behaviour (decided 2026-08-17).
+    which is the wanted behaviour.
     """
 
     BINDINGS = [("question_mark", "help", "Keys")]

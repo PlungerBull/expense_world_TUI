@@ -10,17 +10,17 @@ form runs the shared quick-add grammar (expense/quickadd/), so it and the TUI
 bar read a line exactly alike.
 
 **A row needs an amount and an account; title and category are optional**
-(2026-09-12, docs/decisions.md "The Inbox is deleted"). A row with no
+(docs/decisions.md "A sparse line is a ledger row"). A row with no
 category is filed under `@Pendiente` by the engine and counts like any other;
 a row with no title is a titleless row. Two behaviours are specific to the
 line form:
 
 * **A line that is missing an amount or an account, names something
   ambiguously, uses a tag that does not exist, or is dated ahead is
-  refused** — printed with the reason, exit 1, nothing written. The Inbox
-  that used to hold such lines is gone; the routing rule
-  `expense/quickadd/route.py` holds for both surfaces.
-* **It always asks before writing**, unless `--yes` (decided 2026-08-25). The
+  refused** — printed with the reason, exit 1, nothing written. The routing
+  rule `expense/quickadd/route.py` holds for both surfaces.
+* **It always asks before writing**, unless `--yes` (docs/decisions.md "Two
+  calls for the one-line `expense log`"). The
   grammar is forgiving on purpose (`18/8/26`, `$sig`, `hoy`); the TUI earns
   that back with its staged list, and this prompt is the flat equivalent.
 """
@@ -67,8 +67,7 @@ _CONTENT_FLAGS = (
 )
 _REQUIRED_FLAGS = ("--amount", "--account-id")
 
-# Width of the row block: title left, amount right, as picked 2026-08-25
-# (docs/mockups/expense-world-log-oneline.html, option A).
+# Width of the row block: title left, amount right.
 _ROW_WIDTH = 62
 _PLURAL = {"account": "accounts", "category": "categories", "hashtag": "hashtags"}
 
@@ -77,7 +76,7 @@ def _fail(message: str) -> None:
     """Client-side refusal: stderr, exit 1.
 
     Deliberately not `typer.BadParameter`, whose exit 2 collides with click's
-    own usage code (docs/decisions.md, the exit-code entry).
+    own usage code (docs/decisions.md "Connection errors get exit code 6").
     """
     typer.echo(f"Error: {message}", err=True)
     raise typer.Exit(code=1)
@@ -114,14 +113,14 @@ def render_row(parsed: ParsedLine, refs: QuickAddRefs) -> list[str]:
     Line one is what and how much, the amount right-aligned so it lands in the
     same column every time. Line two is everything else, dot-separated, with
     the date spelled out in words — the check that makes a two-digit year safe
-    to accept (docs/decisions.md).
+    to accept (docs/decisions.md "Two calls for the one-line `expense log`").
     """
     amount = format_cents(parsed.amount_cents) if parsed.amount_cents is not None else "no amount"
     currency = currency_of(refs, parsed.account_id)
     if currency:
         amount = f"{amount} {currency}"
 
-    # A titleless row is a dash, everywhere (owner call 2026-09-12).
+    # A titleless row is a dash, everywhere.
     title = parsed.title or "—"
     room = _ROW_WIDTH - len(amount) - 2
     title = truncate(title, room)
@@ -151,8 +150,8 @@ def render_row(parsed: ParsedLine, refs: QuickAddRefs) -> list[str]:
 def render_reasons(parsed: ParsedLine, routing: Routing, refs: QuickAddRefs) -> list[str]:
     """Why this line was refused, plus the candidates behind an ambiguous name.
 
-    Listing the candidates is the point: an ambiguous name counts as no name
-    (decided 2026-08-25), so the way out is to retype it with more of the
+    Listing the candidates is the point: an ambiguous name counts as no name,
+    so the way out is to retype it with more of the
     name — which you cannot do without seeing them.
     """
     if not routing.refused:

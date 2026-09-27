@@ -1,5 +1,5 @@
-"""SectionScreen failure paths — error banner, reload recovery, write failure
-(backlog 6.4). Uses AccountsScreen as the concrete SectionScreen; nothing here
+"""SectionScreen failure paths — error banner, reload recovery, write failure.
+Uses AccountsScreen as the concrete SectionScreen; nothing here
 is accounts-specific.
 """
 

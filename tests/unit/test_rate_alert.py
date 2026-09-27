@@ -126,10 +126,10 @@ def test_alert_takes_the_pending_style_from_the_palette():
     fallback, so the figures are roughly right. Palette-sourced, never a literal
     style — the no-literal-color guard in test_tui_theme.py depends on it.
 
-    The emphasis now lives in the palette, not here: pick C (2026-08-19) made the
+    The emphasis lives in the palette, not here: the palette makes the
     pending role `bold` with no colour, so a call site that prepended its own
     "bold " would render "bold bold". Asserted with the REAL palette, since the
-    synthetic one above is a colour triple from before that change.
+    synthetic one above is a plain colour triple.
     """
     from expense.tui.theme import PALETTE
 

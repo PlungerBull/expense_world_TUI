@@ -1,7 +1,7 @@
 """The suggestion list under the quick-add input, shared by both surfaces.
 
-The LOG bar and the bar-cycle edit form each wrote this scroll arithmetic out;
-these pin the window behaviour that used to exist twice.
+The LOG bar and the bar-cycle edit form share this scroll arithmetic; these
+pin its window behaviour.
 """
 
 from expense.tui.widgets.picker import PICKER_WINDOW, suggestion_list

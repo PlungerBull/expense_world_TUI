@@ -1,4 +1,4 @@
-"""Drift trap: the USD/PEN whitelist has exactly one home (backlog 2.4).
+"""Drift trap: the USD/PEN whitelist has exactly one home.
 
 Adding a currency engine-side (sql/015_lock_currencies_to_pen_usd.sql) must
 mean touching expense/currencies.py only — if any client copy drifts, this

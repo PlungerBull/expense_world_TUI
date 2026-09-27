@@ -9,9 +9,7 @@ wait site after 2s; a bare `pilot.pause()` drains the message pump once, which
 is what a *non-event* assertion needs (an inert keypress, a confirm that must
 not fire) since no predicate can express "wait until nothing happens".
 
-Backlog Phase 8 swept the last 31 timed pauses out on 2026-08-18. This test is
-what keeps the 32nd from landing silently — the second pass over the same
-problem (commit `9d8d2c3` was the first), which is why it is armor now.
+This test keeps a timed pause from landing silently.
 
 `time.sleep` is deliberately NOT guarded: its uses are fake engine clients
 simulating latency, not test waits.
@@ -86,8 +84,6 @@ def test_known_local_exemptions_still_match():
     Same rot as `test_justified_exemption_still_exists` above, one list over:
     the drift script can only report keys it does not know, so a stale entry is
     invisible — it goes on quietly excusing whatever key next takes the name.
-    Eight had rotted when this landed (2026-09-19), including `tag1`, whose note
-    named test_tui_inbox.py, deleted with the Inbox on 2026-09-12.
 
     ENVELOPE_KEYS is deliberately NOT guarded: it spells out the engine's
     envelope contract (pagination, the error shape, the bootstrap wrapper), so an
@@ -123,12 +119,10 @@ def test_no_bare_rich_console_in_tests():
     A `Console(file=StringIO(), width=N)` with no `force_terminal` renders plain
     text here and ANSI spans on a machine that exports FORCE_COLOR or a CI that
     looks like a TTY — the same assertion passing or failing on where it runs.
-    Nine files had their own copy of that console and six tests failed under
-    `FORCE_COLOR=1` (2026-09-19). `helpers.render_text` pins `force_terminal`
-    explicitly in both directions; `ansi=True` is how a test asks for the codes.
+    `helpers.render_text` pins `force_terminal` explicitly in both directions;
+    `ansi=True` is how a test asks for the codes.
 
-    The workaround this replaces was a line in CLAUDE.md telling everyone not to
-    set FORCE_COLOR — prose, remembered by whoever had read it.
+    A guard test, not a line of prose telling everyone not to set FORCE_COLOR.
     """
     offenders = [
         f"{path.name}:{lineno}: {line.strip()}"
@@ -153,11 +147,8 @@ _OWN_HARNESS = re.compile(r"\basyncio\.run\(|\.run_test\(")
 def test_tui_tests_boot_through_the_shared_harness():
     """`helpers.run_app(body, size=...)` is the only place an ExpenseApp starts.
 
-    144 tests wrote their own `app = ExpenseApp()` / `run_test` / `asyncio.run`
-    quartet until 2026-09-19. Repetition was the smaller half of the cost: with
-    144 copies, anything the whole suite needs from its harness — a default
-    viewport, a fixture, an exception wrapper — has to be applied 144 times or
-    not at all, so in practice it never gets applied.
+    With one harness, anything the whole suite needs from it — a default
+    viewport, a fixture, an exception wrapper — is applied once, not per test.
 
     `asyncio.gather` and friends are untouched; this is about who starts the app.
     """
@@ -175,7 +166,7 @@ def test_tui_tests_boot_through_the_shared_harness():
 
 
 # A fake of one of the whole lists that returns a bare array. The engine answers
-# `{items}` and has no route that returns an array (2026-09-23); `items_of` reads
+# `{items}` and has no route that returns an array; `items_of` reads
 # a bare array as no rows, so a non-empty one fails its test. This catches the
 # case that slips through: a fake returning `[]`, which reads the same as an empty
 # `{items}` and would pass whatever shape the code expected.

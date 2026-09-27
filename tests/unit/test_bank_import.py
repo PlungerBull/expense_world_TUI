@@ -1,10 +1,9 @@
 """The bank importer's pure halves: the parser, and the engine request/response.
 
-Shapes come from the two real BCP downloads of 2026-09-12 (docs/mockups/
-expense-world-bank-import.html): a current-account export with `Numero de
+Shapes come from two real BCP downloads: a current-account export with `Numero de
 Operacion` and `11/09/2026` dates, and a card export with `2026-09-11` dates,
 mixed S/ and $, no operation number, and padded merchant descriptors. The
-response shape is engine-spec `POST /transactions/import` (2026-09-25).
+response shape is engine-spec `POST /transactions/import`.
 """
 
 import pytest
@@ -275,7 +274,7 @@ def test_a_refusal_names_the_files_line_not_the_engines_index():
 
 # ---- an operation code the bank never issued --------------------------------
 def test_operation_refuses_booleans_and_fractions():
-    """`True` used to stringify to "True" and `12345.67` to truncate to
+    """`True` must not stringify to "True", nor `12345.67` truncate to
     "12345". Either would be matched against the ledger and then WRITTEN onto
     a transaction, where the engine's per-account UNIQUE (`sql/039`) makes the
     invented code permanent."""

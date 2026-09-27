@@ -79,7 +79,7 @@ def test_set_over_a_legacy_client_id_config(tmp_config):
 
 @pytest.mark.parametrize("bad_url", ["example.com", "ftp://example.com", "https://"])
 def test_set_rejects_engine_url_without_http_scheme(tmp_config, bad_url):
-    """A scheme-less/non-HTTP URL must fail at set time, not on the next command (backlog 3.4)."""
+    """A scheme-less/non-HTTP URL must fail at set time, not on the next command."""
     result = runner.invoke(app, ["set", "--engine-url", bad_url, "--token", "ewe_pat_abc"])
     assert result.exit_code != 0
     assert "scheme" in result.output
@@ -160,7 +160,7 @@ def test_get_errors_cleanly_when_no_config(tmp_config):
 
 
 def test_set_with_corrupt_config_renders_clean_error(tmp_config):
-    """A corrupted config file must render on set like it does on get (backlog 3.6)."""
+    """A corrupted config file must render on set like it does on get."""
     tmp_config.write_text("{not json")
     result = runner.invoke(app, ["set", "--token", "ewe_pat_abc"])
     assert result.exit_code == 3

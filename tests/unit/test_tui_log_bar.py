@@ -1,11 +1,10 @@
 """The LOG bar — one typed line, a staged batch, one save.
 
 Pure builders first (the staged table, its summary and the error block render
-through a Rich console with no app), then one pilot test per mockup state
-(docs/mockups/expense-world-quickadd-batch.html, all nine panes).
+through a Rich console with no app), then one pilot test per screen state.
 
-The save half landed with quick-add phase 4 (2026-08-25) and brought the four
-calls in docs/decisions.md "What a half-written batch means": the screen stays
+The save follows the four calls in docs/decisions.md "What a half-written
+batch means": the screen stays
 and the ticks are the receipt, a partial failure re-sends only what did not
 land, `ctrl+s` leaves an unstaged line in the bar alone, and the discard card's
 third answer saves before it leaves.
@@ -178,7 +177,7 @@ USD_LINE = "shimaya ramen -96.00 $BCP Signature USD @KORAKUEN"
 def test_ledger_row_is_marked():
     out = _text(staged_table([_stage(LEDGER_LINE)], REFS, today=TODAY.isoformat()))
     assert "•" in out
-    assert "goes to" not in out  # the column left with the Inbox (2026-09-12)
+    assert "goes to" not in out
     assert "TOTTUS" not in out  # the title is shown verbatim, never upper-cased
     assert "tottus porongoche" in out
     assert "-38.60" in out and "BCP Signature PEN" in out and "#CAJA CHICA" in out
@@ -186,14 +185,14 @@ def test_ledger_row_is_marked():
 
 def test_a_line_with_no_account_is_refused_not_staged():
     """Routing's answer for the line `↵` refuses — the screen never builds a
-    row from it (pane 2 of the pendiente mockup, 2026-09-12)."""
+    row from it."""
     entry = _stage(NO_ACCOUNT_LINE)
     assert entry.routing.refused
     assert "the line names no account" in entry.routing.reasons
 
 
 def test_row_with_no_category_reads_as_pendiente():
-    """Pane 1: the category cell already says where the engine will file it."""
+    """The category cell already says where the engine will file it."""
     out = _text(staged_table([_stage(NO_CATEGORY_LINE)], REFS, today=TODAY.isoformat()))
     assert "•" in out
     assert "pendiente" in out.lower()
@@ -396,7 +395,7 @@ def test_state4_enter_stages_the_line_and_clears_the_bar(fake_client, monkeypatc
 
 
 def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypatch):
-    """Pane 2 (2026-09-12): the line stays in the bar with the reason under
+    """The line stays in the bar with the reason under
     it, and the staged list is untouched. The next keystroke clears the reason."""
     _patch(monkeypatch)
 
@@ -569,8 +568,7 @@ def test_escape_on_an_empty_screen_just_leaves(fake_client, monkeypatch):
 def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
     """The shape of the save: one atomic call, and nothing after it.
 
-    Was `..._then_each_draft` until 2026-09-12 — the per-draft `POST /inbox`
-    loop left with the Inbox. A sparse row rides the same batch, its absent
+    A sparse row rides the same batch, its absent
     fields omitted (never null) so the engine applies its own defaults.
     """
     _patch(monkeypatch)
@@ -600,11 +598,7 @@ def test_ctrl_s_writes_every_row_in_one_batch(fake_client, monkeypatch):
 
 
 def test_the_plus_key_opens_the_log_bar(fake_client, monkeypatch):
-    """The switch. Was `test_the_plus_key_still_opens_the_old_form`.
-
-    `+` opened `QuickAddLogScreen` with no record until phase 4; that create
-    door is closed and the bar took it over
-    (docs/mockups/expense-world-two-doors.html). Asserted on the source so a
+    """The switch: `+` opens the bar, never the edit form. Asserted on the source so a
     future edit cannot quietly point `+` back at the form.
     """
     import inspect
@@ -617,7 +611,7 @@ def test_the_plus_key_opens_the_log_bar(fake_client, monkeypatch):
     assert QuickAddLogScreen.__name__ not in source
 
 
-# ---- phase 4: the save ------------------------------------------------------
+# ---- the save --------------------------------------------------------------
 def _script(client, responses):
     """Give the fake client a per-call answer for POST.
 
@@ -648,7 +642,7 @@ def _stage_lines(screen, *lines):
 
 
 def test_state7_every_row_ticks_and_the_screen_stays(fake_client, monkeypatch):
-    """Pane 7. The save is not an exit: the ticked list is the receipt."""
+    """The save is not an exit: the ticked list is the receipt."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -704,7 +698,7 @@ def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch)
 
 
 def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
-    """Pane 8. The engine refuses the batch without naming a row, the fallback
+    """The engine refuses the batch without naming a row, the fallback
     re-posts one row per batch, the first lands and the second does not — and
     the screen says which is which, because "nothing was written" would be a
     lie."""
@@ -910,7 +904,7 @@ def test_escape_with_only_saved_rows_leaves_without_asking(fake_client, monkeypa
 
 
 def test_state9_the_discard_card_saves_first_and_then_leaves(fake_client, monkeypatch):
-    """Pane 9's third answer, live now that the save it names exists."""
+    """The discard card's third answer: save first, then leave."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -985,8 +979,7 @@ def test_the_receipt_counts_what_landed_not_what_was_hoped_for():
 
 
 # ---- the account peek -------------------------------------------------------
-# docs/mockups/expense-world-log-account-peek.html — picks A (elastic) and i
-# (the panel stays on the last account the bar named), 2026-08-29.
+# Elastic, and the panel stays on the last account the bar named.
 def test_peek_rows_carry_the_five_columns_and_never_the_account():
     rows = peek_rows(PEEK_ITEMS, REFS, palette=PALETTE, today=TODAY.isoformat())
     (date, title, amount, category, tags) = rows[0]
@@ -1032,7 +1025,7 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
         assert fetch.accounts == ["acc1"]
         panel = _peek(screen)
         assert panel.display
-        # content lines since 2026-09-20, not border decorations (docs/tui.md §2)
+        # content lines, not border decorations (docs/tui.md §2)
         assert panel.panel_title == "BCP Signature PEN"
         assert "of 214 in this account" in panel.panel_status
         assert "WONG CAYMA" in _text(panel.content)
@@ -1041,7 +1034,7 @@ def test_the_peek_opens_on_the_account_the_line_names(fake_client, monkeypatch):
 
 
 def test_the_peek_draws_as_many_rows_as_it_was_given(fake_client, monkeypatch):
-    """Pick A: the panel is `1fr`, so it renders exactly what fits — no more."""
+    """The panel is `1fr`, so it renders exactly what fits — no more."""
     _patch(monkeypatch, _PeekFetch(cursor_page(PEEK_ITEMS * 20, next_cursor="c40")))
 
     async def scenario(pilot, app):
@@ -1070,7 +1063,7 @@ def test_the_peek_follows_the_picker_while_the_account_is_ambiguous(fake_client,
 
 
 def test_the_peek_stays_on_the_last_account_the_bar_named(fake_client, monkeypatch):
-    """Pick i: `↵` clears the bar, and the panel does not blink off with it."""
+    """`↵` clears the bar, and the panel does not blink off with it."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1163,7 +1156,7 @@ def test_the_peek_total_is_the_engine_count_read_with_the_rows(fake_client, monk
 
 
 def test_a_count_that_cannot_be_read_fails_the_peek(fake_client, monkeypatch):
-    """No rows beside a guessed number (owner, 2026-09-23): the rows arrived,
+    """No rows beside a guessed number: the rows arrived,
     the count did not, so the panel says why and shows no rows."""
     _patch(
         monkeypatch,
@@ -1199,8 +1192,7 @@ def test_a_save_refetches_the_account_it_just_wrote_to(fake_client, monkeypatch)
 
 
 # ---- the legend row ---------------------------------------------------------
-# docs/mockups/expense-world-log-legend-and-picker.html, pick A with the ↵ hint
-# on the same line (2026-08-29).
+# The whole grammar in one row, with the ↵ hint on the same line.
 def test_the_legend_names_every_token_of_the_grammar():
     for token in ("$account", "@category", "#tag", "±amount", "//note", "when"):
         assert token in LEGEND_LINE
@@ -1238,7 +1230,7 @@ def test_the_hint_row_carries_what_changes_not_the_grammar(fake_client, monkeypa
 
 
 def test_a_bare_sigil_opens_the_full_list(fake_client, monkeypatch):
-    """Typing `#` alone means *show me what there is* (2026-08-29)."""
+    """Typing `#` alone means *show me what there is*."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):

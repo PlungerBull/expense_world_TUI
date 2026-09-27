@@ -1,4 +1,4 @@
-"""Contract: `POST /transactions/import` (engine 2026-09-25; CLI Phase 10b).
+"""Contract: `POST /transactions/import`.
 
 `expense import bank` makes exactly this one call and prints what comes back,
 so what the preview and the apply say is the engine's word. Pinned here:

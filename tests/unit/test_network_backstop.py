@@ -2,7 +2,7 @@
 
 Guards the autouse `_block_real_network` fixture in conftest.py: a unit test
 that forgets `@respx.mock` and issues a live request should fail loudly rather
-than silently pinging the production engine (backlog §5).
+than silently pinging the production engine.
 """
 
 import socket

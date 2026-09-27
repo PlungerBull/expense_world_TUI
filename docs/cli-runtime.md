@@ -1,26 +1,24 @@
 # CLI Runtime Behavior
 
-How the CLI behaves at runtime — read/write semantics, identity, error handling. Companion to [cli-spec.md](cli-spec.md) (which catalogs commands and flags).
+How the CLI behaves at runtime — read/write semantics, error handling, working against the live engine. Companion to [cli-spec.md](cli-spec.md) (commands and flags).
 
 ## Overview
 
-The CLI is a thin wrapper around the engine. It holds no business logic and **no local state beyond `~/.expense-config`**. The engine is the only authoritative store, and it runs on the same machine (`http://127.0.0.1:8000`, local profile since 2026-07-30), so every read is a live loopback HTTP call.
+The CLI holds no business logic and **no local state beyond `~/.expense-config`** — no cache, no offline write queue ([decisions.md](decisions.md) "All reads are live"). The engine is the only authoritative store and runs on the same machine (`http://127.0.0.1:8000`), so every read is a live loopback HTTP call.
 
-Everything in this document applies equally to the Textual TUI (`expense world`): it is another client of the same layer — same HTTP client, same `fetch_*` functions — not a separate runtime. Likewise the bulk importer (`expense import`), which is engine-direct batched writes (see "Write semantics").
-
-**History.** From Step 7b (2026-07) to 2026-08-06 the CLI kept a local SQLite replica (`~/.expense-cache.sqlite3`) hydrated from `GET /v1/sync`, and reads were cache-by-default with `--no-cache` as the escape hatch. That layer was deleted when the engine deleted `/sync` (engine rework WP4): with the engine on loopback, the replica's only value — hiding cloud latency — was gone, while its costs (staleness windows, a sync-contract error family, a dropped-writes bug class) remained. See [decisions.md](decisions.md) "Delete the local replica" for the full rationale. `--no-cache`, `--no-sync-after`, `EXPENSE_STATELESS`, `EXPENSE_NO_SYNC_AFTER`, `EXPENSE_CACHE`, and `expense sync` no longer exist.
+Everything here applies equally to the TUI (`expense world`) and the importers (`expense import`): they are clients of the same HTTP client and `fetch_*` functions, not separate runtimes.
 
 ## Read semantics
 
-Every read command is a direct `GET` against the engine. There is no cache to warm, no staleness, and no drift: what a command prints is what the engine computed at that moment, including home-currency figures (converted at read time engine-side).
+Every read command is a direct `GET`. What a command prints is what the engine computed at that moment, including home-currency figures (converted engine-side at read time).
 
-- List renderers resolve IDs to display names via live reference-list fetches (`load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` in [expense/commands/_resource.py](../expense/commands/_resource.py)) — the engine's responses are IDs-only by convention, and clients resolve names themselves. On any failure these maps degrade to `{}` and renderers fall back to 8-char short ids; a name-map hiccup never breaks a listing.
-- **Deleted is deleted** (engine, 2026-09-23). A deleted row is invisible to every client — no list returns it, its get is a 404 — and there is no restore and no `--include-deleted`. The engine keeps the row in its table; undeleting one is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). `expense activity list` still shows a deleted row's history.
-- Transaction reads always send `debit_as_negative=true`: every CLI/TUI surface renders debits negative, so the request pins the flag rather than depending on the engine default.
+- The engine's responses are IDs-only; list renderers resolve names via live reference-list fetches (`load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` in [expense/commands/_resource.py](../expense/commands/_resource.py)), degrading to 8-char short ids on failure (cli-spec "Output conventions").
+- **Deleted is deleted.** A deleted row is invisible to every client — no list returns it, its get is a 404 — and no command restores it. The engine keeps the row in its table; undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). `expense activity list` still shows a deleted row's history.
+- Transaction reads always send `debit_as_negative=true`, so the request pins the sign rather than depending on the engine default.
 
 ### Three list shapes
 
-Since the engine's 2026-09-23 changes no list pages by position; every list is one of three shapes, and each is read its own way. The contract is engine-spec *Base Conventions* ([../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)); what each command prints under its table is cli-spec "Pagination (human mode)" ([cli-spec.md](cli-spec.md)).
+No list pages by position; every list is one of three shapes, each read its own way. The contract is engine-spec *Base Conventions* ([../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)); what each command prints under its table is cli-spec "Pagination (human mode)".
 
 | Shape | Lists | How the CLI and TUI read it |
 |---|---|---|
@@ -32,44 +30,29 @@ A stale `limit`, `offset` or unknown parameter is the engine's `422`, never a qu
 
 ## Write semantics
 
-Writes always go straight to the engine. There is **no offline write queue, no buffering, no replay**.
+Writes go straight to the engine the moment you press enter. There is **no offline write queue, no buffering, no replay**.
 
-- Every write command (`transactions create`, `accounts update`, `reconcile complete`, …) is a direct API call the moment you press enter.
-- Each write request carries an `X-Idempotency-Key` (UUID) minted once per logical write by `ExpenseClient`; retrying a failed write is safe — the engine returns the original response from `idempotency_keys`. Keys are **permanent** (engine `sql/026`): no TTL, no purge, a replay works identically a year later. Replay requires the *same* request — each key stores a sha256 fingerprint over method/path/query/body, and reusing a key with a different body returns `409` rather than an unrelated snapshot. *(This doc claimed a 24h TTL until 2026-08-25; the engine dropped it and the claim went stale.)*
-- `ExpenseClient` itself retries a timed-out or 5xx write up to twice (1s/2s backoff) **with the same key** before surfacing the error, printing a stderr notice per attempt — the engine replay is what makes this safe. Connect failures are not retried (the engine isn't reachable at all), and reads never auto-retry.
-- Network errors otherwise fail fast. The CLI prints the error and exits non-zero. A developer at a terminal — or a script in CI — gets synchronous feedback. Silent buffering would corrupt the contract that the next command can rely on the previous command having landed.
+- Each write carries an `X-Idempotency-Key` (UUID) minted once per logical write by `ExpenseClient`; retrying is safe — the engine returns the original response. Keys are **permanent** (no TTL). Replay requires the *same* request: each key stores a fingerprint over method/path/query/body, and reusing a key with a different body returns `409`.
+- `ExpenseClient` retries a timed-out or 5xx write up to twice (1s/2s backoff) **with the same key** before surfacing the error, printing a stderr notice per attempt. Connect failures are not retried, and reads never auto-retry.
+- Any other network error fails fast: the CLI prints it and exits non-zero, so the next command can rely on the previous one having landed.
 
-An offline write queue remains a per-client commitment for a future mobile client, not an inherited default. The CLI does not get one.
+**Bulk writes** go through one shared path, [expense/batch_write.py](../expense/batch_write.py), used by `expense import sheet --apply` and the TUI's LOG bar (`ctrl+s`). Rows go out in chunked `POST /transactions/batch` calls (default 200/request), each with its own idempotency key. A batch is **atomic** — one bad row and none of the chunk is written — so a refused chunk is re-posted one row per batch, letting the good rows land and making the bad one name itself. A `409` there is **not** a failure: ids are client-supplied, so a replayed id means the row is already in. That is what makes a retry after a half-written run safe and why `expense import sheet` re-runs converge instead of duplicating.
 
-Bulk writes are the same contract at scale, through one shared path — [expense/batch_write.py](../expense/batch_write.py), used by both `expense import --apply` and the TUI's LOG bar (`ctrl+s`). Rows go out in chunked `POST /transactions/batch` calls (default 200/request), each engine-direct with its own fresh idempotency key. The batch is **atomic** — one bad row and none of the chunk is written — so a refused chunk is re-posted one row per batch, which lets the good rows land and makes the bad one name itself. *(Since the engine's 2026-09-13 change a 422 does name the failing row, keyed `transactions.<index>.<field>`; the singleton pass stays because its job is partial progress, not diagnosis — a 409 from a re-run carries no per-row key, and no error shape can write the good rows for us.)* A `409` there is **not** a failure: ids are client-supplied, so a replayed id means the row is already in. That is what makes a retry after a half-written run safe, and it is why `expense import` re-runs converge instead of duplicating. `expense import`'s default invocation is still a dry-run plan that writes nothing.
+## Engine errors surface cleanly
 
-*(That fallback exists only because the engine does not return the per-item error index its spec promises — a standing contract gap, tracked in [todo.md](todo.md) "Engine-side asks".)*
-
-## CLI as equal client
-
-The CLI does not get any endpoint, header, behavior, or shortcut that other clients won't get. Same REST endpoints, same `X-Idempotency-Key`, same auth scheme, same error envelope.
-
-What stays CLI-specific (and is OK to live only here):
-
-- `~/.expense-config` filesystem storage (a future mobile client would use its keychain)
-- [expense/dates.py](../expense/dates.py) — date input forgiveness for terminal humans
-- [expense/quickadd/](../expense/quickadd/) — the one-line quick-add grammar, shared by both surfaces (`expense log "<line>"` and the TUI's LOG bar). Client-side because completion runs on every keystroke against reference lists the client already holds; the engine still validates every field it receives, so no correctness moved out of it
-- [expense/import_/](../expense/import_/) — the `.xlsx` reader behind `expense import sheet`, and [expense/bank_import/](../expense/bank_import/) — the bank-download parser and the `POST /transactions/import` request/response behind `expense import bank`
-- `--json` flag and the human-output renderers — terminal UX
-
-What is NOT CLI-specific (and must never be): idempotency keys, sign convention (`debit_as_negative`), error envelope shape, RFC 3339 dates, IDs-only responses with client-side name resolution. These are multi-client contracts; the CLI uses them faithfully so future clients inherit working patterns, not just specs.
+The engine's `{ error: { code, message, fields } }` envelope is rendered intact (format in cli-spec "Output conventions"); `--json` prints it verbatim. Commands add a hint line for known refusals (e.g. "revert first" on a locked reconciliation) without replacing the engine's message.
 
 ## Working against the live engine
 
-There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, launchd service on the owner's Mac — engine repo `deploy/local/README.md`; the Render/Supabase cloud profile is mothballed since 2026-07-30, see `deploy/cloud/README.md`). No staging, no sandbox — every PAT belongs to a real user and every write lands in the real ledger. "Live" means *your machine*, but the discipline is identical: it's the one true ledger.
+There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, launchd service on the owner's Mac — engine repo `deploy/local/README.md`). No staging, no sandbox — every PAT belongs to a real user and every write lands in the one true ledger.
 
-**Developer default is live.** Plain `expense …` commands read `~/.expense-config` — the real credential — and hit the live local engine. Reads are always safe; ad-hoc writes are real writes. Don't run write commands casually to "see what happens"; use `--verbose` on a read, or the unit suite, to inspect behavior.
+**Developer default is live.** Plain `expense …` commands read `~/.expense-config` — the real credential. Reads are safe; ad-hoc writes are real writes. To inspect behaviour, use `--verbose` on a read, or the unit suite.
 
 **Isolation levers, weakest to strongest:**
 
-- `EXPENSE_CONFIG` env override redirects the config file to any path. This isolates *local config only* — the same PAT still writes to the same user's ledger.
-- A **separate PAT for a separate user** is true data isolation within the same database. PATs are issued out-of-band: see [cli-spec.md](cli-spec.md) "Auth model" and the engine spec for the endpoint contract. CLI-side `auth pat create`/`revoke` are deferred.
-- **A second engine over the `expense_world_test` database** is the strongest, and since 2026-08-16 it is how the contract suite is meant to run. Nothing it writes can reach the real ledger, and the debris is disposable — `deploy/local/create-test-db.sh --force` wipes it. Setup lives in the engine repo: `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates`, then
+- `EXPENSE_CONFIG` redirects the config file. This isolates *local config only* — the same PAT still writes to the same ledger.
+- A **separate PAT for a separate user** is data isolation within the same database (PATs: cli-spec "Auth model").
+- **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and `deploy/local/create-test-db.sh --force` wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates`, then
 
       SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
         ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
@@ -77,36 +60,16 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   (`python -m uvicorn`, not the console script — engine `deploy/local/README.md` "TCC".)
 
-  **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s, permanently — point the
-  suite at `:8001` and every request 404s against a gym API while the refusal guard
-  and the health check both look fine. Cost a debugging pass on 2026-09-19. The
-  engine repo's `seed-test-user.sh` still prints `8001` in its own instructions;
-  this repo never edits that one (CLAUDE.md "Product scope and role"), so the
-  correction lives here.
+  **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine. The engine's `seed-test-user.sh` still prints `8001`; the correction lives here because this repo never edits the engine.
 
-  **Connect as `expense_engine`, not the owner.** The engine refuses to start as a
-  SUPERUSER — that role bypasses every RLS policy, so tenant isolation would be
-  engine-side only. `postgresql:///expense_world_test` connects as the owner and
-  hits exactly that guard.
+  **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.
 
-**The contract suite** (`tests/contract/`) hits a real engine deliberately and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> pytest tests/contract`. `EXPENSE_ENGINE_URL` overrides the target and now defaults to `http://127.0.0.1:8000` — until 2026-08-16 it defaulted to the mothballed Render host, so the env var was effectively mandatory while this page claimed otherwise.
+**The contract suite** (`tests/contract/`) hits a real engine and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> pytest tests/contract`. `EXPENSE_ENGINE_URL` overrides the target (default `http://127.0.0.1:8000`; point it at `:8002`).
 
-**It refuses to run against the real ledger.** Without `EXPENSE_PAT` the only credential available is the developer's own config, so [tests/contract/conftest.py](../tests/contract/conftest.py) aborts the session with a message pointing at the practice database. `EXPENSE_ALLOW_REAL_LEDGER=1` overrides it. This exists because the alternative — a printed warning — only helps someone who is watching, and on 2026-08-16 a mis-scoped gate ran the suite against the real ledger and left four live junk accounts behind.
+**It refuses to run against the real ledger.** Without `EXPENSE_PAT` the only credential is the developer's own config, so [tests/contract/conftest.py](../tests/contract/conftest.py) aborts the session with a message pointing at the practice database. `EXPENSE_ALLOW_REAL_LEDGER=1` overrides it.
 
-**Last run 2026-09-27: 49/49**, the first on the engine's 2026-09-23 code, run twice to show it cleans up after itself. It added what the uptake rests on: the transaction cursor walked both ways against `/count`, the whole small lists, the activity window, `POST /transactions/import` (dry run, apply, matched by code, `sealed`) and sealed periods (the wall on five doors, the unfiled-row refusal told apart by its message, `coverage_gap`, overlapping periods). One old test still sent `limit` to `/accounts`, which is now a `422`.
+What the suite does: walks real flows (config → ping → bootstrap → accounts/categories create → log → dashboard, plus the transaction cursor against `/count`, the whole lists, the activity window, `POST /transactions/import`, reconciliations and sealed periods, reports), redirects `EXPENSE_CONFIG` to a temp dir, and cleans up best-effort in reverse dependency order. Cleanup means **soft-deletes** — invisible to every client but still in the database — which is why it belongs on the practice database. Run it when engine-shape drift is suspected or before calling a release done; never in CI. It catches what mocks cannot, e.g. `amount_cents` returning as a magnitude unless the read asks for `debit_as_negative`.
 
-**The run of 2026-09-19 (24/24)** was the first since 2026-08-25 and the first ever for the reconciliation, reports and dashboard modules added that day. Those three found what mocked tests structurally cannot: `amount_cents` is signed on the way in and returns as a magnitude unless the read asks for `debit_as_negative`; `/dashboard` keeps archived accounts and people in their own sections rather than merging them into the live ones; and those sections are `null`, not `[]`, when the flag is absent. Two of the three were found by the new tests being wrong in the same way a second client would be.
+**Fixture drift.** The unit suite mocks the engine, so it cannot notice the engine changing shape. [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py) compares every unit fixture key against the engine's published `openapi.json`; run it after any engine change. It is not a pytest file, to keep the unit suite hermetic.
 
-What the suite does: walks real flows (the freshman gate: config → ping → bootstrap → accounts/categories create → log → dashboard), redirects `EXPENSE_CONFIG` to a temp dir so the developer's install is untouched, and cleans up after itself best-effort in reverse dependency order. Cleanup means **soft-deletes** — the run leaves tombstoned rows in the PAT user's account (invisible to every client, but still in the database), which is exactly why it belongs on the practice database. Run it at step gates, when engine-shape drift is suspected, or before calling a release done — never in CI (deps and gating are designed so CI stays hermetic).
-
-**Fixture drift.** The unit suite mocks the engine, so it cannot notice the engine changing shape. [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py) compares every unit fixture key against the engine's published `openapi.json`; run it after any engine change. It is deliberately not a pytest file — see the hermeticity rule below.
-
-**Unit tests never touch the network.** `tests/unit/` is respx-mocked and hermetic; autouse fixtures in [tests/unit/conftest.py](../tests/unit/conftest.py) redirect `EXPENSE_CONFIG` and block real sockets so a test can never read the developer's real config or ping a real engine. Never bypass them.
-
-## Cross-references
-
-- [CLAUDE.md](../CLAUDE.md) — non-negotiable conventions (terse, project-loaded)
-- [cli-spec.md](cli-spec.md) — command surface and flags
-- [decisions.md](decisions.md) — including "Delete the local replica" (2026-08-06)
-- [tui.md](tui.md) — the TUI, which runs on everything above unchanged
-- [todo.md](todo.md) — the open-work workpad
+**Unit tests never touch the network.** `tests/unit/` is respx-mocked; autouse fixtures in [tests/unit/conftest.py](../tests/unit/conftest.py) redirect `EXPENSE_CONFIG` and block real sockets. Never bypass them.

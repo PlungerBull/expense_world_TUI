@@ -1,4 +1,4 @@
-"""The home menu's cursor must be *visible* — regression armor for 2026-08-20.
+"""The home menu's cursor must be *visible* — regression armor.
 
 The bug this guards: `theme.py` gives the block cursor no colour of its own
 (`block-cursor-foreground`/`-background` are both `ansi_default`) and relies

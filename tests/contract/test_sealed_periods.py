@@ -1,4 +1,4 @@
-"""Contract: sealed periods (engine, 2026-09-20; CLI side built 2026-09-21/22).
+"""Contract: sealed periods.
 
 A completed reconciliation seals its account's days, and the CLI reports every
 refusal that follows by reading the engine's `fields` key and message. The unit

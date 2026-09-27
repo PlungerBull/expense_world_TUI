@@ -1,5 +1,4 @@
-"""The ledger's selection and bulk keys (2026-09-12, mockup
-docs/mockups/expense-world-home-as-ledger.html panes 2–6).
+"""The ledger's selection and bulk keys.
 
 `space` selects, `a` selects the page, `c`/`b`/`h` open the picker over the
 selection (or the cursor row) and write one PUT per row; `esc` clears the
@@ -93,7 +92,7 @@ def test_mark_selected_draws_the_marker_and_keeps_titles_aligned():
 
 
 def test_legend_says_filter_count_and_selection():
-    """One line (owner, 2026-09-26): `N of M loaded` took the place of `M rows`."""
+    """One line: `N of M loaded` took the place of `M rows`."""
     assert legend_text(FILTER, 20, 57, 0) == "filter: category @Pendiente · 20 of 57 loaded"
     one = "filter: category @Pendiente · 1 of 1 loaded · 1 selected"
     assert legend_text(FILTER, 1, 1, 1) == one
@@ -231,7 +230,7 @@ def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
 
 
 def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch):
-    """The account move a completed reconciliation refuses (pane 5): row 2 is
+    """The account move a completed reconciliation refuses: row 2 is
     reported by number, rows 1 and 3 are written, and row 2 stays selected so
     the same key retries exactly it."""
     _stub_ledger(monkeypatch)
@@ -290,7 +289,7 @@ def test_esc_cancels_the_picker_and_writes_nothing(fake_client, monkeypatch):
 
 
 def test_esc_clears_the_selection_then_goes_back_with_the_filter_kept(monkeypatch):
-    """Owner, 2026-09-13: esc on a filtered ledger is back to where you came
+    """Esc on a filtered ledger is back to where you came
     from, never to the unfiltered ledger. A selection still clears first."""
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
@@ -353,7 +352,7 @@ def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
     run_app(scenario, size=(100, 30))
 
 
-# ---- refusals collapse by reason (2026-09-22) --------------------------------
+# ---- refusals collapse by reason ---------------------------------------------
 SEALED_AUG = (
     "VALIDATION_ERROR — Transaction falls inside a sealed reconciliation period.\n"
     "  account_id: Period 2026-07-24 to 2026-08-25 is sealed by completed "
@@ -368,8 +367,7 @@ def test_refusals_collapse_to_one_line_per_reason():
     """Eight rows refused by two closed periods is two lines, not eight toasts.
 
     The grouping key is the engine's sentence exactly as it arrived — the period
-    name is inside it and nothing here parses it out (mockup §4, owner
-    2026-09-22).
+    name is inside it and nothing here parses it out.
     """
     from expense.tui.screens.transactions import group_refusals
 

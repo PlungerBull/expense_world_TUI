@@ -54,8 +54,8 @@ class EngineWriteMixin:
     Shared by SectionScreen and the bar-cycle form screens (which subclass
     plain Screen). `run_write` appends to a per-screen FIFO and exactly one
     request is in flight at any moment: thread workers cancel cooperatively,
-    so `exclusive=True` alone never serialized overlapping writes
-    (backlog 6.4b). Success/error callbacks land on the UI thread; without
+    so `exclusive=True` alone never serialized overlapping writes.
+    Success/error callbacks land on the UI thread; without
     callbacks, errors notify a "Failed" toast and success runs `_after_write`.
     Idempotency + error envelope come from the client. The `engine-write`
     worker group keeps loads/theme changes from ever cancelling a write.
@@ -171,14 +171,14 @@ class ContentSwapLockMixin:
 class LogTransactionMixin:
     """Adds `+` — jump straight to the LOG bar.
 
-    Logging is the thing you do most, so it is a key, not a menu row
-    (2026-08-20). Bound on Home and Transactions — the screens where "and now
+    Logging is the thing you do most, so it is a key, not a menu row.
+    Bound on Home and Transactions — the screens where "and now
     write one down" is the obvious next thought.
 
-    **It opens the LOG bar, not the bar-cycle form** (quick-add phase 4,
-    2026-08-25): one typed line, a staged batch, one save. The form keeps its
-    *edit* door — `⏎` on an existing row — and lost only its create door
-    (docs/mockups/expense-world-two-doors.html). `+` still means one thing
+    **It opens the LOG bar, not the bar-cycle form**: one typed line, a staged
+    batch, one save. The form keeps its
+    *edit* door — `⏎` on an existing row — and lost only its create door.
+    `+` still means one thing
     everywhere it is bound: it logs a posted transaction, and a line too
     sparse to post is refused by the grammar in place — never parked
     somewhere by which screen you happened to be standing on.
@@ -216,52 +216,38 @@ class LogTransactionMixin:
 class AdaptiveRowsMixin:
     """How many rows a list may ask for, given the room it actually has.
 
-    Adaptive rows (2026-07-13, mockups/expense-world-adaptive-rows.html, pick
-    A + cap 20): the page IS the screenful, so every list measures its
-    container before fetching and re-measures on a terminal resize.
+    Adaptive rows (cap 20): the page IS the screenful, so every list measures
+    its container before fetching and re-measures on a terminal resize.
 
-    The measurement was written three times — here, and twice on the
-    reconciliation screens, which each re-derived the try/except, the `avail
-    <= 0` guard and the clamp while hardcoding `DEFAULT_PAGE_ROWS` and a bare
-    `5` in place of the caps below. Nothing showed, because no screen that
-    copied it also raises `PAGE_ROWS_CAP` — but Transactions does raise it, so
-    the copies were one shared base class away from silently ignoring it.
+    Every screen measures through here, never a copy: Transactions raises
+    `PAGE_ROWS_CAP`, and a copied measurement would silently ignore that.
     """
 
-    # Lines a CursorList spends on chrome rather than rows. Still 6 after the
-    # borders went (2026-09-20), and deliberately re-derived rather than left
-    # alone — the terms all changed even though the total did not:
+    # Lines a CursorList spends on chrome rather than rows:
     #
-    #     section rule            1   was the top border (it carried the title)
-    #     blank edge              1   Rich's box.SIMPLE, inside what was the border
+    #     section rule            1
+    #     blank edge              1   Rich's box.SIMPLE
     #     column header           1
     #     header rule             1
     #     blank edge              1
-    #     page-status line        1   was the bottom border (it carried the subtitle)
+    #     page-status line        1
     #
-    # It read 4 until 2026-08-29, which overshot by exactly those two blanks:
-    # every list whose fitted size was below the 20 cap overflowed #content by
-    # 2 lines, clipping its own bottom border and the `rows … · page …`
-    # subtitle and growing the undraggable scrollbar the 2026-07-13 decision
-    # meant to delete. Invisible while the cap hid it on tall terminals;
-    # permanent once Transactions started filling the window. That is why this
-    # number is now derived from the render by
-    # `test_the_frame_costs_exactly_LIST_FRAME_LINES` instead of from a comment.
+    # Checked against the render by `test_the_frame_costs_exactly_LIST_FRAME_LINES`;
+    # a miscount here overflows every fitted list and clips its page status.
     LIST_FRAME_LINES = 6
     # One more line for a list that keeps a caption. Exactly one list does —
     # the Reconciliations batch pane — but the asymmetry is named here rather
     # than buried as a literal in that screen's arithmetic.
     CAPTION_LINES = 1
-    # Lower bound on the page size we ASK for — not a clipping guard, despite what
-    # this comment claimed until 2026-08-20. It cannot make the viewport show five
-    # rows: below a ~18-line terminal the extra rows are fetched and then clipped
-    # off the bottom, and the panel's own bottom border goes first (h=20). Measured
+    # Lower bound on the page size we ASK for — not a clipping guard. It cannot
+    # make the viewport show five rows: below a ~18-line terminal the extra rows
+    # are fetched and then clipped off the bottom (h=20). Measured
     # boundaries and the decision not to guard them: docs/decisions.md "A terminal
     # too small is the user's to fix", docs/tui.md §5.
     PAGE_ROWS_FLOOR = 5
     # Upper bound on the page size. DEFAULT_PAGE_ROWS (20) app-wide — pages stay
     # stable across window sizes and short lists keep a tidy card. Transactions
-    # overrides it to grow with the terminal (2026-08-29); its cap is
+    # overrides it to grow with the terminal; its cap is
     # the engine's own `limit` ceiling, so the fetch contract can't be broken by
     # a tall window. See docs/decisions.md "the ledger fills the window".
     PAGE_ROWS_CAP = DEFAULT_PAGE_ROWS
@@ -380,7 +366,7 @@ class SectionScreen(
             banner = Group(Text("Could not load.", style="bold"), Text(message))
             await content.mount(Static(banner, classes="error"))
 
-    # ---- shared write helpers (Phase 2) ----------------------------------
+    # ---- shared write helpers ----------------------------------------------
     def selected_record(self) -> dict | None:
         """The record under the list cursor (screens keep `_by_id`)."""
         from expense.tui.widgets.cursor_list import CursorList
@@ -410,9 +396,7 @@ class ResourceListScreen(SectionScreen):
     quiet fetch → title + CursorList of rows (+ optional legend). `n` pushes
     the new-record form; `e` the prefilled edit form for the cursor row.
     `enter` is a no-op here. The `a` archive toggle lives on AccountsScreen
-    only — the engine removed category/hashtag archive (2026-08-06 schema
-    slimming); the no-confirm toggle decision (2026-07-11 in decisions.md)
-    still governs it there.
+    only (docs/decisions.md "Archive is a prompt-free toggle").
 
     Subclasses set the class attrs and four hooks. Row builders stay pure
     module functions (they have direct unit tests).
@@ -461,7 +445,7 @@ class ResourceListScreen(SectionScreen):
     def on_cursor_list_highlighted(self, event) -> None:
         self.refresh_bindings()  # re-check e/a for the row the cursor just landed on
 
-    # ---- adaptive window (2026-07-13) --------------------------------------
+    # ---- adaptive window ---------------------------------------------------
     def list_extra_lines(self) -> int:
         return 2 if self.LEGEND else 0  # legend Static: margin-top 1 + one text line
 
@@ -491,7 +475,7 @@ class ResourceListScreen(SectionScreen):
             self.rows(items),
             align_right=self.ALIGN_RIGHT,
             empty=self.EMPTY,
-            page_size=self.measure_list_rows(),  # adaptive window (2026-07-13)
+            page_size=self.measure_list_rows(),  # adaptive window
         )
         # Re-select the acted-on row: _show mounts a fresh CursorList each load,
         # so without this an archive toggle would snap the cursor back to row 0

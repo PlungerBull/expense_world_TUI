@@ -81,8 +81,8 @@ class DiscardStagedModal(ModalScreen[str]):
     reflexive one, the same call `ConfirmModal` makes. It is **not** a y/n card,
     because "yes" to "5 rows are staged and not written" reads both ways.
 
-    `ctrl+s save first` is the third answer, live since phase 4 shipped the save
-    it names. It writes the rows and then leaves — you pressed `esc`, so the
+    `ctrl+s save first` is the third answer. It writes the rows and then
+    leaves — you pressed `esc`, so the
     intent was to go — but only if every row lands; a failed save keeps you on
     the screen where the error is readable.
 
@@ -125,9 +125,8 @@ class DiscardStagedModal(ModalScreen[str]):
 class PickerModal(ModalScreen[object]):
     """Pick one reference row — or several hashtags — by typing part of a name.
 
-    The bulk-edit picker (2026-09-12, mockup expense-world-home-as-ledger.html
-    panes 3–5): `c`, `b` and `h` on the ledger open it over the rows they will
-    touch, headed by the count. Candidates are matched the way every other
+    The bulk-edit picker: `c`, `b` and `h` on the ledger open it
+    over the rows they will touch, headed by the count. Candidates are matched the way every other
     picker in the app matches (`quickadd.names.matches`: any substring, case-
     and accent-blind) and drawn on one line, the highlighted one in reverse.
     `↑↓` move the highlight, `↵` applies, `esc` cancels (None).

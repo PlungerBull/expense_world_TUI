@@ -1,16 +1,16 @@
 """Post transactions through the atomic batch endpoint, and land every good row.
 
 `POST /transactions/batch` is all-or-nothing: one bad row in a chunk of 200 and
-none of the 200 are written. The singleton retry — written for `expense import`,
-extracted here 2026-08-25 so the TUI's LOG bar shares it rather than growing a
-second copy — re-posts the refused chunk one row per batch, so the 199 good rows
-land and the bad one is named on its own.
+none of the 200 are written. The singleton retry — shared by `expense import`
+and the TUI's LOG bar rather than kept in two copies — re-posts the refused
+chunk one row per batch, so the 199 good rows land and the bad one is named on
+its own.
 
-**Why it stays, now that the engine names the failing row** (engine change
-2026-09-13: a 422 from that endpoint carries flat `fields` keys
-`transactions.<index>.<field>`, the same grammar a schema-level rejection has
-always used). Better diagnostics cannot replace this pass, because its job is
-not diagnosis — it is **partial progress out of an atomic endpoint**. A 409
+**Why it is needed although the engine names the failing row** (a 422 from
+that endpoint carries flat `fields` keys `transactions.<index>.<field>`, the
+same grammar a schema-level rejection uses). Better diagnostics cannot replace
+this pass, because its job is not diagnosis — it is **partial progress out of
+an atomic endpoint**. A 409
 ("a transaction with id X already exists", which is what a re-run after a
 half-written save looks like) refuses the whole chunk and carries no per-row
 key at all; and even a fully-named 422 leaves the good rows unwritten. That is

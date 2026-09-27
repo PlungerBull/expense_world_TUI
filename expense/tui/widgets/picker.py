@@ -6,10 +6,8 @@ entity — but under the input they draw the same widget: a scrolling window of
 at most `PICKER_WINDOW` names, the cursor kept near the middle, and a dim
 `↑ n more` / `↓ n more` when the pool runs past the edge.
 
-Both had written that arithmetic out, and they were a keystroke apart in
-behaviour already: one read its window from a named constant, the other from a
-bare `8`, and both drew their cursor with a `"reverse"` literal instead of the
-constant that carries the reason for it. The label is the only thing that
+Both draw through this one copy of that arithmetic: the window is a named
+constant and the cursor is `CURSOR_STYLE`. The label is the only thing that
 genuinely differs — one appends a currency, the other whatever third field the
 entity tuple carries — so the caller formats the labels and this draws them.
 """

@@ -3,11 +3,8 @@
 **The terminal supplies the colours.** Every colour here is an ANSI *slot*
 (`ansi_green` is slot 2), not a hex — so the palette is whatever the user's
 terminal defines, and the app reads correctly on dark, light, Solarized,
-Gruvbox or anything else with no detection at startup. Decided 2026-08-19;
-mockup `docs/mockups/expense-world-ansi-palette.html`, picks C/D/F/H/K.
-This *replaces* the hand-tuned dark palette and the planned `OSC 11`
-terminal-background query — see docs/decisions.md for the reversal and what
-it cost.
+Gruvbox or anything else with no detection at startup.
+Why: docs/decisions.md "The terminal supplies the palette".
 
 Widgets reference theme variables ($accent, $secondary, $text-muted, $error) in
 [app.tcss](app.tcss), so the slots below are the only place a colour is chosen.
@@ -28,7 +25,7 @@ Textual's `ansi_green` into the `green` Rich wants, so the slots above stay the
 single source of truth — and no literal colour name appears in this package,
 which `test_no_literal_color_styles_in_tui` requires.
 
-The two rule constants are the backlog-4.2 product decision: amounts and
+The two rule constants are a product decision: amounts and
 account balances are sign-colored everywhere; reconciliation statement
 checkpoints (begin/end) stay plain — they're positions, not judgments.
 """
@@ -46,15 +43,15 @@ EXPENSE_ANSI = Theme(
     # It has to be a *standard* token, not a custom `variables` entry: app.tcss is
     # parsed before on_mount registers this theme, so a custom `$rule` is an
     # undefined-variable error at startup.
-    secondary="ansi_bright_black",  # pick F
-    accent="ansi_blue",  # pick D — panel titles, focus borders, help keys
+    secondary="ansi_bright_black",  # structural rules, unfocused borders
+    accent="ansi_blue",  # panel titles, focus borders, help keys
     foreground="ansi_default",
     background="ansi_default",
     surface="ansi_default",
     panel="ansi_default",
     success="ansi_green",  # positive amounts
     error="ansi_red",  # negative amounts / errors
-    warning="ansi_default",  # pick C — see PENDING_STYLE
+    warning="ansi_default",  # see PENDING_STYLE
     dark=True,
     # An `ansi=True` theme MUST carry these: Textual's own Screen CSS references
     # `$ansi-background`, so omitting them is an undefined-variable error at
@@ -68,8 +65,8 @@ EXPENSE_ANSI = Theme(
     variables={
         "ansi-background": "ansi_default",
         "ansi-foreground": "ansi_default",
-        "border": "ansi_blue",  # focused widget — pick D
-        "border-blurred": "ansi_bright_black",  # unfocused — pick F
+        "border": "ansi_blue",  # focused widget — the accent
+        "border-blurred": "ansi_bright_black",  # unfocused — the secondary
         "block-cursor-foreground": "ansi_default",
         "block-cursor-background": "ansi_default",
         "block-cursor-text-style": "reverse",
@@ -80,19 +77,16 @@ EXPENSE_ANSI = Theme(
         "input-selection-foreground": "ansi_bright_white",
         "screen-selection-background": "ansi_blue",
         "screen-selection-foreground": "ansi_bright_white",
-        # Footer key glyphs are part of pick D ("panel titles, focus borders,
-        # help key glyphs"). Left undefined, Textual's fallback renders them
+        # Footer key glyphs take the accent, like panel titles, focus borders
+        # and help key glyphs. Left undefined, Textual's fallback renders them
         # magenta, which is a colour this app uses nowhere else.
         "footer-key-foreground": "ansi_blue",
     },
 )
 
-# Pick C (2026-08-19): drafts and pending states carry **weight, not colour**.
-# Slot-3 yellow is the one ANSI colour that reliably fails on a light ground,
-# and this app already speaks bold/dim/reverse fluently (~40 sites), so the
-# pending role joins that vocabulary instead of gambling on a colour. Not a
-# colour string — `Palette.warning` is a Rich *style*, which is why the sites
-# that used to write `f"bold {palette.warning}"` now just use it directly.
+# Pending states carry weight, not colour — Why: docs/decisions.md "The terminal
+# supplies the palette". Not a colour string — `Palette.warning` is a Rich
+# *style*, so sites use it directly.
 PENDING_STYLE = "bold"
 
 # Where each rule applies: AMOUNT_RULE — transaction amounts, account balances,

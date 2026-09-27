@@ -86,11 +86,8 @@ def test_get_json_mode_passthrough(configured):
 def test_get_unsupported_currency_surfaces_engine_error(configured):
     """An unsupported code is a 422 field error, not a missing-rate error.
 
-    Re-pinned 2026-08-16 (backlog 5.1) against the live engine: the old fixture
-    invented a `RATE_UNAVAILABLE` 422 whose `fields.exchange_rate` told the user to
-    "supply an explicit exchange_rate" — a flag purged in Phase 1.1 and an error
-    code the engine cannot emit. Per the 2026-08-07 entry, a bad currency code is
-    now field-scoped `VALIDATION_ERROR` on `base`/`target`.
+    A bad currency code is field-scoped `VALIDATION_ERROR` on `base`/`target`
+    (pinned against the live engine).
     """
     respx.get(f"{BASE}/v1/exchange-rates").mock(
         return_value=error_response(
@@ -110,7 +107,7 @@ def test_get_unsupported_currency_surfaces_engine_error(configured):
 def test_get_no_rate_for_date_surfaces_not_found(configured):
     """404 now means exactly one thing: supported pair, no rate row on/before the date.
 
-    Verified against the live engine 2026-08-16 — `fields` is null, so the renderer
+    Verified against the live engine — `fields` is null, so the renderer
     must survive a `fields: null` envelope, not just a missing key.
     """
     respx.get(f"{BASE}/v1/exchange-rates").mock(

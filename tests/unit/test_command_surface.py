@@ -58,8 +58,7 @@ def _is_read(path: tuple[str, ...]) -> bool:
 
 def test_typer_tree_walk_finds_expected_command_count():
     # A floor, not a pin: it catches a walker that finds nothing, not a
-    # deliberate deletion. 49 on 2026-09-25, after the five `restore` commands
-    # and `reconcile get` left with the engine routes they called.
+    # deliberate deletion.
     assert len(_LEAVES) >= 45, (
         f"Expected at least 45 leaf commands across the CLI; "
         f"walker found {len(_LEAVES)} — Typer introspection may be broken."
@@ -93,9 +92,8 @@ def test_read_command_has_json_flag(path, callback):
 # CLAUDE.md non-negotiable: deletes, reverts, and clears prompt for confirmation
 # unless --yes is passed. Matched by leaf name — a destructive command under a
 # new name (e.g. `remove`) must be added to the set. `archive`/`unarchive`
-# (accounts-only since the 2026-08-06 schema slimming) are deliberately
-# prompt-free — reversible toggles, not destruction (archive
-# reclassified 2026-07-11; see decisions.md).
+# (accounts-only) are deliberately prompt-free — reversible toggles, not
+# destruction (docs/decisions.md "Archive is a prompt-free toggle").
 
 _DESTRUCTIVE_NAMES = {"delete", "revert", "clear"}
 _DESTRUCTIVE_LEAVES = [(path, cb) for path, cb in _LEAVES if path[-1] in _DESTRUCTIVE_NAMES]
@@ -105,12 +103,11 @@ _DESTRUCTIVE_LEAF_IDS = [" ".join(path) for path, _ in _DESTRUCTIVE_LEAVES]
 def test_destructive_walker_finds_known_commands():
     # Pin the count: a drop means a destructive command was renamed out of the
     # name set above and now evades the --yes guard — extend the set instead.
-    # 7 since 2026-09-12: `inbox delete` left with the inbox command group.
     assert len(_DESTRUCTIVE_LEAVES) == 7, sorted(_DESTRUCTIVE_LEAF_IDS)
 
 
 def test_no_command_restores_or_lists_deleted_rows():
-    """Deleted is deleted (engine, 2026-09-23): `POST /{resource}/{id}/restore`
+    """Deleted is deleted: `POST /{resource}/{id}/restore`
     is a 404 and `?include_deleted=` a 422 on every list. Undeleting is operator
     SQL on the engine host, so no client command may offer either."""
     restores = [" ".join(path) for path, _ in _LEAVES if path[-1] == "restore"]
@@ -124,7 +121,7 @@ def test_no_command_restores_or_lists_deleted_rows():
 
 
 def test_no_command_takes_offset():
-    """No engine list pages by offset since 2026-09-23 (`?offset=` is a 422
+    """No engine list pages by offset (`?offset=` is a 422
     everywhere), so an `--offset` flag could only ever produce that error."""
     flagged = [
         " ".join(path)
@@ -135,7 +132,7 @@ def test_no_command_takes_offset():
     assert not flagged, flagged
 
 
-# Lists the engine returns whole and refuses to page (2026-09-23, `?limit=` /
+# Lists the engine returns whole and refuses to page (`?limit=` /
 # `?offset=` are a 422). A paging flag here could only ever produce that error.
 _WHOLE_LISTS = [
     ("accounts", "list"),
@@ -295,9 +292,8 @@ def test_every_command_has_an_error_shape_test():
     The error path is the half that silently never arrives: the command works,
     the tests are green, and the first person to meet its 409 is the user.
 
-    Twenty-odd commands were missing one when this landed (2026-09-19), in a
-    clear pattern — `list` and `create`, on every resource. Not a coincidence:
-    those are the two verbs whose happy path is the most fun to write.
+    `list` and `create` are the verbs most likely to lack one: those are the
+    two whose happy path is the most fun to write.
 
     Reads `conftest.ERROR_TESTED`, which records real invocations rather than
     scanning the source, so a parametrized test counts exactly as much as a

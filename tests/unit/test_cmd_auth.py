@@ -198,7 +198,7 @@ def test_bootstrap_timezone_auto_detected_from_tz_env(configured, monkeypatch):
 
 
 def test_detect_timezone_failure_is_a_clean_usage_error(tmp_path, monkeypatch):
-    """No TZ env and no /etc/localtime symlink must not traceback (backlog 3.6)."""
+    """No TZ env and no /etc/localtime symlink must not traceback."""
     from expense.commands import auth_cmd
 
     monkeypatch.delenv("TZ", raising=False)

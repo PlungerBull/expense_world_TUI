@@ -139,10 +139,9 @@ def _reconciliation_label(
     """`August 2026 / BCP PEN` — the reconciliation's name, then its account.
 
     Taken from the activity row's own snapshot: the engine has no read of one
-    reconciliation by id (since 2026-09-23), and the snapshot is the record as
+    reconciliation by id, and the snapshot is the record as
     it stood at that moment, which is what a history row should name anyway.
-    Either half alone when the other is missing, then the short id (owner,
-    2026-09-25).
+    Either half alone when the other is missing, then the short id.
     """
     row = snapshot if isinstance(snapshot, dict) else {}
     name = row.get("name") if isinstance(row.get("name"), str) else None

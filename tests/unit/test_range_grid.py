@@ -1,8 +1,5 @@
 """`reports_cmd.build_range_grid` — the month grid shared by the flat
 `expense reports monthly --from --to` table and the TUI Home screen.
-
-These lived in test_tui_overview.py until the Overview screen was folded into
-Home and deleted (2026-09-13); the builder they cover did not change.
 """
 
 import expense.commands.reports_cmd as reports_cmd
@@ -100,7 +97,7 @@ def test_build_range_grid_merges_first_appearance_order():
 
     assert _cents(grid["totals"]["net"]) == {"2025-11": -210000, "2025-12": 888000}
     assert all(cell["unconverted"] == 0 for cell in grid["totals"]["net"].values())
-    # inflow/outflow ride alongside net off the same month payload (2026-08-29)
+    # inflow/outflow ride alongside net off the same month payload
     assert set(grid["totals"]) == set(reports_cmd.TOTALS_KEYS)
 
 

@@ -65,8 +65,7 @@ app.command("ping")(ping_cmd.ping)
 app.command("whoami")(auth_cmd.whoami)
 app.command("log")(log_cmd.log)
 app.command("dashboard")(dashboard_cmd.dashboard)
-# `import` grew a second door on 2026-09-12: `sheet` is the personal-sheet
-# importer that used to be `expense import <file>` bare, `bank` reads a bank
+# `import` has two doors: `sheet` reads the personal sheet, `bank` reads a bank
 # download and matches it against the ledger (expense/bank_import/).
 import_app = typer.Typer(help="Bring rows in from a spreadsheet.", no_args_is_help=True)
 import_app.command("sheet")(import_cmd.run_import)

@@ -1,27 +1,21 @@
-# Tags that know the category — CLI/TUI plan (drafted 2026-09-20)
+# Tags that know the category — CLI/TUI plan
 
-**Status: drafted 2026-09-20, not reviewed, not built.** This is ask **3 of 4** on
-the 2026-09-20 queue ([todo.md](todo.md) "Now"). The shape is decided — the owner
-picked mockup pane **E** on 2026-09-20 — but §5 holds four forks that are not,
-and §6 holds two questions only the owner can answer.
+**Status: not built.** The shape is decided (owner picked mockup pane **E**, 2026-09-20); §5
+holds four forks that are not, and §6 two questions only the owner can answer. It answers the
+owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*.
+When it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 
-**[UI].** Per CLAUDE.md, [expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
-gets re-shown and re-picked before any TUI code, **even though pane E was already
-chosen** — a prior approval is not a standing licence, and the mockup was drawn
-before the endpoint existed, so it does not show what an empty result or a
->50-tag category actually looks like.
-
-It closes an ask open since 2026-08-29 (*"can we only suggest hashtags that exist
-on the category if a category exists?"*). When it ships, its why moves to
-[decisions.md](decisions.md) and **this file is deleted**.
+**[UI].** [expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
+is re-shown and re-picked before any TUI code; it predates the endpoint, so it does not show an
+empty result or a >50-tag category.
 
 ---
 
 ## 1. What the engine now does
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
-used with, most-used first. Read-only, no side effects. **Returns the whole list, unpaged,
-since 2026-09-23** (engine Phase 6.3; engine-spec *Base Conventions*, [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)):
+used with, most-used first. Read-only. **Returns the whole list, unpaged** (engine-spec *Base
+Conventions*, [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)):
 `?limit=` / `?offset=` are a `422`.
 
 ```json
@@ -29,20 +23,16 @@ since 2026-09-23** (engine Phase 6.3; engine-spec *Base Conventions*, [../../exp
              {"id": "<uuid>", "name": "LUZ",      "uses": 25} ] }
 ```
 
-Four field rules that matter to this repo:
+Field rules that matter to this repo:
 
 - **`uses` counts transactions, not junction rows.** A row carrying two tags adds
   1 to each, never 2 to either. Safe to show as a transaction count.
-- **Ordering is `uses DESC, created_at ASC`** — the tie-break is deliberately
-  *not* name, because a name is mutable and ties are the ordinary case at the
-  tail of any real picker.
-- **An empty page is not a 404.** It means "no tags used here yet", which is what
+- **Ordering is `uses DESC, created_at ASC`** (not name: a name is mutable).
+- **An empty list is not a 404.** It means "no tags used here yet", which is what
   every category returns before it has history. `404` means the category is not
   yours or is deleted.
-
-Soft-deleted junction rows, transactions and hashtags are all excluded, for three
-separate reasons — the net effect is that a tag the owner retired is never
-suggested.
+- Soft-deleted junction rows, transactions and hashtags are excluded, so a retired tag is
+  never suggested.
 
 > ⚠️ **Never cache this as a mapping.** There is no category→hashtag link in the
 > schema and deliberately never will be; the answer is derived from the ledger on
@@ -54,7 +44,7 @@ suggested.
 
 - **No surface at all.** Nothing in this repo calls the endpoint.
 - **The tag pool is global and flat.** `load_quickadd_refs`
-  ([_resource.py](../expense/commands/_resource.py)) pages `GET /hashtags` once
+  ([_resource.py](../expense/commands/_resource.py)) reads `GET /hashtags` once
   and hands the full list to `parse()`.
 - **`parse()` is pure and takes the pool as an argument**
   ([quickadd/parse.py](../expense/quickadd/parse.py)). A bare `#` "means *show me
@@ -64,18 +54,15 @@ suggested.
   ([log_bar.py](../expense/tui/screens/log_bar.py) `_picker_at` →
   [widgets/picker.py](../expense/tui/widgets/picker.py) `suggestion_list`).
 - **Name matching is accent-blind and shared** ([quickadd/names.py](../expense/quickadd/names.py)).
-- **There is precedent for exactly the fetch shape this needs:** the account peek
-  in the LOG bar keeps `_peek_cache` per account plus a debounce timer, because
-  the thing it shows changes with what is typed.
+- **Precedent for the fetch shape:** the LOG bar's account peek keeps `_peek_cache` per
+  account plus a debounce timer.
 
 ## 3. H1 — the flat command
 
 `expense categories hashtags <id>` — a read, with `--json`. No paging flags: the endpoint returns every row.
 
-Not garnish. This repo exists to exercise every engine endpoint through real use
-before the web and iOS clients are built (CLAUDE.md, "Product scope and role"), so
-an endpoint with no flat surface is an untested contract. It is also the way to
-answer "why is this tag not in my picker?" without opening the TUI.
+An endpoint with no flat surface is an untested contract, and the command answers "why is this
+tag not in my picker?" without the TUI.
 
 Columns, for the sign-off the process requires ([cli-spec.md](cli-spec.md)):
 **Name · Uses · Id.** Nothing else is in the payload, and deliberately so — the
@@ -90,14 +77,9 @@ new command bumps.
 **only** that category's tags. `##` opens the full list. With no category named —
 or an ambiguous one — the full list stands, because there is nothing to filter by.
 
-> **Why E and not D.** Pane D ranked the category's tags first and kept the rest
-> below a divider; the mockup and the engine coder both recommended it, on the
-> grounds that a filtered list makes the *first* cross-category use of a tag
-> unreachable. The owner picked E on 2026-09-20 ("make them invisible"). **`##`
-> is what answers the objection** — an unused pairing is one keystroke away, not
-> gone — and it is what makes E safe to build. Recorded here because the choice
-> was made against a written recommendation, and the reason it is still sound is
-> the escape hatch, not the ranking.
+Pane D (the category's tags first, the rest below a divider) was the written recommendation;
+the owner picked E ("make them invisible"). **`##` is what makes E safe**: a first
+cross-category use of a tag is one keystroke away, not unreachable.
 
 ### 4a. The filter is display-only — the one thing that must not go wrong
 
@@ -158,7 +140,7 @@ The category changes per keystroke, so this cannot ride the one-shot
 
 **A**, and B is arguably incoherent rather than merely bigger.
 
-**H2 — a category with no tags yet.** The engine returns an empty page, which is
+**H2 — a category with no tags yet.** The engine returns an empty list, which is
 the normal state of every new category.
 
 | | Behaviour | Notes |
@@ -198,7 +180,7 @@ costs width; in `categories hashtags` it is the whole point of the read.
 
 | Not doing | Why |
 |---|---|
-| Category **suggestions** from tags (the reverse) | Merchant memory and category suggestion were rejected 2026-09-13 and that stands |
+| Category **suggestions** from tags (the reverse) | Merchant memory and category suggestion were rejected 2026-09-13 |
 | Persisting the ranking anywhere | §1's warning — it is derived, not stored |
 | Using `uses` to reorder the *full* list | The full list is alphabetical and predictable; re-ranking it would make the escape hatch's contents move around |
 
@@ -223,5 +205,4 @@ costs width; in `categories hashtags` it is the whole point of the read.
 3. The flat command, with the column sign-off.
 4. `##` in `parse()`, as a pure function with its own tests.
 5. The LOG bar: lazy fetch, debounce, per-category cache, the fallbacks in §4d.
-6. Contract test against the disposable engine — the endpoint is one day old and
-   nothing in this repo has ever called it.
+6. Contract test against the disposable engine — nothing in this repo calls the endpoint yet.

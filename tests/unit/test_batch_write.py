@@ -1,9 +1,8 @@
 """The shared batch poster — one atomic chunk, then row by row when it is refused.
 
-Extracted from `expense/import_/apply.py` on 2026-08-25 so the TUI's LOG bar and
-the `.xlsx` importer share one copy (docs/decisions.md). These tests are its own
-spec; `tests/unit/test_cmd_import.py` remains the proof that the extraction did
-not change what the importer does.
+The TUI's LOG bar and the `.xlsx` importer share this one copy (docs/decisions.md
+"What a half-written batch means"). These tests are its own spec;
+`tests/unit/test_cmd_import.py` covers what the importer does with it.
 """
 
 import pytest

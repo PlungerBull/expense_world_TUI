@@ -3,9 +3,9 @@
 The routing table, not the grammar: `test_quickadd_parse.py` owns what a line
 *says*, this file owns what happens to it. Pure — no HTTP, no config.
 
-Since 2026-09-12 (docs/decisions.md "The Inbox is deleted") there are two
-answers, not two destinations: the ledger, or refused. A missing title or
-category is no longer a reason — the engine stores the one as null and files
+There are two answers (docs/decisions.md "A sparse line is a ledger row"): the ledger,
+or refused. A missing title or category is not a reason — the engine stores
+the one as null and files
 the other under @Pendiente.
 """
 
@@ -92,8 +92,7 @@ def test_an_unresolved_name_is_not_also_reported_as_missing():
 
 
 def test_an_unmatched_hashtag_refuses_the_line():
-    """Optional, but never invented — a typo would otherwise become a tag
-    (owner call 2026-09-12, reaffirming 2026-08-25)."""
+    """Optional, but never invented — a typo would otherwise become a tag."""
     result = _route("tottus -38.60 $BCP PEN @korakuen #nope")
     assert result.target == REFUSED
     assert result.reasons == ('"#nope" matches no hashtags',)

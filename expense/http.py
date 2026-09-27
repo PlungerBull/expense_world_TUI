@@ -12,7 +12,7 @@ from expense.errors import EngineConnectionError, EngineError
 
 _WRITE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 
-# Bounded same-key retry for writes (backlog 3.1): the engine replays the
+# Bounded same-key retry for writes: the engine replays the
 # original response for a repeated X-Idempotency-Key, so re-sending after a
 # timeout or transient 5xx can never double-apply. Keys are PERMANENT engine
 # side (engine-spec.md, `sql/026`) — there is no TTL to outlive — and a replay

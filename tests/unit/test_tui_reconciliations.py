@@ -1,4 +1,4 @@
-"""Phase 2 reconciliations tests — list rows + new-batch form (fake client)."""
+"""Reconciliations tests — list rows + new-batch form (fake client)."""
 
 from textual.widgets import Input
 
@@ -44,7 +44,7 @@ def test_batch_rows_format():
     assert cells[0] == "March 2026"
     assert cells[1] == "2026-03-01 → 2026-03-31"
     assert cells[2] == "12,000.00" and cells[3] == "9,580.00"
-    # a balanced batch shows a dim em dash, not 0.00 (Phase 3 sketch, option H)
+    # a balanced batch shows a dim em dash, not 0.00
     assert str(cells[4]) == "—" and cells[5] == "completed"
     assert rows[0][2] == "dim"  # completed dimmed
     # draft, null end balance — and a batch that is off by -35.00 prints the
@@ -79,7 +79,7 @@ async def _wait_accounts(screen, pilot):
 
 
 def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeypatch):
-    """One straight path since the 2026-08-06 de-chaining: begin is always typed,
+    """One straight path: begin is always typed,
     and `beginning_balance_source` must never be sent (request schemas are
     extra="forbid", so shipping it is a 422)."""
     _patch(monkeypatch)
@@ -135,7 +135,7 @@ def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_c
 
 
 def test_new_reconciliation_date_end_is_required(fake_client, monkeypatch):
-    """A period with no last day can never be completed (owner, 2026-09-26),
+    """A period with no last day can never be completed,
     so an empty enter on DATE END is refused in place, as on DATE START."""
     _patch(monkeypatch)
 
@@ -362,7 +362,7 @@ def test_u_works_only_with_a_panel_open(monkeypatch):
 
 
 def test_enter_reads_open_on_reconciliations_and_edit_on_rows_in_no_batch(monkeypatch):
-    """One panel, two things listed, two labels for `⏎` (owner, 2026-09-26)."""
+    """One panel, two things listed, two labels for `⏎`."""
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
 
@@ -402,8 +402,7 @@ def test_esc_closes_the_panel_then_leaves_the_screen(monkeypatch):
 
 def test_highlight_from_the_panel_does_not_switch_account(monkeypatch):
     """A Highlighted sourced from the panel (Tab/click focus, no select) must
-    not move the account cursor — `n` would then create under the wrong one
-    (backlog 6.2c)."""
+    not move the account cursor — `n` would then create under the wrong one."""
     _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):
@@ -456,7 +455,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
 
 def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
     """`n` with no panel open uses the account under the cursor; saved, that
-    account's panel opens with the cursor on the new one (owner, 2026-09-25)."""
+    account's panel opens with the cursor on the new one."""
     rows = [dict(r) for r in ITEMS]
     reads = _patch_browse(monkeypatch, items=rows)
 
@@ -512,7 +511,7 @@ def test_new_reconciliation_from_account_drops_account_field():
 
 
 def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypatch):
-    """An engine/config error in _load_accounts must not exit the app (backlog 1.3)."""
+    """An engine/config error in _load_accounts must not exit the app."""
 
     def boom(*a, **k):
         raise RuntimeError("engine down")
@@ -553,8 +552,8 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     assert [a[0] for a in screen._suggestions] == ["acc2"]
 
 
-# ---- the unfiled pane (`u`, 2026-09-22) -------------------------------------
-# Shape: mockups/expense-world-rows-in-no-batch.html. Reconciliation work stays
+# ---- the unfiled pane (`u`) -------------------------------------------------
+# Reconciliation work stays
 # in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
 # does not push a filtered ledger, and it does not touch the account cursor.
 UNFILED = [
@@ -703,7 +702,7 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
 
 def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
     """`⏎` on a row in no batch, then `esc`: not a write, so nothing is read
-    again and the cursor stays on its row (owner, 2026-09-27)."""
+    again and the cursor stays on its row."""
     from expense.tui.screens.quick_log import QuickAddLogScreen
 
     _patch_browse(monkeypatch)
@@ -775,7 +774,7 @@ def test_a_delete_starts_the_list_over(monkeypatch, fake_client):
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.deletes)
         assert fake_client.deletes == ["/transactions/t11"]
-        # any write starts the list over (owner, 2026-09-26): the oldest 10,
+        # any write starts the list over: the oldest 10,
         # the cursor on row 1
         await wait_for(pilot, lambda: len(calls) == 3 and not screen._unfiled_busy)
         assert calls[-1]["limit"] == 10 and calls[-1]["after"] is None

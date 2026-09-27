@@ -25,9 +25,8 @@ def _block_real_network(monkeypatch):
     respx intercepts at the httpcore layer, so a *mocked* request never opens a
     socket — only a request that no respx route matched (a forgotten
     ``@respx.mock``, a URL typo) falls through to a real DNS lookup / connect and
-    trips this guard. The suite's hermeticity used to rest on the tmp-path
-    redirect plus per-test convention alone (backlog §5); this makes a leak a
-    hard failure instead of a silent production ping.
+    trips this guard, so a leak is a hard failure instead of a silent
+    production ping.
     """
     real_getaddrinfo = socket.getaddrinfo
     real_connect = socket.socket.connect

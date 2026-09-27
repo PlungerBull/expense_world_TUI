@@ -1,10 +1,9 @@
 """Hashtags screen — cross-cutting tags.
 
-A plain name list, consistent with the other list screens, rather than the
-chip mockup — usage counts would need engine support the list endpoint
+A plain name list, consistent with the other list screens, rather than
+chips with usage counts — those would need engine support the list endpoint
 doesn't provide. `n` creates; `e` renames the cursor row (prefilled
-EditHashtagScreen). `enter` does nothing. Hashtag archive was removed
-engine-side (2026-08-06 schema slimming) — only accounts archive now.
+EditHashtagScreen). `enter` does nothing. Only accounts archive.
 """
 
 from expense.commands import hashtags_cmd
@@ -31,7 +30,7 @@ class HashtagsScreen(ResourceListScreen):
     RESOURCE = "hashtags"
 
     def fetch_items(self, cfg, **kw):
-        # The engine returns every row (2026-09-23); the 20-row window pages
+        # The engine returns every row; the 20-row window pages
         # over the full set locally, so "page 2 of N" stays honest.
         return hashtags_cmd.fetch_hashtags(cfg, **kw)
 

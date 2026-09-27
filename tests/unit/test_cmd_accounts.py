@@ -4,7 +4,7 @@ The tests every resource shares — list/get/create/update/delete
 and their flags — live in test_resource_crud_contract.py, parametrized over
 accounts, categories and hashtags. What is left here is what only accounts have:
 people (`create-person`, and the fact that `create` refuses to make one), the
-opening balance, the archive toggles no other resource kept after 2026-08-06,
+opening balance, the archive toggles no other resource has,
 the balance column, and the hints those paths print.
 """
 
@@ -246,9 +246,9 @@ def test_archive_happy(configured):
 
 @respx.mock
 def test_archive_is_prompt_free(configured):
-    # Archive is a reversible toggle (2026-07-11): no confirmation, no --yes —
-    # it succeeds bare even in non-TTY mode (CliRunner is non-TTY), where the
-    # old confirm gate used to exit 1 with a "non-interactive" error.
+    # Archive is a reversible toggle: no confirmation, no --yes — it succeeds
+    # bare even in non-TTY mode (CliRunner is non-TTY), where a confirm gate
+    # would exit 1 with a "non-interactive" error.
     archived = {**ACCOUNT_RESPONSE, "is_archived": True}
     respx.post(f"{BASE}/v1/accounts/abc/archive").mock(
         return_value=httpx.Response(200, json=archived)

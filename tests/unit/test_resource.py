@@ -342,7 +342,7 @@ def test_load_hashtag_name_map_fetches_live(configured):
 
 @respx.mock
 def test_load_name_map_is_one_read_of_the_whole_list(configured):
-    """The engine returns the list whole and refuses `limit`/`offset` (2026-09-23)."""
+    """The engine returns the list whole and refuses `limit`/`offset`."""
     rows = [{"id": f"c{i}", "name": f"n{i}"} for i in range(201)]
     route = respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body(rows))
     out = load_category_name_map()
@@ -412,7 +412,7 @@ def test_format_hashtag_cell_empty_or_non_list_is_dash():
 
 
 # --- parse_hashtag_ids -------------------------------------------------------
-# Hoisted to _resource.py with backlog 6.1 so the four commands taking
+# Lives in _resource.py so the commands taking
 # `--hashtag-ids` (transactions update, log) share one
 # parse. Behaviour pinned here rather than in each command's suite.
 
@@ -481,7 +481,7 @@ def test_render_totals_human_renders_inflow_outflow_net(capsys):
     assert "inflow: 8,000.00" in out
     assert "outflow: 3,200.00" in out
     assert "net: 4,800.00" in out
-    # One figure per line since 2026-08-05 — the native aggregates are deleted,
+    # One figure per line — the native aggregates are deleted,
     # so there is nothing left to put in the old `(home: ...)` parenthetical.
     assert "(home:" not in out
 
@@ -539,7 +539,7 @@ def test_render_pagination_hint_silent_on_last_cursor_page(capsys):
 
 def test_render_pagination_hint_never_gives_a_windowed_body_the_transactions_line(capsys):
     """Activity and rates pages carry a cursor too, inside an echoed date window.
-    Their line is the window's (mockup M5, Phase 8), never `--sort`, which they lack."""
+    Their line is the window's, never `--sort`, which they lack."""
     body = {
         "items": [{}],
         "limit": 1,
@@ -737,7 +737,7 @@ def test_engine_error_attribute_access():
 
 
 # ---------------------------------------------------------------------------
-# account_choices (backlog 6.4c — the one picker-tuple build)
+# account_choices
 # ---------------------------------------------------------------------------
 
 _ACCOUNT_ROWS = [
@@ -897,7 +897,7 @@ def test_render_table_empty_without_footer_prints_nothing(capsys):
 
 
 # --------------------------------------------------------------------------- #
-# split_settled / settled_label — the People fold (backlog 6.2)
+# split_settled / settled_label — the People fold
 # --------------------------------------------------------------------------- #
 
 

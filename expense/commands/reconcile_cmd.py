@@ -51,7 +51,7 @@ def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dic
     """GET /v1/reconciliations?account_id= → the raw engine body. Pure data.
 
     Shared by the flat `reconcile list` command and the TUI's Reconciliations
-    screens. The engine lists one account at a time (since 2026-09-23): the
+    screens. The engine lists one account at a time: the
     account is required, the list comes back whole as `{items}` — no `limit`,
     no `offset`, no `total` — in period order, `date_start ASC,
     created_at ASC`. There is no read by id; a row not in its account's list
@@ -110,7 +110,7 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
             "name": item.get("name") or "(unnamed)",
             "period": format_period(item),
             "begin": format_cents(item.get("beginning_balance_cents")),
-            # Both nullable since the engine's sql/040 — an ending balance the
+            # Both nullable (engine sql/040) — an ending balance the
             # user has not entered yet, and the add-up check that therefore has
             # no answer. `—` rather than `(null)`; `0.00` still means a real
             # entered zero, which is the distinction sql/040 exists to preserve.
@@ -140,8 +140,8 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
 def _complete_hint(err: EngineError) -> str | None:
     """The recovery line for a refused `complete`, or None.
 
-    Two refusals, and **they share a `fields` key** — the pre-existing
-    "At least one transaction must be assigned." and the 2026-09-20
+    Two refusals, and **they share a `fields` key** —
+    "At least one transaction must be assigned." and
     "N transaction(s) dated inside this period are not assigned to any
     reconciliation." both arrive as `fields["transactions"]`. Only the message
     separates them, which is why this reads the haystack rather than the key.
@@ -151,9 +151,8 @@ def _complete_hint(err: EngineError) -> str | None:
     haystack = error_haystack(err)
     if "unassigned" in haystack or "not assigned to any" in haystack:
         # The bare form, with placeholders: the refusal names neither the
-        # account nor the window, and the read by id that used to fill them
-        # in is gone from the engine (owner accepted the generic hint,
-        # 2026-09-23). The unfiled pane is the real way to find these rows.
+        # account nor the window, and the engine has no read to fill them
+        # in. The unfiled pane is the real way to find these rows.
         return _UNASSIGNED_HINT_BARE
     if "transaction" in haystack and (
         "no " in haystack or "empty" in haystack or "at least" in haystack
@@ -165,8 +164,8 @@ def _complete_hint(err: EngineError) -> str | None:
 def _period_hint(err: EngineError) -> str | None:
     """The recovery line for a refused `create`/`update` window, or None.
 
-    Both rules arrived 2026-09-20, when completing a reconciliation started
-    sealing its window and the dates stopped being labels.
+    Completing a reconciliation seals its window, so the dates are rules, not
+    labels.
     """
     if err.status != 422:
         return None
@@ -235,8 +234,8 @@ def create(
 ) -> None:
     """POST /v1/reconciliations. Create a draft reconciliation batch.
 
-    Both balances are typed off the statement — the engine deleted derived
-    (chained) beginning balances on 2026-08-06, so `beginning_balance_cents` is
+    Both balances are typed off the statement — the engine has no derived
+    (chained) beginning balance, so `beginning_balance_cents` is
     required. Both dates are required too, by the engine (`8f22ebb`): a
     period's window is what completing seals.
 
@@ -298,8 +297,8 @@ def update(
 ) -> None:
     """PUT /v1/reconciliations/{id}. Partial update.
 
-    `--date-start` is also how you reposition a batch: since the 2026-08-06
-    de-chaining, an account's batches are ordered by their statement start date.
+    `--date-start` is also how you reposition a batch: an account's batches
+    are ordered by their statement start date.
 
     Example: expense reconcile update <id> --name "March 2026" --ending-balance 12500
     """
@@ -358,8 +357,8 @@ def delete(
 
 def _render_after_state_change(body: dict) -> None:
     """The reconciliation as the engine returns it. No lock count: the engine
-    stopped sending `transactions_total` on 2026-09-23, and nothing in the
-    reply counts the rows complete/revert locked (owner, 2026-09-26: drop it).
+    sends no `transactions_total`, and nothing in the
+    reply counts the rows complete/revert locked.
 
     `warnings` and `coverage_gap` are the same gap twice, as a sentence and as
     data; `complete` prints the sentence as its own `Warning:` line, so the

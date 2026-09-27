@@ -28,7 +28,7 @@ def test_validate_engine_url_accepts_http_https_with_host(url):
 )
 def test_validate_engine_url_rejects_scheme_or_host_less(url):
     """Shared save-time guard for both `config set` and the TUI ConfigScreen
-    (backlog 6.3b) — httpx would only fail at request time."""
+    — httpx would only fail at request time."""
     with pytest.raises(ConfigInvalidError, match="scheme and host"):
         config.validate_engine_url(url)
 
@@ -99,7 +99,7 @@ def test_ensure_loaded_returns_loaded_config(tmp_config):
 
 
 def test_legacy_client_id_config_still_loads(tmp_config):
-    """Configs written before the sync deletion (2026-08-06) carry a client_id.
+    """Older configs carry a client_id.
     It is ignored on load, not a validation error, and does not survive a save."""
     tmp_config.write_text(
         json.dumps(

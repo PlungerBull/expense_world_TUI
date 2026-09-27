@@ -334,7 +334,7 @@ def test_a_failed_period_read_still_shows_the_import(configured, monkeypatch):
 
 @respx.mock
 def test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front(configured, monkeypatch):
-    """Pick C (docs/mockups/expense-world-bank-import-10b.html). The count is the
+    """The count is the
     ledger rows no file row matched, never the ledger's total: the equal-count
     day shows 1, and the day holding three against the file's one shows 2."""
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[2:3])
@@ -376,7 +376,7 @@ def test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front(configured,
 
 @respx.mock
 def test_the_number_column_is_the_files_line(configured, monkeypatch):
-    """Pick B: `#` is the Excel row, the number every message under the table
+    """`#` is the Excel row, the number every message under the table
     uses. Line 3 is from 2025 and line 4 has a zero amount, so neither is in the
     table and the numbers jump from 2 to 5."""
     _feed(

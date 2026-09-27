@@ -4,12 +4,8 @@ widgets stand on.
 `CursorList` (a table with a row cursor) and `CheckList` (two-line rows with
 membership toggles) look nothing alike and render nothing alike, but they page
 identically: a cursor index into the full row list, a window that follows it
-(`cursor // page_size`), `set_page_size` on a terminal resize, and a border
-subtitle counting where you are. That arithmetic was written twice, and the
-copies had already drifted — `CheckList.action_move` repainted on every
-keypress including the ones that hit the end of the list, and drew its cursor
-with a bare `"reverse"` literal rather than the constant documented as the
-app-wide answer.
+(`cursor // page_size`), `set_page_size` on a terminal resize, and a page
+status line counting where you are. That arithmetic lives here once.
 
 What stays with each widget is what actually differs: `_build` (the render),
 and `CursorList`'s growing mode, where `pgdn` asks the screen for more rows
@@ -40,14 +36,12 @@ def page_indicator(
 
 #: How "you are here" is drawn, app-wide: reverse video — the terminal's own
 #: foreground and background, swapped. Colour-free, so it is correct on a dark,
-#: light or Solarized ground by construction rather than by detection (the ANSI
-#: palette decision, 2026-08-19).
+#: light or Solarized ground by construction rather than by detection.
 #:
 #: It must be applied as a **Rich style**, never as a Textual `text-style` rule.
 #: Textual 8.2.7 drops `reverse` from `get_visual_style()` when foreground and
 #: background are both `ansi_default` — which is exactly our theme — so a CSS
-#: cursor renders identically to an unselected row. That is what made the home
-#: menu cursor invisible until 2026-08-20; see `CursorOptionList`.
+#: cursor renders identically to an unselected row; see `CursorOptionList`.
 CURSOR_STYLE = "reverse"
 
 
@@ -76,7 +70,7 @@ class WindowedList(Static):
         self._empty = empty
         self._page_size = page_size
         self._cursor = 0
-        # A line of content above the rule, not a border title. Only a caption
+        # A line of content above the rule. Only a caption
         # that *disambiguates* earns one — see docs/tui.md §3.
         self._caption = caption
 
@@ -103,7 +97,7 @@ class WindowedList(Static):
         return start, self._rows[start : start + self._page_size]
 
     def set_page_size(self, page_size: int) -> None:
-        """Adaptive rows (2026-07-13): the screen re-measures on terminal resize
+        """Adaptive rows: the screen re-measures on terminal resize
         and re-slices the window around the cursor. Row identity is by key, not
         position, so a re-slice cannot lose anything a screen is tracking."""
         if page_size < 1 or page_size == self._page_size:
@@ -115,9 +109,8 @@ class WindowedList(Static):
     def page_status(self) -> str | None:
         """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all.
 
-        Rendered as the list's last line since 2026-09-20. It was the panel's
-        `border_subtitle` until the borders went; the string is unchanged, and
-        every test that reads it reads this property rather than the border.
+        Rendered as the list's last line; tests read this property rather than
+        the render.
         """
         start, window = self._window()
         return page_indicator(
@@ -131,8 +124,8 @@ class WindowedList(Static):
     def set_caption(self, caption: str | None) -> None:
         """Change the caption and repaint.
 
-        A border title repainted itself when assigned; a caption is ordinary
-        content and does not, so the Reconciliations browse — which rewrites
+        A caption is ordinary content and does not repaint on assignment, so
+        the Reconciliations browse — which rewrites
         its lower caption every time the account cursor moves — must come
         through here rather than assigning the attribute.
         """
@@ -147,12 +140,9 @@ class WindowedList(Static):
     def framed(self) -> RenderableType:
         """Caption, rule, the subclass's render, page status.
 
-        The panel border carried the caption on its top edge and the page
-        status on its bottom until 2026-09-20, when the owner's rule — no
-        cards, no vertical lines, horizontal rules divide sections
-        (docs/tui.md §2) — took the box away. Both become ordinary content
-        here, in the one place every repaint of both list widgets passes
-        through, so neither subclass's `_build` had to change.
+        No box — horizontal rules divide sections (docs/tui.md §2) — so the
+        caption and page status are ordinary content, drawn here, in the one
+        place every repaint of both list widgets passes through.
 
         **The status line is always drawn, blank when there is nothing to
         say.** `page_status` is None on a single page, and a line that came
@@ -168,8 +158,7 @@ class WindowedList(Static):
 
         A named method rather than an expression inlined into `_refresh`: it
         takes no app and no layout, so `LIST_FRAME_LINES` can be derived from
-        what is actually drawn. That is the test the 2026-08-29 miscount
-        needed and did not have.
+        what is actually drawn.
         """
         parts: list[RenderableType] = []
         if self._caption:

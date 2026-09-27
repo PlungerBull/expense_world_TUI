@@ -15,7 +15,7 @@ app = typer.Typer(help="Authentication, identity, and settings.", no_args_is_hel
 
 
 def _detect_timezone(localtime: Path = Path("/etc/localtime")) -> str:
-    # Detection lives in expense.dates (shared with the TUI, backlog 6.2d);
+    # Detection lives in expense.dates (shared with the TUI);
     # BadParameter (a click UsageError) so the CLI renders "Error: ..." and
     # exits 2 instead of a raw traceback — the remedy is a flag the user holds.
     try:
@@ -214,9 +214,8 @@ def settings(
 ) -> None:
     """PUT /v1/auth/settings. display_timezone is the only mutable field.
 
-    The home currency is locked engine-side (2026-08-01) and the display
-    preferences (theme, sort, sidebar) were removed in the 2026-08-06 schema
-    slimming — the engine rejects any other field with 422.
+    The home currency is locked engine-side; the engine rejects any other
+    field with 422.
 
     Example: expense auth settings --display-timezone America/Lima
     """

@@ -84,7 +84,7 @@ def test_list_happy(configured):
     # Amount renders as grouped major units, not raw cents.
     assert "5.00" in result.output
     assert "500" not in result.output
-    # Signed output is not opt-in; human mode adds the 20-row default (2026-07-11).
+    # Signed output is not opt-in; human mode adds the 20-row default.
     assert dict(route.calls.last.request.url.params) == {
         "debit_as_negative": "true",
         "limit": "20",
@@ -181,10 +181,9 @@ def test_list_all_filters_pass_through(configured):
 def test_list_rejects_retired_cleared_flag(configured):
     """--cleared/--no-cleared are gone from the surface entirely.
 
-    The engine deleted the column 2026-08-16 (sql/035). This filter is the one
-    surface that failed *silently*: ?cleared= stopped being honoured without
-    erroring, so the command returned the full list looking like a filtered
-    answer. Confirmed-at-the-bank is a reconciliation question now.
+    The engine has no such column (sql/035), and an unknown ?cleared= is not
+    an error, so the flag would return the full list looking like a filtered
+    answer. Confirmed-at-the-bank is a reconciliation question.
     """
     for flag in ("--cleared", "--no-cleared"):
         result = runner.invoke(cli_app, ["transactions", "list", flag])
@@ -193,7 +192,7 @@ def test_list_rejects_retired_cleared_flag(configured):
 
 
 def test_list_rejects_retired_include_deleted_flag(configured):
-    """--include-deleted left with the engine's `?include_deleted=` (2026-09-23):
+    """No --include-deleted: the engine has no `?include_deleted=`, and
     a deleted row is invisible to every client, so there is nothing to show."""
     result = runner.invoke(cli_app, ["transactions", "list", "--include-deleted"])
     assert result.exit_code == 2
@@ -213,7 +212,7 @@ def test_list_pagination_hint_when_more(configured):
 
 
 def test_list_rejects_retired_offset_flag(configured):
-    """--offset left with the engine's `?offset=` (2026-09-23): sending it is a 422."""
+    """No --offset: the engine refuses `?offset=` with a 422."""
     result = runner.invoke(cli_app, ["transactions", "list", "--offset", "10"])
     assert result.exit_code == 2
     assert "No such option: --offset" in strip_panel(result.output)
@@ -239,7 +238,7 @@ def test_list_bad_sort_renders_engine_envelope(configured):
 
 @respx.mock
 def test_list_bare_day_passes_through_unconverted(configured):
-    """A bare day is the engine's to read as the whole day (2026-09-26): no client date math."""
+    """A bare day is the engine's to read as the whole day: no client date math."""
     route = respx.get(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(200, json=LIST_RESPONSE)
     )
@@ -256,7 +255,7 @@ def test_list_json_pass_through(configured):
     result = runner.invoke(cli_app, ["transactions", "list", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == LIST_RESPONSE
-    # --json keeps the raw request: no human-mode default limit (2026-07-11)
+    # --json keeps the raw request: no human-mode default limit
     assert route.calls.last.request.url.params.get("limit") is None
 
 
@@ -375,7 +374,7 @@ def test_delete_requires_yes_in_non_tty(configured):
 
 @respx.mock
 def test_delete_happy_no_warnings_channel(configured):
-    # Since 2026-08-11 DELETE returns the plain transaction shape — no
+    # DELETE returns the plain transaction shape — no
     # `warnings` key.
     deleted = {**TRANSACTION_RESPONSE, "deleted_at": "2026-04-24T10:00:00Z"}
     respx.delete(f"{BASE}/v1/transactions/abc").mock(return_value=httpx.Response(200, json=deleted))
@@ -509,8 +508,7 @@ def test_batch_json_passthrough(configured):
 
 @respx.mock
 def test_batch_422_surfaces_engine_envelope_without_hint(configured):
-    # thin wrapper: the engine owns batch validation (e.g. category_id now
-    # unconditionally required, 2026-08-10); the CLI adds no local check and
+    # thin wrapper: the engine owns batch validation; the CLI adds no local check and
     # no hint — the envelope surfaces verbatim.
     envelope = error_body(
         "VALIDATION_ERROR",

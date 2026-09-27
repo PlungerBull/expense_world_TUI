@@ -63,8 +63,7 @@ def _list_all(
 ) -> list[dict]:
     """GET every existing row for a resource — one read, the engine returns it whole.
 
-    `include_archived` applies to accounts only — the only archivable resource
-    since the 2026-08-06 engine schema slimming.
+    `include_archived` applies to accounts only — the only archivable resource.
     """
     params = query_params(include_archived=include_archived)
     return items_of(client.get(f"/{resource}", params=params or None))
@@ -286,7 +285,7 @@ def _fold_outcome(
     """Turn an index-aligned `BatchOutcome` into this importer's vocabulary.
 
     The batch mechanics live in [batch_write.py](../batch_write.py), shared with
-    the TUI's LOG bar since 2026-08-25; what stays here is the sheet-line
+    the TUI's LOG bar; what stays here is the sheet-line
     phrasing, which only a workbook has. A grouped failure keeps its range
     (`sheet lines 2-3`) so a chunk-level 403 is still reported once.
     """

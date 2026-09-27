@@ -64,7 +64,7 @@ def fetch_categories(
 
     Shared by the flat `categories list` command and the TUI's Categories screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
-    (2026-09-23) — there is no page to ask for.
+    — there is no page to ask for.
     """
     return fetch_body(cfg, path=f"/{_RESOURCE}", params=None, verbose=verbose)
 

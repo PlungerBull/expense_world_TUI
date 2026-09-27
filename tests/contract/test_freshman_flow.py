@@ -10,9 +10,9 @@ real-ledger guard come from conftest.py. Redirects EXPENSE_CONFIG to a temp dir 
 the developer's own install is untouched.
 
 Uses a USD account regardless of the user's main_currency, to walk the
-cross-currency path. Since 2026-08-05 a write never resolves a rate at all —
-conversion happens at read time — so RATE_UNAVAILABLE can no longer fire here; a
-missing rate now surfaces as a null aggregate plus an unconverted count on the
+cross-currency path. A write never resolves a rate at all —
+conversion happens at read time — so RATE_UNAVAILABLE cannot fire here; a
+missing rate surfaces as a null aggregate plus an unconverted count on the
 read side instead.
 """
 

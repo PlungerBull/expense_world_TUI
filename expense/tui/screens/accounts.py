@@ -45,8 +45,8 @@ class AccountsScreen(ResourceListScreen):
     LEGEND = "balances are native currency"
     ALIGN_RIGHT = {4}
     RESOURCE = "accounts"
-    # Accounts are the only archivable resource since the 2026-08-06 engine
-    # schema slimming, so the `a` toggle lives here, not on the shared scaffold.
+    # Accounts are the only archivable resource, so the `a` toggle lives here,
+    # not on the shared scaffold.
     BINDINGS = [
         *ResourceListScreen.BINDINGS,
         Binding("a", "archive", "Archive", tooltip="Archive / unarchive"),

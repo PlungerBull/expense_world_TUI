@@ -97,7 +97,7 @@ def test_log_json_mode(configured):
 def test_log_default_date_is_today(configured, monkeypatch):
     # Freeze the CLI's clock so the sent date and the compared date are the same
     # instant — recomputing "today" at assert time could straddle midnight and
-    # flake (backlog §5). Patch the seam the default flows through (log_cmd.py:88).
+    # flake. Patch the seam the default flows through (log_cmd.py:88).
     frozen = "2026-04-24T09:30:00-05:00"
     monkeypatch.setattr(log_cmd, "now_local_iso", lambda: frozen)
     route = respx.post(f"{BASE}/v1/transactions").mock(
@@ -161,12 +161,12 @@ def test_log_422_settings_missing_prints_hint(configured):
 
 
 # ---------------------------------------------------------------------------
-# The line form — quick-add phase 2 (2026-08-25)
+# The line form
 # ---------------------------------------------------------------------------
 # `expense log "tottus -38.60 $signature @korakuen hoy"`. Three behaviours are
 # specific to it and each has a test below: a line missing an amount or an
 # account, ambiguous, using an unknown tag, or dated ahead is REFUSED (exit 1,
-# nothing written — the Inbox that used to take it went 2026-09-12), it always
+# nothing written), it always
 # asks before writing, and --dry-run shows the parse without touching the
 # network. A missing title or category is fine: the engine stores the one as
 # null and files the other under @Pendiente.
@@ -293,7 +293,7 @@ def test_line_without_an_account_is_refused(configured, monkeypatch):
 
 @respx.mock
 def test_line_without_a_category_lands_in_the_ledger_under_pendiente(configured, monkeypatch):
-    """No category is not a reason (2026-09-12): the body omits it — never
+    """No category is not a reason: the body omits it — never
     null — and the echo already says where the engine will file the row."""
     _refs()
     ledger = respx.post(f"{BASE}/v1/transactions").mock(
@@ -328,7 +328,7 @@ def test_line_without_a_title_sends_none_and_echoes_a_dash(configured, monkeypat
 
 @respx.mock
 def test_ambiguous_name_is_refused_and_lists_the_candidates(configured, monkeypatch):
-    """An ambiguous name counts as no name (decided 2026-08-25) — and the way
+    """An ambiguous name counts as no name — and the way
     out is to retype it, so the candidates are printed with the refusal."""
     _refs()
     ledger = respx.post(f"{BASE}/v1/transactions").mock(
@@ -475,8 +475,8 @@ def test_bare_log_names_both_forms(configured):
 
 
 def test_flag_form_missing_a_required_flag_says_which(configured):
-    """Only `--amount` and `--account-id` are required (2026-09-12); a missing
-    `--category-id` is not a complaint any more."""
+    """Only `--amount` and `--account-id` are required; a missing
+    `--category-id` is not a complaint."""
     result = runner.invoke(cli_app, ["log", "--title", "x", "--amount", "-100"])
     assert result.exit_code == 1
     assert "--account-id" in result.output

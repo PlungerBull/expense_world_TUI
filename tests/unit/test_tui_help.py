@@ -1,13 +1,12 @@
-"""Phase 8 — the `?` key card, and the removal of the command palette.
+"""The `?` key card, and no command palette.
 
-Approved as variant C in docs/mockups/expense-world-phase8-discoverability.html
-(2026-08-17). The card is *derived* from BINDINGS rather than hand-listed, so the
+The card is *derived* from BINDINGS rather than hand-listed, so the
 tests that matter here are the ones that fail when the derivation drifts:
 
   · every binding we declare has text for the card to show (the guard)
   · Textual's own widget keys stay out, without a suppression list
   · a key the screen cannot actually service is not advertised
-  · the palette is off, and the footer no longer offers it
+  · the palette is off, and the footer does not offer it
 """
 
 import importlib
@@ -76,7 +75,7 @@ def test_every_declared_binding_has_help_text():
 
     A binding added with no description and no tooltip renders as a row with a
     blank right-hand side — exactly the defect that makes Textual's own panel
-    hard to read (the `↑ k` row captured in the mockup §1.2). Folded inverses are
+    hard to read (a bare `↑ k` row). Folded inverses are
     the one exception: they are absorbed into their partner's row.
     """
     undocumented = []
@@ -102,8 +101,7 @@ def test_no_duplicate_movement_key_aliases():
 
     Every one was a second name for a key already bound and already in the
     footer — `j/k` for `↓/↑`, `h/l` for `←/→`, `,/.` for `pgup/pgdn` — so
-    deleting them cost no capability at all (inventory + pick:
-    docs/mockups/expense-world-movement-keys.html §4, 2026-08-27).
+    deleting them cost no capability at all.
 
     Guarding it is about the letters, not the tidiness: `j k h l` are usable as
     *command* letters on a list screen only while no widget claims them first.
@@ -112,8 +110,8 @@ def test_no_duplicate_movement_key_aliases():
 
     So the guard bans the letters on **widgets** (the layer that would eat them)
     and bans them as *movement* actions anywhere. A screen command is what the
-    deletion freed the letters for: `h` became `hashtags` on the ledger on
-    2026-09-12, and that is allowed.
+    deletion freed the letters for: `h` is `hashtags` on the ledger, and that is
+    allowed.
     """
     from textual.screen import Screen
 
@@ -128,7 +126,7 @@ def test_no_duplicate_movement_key_aliases():
 
 
 def test_square_brackets_are_not_bound_anywhere():
-    """The month window rides `pgdn`/`pgup` since 2026-08-27 (option C).
+    """The month window rides `pgdn`/`pgup`.
 
     `[`/`]` were the app's only one-screen, one-job keys, and they existed only
     because the Monthly grid had already spent `←`/`→` on expand/collapse. The
@@ -172,10 +170,7 @@ def test_declared_bindings_keeps_only_our_own():
 def test_rows_join_keys_typed_character_first():
     """`n / esc / ⏎`, not the reverse: the letter is what you actually press.
 
-    CursorList used to be the example (`j / ↓`, `. / pgdn`) until the duplicate
-    keys were deleted 2026-08-27 — every one of its keys is now unprintable, so
-    the ordering rule needs a binding that still mixes the two kinds. ConfirmModal
-    is the surviving one."""
+    ConfirmModal is the binding set that mixes printable and unprintable keys."""
     rows = {row.description: row.keys for row in key_rows(declared_bindings(ConfirmModal))}
     assert rows["No"] == "n / esc / ⏎"
     assert rows["Yes"] == "y"
@@ -278,10 +273,9 @@ def test_home_card_names_itself_without_a_crumb():
         await pilot.pause()
         title, groups = screen_inventory(app.screen)
         assert title == "Keys — Home"
-        # `+` joined `q` on 2026-08-20, when `Log a transaction` stopped being a
-        # menu row. The card is now the only place the key is written down in
-        # full, so this assertion is what keeps it discoverable. `r` re-reads
-        # the month since Home became the month (2026-09-12).
+        # `+` sits with `q`: `Log a transaction` is not a menu row, so the card
+        # is the only place the key is written down in full, and this assertion
+        # is what keeps it discoverable. `r` re-reads the month.
         assert [row.keys for row in _rows(groups, "This screen")] == [
             "+",
             "pgdn",
@@ -315,7 +309,7 @@ def test_question_mark_opens_and_closes_the_card(monkeypatch):
 
 
 def test_question_mark_types_a_character_inside_a_form(monkeypatch):
-    """Decided 2026-08-17: forms keep `?` as a typed character. A focused Input
+    """Forms keep `?` as a typed character. A focused Input
     swallows printable keys, so no overlay opens and the note field gets its
     question mark — the behaviour we want, pinned so a later app-level binding
     cannot quietly take the key away."""
@@ -351,7 +345,7 @@ def test_question_mark_types_a_character_inside_a_form(monkeypatch):
 
 
 def test_command_palette_is_disabled():
-    """Removed 2026-08-17 (docs/decisions.md). Textual's Footer gates its
+    """docs/decisions.md "The command palette is removed". Textual's Footer gates its
     `^p palette` key on this same flag, so the strip leaves every footer with
     it — that shared flag is why no footer code was touched."""
     assert ExpenseApp.ENABLE_COMMAND_PALETTE is False
@@ -378,11 +372,11 @@ def test_footer_no_longer_offers_the_palette(monkeypatch):
 
 
 def test_form_navigation_keys_are_not_advertised():
-    """The form footer offers only `esc Cancel` and `^s Save` (2026-08-24).
+    """The form footer offers only `esc Cancel` and `^s Save`.
 
     Two separate reasons, one outcome. `↑` / `↓` walk the suggestion list — the
-    plain-arrow navigation the list, tree and checklist widgets already stopped
-    advertising in the 2026-08-20 footer trim, which missed the forms. `^↑` /
+    plain-arrow navigation the list, tree and checklist widgets do not
+    advertise either. `^↑` /
     `^↓` move between fields and **never worked on macOS**: the OS takes `⌃↑`
     for Mission Control and `⌃↓` for Application Windows before the terminal
     sees them, so the form was advertising two dead keys.

@@ -78,8 +78,8 @@ def test_dashboard_has_the_sections_home_and_the_flat_command_index_by(client):
 
 
 def test_dashboard_accounts_carry_their_own_currency_and_balance(client):
-    """Home draws every balance in the account's *own* currency (pick A,
-    2026-09-12) — which only works while the row says which currency that is."""
+    """Home draws every balance in the account's *own* currency
+    — which only works while the row says which currency that is."""
     account_id = str(uuid4())
     client.post(
         "/accounts",
@@ -101,7 +101,8 @@ def test_dashboard_accounts_carry_their_own_currency_and_balance(client):
 
 def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
     """`--include-archived` is a flag on the command *because* it is a parameter
-    here. Archive is retired-but-real (docs/decisions.md), so the row still
+    here. An archived account is real (docs/decisions.md "Archive is a
+    prompt-free toggle"), so the row still
     exists when asked for — but it does **not** rejoin `bank_accounts`.
 
     The engine answers with a separate `archived_accounts` list — **null** until
@@ -114,9 +115,8 @@ def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
         difference `dashboard_cmd` uses to decide whether to draw the panel at
         all (`if archived_accounts is not None`).
 
-    Both were found by this test on its first real run (2026-09-19): it had
-    assumed the merge, then assumed an empty list, and iterating the null is
-    precisely how a second client would meet this.
+    Assuming the merge, or an empty list, and iterating the null is precisely
+    how a second client would meet this.
     """
     account_id = str(uuid4())
     client.post(
@@ -246,7 +246,7 @@ def test_a_months_categories_sum_to_its_net(client):
 
 
 def test_an_uncategorised_row_lands_under_pendiente_and_counts(client):
-    """The whole point of the 2026-09-12 Inbox deletion: a row with no category
+    """A row with no category
     is a real ledger row that shows up in the month's figures.
 
     The unit suite asserts Home *draws* `@Pendiente`; only the engine can say a
@@ -300,9 +300,8 @@ def test_a_write_is_signed_but_a_bare_read_is_not(client):
     that makes the output half true by asking for it. The engine stores the
     magnitude and signs on request.
 
-    Nothing pinned this end to end until 2026-09-19, when a reconciliation test
-    asserted `-9999` on a bare read, got `9999`, and was wrong in exactly the
-    way a second client would be wrong on its first afternoon. Web and iOS
+    Asserting `-9999` on a bare read gets `9999` — wrong in exactly the way a
+    second client would be wrong on its first afternoon. Web and iOS
     inherit this endpoint; the asymmetry should be written down somewhere that
     fails when it changes.
     """

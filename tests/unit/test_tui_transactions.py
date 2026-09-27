@@ -43,7 +43,7 @@ def test_transaction_rows_format_and_resolve():
 
 
 def test_transaction_rows_palette_sign_colors_amounts():
-    """With a palette the amount cell is a Text sign-colored per backlog 4.2 (rule A)."""
+    """With a palette the amount cell is a Text sign-colored (rule A)."""
     from expense.tui.theme import Palette
 
     palette = Palette("#0f0", "#f00", "#ff0")
@@ -96,7 +96,7 @@ def _patch_detail(monkeypatch, rows: list):
 
 def test_esc_from_the_detail_keeps_the_rows_and_the_cursor(monkeypatch):
     """`⏎` then `esc` is not a write: the ledger comes back as it was — the
-    rows `pgdn` loaded and the cursor on the row it was on (owner, 2026-09-27)."""
+    rows `pgdn` loaded and the cursor on the row it was on."""
     calls = _patch_detail(monkeypatch, _ledger_rows(25))
 
     async def scenario(pilot, app):
@@ -123,7 +123,7 @@ def test_esc_from_the_detail_keeps_the_rows_and_the_cursor(monkeypatch):
 
 def test_a_save_from_the_detail_still_reloads_fresh(monkeypatch):
     """A save is a write, and after any write the ledger is the newest 10 again
-    with the cursor on row 1 (owner, 2026-09-26)."""
+    with the cursor on row 1."""
     calls = _patch_detail(monkeypatch, _ledger_rows(25))
 
     async def scenario(pilot, app):
@@ -143,9 +143,8 @@ def test_a_save_from_the_detail_still_reloads_fresh(monkeypatch):
 
 
 def test_plus_opens_the_log_bar(monkeypatch):
-    """`+` on the ledger logs a new transaction (2026-08-20) — through the LOG
-    bar since quick-add phase 4 (2026-08-25). The row under the cursor is
-    irrelevant to it."""
+    """`+` on the ledger logs a new transaction through the LOG bar. The row
+    under the cursor is irrelevant to it."""
     import expense.tui.screens.transactions as tx_mod
 
     fake_ledger(monkeypatch, ITEMS)
@@ -167,8 +166,8 @@ def test_plus_opens_the_log_bar(monkeypatch):
 
 
 def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
-    """ "Never ever mention that the arrow keys are navigation on the lower bar"
-    (user, 2026-08-20). The keys still work — only the footer row is gone, and
+    """The arrow keys are never advertised as navigation on the footer.
+    The keys still work — only the footer row is gone, and
     the `?` card still lists them."""
     import expense.tui.screens.transactions as tx_mod
 
@@ -197,10 +196,8 @@ def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
 
 
 def test_transaction_rows_hand_the_table_whole_cells():
-    """The row builder no longer caps title/description/hashtags (2026-09-12,
-    option A of docs/mockups/expense-world-ledger-column-fit.html): the table
-    cuts each cell at the edge of the column it actually has, so a wide
-    terminal shows wide cells instead of wide columns of text cut at 20."""
+    """The row builder never caps title/description/hashtags: the table cuts each cell
+    at the edge of the column it actually has."""
     long_title = "ANTHROPIC* CLAUDE SUB  ANTHROPIC.COM CA"  # 39 chars, a real bank title
     long_desc = "APPARKA AAP AREQUIPA   AREQUIPA      PE"
     items = [
@@ -241,7 +238,7 @@ def test_flex_columns_fill_the_width_and_cut_at_the_column_edge():
 
 
 def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
-    """⏎ on a hashtag row on Home (2026-09-13): the ledger asks the engine for
+    """⏎ on a hashtag row on Home: the ledger asks the engine for
     that category and that hashtag, both, and says so in its crumb."""
     import expense.tui.screens.transactions as tx_mod
     from expense.tui.screens.transactions import LedgerFilter

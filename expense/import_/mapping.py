@@ -2,7 +2,7 @@
 
 Single source of truth for the sheet layout. Columns are matched by HEADER
 NAME (case/space-insensitive), not position, so the importer survives column
-reordering — which has already happened in this file's history. Each field
+reordering. Each field
 accepts a tuple of labels, so a sheet re-exported with a renamed column keeps
 importing; to support a differently-shaped sheet, add its label here and the
 pipeline needs no other change.

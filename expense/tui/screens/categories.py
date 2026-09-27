@@ -3,8 +3,7 @@
 Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
 (prefilled EditCategoryScreen). `enter` does nothing. The system category
 (@Opening) can be renamed/recolored (the engine keys it by `system_key`,
-not name) but cannot be deleted. Category archive was removed
-engine-side (2026-08-06 schema slimming) — only accounts archive now.
+not name) but cannot be deleted. Only accounts archive.
 """
 
 from expense.commands import categories_cmd
@@ -37,7 +36,7 @@ class CategoriesScreen(ResourceListScreen):
     RESOURCE = "categories"
 
     def fetch_items(self, cfg, **kw):
-        # The engine returns every row (2026-09-23); the 20-row window pages
+        # The engine returns every row; the 20-row window pages
         # over the full set locally, so "page 2 of N" stays honest.
         return categories_cmd.fetch_categories(cfg, **kw)
 

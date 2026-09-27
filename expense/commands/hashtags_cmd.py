@@ -55,7 +55,7 @@ def fetch_hashtags(
 
     Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
-    (2026-09-23) — there is no page to ask for.
+    — there is no page to ask for.
     """
     return fetch_body(cfg, path=f"/{_RESOURCE}", params=None, verbose=verbose)
 

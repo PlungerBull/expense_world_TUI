@@ -18,7 +18,7 @@ def validate_engine_url(url: str) -> None:
 
     httpx raises UnsupportedProtocol only at request time; both config entry
     points (`config set --engine-url` and the TUI ConfigScreen) call this so
-    the mistake surfaces at save time, not on the next command (backlog 6.3b).
+    the mistake surfaces at save time, not on the next command.
     Deliberately not inside save(): saves that don't touch engine_url (e.g.
     mirroring main_currency) must not brick on a legacy-invalid URL.
     """
@@ -31,8 +31,7 @@ def validate_engine_url(url: str) -> None:
 
 
 class Config(BaseModel):
-    # extra="ignore" also tolerates the retired client_id key still present in
-    # config files written before the sync deletion (2026-08-06).
+    # extra="ignore": an older config file may carry keys nothing reads.
     model_config = ConfigDict(extra="ignore")
 
     engine_url: str
@@ -41,7 +40,7 @@ class Config(BaseModel):
     # `expense import bank`: the file's stem ("VISA Infinite Sapphire") → the
     # account base name it was last imported into ("BCP Signature"). Written
     # the first time a file is imported, read on every run after, overridden
-    # by --account (2026-09-12, mockup expense-world-bank-import.html pick B).
+    # by --account.
     bank_files: dict[str, str] = {}
 
 

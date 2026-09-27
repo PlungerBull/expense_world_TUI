@@ -1,7 +1,6 @@
 """The bank's sheet → one BankRow per line. Pure: no I/O, no HTTP.
 
-Read from the two real BCP downloads of 2026-09-12 (docs/mockups/
-expense-world-bank-import.html): a sheet named `data`, columns Fecha,
+Read from the two real BCP downloads: a sheet named `data`, columns Fecha,
 Descripcion, Moneda, Monto and — on a current-account export only — Numero de
 Operacion. Dates come as `11/09/2026` on one export and `2026-09-11` on the
 other; currency as `S/` or `$`; amounts as signed numbers, outflows negative,
@@ -10,9 +9,8 @@ which is the engine's own sign convention so nothing is flipped here.
 Columns are matched by header name, case- and whitespace-insensitively, using
 expense/import_/mapping.py's own `normalize_header` — one tolerant mapping
 covers both bank files, and a second bank's export is a label added here, not
-a module. That normaliser is *imported*, not copied: this module kept its own
-until the two drifted apart on doubled interior spaces, so a header the bank
-re-exported as `Numero  de  Operacion` matched here and nowhere else.
+a module. That normaliser is *imported*, not copied, so the two importers
+cannot drift apart on a header like `Numero  de  Operacion`.
 """
 
 import re
@@ -64,8 +62,8 @@ class BankRow:
     date_iso: str
     #: The bank's descriptor with whitespace runs collapsed, nothing removed:
     #: `MAR DE COLAS           LIMA          PE` → `MAR DE COLAS LIMA PE`. The title is
-    #: exactly what the bank sent (decisions.md, the 2026-09-26 amendment to
-    #: "Bank downloads are matched against the ledger").
+    #: exactly what the bank sent.
+    #: Why: docs/decisions.md "Bank downloads are matched against the ledger".
     title: str
     currency: str
     amount_cents: int  # signed: negative = outflow, as the engine wants it

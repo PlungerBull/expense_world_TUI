@@ -1,4 +1,4 @@
-"""Phase 2 create-form tests (new hashtag / category / account, fake client)."""
+"""Create-form tests (new hashtag / category / account, fake client)."""
 
 from textual.widgets import Input, Static
 
@@ -55,7 +55,7 @@ def test_new_account_defaults_to_bank_on_empty_type(fake_client):
 
 
 def test_new_account_type_person_posts_to_people(fake_client):
-    """Picking `person` routes the same fields to POST /people (backlog 6.2)."""
+    """Picking `person` routes the same fields to POST /people."""
     path, body = _run(fake_client, NewAccountScreen(), ["person", "Eliana", "PEN", ""])
     assert path == "/people"
     assert body["name"] == "Eliana" and body["currency_code"] == "PEN"
@@ -90,8 +90,8 @@ def test_new_account_required_name_blocks_submit(fake_client):
 # ---------------------------------------------------------------------------
 #
 # Every create and edit form routes its refusals through one three-line method
-# on the base class, and until 2026-09-19 no test ever reached it: the six tests
-# above all let the write succeed. Eight screens depend on it — NewHashtag,
+# on the base class; the six tests above all let the write succeed. Eight
+# screens depend on it — NewHashtag,
 # NewCategory, NewAccount, their three Edit* subclasses, NewReconciliationScreen
 # and QuickAddLogScreen — so a regression there is a regression in all of them.
 

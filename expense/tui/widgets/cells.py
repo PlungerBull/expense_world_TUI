@@ -51,7 +51,7 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
     `None` is a dim em-dash, not `format_cents`'s literal `(null)` — the TUI's
     mark for an absent value, the same one `format_short_date` already uses.
     Only one caller can actually hand this a null today (a reconciliation's
-    `ending_balance_cents`, nullable since the engine's `sql/040`); the rest —
+    `ending_balance_cents`, nullable in the engine); the rest —
     account balances, transaction amounts, beginning balances — are non-null by
     engine guarantee. Handling it here rather than at that one call site means
     no column can ever start printing `(null)` at a user if another field turns
@@ -75,10 +75,10 @@ def aggregate_cell(
 ) -> str | Text:
     """A home-currency aggregate cell: the sign-colored amount, or `3 unrated`.
 
-    Since 2026-08-05 the engine returns `None` plus an `unconverted_count` when
+    The engine returns `None` plus an `unconverted_count` when
     any row in the group falls on a date with no resolvable rate. That is not a
     zero and not a blank, so it renders as its own warning-colored figure rather
-    than as an amount (Phase 4 sketch, option C) — warning, because unpriced
+    than as an amount — warning, because unpriced
     rows are work to go do, not something broken.
 
     A present amount is delegated to `amount_cell`, so aggregates stay colored

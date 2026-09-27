@@ -1,12 +1,12 @@
 """Contract lifecycle for the three named resources.
 
 Accounts: create → update → archive → unarchive → delete.
-Categories and hashtags: create → update → delete — they lost their
-archive routes in the 2026-08-06 schema slimming, and accounts (people included)
-are now the only archivable resource.
+Categories and hashtags: create → update → delete — they have no
+archive routes, and accounts (people included) are the only archivable
+resource.
 
-Every lifecycle ends on "deleted is deleted" (engine, 2026-09-23): the row leaves
-every list, its get is a 404, and `restore` no longer exists.
+Every lifecycle ends on "deleted is deleted": the row leaves
+every list, its get is a 404, and there is no `restore`.
 
 Hits a real engine. Gating, target resolution and the real-ledger guard live in
 conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
@@ -22,7 +22,7 @@ from expense.errors import EngineError
 def _list_all(client, resource: str, **flags) -> list[dict]:
     """The whole collection, in one read.
 
-    Since 2026-09-23 the engine returns accounts, categories and hashtags whole
+    The engine returns accounts, categories and hashtags whole
     as `{items}` and refuses `limit`/`offset` with a 422 — so this also pins
     that a plain read is the entire list, not a default page.
     """
@@ -99,7 +99,7 @@ def test_categories_lifecycle(client):
         updated = client.put(f"/categories/{new_id}", json_body={"name": f"{name}-renamed"})
         assert updated["name"] == f"{name}-renamed"
 
-        # No archive/unarchive arm: those routes 404 since 2026-08-06. Pin the
+        # No archive/unarchive arm: those routes 404. Pin the
         # deletion so a silent re-introduction would be caught.
         active = _list_all(client, "categories")
         assert any(c["id"] == new_id for c in active)
@@ -127,7 +127,7 @@ def test_hashtags_lifecycle(client):
         updated = client.put(f"/hashtags/{new_id}", json_body={"name": f"{name}-renamed"})
         assert updated["name"] == f"{name}-renamed"
 
-        # Same as categories — no archive routes since 2026-08-06.
+        # Same as categories — no archive routes.
         active = _list_all(client, "hashtags")
         assert any(h["id"] == new_id for h in active)
 

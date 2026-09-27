@@ -247,7 +247,7 @@ def test_list_resource_name_fallback_to_uuid_prefix(configured):
     assert "22222222" in result.output
 
 
-# --- _resolve_resource_name, all six kinds (backlog 6.6a) -------------------
+# --- _resolve_resource_name, all six kinds -------------------
 
 
 def _client(responses: dict) -> FakeClient:
@@ -289,8 +289,7 @@ def test_resolve_resource_name_miss_falls_back_to_prefix():
 
 def test_resolve_reconciliation_labels_come_from_the_snapshot():
     """name + account → 'name / account'; degrades to either half, then the
-    prefix. Never a read of the reconciliation: the engine has none by id since
-    2026-09-23 (owner's label, 2026-09-25)."""
+    prefix. Never a read of the reconciliation: the engine has none by id."""
     snap = {"name": "August 2026", "account_id": "acc1"}
 
     client = _client({"/accounts/acc1": {"name": "BCP"}})
@@ -349,7 +348,7 @@ def test_resolve_unknown_kind_and_bad_id():
     assert client.requests == []
 
 
-# --- the three name maps, built once per page (A10) --------------------------
+# --- the three name maps, built once per page --------------------------------
 def test_the_name_maps_answer_without_touching_the_engine():
     """An account, category or hashtag row resolves off the preloaded map, so
     the per-row `GET /<kind>/<id>` never happens."""
@@ -400,7 +399,7 @@ def test_a_reconciliation_takes_its_account_name_from_the_map():
 
 @respx.mock
 def test_activity_list_reads_each_reference_list_once_for_the_whole_page(configured):
-    """Five account rows used to cost five `GET /accounts/<id>`. Now the page
+    """Five account rows never cost five `GET /accounts/<id>`: the page
     costs one `GET /accounts` (plus categories and hashtags) and no per-row
     read at all."""
     rows = [

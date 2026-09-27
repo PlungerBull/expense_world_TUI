@@ -1,1082 +1,351 @@
 # Decision record
 
-Why the big calls went the way they did — **including the alternatives that were rejected**, which is the part that otherwise lives only in session history and evaporates. A future maintainer (human or AI) with nothing but this repo should be able to answer "why is it like this?" without re-deriving or re-litigating.
+Why the product is the way it is today — **including the alternatives that were rejected**, so nobody re-litigates them. Only decisions that govern current code or product live here; a decision that is undone or whose subject is deleted is deleted too (git history is the archive).
 
 Rules for this file:
 
-- **One home per fact.** If a decision's rationale already lives in another doc, the index links there — no copies. Full entries below exist only for decisions whose *why* had no home.
-- **Absolute dates, always.** "Recently" means nothing in two years.
-- New entry template: `## <decision> (<date>)` → **Context** / **Decision** / **Rejected** — three short paragraphs, link the artifacts.
+- **One home per fact.** If a decision's rationale already lives in another doc, link it there instead of copying.
+- **Absolute dates, always.**
+- **Present tense.** State the rule and why; no history of how it got there.
+- New entry template: `## <decision> (<date>)` → **Context** / **Decision** / **Rejected** — short paragraphs; a rejected alternative only if someone would plausibly propose it again, one line each.
 
-## Index
+Decisions whose why lives elsewhere:
 
-| Decision | Decided | The why lives in |
-|---|---|---|
-| CLI is a thin wrapper / contract validator for the multi-client engine | project inception | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
-| Server-first writes, no offline queue (queue is iOS-only) | project inception | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [cli-runtime.md](cli-runtime.md) "Write semantics" |
-| ~~Cache-by-default, stateless as escape hatch~~ | Step 7b | **Reversed 2026-08-06** — see "Delete the local replica" below |
-| PAT auth (Option B: `ewe_pat_` prefix, JWT fallthrough) | 2026-04-23 | [cli-spec.md](cli-spec.md) "Auth model" |
-| Public GitHub repo → secrets never enter the repo | project inception | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
-| Sanctioned deviations from the principles (3 items) | 2026-07 | [cli-spec.md](cli-spec.md) "Sanctioned exceptions" |
-| Sign is always literal — no default-to-expense magic | 2026-04-25 | full entry below |
-| Dual-UX strategy (flat + TUI + quick-add) | 2026-04-25 | full entry below |
-| Questionary menu deleted ahead of its gate | 2026-07-02 | full entry below |
-| Mockup-first, and showing ≠ approval | 2026-05-24 (hardened) | full entry below |
-| The open-work list holds only open work (the workpad is `todo.md`) | 2026-07-06 | full entry below |
-| Manage detail: system categories are editable, not immutable *(archive half moot since 2026-08-06)* | 2026-07-07 | full entry below |
-| Monthly report TUI is a sliding 4-month grid, not a single-month view *(the grid absorbed Outstanding Amounts 2026-08-29 — see "Overview")* | 2026-07-08 | full entry below |
-| Overview — one screen for stock and flow, a band capped at 5 that always reads today *(folded into Home and deleted 2026-09-13)* | 2026-08-29 | full entry below |
-| ~~`SyncContractError` + exit code 5 for /sync contract violations~~ *(**moot since 2026-08-06** — the error class went with the replica)* | 2026-07-08 | full entry below |
-| TUI writes: FIFO queue in EngineWriteMixin, error drops the queue | 2026-07-08 | full entry below |
-| Connection errors → exit code 6, off the click-usage collision on 2 | 2026-07-10 | full entry below |
-| TUI paints the terminal's own background (ANSI mode) — one surface, no seam | 2026-07-11 | full entry below |
-| Archive is a prompt-free toggle (accounts-only since 2026-08-06); Manage record detail deleted | 2026-07-11 | full entry below |
-| Every data table pages at 20 rows (CLI human mode + TUI), two-tier design *(the TUI's fetch-paged tier is gone since 2026-09-26 — see "Long lists grow, they do not page"; `transactions list` still asks for 20)* | 2026-07-11 | full entry below |
-| TUI is keyboard-only — mouse disabled via `run(mouse=False)` | 2026-07-12 | full entry below |
-| TUI rows-per-page adapt to the terminal — min(20, what fits) | 2026-07-13 | full entry below *(cap lifted on Transactions/Inbox 2026-08-29 — see below; its `PagedListMixin` half and the resize refetch are gone since 2026-09-26 — see "Long lists grow")* |
-| The ledger fills the window — Transactions/Inbox drop the 20-row and 110-column caps *(the ledger no longer pages at all since 2026-09-26 — see "Long lists grow")* | 2026-08-29 | full entry below |
-| Ledger cells fill their columns — flex text columns, no pre-truncation | 2026-09-12 | full entry below |
-| `expense world` clears the terminal scrollback at launch (`CSI 2J 3J H`) | 2026-07-13 | full entry below |
-| Opening balances are an engine concept (`@Opening` system category), not a CLI convention | 2026-07-20 | full entry below |
-| Local-first deployment — the one engine moves to the user's Mac; cloud mothballed until iOS | 2026-07-30 | full entry below |
-| Delete the local replica — all reads live; `expense sync` and the cache retired | 2026-08-06 | full entry below |
-| Transfers are two ordinary transactions — the feature is gone client-side | 2026-08-16 | full entry below |
-| Reconciliation de-chaining — a batch is a statement period, ordered by its date | 2026-08-16 | full entry below |
-| Home aggregates are nullable — `3 unrated` is a state, not a number | 2026-08-16 | full entry below |
-| Contract tests verify against a disposable database, and refuse the real ledger | 2026-08-16 | full entry below |
-| A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group | 2026-08-16 | full entry below |
-| ~~The inbox has no deleted view~~ *(moot since 2026-09-12 — the inbox is deleted)* | 2026-08-16 | full entry below |
-| One word for hashtags — the engine's, everywhere | 2026-08-16 | full entry below |
-| The light theme will detect the terminal, not ask the user | 2026-08-16 | full entry below |
-| The command palette is removed, not populated — `?` is the one discoverability surface | 2026-08-17 | full entry below |
-| The terminal supplies the palette — every colour is an ANSI slot, nothing is detected | 2026-08-19 | full entry below |
-| A terminal too small is the user's to fix — no size guard; 80×24 correct, 60×20 lossy | 2026-08-20 | full entry below |
-| Logging is a key, not a menu row — plain `+`, and the footer stops naming the arrow keys *(what `+` opens changed 2026-08-25 — see "What a half-written batch means")* | 2026-08-20 | full entry below |
-| Three quick-add grammar rules — contains-matching, dashed dates, tags are never created | 2026-08-25 | full entry below |
-| Two calls for the one-line `expense log` — incomplete drafts to the Inbox, and it always asks first *(the first call is superseded 2026-09-12 — an incomplete line is refused; see "The Inbox is deleted")* | 2026-08-25 | full entry below |
-| Four calls for the LOG bar — the raw line comes back, tags stay, totals are per currency, one wording for why *(the fourth moved from the Inbox footnote to the refusal under the bar, 2026-09-12)* | 2026-08-25 | full entry below |
-| What a half-written batch means — the LOG bar's save, and `+` switching to it *(the two-call save became one call when the Inbox left, 2026-09-12; the four calls about ticks and retries stand)* | 2026-08-25 | full entry below |
-| One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` | 2026-08-27 | full entry below |
-| The LOG bar shows the named account's ledger — elastic, and it stays put | 2026-08-29 | full entry below |
-| The legend, the two picker gaps, and day+month dates | 2026-08-29 | full entry below |
-| Rates cross the wire as integers — `rate_e8`, not a float — and `/100` becomes one named constant | 2026-08-29 | `expense_world_engine/docs/currency-model-decision.md` ("A rate is an integer, like every other number on the money path") |
-| Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check | 2026-09-12 | full entry below |
-| The Inbox is deleted — a sparse line is a ledger row under `@Pendiente` | 2026-09-12 | full entry below |
-| Bank downloads are matched against the ledger, not hashed — operation code first, then date ± 1 day, amount, account and title, counted per group *(amended 2026-09-26: the engine's `POST /transactions/import` matches, the amount-only rule is gone, titles are the bank's text)* | 2026-09-12 | full entry below |
-| Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key | 2026-09-12 | full entry below |
-| Overview folds into Home — four months on Home, `⏎` on a hashtag row filters category + hashtag, empty categories hidden, Overview deleted | 2026-09-13 | full entry below |
-| The TUI sees the response body only where it asks for it — `run_write(on_response=…)`, before `on_success` | 2026-09-20 | full entry below |
-| The gap report is a line under the header, not a toast and not the rows — and the engine ask was dropped *(superseded 2026-09-23: the gap-fields ask was raised after all and shipped as `coverage_gap` on `complete`, engine `7788252`; the line under the header stands)* | 2026-09-22 | full entry below |
-| Rows in no batch live in the reconciliation view — `u` swaps the pane, `⏎` fixes, `d` deletes *(its tail-by-offset read is superseded by "The transaction list pages by cursor"; since 2026-09-25 `u` works only inside an open account's panel — see "Reconciliations opens on the accounts")* | 2026-09-22 | full entry below |
-| The transaction list pages by cursor — the probe-then-offset-then-reverse read rejected | 2026-09-23 | full entry below |
-| Deleted is deleted — restore is an operator task | 2026-09-23 | full entry below |
-| Activity and Rates leave the TUI — their flat commands stay | 2026-09-23 | full entry below |
-| Long lists grow, they do not page — 10 at a time, `pgdn` appends, a failed count fails the list, a write starts over | 2026-09-25 | full entry below |
-| Reconciliations opens on the accounts — nothing is read until `⏎` | 2026-09-25 | full entry below |
-| Reconciliation periods are days — bare `YYYY-MM-DD`, checked at the field, both required (owner's pick) | 2026-09-26 | full entry below |
-| Delete anything that no longer points anywhere — no stubs, no friendlier messages for removed flags | 2026-09-25 | full entry below |
-| Sealed periods: the engine guards, the client reports — no client seal check, no cached windows, no bulk close, a hint on every refusal | 2026-09-20 | full entry below |
+| Decision | The why lives in |
+|---|---|
+| CLI is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
+| Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [cli-runtime.md](cli-runtime.md) "Write semantics" |
+| PAT auth (`ewe_pat_` prefix) | [cli-spec.md](cli-spec.md) "Auth model" |
+| Public GitHub repo → secrets never enter the repo | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
+| Sanctioned deviations from the principles | [cli-spec.md](cli-spec.md) "Sanctioned exceptions" |
+| Rates cross the wire as integers (`rate_e8`) | `expense_world_engine/docs/currency-model-decision.md` |
 
 ## What a half-written batch means (2026-08-25)
 
-**Context.** Phase 4 of the quick-add bar gave the LOG bar its `ctrl+s` and pointed `+` at it. The write is deliberately two calls, not one: the complete rows go in a single atomic `POST /transactions/batch`, and each Inbox-bound row is a `POST /inbox` after it. That shape is what makes the interesting question possible — the engine can die *between* them — and [mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html) had only drawn the all-or-nothing case. Four questions were put to the user as rendered variants.
+**Context.** The LOG bar saves every staged row in one `POST /transactions/batch`, through [expense/batch_write.py](../expense/batch_write.py). A batch can partly fail.
 
-**Decision.** (1) **A successful save does not leave the screen.** The written rows stay, each with a `✓`, and are cleared the moment the next line is staged — so the list only ever shows rows you are about to write, and what a finished batch leaves behind is one sentence (`Nothing staged. 2 logged · 1 draft in the Inbox a moment ago.`). (2) **A partial failure ticks what landed and retries only the rest.** Rows the engine holds are done and are never re-sent; rows that failed keep their marker and carry the engine's own message under the table; `ctrl+s` covers only rows without a `✓`. This is safe because **`row_id` is minted at stage time and reused on every attempt** — a row whose response was lost replays under the id it already had, so the engine answers `409`, which the save reads as *written*, not as an error. Nothing can be written twice. (3) **`ctrl+s` leaves an unstaged line in the bar alone.** `↵` is the only thing that stages, so a save can never write something still being typed. (4) **The discard card's third answer, `ctrl+s save first`, saves and then leaves** — you pressed `esc`, so the intent was to go — **unless the save fails**, in which case the screen stays, because an error you cannot read is the same as no error at all.
+**Decision.** (1) **A successful save stays on the screen**: written rows show a `✓` and are cleared the moment the next line is staged, so the list only ever holds rows about to be written. (2) **A partial failure ticks what landed and retries only the rest.** Failed rows keep their marker and the engine's message; `ctrl+s` covers only rows without a `✓`. This is safe because **`row_id` is minted at stage time and reused on every attempt** — a row whose response was lost replays as `409`, which the save reads as *written*. (3) **`ctrl+s` never touches an unstaged line in the bar** — `↵` is the only thing that stages. (4) **The discard card's `ctrl+s save first` saves and then leaves, unless the save fails**, in which case the screen stays so the error can be read. The row's **`date` is frozen at stage time** too, so a batch saved across midnight does not change day. A saved row cannot be lifted back into the bar — correcting a written row is the edit form's job. The chunk-then-singleton batch mechanics are shared with the `.xlsx` importer in `batch_write.py`, not copied.
 
-Two consequences worth naming. A **saved row cannot be lifted back into the bar**: editing it would promise a change this screen cannot make, since the bar only ever creates. Correcting a written row is the edit form's job, which is precisely why that door stayed open ([mockups/expense-world-two-doors.html](mockups/expense-world-two-doors.html)). And `+` **still means one thing** on all three screens that bind it, the Inbox included: where a row lands is decided by the line you typed and shown in the `goes to` column before you commit, never by which screen you were standing on.
-
-**Rejected.** For (1): *dismiss on success*, which throws away the confirmation the user actually wanted and makes a five-row batch a five-row leap of faith; *keep the ticked rows until you leave*, rejected because the list then mixes history with intent, and the per-currency total under it would describe a batch that no longer exists. For (2): *tick nothing until everything lands, and re-send the whole list on retry* — safe, because the frozen ids make the ledger rows replay as 409s, but it hides a partial failure behind a wall of conflicts and makes the engine do the de-duplication the screen could have done honestly; *fail the whole save on one bad row*, which is the thing the singleton fallback exists to prevent. For (3): *stage the bar's line automatically and save it too*, rejected because a save would then write a line the user had not finished — the one thing `↵` exists to gate; *refuse the save outright until the bar is empty*, rejected as punishing a correct instinct. For (4): *save and stay*, rejected because it answers a question the user did not ask — they pressed `esc`.
-
-**Also settled here, without ceremony.** The row's **`date` is frozen at stage time** alongside its routing and its id: a batch typed at 23:59 and saved at 00:01 must not silently change day between what you read and what you wrote. And the batch mechanics — chunk, then one row per batch when the engine refuses without naming a row — were **extracted** from the `.xlsx` importer into [expense/batch_write.py](../expense/batch_write.py) rather than copied, so the LOG bar and `expense import` share one copy of a workaround that exists only because the engine does not send the per-item error index its spec promises.
+**Rejected.** *Dismiss on success* — throws away the confirmation. *Keep ticked rows until you leave* — mixes history with intent and the per-currency total stops describing the batch. *Re-send the whole list on retry* — safe, but hides a partial failure behind a wall of 409s. *Auto-stage the bar's line on save* — writes something unfinished. *Save and stay after `esc`* — the user pressed `esc`.
 
 ## Four calls for the LOG bar (2026-08-25)
 
-**Context.** Phase 3 of the quick-add bar built the TUI screen the whole item exists for: one `LOG` bar, `↵` stages a parsed line into a list, the list says where every row is going before anything is written. Its design was already picked — option **D** of [mockups/expense-world-log-revamp.html](mockups/expense-world-log-revamp.html), worked out in [mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html). Four details that mockup left ambiguous (one of them a disagreement with a second mockup) were put to the user as drawn variants.
+**Decision.** (1) **A staged row comes back as the raw line you typed** (`↑↓` pick, `↵` lifts it into the bar) — nothing is re-rendered, so line and row can never disagree. (2) **The staged table keeps its `tags` column.** (3) **The batch totals per currency** — never adds PEN to USD: `3 to the ledger · -45.20 PEN · -96.00 USD`. (4) **A refused line's reason reuses [route.py](../expense/quickadd/route.py)'s own phrases**; the flat `expense log` prints the same strings — one wording, one place. The date cell shows the year whenever it is not the current one, because the staged list is the echo that makes two-digit years safe.
 
-**Decision.** (1) **A staged row comes back as the raw line you typed.** `↑↓` pick a row, `↵` lifts it into the bar, and what appears is the exact text that made it — the mockup's blurb ("the row came back as the line that made it") rather than its drawing, which showed a canonical re-render with the names spelled out. Nothing is invented on the round trip, so the line and the row can never disagree. (2) **The staged table keeps its `tags` column** — the batch mockup's eight-column set, which supersedes the seven columns [mockups/expense-world-two-doors.html](mockups/expense-world-two-doors.html) draws. (3) **The batch totals per currency.** One line is one movement in one account and therefore one currency (the user's framing), but a *batch* can hold a PEN row and a USD row, so the summary prints one figure per currency and never adds them: `3 to the ledger · -45.20 PEN · -96.00 USD`. With a single currency staged — the normal case — it reads exactly as the mockup drew it. (4) **The Inbox footnote reuses [route.py](../expense/quickadd/route.py)'s own phrases**, prefixed with the row number: `2 to the Inbox — row 3: the line names no account · row 5: it is dated ahead`. The flat `expense log` prints the same strings; there is one wording for one rule, in one place.
-
-**Rejected.** For (1): *rebuild the line from the row* — resolved names spelled in full plus a bare sigil parked at the end for whatever is missing, which is closer to what pane 6 actually draws. It reads better on the screen and is a second formatter to keep in step with the grammar forever; a re-render that drifts from the parser loses text the user typed, and that is the one thing a capture bar must not do. For (2): *drop the tags column*, buying ~13 columns for the title and account cells on a narrow terminal — rejected because tags are half of why a line is typed rather than clicked, and the marker and row number were merged into one cell (`• 1`) instead, which bought the width back. For (3): *no figure at all when the batch is mixed*, and *never a figure* — both refuse to answer the question the summary exists to answer, and both are silently different from the single-currency case. For (4): *the count alone*, letting the row's own red `— account?` cell carry the why — genuinely tempting, and rejected because a row can be Inbox-bound for a reason with no cell of its own (dated ahead shows only as a red date); *a second, shorter wording* written for this footer to match the mockup literally (`row 3 has no account`) — rejected as a phrase table that would drift from route.py's the first time either changed.
-
-**Also settled here, without ceremony.** The date cell shows the **year whenever it is not the current one** (`18 Aug`, but `18 Aug 2024`). Two-digit years are accepted by the grammar only because the resolved date is always echoed before the row is committed ("Three quick-add grammar rules" below); in the TUI that echo *is* the staged list, and a bare `18 Aug` would hide exactly the digit in question.
+**Rejected.** *Rebuild the line from the row* (names spelled out) — a second formatter that drifts from the parser and loses typed text. *Drop the tags column for width* — tags are half of why a line is typed. *A second, shorter wording for the reasons* — a phrase table that drifts from route.py.
 
 ## Two calls for the one-line `expense log` (2026-08-25)
 
-**Context.** Phase 2 of the quick-add bar gave the phase-1 grammar its first caller: `expense log "tottus -38.60 $signature @korakuen hoy"`. The grammar was already settled and the batch mockup already answered these questions *for the TUI*; the flat command is a different shape — one line, one shot, no staged list — so both were put to the user again as plain questions.
+**Decision.** (1) **One rule on both surfaces**: [quickadd/route.py](../expense/quickadd/route.py) decides whether a line is accepted or refused (see "A sparse line is a ledger row"); the flat command exits 1 on a refused line. An ambiguous name counts as no name, and the candidates are printed. (2) **The command always echoes the parsed row and asks before writing**; `--yes` skips. The grammar is forgiving (`18/8/26`, `hoy`, `$sig`) *because* the resolved row is always shown before it is committed — in the TUI the staged list is that echo; in the flat command the prompt is. The prompt lives in [log_cmd.py](../expense/commands/log_cmd.py), never in `expense/quickadd/`, so the TUI does not confirm twice.
 
-**Decision.** (1) **An incomplete line becomes an Inbox draft, not an error** — the routing rule holds on both surfaces ([quickadd/route.py](../expense/quickadd/route.py) is the one copy): complete and not dated ahead goes to `POST /transactions`, everything else to `POST /inbox`. **An ambiguous name counts as no name** — `$sig` matching two accounts drafts the row exactly as a missing `$` would, though the candidates are printed anyway, because the way out is to answer `n` and type more of the name. (2) **The command always asks before writing**, `--yes` skips. It echoes the parsed row first — the date spelled out in words, the account and category by name — and waits for y/N.
-
-The second call is the load-bearing one. The grammar is forgiving on purpose: `18/8/26` is a date, `hoy` is today, `$sig` finds an account from a fragment. Two-digit years were accepted at all *because* the resolved date is always echoed before the row is committed — in the TUI that echo is the staged list, and nothing reaches the engine until `ctrl+s`. The flat command has no staging step, so the prompt is where that guarantee lives. It is deliberately **flat-CLI only**: it sits in [log_cmd.py](../expense/commands/log_cmd.py), never in `expense/quickadd/`, so the TUI is not asked to confirm twice.
-
-**Rejected.** For (1): *refuse and name what is missing*, which reads well in a shell (press ↑, fix, retype) but splits one routing rule into two behaviours across two surfaces, and makes the flat command the only place a captured line can be lost; *refuse unless `--inbox`*, same objection plus a flag to remember. For the ambiguity half: *always refuse on an ambiguous name*, rejected as a second rule for what is already one thing — an unresolved reference — and unnecessary once the candidates are printed either way. For (2): *write, then echo* with `--dry-run` as the look-first path, rejected because a misread would already be in the ledger and `--dry-run` is opt-in, i.e. the check would be skipped exactly when someone is typing fast; *prompt only when something was inferred* (a two-digit year, a `contains` match rather than an exact one), rejected as an unpredictable prompt — the user cannot tell before pressing enter whether this line will stop, and a confirmation that appears sometimes trains you to dismiss it.
-
-**Also settled here, without ceremony:** the flat form's output block is option **A** of [mockups/expense-world-log-oneline.html](mockups/expense-world-log-oneline.html) (two lines — title with the amount right-aligned, then everything else dot-separated), picked 2026-08-25 over a labelled field list.
+**Rejected.** *Write, then echo, with `--dry-run` to look first* — the check is skipped exactly when typing fast. *Prompt only when something was inferred* — an unpredictable prompt trains you to dismiss it.
 
 ## Three quick-add grammar rules (2026-08-25)
 
-**Context.** Phase 1 of the quick-add bar turned the grammar into a real module, [expense/quickadd/](../expense/quickadd/). Most of the grammar was already settled — the sigils, first-sign-wins, `//` after a space, both languages — but writing the parser surfaced three questions the todo and [mockups/expense-world-quickadd-batch.html](mockups/expense-world-quickadd-batch.html) never answered. All three are user-visible behaviour, so all three were put to the user as plain questions.
+**Decision.** (1) **Names match on "contains, anywhere"**, accent- and case-blind ([quickadd/names.py](../expense/quickadd/names.py) `fold()`, shared by every picker). An exact name wins outright, longer phrases are tried first (`#caja chica` before `#caja`); zero or several hits leave the token unresolved with its candidates for a picker. (2) **Dashed ISO dates are accepted** (`2026-08-18`) because `--date` takes that shape everywhere; dashes stay ISO-only, so `18-08-2026` is not a date. (3) **An unmatched `#tag` is refused, never created.**
 
-**Decision.** (1) **Reference names match on "contains, anywhere."** `$sig` matches any account whose name contains "sig"; exactly one hit resolves, zero or several leave the token unresolved carrying its candidates for a picker. An exact casefold name still wins outright before contains is tried, and longer phrases are tried before shorter ones, so `#caja` is `CAJA` and `#caja chica` is `CAJA CHICA`. (2) **Dashed ISO dates are accepted** — `2026-08-18` alongside `18/08/2026`, `2026/08/18` and the word forms — because that is the shape `--date` takes on every shipped command. Dashes stay ISO-only: `18-08-2026` is not a date, which keeps the dashed form unambiguous. (3) **An unmatched `#tag` is flagged, never created.** It stays unresolved, which addresses the row to the Inbox at stage time, exactly as a missing account does.
-
-**Rejected.** For (1): *whole-name-only* matching, which is the most predictable but leaves the flat `expense log "…"` of phase 2 with no completion to lean on and forces the user to type "BCP Signature USD" in full; and *starts-with*, which quietly fails the common case of typing the distinctive middle word of a long account name. Contains also matches what every existing TUI picker already does ([quick_log.py](../expense/tui/screens/quick_log.py) `_recompute`, [create_forms.py](../expense/tui/screens/create_forms.py)), so the bar behaves like the rest of the app. For (2): *slash forms only*, as drawn — rejected as a trap, since a user who types dashed dates everywhere else would silently get title text. For (3): *create-on-save*, the resolve-or-create behaviour [import_/apply.py](../expense/import_/apply.py) uses — rejected because a typo in a capture bar would become a permanent new tag; and *swallow as title text*, rejected because it loses the tag without saying so. Note also that the earlier [mockups/expense-world-log-revamp.html](mockups/expense-world-log-revamp.html) option D draws `@account` / `/category`; the batch mockup supersedes it with `$account` / `@category`, and the parser follows the batch mockup.
+**Rejected.** *Whole-name or starts-with matching* — fails the common case of typing the distinctive middle word. *Slash dates only* — a user who types dashes everywhere else would silently get title text. *Create unknown tags on save* — a typo becomes a permanent tag. *Swallow an unknown tag as title text* — loses it silently.
 
 ## Sign is always literal — no default-to-expense magic (2026-04-25)
 
-**Context.** The engine's `debit_as_negative` convention (negative = expense, positive = income) is central to how the whole system reasons about money. While designing the capture UX (structured `log`, future quick-add parser), the tempting default existed: treat a bare unsigned amount as an expense, since most entries are expenses.
+**Decision.** The sign is explicit end-to-end in every UX layer: `20` is income, `-20` is expense. An amount whose sign is ambiguous gets a prompt or an error, never a guess. No exceptions.
 
-**Decision.** The sign is always explicit, end-to-end, in every UX layer: `$20` = income, `-$20` = expense. An unsigned amount where the sign is ambiguous gets a prompt or an error — never a guess. The rule surfaces in [cli-spec.md](cli-spec.md) "Principles" and the quick-add entry under "To Be Defined". The single sanctioned exception was the TUI transfer "To amount" field (magnitude entry, sign auto-set opposite the Amount leg per the engine's zero-sum rule). **Superseded 2026-08-16:** the exception died with the engine's transfer-feature removal (2026-08-10); the rule now holds everywhere with no exceptions.
-
-**Rejected.** Default-to-expense for quick-add, offered explicitly and declined by the user. Reasons: a magic default is hidden behavior that diverges from what the engine actually stores; it confuses the user about what was recorded; and it complicates the future parser with intent inference. When a new command or parser takes an amount, require the sign or reject the input.
+**Rejected.** *Default an unsigned amount to expense* (offered, declined) — hidden behaviour that diverges from what the engine stores and forces the parser to infer intent.
 
 ## Dual-UX strategy — flat commands + TUI + quick-add (2026-04-25)
 
-**Context.** For a multi-command CLI, discoverability friction is real for infrequent management tasks ("which flag archives an account?"), but for daily capture, flat commands beat any menu (`expense log -20 …` beats walking six prompts). One interaction mode can't serve both.
+**Decision.** Three surfaces over one implementation: **flat commands** (canonical, scriptable, the contract-validator surface), the **TUI** `expense world` for management and discovery, and the **quick-add grammar** for capture (`expense log` and the LOG bar). Every interactive action goes through the shared fetch/write layer. `expense` with no args prints group help.
 
-**Decision.** Three surfaces over one implementation, each matched to an actual need: (1) **flat commands** — canonical, scriptable, the contract-validator surface, always the source of truth for behavior; (2) an **interactive surface** for management and first-time discovery — originally the questionary `expense menu`, replaced by the Textual TUI `expense world` (see next entry); (3) a **quick-add parser** for daily capture (still open — [todo.md](todo.md)). Every interactive action delegates to the shared fetch/write layer — no parallel logic. `expense` with no args keeps printing group help; the interactive surface is opt-in.
-
-**Rejected.** Interactive-first UX (slower for capture, unscriptable); folding flat commands under the interactive surface (kills scripting, testing, and the parser's dispatch target); building the interactive layer before Step 9 (UI over a moving action surface is wasted work). This mirrors Todoist's architecture — quick-add bar for capture, menus for everything else — per the lessons docs in the engine repo.
-
-## Questionary menu deleted ahead of its gate (2026-07-02, Step 10.X)
-
-**Context.** The questionary `expense menu` shipped at Step 9.5 as the first interactive surface. The Textual TUI (`expense world`, Step 10) superseded it while still short of full parity; the original plan deleted the menu only after TUI P2+P3 completion.
-
-**Decision.** Delete early: `expense/menu/`, its test suite, the Typer command, and the `questionary` dependency all removed at Step 10.X. Nothing was lost because the flat commands are the complete contract-validator surface — the menu was a convenience layer, not a capability. Keeping two interactive surfaces alive meant maintaining every new feature twice for no product value, since the TUI was already the committed direction. <!-- [user to confirm: the double-maintenance motivation matches your recollection of the 2026-07-02 call] -->
-
-**Rejected.** Waiting for full TUI parity (pays double maintenance during the overlap); keeping the menu as a fallback (two half-loved surfaces instead of one good one).
+**Rejected.** *Interactive-first* (slower for capture, unscriptable); *folding flat commands under the interactive surface* (kills scripting and testing); *a second interactive surface beside the TUI* (every feature built twice).
 
 ## Mockup-first, and showing ≠ approval (hardened 2026-05-24)
 
-**Context.** The rule "mock every screen before building it" existed from the Step 9.5 table work. On 2026-05-24 it grew teeth: three Reports-view mockups were produced for the user to choose between, and before a pick was made, a vague follow-up ("where were we?") was taken as a go-ahead — Option A got implemented unilaterally. The user expected the render to *be* the deliverable; implementation needed its own green light.
+**Decision.** Every user-facing view or table change starts with an HTML mockup in [mockups/](mockups/), and **presenting mockups is never authorization** — implementation waits for an explicit pick, even in auto-accept mode and even when a follow-up sounds like consent. A prior session's approval is not a standing license. Full rule: [CLAUDE.md](../CLAUDE.md) "Mock every screen before building it".
 
-**Decision.** Every user-facing view or table change starts with an HTML mockup in [mockups/](mockups/), **and presenting mockups is never authorization** — implementation waits for an explicit pick, even in auto-accept mode, even when a follow-up sounds like consent. A prior session's approval is not a standing license: the user re-reads the mockup each time a screen is picked up, because specific observations only come from re-reading. Full rule in [CLAUDE.md](../CLAUDE.md) "Mock every screen before building it"; the CLI-table variant (propose columns + sign-off) in [cli-spec.md](cli-spec.md) "Output conventions".
+**Rejected.** *Treating an earlier approval as durable*; *inferring layout or columns from the response shape* — scannability is the owner's judgment.
 
-**Rejected.** Treating an earlier approval as durable (screens drift, and so do the user's observations); inferring layout or columns from the engine response shape (scannability is the user's product judgment, not a derivable fact).
+## The open-work list holds only open work (2026-07-06)
 
-## The open-work list holds only open work (2026-07-06; the file has been `polish-backlog.md` → `backlog.md` → [todo.md](todo.md), the last rename on 2026-08-20 when the closed engine-rework phases were deleted with it)
+**Decision.** [todo.md](todo.md) is a working list, not an archive: closed items — and whole finished docs — are deleted; git history is the archive.
 
-**Context.** When the 2026-07-02 quality review was fully worked off, the choice was append the new review below the closed one, or replace.
-
-**Decision.** Replace. A fully-closed review's content is deleted; the file header notes the commit holding the last full copy (the 2026-07-02 review lives at `2d42482`). It is a working list, not an archive — git history is the archive ("If the previous data is finished, we might be better deleting the information", 2026-07-06).
-
-**Rejected.** Append-and-keep (the file becomes noise; closed items get re-read forever); a separate archive doc (a second home for facts git already keeps).
+**Rejected.** *Append and keep* (closed items get re-read forever); *a separate archive doc* (a second home for what git already keeps).
 
 ## Manage detail: system categories are editable, not immutable (2026-07-07)
 
-> **Superseded in part (2026-08-15).** The engine's 2026-08-06 schema slimming deleted category/hashtag archive entirely, so the hide-`a`-on-system-categories mechanics below are moot — categories no longer have an `a` binding at all (archive is accounts-only; the toggle moved to `AccountsScreen`). The surviving half of this decision — system categories **are renameable** via `e`, never TUI-immutable — still governs.
->
-> **Superseded in part, again (2026-08-16).** `@Transfer` and `@Debt` — the categories this entry reasons from — were deleted with the engine's transfer-feature removal (2026-08-10). The rule survives unchanged but now applies to a single system category, `@Opening`; the "would break the transfer pipeline" rationale below is historical.
+**Decision.** The TUI offers `e` (rename/recolor) on system categories (`@Opening`, `@Pendiente`). The engine resolves them by an immutable `system_key`, never by name, so renaming is safe and allowed; delete is refused by the engine. The client mirrors the engine: it offers what the engine accepts.
 
-**Context.** Building the Manage edit flow (`enter`→detail→`e` edit / `a` archive; see [tui.md](tui.md)), the question was how to treat system categories (`@Transfer`, `@Debt`). The initial instinct — and a first recommendation — was to make them fully read-only in the TUI (hide `e` and `a`), assuming "system = untouchable." The engine's actual contract is the opposite on the axis that matters.
-
-**Decision.** The TUI **offers `e` (rename/recolor) on system categories** and **hides only `a` (archive)**. Rationale, from the engine spec: system categories are resolved by an immutable `system_key` column, never by name, so renaming is pipeline-safe and explicitly allowed (`PUT` has no `is_system` guard — engine-spec §Categories) — the `system_key` machinery was built specifically to make renaming safe, including localization (`@Transfer` → `@Transferencia`). Archive and delete, by contrast, change availability and would break the transfer pipeline, so the engine `403`s them. Hiding `a` therefore *reflects* a guaranteed-`403`; offering `e` reflects a guaranteed success. Implemented via `ResourceListScreen.check_action` in [_base.py](../expense/tui/screens/_base.py) (originally on the record detail's `ManageDetailScreen`, which was deleted 2026-07-11 — see the archive-toggle entry below; the system-category rule carried over unchanged).
-
-**Rejected.** (1) **Hide `e` on system categories** (make them TUI-immutable) — rejected as client-invented business logic: the engine permits the rename, so a client silently forbidding it is exactly the split-brain the thin-wrapper rule exists to prevent. (2) **Ask the engine to `403` `PUT` on system categories** "for consistency" with archive/delete — rejected: that's a *false* consistency (existence vs. presentation are different axes) and would throw away the deliberately-engineered rename/localization capability. The engine is internally consistent as-is; only the CLI's `_SYSTEM_HINT` copy ("cannot be modified") was imprecise and was corrected. Distinction credited to the user's review of the first recommendation.
-
-## Monthly report TUI is a sliding 4-month grid, not a single-month view (2026-07-08)
-
-> *2026-08-29: Outstanding Amounts was merged into this screen — see "Overview" below.
-> The rejection of a single-month view **stands**; what changed is that the duplicate this
-> entry named out loud was deleted, instead of being left one navigation step away.*
-
-**Context.** The Monthly report screen was the last unwired home-menu entry ([tui.md](tui.md)). The first mockup proposed a single-month view (categories + hashtag breakdown + totals, `[`/`]` to change month) — a natural mirror of the flat `reports monthly --date`. The user rejected it on review: a single month of category spend is what **Outstanding Amounts already shows**; a second screen rendering the same shape one navigation-step away adds no information, just a month picker.
-
-**Decision.** The screen is a **4-month grid** — categories as rows, the last four months as columns (window ends at the current month), home-currency cells, net-only footer; `[`/`]` slide the window one month older/newer, no clamp. *(keys superseded 2026-08-27 — see "One key per job")* **Picked 2026-07-08 (option A of two drawn):** rows expand `▼/▶` into their hashtag combos across all four columns, reusing the Outstanding tree keymap; collapsed by default so the grid first reads like the CLI range table. One engine call per window (`GET /v1/reports/monthly` with from/to via the shared `fetch_range`); the grid merge (`build_range_grid`) is shared with the flat range renderer.
-
-**Rejected.** (1) **Single-month view** — duplicates Outstanding Amounts; the report's value over the dashboard is the *time axis*, so the screen must show it. (2) **Single-month + a range-view toggle** — two layouts to build and maintain when the sliding window already covers the trend need with one. (3) **`←`/`→` for month navigation** — collides with the tree's expand/collapse bindings, hence `[`/`]`. *(Still true, and still why `←`/`→` were not chosen when the window moved to `pgdn`/`pgup` on 2026-08-27.)* (4) **Option B (flat, always-expanded grid)** — offered in the mockup, not picked; long months can't fold their hashtag noise.
-
-## `SyncContractError` + exit code 5 for /sync contract violations (2026-07-08)
-
-> **Moot 2026-08-06.** `SyncContractError` and exit code 5 were deleted with the
-> local replica — there is no `/sync` response left to violate a contract. See
-> "Delete the local replica" below. The surviving exit-code family is **1**
-> (engine rejected the request), **3** (config), **6** (connection), with **2**
-> left to click alone; 4 (cache) and 5 (sync contract) are retired and should
-> not be reused. The reasoning below is kept because the *principle* it set —
-> a new meaning gets a fresh code, never an overloaded one — is still the rule.
-
-**Context.** Two cache-sync guards raised bare `RuntimeError`: `_derive_user_id` when a /sync response has null settings and every resource empty (reachable by installing a PAT and running any list command before `auth bootstrap`), and `_fetch` when the engine omits `sync_token`. `handle_errors` catches only the domain errors, so both escaped as raw tracebacks — the exact freshman path the CLI exists to smooth.
-
-**Decision.** A new domain error, `SyncContractError` ("the engine responded but violated its own contract"), registered in the `_ENVELOPE_ERRORS` table in [expense/errors.py](../expense/errors.py) with envelope code `SYNC_CONTRACT` and **exit code 5** — a new family alongside 1 (engine rejected the request), 2 (connection), 3 (config), 4 (cache). The user-facing message carries the remedy ("run 'expense auth bootstrap' first"), so the TUI toast inherits the hint via `format_error`'s fallback.
-
-**Rejected.** Exit 1 (folding it into "engine error" hides that the *contract* broke, not a request — scripts couldn't tell a broken engine build from a validation error); exit 2 (already double-booked: connection errors share it with click's usage errors, then an open nit — since closed by moving connection to exit 6, see below — and adding a third meaning would have made it worse); keeping `RuntimeError` and catching it broadly in `handle_errors` (would swallow genuine client bugs, which must keep crashing loudly).
+**Rejected.** *Hide `e` on system categories* — client-invented business logic. *Ask the engine to refuse `PUT` on them* — a false consistency that throws away rename/localisation.
 
 ## TUI writes: FIFO queue in EngineWriteMixin, error drops the queue (2026-07-08)
 
-**Context.** `run_write` was a thread worker with `exclusive=True`, but thread cancellation is cooperative and never checked — rapid repeated writes (double-pressed archive, fast checklist toggles) fired overlapping, unordered PUTs. The checklist screen had fixed this locally with its own queue + inflight flag; every other screen still raced, and every write ran its own `refresh_after_write` delta — a 15–30-toggle reconciliation burst meant 2 engine round-trips per toggle against Render.
+**Decision.** `EngineWriteMixin.run_write` ([_base.py](../expense/tui/screens/_base.py)) owns a per-screen FIFO: exactly one request in flight, order preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs.
 
-**Decision.** The mixin owns a per-screen FIFO: `run_write` enqueues, exactly one request is in flight, order is preserved. **A failed write drops the queued remainder** — those intents were decided against a screen state the engine just contradicted; the error callback resyncs (user decision 2026-07-08, generalizing the tested toggle behavior). `run_write(refresh=False)` coalesces the replica refresh into one delta sync when the queue drains — including after an error drain, since earlier skipped-refresh successes already changed engine state. The checklist's local queue was deleted; its serialization tests pass unchanged against the mixin.
-
-**Rejected.** Per-screen queues à la `_pump_toggles` (N copies of the same race fix, each one edit from drift); cancelling in-flight writes on supersede (cooperative cancellation can't actually stop a thread mid-request, and aborting engine writes mid-flight is worse than finishing them — the idempotency key already covers retries); continuing the queue past a failure (later writes may depend on the failed one, and it would silently change the tested toggle-error contract).
+**Rejected.** *Per-screen queues* (N copies of one race fix); *cancelling in-flight writes on supersede* (thread cancellation cannot stop a request, and the idempotency key already covers retries); *continuing past a failure* (later writes may depend on the failed one). Independent bulk writes use their own worker instead — see "Home is the month".
 
 ## Connection errors get exit code 6, off the click collision on 2 (2026-07-10)
 
-**Context.** `EngineConnectionError` mapped to exit **2** — the same code click/Typer emit for usage errors (bad flags, missing args). A script or CI run couldn't tell "engine unreachable" from "you called it wrong." The `SyncContractError` decision above had already flagged this as an open nit when it took 5 rather than overload 2.
+**Decision.** Exit codes: **1** engine rejected the request, **3** config, **6** connection; **2** belongs to click's usage errors alone. A new meaning gets a fresh code, never an overloaded one; 4 and 5 are retired and not reused. Source of truth: `_ENVELOPE_ERRORS` in [expense/errors.py](../expense/errors.py).
 
-**Decision.** Move `EngineConnectionError` to **exit code 6** in the `_ENVELOPE_ERRORS` table ([expense/errors.py](../expense/errors.py)) — one row; `render()` and `handle_errors` inherit it automatically. The family was then 1 (engine rejected) · 3 (config) · 4 (cache) · 5 (sync contract) · **6 (connection)**, with **2 left to click alone**. Same principle as the exit-5 call: a new meaning gets a fresh code, never an overloaded one. *(**Since 2026-08-06** the replica's deletion retired 4 and 5, so the live family is 1 · 3 · 6 — `expense/errors.py` `_ENVELOPE_ERRORS` is the source of truth. The retired codes stay retired rather than being recycled.)*
-
-**Rejected.** Reusing 2 with a distinguishing message (scripts branch on the code, not prose); renumbering the family so connection sits contiguous with 1–5 (churns four codes and their tests for cosmetics — appending 6 is the minimal, non-breaking move).
+**Rejected.** *Sharing 2 with a distinguishing message* — scripts branch on the code, not prose. *Renumbering to be contiguous* — churn for cosmetics.
 
 ## TUI paints the terminal's own background — ANSI mode (2026-07-11)
 
-**Context.** On the `expense world` home screen the user saw three stacked background shades. Investigation confirmed the app paints exactly one fill — `$background = #0e0e11` — plus the selection bar. The "third" shade is the terminal emulator's own **window padding**, drawn in the Terminal profile's background (near-black). Because `#0e0e11` is a hair lighter than the terminal's black, the app content reads as a lighter panel inside a darker frame — a seam the app can't paint over, only *match*. Mockup + rejected-alternatives render: [mockups/tui-ansi-transparent-background.html](mockups/tui-ansi-transparent-background.html).
+**Decision.** The app runs in ANSI mode (`ansi_color=True`, [app.py](../expense/tui/app.py)) and the base fills (`Screen`, `#menu`) are `ansi_default`, so the app and the terminal's window padding are one surface on any terminal. Guard: `test_base_fills_are_terminal_transparent`. The foreground half is "The terminal supplies the palette".
 
-**Decision.** Run the TUI in **ANSI mode** — `ExpenseApp` passes `ansi_color=True` ([app.py](../expense/tui/app.py)). Textual then emits the terminal's default background (SGR 49) instead of a fixed hex, so the app fill and the window padding become one continuous surface that **follows whatever dark terminal it runs in**. Scope is deliberate: **adaptive background, pinned foreground.** The theme stays non-ANSI, so every design token keeps its authored hex (net/spent red, owed green, grey selection bar, `$surface` separators, footer); only the base fill and inherited text color go through the terminal, and [app.tcss](../expense/tui/app.tcss) pins the foreground back to `$foreground` under `Screen:ansi`. The base fills (`Screen`, `#menu`) carry `ansi_default` — the id-level `#menu` rule out-specifies Textual's `Screen:ansi`, so a hardcoded fill there would just relocate the seam to the menu edge (guarded by `test_base_fills_are_terminal_transparent`). `ModalScreen:ansi` is overridden to keep the dim scrim Textual otherwise drops. This is correct on any **dark** terminal and identical to before on a near-black one; it does **not** make the app readable on a **light** terminal — the fixed muted/semantic hexes assume a dark ground. That, plus a true light theme, was the open light/`NO_COLOR` item — **closed 2026-08-19 by deleting its premise**, see "The terminal supplies the palette" below.
+**Rejected.** *Match a fixed hex* — correct on one terminal profile only. *Fix it in the terminal profile* — pushes a code-owned problem onto every machine.
 
-**Rejected.** *Match a fixed hex* (`background="#000000"`) — exact and one line, but pinned to a single Terminal profile; on any other terminal the frame comes back. *Do nothing / fix the terminal profile* — punts a code-owned problem onto every machine's config. *Full native-ANSI theme* (`theme.ansi=True`, semantic colors → `ansi_*`) — truly terminal-agnostic including light terminals, but throws away the tuned sign-color palette and restyles foreground/scrollbars/footer app-wide; that belongs to the dedicated light/`NO_COLOR` theme work, not a seam fix. **This rejection was reversed 2026-08-19** — the native-ANSI theme is now what ships, and giving up the tuned palette turned out to be the price worth paying. The reasoning above was right about the *cost* and wrong that the cost was too high; see "The terminal supplies the palette". Everything else in this entry still governs: the ground work below is the foundation the reversal builds on, not something it undid.
+## Archive is a prompt-free toggle; Manage lists have no record detail (2026-07-11)
 
-## Archive is a prompt-free toggle; Manage record detail deleted (2026-07-11)
+**Decision.** (1) **The Manage lists are the whole surface** — no record-detail screen: `e` opens the prefilled edit form, `a` archives/unarchives the cursor row (accounts only), `enter` is a no-op. (2) **Archive is a reversible toggle, not a destructive operation**: no confirm modal in the TUI, no prompt and no `--yes` on the flat `archive`. Only delete/revert/clear are confirm-gated ([test_command_surface.py](../tests/unit/test_command_surface.py)).
 
-> **Scope narrowed (2026-08-15).** The 2026-08-06 engine schema slimming removed category/hashtag archive (routes 404, `is_archived` gone), so "everywhere" below now means **accounts only** — the sole archivable resource. The decision itself (reversible toggle → no confirm, no `--yes`) is unchanged and governs the accounts toggle; the deleted-record-detail half is unaffected.
+**Rejected.** *A record-detail screen* — repeats the list's columns. *Inline cell editing* — a second edit idiom for three screens. *A confirm on archive* — pure friction on something one keypress undoes. *`enter` as an edit alias* — declined; `enter` stays non-mutating.
 
-**Context.** `enter` on an Accounts/Categories/Hashtags row opened a record detail (`manage_detail.py`, Option B of 2026-07-07) whose field rows repeated the list's own columns one-for-one — its only value was hosting `e` (edit) and `a` (archive). The user flagged the redundancy ("I can see everything on the previous menu") and, reviewing alternatives, chose to make the list the whole surface. That reopened the archive-confirmation question: archive is fully reversible (`unarchive` restores, transactions untouched), so what does a confirm modal buy?
+## Every data table pages at 20 rows (2026-07-11)
 
-**Decision.** Two moves, decided together. **(1) The record detail is deleted**; the Manage lists act in place (`ResourceListScreen` in [_base.py](../expense/tui/screens/_base.py)): `e` pushes the prefilled edit bar-form, `a` archives/unarchives the cursor row, `enter` is a no-op. The cursor is preserved on the acted-on row across the post-write reload so a second `a` reliably undoes the first. **(2) Archive is reclassified as a reversible toggle, not a destructive operation — everywhere.** The TUI toggle runs with no confirm modal (toast only), and the flat CLI `archive` commands dropped both the confirmation prompt and the `--yes` flag, matching the always-prompt-free `unarchive`. Only delete/revert/clear remain confirm-gated (CLAUDE.md "Confirm destructive operations", [test_command_surface.py](../tests/unit/test_command_surface.py) armor). Chosen 2026-07-11 as "Alt A minus the confirm", superseding the earlier sketch that kept a record-detail screen.
+**Decision.** `DEFAULT_PAGE_ROWS = 20` in [_resource.py](../expense/commands/_resource.py), one copy for CLI and TUI. **CLI:** human mode sends `limit=20` on cursor-paged lists via `effective_limit`; explicit flags win; `--json` sends no default and stays byte-verbatim. **TUI:** full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
 
-**Rejected.** *Inline cell edit* — spreadsheet-style per-cell editing in the table; liked in principle but it introduces a second edit idiom used by only three screens, plus a bespoke cell-editor widget. *Below-table menu/action-bar/docked panel* — three flavours sketched; all add chrome to teach two keys the footer already teaches. *Keeping the confirm modal on archive* — the original 2026-07-07 worry was `a` firing on a stray list row, but the cursor row is reverse-highlighted, the toast names the outcome, and a mis-archive is one keypress from undone; a confirm on a reversible toggle is pure friction (and the rest of the app — Inbox `p`/`d` — already acts on the cursor row). *`enter` as an edit alias* — declined by the user; only `e` edits, keeping `enter` strictly non-mutating.
-
-## Every data table pages at 20 rows — CLI human mode + TUI, two tiers (2026-07-11)
-
-> **Amended 2026-07-13:** the TUI tier's fixed 20 became **min(20, what fits
-> the terminal)** — see "TUI rows-per-page adapt to the terminal" below. The
-> CLI tier (human-mode `--limit 20` default) is unchanged.
->
-> **Amended 2026-08-29:** the 20 is no longer universal in the TUI — Transactions
-> and Inbox page at what fits, up to the engine's `limit` ceiling. See "The ledger
-> fills the window" below. Every other screen, and the CLI tier, still page at 20.
-
-**Context.** User request: no table shows more than 20 rows; the rest paginates. Before this, the TUI drew whole payloads into one Rich table (a fixed first-50 for Transactions/Activity/Rates — pages 2+ unreachable — and *everything* for Manage/Reconciliations), and CLI `list` commands printed whatever the source returned (engine default 50, replica default 100). The engine/cache already shared the offset envelope `{items, total, limit, offset}` and the CLI already had `--limit`/`--offset` + `render_pagination_hint` — the standard mostly had to be wired, not built.
-
-**Decision.** A single 20-row page standard, `DEFAULT_PAGE_ROWS` in [_resource.py](../expense/commands/_resource.py) (one copy for CLI and TUI). **TUI, two tiers:** unbounded datasets (Transactions, Inbox, Activity, Rates) are *fetch-paged* — `PagedListMixin` sends real `limit=20&offset=20·page`, `pgdn`/`.` and `pgup`/`,` refetch, `j`/`k` clamp at the fetched edge (paging is a deliberate keypress) *(keys superseded 2026-08-27 — see "One key per job")*; full-data screens (Manage lists, Reconciliations panes, the recon CheckList at 20 items = 40 lines) are *display-windowed* — fetch untouched where guard-pinned, the 20-row window follows the cursor so `j`/`k` walk through and cursor-restore-after-write lands on the right page. Every list became its own quiet-border panel (dossier pick L2 + treatment A): border title absorbs the old title/legend row, border subtitle carries `rows 21-40 of 133 · page 2 of 7`; page keys hide on a single page. Manage Categories/Hashtags switched to `fetch_all_pages` (they silently truncated at the replica's 100 before). **CLI:** human mode defaults to `limit=20` via `effective_limit` and the existing hint takes over; explicit flags win; `--json` sends no default and stays byte-verbatim. `accounts list` gained `--limit`/`--offset` (`queries.list_accounts` is dual-shape: flag-less keeps the flat list internal consumers rely on). **Exempt:** Outstanding's category tree and (pick still open) its static tables, the Monthly grid, System kv-tables, Home. Mockup + recorded picks: [mockups/expense-world-pagination.html](mockups/expense-world-pagination.html).
-
-**Rejected.** *Client-side slicing for envelope-backed reads* — CLAUDE.md's thin-wrapper rule names exactly this shortcut as rejected; the next client must inherit real pagination, and the CLI exists to exercise the engine's contract. *Realigning the replica's default limit (100) to the engine's 50* — would silently change `--json` cache-read output; left as-is and noted here (the >100-row name-map completeness gap is a separate backlog concern). *`[`/`]` as page keys* — Monthly report owns them for month-window sliding; same key, different meaning violates the keymap contract, so `pgdn`/`pgup` + `.`/`,` (all previously unbound). *`j` auto-fetching past the fetched edge* (mockup step-3 option B) — holding `j` to skim would fire a fetch per keystroke at every boundary. *10-item CheckList pages* (strict "20 physical lines") — doubles page-flipping in the most keyboard-intensive flow; 20 items counts data rows like every other table.
+**Rejected.** *Client-side slicing of engine-paged reads* — the next client must inherit real pagination. *Auto-fetching when `↓` reaches the edge* — holding a key would fire a read per keystroke.
 
 ## TUI is keyboard-only — mouse disabled via `run(mouse=False)` (2026-07-12)
 
-**Context.** The user noticed `expense world` reacting to mouse clicks and drag-selections and asked to remove it. That behavior was never designed — we wrote zero mouse handlers (no `on_click`/`on_mouse_*`/`capture_mouse` anywhere under [expense/tui/](../expense/tui/)). It comes entirely from Textual's default: on launch the driver enables terminal mouse tracking (`\x1b[?1000h`/`1003h`/`1006h`), after which built-in widgets (`OptionList` menu, `Input` bars, `Footer`) act on clicks. A felt side effect: while Textual owns the mouse, the terminal's native text-selection / copy is suppressed.
+**Decision.** `run_world` launches with `mouse=False` ([app.py](../expense/tui/app.py)): Textual never enables mouse tracking, so clicks do nothing and the terminal's native select-to-copy works. Every affordance has a keyboard path. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
 
-**Decision.** Launch keyboard-only — `run_world` passes `mouse=False` to `.run()` ([app.py](../expense/tui/app.py)). Textual 8.2.7's driver short-circuits `_enable_mouse_support()` when the flag is false, so the tracking sequences are never written: the app ignores the mouse (clicks, drags, scroll wheel) and native select-to-copy works again. Nothing is lost — every affordance already has a full keyboard path, and the custom `CursorList`/`CheckList` widgets were keyboard-only from the start. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py) (asserts `run_world` launches with `mouse=False`). Mouse-wheel scroll is the only casualty; keyboard scroll (`↑`/`↓`, `PageUp`/`PageDown`) is unaffected. This retires the "mouse" line from the parked live-niceties list ([todo.md](todo.md)) — mouse is now deliberately off, not a future add.
-
-**Rejected.** *Leave Textual's default mouse on* — the behavior was unintended and, worse, blocks native terminal text-selection/copy, a real ergonomic loss in a read-heavy TUI. *Per-widget mouse handlers to swallow clicks* — brittle, wouldn't restore text selection (Textual still owns the mouse), and pointless when a single launch flag disables tracking at the source.
+**Rejected.** *Textual's default mouse* — unintended behaviour that blocks native copy. *Per-widget click swallowing* — brittle and still blocks copy.
 
 ## TUI rows-per-page adapt to the terminal — min(20, what fits) (2026-07-13)
 
-> **Amended 2026-08-29:** the 20 is now a per-screen knob (`PAGE_ROWS_CAP`) and
-> Transactions/Inbox raise it to the engine's ceiling, so "grow-to-fit on tall
-> terminals" — rejected below — is the behaviour on those two screens. The frame
-> arithmetic this entry relies on was also off by 2 lines. See "The ledger fills
-> the window" below.
+**Decision.** The page is the screenful, capped at `PAGE_ROWS_CAP` (default 20). `SectionScreen.measure_list_rows` ([_base.py](../expense/tui/screens/_base.py)) measures `#content`'s real height (screens declare their extra lines; `LIST_FRAME_LINES = 6` is the panel frame), floor `PAGE_ROWS_FLOOR = 5`; the first load waits for the first layout pass. The panel always fits, so `#content` never grows a scrollbar nothing could operate. CLI human mode is untouched (stdout has no viewport).
 
-**Context.** In a 120×30 terminal the fixed 20-row page needed 31 lines (chrome takes 11: breadcrumb 4, content padding 2, panel frame 4, footer 1) — the panel's bottom border and the `rows … · page …` subtitle clipped off-screen, and Textual grew a scrollbar on `#content` that nothing could operate: the mouse is off (2026-07-12 decision) and arrows move the row cursor, not the container. The user asked for row counts that follow the window (2026-07-12 screenshots; mockup [expense-world-adaptive-rows.html](mockups/expense-world-adaptive-rows.html)).
+**Rejected.** *A fixed 20 with a scrolling container* — the title and headers scroll away and the scrollbar is undraggable. *Grow-to-fit on every screen* — short lists read worse spread out; only the ledger lifts the cap ("The ledger fills the window").
 
-**Decision.** **The page IS the screenful, capped at 20** (mockup picks A + CAP 20, 2026-07-13 — the cap keeps the 2026-07-11 "no more than 20 rows" literal; on tall terminals the panel just ends). `SectionScreen.measure_list_rows` ([\_base.py](../expense/tui/screens/_base.py)) measures `#content`'s real height per screen (legends and split panes declare their extra lines), floor 5, `DEFAULT_PAGE_ROWS` as cap and pre-layout fallback; the first load waits for the first layout pass (`call_after_refresh`) so the measure is real. Fetch-paged screens (`PagedListMixin`) send `limit = what fits` — engine contract intact (`limit ∈ [1,200]`), the border subtitle stays truthful — and a resize refetches with the offset re-anchored so the old first visible row stays on screen; window-mode lists (`CursorList`/`CheckList.set_page_size`) re-slice around the cursor, the Reconciliations panes split the space equally, the recon checklist counts fit÷2 items. The dead scrollbar is gone structurally: the panel always fits, so `#content` never overflows. CLI human mode is untouched (stdout has no viewport — still `--limit 20`).
+## The ledger fills the window (2026-08-29)
 
-**Rejected.** *Fixed 20-row fetch + a sliding render window inside the page* (mockup option B) — preserves the literal 20 but a "page" no longer matches a screenful: the subtitle needs a third clause (`↓7 below`) and `pgdn` jumps past rows never seen. *Grow-to-fit on tall terminals* (mockup STEP 3 alternative) — declined by the user; cap 20 keeps pages stable across windows. *Cursor-follow scrolling of `#content`* — keeps 20 rows rendered and scrolls the container; the panel title and column headers scroll off-screen and the undraggable scrollbar remains. *Re-enabling the mouse* — reverts the keyboard-only decision and kills native select-to-copy for one scrollbar.
+**Decision.** Transactions sets `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (the engine's own `limit` ceiling) and `CARD_WIDTH = None`, so the ledger spans the terminal in both directions. Every other screen keeps the 20-row cap and its narrow card. Guarded by `test_transactions_panel_fills_and_fits_the_viewport`.
 
-## The ledger fills the window — Transactions/Inbox drop the 20-row and 110-column caps (2026-08-29)
-
-**Context.** In a large terminal the two screens you actually sit in — Transactions and Inbox — held a 110×20 card in the corner of the window and left the rest blank; growing the terminal changed nothing. Two caps did it: `CARD_WIDTH = 110` on both screens, and the app-wide `min(20, what fits)` page size from the 2026-07-13 entry above, whose "grow-to-fit on tall terminals" alternative was declined *then* and asked for *now* by the user ("if i grow the terminal window, the window should grow with it"). Measuring the fix also exposed an old arithmetic bug: `LIST_FRAME_LINES = 4` counted the panel border, column header and header rule but **not** the blank top and bottom edge lines Rich's `box.SIMPLE` draws inside the border, so every list whose fitted size fell below the 20 cap overflowed `#content` by exactly 2 lines — the bottom border and the `rows … · page …` subtitle clipped off-screen and the undraggable scrollbar the 2026-07-13 decision set out to delete came back. It was invisible only because the cap hid it on tall terminals; measured at 120×30 and 180×45.
-
-**Decision.** The cap becomes a per-screen knob, `SectionScreen.PAGE_ROWS_CAP`, defaulting to `DEFAULT_PAGE_ROWS` (20) so **every other screen is untouched** — narrow cards and stable 20-row pages included, which is what keeps short lists tidy on a wide screen. Transactions and Inbox set `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (200, the engine's own `limit` ceiling, so the fetch contract cannot be broken by a tall window) and `CARD_WIDTH = None` (the card's `width: 1fr` then spans `#content`; the Rich table is `expand=True` and re-lays out on resize). The page still IS the screenful and a resize still refetches with the offset re-anchored — only the ceiling moved. `LIST_FRAME_LINES` is corrected to 6, which is a fix for every list, not just these two: panels now close, subtitles render, and `#content` genuinely never overflows. Guarded by `test_transactions_panel_fills_and_fits_the_viewport` (card spans the full width, panel height ≤ viewport, no scrollbar, at three sizes) and `test_transactions_page_stops_at_the_engine_cap`.
-
-**Rejected.** *Lift the caps app-wide* — offered and declined by the user: Hashtags at 48 columns and Categories at 60 are narrow **because** two short columns spread across 200 columns read worse, not better. *Rows only, keep the 110-column card* — leaves the blank right half the complaint was about. *Fix `LIST_FRAME_LINES` by adding a scrollbar-aware fudge* — the frame is knowable exactly; counting it wrong twice is not a strategy. *Raise the cap to a bigger number (50, 100)* — a second arbitrary literal to re-litigate later; the engine's own ceiling is the only non-arbitrary bound.
+**Rejected.** *Lifting the caps app-wide* — declined: two short columns spread over 200 columns read worse. *A bigger arbitrary cap (50, 100)* — the engine's ceiling is the only non-arbitrary bound.
 
 ## Ledger cells fill their columns — flex text columns, no pre-truncation (2026-09-12)
 
-**Context.** Once Transactions filled the window (entry above), a wide terminal showed wide columns of text still cut at 20 characters: `transaction_rows` capped title, description and hashtags at 20/18/20 *before* the table existed — sizes chosen for the 80-column card — and the `expand=True` table then stretched those short cells over the width. The user's ask, verbatim: "the columns are wide but the content gets trucated, they should match the size." Two options were drawn character-exact over live ledger rows at 160 and 80 columns in [mockups/expense-world-ledger-column-fit.html](mockups/expense-world-ledger-column-fit.html); the user picked **A**.
+**Decision.** Rows hand the table whole strings; `CursorList`'s `flex` mapping gives Transactions `{Title: 3, Description: 3, Hashtags: 2}` as Rich ratios. Amount, date, account and category keep their natural width; the text columns split the rest and are ellipsised at their real edge. Column edges depend on the terminal, not on the page's data, so the table never reflows while scrolling.
 
-**Decision.** The row builder hands the table whole strings, and `CursorList` gains a `flex` mapping — column index → Rich `ratio` — that Transactions sets to `{Title: 3, Description: 3, Hashtags: 2}`. Rich gives Amount, Date, Account and Cat their natural width first and splits the remainder between the three text columns by ratio; each cell is cut by the table at the edge of the column it actually has (`no_wrap` + Rich's default `ellipsis` overflow, both already in place). Two properties follow: the column edges depend on the terminal, not on the page's longest cell, so paging does not reflow the table; and on a narrow terminal the free text gives way first while amounts, dates and names stay whole. `flex` defaults to empty, so every other list is untouched. `format_hashtag_cell`'s `max_width` became optional for the same reason — the CLI table (24) and the LOG bar's account peek (18) still pass one.
-
-**Rejected.** *Natural width* (option B: drop the caps, change nothing else) — the smallest diff, but the layout becomes data-dependent: Description measured 47 wide on one page and 25 on the next, and when a long description meets a narrow terminal Rich's last resort trims every column by the same amount, so at 80 columns Amount rendered as a bare `…` and the Hashtags column vanished. *Raise the caps* — the same bug at a bigger terminal. *A floor on the text columns' width* — when it binds it triggers the same even trim that B suffers from; the ratios are the knob, and 3:3:2 is a proposal the user accepted as drawn.
+**Rejected.** *Natural width* — data-dependent layout, and on a narrow terminal Rich trims every column evenly until the amount is a bare `…`. *Bigger fixed caps* — the same bug on a bigger terminal.
 
 ## `expense world` clears the terminal scrollback at launch — `CSI 2J 3J H` (2026-07-13)
 
-**Context.** The app runs in the alternate screen (Textual enters it unconditionally), but macOS Terminal.app — unlike iTerm2 — lets the viewport scroll into scrollback *while* a fullscreen app runs. With mouse tracking off (2026-07-12 decision) every wheel/scrollbar gesture goes to the terminal, so pre-launch prompt text (plus the blank rest of that screen page — "the gap") slides in above the running app. Any keypress snaps back, but it reads as a rendering bug (2026-07-12 screenshot). The user picked the clean launch (mockup [expense-world-adaptive-rows.html](mockups/expense-world-adaptive-rows.html) STEP 5).
+**Decision.** `run_world` emits `\x1b[2J\x1b[3J\x1b[H` before Textual starts ([app.py](../expense/tui/app.py)), so Terminal.app cannot scroll pre-launch text in above the running app. **Accepted cost (owner-confirmed):** the tab's whole scrollback is wiped on every launch. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
 
-**Decision.** `run_world` emits `\x1b[2J\x1b[3J\x1b[H` (clear screen, clear scrollback, home) once, after the TTY guard and before Textual takes over ([app.py](../expense/tui/app.py)) — scrolling up during the app then reveals nothing. `3J` is supported by Terminal.app (where it originated), iTerm2, kitty, VTE, Windows Terminal; terminals without it ignore it harmlessly. **Accepted cost, explicitly confirmed by the user:** the tab's *entire* scrollback history is wiped on every launch — not just the page above the app. On exit the visible pre-launch screen still restores (alt-screen restore); only scrolled-off history is lost. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
-
-**Rejected.** *Do nothing + document "press any key to snap back"* — with adaptive rows there is no reason left to touch the terminal scrollbar, but accidental trackpad scrolls still produce the floating-prompt artifact; the user wanted it gone. *Re-enabling mouse tracking so the app swallows wheel events* — reverts the keyboard-only decision. *Clearing only the visible screen (`2J` without `3J`)* — the scrollback above it still scrolls in; doesn't fix the artifact.
+**Rejected.** *Clear only the screen (`2J`)* — the scrollback still slides in. *Re-enable the mouse to swallow wheel events* — reverts keyboard-only.
 
 ## The cursor is reverse video — applied as a Rich style, never as CSS (2026-08-20)
 
-**Context.** The user reported that moving through the home menu showed no selection at all: "there is no selection effect so I don't know where I am selecting." Confirmed at the render layer — the highlighted row emitted `default on default`, byte-identical to every unselected row. The cause was a hole opened by the 2026-08-19 ANSI palette decision: `theme.py` deliberately gives the block cursor **no colour of its own** (`block-cursor-foreground` and `block-cursor-background` are both `ansi_default`) and takes all its contrast from `block-cursor-text-style: reverse`, on the reasoning that reverse video is correct on any ground by construction and so needs no light/dark split. That reasoning is still right. What was not known is that Textual 8.2.7 **drops `reverse`** in `get_visual_style()` when both colours are `ansi_default` — so the CSS cursor path renders nothing. An explicit override in `app.tcss` is dropped identically. Scope was exactly one screen: the home menu is the only list built on Textual's `OptionList`; `CursorList`/`CheckList` set the Rich style directly (`style="reverse"`) and emit SGR 7 correctly.
+**Decision.** Reverse video is the one "you are here" gesture. Textual 8.2.7 drops `reverse` when both cursor colours are `ansi_default`, and a CSS override is dropped the same way, so `CURSOR_STYLE` ([windowed.py](../expense/tui/widgets/windowed.py)) is applied as a Rich style — `CursorOptionList` applies it in `render_line`. `test_tui_menu_cursor.py` asserts on the **rendered strip**, because the resolved style reported `reverse` throughout the bug: with terminal-owned colours, only rendered output is evidence.
 
-**Decision.** Keep reverse video as the app-wide "you are here" gesture — one vocabulary for the menu and the data lists — and apply it where it survives. `CURSOR_STYLE` is now a shared constant in [windowed.py](../expense/tui/widgets/windowed.py) (it lived in `cursor_list.py` until the list widgets were given a shared base, and is still re-exported from there); `CursorOptionList` subclasses `OptionList` and applies it to the finished strip in `render_line`, skipping disabled options (the group headers). Five treatments were probed against the real widget and mocked on three real terminal profiles ([mockups/expense-world-menu-cursor.html](mockups/expense-world-menu-cursor.html)); the user picked A, the option that keeps one gesture. `test_tui_menu_cursor.py` asserts on the **rendered strip**, not on the resolved style — `get_component_styles` reported `text_style: reverse` throughout the bug, so a style-level assertion would have passed the whole time. That is the durable lesson: for a theme whose colours are the terminal's, only the rendered output is evidence.
-
-**Rejected.** *Give the cursor a real background (accent bar, dim grey bar)* — both render, and the accent bar is the most conventional TUI selection; rejected because it names two fixed colours instead of borrowing the terminal's, weakening the ANSI proposition, and because it gives the menu a different gesture from every other list. *Bold accent text or bold+underline* — colour-light and legible, but `PENDING_STYLE` already owns bold as "draft/pending", so bold would carry two meanings. *Fixing it in `app.tcss`* — measured, not assumed: the override is dropped too, so there is no CSS spelling of this. *Rebuilding option content on every highlight change* — would put the reverse in the option's own Rich `Text`, which works, but re-renders the whole list per keypress to express a fact about one row.
+**Rejected.** *A coloured cursor bar* — names fixed colours and gives the menu a different gesture from the lists. *Bold* — already means "pending".
 
 ## Opening balances are an engine concept (`@Opening` system category), not a CLI convention (2026-07-20)
 
-**Context.** The user's real spreadsheet carries `SALDO INICIAL` rows — account starting balances. The engine had no opening-balance concept: `POST /accounts` takes no balance field, so the only route was an ordinary income transaction under a user-invented category, which permanently inflates reported income in the seed month with no way for the engine or any client to recognize it. The engine's `lessons-todoist.md` §7 shows "account initialisation with opening balance" was contemplated at design time but never shipped. Per this repo's own rule ("no CLI-only shortcuts — the pattern has to generalize to the next client"), a CLI-local naming convention was the wrong altitude: web/iOS onboarding hits the same problem on day one.
+**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, renameable); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). `expense accounts opening-balance` wraps it; the sheet importer routes rows marked `SALDO INICIAL` in the **title or the category** column to it (deduped per account and currency).
 
-**Decision.** Engine-side (engine roadmap Step 9.4, engine commit `865ab0a`): `POST /v1/accounts/{id}/opening-balance` seeds the balance as an ordinary transaction under a third system category (`system_key = 'opening_balance'`, default name `@Opening`, renamable), and flow reports exclude it entirely — the `@Opening` row is hidden from category panels and its transactions contribute nothing to inflow/outflow/net, so visible rows sum exactly to net and no phantom income appears. One active opening per account (409); client-supplied `transaction_id` gives importer re-runs deterministic dedup. CLI-side: `expense accounts opening-balance` wraps the endpoint (contract-validator rule), and the importer routes rows marked `SALDO INICIAL` (case/whitespace-insensitive) to it — those rows skip the category/hashtag requirement, dedupe per (account, currency) keeping the first line, and surface distinctly in the dry-run. *(Widened 2026-08-20: the marker is read from the **title or the category** column. The real spreadsheet turned out to file its opening rows under a `SALDO INICIAL` category while giving them descriptive titles like `REGULARIZACION SALDOS`, so a title-only rule silently imported a -27,608 PEN adjustment as ordinary spending. Reading both columns costs nothing — the marker cells are discarded either way, so the category never materializes.)* Engine shipped first; the CLI stayed a thin wrapper throughout. A dedicated endpoint (not a param on `POST /accounts`) because the user's accounts already existed in production — creation-time-only seeding couldn't serve the import, and the CLI cannot mint system categories itself (`POST /categories` has no `is_system` input).
-
-**Rejected.** *Plain user category (`Saldo Inicial`) + convention* — invisible to the engine forever, so reports could never exclude it, and N users would invent N unfindable names; no migration recovers that. *Routing through `@Transfer`* — transfers are zero-sum across two owned accounts; an opening balance has no source account and is income-shaped, not transfer-shaped. *(Moot since 2026-08-10: `@Transfer` was deleted with the engine's transfer feature.)* *`opening_balance_cents` param on `POST /accounts` as the v1 mechanism* — never fires for accounts that already exist, which is exactly the import case; kept as a possible future onboarding nicety on top of the endpoint. *Excluding from totals but keeping the `@Opening` row visible in panels* — visible rows would sum to `net + opening`, contradicting the totals line; hiding the row is the self-consistent option (user-confirmed).
+**Rejected.** *A user category plus a naming convention* — invisible to the engine, so reports can never exclude it, and every client invents its own name. *An opening-balance param on `POST /accounts` only* — never fires for accounts that already exist. *Keep the `@Opening` row visible in panels* — visible rows would no longer sum to the total.
 
 ## Local-first deployment — the one engine moves to the user's Mac; cloud mothballed until iOS (2026-07-30)
 
-**Context.** The product is single-user for the foreseeable future (the 10k-user target is a someday-maybe, no longer a near-term design driver), and the cloud deployment made daily use slow: Render's free tier spins the engine down after idle, so the first command of a session eats a 30–60 s wake-up; `dashboard`/`reports` (engine-only reads — they were never served from the replica, whose drift policy is recorded in [cli-runtime.md](cli-runtime.md) "Read semantics") feel it hardest. Separately, the daily FX cron was never wired on Render (paid-only resource, deferred in engine `TODO.md` since 2026-04-28), leaving cross-currency PEN/USD writes blocked by `422 RATE_UNAVAILABLE` — and the user's ledger is exactly PEN+USD (engine migration `015_lock_currencies_to_pen_usd.sql`).
+**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. The CLI's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: engine repo `deploy/local/README.md` and `deploy/cloud/README.md`.
 
-**Decision.** Move the *deployment*, not the architecture: the same engine runs on the user's Mac (launchd service) against local Homebrew Postgres, with a small stand-in for the Supabase-auth surface (PAT auth is engine-native and unchanged); the FX fetch (`app.jobs.fetch_exchange_rates`; provider swapped to fawazahmed0/currency-api during execution — Frankfurter turned out to serve ECB rates only, which exclude PEN, and the 15 pre-existing `rate=3.75` rows were wrong-by-~10% placeholders, deleted) runs as a daily launchd task — going local *unblocks* the feature the cloud never finished; a nightly `pg_dump` to iCloud Drive replaces Supabase as the durability layer (non-negotiable — with one machine, the backup *is* the ledger's survival); Supabase/Render are mothballed after a final full export. Every architectural invariant survives verbatim: exactly one engine as sole write authority, clients hold zero business logic, server-first writes with no offline queue, the §3b replica standard untouched — the CLI's only change is the `engine_url` in `~/.expense-config`. Reactivation on iOS day is a relocation: restore the latest dump into Supabase, redeploy the engine to a host, repoint clients; iOS then follows §3b (thin client + Todoist-style command outbox, engine still the only judge). Build order and specifics: engine `docs/roadmap.md` Step 11; ops procedures live as deployment profiles in the engine repo — `deploy/local/README.md` (active) and `deploy/cloud/README.md` (mothballed + reactivation checklist). A profile is a folder, not a repo: schema, logic, and sync protocol change together (every feature touches all three), so splitting "the scalable part" into its own repo was rejected as a false seam — only deployment config varies, and the engine is already stateless/env-configured precisely so deployments can swap without code changes.
+**Rejected.** *Keep the cloud warm on a paid tier* — needs internet for every command and still leaves FX unwired. *Local-first writes with an LWW queue in the client* — the engine's writes have computed side effects, so optimistic acceptance means duplicating the engine or "saved" rows bouncing later. *Port the engine to SQLite* — rewrites the money layer and forks local from cloud.
 
-**Rejected.** *Keep the cloud and keep it warm* (paid tier / scheduled ping) — fixes latency but leaves FX unwired without paid cron, still requires internet for every command, and rents complexity the solo phase doesn't need. *Local-first writes in the CLI with a last-write-wins queue (the Todoist client pattern)* — the engine's rulebook is thick where Todoist's is thin: writes trigger computed side effects (FX home-amount twins, transfer-pair creation and leg-locking, completed-reconciliation field freezes, chained-balance cascades), so optimistic local acceptance means either duplicating the engine per client or "saved" entries bouncing after the fact — acceptable for a to-do, not for a ledger; stays iOS-only per §3b where offline capture justifies it. *Porting the engine to SQLite ("just a local file")* — the validated core is written against Postgres (advisory locks, partial unique indexes); a port rewrites the money-handling layer and permanently forks local from the cloud future. *YNAB-style engine-in-every-client* — YNAB makes fat clients survivable by being merge-friendly by design (single-currency budgets, derived values recomputed never stored, warnings not locks); this product made the opposite trades deliberately, so multi-device merging would fight every one of them.
+## All reads are live — no local replica (2026-08-06)
 
-## Delete the local replica — all reads live (2026-08-06)
+**Decision.** No local cache: every read is a live engine GET; there is no `expense sync`, no `--no-cache`, no cache env vars. With the engine on loopback a read is sub-millisecond, and a replica only adds staleness and conflict handling.
 
-**Context.** The engine's deletion program (engine repo `docs/rework/`, WP4) removed `GET /v1/sync` and its `sync_checkpoints` table: it served an offline-capable client that never shipped, and it carried the engine's last dropped-writes bug (a write overlapping a sync could be permanently missing from a client's replica). The CLI was that endpoint's only caller — its cache-by-default read path (Step 7b, per the retired engine §3b replica standard) hydrated `~/.expense-cache.sqlite3` from `/sync` before every default-mode read. The invalidating event was 2026-07-30's local relocation (see the entry above): with the engine on loopback, a read is sub-millisecond, and the replica's only remaining value — hiding cloud latency — was gone, while its costs stayed: staleness windows after out-of-band writes, `current_balance_home_cents: null` drift on cached accounts, a dedicated error family (exit codes 4/5), and ~1,200 source LOC plus ~2,300 test LOC.
-
-**Decision.** Delete the cache layer whole: `expense/cache/`, `expense sync`, the `--no-cache` / `--no-sync-after` root flags, `EXPENSE_STATELESS` / `EXPENSE_NO_SYNC_AFTER` / `EXPENSE_CACHE` env vars, `client_id` in `~/.expense-config` (the `X-Client-Id` header existed only for sync checkpoints; old config files still load — unknown keys are ignored), the TUI Sync screen, post-write refresh, and exit codes 4/5. The former stateless path is now the only path: every read is a live engine GET, and renderers resolve display names via live reference-list fetches that degrade to short ids on failure. Writes are unchanged (engine-direct, idempotency keys, bounded same-key retry). Sequencing: this landed *before* the engine deleted `/sync`, so the CLI never pointed at a 404.
-
-**Rejected.** *Keep the cache, repopulate it via full REST fetches instead of `/sync`* — keeps every consistency cost and rebuilds, client-side, exactly the delta machinery the engine just deleted, for zero latency benefit on loopback. *Keep `--no-cache` as a vestigial no-op flag* — a flag that does nothing is a lie in the help text. *Wait and delete the cache together with a future mobile client decision* — the CLI would meanwhile break the moment engine WP4 landed, and rebuilding sync later is ~1–2 days of additive engine work on substrate (`version`, `updated_at`, tombstones, client UUIDs) that deliberately survives.
+**Rejected.** *Rebuilding the cache from REST reads* — every consistency cost, for zero latency benefit.
 
 ## Transfers are two ordinary transactions (2026-08-16)
 
-**Context.** The engine deleted its transfer feature on 2026-08-10 (the auto-paired legs, the `transfer` request field, `transfer_transaction_id`, the leg-edit/delete cascades and the `@Transfer` system category all went at once). Every client surface built on it — `expense log --transfer/--to-account-id/--to-amount`, the TUI quick-log's conditional transfer branch, the batch-create transfer rejection, the transfer-pair edit guard, and several 422 hint strings — was dead weight or actively wrong.
+**Decision.** The engine has no transfer feature. A move between accounts is two ordinary transactions, each with its own explicit sign and category.
 
-**Decision.** Remove all of it rather than emulate it. A move between accounts is recorded as two ordinary transactions, each with its own explicit sign and its own category. This retires the sign convention's one sanctioned exception (the TUI's transfer "to amount" took a magnitude and auto-set the opposite sign); the rule is now literal everywhere, no exceptions. Local pre-checks that duplicated engine validation went too — the engine owns batch validation and its own error text.
-
-**Rejected.** *A client-side "move between accounts" convenience that writes the two transactions for you* — not parity work, it is a new UX with its own failure mode (one leg lands, the other 422s, and the client has no transaction to make it atomic). Parked in [todo.md](todo.md) behind a mockup. *Keeping the flags as deprecation stubs that print a pointer* — a flag that only ever errors is help-text noise; the flat commands are a contract-validator surface, so they should show exactly what the engine supports.
+**Rejected.** *A client-side "move between accounts" that writes both legs* — a new UX with a non-atomic failure (one leg lands, the other 422s); parked in [todo.md](todo.md) behind a mockup. *Deprecation stubs for the old flags* — see "Delete anything that no longer points anywhere".
 
 ## Reconciliation de-chaining — a batch is a statement period, ordered by its date (2026-08-16)
 
-**Context.** The engine deleted reconciliation chaining at the root on 2026-08-06: the cascade that re-derived a batch's beginning balance from the batch above it had no status predicate, so editing an upstream *draft* silently rewrote a *completed* batch's opening figure. `beginning_balance_source`, `chained_from_reconciliation_id`, `sort_order` and `PUT /accounts/{id}/reconciliations/order` went with it; `beginning_balance_cents` became required and `difference_cents` — the add-up check — was added. The client had not followed: every TUI create 422'd (the form defaulted to `source: "chained"`), and `reconcile move` / `reconcile reorder` 404'd on every call.
+**Decision.** Both balances are typed off the paper statement — one form, no chained/manual fork. A batch is positioned by its period's days; repositioning is editing its dates. `difference_cents` shows on the list surfaces and the working screen (see "A null difference is blank").
 
-**Decision.** Follow the engine's model rather than preserve the old UX. Both balances are typed off the paper statement — one straight form, no chained/manual fork, no `--source` / `--sort-order`. `--date-start` becomes **required on create**, a client-side rule at the time (2026-08), because the engine then still accepted a null: a batch's start date is now the only thing that positions it, so an undated batch is one the user cannot order, and refusing it up front beats silently sorting it last. *(Since 2026-09-26 the engine itself requires both dates, `8f22ebb`, so the rule is no longer the client's.)* `move` and `reorder` are deleted outright — repositioning is `reconcile update <id> --date-start <date>` — taking `expense/_editor.py` (the `$EDITOR` shell-out, reorder's only consumer) with them. `difference_cents` surfaces on both list surfaces and the TUI working screen: sign-colored when the batch is off, a dim em dash when it balances, and always a literal number in the flat CLI table, which gets piped.
-
-**Rejected.** *Rely purely on server order in the TUI browse, deleting the client sort* — the browse does **one unscoped fetch** and slices per account client-side, and only *account-scoped* reads come back in statement-date order (the cross-account list is `created_at DESC`), so this would have left the pane in creation order. The per-account slice mirrors the documented server key instead. *Refetch account-scoped on every account-cursor move* — correct ordering for free, but it turns an instant `↑↓` into a network round trip per keystroke. *Keep `move`/`reorder` as stubs that explain the new model* — same reasoning as the transfer flags above. *Keep a client-side "chained" convenience that prefills the begin from the previous batch's end* — that is the deleted engine feature reimplemented in the client, and it would re-create the exact bug the engine removed (a stale prefill against a completed neighbor).
+**Rejected.** *A client-side "chained" prefill of the beginning balance from the previous batch's end* — the deleted engine feature reimplemented in the client, with the same stale-neighbour bug.
 
 ## Home aggregates are nullable — `3 unrated` is a state, not a number (2026-08-16)
 
-**Context.** The engine's 2026-08-05 read-time-currency change did three things at once. It **deleted** the native cross-account aggregates (`spent_cents` per category and hashtag combo; `inflow_cents`/`outflow_cents`/`net_cents` on month totals) — `GROUP BY category_id` has no currency partition, so a category holding $15 and S/25 reported `4000`, a number in no currency. It made every surviving `_home_cents` aggregate **nullable**, paired with an `unconverted_count`: when any row in a group falls on a date with no resolvable rate the engine refuses to report a partial total. And it dropped `/dashboard`'s `archived_categories` / `archived_hashtags` panels. The client had not followed, and this was the last live-broken surface: `expense dashboard` printed `(null)` for the spend of **every** category — that column is its only amount — the TUI Outstanding tree was entirely blank, every Totals block printed `(null)` in its left half, and `--include-archived` rendered two panels that could never fill again.
+**Decision.** The engine returns `null` for a home-currency aggregate when any row in the group has no resolvable rate, with an `unconverted_count`. The client renders that as **`3 unrated`** in the cell — never `0.00` and never a native-currency fallback (which would read USD cents as PEN cents). One shared pair, `format_aggregate` / `has_aggregate` in [_resource.py](../expense/commands/_resource.py), backs CLI and TUI. Month cells carry the count, so *no activity* (dim `—`) and *unpriceable* stay distinct. A category with nothing in the report is not drawn; `categories list` and `--json` still show every one.
 
-**Decision.** One amount column everywhere, named `Home`, and a `null` renders as **`3 unrated`** — the count, in the cell — never `0.00` and never a native-currency fallback (that fallback is the exact deleted bug: `COALESCE(amount_home_cents, amount_cents)` read USD cents as PEN cents, a 3.58× understatement). One shared pair of helpers, `format_aggregate` / `has_aggregate` in [_resource.py](../expense/commands/_resource.py), backs the CLI and the TUI alike, with `aggregate_cell` as the palette-colored TUI wrapper. Month-grid cells became dicts carrying the count, because `None` alone cannot distinguish *no activity* from *the engine refused to price this* — the conflation that made an unpriceable January indistinguishable from a month you spent nothing. Two rules go beyond what the engine forced, both user decisions of 2026-08-16: **a category or hashtag with nothing spent is not drawn at all** — the engine returns every non-deleted category whether or not it has activity, and a report is not a category list (`expense categories list` still shows every one; `--json` is untouched) — and **the TUI home header hides every figure behind the error**, showing only `4 UNRATED` until the rates are fixed, counting unpriced transactions and unpriceable people together as one list of work.
-
-**Rejected.** *Leaving the `owed to you` figure alone* (sketch option I) — the engine change did not force it, but the header was silently dropping people whose balance could not be priced, so the number looked right and was too low; a wrong figure that looks right is worse than a visible error, which is the same reasoning that killed the `COALESCE` fallback. *Marking only the broken figures and keeping the rest* (option G, a `+` suffix on a partial total) and *one warning badge beside the surviving figures* (option H) — both still put a half-true number on screen. *A one-character marker with the count in a table footnote* (option B) — it buys no width, since the column is still as wide as the amounts, and it loses which row the count belongs to. *`n/a (3)`* (option A) — 2 characters narrower than `3 unrated` but an abbreviation to learn, and the count reads second. *Keeping the `Spent`/`Home` column pair with `Spent` blanked* — that is the deleted number given a permanent empty column.
+**Rejected.** *A partial total with a marker* — a half-true number on screen. *`n/a (3)`* — an abbreviation to learn. *A footnote with the count* — loses which row it belongs to.
 
 ## Contract tests verify against a disposable database, and refuse the real ledger (2026-08-16)
 
-**Context.** Phases 1–4 repaired the client blind. `tests/unit` is respx-mocked, so it validates the CLI against fixtures the repo itself wrote — it stayed green through the entire 2026-08 rework while pinning fields the engine had deleted. The only thing that sees the real contract is `tests/contract`, and it had drifted badly: three of its five modules signed in as the developer through `~/.expense-config` and wrote to the one true ledger, two still defaulted to the Render host switched off 2026-07-30, and its cleanup is soft-delete — so every run permanently buried tombstones in real data. That was not theoretical: leftover rows from a 2026-07-30 run had already pushed an account listing past its 50-row page and made a test flaky, and on 2026-08-16 a mis-scoped gate ran the suite against the real ledger and left four live junk accounts behind.
+**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [tests/contract/conftest.py](../tests/contract/conftest.py)). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
 
-**Decision.** The suite runs against `expense_world_test` — the database `deploy/local/create-test-db.sh` already built for the engine's own tests — through a **second, manually-started engine on `:8001`**. Same engine code, so it is still a real contract test; different database, so nothing it writes can reach the ledger and the debris is disposable. `deploy/local/seed-test-user.sh` (engine repo, beside the script that builds the database) seeds a practice user, one PAT and a copy of `exchange_rates`, which is global reference data carrying no `user_id`. And the suite **refuses to start** when it would write to the real ledger — `EXPENSE_ALLOW_REAL_LEDGER=1` to override — implemented as a `pytest_sessionstart` hook rather than a fixture, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook rather than a `pytestmark` (a `pytestmark` in a conftest does not apply to other modules — that mistake is what caused the 2026-08-16 incident). Three guard shapes were drawn on 2026-08-16 — a printed warning, an abort-on-fixture, and refuse-the-session; the last is what shipped.
-
-**Rejected.** *Printing a warning banner instead of refusing* (sketch options A and B) — both only help someone who is reading the output, and the moment this matters is the moment nobody is watching; the incident happened during an automated verification step, not an interactive session. *Keeping the real ledger as the target and accepting the tombstones* — that is the status quo whose debris had already caused one flaky test. *A separate PAT for a separate user in the same database* — real isolation between users, but the junk still accumulates in the production database forever. *Folding the fixture-drift check into `pytest tests/unit`* — the unit suite blocks real sockets on purpose ([tests/unit/conftest.py](../tests/unit/conftest.py)), and that hermeticity is worth more than the convenience; it ships as [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py) instead.
+**Rejected.** *A warning banner instead of refusing* — useless when nobody is watching, which is when it matters. *A separate user in the real database* — the junk still accumulates in production. *The drift check inside `pytest tests/unit`* — the unit suite blocks sockets on purpose.
 
 ## A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group (2026-08-16)
 
-**Context.** The engine shipped `POST /people` on 2026-08-14, closing a gap that had been open since `sql/003`: `is_person` existed and every *read* surface for people was shipped and tested — `accounts list --include-people`, the dashboard `people` panel, the TUI Outstanding table, the home banner's `owed` figure — but no endpoint could ever set the flag, so the People panel was structurally empty. A shipped, tested section that could never contain anything. Three client questions came with it: what creates a person, where archived people go, and what happens to a person once her debt clears and her balance reads `0`. All three were drawn before any code and answered by the user on 2026-08-16 — the answers are the Decision below.
+**Decision — creation.** `expense accounts create-person`, and in the TUI a **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; `person` posts to `POST /people`. `is_person` is never sent — the endpoint is the flag — and TYPE is read-only on the edit form.
 
-**Decision — creation.** `expense accounts create-person` (pick B), and in the TUI a **TYPE field** (`bank` / `person`) as the first field of the existing New Account form, **prefilled to `bank`** (pick L). `is_person` is never sent on either surface: it is a `422` on `POST /accounts` *and* on `POST /people`, so the endpoint **is** the flag. Both choices follow from the same engine fact — `POST /people` is the only people route there will ever be, because `is_person` is settable only at creation; rename, recolor, archive, unarchive, delete, restore and fetch are all account routes that have always accepted person rows. The TUI's edit form therefore locks TYPE read-only, exactly as it already locks `currency`.
+**Decision — settled people.** Folded behind a count (`▸ 3 settled`), never dropped — on the flat dashboard and on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [_resource.py](../expense/commands/_resource.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
-**Decision — settled people.** Folded behind a count, never dropped: `▸ 3 settled` on the typed dashboard (pick G), and the same fold made interactive in `expense world` — `PeopleView`, reusing the categories tree's carets and keys (pick J). "Settled" is **exactly zero in the person's own currency**, never the home-converted figure, and never an unknown balance; `split_settled` / `settled_label` in [_resource.py](../expense/commands/_resource.py) are the single copy. Archived people are their own panel after `archived_accounts`, both at the bottom (pick D), and are not folded.
+**Decision — archived people.** On the flat dashboard, `--include-archived` adds `archived_people` as its own panel right after archived accounts — two lists, as on every other surface — and it is not folded: the panel is what the flag was passed to see.
 
-**Why the fold rather than a filter.** The engine was asked to hide settled people and refused (owner decision, 2026-08-13), for three reasons the client inherits: "she paid me back" and "I never recorded the loan" would look identical; people would flicker in and out of the list as rows land; and a coincidental net zero (lent 200, borrowed 200) is *two live debts*, not nothing. Decluttering is explicitly delegated to clients, and the count line is what keeps the delegation honest — the panel never silently omits someone. Note this is deliberately the **opposite** of the Phase 4 flow rule (`has_aggregate`, "rows with nothing spent are not drawn"): reports group over what happened, balance surfaces enumerate what exists.
-
-**Rejected.** *`expense people create` as its own group* (sketch A) — a group named `people` promises a set of people commands, and there is exactly one forever; every reach for `people list` would read as a missing feature rather than a deliberate absence. *`expense accounts create --person`* (sketch C) — one command silently posting to two endpoints with different `sort_order` scoping and a different opening-balance rule, which is the pattern this repo has removed everywhere else. *Merging archived people into `archived_accounts`* (not offered) — ruled out by the engine's own record: an archived person among the archived cards. *Archived people under the live People panel* (sketch E) — splits the two archive panels and puts one flag's effect in two distant places. *Printing every settled person* (sketch F/K) — after a year of small loans the two people you actually owe are buried among a dozen zeros, and on the TUI screen the panel sits above the month's spending and pushes it down. *Naming them on the fold line, `▸ 3 settled (Ana, Beto, Caro)`* (sketch H) — the line grows with the count and eventually needs its own truncation, reintroducing the same hiding by another door. *A second key `p` for a new person* (sketch M) and *a chooser screen in front of `n`* (sketch N) — a second key on a screen already using `n`/`e`/`a`, and a whole extra screen plus a new widget kind in front of the page's most common action; the prefilled TYPE field costs a keypress you were already pressing.
-
-## The inbox has no deleted view — `--include-deleted` is paired with `restore`, and the inbox has none (2026-08-16)
-
-**Context.** Six `list` commands accepted `--include-deleted`; four rendered a `Deleted` column and two — `inbox` and `transactions` — did not, so a deleted row came back looking exactly like a live one and the only way to tell was re-running with `--json` and reading `deleted_at`. That was the backlog item. Reviewing it surfaced the sharper question the item had not asked: *why does the flag exist at all?* It exists to feed `restore` — you list deleted rows to find the id you want back. Every resource carrying the flag has a `restore` command **except the inbox**, whose restore route the engine removed on 2026-08-14 (`inbox delete` is documented as final). So `inbox list --include-deleted` could only ever surface dismissed drafts that cannot be restored, edited or promoted.
-
-**Decision.** Two different answers for the two lists, because they are not the same case. **`transactions list`** keeps the flag and gains a `Deleted` column, rendered **only when the flag is passed** and placed **last**, matching accounts/categories/hashtags. **`inbox list` loses the flag entirely** — the parameter is gone from the command and from `fetch_inbox`, so the CLI never sends `?include_deleted=true` to `/inbox`, even though the engine still honours it. The user's framing settled it: deleted rows should not be shown without a reason, and for the inbox there is no reason left.
-
-**Why keyed to the flag, not to the data.** A third option was drawn — show the column only when a deleted row is actually present — and rejected: it makes the same command print a different header on different days depending on what happens to be in the ledger. Keying it to the command line keeps a given invocation's column set stable. `--json` is unaffected by any of this; it passes the engine body through whole, `deleted_at` included, on every list.
-
-**On the contract-validator rule.** Dropping a parameter the engine supports cuts against "the CLI exercises every engine endpoint", so it is recorded rather than silent: `?include_deleted=true` on `GET /inbox` is the one query parameter no CLI surface sends. It is a parameter, not an endpoint, and the same parameter stays exercised on five other resources — but if a future client needs the inbox's deleted view, this entry is why it is missing here.
-
-**Rejected.** *A `Deleted` column on the inbox too* — decorates a flag with no purpose. *Leaving the inbox untouched* — keeps a flag whose rows are inert, which is the thing being complained about. *Always-on `Deleted` columns everywhere for consistency* — puts a column reading `no` on every ordinary listing you ever run, to serve a recovery view you reach for rarely.
+**Rejected.** *An `expense people` group* — promises a set of commands when there is exactly one. *`accounts create --person`* — one command posting to two endpoints. *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
 
 ## One word for hashtags — the engine's, everywhere (2026-08-16)
 
-**Context.** The tag column was labelled `Tags` in `inbox list` and `Hashtags` in `transactions list`, while [cli-spec.md](cli-spec.md) claimed both said `Tags` — three sources, three stories. The inbox code even carried a comment claiming it matched `transactions list`, which it did not. Noticed because Phase 8 had to edit those exact two header dicts.
+**Decision.** Column labels say **`Hashtags`**, the engine's word (`/hashtags`, `hashtag_ids`). Where client and engine disagree on a name, the engine wins, so every client inherits one vocabulary.
 
-**Decision.** One word, and it is the engine's: **`Hashtags`**. The engine names the resource `/hashtags`, the field `hashtag_ids` and the filter `?hashtag_id=` — "tags" appears in its spec only as loose prose. Where the client and the engine disagree on a name, the engine wins, so clients two and three inherit one vocabulary instead of a per-surface dialect. Applied to all four surfaces: both CLI tables and both TUI screens (`transactions.py`, `inbox.py`), plus the spec line and the misleading comment.
-
-This **reverses the label half of the 2026-08-16 hashtag-column sign-off**, which chose `Tags` for the inbox. The *position* it chose — last on both lists, before the status marker in the TUI — is untouched; only the word changed.
-
-**Rejected.** *Aligning on `Tags` and correcting the engine's vocabulary in the client* — shorter and friendlier, and it is what the spec already claimed, but it puts the client's word in front of the engine's on every screen while the wire format keeps saying `hashtag_ids`; the next client would have to make the same choice again with nothing to point at. *Leaving both and correcting the spec to admit the difference* — cheapest, changes nothing you see, and permanently ships two names for one thing.
-
-## The light theme will detect the terminal, not ask the user (2026-08-16)
-
-> ⛔ **Reversed 2026-08-19 — never implemented.** See "The terminal supplies the
-> palette" below: the app now takes its colours from the terminal's own ANSI
-> slots, so there is nothing to detect. The `OSC 11` query, the `COLORFGBG`
-> fallback, the `select()` timeout and the second hand-tuned palette are all
-> deleted from the plan. Retained as the record of what was considered and why
-> the cheaper answer was missed for three days: every option below argues about
-> *how to choose between two palettes we author*, and none asks whether we
-> should author them at all.
-
-**Context.** The TUI runs in ANSI mode, so the base surface is already the terminal's own (2026-07-11, "TUI paints the terminal's own background"). What is still missing is the other half: one dark-tuned *foreground* palette, hard-coded at mount, unreadable on a light terminal. The open backlog item pairs a light theme with a `NO_COLOR` path. The implementation stays open; only the approach is settled here, so whoever picks it up is not re-deciding it.
-
-**Decision.** **Auto-detect.** On startup the app asks the terminal what its background colour is — the `OSC 11` query, with `COLORFGBG` as fallback and dark as the final default — computes luminance, and selects the palette that reads on it. No setting to manage, and it follows the user between terminals.
-
-**What makes it non-trivial, recorded so the estimate is honest.** **Textual ships no such detection** (verified in 8.2.7: no `OSC 11` query, no `COLORFGBG` read anywhere in the package). `App.ansi_theme_dark` / `ansi_theme_light` sound related and are not — they pick an ANSI→truecolor conversion table from *your* theme's `dark` flag, never from the terminal. So the query is hand-written, and it must run in `run_world` **before** Textual takes the tty, with a `select()` timeout, because a terminal that never answers must not hang the app. Two existing guards constrain the result: `test_base_fills_are_terminal_transparent` (a light theme must not paint a base surface — that is the seam rule, unchanged) and `test_theme_change_rebuilds_section_screens` (setting `self.theme` after screens are up must rebuild without re-fetching). `NO_COLOR` remains a third mode, not the light theme — a full native-ANSI `Theme(ansi=True)`, already parked in the ANSI-mode entry above.
-
-**Rejected.** *A remembered setting in `~/.expense-config`* — simpler, predictable, no terminal interrogation and no timeout; rejected because it is one more thing to configure and it does not follow you between terminals, which is the whole point of a surface that already adapts. *Deriving light/dark from `theme.dark`* — circular: that is the value being chosen. *Shipping the light palette with no selector, switchable only via `ctrl+p`* — leaves the default broken on a light terminal, which is the actual complaint.
+**Rejected.** *`Tags`* — shorter, but puts the client's word in front of the wire format's.
 
 ## The command palette is removed, not populated — `?` is the one discoverability surface (2026-08-17)
 
-**Context.** Two Phase 8 items sat next to each other: a `?` help overlay that did not exist, and "populate the Textual command palette". Auditing them first turned up two things that reframed both. **The palette was already advertised** — Textual's `Footer` renders a `^p palette` key on the right by default, gated on `ENABLE_COMMAND_PALETTE`, so it was discoverable and merely empty of our commands. And **a keys panel already existed**: Textual 8.2.7 ships `HelpPanel` + `action_show_help_panel`, reachable via `ctrl+p → Keys`. So the real question was never "build from nothing" — it was *curate, or accept Textual's*. Both were captured against our own binding set rather than argued from memory.
+**Decision.** `ENABLE_COMMAND_PALETTE = False`; `?` opens our own two-column `HelpModal`, bound per screen via `HelpBindingMixin` (never on the App, and not on forms, where `?` types a character). The card is **derived** from `BINDINGS` declared under `expense.tui`, so Textual's internals stay out without a suppression list; `test_tui_help.py` fails any binding with neither description nor tooltip.
 
-**Decision.** **Remove the palette** (`ENABLE_COMMAND_PALETTE = False`) and give `?` a card we own — variant C, a two-column `HelpModal`. What the palette actually offered was five commands: `Quit` (`^q` already does it), `Maximize` and `Screenshot` (Textual dev affordances), a `Theme` picker over **22 registered themes when we ship exactly one** (`THEMES = [EXPENSE_DARK]`; the other 21 are Textual's built-ins we never designed against), and `Keys` — the one useful entry, which is precisely what `?` replaces, curated and themed. Removing it also drops the `^p palette` strip from every footer for free, because `Footer` gates that key on the same flag; no footer code was touched. Nothing depended on it: the only two references in the repo were prose, a docstring in `theme.py` and one in `test_tui_theme.py`.
-
-The card's content is **derived, not hand-listed** — it walks the screen's and the focused widget's MRO and keeps only BINDINGS declared by classes under `expense.tui`. That filter is what keeps Textual's `home`/`end`/`tab`/`Copy selected text`/`Page Left` out **without a suppression list that would rot** as Textual changes. Three consequences worth knowing: `Binding.tooltip` carries the card's fuller wording while `description` stays the terse footer label, so one declaration serves both audiences; a `show=False` inverse folds onto its partner's row (`j / ↓  Down  (k / ↑ up)`) instead of becoming the blank-description row Textual's own panel prints; and a widget key the screen cannot service is **dropped**, so the Manage lists are not told `⏎ Open` when `enter` is a literal no-op there (§4.1 contract). `tests/unit/test_tui_help.py` is the guard — a binding declared with neither description nor tooltip fails the suite, which is the drift that made the footer misleading in the first place (four of the Accounts screen's own five keys never reach it).
-
-`?` is bound per screen root via `HelpBindingMixin`, **never on the App** — letters bubble up from lists, so an app-level `?` would fire from inside a `ConfirmModal`, the same reason there is no app-level `q`. Forms get **no help key at all**: a focused `Input` swallows printable keys, so `?` there types a question mark. That is the wanted behaviour (forms already show `^s`/`esc` in their footer), and it is pinned by a test so a later app-level binding cannot quietly take the key away.
-
-**Rejected.** *Binding `?` to Textual's built-in `action_show_help_panel`* — about three lines and it ships today; rejected because it lists seven rows of internals we never bound, prints `show=False` aliases as rows with an empty description, groups nothing, states none of the cross-screen conventions, docks right and squeezes the content to 33 columns, and is styled by Textual rather than through `resolve_palette`. *Populating the palette with a `Provider`* — navigation-only, or navigation plus the active screen's actions; more work than removal and it keeps both the theme picker and the footer strip. *A palette listing every screen's actions* — drawn in the mockup (§3, variant K) specifically to show why it cannot work: an action from a screen you are not on needs navigation **and** a selected record first, and some entries have no binding anywhere, so the list either lies or needs a per-action availability rule. *A one-column card (B)* — same content, roughly double the height, no room for the conventions block. *A full Help screen (D)* — the only shape that can carry the whole app's keymap at once, but it replaces the view instead of hovering over it, so you cannot read it against the list you were looking at.
-
-**Knock-on.** The entry above, "The light theme will detect the terminal", lists as a rejected alternative *"shipping the light palette with no selector, switchable only via `ctrl+p`"*. That escape hatch no longer exists — which strengthens rather than weakens the auto-detect decision it was rejected in favour of.
+**Rejected.** *Populating the palette with a `Provider`* — more work than removal, and it keeps Textual's theme picker and footer strip. *Binding `?` to Textual's own help panel* — lists internals, unthemed, squeezes the content.
 
 ## The terminal supplies the palette — every colour is an ANSI slot (2026-08-19)
 
-**Context.** 2026-07-11 made the *ground* the terminal's own and stated, in this
-file and twice in its mockup, that it did not make the app readable on a **light**
-terminal — the foreground hexes assume a dark ground. 2026-08-16 answered that
-with detection: query the terminal's background over `OSC 11`, compute luminance,
-pick between two palettes we author. While scoping that build the user asked the
-obvious question nobody had: *why detect at all — why not just use the terminal's
-own colours?*
+**Decision.** Nothing is detected. Every colour in [theme.py](../expense/tui/theme.py) is an ANSI slot (`ansi_green`, `ansi_red`, `ansi_blue`, `ansi_bright_black`, `ansi_default`) on one `Theme(ansi=True)`; the terminal's profile decides what each slot looks like, so the app is correct on dark, light and any custom profile. Picks: pending is **bold** with no colour (yellow fails on white); accent `ansi_blue`; structural rules `ansi_bright_black` via `$secondary`; modal card opaque with a dim scrim; no separate `NO_COLOR` mode. **Accepted cost:** the app does not look identical on every machine. Render-only traps: `$surface`/`$panel` generate to transparent under an ANSI theme (hence `$secondary` for rules), and alpha is dropped on `ansi_default`, so the scrim is a literal `black 60%` (`test_modal_scrim_dims_rather_than_wipes`). Guarded by `test_theme_is_ansi_slots_not_hexes`.
 
-**Decision.** **Nothing is detected.** Every colour in
-[theme.py](../expense/tui/theme.py) is an ANSI **slot** — `ansi_green`,
-`ansi_red`, `ansi_blue`, `ansi_bright_black`, `ansi_default` — on a single
-`Theme(ansi=True)`. `green` is not a colour, it is slot 2, and the terminal
-decides what goes in it: a dark profile fills it bright enough to survive black, a
-light profile darkens it to survive white. The person who configured the terminal
-already made this decision and every other TUI on their machine already honours
-it. Result: correct on dark, light, Solarized, Gruvbox, high-contrast — a wider
-target than the light/dark binary detection could ever reach — for a `removeprefix`
-instead of a hand-written terminal query. Picks from
-[mockups/expense-world-ansi-palette.html](mockups/expense-world-ansi-palette.html):
-**C** pending is `bold` with no colour (slot-3 yellow is the one slot that
-reliably fails on white, and the app already speaks bold/dim/reverse in ~40
-places); **D** accent `ansi_blue`; **F** structural rules `ansi_bright_black` via
-`$secondary`; **H** modal card opaque, dim scrim kept; **K** `NO_COLOR` dropped as
-a separate mode — the terminal owns colour now, and the flat CLI honours the
-variable on its own.
-
-**The cost, which is real.** The app no longer looks the same on every machine,
-and on a stock profile the sign colours are louder than the sage-and-rose that
-were approved in 4.2. That trade was put up first in the mockup, before any
-option, and accepted deliberately.
-
-**Three things only a render caught.** `$surface`/`$panel` *generate* to
-`transparent` under an ANSI theme, so the header rule, the quiet list border and
-the modal card were all invisible or see-through — hence `$secondary` for rules
-and a literal `ansi_default` for the card. Alpha is **dropped** on `ansi_default`,
-so the modal scrim silently became an opaque fill that *wiped* the screen behind
-it — a bug every unit test passed; the scrim is now a literal `black 60%` and
-`test_modal_scrim_dims_rather_than_wipes` asserts on composited output. And an
-`ansi=True` theme must ship Textual's full `variables` block (its own `Screen` CSS
-references `$ansi-background`); ours resolves cursors as **reverse video** rather
-than adopting either built-in's light- or dark-specific colours — refusing the
-same binary in the one place Textual still assumes it.
-
-**Rejected.** *Detection* — see the superseded entry above; it authors and
-maintains two palettes to approximate what the terminal already knows exactly.
-*A stored setting* — rejected there too, and even more clearly now. *Keeping the
-tuned palette on dark and adding ANSI only for light* — two code paths, the
-brittle detection back again, and the light path still unowned by any design.
-*Registering Textual's own `ansi-dark`/`ansi-light`* — they disagree on `warning`
-and `accent` precisely because they encode the light/dark split this decision
-refuses; adopting them would reintroduce the choice through the back door.
+**Rejected.** *Detect the terminal's background and pick between two authored palettes* — maintains two palettes to approximate what the terminal already knows. *A stored light/dark setting* — one more thing to configure. *Textual's `ansi-dark`/`ansi-light`* — they encode the light/dark split this refuses.
 
 ## A terminal too small is the user's to fix (2026-08-20)
 
-**Context.** The last open TUI decision asked whether to refuse or fall back below
-some minimum size. The docs recorded it as half-answered — *"the app degrades
-rather than refuses, `PAGE_ROWS_FLOOR = 5`"* — so closing it started as a
-formality. Measuring it first showed the premise was wrong twice, and that is the
-part worth keeping. Captures and the sweep:
-[mockups/expense-world-min-terminal-size.html](mockups/expense-world-min-terminal-size.html).
+**Decision.** **No size guard.** **80×24** is where everything is correct; **60×20** is workable but lossy (columns ellipsised, every row present); nothing enforces either. Below that the app degrades silently: columns collapse from ~75 wide, and rows clip rather than reflow. `PAGE_ROWS_FLOOR` is a floor on the page size *requested*, not a protection.
 
-**What the app actually does.** It is fully correct at **80×24** and comes apart
-below that, silently, in two unrelated ways. *Horizontally*, every row keeps being
-drawn while the columns collapse: truncation starts around **w=75**, by w=50 the
-title is a bare `…` and the amount `-…`, and by w≤40 the date goes too. This is the
-dangerous one — the panel closes, the footer is intact, nothing looks broken, and
-the app is confident and wrong. *Vertically*, rows are clipped rather than
-reflowed, and **the threshold moves with the page size**: a 4-row page keeps its
-bottom border down to h=18, a full 8-row page has already lost it at h=20. At h≤10
-there are no data rows at all, while the footer still offers to page through them.
-Neither failure is announced.
-
-*(Measured twice. The first write-up of this entry asserted "clean to 80×22" and
-"columns collapse from w=50"; re-probing showed truncation actually starts at ~75
-and the height threshold is not a constant at all. Numbers above are the second,
-verified pass — worth recording because the whole point of the entry is that the
-previous claim went unchecked for four days.)*
-
-**Decision.** **No guard.** No launch-time refusal, no in-app notice screen, no
-warning banner. The terminal is the user's to size, every TUI degrades somehow, and
-this has never been hit in real use — a size guard would be code, tests and a new
-screen state bought against a problem nobody has. **80×24 is documented as the size where
-everything is correct, and 60×20 as still-workable-but-lossy** (columns ellipsised,
-every row present) — but nothing enforces either. What *does* change is the record: tui-plan §9 #5
-and the `PAGE_ROWS_FLOOR` comment both asserted a protection that does not exist,
-and both now state the measured behaviour instead.
-
-**`PAGE_ROWS_FLOOR` is not what its name suggests.** It is a floor on the page size
-we *request*, not on what the viewport can show. Below a ~18-line terminal it
-guarantees rows are fetched and then clipped off the bottom — it prevents nothing.
-Width has no floor of any kind: no constant, no clamp. Both facts are now written
-at the constant itself.
-
-**Rejected.** *Refuse at launch* (a size check beside the tty guard in `run_world`)
-— four lines and the cheapest to build, but it refuses terminals that are still
-readable and says nothing in the commoner case, shrinking the window *after* launch.
-*An in-app notice screen* that replaces the content below the threshold and restores
-on resize — the best of the three, and the one to build if this ever becomes a real
-complaint; rejected now only on cost, since it needs a new screen state and its own
-tests. *A persistent warning line* — cheap and takes nothing away, but it spends a
-row on the screen with fewest to spare and leaves the misleading render underneath
-it. If this is revisited, revisit the notice screen; the threshold to wire it to is
-already measured.
-
----
+**Rejected.** *Refuse at launch* — refuses readable terminals and misses the window shrinking after launch. *A persistent warning line* — spends a row where there are fewest. *An in-app notice screen below the threshold* — the one to build if this ever becomes a real complaint; rejected only on cost.
 
 ## Logging is a key, not a menu row — plain `+`, and the footer stops naming the arrow keys (2026-08-20)
 
-**Context.** Two asks landed together, both about the same thing: the surfaces you
-pass through on the way to writing a transaction down. `Log a transaction` was the
-first row of the home menu, which made the most frequent action in the product
-also the one with the most steps — open the app, move the cursor, press enter. And
-every list footer opened with `↓ Navigate`, spending its leftmost slot on the one
-key nobody has ever needed told (*"its obvious and it just occupies space
-unnecessarily"*). Mockup and the measurements behind it:
-[mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html).
+**Decision.** **Plain `+`** (`LogTransactionMixin`, [_base.py](../expense/tui/screens/_base.py)) opens the LOG bar on Home and Transactions — one key, one meaning. Arrow keys are `show=False` in every footer (the `?` card still lists them). The form's field keys (`^↑`/`^↓`, which macOS claims for Mission Control) are **un-advertised, not unbound** — they work for anyone who turned those shortcuts off (`test_form_navigation_keys_are_not_advertised`).
 
-**Decision.** The menu row is **deleted** and replaced by **plain `+`**
-(`LogTransactionMixin`, [_base.py](../expense/tui/screens/_base.py)), bound on
-Home, Transactions and Inbox — the three screens where "and now write one down" is
-the obvious next thought. It always opens the same empty form posting to
-`/transactions`: one key, one meaning, on every screen that has it. Separately,
-the `Navigate` binding on `CursorList`, `CheckList`, `CategoriesView` and
-`MonthGridView` becomes `show=False` — the keys are untouched and the `?` card
-still lists them, which is where a key that needs explaining belongs.
-
-**Rejected — `shift`+`+`, because a terminal cannot send it.** The first proposal
-was a modified key, to be safe against collisions. It is not bindable: for a
-printable key the shift is already baked into the character the terminal emits (on
-a US layout the main-row `+` *is* shift+`=`), so no modifier survives to be
-reported. Textual states it in `keys.py` (`key_to_character`: *"Keys with
-modifiers don't come from printable keys"*). Plain `+` needed no defending anyway —
-probed on the live app, `active_bindings` had no `plus` entry on any screen,
-pressing it did nothing, and none of the three hosts has a text input for a stray
-`+` to fall into. It also arrives from the numpad and the main row as the same
-byte, so one binding catches both.
-
-**Rejected — `+` creating an inbox draft when pressed inside the Inbox.** Tempting,
-because **the TUI still cannot create an inbox draft at all** — the Inbox screen
-only filters, promotes, deletes and edits, and `expense inbox add` is the only way
-in. But making one key write to two different endpoints depending on where you
-stand is the one thing you cannot tell by looking at the key. The gap is real and
-deliberately left open ([todo.md](todo.md)); the shape it should take if it is ever
-closed is `n New`, which is already the convention on every other list screen
-(`_base.py` `ResourceListScreen`).
-
-**Not done — the arrow keys inside the edit form.** The same session asked for
-plain `↑↓` to move between fields, then for `shift+↑↓`, then deferred the whole
-item. Two findings are worth keeping for whoever picks it up. `shift+up` /
-`shift+down` **are** bindable — arrows are not printable, so the terminal sends a
-distinct sequence (`CSI 1;2A`), Textual maps it, and a live probe with a focused
-`Input` fired both without typing anything into the bar. And the form's existing
-`^↑ Prev field` / `^↓ Next field` are almost certainly **dead keys on macOS**:
-`⌃↑` is Mission Control and `⌃↓` is Application Windows, claimed by the OS before
-the terminal sees them. The form has been advertising two keys that never worked.
-
-**Half of it shipped 2026-08-24: the form footer stopped advertising them** — along
-with the plain `↑ ↓` rows, which the 2026-08-20 footer trim had applied to the list,
-tree and checklist widgets but missed on the forms. The footer now reads
-`esc Cancel  ^s Save` and nothing else. All four keys stay **bound**
-(`Binding(..., show=False)` in `form_bindings`), which is the call worth recording:
-*un-advertise, do not unbind.* They genuinely work for anyone who has turned Mission
-Control's shortcuts off in System Settings, and no replacement has been picked yet —
-so deleting them would remove working behaviour to fix a labelling problem.
-*Rejected: deleting the two bindings outright* (loses that behaviour for no gain, and
-orphans `action_field`, which the replacement key will want). Guard:
-`test_form_navigation_keys_are_not_advertised`. What remains open is only the J/K
-choice above.
-
----
+**Rejected.** *`shift`+`+`* — unbindable: for a printable key the shift is already baked into the character. *A menu row* — the most frequent action with the most steps.
 
 ## One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` (2026-08-27)
 
-**Context.** The user asked for a conflict sweep of every TUI shortcut, then for an
-inventory: *"Where do we use J K H L and why do we have pgdn , []??? ... i want to keep
-it ULTRA SIMPLISTIC and then using it ill come up with more shortcuts."* The sweep found
-no live conflict, but it found ten movement keys doing the work of four. Read out of
-source and drawn per key family in
-[mockups/expense-world-movement-keys.html](mockups/expense-world-movement-keys.html),
-the test applied to each was: **if it vanished tomorrow, what becomes unreachable?**
+**Decision.** No aliases: `j`/`k`/`h`/`l`/`,`/`.` are not bound — a widget alias silently outranks a screen binding, so aliases make letters unusable as commands. `pgdn`/`pgup` mean "the next window of data": on the ledger they grow the list, on Home they slide the month window (`pgdn` goes older). `[`/`]` are bound nowhere. Guards: `test_no_duplicate_movement_key_aliases`, `test_square_brackets_are_not_bound_anywhere` ([test_tui_help.py](../tests/unit/test_tui_help.py)).
 
-**Decision.** Two groups, opposite answers.
-
-*Deleted — six keys, zero capability lost.* `j`/`k` were a second name for `↓`/`↑`,
-`h`/`l` for `←`/`→`, `,`/`.` for `pgup`/`pgdn` — same action, same line of code, and
-none of them printed their own letter in the footer. The reason to remove them is not
-tidiness: a widget alias silently outranks a screen binding, so `j k h l` were
-*unusable* as command letters on any list screen. Deleting them hands four letters back
-to the command namespace, which is what the user asked the inventory for.
-
-*Kept — `pgdn`/`pgup` are load-bearing.* On the four fetch-paged screens the arrows
-clamp at the fetched edge on purpose (2026-07-13, below), so no arrow reaches page 2.
-The user confirmed an external keyboard with real PgDn/PgUp keys, which is what makes
-`,`/`.` safe to drop — on a MacBook they would have been the only *single-key* paging
-(`fn+↓`/`fn+↑` otherwise) and deleting them would have made paging harder, not simpler.
-
-*Moved — the month window rides the page keys.* `[`/`]` were the app's only
-one-screen, one-job binding, and they existed only because the Monthly grid had already
-spent `←`/`→` on expand/collapse. `pgdn`/`pgup` are unbound on that screen (the grid is
-not a paged list) and already mean *"the next window of data"* — a month slide is that
-same idea with 4 months instead of 20 rows. `pgdn` goes **older**, matching a
-newest-first ledger where paging down walks back in time. Guarded by
-`test_no_duplicate_movement_key_aliases` and `test_square_brackets_are_not_bound_anywhere`
-in [test_tui_help.py](../tests/unit/test_tui_help.py).
-
-**Rejected.** *`←`/`→` for the month window* (option A) — freeing them is genuinely
-cheap, because expand/collapse already has a complete second door in `enter`/`space` on
-all three tree views. But that grid *looks* like a tree: rows carry `▼/▶`, and a hand
-pressing `→` on a `▶` row expects it to open, not to slide the whole window. Same
-gesture, very different result. *`shift+←`/`shift+→` for the window* (option B) — works
-and retrains nothing, but adds a third tier of arrow keys for one screen, and `⇧←` is
-not discoverable by accident. *Keeping the vim aliases as "free" extras* — they are only
-free until something wants the letter, and then the failure is silent. *Deleting
-`pgdn`/`pgup` in favour of arrows that auto-page at the edge* — already rejected
-2026-07-13 ("holding `j` to skim would fire a fetch per keystroke at every boundary");
-that reasoning is unchanged. Note this entry is the mirror image of that day's
-*`[`/`]` as page keys* rejection: the objection then was "same key, different meaning",
-and it does not apply here — the report has no list, so `pgdn`/`pgup` acquire no second
-meaning, they acquire their **only** one.
+**Rejected.** *`←`/`→` for the month window* — Home's rows carry `▶` carets, and `→` on one must unfold it. *`shift+←/→`* — a third tier of arrows for one screen. *Vim aliases as free extras* — free until something wants the letter.
 
 ## The LOG bar shows the named account's ledger — elastic, and it stays put (2026-08-29)
 
-**The ask.** *"Once i write a bank account, the lower part of the screen should show the
-transactions table filtered to that bank account, so i can see where we are there."*
-Sketched as [mockups/expense-world-log-account-peek.html](mockups/expense-world-log-account-peek.html);
-three calls came back from it, and they are the entry.
+**Decision.** Name an account in the line and `AccountPeek` shows its ledger under the staged list: **elastic** (`height: 1fr`, as many rows as the staged list leaves; re-renders on resize), **the bar's account, never a staged row's** (an open picker previews the highlighted candidate; an unresolved token shows nothing), and **it stays on the last account named** after `↵` clears the bar. No balance. One debounced `GET /transactions?account_id=…` per account, cached for the screen; a save invalidates the accounts it wrote to; a failed peek says so in its border and never retries.
 
-**It is elastic (pick A), not a fixed strip.** `#peek` is `height: 1fr` and every widget
-above it is `height: auto`, so Textual hands the panel exactly the rows the staged list
-is not using and `AccountPeek` draws that many — a dozen or more while you type the first
-line, fewer as the batch grows, none once the list fills the terminal. The panel
-re-renders on its own `Resize`, which is what makes "as many as fit" a fact rather than
-an estimate. The empty-state invitation ("Nothing staged…" and the example line) stands
-down while the panel is up: the hint line already says what `↵` does, and those four rows
-are better spent on the ledger.
-
-**The account is the bar's, never a staged row's** — the user's own correction, and the
-reason `_peek_target()` is written as four explicit cases. A picker open on an account
-shows the *highlighted candidate*, so arrowing through `$sig` previews each account's
-ledger and the disambiguation answers itself. An account token that resolves to nothing
-shows no panel at all: that row is bound for the Inbox and there is no ledger to show.
-
-**And it stays put (pick i).** `↵` clears the bar, so mid-batch there is no active
-account — the panel keeps the last one the bar named until the bar names another. The
-strict reading (no account in the bar, no peek) was drawn and rejected: it blinks the
-panel off at every `↵`, which is exactly the moment you are typing a run of lines against
-one account.
-
-**No balance.** It was in the first draft — in the panel title, and again as a projected
-`→ S/ 12,345.75 after this batch` that counted the staged rows in. The user cut both
-("balance is not needed at all"), which also deleted the whole question of whether a
-screen whose premise is *nothing is written until `ctrl+s`* may show a number that is not
-true yet. The panel names the account and counts the rows; that is all.
-
-**Cost: one debounced `GET /transactions?account_id=…` per account named**, cached for
-the life of the screen, on the read the Transactions screen already makes. Names come
-from the `QuickAddRefs` the grammar already loaded, so there is no second fetch. A peek
-that cannot load says so in its own border and does not retry — it is a courtesy, and a
-courtesy never interrupts the typing. A save invalidates the accounts it wrote to, so
-the rows you just logged appear where they belong.
-
-**Rejected.** *A fixed window (pick B)* — twelve rows always, in the same place, so the
-eye learns one spot; it costs the staging list twelve rows even when it wants them, and
-the panel is least useful exactly when the batch is long. *A one-line summary (pick C)* —
-balance, month-so-far, last movement, no table at all; it died with the balance, and it
-answered "where do I stand" without answering "did I already log this?", which is the
-question you actually have while typing. *Making the panel navigable* — `↑↓` already
-belong to the staged list, and a second cursor on the screen would have to be won and
-released. It is a window, not a table you work in.
+**Rejected.** *A fixed 12-row strip* — steals rows from a long batch. *A one-line summary* — does not answer "did I already log this?". *Blanking the peek when the bar is empty* — blinks off at every `↵`. *A navigable peek* — a second cursor on the screen.
 
 ## The legend, the two picker gaps, and day+month dates (2026-08-29)
 
-Three things the user raised while using the LOG bar. Drawn together in
-[mockups/expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html);
-a fourth ask in the same session (hashtags filtered to the category) is **not** built — see
-the end of this entry.
+**Decision.** (1) **The grammar legend is a permanent row** (`$account · @category · #tag · ±amount · //note · when     ↵ stages the line`) that never changes; everything that does change lives on the `#hint` row above it. (2) **A bare `$`/`@`/`#` opens the full list** — it stands unresolved carrying every candidate. (3) **Matching is accent-blind** via one `fold()` ([quickadd/names.py](../expense/quickadd/names.py)). (4) **Day + month means this year**: `28Aug`, `28/ago`, `1set`, `15DEC` — separator optional, month any prefix of three letters or more in English or Spanish (no three-letter prefix reaches two months); an explicit year wins. Mockup: [mockups/expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html).
 
-**The legend is a fixed row, and `↵ stages the line` rides on it (pick A).** The grammar
-was already on screen — as the `#hint` fallback — but only while the bar was empty, so it
-vanished the moment you started typing, which is the moment you need it. It is now its own
-permanent row: `$account · @category · #tag · ±amount · //note · when     ↵ stages the
-line`. It **never changes**, which is the point: it describes the grammar, not the moment,
-so nothing below it ever moves. Everything that *does* change — the amount echo, the
-resolved date in words, how many names a token matches, loading/writing — stays on the
-`#hint` row above it, and that row no longer repeats the grammar. This is also the first
-place `//note` is written down anywhere the user can see it while typing.
-
-*Rejected:* **B**, the four-row key block that spells out what `//` and the date words are —
-it is the only shape that teaches rather than reminds, but four rows come straight out of
-the account peek below it. That table now lives in this mockup instead. **C**, the live
-checklist (each key lit while the line has that token) — a genuinely better idea and the
-one recommended, declined in favour of a row that is the same every time you look at it.
-
-**Two picker gaps, both real, both fixed.** Reproduced against the real ledger; note that
-what was *not* broken is narrowing — `$BCP S` correctly cuts six accounts to two.
-(1) **A bare sigil offered nothing.** `#` alone is one character, so the parser read it as
-a title word and no picker opened: you had to guess a first letter before the app would
-tell you what exists. A bare sigil now stands unresolved carrying *every* candidate, which
-is exactly a picker's input, and it gets its own phrase (`"#" names no hashtag yet`) —
-because that same string is the Inbox reason if the line is staged with the sigil still
-bare. Consequence accepted: a stray `$` in a line is no longer silent title text, it is a
-visible unfinished token. (2) **Accents hid names.** Matching was case-blind but not
-accent-blind, so `#banos` found no `BAÑOS` and the row went to the Inbox for a tag the
-user has. Folding is now one function, [quickadd/names.py](../expense/quickadd/names.py)
-`fold()`, applied to the typed side and the stored side alike — so `#baños` still matches
-itself — and it is shared by all three pickers that had their own `.lower()`: the grammar,
-the edit form and the create forms.
-
-**Day + month means this year.** `28Aug`, `28/Aug`, `28-Aug`, `28agosto`, `28ago`, `1set`,
-`15DEC` — the separator is optional, the month is any prefix of its name from three letters
-up in either language, and an explicit year still wins (`28Aug26`, `28/ago/2025`). Prefix
-matching needs no abbreviation table and is unambiguous by construction: no three-letter
-prefix reaches two different months (`mar` is March and marzo; `may` is may and mayo).
-
-*Rejected:* **a bare numeric `28/08`**, the obvious sibling — because `1/2` and `1/4` are
-things people write in a title, and a fraction silently becoming February is exactly the
-class of error the grammar is built to avoid. The month must be letters. *(Open, not
-decided: the spaced form `28 Aug`, which needs lookahead in the date branch rather than a
-regex.)* Note the consequence of "this year" in January: `28Dec` will resolve to *this*
-December, a future date, which routes the row to the Inbox as dated-ahead. That is visible
-— the resolved date is echoed in words before anything is staged — and the user asked for
-the current year explicitly.
-
-**Not built: hashtags filtered to the category.** The engine has no link between a hashtag
-and a category — tags are a flat global list joined only to transactions — so nothing in
-the API can answer "tags used with `@SALUD`". The only source is the user's own history,
-and reading all of it is the engine's job: a client would have to page thousands of rows
-and guess from a window of them, wrongly, and web and iOS would each have to guess the same
-way. It is on [todo.md](todo.md) as an engine ask (`GET /categories/{id}/hashtags`, most-used
-first) with two drawn shapes — ranked or filtered — in the mockup, so the ask can go out
-with a picture attached.
-
-
-## Overview — one screen for stock and flow, a band capped at 5 that always reads today (2026-08-29)
-
-**Context.** Reports had two entries. Outstanding Amounts drew bank accounts, people, a
-category→hashtag tree for the current month and an inflow/outflow/net block; the Monthly
-report drew a sliding four-month grid of the same categories. The 2026-07-08 entry above
-had already named the overlap out loud — it rejected a single-month report *because
-Outstanding Amounts already was one* — and then left both screens standing. The user
-asked whether they could be one ("can we mix the amount outstanding with the monthly
-report into a single one? maybe we do an upper pannel with outstanding amounts.."). Six
-layouts were drawn and, unusually, **prototyped in real Textual against the real ledger**
-rather than only sketched — which is how three of the decisions below were made:
-[mockups/expense-world-reports-merge.html](mockups/expense-world-reports-merge.html),
-picked §12.
-
-**Decision.** One screen, **Overview** (`overview.py`, folded into Home and deleted 2026-09-13,
-`reports.py` renamed). A band of two `1fr` halves — Accounts left, People right — sits
-above the unchanged four-month grid, which gains `inflow` / `outflow` / `net` rows from
-the same [`build_range_grid`](../expense/commands/reports_cmd.py) the flat range table
-renders, so `expense reports monthly --from/--to` gained the same two rows: one copy,
-both surfaces. Outstanding's category tree, accounts table and totals table are
-**deleted, not moved** — the grid's newest column already was that tree with three months
-of context attached. Four things the prototype settled that a drawing could not: **(1)
-the panels are lean** (`box=None`, no header row) — drawn boxed the way `outstanding.py`
-drew them, the band costs 12 lines instead of 8 and `net` falls below the fold at 120×34,
-so you see inflow and outflow and not the number they add up to; **(2) the left half
-needs a 4-column gutter** — without it both `1fr` halves render `5,018.93Majo`, the
-amount column butted into the neighbouring names; **(3) `pgdn`/`pgup` must be
-`priority=True`** — `#content` is a `VerticalScroll`, and once the band made the card
-taller than a short terminal the scroll container began handling those keys itself, so
-the month window silently stopped moving on exactly the terminals where the card
-overflows; **(4) each panel draws at most 5 rows, hard, with no fold** — the user's call
-("i wont always have the 6 accounts un-archived… I can also always go to the accounts tab
-and see all accounts there"), in the engine's own order, truncating **drawing only**:
-nothing filters the fetch and the flat `dashboard` still prints every row. The title
-reads `Overview · balances today · flow <first> → <last>` permanently, because the band
-is always today's balances even when `pgdn` walks the grid back a year and there is no
-balances-as-of-date endpoint — the label is the whole mitigation. `fetch()` makes both
-failable reads in one worker and **either failure fails the whole screen** through the
-existing error card; a half-populated Overview is a screen that looks right and is not.
-Measured: fits whole at 120×34; at 100×30 nothing truncates and only `net` sits one line
-below the fold, so **100×31 is the minimum for the entire report at once**.
-
-**Rejected.** (1) **A `▶ n more` fold on a capped panel**, the way `▸ 3 settled` folds a
-settled person — drawn in §12 and argued for on exactly that precedent; the user declined
-it, and the distinction holds: an account is one tab away on its own screen, whereas a
-settled person exists nowhere else. *(The settled fold is untouched and is still never
-capped — expanding it shows every one of them.)* (2) **Ordering the cap by size** so it
-always hides the least money — a sort, not a computation, so it was inside the rules, but
-the engine's order is what every other list shows and a screen-local re-sort would make
-the same accounts read in two orders on two screens. (3) **A left rail** (option C, the
-one the user preferred longest) — it needs ~120 columns with the rail fixed at 38, and
-the rail scrolls away leaving 38 dead columns unless the screen overrides `compose()` to
-pin it; the user's own verdict retired it: *"this design is better suited for a proper
-app"*, which is exactly right — it assumes horizontal room a terminal does not reliably
-have, and it belongs to the web and iOS clients. (4) **Two stacked full-width panels**
-(option F) — a 12-line band against A's 8, for space the grid wants. (5) **A one-line
-folding strip** (option B) — the closed line has to summarise the accounts in one number,
-and a mixed-currency sum is a number in no currency (the same reason the engine deleted
-its native totals column on 2026-08-05). (6) **Native amounts on one line per kind**
-(option E) — measured at 174 columns for six accounts. (7) **Dimming the band while the
-window is off the current month, or asking the engine for balances-as-of-date** — the
-first invents a state the data does not have, the second is engine work for a label's
-worth of value. (8) **A partial render when one of the two reads fails.** (9) **Caching
-the dashboard across `pgdn`/`pgup`** and refetching only on `r` — it forks the refresh
-path in two and makes "the screen I just logged into" stale in one of them; revisit only
-if the third round-trip is ever felt.
-
-
-## Overview packs left — every table is `expand=False`, and the cursor bar pays for it (2026-08-29)
-
-**Context.** The user sent a screenshot of Overview on a ~200-column terminal: "data is
-going too much to the right, id liek it more tightly coupled even if there is space."
-The screen was drawing category names at the far left and amounts against the far right
-edge, with a lake of blank columns between them.
-
-**Cause,** found before anything was drawn. The grid was
-`Table(expand=True)` with `add_column("Category", ratio=1)`. `expand` fills the pane;
-`ratio=1` then hands the label column *every* spare cell, so the width of the gap is
-simply the width of the terminal minus the content — about 140 columns on that
-screenshot. The band was the same call without a ratio, which pads its name column to
-the same effect. Worth stating because it reads like a right-alignment choice and is
-not: the amounts are right-aligned *inside* columns that had been inflated. Measured, the
-content wants **59 columns** — 15 for the widest label (`▶ SUSCRIPCIONES`), 44 for four
-amounts at `467,189.17`.
-
-**Decision.** Option A of
-[mockups/expense-world-overview-width.html](mockups/expense-world-overview-width.html):
-`expand=False` on all three tables — the Accounts panel, the People panel beside it, and
-the grid. Each is now exactly as wide as its content and sits against the left margin;
-rendered against the real ledger at a 200-column console the band takes 32 and the grid
-60. `ratio=1` went with it rather than staying as a no-op: Rich only distributes by ratio
-when a table expands, so a surviving `ratio` would read as live sizing while doing
-nothing. The People panel changed even though nobody asked, because its docstring
-requires it — the two panels are meant to "read as one band", so they size alike or the
-band is worse than either rule alone.
-
-**The cost, accepted knowingly.** The grid's cursor is a `reverse` row style, so the
-highlight bar is now as wide as the content (60) rather than the pane (200). A short bar
-is harder to catch on a wide terminal. This was the whole substance of the choice, and it
-was put in the mockup's comparison table rather than discovered afterwards.
-
-**Rejected — both kept the full-width bar, and both cost more than it was worth.** (1) A
-**fixed label rail plus an empty trailing column** to absorb the slack: identical packing,
-full-width bar kept, and it would have stopped the columns shifting when a row expands —
-but it truncates any label longer than the rail, and it adds a column that exists to hold
-nothing. Recommended in the mockup and turned down; if the short cursor bar ever grates,
-this is the one to revisit. (2) **Capping the container** rather than the tables: two caps
-to keep in step instead of one rule, and the label column still absorbs whatever the cap
-leaves, so it only shrinks the gap instead of closing it.
-
-**Locked by test.** `test_the_balances_panel_takes_its_natural_width_not_the_console_width`
-and `test_the_month_grid_takes_its_natural_width_not_the_console_width` render at 80 and
-200 columns and assert the width does not move;
-`test_neither_table_expands_and_no_column_carries_a_ratio` asserts it on the `Table`
-objects themselves rather than by scanning the source, which would also match this
-entry's own quoting of the old code.
-
+**Rejected.** *A bare numeric `28/08`* — `1/2` in a title would silently become a date; the month must be letters. *A four-row key block* — costs the peek four rows. *A live checklist legend* — declined for a row that is the same every time you look.
 
 ## Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check (2026-09-12)
 
-**Context.** `import_/plan.py` derives every transaction id as
-`uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and `stable_row_key` ends with
-`str(row.line)` — the sheet's row number. That is what makes re-import safe: the same
-row hashes to the same id, the engine returns `409`, the importer skips. It is also what
-makes it fragile, because a row number describes where a purchase sits in the file, not
-what the purchase is. Insert, delete or sort a row mid-sheet and every row below it
-hashes to a *new* id — no collision, no skip, a second copy of a transaction the ledger
-already holds.
+**Decision.** `expense import sheet` derives each id as `uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and the key includes the row number — without it, two identical purchases on one day would collapse into one and the second would be lost. So **the sheet is append-only below the last imported row**: insert, delete or re-sort above it and every row below gets a new id and imports twice. The check is `expense transactions list --unreconciled` over the last reconciled period after every import: a duplicate lands outside any closed period, so it cannot hide in `difference_cents`. `--unreconciled` with `--reconciliation-id` is a `422`, not an empty result, because empty here asserts safety.
 
-The row number is not removable. Two genuinely identical purchases on the same day —
-same date, account, currency, amount, title — are byte-identical without it, so they
-would collapse into one id and the second would be `409`'d away. Dropping `line` trades
-silent duplication for silent *loss*, which is worse. The constraint is therefore real
-and permanent: **the sheet is append-only below the last imported row.** Add at the
-bottom; never insert, delete or re-sort above it.
+**Rejected.** *A duplicate-group counter instead of the line* — better in isolation and the fix if the sheet ever must be edited in place; not worth changing every existing id. *An importer guard storing the last row count* — state the CLI does not keep, and a sheet can legitimately shrink.
 
-**Decision — record the constraint and give it a check, rather than re-engineer the id.**
-The engine's own shape already contains the damage: no create path sets
-`reconciliation_id` (`helpers/transactions.py`), and a completed reconciliation refuses
-new assignments, so a duplicate that arrives after a period is closed lands *outside* it
-and cannot move its `difference_cents`. The monthly reconciliation against a statement
-balance stays correct — which is exactly why the duplicate is invisible. What was missing
-was the query: the engine could filter to one reconciliation but not to *no*
-reconciliation. `GET /transactions?unreconciled=true` (2026-09-12) closes that, and
-`expense transactions list --unreconciled` exposes it. Run it over the period you last
-reconciled, after every import: empty means the period holds nothing the statement did
-not account for; rows mean look. Combining `--unreconciled` with `--reconciliation-id`
-is a `422` rather than an empty result, because here an empty result is an assertion of
-safety and must never be produced by a contradiction.
+## A sparse line is a ledger row under `@Pendiente` (2026-09-12)
 
-**Rejected.** (1) **Replacing `line` with a duplicate-group counter** — rank a row among
-the rows identical to it, so the two coffees stay distinct while inserts elsewhere stop
-mattering. Genuinely better in isolation and still the right fix if the sheet ever has to
-be edited in place; turned down because it changes every existing id once, and the
-positional scheme is sound as long as the append-only rule is known, which is what this
-entry is for. (2) **Treating it as a data-integrity bug in the importer** — it is not one:
-re-import convergence works exactly as designed, under a precondition nobody had written
-down. The defect was the missing precondition and the missing check, not the hash.
-(3) **An importer-side guard that refuses a shifted sheet** (store the last imported row
-count, compare) — it would need state the CLI deliberately does not keep, and it guesses
-at intent: a sheet can legitimately shrink. The post-hoc check needs no state and catches
-the outcome rather than predicting it.
+**Decision.** (1) **A ledger row needs an account, an amount and a date**; title, category, tags and note are optional. (2) **An empty category files the row under the `@Pendiente` system category** (`system_key = 'pending'`, renameable, delete refused), which **counts** in every total, grid and balance. Naming `@pendiente` explicitly is allowed, so a row can be sent back to pending. (3) **A date ahead of today is refused**; **an unknown `#tag` is refused**; **a titleless row shows a dash** everywhere. (4) **A line is accepted or refused**: the LOG bar's `↵` stages it or shows the reason under the bar ([route.py](../expense/quickadd/route.py)), and `expense log` exits 1 on the same lines. (5) **The category cell alone carries the pending state** — no marker column.
 
-## The Inbox is deleted — a sparse line is a ledger row under `@Pendiente` (2026-09-12)
-
-**Context.** After two weeks of daily use the owner's verdict on the app was that the capture flow was heavier than a spreadsheet — and, on inspection, that the grammar and the LOG bar were fine and the **Inbox** was the weight. A line missing a category went to a second table, did not count toward any total or account balance, and had to be found, finished and promoted before the money it described existed anywhere. In a spreadsheet the same line is a row with an empty cell, and the sum is already right. The ledger held 3,821 rows and the Inbox zero live drafts on the day of the decision, so nothing needed migrating. Mockup: [mockups/expense-world-pendiente-not-inbox.html](mockups/expense-world-pendiente-not-inbox.html).
-
-**Decision.** (1) **The Inbox goes** — table, routes, promote, the ready/overdue filters, the screen, the `inbox` command group and the second hashtag junction source. (2) **A ledger row needs an account, an amount and a date; everything else may be empty.** Title, category, tags and note are optional. (3) **An empty category files the row under a new system category, `@Pendiente`** (`system_key = 'pending'`), on the `@Opening` pattern — seeded on first use, renameable, delete refused, name reserved — with the opposite reporting rule: `@Pendiente` rows are **included** in every total, the monthly grid, every account balance and every reconciliation window. Naming `@pendiente` explicitly on a write is allowed and means the same thing, so the edit form can send a row back to pending. (4) **Three calls the owner made on the same day:** the ledger keeps refusing a date ahead of today, and nothing else accepts one any more — the concept leaves with the Inbox; an unknown `#tag` is refused, never created (the 2026-08-25 rule, now with no fallback); a titleless row shows a dash, everywhere. (5) **Routing becomes refusal.** The LOG bar's `↵` either stages a ledger row or refuses the line in place with the reason under the bar, using [route.py](../expense/quickadd/route.py)'s existing phrases; the `goes to` column is deleted. The flat `expense log` exits non-zero on a refused line and keeps its echo-then-ask on an accepted one. (6) **The Inbox screen becomes a filter on Transactions** (`p` cycles all → pendiente, over the engine's existing `?category_id=`), and the pending count joins Home's header stats line, dim, vanishing at zero. Of the two ledger renderings in the mockup's pane 6 the owner picked **A** (2026-09-12): the category cell alone carries the state, no marker column — the category *is* the state, and a second cell saying so would spend width on a fact the accent colour already carries.
-
-**Rejected.** *Keep the Inbox but count drafts toward totals* — every aggregate would join two tables, and promote would survive to move a row that already counted; that is a ledger under a second name. *A `pending` flag on the ledger row* — a second axis every filter and every client must know, and it permits a row with a real category and the flag both set; "unclassified" is a classification, and `@Opening` already proved a category can carry a meaning the reports key off `system_key`. *Let the ledger accept future dates now that the Inbox cannot* — rejected by the owner: the ledger records what happened, and a balance that already contains next week's rent reads wrong today. *Create unknown tags on save* — a typo becomes a permanent tag; already rejected 2026-08-25 and reaffirmed. *Default a missing title to the category or account name* — invented text indistinguishable from typed text, forever. *Keep title required with an `UNTITLED` placeholder* — the value promote used to refuse; a placeholder is a lie the ledger carries. *A `Pendiente` row on the Home menu where Inbox was* — a second door into the same screen with a filter pre-set; the menu lists screens, not filters.
-
-**Shipped 2026-09-12, both halves the same day.** Engine `sql/038` (the inbox table, its routes, `inbox_id`, and the junction table's `transaction_source` all dropped; `@Pendiente` seeded on first use; `title` and `category_id` optional on the ledger), then this repo: `expense/quickadd/route.py` answers *staged or refused*, the LOG bar refuses in place, `expense log` exits 1 on a refused line and needs only `--amount` and `--account-id`, Transactions gained `p`, Home's stats line the pending count, and the Inbox screen, the `expense inbox` group and the draft edit door are gone. The 2026-08-25 entries above stand as history; the index marks which of their calls this one supersedes.
+**Rejected.** *A draft table that does not count toward totals* — the money is missing from every figure until promoted; this is what made capture heavier than a spreadsheet. *A `pending` flag on the row* — a second axis every client must know, and it allows a real category plus the flag. *Accepting future dates* — a balance holding next week's rent reads wrong today. *Defaulting a missing title to the category or account name* — invented text indistinguishable from typed text. *An `UNTITLED` placeholder* — a lie the ledger carries.
 
 ## Bank downloads are matched against the ledger, not hashed (2026-09-12)
 
-**Context.** The flow the owner wants after the Inbox went: download the two BCP exports (a current account with a `Numero de Operacion` per row; a card with mixed S/ and $ rows and no operation number), hand each to the app, and categorise afterwards. Downloads overlap — the same weeks are exported again and again — and the ledger already holds rows from two other sources: the old personal sheet (position-keyed ids, hand-cleaned titles) and the LOG bar (the owner's own words for a merchant). Investigation of the real files: [mockups/expense-world-bank-import.html](mockups/expense-world-bank-import.html). The engine gained `operation_code` (`sql/039`) the same day.
+**Decision.** `expense import bank` ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account** and remembers the answer per file stem (`Config.bank_files`); a card's two currencies are one pick. (2) **The engine matches** — the whole file in one `POST /transactions/import`, dry run by default, `--apply` the same call with `dry_run: false`, `--json` the engine's body. The engine matches by operation code, then same day + amount + title, then ± 1 day + amount + title, claiming each ledger row once; a content match onto a code-less ledger row writes the code onto it. The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day where the ledger holds more unmatched rows than the file is a loud warning, never an action.** (4) **The title is the bank's text**, whitespace collapsed, and no description is written (description is the owner's notes field). (5) **New rows land under `@Pendiente`.** (6) Nothing dated before **2026-01-01** is sent; a file over **500** rows (the engine's cap) is refused; a row inside a completed reconciliation comes back `sealed` and is shown in its own block. The preview's `#` is the row's line in the file. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). Mockup: [mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html).
 
-**Decision.** (1) **The app asks which account** — the file does not say — and remembers the answer per file stem (pick **B**). A card's two currencies are one pick; the currency column chooses the leg per row. (2) **Duplicates are resolved by matching the ledger.** The bank's operation number when both sides carry one; otherwise date, amount, account and cleaned title with a one-day tolerance, and finally date ± 1 day, amount and account with the title ignored — the owner's count rule ("three rows of 3.50 in the file mean at most three in the ledger"). Each ledger row is claimed once, so the count falls out of the claiming. (3) **The operation code is a column and a per-account UNIQUE** in the engine: the hard floor under rule 1. (4) **A group where the ledger holds more than the file is a loud warning** (pick **D**), never an action — it is the one way an earlier double entry surfaces. (5) **Card titles are the merchant only**, the raw descriptor kept as the description. (6) **New rows land under `@Pendiente`** with no category and no tags; categorising is the next job, not the importer's.
-
-**Rejected.** *Content-hashed ids* (the personal importer's scheme minus the row number) — deterministic and read-free, and blind to all three real overlaps: the August rows the old sheet imported, the rows typed in the LOG bar, and a card row that moves a day between downloads; every one becomes a duplicate. *Date + amount + account only, no title anywhere* — two rides at one fare on one day would be one match and one silent loss; title runs first, amount-only is the leftover. *A per-bank parser module* — both files share one shape under two date spellings; one tolerant column mapping covers them, and a bank module is what to build the day a second bank's export looks different. *Keeping `expense import <file>` bare and adding a separate top-level command* — `import` is one verb with two sources; the personal importer became `import sheet`, a rename recorded here because it is the one breaking change on the flat surface.
-
-**Amended the same day — the code is not a verdict until the ledger knows it.** As first built, a coded file row that found no coded ledger row was "new", which would have duplicated every earlier month on a backfill run, since nothing logged before `sql/039` carries a code. The owner's rule: the code takes priority *when both sides have one*; otherwise the row falls through to the content rules, and a content match onto a code-less ledger row **writes the code onto it** — that write is the backfill, and from the next download on the row matches by code. A ledger row carrying a different code is never claimed by content: two coded movements agree on the code or they are two movements.
-
-**Verified on the real files the day it shipped.** Dry runs against the live ledger: the Sueldo file placed all 20 rows as new with their operation numbers; the card file placed 43 of 80 rows as already in the ledger (12 by day + title, 31 by the amount-only rule — the old sheet's hand-cleaned titles), 37 as new from 2026-08-29 on, and flagged one day where the ledger holds two 3.50 rows against the file's one.
-
-**Amended 2026-09-26 — the engine matches now (engine uptake Phase 10b).** The engine shipped `POST /transactions/import` on 2026-09-25, and the importer sends the whole file to it in **one** call: dry run by default, `--apply` the same call with `dry_run: false`, and `--json` the engine's body. What changed from the decision above: (2) the matching is the engine's, and it runs only the operation code, same day + amount + title, and the adjacent day + amount + title; **the amount-only rule is gone** (the old "rule 4"): it was the one rule that could make the ledger *miss* a real row, claiming any same-amount row within a day whatever its title, so a genuinely new charge could be declared already there and never written. The owner's rule is the opposite, **more rows beats fewer**: a duplicate shows up at reconciliation and in the balance, a row that never arrived is invisible. What still imports twice, accepted: a charge that changes amount between authorisation and settlement, or moves more than a day; `transactions list --unreconciled` and reconciliation are the backstop. (4) stands, fed by the engine's `excess` and counting the **unmatched** ledger rows per day (owner's pick C, [mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html)). The preview's `#` is **the row's line in the file** (owner's pick B, same mockup), so every message under the table (a refusal, a pre-2026 skip) names the same number, and a skipped line shows as a gap in the numbering. (5) is reversed (owner, 2026-09-19): **the title is the bank's text**, whitespace collapsed and nothing cut, and no description is written, because `description` is the notes field the owner writes in (701 of 3,895 live rows had one). Known consequence, accepted: the bank pads a merchant to a fixed width and fills the rest with as much of the city as fits, so one merchant gives several titles (80 card rows, 59 distinct strings against 56 cleaned); reports group by category and are unaffected, and matching is not weakened, because one movement is rendered identically in every download (two `Sueldo Soles` files shared 10 movements with zero fields different). New: nothing dated before **2026-01-01** is sent, and the hand-typed rows the bank files overlap are fixed once at the source by a title alignment ([file-import-plan.md](file-import-plan.md)); a file of more than **500** rows (the engine's cap) is refused before any call; a row inside a completed reconciliation comes back `sealed` and is shown in its own block, never written and never silently dropped, because it is how the owner notices the bank restating a month already closed. The request and response live once, in [expense/bank_import/engine.py](../expense/bank_import/engine.py), for the TUI door to reuse.
-
-**Rejected with the amendment.** *Keeping the client matcher beside the engine's* — two copies of one rule drift, and every other client would need a third. *Splitting a file over 500 rows across calls* — a row in a later call could be claimed by a row an earlier call just created, and vanish silently. *A `--since` floor, typed each run or saved once* (owner, 2026-09-26) — it existed because the ledger's hand-typed rows carry the owner's wording and no codes, so a file overlapping them would import them again; a typed floor is one forgotten flag from duplicates, and a saved one fences off real history instead of fixing it. The hand-typed rows get the bank's wording once instead. *The cleaned merchant as the title* — stable per merchant, but the title is meant to be exactly what the bank sent. *A per-row fingerprint column with a UNIQUE index* (deferred, not rejected) — it would make a re-import impossible at the database, and is not needed while the exposure is one open month.
+**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar, and to a card row that moves a day between downloads. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor* — one forgotten flag from duplicates. *A cleaned merchant name as the title* — the title is what the bank sent.
 
 ## Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key (2026-09-12)
 
-**Context.** The Inbox's deletion (above) left the categorising pass to be designed: 57 rows sat under `@Pendiente` after the two bank imports, and the tools for them were `p` on Transactions and `⏎` into the edit form, one row at a time. The first proposal was a categorising *mode* — a row-by-row picker with same-merchant history suggestions. The owner redrew it from the other end: the TUI should **open as the month** — every category with this month's amount, every bank account with its balance, every person, then Manage and System — and `⏎` on any of those should be the ledger filtered to it, where rows can be selected and their category, account or hashtags changed together. Titles, descriptions and amounts stay single-row. No suggestions, no automatic same-merchant behaviour: "keeping it simple first". Mockup: [mockups/expense-world-home-as-ledger.html](mockups/expense-world-home-as-ledger.html).
+**Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories (see "Home draws four months"), then accounts and people **in their own currency with the code beside the figure**, then LEDGER, MANAGE and SYSTEM as always-open section headers with every screen a row. A failed read is one dim row with the reason. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=` — crumbed `Ledger ▸ NAME`. (3) **Bulk is select + one key**: `space` selects, `a` selects every loaded row, `c` / `b` / `h` open one `PickerModal` over the selection (or the cursor row) and write **one `PUT /transactions/{id}` per row on its own worker**, then reload. A refused row is named by number and does not stop the others — which is why this is not `run_write`'s drop-on-error queue. (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.
 
-**Decision.** (1) **Home is a live list off the one `/dashboard` read** — categories in the home currency with a `net` line, accounts and people **in their own currency with the code beside the figure** (pane 1, pick **A**: the balance you act on is the native one; the Overview band already shows the converted figure with its rate caveat), then three door rows that open in place. The stats line is deleted: its numbers are rows now. A failed read is one dim row with the reason, and the doors stay. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=`, a crumb `Ledger ▸ NAME`, and a legend that says what the filter is and how many rows it holds. (3) **Bulk is select + one key.** `space` selects, `a` the page, `c` / `b` / `h` open one `PickerModal` over the selection (or the cursor row when nothing is selected) and write **one `PUT /transactions/{id}` per row, in order, on one client, then one reload**. A refused row is named by number, stays selected, and does not stop the others *(amended 2026-09-26: since any write starts the ledger over from the newest 10, it stays selected only if it is among them — owner's pick A, mockup `expense-world-refused-row-after-reload.html`; keeping it selected off screen was rejected)* — which is why this is its own worker and not `run_write`'s queue, whose drop-the-rest-on-error rule is right for dependent writes and wrong for independent ones. (4) **Changed rows leave a filtered list at once** (pane 6, pick **C**): the list is the work queue, the toast is the receipt. (5) **`esc` retreats one step**: selection, then filter, then screen *(amended 2026-09-13: the filter step is gone — see below)*. (6) **Hashtags replace the set**, the engine's own `hashtag_ids` semantics; the picker says so and refuses an empty apply rather than reading it as "clear every tag". (7) **`@Pendiente` is pickable in the category picker**, because sending rows back to pending is how a wrong bulk pick is undone. (8) **No engine change.**
+**Rejected.** *A categorising mode with history suggestions* — a second way to edit a category and a guess the engine would have to learn. *Spreading a category to every row with the same title* — same title, different payees; the selection is the spread. *Native balances with a converted figure beside them* — the balance you act on is the native one. *Bulk through `run_write`'s FIFO* — one refusal would drop every row behind it. *Folding the section rows* — the owner wants every screen visible. *`esc` stepping back to the unfiltered ledger* — two keys for "back".
 
-**Rejected.** *A categorising mode with a row-by-row picker and history suggestions* — a second way to edit a category, a new screen state, and a guess the engine would have to learn to make; filter + select + one key does the job with parts the app already had, and a suggestion can become a picker default later if it earns its place. *A separate "Categorise" menu entry* — a door to the `@Pendiente` filter, which is already a row on Home with its amount beside it. *Spreading a category to every pending row with the same title* — the owner's eleven `TRAN.CEL.BM.` rows go to different people; the selection *is* the spread. *Native balances with the PEN equivalent beside them* (pane 1, option B) — a converted figure with a rate caveat that the band already carries. *Rows that stay re-labelled until `r`* (pane 6, option D) — a list that lies about its own filter to keep a receipt on screen longer. *Bulk through `run_write`'s FIFO* — the first refused row would drop every row behind it. *Flat Manage and System rows on Home, as the menu had them* — ten rows of doors under the month; the mockup drew each group as one row, and opening in place keeps every screen one `⏎` further than before while Home fits a 30-line terminal. *A `home_currency` lookup so PEN rows could go unlabelled, as the mockup drew them* — the profile does not expose one, and a code on every row is the pick ("PEN is PEN and USD is USD") stated rather than inferred.
+## Home draws four months — three filters, empty categories hidden (2026-09-13)
 
-**Amended 2026-09-13 — `esc` goes back, it does not unfilter.** The owner, using it: from Home, `⏎` on a category or a hashtag and then `esc` should be Home again, and the second retreat step dropped them on the whole ledger instead. The filter is the door the ledger was entered by, not a state inside it, so `esc` now clears a selection when there is one and otherwise pops the screen. *Rejected:* keeping the filter step and adding a separate key to leave — two keys for "back", and the one people reach for did the wrong thing.
+**Decision.** (1) **Home draws categories × four months** (home currency), with unfoldable hashtag rows and inflow/outflow/net, from the same `build_range_grid` as the flat `reports monthly --from/--to`; `pgdn`/`pgup` walk the window a month at a time, never past this month. Balances are today's, and the header says so. (2) **`⏎` is three filters**: a category row → that category; a hashtag row → that category *and* that hashtag; an account or person row → that account. (3) **A category with nothing in the window is hidden.** (4) **A combo of several hashtags, or of none, is drawn but not filterable** — `?hashtag_id=` takes one id and there is no untagged filter, so a looser filter would show rows the cell does not count; `@Pendiente` draws no caret.
 
-**Amended 2026-09-13 — the screen sections do not fold.** LEDGER, MANAGE and SYSTEM opened in place for one day; the owner asked for them to stay open. They are now disabled section headers, styled like CATEGORIES, with every screen a row of its own. The cost is height: nine rows instead of three, so on a 34-line terminal Home scrolls to reach SYSTEM. *Rejected:* keeping one line per section with the screens inline — an `OptionList` row is one target, so the screens would need a second cursor; and opening the sections by default while still letting them fold — the owner asked for them not to be collapsible.
-
-## Overview folds into Home — four months, three filters, empty categories hidden (2026-09-13)
-
-**Context.** The day after Home became the month (above), the owner noticed the two screens drew one set of numbers twice: Home's accounts and people were Overview's band, and Home's month was the newest column of Overview's grid. What Overview alone carried was short — the three months before this one, the hashtag rows under each category, inflow and outflow, and `pgdn`/`pgup` over the window. Mockup: [mockups/expense-world-home-absorbs-overview.html](mockups/expense-world-home-absorbs-overview.html), drawn with the real June–September 2026 figures.
-
-**Decision.** (1) **Option A: Home is the four-month grid** with its accounts, people and doors around it; `pgdn`/`pgup` walk the window a month at a time and never past this month; balances stay today's, and their header says so. (2) **`⏎` is three filters** (owner's words): a category row filters the ledger by that category, every month; a hashtag row by that category *and* that hashtag; an account or person row by that account. (3) **A category with nothing in the window is hidden** — the grid's own rule, which the owner chose over keeping the single-month Home's `0.00` rows. (4) **Overview is deleted** — "its not used anymore"; the LEDGER door lost its entry, and the grid-builder tests moved to their own file. (5) **A combo of several hashtags or of none is drawn but not filterable**: the engine's `?hashtag_id=` takes one id and there is no untagged filter, so a looser filter would show rows the cell does not count. The live ledger had no multi-tag row and no untagged row outside `@Pendiente` when this was decided, so the refusal costs nothing today; `@Pendiente`, whose only combo is untagged, draws no caret at all.
-
-**Rejected.** *Option B, this month beside last month with a change column* — calmer and narrower, but it drops the long view Overview gave, which would then exist only on the flat range table. *`⏎` scoped to the highlighted month with a cell cursor (option D)* — adds a second cursor axis, takes `← →` from folding, and the categorising pass wants every pending row wherever it fell; it can come later without undoing this. *Keeping categories with nothing in the window* (my recommendation, so a category stays one `⏎` away) — overruled: the grid reads cleaner, and the Categories screen and the bulk pickers still list every category. *Keeping Overview behind the LEDGER door for a release* — two screens of the same numbers was the problem being fixed. *Overview as a second tab on Home* — still two screens, one key apart. *Twelve months on Home* — ~160 columns; `reports monthly --from --to` is the long view. *Balances as of the window's month* — no endpoint exists, and it is a figure rarely acted on. *Filtering a multi-tag combo by its first hashtag* — a superset silently presented as the cell's rows.
+**Rejected.** *This month beside last month* — drops the long view. *A cell cursor scoping `⏎` to one month* — a second cursor axis. *Keeping zero-activity categories* — the Categories screen and the pickers list every one. *A separate Overview screen or tab* — the same numbers twice. *Twelve months* — ~160 columns; the flat range table is the long view. *Balances as of the window's month* — no endpoint, rarely acted on. *Filtering a multi-tag combo by its first hashtag* — a superset presented as the cell's rows.
 
 ## A null difference is blank, a zero difference is the em-dash (2026-09-14)
 
-**Context.** The engine's `sql/040` made `ending_balance_cents` and `difference_cents` nullable. Before it, an ending balance you had not entered yet was stored as `0` and the add-up check was computed against that placeholder — so "not entered" and "the statement says zero" were the same row, and a draft you had not finished reported a plausible-looking imbalance. The engine now distinguishes them. The CLI then merged them again at the last step: [tui/widgets/cells.py](../expense/tui/widgets/cells.py)'s `difference_cell` had two branches returning a byte-identical dim em-dash, one for `0` and one for the non-int case that null fell into. Its own docstring recorded why that was once fine — null meant "an older engine body", a defensive fallback, not a state anyone would see.
+**Decision.** A reconciliation's `ending_balance_cents` and `difference_cents` are nullable (not entered yet). In the TUI ([cells.py](../expense/tui/widgets/cells.py)): `0` difference is the dim em-dash ("balances, move on"); `None` or junk is a **blank** cell — never the em-dash, which would assert the batch balances; a null amount renders `—`, not `(null)`. The flat CLI uses `format_cents_or_dash` for those two fields and always prints a zero difference as a number (it gets piped); `format_cents` keeps `(null)` everywhere else, deliberately ugly.
 
-Two things made it worth fixing rather than leaving. The em-dash was *designed* to read as "nothing to see, move on" (option H of the Phase 3 sketch) — the correct signal for a batch that balances and the exact wrong one for a batch nobody has finished, which is the one row on the screen that still needs work. And the collapse is invisible: both branches returned the same object, so nothing failed and nothing looked broken.
-
-**Decision.** Three states, three cells. (1) **`0` keeps the dim em-dash** — the approved Phase 3 rendering, unchanged. (2) **`None` is a blank cell**; an empty cell is the ordinary table convention for "not applicable yet". (3) **Non-int junk also goes to the blank**, never the em-dash — whatever it is, the one thing the cell must not do is assert that the batch balances. (4) **A null amount renders `—`, not `(null)`** — handled in `amount_cell` rather than at the one call site that can produce it today (a reconciliation's ending balance), so no column can start printing `(null)` at a user if another field turns nullable later. (5) The flat CLI gets `format_cents_or_dash` for the same two fields; `format_cents` itself is untouched, so `(null)` survives everywhere a null really would mean something is wrong — it is deliberately ugly and that is its job.
-
-**Rejected.** *Null and zero both as `—`, with zero moving to some other mark* — inverts a rendering the owner already approved, and changes the common case to accommodate the rare one. *A dim `?` or `·` for null* — invents a third glyph the TUI has no vocabulary for; a blank already reads correctly. *Leaving `(null)` in the End column* — honest, does not crash, and reads as a defect for what is an ordinary every-month state. *Changing `format_cents` globally so all nulls become `—`* — that marker exists to be noticed; blunting it everywhere to fix two columns trades a real signal for tidiness. *Making the flat CLI's zero difference an em-dash too, to match the TUI* — the flat table gets piped and eyeballed and deliberately always prints the number (the CLI half of option H); only the null needed a mark.
+**Rejected.** *Null and zero both `—`* — tells you an unfinished batch balances. *A `?` glyph for null* — a blank already reads correctly. *Changing `format_cents` globally* — blunts a signal meant to be noticed.
 
 ## The TUI sees the response body only where it asks for it (2026-09-20)
 
-**Context.** `POST /reconciliations/{id}/complete` began carrying a `warnings` list on 2026-09-20 — a stretch of days between the previous completed period on that account and this one that no completed period covers. It is the one fact about a close that nothing else in the system can reconstruct: the engine's own close check only inspects days *inside* a window, and `difference_cents` is two statement balances minus the ticked rows, so an unfiled row on an uncovered day never enters either. `EngineWriteMixin.run_write` ([tui/screens/_base.py](../expense/tui/screens/_base.py)) called `client.post(...)` and discarded what came back; `on_success` took no arguments. Five callsites across four screens.
+**Decision.** `run_write` takes an optional `on_response: Callable[[dict], None]`, called **before** `on_success` and only when the body is a dict ([_base.py](../expense/tui/screens/_base.py)). Opt-in: only reconciliation `complete` uses it, for its `warnings`. Before `on_success`, so "read it, then repaint" needs no extra state.
 
-**Decision.** A new optional `on_response: Callable[[dict], None]`, called **before** `on_success` and only when the body is a dict. Opt-in: the four existing `on_success` callsites are untouched and the one screen that needs a body asks for one. Before `on_success`, because a screen that reads the body repaints from it in `on_success` — the order is what makes "read it, then repaint" expressible without a second state field.
-
-**Rejected.** *Giving `on_success` an optional `body` argument* — every screen pays a signature for one screen's need. *Stashing the body on the mixin for `on_success` to read* — an `on_success` reading a body left behind by a previous write is a silent bug waiting for the first interleaved pair. *Having the screen re-read the record after completing* — the warning is computed at the transition and is not a field on the row, so a re-read returns nothing to show.
+**Rejected.** *A `body` argument on `on_success`* — every screen pays for one screen's need. *Stashing the body on the mixin* — a later `on_success` could read an earlier write's body. *Re-reading the record after completing* — the warning is computed at the transition and is not on the row.
 
 ## The gap report is a line under the header, not a toast and not the rows (2026-09-22)
 
-**Context.** With the body in hand (above), the gap report needed somewhere to land. The plan had written "a toast is the obvious vehicle"; the reconciliation-flow mockup drawn the same evening instead gave it a full screen captioned *"the screen that cannot be replaced"*. Neither was ever picked, so five renderings were drawn side by side in [mockups/expense-world-gap-warning.html](mockups/expense-world-gap-warning.html): **A** a warning toast, **B** a persistent line under the header, **C** a full screen, **D** the line plus a count of the unfiled rows in the stretch and `⏎` to open them, **E** those rows listed on the full screen.
+**Decision.** A completed period's coverage-gap warnings render as a line under the header (`#rwarn`, `PALETTE.warning`), hidden when there are none; it survives `r` and clears on the next status change. The engine's sentence is shown **verbatim** and never parsed; `reconcile complete` prints the structured `coverage_gap` once. The "completed" toast still fires — a gap is not a failure. Reviewing unfiled rows is the `u` pane's job ("Rows in no batch live in the reconciliation view").
 
-D and E were the owner's own suggestion — *show the rows, not the dates* — and they are the reason this entry exists. They cost more than they look: the gap's dates arrive **only inside the English sentence**, so a client would have to parse prose (which is not a contract) or re-derive the engine's rule (previous *completed*, dated, same account, in the account's timezone) to know which days to query. That meant an engine-side ask for structured gap fields. Asking what the rows were *for* answered it instead: the owner wants to review everything unreconciled across all time, which `GET /transactions?unreconciled=true` has served since 2026-09-12 and which no gap report is the right door to.
-
-**Decision.** (1) **Pick B.** The warnings render as a line under the header (`#rwarn`), in `PALETTE.warning`, hidden when there are none. It does not fade, it survives `r`, and it clears on the next status change — a revert unseals the very window the line named. (2) **The engine's sentence, verbatim**, per "Engine errors surface cleanly": this side neither parses the dates out of it nor goes looking for the rows they name. (3) **The success feedback stays** — the "completed" toast still fires; a gap is not a failure. (4) **No engine-side ask** — the structured-gap-fields request was dropped before it was raised. *(Superseded 2026-09-23: it was raised after all and shipped as `coverage_gap` on `POST /reconciliations/{id}/complete` (engine `7788252`), the same gap as data, next to the sentence; `reconcile complete` prints it once. The sentence is still never parsed.)* (5) **The review surface is separate**: a standing unreconciled view, queued as its own item in [todo.md](todo.md), because a review you need after *every* close should not be reachable only *from* a close.
-
-**Rejected.** *A toast (A), the plan's own sketch* — the entire value of this message is not being missed, and a toast fades in five seconds with no way to see it again short of reverting and re-completing. *A full screen (C)* — loudest, but it interrupts every close with a gap, including the deliberate ones (an account opened mid-year), and the 2026 backfill will produce those in bulk whenever periods are closed out of chronological order. *The rows, with a count (D/E)* — the better answer to the question the owner actually asked, and it needs engine fields this repo would otherwise fake by parsing prose; superseded by the standing unreconciled view, which answers the same need across all time instead of one stretch at a time. *Working the gap's dates out client-side from the account's batch list* — a copy of an engine rule in a client, which is the one thing this repo does not do, and one that would drift silently the day the engine's definition moved. *Dimming the line when the stretch holds nothing* — the count that would justify the distinction is exactly what pick B does not fetch.
+**Rejected.** *A toast* — fades in five seconds, and this message exists not to be missed. *A full screen* — interrupts every close, including deliberate gaps. *Working the gap's dates out client-side* — a copy of an engine rule.
 
 ## Rows in no batch live in the reconciliation view, not in a filtered ledger (2026-09-22)
 
-**Context.** Ask 1's step 6 was drawn as a bespoke "rows in your way" screen with three entrances and a **"tick all N, then complete"** button, per the 2026-09-20 sketch. The owner took it apart in review, and each objection was right:
+**Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's rows in no reconciliation, oldest first; `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals collapse to one line per distinct engine message** (`rows 1, 2, 3: <message>`).
 
-1. *"What does tick all and complete do — would that add those rows to the reconciliation? What if it doesn't add up with those rows?"* It would, and it would corrupt the close: `difference_cents` is `(ending − beginning) − sum(assigned)` with both balances typed off the statement, and a non-zero difference **has never blocked completion**. So one keypress could seal a month with a difference of -356.90 and never show the number in between. The button was a way to falsify a reconciliation in order to satisfy the engine's other rule.
-2. *"If there are rows that don't belong to anything, it should allow us to do something — either change bank account or change date."* The right remedies. A row inside a window and in no batch is usually not a row you forgot to tick: it is a row with the wrong account or the wrong date, or a duplicate that should not exist. All three are ordinary edits the engine already accepts (it refuses only a date or account move *into* a sealed window), and the engine's own refusal says "Assign **or delete** them first."
-3. *"The filter should be on the reconciliation part of the menu... let's keep all reconciliation stuff on the reconciliation view."* The intermediate design pushed the ledger with a new `unreconciled` + date-range `LedgerFilter`. Rejected outright.
-
-**Decision.** (1) **`u` on the Reconciliations browse swaps the lower pane** to the selected account's rows in no batch — same screen, same account cursor, `esc` swaps back. Not a filtered ledger, not a Home entry, not a pushed screen. (2) **`⏎` opens the existing edit form** (date and account among its fields) and **`d` deletes the cursor row** after a confirm — the TUI's first destructive key, chosen knowingly: nothing in the TUI restores a soft-deleted row, and the confirm says so. (3) **Oldest first, by asking for the tail.** `GET /transactions` is always `date DESC` and takes no sort parameter, so the pane reads `total` from a `limit=1` probe and requests the last page by offset, reversing that page for display. **One page only** — the pane is a work queue, not a browser; on the real ledger this list is ~3553 rows until the backfill closes its periods. *(Superseded 2026-09-23: the engine gained a cursor and `sort=date_asc` on this repo's ask, and the pane grows 10 at a time — see "The transaction list pages by cursor" and "Long lists grow".)* (4) **A `!` flag** marks a row whose date falls inside a batch window the screen already holds — a hint, never a ruling, and the owner declined any explanatory line beside it ("I can see myself by the date column"). (5) **A refused close builds nothing new**: its rows are already the unticked ones on the batch screen, and the refusal points at `u` for the rest. **No "tick all"** — `space` files rows one at a time so `diff` updates in front of you before you seal. (6) **The ledger's bulk refusals collapse to one line per distinct reason** (`rows 1, 2, 3: <message>`), grouped by the engine's sentence **as written**: eight rows refused by one closed period was eight ten-second toasts.
-
-**Rejected.** *The bespoke three-door refusal screen with "tick all N, then complete"* — see above; it also reversed the 2026-09-19 "no bulk assign from the reconciliation screen" non-goal, which no longer needs reversing because the answer was never "file them all", it was "fix them". *A filtered ledger with an `unreconciled` `LedgerFilter`* — cheap and reusable, and the owner's own line kills it: reconciliation work belongs in the reconciliation view. It would also have been a second door to the same rows. *A standing unreconciled view on Home* (queued the same day as its own item, now deleted) — the account screen already has the account in hand, which is the scope that makes the list short enough to act on. *Parsing the period's name out of the refusal to group the bulk toasts by period* — the name exists only inside the engine's prose, and grouping by the whole message collapses the pile just as well without ever reading it. *Asking the engine for a `sort` parameter on `GET /transactions`* — the tail-by-offset read is two requests and no new contract; ask 1 closed with no engine-side asks and this would have opened one for an ordering convenience. *A delete key on the ledger instead* — it would appear in five contexts at once, next to `a` (select page); the pane scopes it to the rows the owner is actually triaging.
+**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *A delete key on the ledger* — the pane scopes it to rows being triaged. *Parsing the period name out of refusals to group them* — the whole message groups them without reading prose.
 
 ## The transaction list pages by cursor (2026-09-23)
 
-**Context.** The "no batch" pane (the entry above) is a work queue that **shrinks while you use it**: every row filed leaves it. With `limit` / `offset` paging, filing 40 rows moved every remaining row up by 40, so "the next page" skipped 40 rows nobody had seen, silently, on every batch. The pane also had to show the oldest rows first, and `GET /transactions` was `date DESC` with no sort parameter. This repo shipped the workaround the entry above records, a `limit=1` probe for the total, then the last page by offset, reversed for display, and counted it as a win that the engine did not have to change.
+**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). This was an engine ask, and it is the case behind CLAUDE.md's "Ask the engine to change" rule.
 
-**Decision.** Ask the engine; it shipped the same day (engine-spec `GET /transactions` and `GET /transactions/count`). `GET /transactions` pages by **bookmark**: each page returns `next_cursor`, passed back as `?after=`, and `null` is the end. `?sort=date_asc` starts from the oldest rows. The count is its own read, `GET /transactions/count`, asked once when a list opens or after a write, never per page. The client treats the cursor as a black box, drops it whenever the filter or sort changes, and walks forward only. The same day the engine removed offset from every other list too, which is why every list is now one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). This is the case that made "ask the engine to change" a CLAUDE.md rule.
-
-**Rejected.** *The probe-then-offset-then-reverse read* — two reads per page, a race at the page edge when a row is filed between them, no way to page backwards, and a pattern every future client would have had to copy. *Keeping offset and re-reading after each filing* — it hides the skip only as long as every client remembers to re-read, which is the drift an engine contract exists to prevent.
+**Rejected.** *Offset paging* — a list that shrinks while you file rows silently skips rows. *A probe-then-offset-then-reverse read for oldest-first* — two reads, a race at the page edge, and a pattern every client would copy.
 
 ## Deleted is deleted (2026-09-23)
 
-**Context.** The engine had `POST /{resource}/{id}/restore` on five resources and `?include_deleted=` on six lists. The TUI never offered restore, the flat restore commands were the only callers, and every list had to decide whether and how to draw deleted rows (the Inbox entry above is one of those decisions).
+**Decision.** A delete is final from every client: there are no restore commands and no `--include-deleted`. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (engine repo `deploy/local/README.md`, "Undeleting a row"). Delete prompts are unchanged.
 
-**Decision.** The engine removed both (engine-spec *Base Conventions*, "Deleted is deleted"), and this repo followed: the restore commands and every `--include-deleted` are gone, and a delete is final from every client. The engine still soft-deletes, so the row stays in its table and `GET /activity` still shows its history. **Undoing a delete is an operator task**, SQL run as the owner, documented in the engine repo (`deploy/local/README.md`, "Undeleting a row"). Confirmation prompts on delete are unchanged and now say what they mean.
-
-**Rejected.** *Keeping restore as a flat-only command* — it would be the one write no other client has, and a CLI-only path is exactly what this repo does not ship. *A "recently deleted" view* — a second list shape for a rare operator action.
+**Rejected.** *A flat-only restore* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
 
 ## Activity and Rates leave the TUI (2026-09-23, owner)
 
-**Context.** The engine moved both lists to a cursor inside a date window (engine-spec *Base Conventions*, "Date windows"): each read covers at most 366 days, 30 by default, and "older" means a new window. Keeping the two TUI screens would have meant building an "older window" key for each.
+**Decision.** Activity and Rates have no TUI screens; the flat `expense activity list` and `expense rates list` stay, with `--from` / `--to` / `--after` and a line naming the window read ([cli-spec.md](cli-spec.md) "Pagination"). A bare `--from`/`--to` day is sent as typed; the engine reads it as a whole day in `display_timezone`. No TUI screen reads a date window.
 
-**Decision.** Delete both TUI screens and their Home entries (owner, 2026-09-23: they are not fully fledged features). **The flat `expense activity list` and `expense rates list` stay**, with `--from` / `--to` / `--after` and a line under the table naming the window read and how to reach the next one ([cli-spec.md](cli-spec.md) "Pagination"). The header's rate `!` stays as a heads-up with no screen behind it. The TUI is left with one way to read a long list, the growing list of "Long lists grow, they do not page" (the ledger and the "no batch" pane); no TUI screen reads a date window.
-
-**Rejected.** *Porting both screens to windows* — an older-window key, a window caption and a second paging model in the TUI, for two screens the owner did not use. *Turning a typed `--from` / `--to` day into an instant in the client* (built in `7ce6405` on 2026-09-26 and removed in the follow-up the same day, owner) — review found three bugs, all from doing the engine's date rule client-side: the day was placed in the profile's time zone but the window was shown in the machine's; it called `tzlocal` outside [dates.py](../expense/dates.py); and it fell back to `user.timezone`, which `GET /auth/me` does not send. The owner chose the engine ask instead, and it shipped the same day (engine `aaee6bf`): `/activity` reads a bare day as the whole day in `display_timezone`, and the CLI sends what was typed.
+**Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens. *Converting a typed day to an instant client-side* — the engine's date rule copied into the client; tried and removed.
 
 ## Long lists grow, they do not page (2026-09-25, owner)
 
-**Context.** Offset paging let the ledger say "rows 41–60 of 214" and jump to any page. A cursor can only say "after this row", so pages became whatever size the terminal had when you walked them. Round 1 of [mockups/expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html) asked what a resize should do on page 3; round 2 replaced the question.
+**Decision.** The ledger and the "no batch" pane are **one list that grows**, both through `GrowingRead` ([_growing.py](../expense/tui/screens/_growing.py)): **10 rows** to start; `pgdn` **appends** the next 10 with the cursor on the first new row; `↑↓` scroll everything loaded; `pgup` moves up a screenful with no read; a resize fetches nothing. The caption reads `N of M loaded`.
+- **Rows and count load together; a missing count fails the whole list** — never rows beside a guessed total.
+- **After any write the list starts over**: `+`, an edit, `c` / `b` / `h`, `d` and `r` read the first 10 fresh with the cursor on row 1. A refused bulk row stays selected only if the fresh read brings it back.
 
-**Decision.** The ledger and the "no batch" pane are **one list that grows** (M3 option C, M6), both read through `GrowingRead` ([_growing.py](../expense/tui/screens/_growing.py)): **10 rows** to start; `pgdn` **appends** the next 10 and puts the cursor on the first new row; `↑↓` scroll across everything loaded; `pgup` goes up a screenful with no read; at the end `pgdn` does nothing and leaves the footer; a resize fetches nothing and keeps your row; `a` selects every loaded row. The caption reads `N of M loaded`. Two rules go with it:
-- **Rows and count load together, and a missing count fails the whole list** (owner, 2026-09-23). The list shows nothing until both reads are in, and never draws rows next to a missing or guessed total.
-- **After any write the list starts over** (owner, 2026-09-26: "this should work like normal apps"): `+`, an edit, `c` / `b` / `h`, `d` on the `u` list and `r` all read the first 10 fresh, recounted, with the cursor on row 1. A refused bulk row stays selected only if the fresh read brings it back (pick A of [mockups/expense-world-refused-row-after-reload.html](mockups/expense-world-refused-row-after-reload.html)).
-
-**Rejected.** *Page swapping that keeps your place after a resize (M3 A)* — `pgup` back would repeat or skip rows until page 1, and "page 3 of 11" could no longer be stated. *Page swapping that drops you to page 1 on a resize (M3 B)* — exact, but you lose your place. *Keeping the loaded depth and the cursor's row after a write* — built on 2026-09-26 and removed the same day; the owner wanted the plain reload. *Keeping a refused row selected when it is off screen (pick B)* — the legend would count a row you cannot see, and the next bulk key would change it.
+**Rejected.** *Page swapping* — a cursor cannot say "page 3 of 11", and a resize either loses your place or repeats rows. *Keeping the loaded depth and cursor after a write* — the owner wants the plain reload. *Keeping an off-screen refused row selected* — the next bulk key would change a row you cannot see.
 
 ## Reconciliations opens on the accounts (2026-09-25, owner)
 
-**Context.** The engine now lists reconciliations one account at a time (`GET /reconciliations?account_id=`, whole, in period order; engine-spec `GET /reconciliations`), because one account's statements are bounded and all of them are not. The browse screen used to read everything once and switch its lower pane as the account cursor moved.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its reconciliations (`GET /reconciliations?account_id=`, whole, in period order) and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
 
-**Decision.** The owner's shape (M2): the screen opens with **the accounts alone** and reads no reconciliations. `⏎` on an account reads *its* list and opens the panel under it, cursor inside; `esc` closes the panel. **`u` works only while an account's panel is open** and swaps that panel for the account's "no batch" list in the same place; `esc` from there returns to the panel. Returning from a reconciliation re-reads the account and lands on the same row. The by-id read is gone (a `405` now), so "not in the account's list" is how the working screen knows a reconciliation was deleted, reliable because the list is whole. The `reconcile complete` hint lost its by-id read and prints the generic command (owner, 2026-09-23).
-
-**Rejected.** *Reading an account's list when the cursor stops on it (M2 A)* — a read per cursor pause and a loading state in the panel, for a screen whose next step is always `⏎` anyway. *Reading every account's list when the screen opens (M2 B)* — one read per account before anything shows, growing with the account list, and a pattern every client would have to repeat.
+**Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
 ## Reconciliation periods are days (2026-09-26, owner's pick)
 
-**Context.** A reconciliation's `date_start` / `date_end` were stored as instants while every period rule was in calendar days. A period ending on the 31st ended at 00:00 UTC that day, 19:00 on the 30th in Lima, so the tick-list dropped every row dated on the period's last day. The TUI form also let DATE END be empty, though the typed `reconcile create` had required it since 2026-09-20.
+**Decision.** A period's `date_start` / `date_end` are **bare `YYYY-MM-DD`**, both required; the engine refuses anything else. The flat commands send the typed text unconverted. The TUI form checks the date **at the field** with `is_calendar_day` ([dates.py](../expense/dates.py)) — zero-padded, a real day — and sends it unchanged. The tick-list passes the period's days straight into `date_from` / `date_to`.
 
-**Decision.** The owner's pick (2026-09-26) and this repo's ask, shipped by the engine the same day (`5922bbf`, `sql/041`; then `8f22ebb`, `sql/042`): a period's days are **bare `YYYY-MM-DD`** on the wire and in storage, any datetime there is a `422`, and **both days are required** — missing on create or `null` on update is the engine's `422`. The flat commands send the typed text unconverted and let the engine refuse a bad one. The TUI form catches a bad date **at the field**, right away (owner), with the exact shape the engine accepts — a zero-padded `YYYY-MM-DD` that is a real day, `is_calendar_day` in [dates.py](../expense/dates.py) — and sends the text unchanged. The tick-list passes the period's days straight into `date_from` / `date_to`, which the engine now reads as whole days.
-
-**Rejected.** *The LOG bar's forgiving dates in the form* (`28Aug`, `1set`) — rejected by the owner: a statement's dates are copied off paper, not jotted. *`date.fromisoformat` alone* — Python 3.11 also accepts `20260831`, which the engine refuses. *An undated period, or the client refusing one* — the owner saw no use for an undated period and ruled that refusing it is the engine's rule, not a check in every client.
+**Rejected.** *The LOG bar's forgiving dates* — a statement's dates are copied off paper. *`date.fromisoformat` alone* — accepts `20260831`, which the engine refuses.
 
 ## Delete anything that no longer points anywhere (2026-09-25, owner)
 
-**Context.** Engine uptake Phase 4 removed `--limit` / `--offset` from the whole lists (`accounts`, `categories`, `hashtags`, `reconcile list`), whose engine endpoints now refuse them. The question was whether a stale `--limit` should get a stub that explains the change.
+**Decision.** A removed flag, command or code path is deleted outright — **no stub, no friendlier message**: a stale `--limit` on a whole list gets Typer's own "No such option". Test fakes use the engine's real shapes (`whole()`, `cursor_page()` in [tests/unit/helpers.py](../tests/unit/helpers.py)) and refuse what the engine refuses. Guard: `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
 
-**Decision.** The owner's rule, stated then and meant generally: **delete anything that no longer points anywhere.** A removed flag, command or code path is deleted outright, with **no stub and no friendlier message**: a stale `--limit` gets Typer's own "No such option". The same goes for code: `fetch_all_pages` lost its flat-list branch the moment no caller could hand it a flat list, and test fakes move to the engine's real shape (`whole()`, `cursor_page()` in [tests/unit/helpers.py](../tests/unit/helpers.py)) and refuse what the engine refuses, rather than tolerating the old parameters. The guard for the flags is `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
-
-**Rejected.** *A stub that prints "removed on 2026-09-23, use …"* — it is a second copy of the engine's change, it lives forever, and the engine's own `422` (or Typer's error) already says the flag is wrong. *Keeping a dead branch "in case"* — code that no caller can reach is untested by definition, and git history is where old behaviour lives.
+**Rejected.** *A stub that explains the removal* — a second copy of the engine's change that lives forever. *Keeping a dead branch "in case"* — unreachable code is untested; git history keeps old behaviour.
 
 ## Sealed periods: the engine guards, the client reports (2026-09-20)
 
-**Context.** On 2026-09-20 the engine began sealing a completed reconciliation's window: no transaction may come to exist on that account with a day inside it (engine-spec *Sealed periods*). `complete` gained two refusals and the gap report, and `create` / `update` two more (an inverted range, and two periods on one account sharing a day). The owner was about to type some 24 periods for 2026 by hand and close them month by month, so every one of those refusals was about to be met for real. The plan for this repo's side was ask 1 of the 2026-09-20 queue; the two calls it produced that have their own entries are "The TUI sees the response body only where it asks for it" and "The gap report is a line under the header", and its screens were replaced by "Rows in no batch live in the reconciliation view".
-
 **Decision.**
-- **The engine is the only guard.** No client checks a seal before a write, and no client caches the completed windows: they change under `revert`, and re-deriving them is a copy of an engine rule. Two things read periods without guarding anything: the "no batch" pane's `!` flag, a hint about a row that is never refused on the strength of it (and right only while every row is stored at midnight, [file-import-plan.md](file-import-plan.md) §11); and the bank import's `sealed` rows, which are the engine's own report, not a client pre-filter.
-- **Every refusal says what to do next** ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)). An inverted range says `--date-end` must not be earlier than `--date-start`; an overlap points at `reconcile list --account-id <id>`, which lists the neighbours in period order (off-by-one overlaps are the expected mistake when month N ends the day before statement N+1). On `complete`, an empty batch and unassigned rows in the period each get their own hint. **The two `complete` refusals share one key, `fields["transactions"]`, so the hint is chosen by the message**, and a test holds each hint to its own wording.
-- **Only a date or account change can hit a seal.** Of the ledger's bulk keys only `b` (move account) can be refused this way; `c` (category) and `h` (hashtags) stay legal inside a sealed period by design. The paths that write new rows name the sealing period on the refused row and still save the rest: the LOG bar's batch, and the bank import through the engine's `sealed` outcome. Both are pinned by tests.
-- **A period has both days.** First a client choice (2026-09-20, D4): a half-dated completed period seals nothing, and this repo cannot read a statement's dates for you, since the statements are PDFs it never opens. The cost, accepted: a batch cannot be opened before its statement arrives. Since 2026-09-26 it is the engine's rule ("Reconciliation periods are days").
-- **`revert` shows nothing extra**: the engine sends no `warnings` there, because unsealing a window cannot make the ledger incoherent.
+- **The engine is the only guard.** No client checks a seal before a write or caches completed windows (they change under `revert`). The `!` flag and the bank import's `sealed` rows only report.
+- **Every refusal says what to do next** ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)): an inverted range names the flags; an overlap points at `reconcile list --account-id <id>`; on `complete`, an empty batch and unassigned rows each get their own hint. Both `complete` refusals share `fields["transactions"]`, so **the hint is chosen by the message**, and a test holds each hint to its wording.
+- **Only a date or account change can hit a seal**: of the bulk keys only `b` can be refused; `c` and `h` stay legal inside a sealed period. The LOG bar and the bank import name the sealing period on the refused row and still save the rest.
+- **`revert` shows nothing extra.**
 
-**Rejected.** *A client-side seal check before writes* — the "no CLI-only shortcut" rule, and a window the client holds can be stale the moment another client reverts. *A "close every month" bulk command* — the owner does the 2026 backfill by hand deliberately; a bulk close would seal months nobody reviewed. *"Tick all N, then complete" and the bespoke refusal screens (D3, D5)* — picked on 2026-09-20 and dropped on 2026-09-22; see "Rows in no batch live in the reconciliation view". *Filling the unassigned-rows hint in with a read by id (D2's flat half)* — built, then removed when the engine deleted that read; the owner accepted the placeholder hint on 2026-09-23, and the `u` pane is the real way to the rows.
+**Rejected.** *A client-side seal check* — a copy of an engine rule, stale the moment another client reverts. *A "close every month" bulk command* — would seal months nobody reviewed.

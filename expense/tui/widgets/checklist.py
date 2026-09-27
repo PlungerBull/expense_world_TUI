@@ -8,14 +8,13 @@ In `read_only` mode (completed batch) there's no checkbox and no toggle.
 Rows are pure `(key, title, amount_cents, date, sub)` tuples so formatting is
 unit-testable without an event loop.
 
-Renders at most `page_size` items — min(20, what fits the pane) since
-2026-07-13 (adaptive rows; an item is two physical lines, so the screen passes
-`fit ÷ 2` and calls `set_page_size` on resize) — always window mode: the full
-batch stays in memory,
-the visible window follows the cursor, and `pgdn`/`.` / `pgup`/`,` jump a page.
+Renders at most `page_size` items — min(20, what fits the pane) (an item is
+two physical lines, so the screen passes `fit ÷ 2` and calls `set_page_size`
+on resize) — always window mode: the full batch stays in memory, the visible
+window follows the cursor, and `pgdn`/`pgup` jump a page.
 Membership is window-proof: `_checked` is a key-set over the whole batch, so
-`c Complete` counts every checked row across all pages. Page status renders in
-the border subtitle (`items 21-40 of 47 · page 2 of 3`, mockup pick B).
+`c Complete` counts every checked row across all pages. Page status renders as
+the list's last line (`items 21-40 of 47 · page 2 of 3`).
 """
 
 from collections.abc import Iterable, Sequence
@@ -61,9 +60,9 @@ class CheckList(WindowedList):
 
     BINDINGS = [
         # Not shown in the footer: "the arrow keys move the cursor" is not worth a
-        # footer slot (user, 2026-08-20 — "its obvious and it just occupies space
-        # unnecessarily"). The keys are unchanged and the `?` card still lists them,
-        # which is where a key that needs explaining belongs.
+        # footer slot — it is obvious and only occupies space. The keys are
+        # unchanged and the `?` card still lists them, which is where a key that
+        # needs explaining belongs.
         Binding("down", "move(1)", "Navigate", tooltip="Down", show=False),
         Binding("up", "move(-1)", "Up", show=False),
         Binding("space", "toggle", "Toggle"),

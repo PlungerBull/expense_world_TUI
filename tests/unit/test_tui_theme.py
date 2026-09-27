@@ -1,7 +1,7 @@
 """Semantic palette resolution + the no-literal-colors guard.
 
 The TUI's Rich content can't use $theme-variables, so widgets inject resolved
-styles via the `PALETTE` constant / `amount_cell`. Since 2026-08-19 those come
+styles via the `PALETTE` constant / `amount_cell`. Those come
 from the *terminal*: the theme holds ANSI slots (`ansi_green`), and Rich wants
 that spelled `green`. These tests pin (1) that translation in both directions —
 ANSI slot stripped, hex left alone — plus the pending role carrying no colour at
@@ -26,8 +26,7 @@ SYNTHETIC = Palette("#0f0", "#f00", "#ff0")
 def test_theme_is_ansi_slots_not_hexes():
     """The whole proposition: no colour in the theme is a fixed value.
 
-    A hex here would pin the app to one terminal again — the 2026-08-19
-    reversal exists precisely to stop that.
+    A hex here would pin the app to one terminal.
     """
     assert EXPENSE_ANSI.ansi is True
     for field in (
@@ -43,7 +42,7 @@ def test_theme_is_ansi_slots_not_hexes():
     ):
         value = getattr(EXPENSE_ANSI, field)
         assert value.startswith("ansi_"), f"{field} is {value!r}, not a terminal slot"
-    assert EXPENSE_ANSI.secondary == "ansi_bright_black"  # pick F — structural rules
+    assert EXPENSE_ANSI.secondary == "ansi_bright_black"  # structural rules
 
 
 def test_rich_translation_strips_ansi_prefix_but_not_hexes():
@@ -68,7 +67,7 @@ def test_palette_is_derived_from_the_theme_and_rich_can_read_it():
 
 
 def test_pending_carries_weight_not_colour():
-    """Pick C: slot-3 yellow fails on a light ground, so the pending role uses
+    """Slot-3 yellow fails on a light ground, so the pending role uses
     bold. Guard against someone quietly reintroducing a colour here."""
     from rich.style import Style
 
@@ -91,8 +90,8 @@ def test_amount_cell_rule_matrix():
 
 
 def test_difference_cell_balances_to_a_dim_dash():
-    """Phase 3 sketch picks: sign-colored when off (B), dim em dash when it
-    balances (H). Zero must never render as a colored 0.00 — a balanced batch
+    """Sign-colored when off, dim em dash when it
+    balances. Zero must never render as a colored 0.00 — a balanced batch
     is the goal state, not a number to check."""
     balanced = difference_cell(0, SYNTHETIC)
     assert str(balanced) == "—" and balanced.style == "dim"
@@ -106,10 +105,10 @@ def test_difference_cell_null_is_blank_not_the_balanced_dash():
     """Three states, three cells — the engine's sql/040 made null a real one.
 
     A null difference means "no ending balance entered, so nothing was
-    checked". It used to share the em-dash with a zero difference, which says
+    checked". It must not share the em-dash with a zero difference, which says
     the opposite: "checked, and it adds up". The em-dash reads as "nothing to
-    see, move on", so an unfinished reconciliation wore the all-clear mark —
-    the one row on the screen that still needed work.
+    see, move on", so an unfinished reconciliation would wear the all-clear
+    mark — the one row on the screen that still needs work.
 
     This test exists because that collapse is invisible: both branches returned
     a byte-identical dim em-dash, so nothing failed and nothing looked wrong.
@@ -127,7 +126,7 @@ def test_difference_cell_null_is_blank_not_the_balanced_dash():
 
 
 def test_amount_cell_null_is_a_dash_not_the_literal_null():
-    """A reconciliation's `ending_balance_cents` is nullable since sql/040, and
+    """A reconciliation's `ending_balance_cents` is nullable (sql/040), and
     it is the only field that can hand `amount_cell` a None today. `(null)` is
     `format_cents`'s deliberately-ugly marker for "something is off"; an
     un-entered closing balance is an ordinary every-month state, so it gets the
@@ -169,7 +168,7 @@ def test_base_fills_are_terminal_transparent():
     hex. A hardcoded `background: $background` would paint over the terminal and
     bring back the frame (on the menu edge, if only #menu regressed). #modal
     carries `ansi_default` deliberately — an opaque card in the terminal's own
-    colour, which is what makes it hide the rows behind it (pick H)."""
+    colour, which is what makes it hide the rows behind it."""
     tcss = (Path(tui_pkg.__file__).parent / "app.tcss").read_text()
     assert tcss.count("background: ansi_default;") >= 2, "Screen + #menu base fills"
     assert "background: $background;" not in tcss, "opaque base fill re-seams the app"
@@ -178,9 +177,9 @@ def test_base_fills_are_terminal_transparent():
 def test_modal_scrim_dims_rather_than_wipes():
     """The scrim must keep an alpha and must NOT be an ANSI colour.
 
-    Alpha is dropped on `ansi_default`, so `background: $background 60%` — which
-    is what this rule said until 2026-08-19, and what Textual's own ModalScreen
-    ships — silently resolves to an OPAQUE fill and blanks the screen behind the
+    Alpha is dropped on `ansi_default`, so `background: $background 60%` — what
+    Textual's own ModalScreen ships — silently resolves to an OPAQUE fill and
+    blanks the screen behind the
     modal. Every other test still passed with that bug; only a render caught it.
     Asserted on the composited output, not on the CSS text, because the CSS
     reads correct either way.

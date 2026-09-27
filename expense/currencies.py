@@ -4,7 +4,7 @@ Provenance: expense_world_engine/sql/015_lock_currencies_to_pen_usd.sql —
 ``CHECK (code IN ('USD','PEN'))`` on ``global_currencies``, which every
 currency-typed column FKs into. Adding a currency engine-side requires an
 explicit migration dropping that constraint; update this tuple in the same
-change (backlog 2.4).
+change.
 
 Tuple order is meaningful: it drives the account-form currency picker.
 """
@@ -14,8 +14,7 @@ SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
 
 # The minor-unit scale: how many minor units make one major unit. Consumed by
 # quickadd/money.py (both directions), commands/_resource.format_cents and
-# commands/import_cmd — previously four independent `100` literals with nothing
-# naming the assumption they shared.
+# commands/import_cmd.
 #
 # ⚠️ One constant for every currency is correct ONLY because the tuple above is
 # locked to {USD, PEN}, which are both exponent 2. Centralizing makes the

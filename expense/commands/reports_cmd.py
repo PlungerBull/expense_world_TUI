@@ -41,7 +41,7 @@ def _grid_cell_value(payload: dict) -> dict:
 
     Kept as a dict rather than a bare int because `None` alone cannot carry the
     difference between "nothing happened" and "the engine refused to price
-    this" — the conflation Phase 4 exists to remove.
+    this" — the conflation this dict exists to prevent.
     """
     return {
         "cents": payload.get("spent_home_cents"),
@@ -50,9 +50,6 @@ def _grid_cell_value(payload: dict) -> dict:
 
 
 #: The month-totals rows the grid carries under the categories, in draw order.
-#: They arrived with the Overview merge (2026-08-29): Outstanding Amounts had an
-#: inflow/outflow/net block and the grid had a net-only footer, so the merged
-#: screen would have lost two figures that were already in this same payload.
 #:
 #: `inflow`/`outflow` come back from the engine **positive** — outflow is not a
 #: negative number — so only `net` is signed. Renderers must colour accordingly
@@ -85,8 +82,8 @@ def build_range_grid(months: list[dict]) -> dict:
 
     Categories (and each category's hashtag combos) keep first-appearance order
     across the window. All amount cells are home-currency (`spent_home_cents` /
-    `net_home_cents`) — the only figures that exist since 2026-08-05, the native
-    aggregates having been deleted engine-side.
+    `net_home_cents`) — the only figures that exist, the native aggregates
+    having been deleted engine-side.
 
     A cell carries its `unconverted_count` alongside the figure, because three
     states have to stay distinguishable: a number, *no activity that month*, and

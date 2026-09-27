@@ -1,14 +1,6 @@
 """Shared gating, target resolution and the real-ledger guard for tests/contract.
 
-These tests hit a real engine and make real writes. Before this file existed, each
-test module resolved its own target, and three of the five signed in as the
-developer via `~/.expense-config` — so `pytest tests/contract` wrote to the one true
-ledger with the real credential, and cleanup was soft-delete, leaving tombstones
-behind forever. Two modules also still defaulted to the Render host that was
-switched off 2026-07-30.
-
-The rule now (backlog Phase 5, decided 2026-08-16 — option C of
-docs/mockups/expense-world-phase5-sketch.html): a contract run that would write to
+These tests hit a real engine and make real writes, so a contract run that would write to
 the real ledger **refuses to start**. Point it at the disposable practice database
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
@@ -20,7 +12,7 @@ instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
     PYTEST_LIVE=1 EXPENSE_PAT=<seeded> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 \
         pytest tests/contract
 
-Two details that look like details and are not (both cost a pass on 2026-09-19):
+Two details that look like details and are not:
 **8002, not 8001** — `:8001` belongs to todo_world_engine, and pointed there every
 request 404s against a gym API while /health still answers `ok`. **Connect as
 `expense_engine`** — the engine refuses to start as a SUPERUSER, because that role
@@ -53,10 +45,9 @@ def pytest_collection_modifyitems(config, items):
     """Gate the whole directory on PYTEST_LIVE=1.
 
     This is a hook, not a module-level `pytestmark`: a `pytestmark` assigned in a
-    conftest does NOT apply to tests in other modules. Relying on that was a real
-    incident on 2026-08-16 — the per-module marks were removed in favour of one in
-    this file, and `pytest tests/contract` promptly ran against the live engine and
-    created rows. The gate belongs somewhere that provably covers every item.
+    conftest does NOT apply to tests in other modules, so relying on it lets
+    `pytest tests/contract` run against the live engine and create rows. The gate
+    belongs somewhere that provably covers every item.
     """
     if LIVE:
         return
@@ -94,7 +85,7 @@ def _is_real_ledger() -> bool:
 
 
 def pytest_sessionstart(session):
-    """Option C: refuse rather than warn — before collection, before any fixture.
+    """Refuse rather than warn — before collection, before any fixture.
 
     Deliberately a session hook rather than an autouse fixture: a fixture only runs
     when something requests it, and the guard must hold even if a future test

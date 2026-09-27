@@ -77,7 +77,7 @@ def fetch_accounts(
 
     Shared by the flat `accounts list` command and the TUI's Accounts screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
-    (2026-09-23) — there is no page to ask for.
+    — there is no page to ask for.
     """
     params = query_params(include_archived=include_archived, include_people=include_people)
     return fetch_body(

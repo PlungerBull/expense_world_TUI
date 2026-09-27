@@ -1,4 +1,4 @@
-"""Phase 2 reconciliation working-screen tests — checklist + assign/complete."""
+"""Reconciliation working-screen tests — checklist + assign/complete."""
 
 from textual.widgets import Static
 
@@ -196,7 +196,7 @@ def test_toggle_puts_reconciliation_id(fake_client, monkeypatch):
 
 
 def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
-    """Rapid `space` toggles queue their PUTs one at a time, in order (backlog 3.2)."""
+    """Rapid `space` toggles queue their PUTs one at a time, in order."""
     import threading
     import time
 
@@ -289,7 +289,7 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
 
 
 def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
-    """A superseded load must not paint: no stacked or stale checklist (backlog 6.2a).
+    """A superseded load must not paint: no stacked or stale checklist.
 
     Exclusive-group cancellation is cooperative — the first worker keeps
     running. Before the fix it painted its stale rows over (or under) the
@@ -331,7 +331,7 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
 
 
 def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
-    """The detail fetch never exceeds the engine's 200-row limit cap (backlog 3.3)
+    """The detail fetch never exceeds the engine's 200-row limit cap
     and follows `next_cursor` until it is null — never an offset."""
     from expense.tui.screens.reconciliations import _fetch_all_txns
 
@@ -381,7 +381,7 @@ def test_completed_is_read_only(fake_client, monkeypatch):
 
 
 def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
-    """No draft-only pre-guard (backlog 2.5): the DELETE reaches the engine
+    """No draft-only pre-guard: the DELETE reaches the engine
     and its 409 message toasts."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
@@ -412,7 +412,7 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
 
 
 def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatch):
-    """No ≥1-assigned pre-guard (backlog 2.5): the confirm opens, the POST
+    """No ≥1-assigned pre-guard: the confirm opens, the POST
     fires, and the engine's 422 message toasts."""
     _patch(monkeypatch)
 
@@ -464,10 +464,9 @@ def _complete_with_warnings(fake_client, warnings: list[str]) -> None:
 
 
 def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
-    """`complete`'s `warnings` reach the screen as a persistent line (pick B,
-    mockups/expense-world-gap-warning.html, owner 2026-09-22).
+    """`complete`'s `warnings` reach the screen as a persistent line.
 
-    A toast was the plan's first sketch and was rejected in review: the whole
+    Not a toast: the whole
     value of this message is not being missed, and a toast fades. The success
     feedback is NOT replaced — both are shown.
     """
@@ -540,7 +539,7 @@ def test_revert_clears_a_shown_gap(fake_client, monkeypatch):
 
 
 def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
-    """No completed-only pre-guard (backlog 2.5): revert on a draft POSTs and
+    """No completed-only pre-guard: revert on a draft POSTs and
     the engine's idempotent 200 no-op reads as success."""
     _patch(monkeypatch)
     notices: list = []
@@ -581,7 +580,7 @@ def test_revert_posts(fake_client, monkeypatch):
 
 
 def test_revert_key_is_u(fake_client, monkeypatch):
-    """Real `u` keypress routes to revert (backlog 4.1 — `r` must never write)."""
+    """Real `u` keypress routes to revert (`r` must never write)."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
 
@@ -600,7 +599,7 @@ def test_revert_key_is_u(fake_client, monkeypatch):
 
 def test_r_refreshes_record_from_its_account_list_and_never_writes(fake_client, monkeypatch):
     """`r` re-reads the batch (header + status gate) and the checklist; no
-    write, no dismiss. There is no read by id (engine, 2026-09-23), so it reads
+    write, no dismiss. There is no read by id, so it reads
     the account's list — whole, so the row is in it — and picks the row out."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
@@ -668,7 +667,7 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
 
 
 def test_q_inert_inside_confirm_modal(fake_client, monkeypatch):
-    """The 4.6 bug: q inside a ConfirmModal must not kill the app anymore."""
+    """q inside a ConfirmModal must not kill the app."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -689,7 +688,7 @@ def test_q_inert_inside_confirm_modal(fake_client, monkeypatch):
 
 
 def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
-    """An engine/config error in _load_txns must not exit the app (backlog 1.3)."""
+    """An engine/config error in _load_txns must not exit the app."""
     _patch(monkeypatch)
 
     def boom(cfg, **k):

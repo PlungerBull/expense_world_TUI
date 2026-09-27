@@ -1,9 +1,8 @@
 # The TUI is the only human surface; the flat CLI is for the agent
 
-**For:** whoever builds this repo's next pass after the engine uptake. **Written:** 2026-09-26.
-**Starts after:** item 0 in [todo.md](todo.md) *Now* ("Engine uptake"), and after whatever else is
-in flight when it closes. Nothing here is started before then.
-**When done:** the why moves to [decisions.md](decisions.md), and this file is deleted.
+**Starts after** item 0 in [todo.md](todo.md) *Now* (the engine uptake's TUI checks) and whatever
+else is in flight then. **When done:** the why moves to [decisions.md](decisions.md), and this
+file is deleted.
 
 ---
 
@@ -14,12 +13,9 @@ in flight when it closes. Nothing here is started before then.
 Claude verifying a change against the engine, the contract suite, and anything that wants
 `--json`. They are no longer a product for a person.
 
-**What prompted it.** The owner had understood that the TUI worked by calling the flat commands,
-so the CLI had to exist for the TUI to work. That was never true. Both are faces on the same Python
-functions (`fetch_*`, the formatters, `EngineWriteMixin.run_write`, [expense/http.py](../expense/http.py)),
-and the TUI never runs a command. The repo was therefore building and polishing each feature twice
-(a Typer command with human tables, pagination lines, docstrings and tests, plus a TUI screen) for
-a flat surface nobody reads.
+**Why.** The TUI never runs a command: both surfaces are faces on the same Python functions
+(`fetch_*`, the formatters, `EngineWriteMixin.run_write`, [expense/http.py](../expense/http.py)),
+so polishing a flat human surface nobody reads was building every feature twice.
 
 **What stays true.** The engine is still the only home of business logic. Every engine endpoint
 is still exercised before web and iOS exist. The difference is who does it: **the owner, through
@@ -28,13 +24,12 @@ iOS app nor the web dashboard will ever call this repo; both talk to the engine'
 directly.
 
 **What it replaces:** decisions.md "Dual-UX strategy — flat commands + TUI + quick-add
-(2026-04-25)", which made flat commands "canonical … always the source of truth for behavior".
-That entry is superseded, not deleted, and the new entry says why.
+(2026-04-25)", which made flat commands canonical.
 
 ## Open questions for the owner
 
-None of these is decided. Each gets an answer before its step starts. The "leaning" lines are
-the builder's suggestion, not a decision.
+None is decided; each gets an answer before its step starts. "Leaning" is the builder's
+suggestion, not a decision.
 
 1. **Human output.** Should the flat commands print `--json` only, which means deleting the human
    tables, pagination footers, colour swatches and name columns? Or should they keep a plain human
@@ -58,8 +53,6 @@ the builder's suggestion, not a decision.
 7. **The note to the engine coder.** Does the draft below say what you want said?
 
 ## Consequences that follow directly
-
-These follow from the decision as stated. They are listed so the owner can check them.
 
 - **Rules to rewrite:** CLAUDE.md "What this repo is", "Product scope and role" (the contract
   validator is now the owner using the TUI plus the agent using flat commands) and "Status".
@@ -86,7 +79,7 @@ These follow from the decision as stated. They are listed so the owner can check
    [README.md](../README.md), [cli-spec.md](cli-spec.md) and the "Repo name note" at the top of
    CLAUDE.md. `test_docs_links.py` catches any broken relative link.
 5. **Notify the engine coder.** The owner hands over the note below. This repo never edits the
-   engine. As of 2026-09-26, the engine files that name this repo are `deploy/local/README.md`,
+   engine. The engine files that name this repo (2026-09-26) are `deploy/local/README.md`,
    `deploy/local/seed-test-user.sh`, `docs/open-bugs.md`, `docs/file-import-plan.md` and
    `docs/currency-model-decision.md`.
 6. **Delete this file**, and its row in todo.md.

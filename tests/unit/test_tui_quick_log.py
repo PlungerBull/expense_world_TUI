@@ -1,9 +1,8 @@
 """The bar-cycle transaction **edit** form (fake client).
 
-Edit-only since quick-add phase 4 (2026-08-25) moved the create door to the LOG
-bar — see [test_tui_log_bar.py](test_tui_log_bar.py). The create-flow tests that
-lived here went with it; what the form still owns is pre-fill, the diffed PUT,
-and the suggestion pickers.
+Edit-only: creating is the LOG bar's — see
+[test_tui_log_bar.py](test_tui_log_bar.py). The form owns pre-fill, the diffed
+PUT, and the suggestion pickers.
 """
 
 from textual.widgets import Input
@@ -29,7 +28,7 @@ HASHTAGS = {"items": [{"id": "h1", "name": "dog"}, {"id": "h2", "name": "traveli
 def _patch(monkeypatch):
     """Screen-specific patches; the client/config seams come from fake_client.
 
-    Name maps derive from the same fetches since backlog 6.5b — no separate
+    Name maps derive from the same fetches — no separate
     load_*_name_map seams to patch.
     """
     monkeypatch.setattr(
@@ -65,9 +64,9 @@ TXN = {
 
 def test_load_entities_three_superset_queries(fake_client, monkeypatch):
     """The form loads each resource once and derives both the suggestion pools
-    and the full name maps — three queries, not six (backlog 6.5b). Only the
-    accounts fetch is a superset (include_archived); categories/hashtags lost
-    archive in the 2026-08-06 schema slimming."""
+    and the full name maps — three queries, not six. Only the
+    accounts fetch is a superset (include_archived); categories/hashtags have
+    no archive."""
     calls: list[tuple[str, bool]] = []
     archived = {"id": "accX", "name": "Old bank", "currency_code": "PEN", "is_archived": True}
 
@@ -100,7 +99,7 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
 
 def test_edit_with_null_hashtag_ref_renders_dash_not_crash(fake_client, monkeypatch):
     """A record carrying a null reference id must render the shared em-dash
-    fallback instead of TypeError-ing on None[:8] (backlog 6.2e)."""
+    fallback instead of TypeError-ing on None[:8]."""
     _patch(monkeypatch)
     record = {**TXN, "hashtag_ids": ["h1", None]}
 
@@ -166,7 +165,7 @@ def test_edit_prefills_and_puts_only_changed_fields(fake_client, monkeypatch):
 
 
 def test_edit_add_hashtag_puts_merged_hashtag_ids(fake_client, monkeypatch):
-    """Hashtag appends must survive the edit diff — the snapshot must not alias (backlog 1.2)."""
+    """Hashtag appends must survive the edit diff — the snapshot must not alias."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -203,7 +202,7 @@ def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
 def test_no_form_offers_cleared():
     """`cleared` is gone from the ledger — no form may offer it.
 
-    The engine deleted the column 2026-08-16 (sql/035). Sending it is a 422 on an
+    The engine has no such column (sql/035). Sending it is a 422 on an
     unknown field, which rejects the whole body, so a lingering row here would lose
     an entire edit. Nothing replaces it: a row is confirmed by belonging to a
     completed reconciliation that adds up.
@@ -213,7 +212,7 @@ def test_no_form_offers_cleared():
 
 
 def test_edit_sequence_offers_hashtags():
-    """Hashtags are an ordinary editable field (backlog 6.1, 2026-08-16)."""
+    """Hashtags are an ordinary editable field."""
     tx = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
     assert "hashtags" in tx._sequence()
 
@@ -237,7 +236,7 @@ def test_quick_log_rejects_zero_and_unknown_account(fake_client, monkeypatch):
 
 
 def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
-    """An engine/config error in _load_entities must not exit the app (backlog 1.3)."""
+    """An engine/config error in _load_entities must not exit the app."""
     _patch(monkeypatch)
 
     def boom(*a, **k):
@@ -261,7 +260,7 @@ def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 
 
 def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch):
-    """Engine errors surface with the canonical text, not bare str(exc) (backlog 2.1)."""
+    """Engine errors surface with the canonical text, not bare str(exc)."""
     _patch(monkeypatch)
 
     def boom(*a, **k):
@@ -285,10 +284,9 @@ def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch)
 def test_the_form_cannot_be_opened_without_a_record():
     """The create door is shut, and shut structurally.
 
-    `+` opened this screen with `record=None` until quick-add phase 4
-    (2026-08-25); it opens the LOG bar now. Making `record` required means no
-    future caller can reopen that door by accident — it is a TypeError, not a
-    second create form drifting quietly out of sync with the bar.
+    `+` opens the LOG bar. Making `record` required means no future caller
+    can reopen that door by accident — it is a TypeError, not a second create
+    form drifting quietly out of sync with the bar.
     """
     import pytest
 

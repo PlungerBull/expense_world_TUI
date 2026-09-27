@@ -1,31 +1,29 @@
 """The LOG bar — one typed line, a staged batch, one save.
 
-The capture surface of the quick-add bar, drawn in
-docs/mockups/expense-world-quickadd-batch.html. You type one line, press `↵`,
+The capture surface of the quick-add bar. You type one line, press `↵`,
 and it lands in a list you can read before anything is written; `↑↓` pick a
 staged row back up, `ctrl+x` drops one, `esc` confirms a discard.
 
-**This is what `+` opens** (quick-add phase 4, 2026-08-25). The bar-cycle form
-it replaced kept its *edit* door — `⏎` on an existing row — and lost only its
-create one (docs/mockups/expense-world-two-doors.html): an existing row has an
+**This is what `+` opens**. The bar-cycle form keeps only the *edit* door —
+`⏎` on an existing row: an existing row has an
 id, a version and possibly a reconciliation freezing four of its fields, so
 correcting one is a PUT of what changed, not a line retyped from scratch.
 
 **The save** is `ctrl+s`: one `POST /transactions/batch` for every staged row,
 through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
 `expense import` uses, because the engine refuses an atomic batch without
-saying which row. What that means when only some of it lands is four owner
+saying which row. What that means when only some of it lands is four
 calls, recorded in docs/decisions.md "What a half-written batch means": the
 screen stays and the ticks are the receipt, a retry re-sends only the rows
 without one, an unstaged line in the bar is never written, and the discard
 card's `ctrl+s save first` leaves only if the save succeeds.
 
-**The account peek** (2026-08-29, docs/mockups/expense-world-log-account-peek.html):
+**The account peek**:
 the moment the line names an account, that account's posted ledger fills the
 room under the staged list — `AccountPeek`, elastic, read-only. The account is
 always the **bar's**, never a staged row's, and it is sticky: `↵` clears the bar
 but the panel stays on the last account named, so a run of lines against one
-account keeps its window open (picks A and i).
+account keeps its window open.
 
 The grammar is not here. Every line goes through `expense/quickadd/` — the same
 module the flat `expense log "…"` calls — so the two surfaces read a line
@@ -34,22 +32,21 @@ identically and neither owns a second copy:
     parse()  what the line says, with a Span per token for colouring
     route()  staged or refused, and the phrases that say why
 
-**`↵` either stages the line or refuses it in place** (2026-09-12,
-docs/mockups/expense-world-pendiente-not-inbox.html panes 2–4): a line with
+**`↵` either stages the line or refuses it in place**: a line with
 no account, an ambiguous name, a tag that does not exist, or a date ahead of
 today stays in the bar with the reason under it, and the staged list is
 untouched. A line with no category stages — its category cell already reads
 `@Pendiente`, which is where the engine files it — and a line with no title
 stages as a dash. Routing is decided at stage time and frozen onto the row.
 
-Four calls this screen makes, all put to the user 2026-08-25 and recorded in
+Four calls this screen makes, recorded in
 docs/decisions.md "Four calls for the LOG bar":
 
 * a staged row comes back as **the raw line you typed**, not a re-render;
-* the staged table carries the **tags** column (the batch mockup's set);
+* the staged table carries the **tags** column;
 * the batch totals **per currency** — soles are never added to dollars;
 * the refusal under the bar reuses **route.py's own phrases**, so there is one
-  wording (it was the Inbox footnote's job until the Inbox went).
+  wording.
 """
 
 from dataclasses import dataclass, field
@@ -134,8 +131,7 @@ EXAMPLE = "e.g.  tottus -38.60 $signature @korakuen #caja hoy"
 STAGE_HINT = "↵ stages the line"
 
 #: The legend — the whole grammar in one fixed row under the bar, with what
-#: `↵` does on the same line (pick A, 2026-08-29,
-#: docs/mockups/expense-world-log-legend-and-picker.html). It never changes:
+#: `↵` does on the same line. It never changes:
 #: it describes the grammar, not the moment, and the moment is the `#hint` row
 #: above it. Constant width, so nothing below it ever moves.
 LEGEND = "$account · @category · #tag · ±amount · //note · when"
@@ -167,8 +163,8 @@ class Staged:
     """One row waiting in the list.
 
     `line` is the **raw text as typed** — it is what `↵` puts back in the bar,
-    so a round trip through the staged list can never lose or reword anything
-    (decided 2026-08-25). `parsed` and `routing` are computed once, at stage
+    so a round trip through the staged list can never lose or reword anything.
+    `parsed` and `routing` are computed once, at stage
     time, and never recomputed on render. A refused line is never staged, so
     a row here always routes to the ledger; `routing` is kept because the
     reasons a line was *not* refused for are the row's own record.
@@ -287,7 +283,7 @@ def _category_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | No
 
 
 def _title_cell(parsed: ParsedLine) -> Text:
-    """The title in bold, or a dim dash for a titleless row (owner call 2026-09-12)."""
+    """The title in bold, or a dim dash for a titleless row."""
     if parsed.title:
         return Text(parsed.title, style="bold")
     return Text("—", style="dim")
@@ -358,7 +354,7 @@ def staged_table(
 
     `last_save` is the receipt from a save whose rows have since been cleared —
     the list only ever shows pending rows, so what a finished batch leaves
-    behind is one sentence, not a table (decided 2026-08-25).
+    behind is one sentence, not a table.
     """
     if not entries:
         if last_save:
@@ -405,16 +401,14 @@ def staged_summary(
 ) -> RenderableType:
     """`5 staged · -1,944.70 PEN · 2 pendiente` — the batch you are about to write.
 
-    **One figure per currency** (decided 2026-08-25): a batch can hold a PEN row
-    and a USD row, and one number covering both would be a lie. With a single
-    currency staged — the normal case — it reads exactly as the mockup drew it.
+    **One figure per currency** (Why: docs/decisions.md "Four calls for the LOG bar").
 
-    **The pendiente count** is how many of the pending rows named no category
-    (docs/mockups/expense-world-pendiente-not-inbox.html pane 1): they will
+    **The pendiente count** is how many of the pending rows named no category:
+    they will
     land under @Pendiente, and a batch of shorthand should look like one
     before it is saved.
 
-    **Saved rows are counted, not totalled** (phase 4). Once a row is written it
+    **Saved rows are counted, not totalled**. Once a row is written it
     stops being something you are about to do, so it leaves the per-currency
     totals and joins the receipt line — otherwise the figure under a half-saved
     list would describe a batch that no longer exists.
@@ -531,7 +525,7 @@ def peek_status(shown: int, total: int) -> str:
 class AccountPeek(Static):
     """The named account's posted ledger, under the staged list.
 
-    **Elastic** (mockup pick A, 2026-08-29, docs/mockups/expense-world-log-account-peek.html):
+    **Elastic**:
     the widget is `1fr`, so Textual hands it whatever rows the staged list is
     not using and it draws exactly that many — twelve on an empty screen,
     fewer as the batch grows, none at all once the list fills the terminal. It
@@ -561,14 +555,13 @@ class AccountPeek(Static):
 
     #: Lines the panel spends on chrome rather than ledger rows: the account
     #: name, the rule under it, the table's column header, and the row count.
-    #: The first and last were the border's title and subtitle until
-    #: 2026-09-20; the rule replaces the border's top edge.
+    #: The rule stands in for a border's top edge.
     CHROME_LINES = 4
 
     @property
     def panel_title(self) -> str:
-        """The account this panel is showing — a content line since 2026-09-20,
-        the border title before that."""
+        """The account this panel is showing — a content line, not the
+        border title."""
         return self._account
 
     @property
@@ -580,11 +573,8 @@ class AccountPeek(Static):
     def capacity(self) -> int:
         """Ledger rows this panel can draw right now.
 
-        Net of the 2026-09-20 de-boxing this went **up** by one, not down: the
-        panel is `1fr` and #inputbar above it gave back two rows of border in
-        the same change, while `content_size` — which already excluded this
-        panel's own border — grew by two. Four lines of chrome out of two more
-        rows is one row to the good.
+        The panel is `1fr`, and `content_size` already excludes any border,
+        so this is the content height less the four lines of chrome.
         """
         return max(0, self.content_size.height - self.CHROME_LINES)
 
@@ -832,7 +822,7 @@ class LogBarScreen(Screen):
 
         The save-first arm dismisses only once every row lands — a failed save
         keeps you on the screen, because an error you cannot read is the same
-        as no error at all (decided 2026-08-25).
+        as no error at all.
         """
         if answer == "discard":
             self.dismiss()
@@ -847,9 +837,9 @@ class LogBarScreen(Screen):
     def action_save(self) -> None:
         """`ctrl+s`: write every staged row that is not already saved.
 
-        A half-typed line in the bar is **not** staged and **not** saved
-        (decided 2026-08-25) — `↵` is the only thing that stages, so a save can
-        never write something you were still in the middle of.
+        A half-typed line in the bar is **not** staged and **not** saved —
+        `↵` is the only thing that stages, so a save can never write
+        something you were still in the middle of.
         """
         self._begin_save(leave_after=False)
 
@@ -982,7 +972,7 @@ class LogBarScreen(Screen):
             return
         # A finished batch clears the moment the next one starts: the list only
         # ever shows rows you are about to write, and what the save wrote lives
-        # on as `_last_save` (decided 2026-08-25).
+        # on as `_last_save`.
         if self._staged and not self._pending():
             self._staged.clear()
             self._picked = None
@@ -1032,7 +1022,7 @@ class LogBarScreen(Screen):
         staged = self.query_one("#staged", Static)
         content = self._staged_renderable()
         # `None` = nothing to draw: the widget goes away rather than holding
-        # empty rows the peek below it could be using (mockup pane A).
+        # empty rows the peek below it could be using.
         staged.display = content is not None
         if content is not None:
             staged.update(content)
@@ -1042,7 +1032,7 @@ class LogBarScreen(Screen):
     def _peek_target(self) -> str | None:
         """Which account the peek shows — always the bar's, never a staged row's.
 
-        Four cases, decided 2026-08-29 with the mockup:
+        Four cases:
 
         * a **picker open on an account** — the highlighted candidate, so the
           peek swaps as you arrow and the disambiguation answers itself;
@@ -1050,7 +1040,7 @@ class LogBarScreen(Screen):
         * an **account token that resolves to nothing** — none: the line will
           be refused and there is no ledger to show;
         * **no account token at all**, including the empty bar `↵` leaves
-          behind — the last one the bar named (pick i). Staging a line must not
+          behind — the last one the bar named. Staging a line must not
           blink the panel off between the lines of a run against one account.
         """
         picker = self._picker
@@ -1109,7 +1099,7 @@ class LogBarScreen(Screen):
     def _load_peek(self, account_id: str) -> None:
         """`GET /transactions?account_id=…` — the read the ledger screen makes —
         and the account's count, together. A count that cannot be read fails
-        the peek (owner, 2026-09-23): no rows beside a guessed number."""
+        the peek: no rows beside a guessed number."""
         from expense import config as config_module
 
         try:
@@ -1192,7 +1182,7 @@ class LogBarScreen(Screen):
     def _refusal_renderable(self) -> RenderableType:
         """`! not staged — the line names no account`, in the error colour,
         with the candidates under an ambiguous name so the way out is visible
-        (mockup panes 2–4). Empty when the last `↵` was not a refusal."""
+        Empty when the last `↵` was not a refusal."""
         refused, parsed, refs = self._refused, self._parsed, self._refs
         if refused is None or parsed is None or refs is None:
             return Text("")
@@ -1211,9 +1201,8 @@ class LogBarScreen(Screen):
 
         The invitation ("Nothing staged…", and the example line) is what an
         empty screen says — but the moment the line names an account, the peek
-        is the better use of those rows and the invitation stands down, exactly
-        as pane A of the mockup drew it. The hint line above still says what
-        `↵` does, so nothing is lost but the repetition.
+        is the better use of those rows and the invitation stands down. The hint line
+        above still says what `↵` does, so nothing is lost but the repetition.
         """
         refs = self._refs
         if refs is None:

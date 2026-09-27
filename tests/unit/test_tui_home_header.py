@@ -1,12 +1,11 @@
 """Home as four months — pure-function coverage (no event loop).
 
-Home became the month grid on 2026-09-13 (docs/mockups/expense-world-home-
-absorbs-overview.html, option A), folding the Overview screen in. `home_rows`
+Home is the month grid. `home_rows`
 turns the dashboard + range reads into the page's rows and `home_options`
-aligns them. These lock the owner's picks: four month columns, a category with
+aligns them. These lock the layout: four month columns, a category with
 nothing in the window hidden, hashtag rows under a category that filter by
 that hashtag, balances in their own currency, and the screen sections always
-listed in full — they do not fold (owner, 2026-09-13).
+listed in full — they do not fold.
 """
 
 from rich.text import Text
@@ -81,7 +80,7 @@ def test_rows_run_categories_totals_accounts_people_screens():
 
 
 def test_a_category_with_nothing_in_the_window_is_hidden():
-    """Owner pick, 2026-09-13: HOGAR spent nothing in either month."""
+    """HOGAR spent nothing in either month."""
     assert "HOGAR" not in _by_left(home.home_rows(DATA, palette=PALETTE))
 
 
@@ -176,7 +175,7 @@ def test_screens_stand_before_the_fetch_and_after_a_failure():
 
 
 def test_the_sections_never_fold():
-    """Owner, 2026-09-13: LEDGER, MANAGE and SYSTEM are not collapsible. The
+    """LEDGER, MANAGE and SYSTEM are not collapsible. The
     headers are disabled rows and every screen is always a row of its own."""
     rows = _live(home.home_rows(None))
     headers = [r for r in rows if r.left in ("LEDGER", "MANAGE", "SYSTEM")]

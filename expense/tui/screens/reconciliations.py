@@ -1,4 +1,4 @@
-"""Reconciliations — list, new batch, and the working/detail screen (Phase 2).
+"""Reconciliations — list, new batch, and the working/detail screen.
 
 Per-account bank-statement batches. The browse opens on the accounts alone;
 `⏎` on one reads that account's reconciliations (`GET /reconciliations?
@@ -6,13 +6,12 @@ account_id=`, whole, in the engine's period order: `date_start ASC,
 created_at ASC`) and opens them in a panel under the accounts, the
 cursor in it. There `⏎` opens the working screen, `n` creates one for the
 account, `u` swaps the panel for the account's rows in no batch, and `esc`
-closes the panel (owner, 2026-09-25, mockup expense-world-engine-uptake.html
-M2). Nothing is read for an account until you press `⏎` on it.
+closes the panel. Nothing is read for an account until you press `⏎` on it.
 
 New batch: name › account › date start › date end › begin › end. Both balances
-are typed off the paper statement — the engine deleted derived (chained) begins
-on 2026-08-06, so there is nothing to inherit and `beginning_balance_cents` is
-required. Both dates are required too, by the engine (`8f22ebb`), and are
+are typed off the paper statement — the engine has no derived (chained) begin,
+so `beginning_balance_cents` is required. Both dates are required too, by the
+engine (`8f22ebb`), and are
 calendar days sent as typed (`5922bbf`); the form refuses any other shape at
 the field. POST /reconciliations.
 
@@ -78,7 +77,7 @@ _UNFILED_HEADERS = ["", "Date", "Title", "Amount", "Category"]
 
 #: What the unfiled pane asks the engine for: this account's rows in no batch,
 #: oldest first. It opens with the `GROW_STEP` oldest and `pgdn` appends the
-#: next ones (owner, 2026-09-25, mockup expense-world-engine-uptake.html M6) —
+#: next ones —
 #: a work queue you walk forward from the oldest, never a jump into the middle.
 UNFILED_FILTER = {"unreconciled": True}
 
@@ -91,7 +90,7 @@ def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str
     it will refuse when you try to close it, which is the question the flag
     answers. Completed windows are in here too — an unfiled row inside one is an
     anomaly the engine's close check would not allow to arise today, and it is
-    precisely what the pane exists to surface in pre-2026-09-20 data.
+    precisely what the pane exists to surface in older data.
     """
     windows = []
     for r in recons:
@@ -153,17 +152,15 @@ def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
 
 class _AccountList(CursorList):
     """The browse's account list. Only `enter` changes: on this list it opens
-    the account's panel, so the footer names that instead of `Open` (mockup
-    expense-world-engine-uptake.html, M2)."""
+    the account's panel, so the footer names that instead of `Open`."""
 
     BINDINGS = [Binding("enter", "select", "Its reconciliations")]
 
 
 class _PanelList(CursorList):
-    """The panel under the accounts. It lists two things (M6): a
+    """The panel under the accounts. It lists two things: a
     reconciliation, which `enter` opens, or a row in no batch, which `enter`
-    edits — so the footer says `Edit` there, as the mockup draws it (owner,
-    2026-09-26). Two bindings on one key: Textual takes the first whose
+    edits — so the footer says `Edit` there. Two bindings on one key: Textual takes the first whose
     `check_action` allows it."""
 
     BINDINGS = [
@@ -189,8 +186,7 @@ class _PanelList(CursorList):
 
 
 class ReconciliationsScreen(SectionScreen):
-    """Accounts first; one account's reconciliations on `⏎` (owner, 2026-09-25,
-    mockup expense-world-engine-uptake.html M2).
+    """Accounts first; one account's reconciliations on `⏎`.
 
     The screen opens on the account list alone, and nothing about
     reconciliations is read until you press `⏎` on an account: the engine lists
@@ -257,10 +253,10 @@ class ReconciliationsScreen(SectionScreen):
         acct = self._open_account()
         return f"Reconciliations · {acct[1] if acct else '—'}   ·   oldest → newest"
 
-    # ---- adaptive window (2026-07-13): the panel splits #content ----------
+    # ---- adaptive window: the panel splits #content -----------------------
     def pane_rows(self) -> int:
-        """Rows per list. Alone, the account list fills #content (owner,
-        2026-09-25); with the panel open the two split it equally — auto-height
+        """Rows per list. Alone, the account list fills #content;
+        with the panel open the two split it equally — auto-height
         panes give unused rows back when a pane has fewer rows than its share.
 
         With the panel, the chrome is the section title (2) plus the two
@@ -364,7 +360,7 @@ class ReconciliationsScreen(SectionScreen):
         return True
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
-        # Source guard (backlog 6.2c): only the account list moves the account
+        # Source guard: only the account list moves the account
         # cursor, and only while it is the list in use. Moving it reads nothing.
         if self._mode != "accts" or event.control is not self._accts_list:
             return
@@ -373,7 +369,7 @@ class ReconciliationsScreen(SectionScreen):
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "unfiled":
             # `⏎` opens the form that already edits date and account — the two
-            # remedies for a row that is in no batch (owner, 2026-09-22).
+            # remedies for a row that is in no batch.
             record = self._unfiled_record()
             if record is not None:
                 from expense.tui.screens.quick_log import QuickAddLogScreen
@@ -468,9 +464,8 @@ class ReconciliationsScreen(SectionScreen):
 
     def _reload_unfiled(self) -> None:
         """After `⏎` edit or `d`: the oldest `GROW_STEP` again, the cursor on
-        row 1 (owner, 2026-09-26: any write starts the list over, like any
-        app's list). A row whose date or account moved is gone, which is the
-        point of editing it."""
+        row 1 (any write starts the list over, like any app's list). A row whose
+        date or account moved is gone, which is the point of editing it."""
         if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
             self._unfiled_grow.reset()
             self._unfiled_busy = True
@@ -487,14 +482,13 @@ class ReconciliationsScreen(SectionScreen):
             self._resume_key = self._batch_list.cursor_key
         await super().action_reload()
 
-    # ---- the unfiled pane (2026-09-22) -----------------------------------
+    # ---- the unfiled pane ------------------------------------------------
     def action_unfiled(self) -> None:
         """`u` — swap the panel to the open account's rows in no batch.
 
-        Only while a panel is open (owner, 2026-09-25): the panel is the slot
+        Only while a panel is open: the panel is the slot
         it swaps into, and the account whose rows it lists is the open one.
-        `esc` swaps it back. Owner's shape, mockup
-        expense-world-rows-in-no-batch.html — reconciliation work stays in the
+        `esc` swaps it back. Reconciliation work stays in the
         reconciliation view, so this is a pane, not a filtered ledger.
         """
         acct = self._open_account()
@@ -528,7 +522,7 @@ class ReconciliationsScreen(SectionScreen):
 
     @work(thread=True, exclusive=True, group="recon-unfiled")
     def _load_unfiled(self, account_id: str) -> None:
-        """The first rows and the count, together (owner, 2026-09-23): the pane
+        """The first rows and the count, together: the pane
         shows nothing until both are in, and a count that cannot be read fails
         the pane rather than leave rows beside a guessed number."""
         from expense import config as config_module
@@ -611,11 +605,9 @@ class ReconciliationsScreen(SectionScreen):
     def action_delete_row(self) -> None:
         """`d` — delete the row under the cursor, in the unfiled pane only.
 
-        The one destructive key in the TUI (owner, 2026-09-22). Cursor row only,
-        never a selection: `a`-style page selects live on the ledger and this
-        pane deliberately has none. The engine keeps the row in its table, but
-        since 2026-09-23 no client can restore it (undeleting is operator SQL),
-        so the confirm says a delete is final.
+        Cursor row only, never a selection, and the confirm says a delete is
+        final. Why: docs/decisions.md "Rows in no batch live in the
+        reconciliation view".
         """
         if self._mode != "unfiled":
             return
@@ -664,7 +656,7 @@ class ReconciliationsScreen(SectionScreen):
     def action_new(self) -> None:
         """`n` — a reconciliation for the open account, or, with no panel open,
         for the account under the cursor. Saved, it opens that account's panel
-        with the cursor on the new one (owner, 2026-09-25)."""
+        with the cursor on the new one."""
         acct = self._open_account() or self._selected_account()
         if not acct:
             self.notify("No account selected.", severity="error")
@@ -776,9 +768,8 @@ class NewReconciliationScreen(FormScreen):
         needle = text.strip()
         if key == "account":
             # `quickadd.names.matches` — the one matcher every picker in the
-            # app uses: substring, case-blind AND accent-blind. This was the
-            # last one still on a plain `.lower()`, so `bcp credito` found no
-            # `BCP Crédito` here while the same text matched everywhere else.
+            # app uses: substring, case-blind AND accent-blind, so `bcp credito`
+            # finds `BCP Crédito` here as it does everywhere else.
             self._suggestions = [(i, n, c) for (i, n, c) in self._accounts if matches(needle, n)]
         else:
             self._suggestions = []
@@ -849,7 +840,7 @@ class NewReconciliationScreen(FormScreen):
         payload["date_start"] = self._values["date_start"]
         payload["date_end"] = self._values["date_end"]
         # never send beginning_balance_source — the engine's request schemas are
-        # extra="forbid" since the 2026-08-06 de-chaining, so it would 422
+        # extra="forbid", so it would 422
         payload["beginning_balance_cents"] = self._values["begin"]
         if self._values.get("end") is not None:
             payload["ending_balance_cents"] = self._values["end"]
@@ -869,7 +860,7 @@ def _fetch_all_txns(cfg, **kw) -> list[dict]:
     """Every matching transaction, cursor-paged at the engine cap.
 
     A single limit=500 request 422s live (cap is 200) and silently truncates
-    the checklist; page through instead (backlog 3.3 → 6.4a).
+    the checklist; page through instead.
     """
     return fetch_all_cursor_pages(
         lambda limit, after: transactions_cmd.fetch_transactions(
@@ -927,7 +918,7 @@ class ReconciliationDetailScreen(
         self._list: CheckList | None = None
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
         # last painted rows, cached so a theme change repaints from memory
-        # instead of re-fetching (backlog §5)
+        # instead of re-fetching
 
     @property
     def _completed(self) -> bool:
@@ -945,25 +936,17 @@ class ReconciliationDetailScreen(
         self.query_one("#rwarn", Static).display = False
         self._render_header()
         # First fetch waits for the first layout pass: _populate sizes the
-        # checklist to #rlist's real height (adaptive rows, 2026-07-13).
+        # checklist to #rlist's real height (adaptive rows).
         self.call_after_refresh(self._load_txns)
 
-    # ---- adaptive window (2026-07-13) --------------------------------------
+    # ---- adaptive window ---------------------------------------------------
     def _checklist_items(self) -> int:
         """Items-per-page = what fits #rlist at two lines each.
 
         The chrome is `LIST_FRAME_LINES` — the same frame every other list
         pays, with no caption here (the crumb and #rhead both name the batch).
-
-        ⚠️ **This read a hand-written `4` until 2026-09-20, and it was wrong.**
-        It counted the border plus the column header and its rule, and omitted
-        the two blank edge lines `box.SIMPLE_HEAD` draws — the identical
-        miscount that was fixed in `LIST_FRAME_LINES` on 2026-08-29 and missed
-        here because a literal does not track a constant. At two lines per
-        item it asked for one item too many and overflowed #rlist by two lines
-        at every height below the cap. #rlist is `overflow: hidden`, so it
-        clipped in silence: the page status on this screen had never once been
-        visible.
+        Never a literal: #rlist is `overflow: hidden`, so a miscount clips the
+        page status in silence.
         """
         return self.fit_rows("#rlist", chrome=self.LIST_FRAME_LINES, lines_per_row=2)
 
@@ -974,7 +957,7 @@ class ReconciliationDetailScreen(
     def _apply_fresh_record(self, fresh: dict) -> None:
         """Main-thread: rebind _record from a refreshed batch, then repaint the
         header. Called via call_from_thread so the worker never mutates screen
-        state directly, and a cancelled stale load can't clobber _record (backlog §5)."""
+        state directly, and a cancelled stale load can't clobber _record."""
         self._record = fresh
         self._render_header()
 
@@ -984,8 +967,7 @@ class ReconciliationDetailScreen(
     def _render_header(self) -> None:
         r = self._record
         palette = PALETTE
-        # short-id placeholder until _load_txns resolves the name worker-side —
-        # a full-table SQLite read here blocked first paint (backlog 6.5c)
+        # short-id placeholder until _load_txns resolves the name worker-side
         acct = self._acct_name or resolve_name(self._account_id, {})
         status = reconcile_cmd.format_status(r.get("status"))
         begin = amount_cell(r.get("beginning_balance_cents"), palette, BALANCE_RULE)
@@ -1024,7 +1006,7 @@ class ReconciliationDetailScreen(
 
         # Exclusive cancellation is cooperative: a superseded load keeps
         # running, so it must stop painting or two _populate swaps interleave
-        # and stack duplicate checklists (backlog 6.2a).
+        # and stack duplicate checklists.
         worker = get_current_worker()
         try:
             cfg = config_module.ensure_loaded()
@@ -1032,7 +1014,7 @@ class ReconciliationDetailScreen(
             if refresh_record:
                 # refetch the batch itself too — a stale header/status would
                 # misrepresent balances and the read-only gate. There is no
-                # read by id (engine, 2026-09-23): the account's list is whole,
+                # read by id: the account's list is whole,
                 # so a row missing from it is a row that was deleted.
                 listed = reconcile_cmd.fetch_reconciliations(cfg, account_id=self._account_id, **kw)
                 fresh = next((r for r in items_of(listed) if r.get("id") == self._id), None)
@@ -1103,7 +1085,7 @@ class ReconciliationDetailScreen(
                 read_only=self._completed,
                 empty=empty,
                 palette=PALETTE,
-                page_size=self._checklist_items(),  # adaptive window (2026-07-13)
+                page_size=self._checklist_items(),  # adaptive window
             )
             await container.mount(self._list)
             if not self._completed:
@@ -1111,7 +1093,7 @@ class ReconciliationDetailScreen(
 
     # ---- assign / unassign ----------------------------------------------
     def on_check_list_toggled(self, event: CheckList.Toggled) -> None:
-        # The mixin queue sends one PUT at a time, in order (backlog 6.4b).
+        # The mixin queue sends one PUT at a time, in order.
         # Success is silent — the checklist toggle already shows the new state.
         self.run_write(
             "PUT",
@@ -1143,7 +1125,7 @@ class ReconciliationDetailScreen(
             self.notify("Already completed.")
             return
         # No ≥1-assigned pre-guard: the engine 422s an empty complete and
-        # run_write toasts its message (thin wrapper, backlog 2.5).
+        # run_write toasts its message (thin wrapper).
         n = len(self._list.checked) if self._list else 0
         self._confirm(
             "Complete reconciliation?",
@@ -1159,7 +1141,7 @@ class ReconciliationDetailScreen(
 
     def action_revert(self) -> None:
         # No completed-only pre-guard: the engine treats revert-on-draft as
-        # an idempotent 200 no-op (thin wrapper, backlog 2.5).
+        # an idempotent 200 no-op (thin wrapper).
         self._confirm(
             "Revert to draft?",
             "Unlocks the assigned transactions and this batch's balances.",
@@ -1171,7 +1153,7 @@ class ReconciliationDetailScreen(
     def action_delete(self) -> None:
         # No draft-only pre-guard: deleting a completed reconciliation 409s
         # engine-side ("… Revert to draft first.") and run_write toasts that
-        # message (thin wrapper, backlog 2.5).
+        # message (thin wrapper).
         self._confirm(
             "Delete reconciliation?",
             "Detaches its transactions (they are not deleted) and removes the batch.",
@@ -1201,13 +1183,12 @@ class ReconciliationDetailScreen(
         )
 
     def _report_gap(self, body: dict) -> None:
-        """Surface `complete`'s `warnings` — the uncovered-days report (2026-09-20).
+        """Surface `complete`'s `warnings` — the uncovered-days report.
 
         Shown as a line under the header rather than a toast: the whole value of
         this message is not being missed, and a toast fades in five seconds. It
         stays for as long as the screen does, survives `r`, and clears on the
-        next status change. Pick B of
-        mockups/expense-world-gap-warning.html (owner, 2026-09-22).
+        next status change.
 
         The text is the engine's own sentence, verbatim — the dates in it are
         prose, not fields, so this side neither parses them nor goes looking for

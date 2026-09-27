@@ -33,9 +33,7 @@ DASHBOARD_RESPONSE = {
             "current_balance_home_cents": -4500,
         }
     ],
-    # Aggregates are home-currency ONLY since the engine's 2026-08-05 read-time
-    # currency change: the native `spent_cents` / `{inflow,outflow,net}_cents`
-    # were deleted, and every survivor is nullable with an `unconverted_count`.
+    # Aggregates are home-currency ONLY, each nullable with an `unconverted_count`.
     "categories": [
         {
             "id": "33333333-3333-3333-3333-333333333333",
@@ -76,7 +74,7 @@ DASHBOARD_WITH_ARCHIVED = {
             "current_balance_home_cents": 0,
         }
     ],
-    # A *separate* panel from archived_accounts, never merged (engine 2026-08-14).
+    # A *separate* panel from archived_accounts, never merged.
     "archived_people": [
         {
             "id": "55555555-5555-5555-5555-555555555555",
@@ -90,7 +88,7 @@ DASHBOARD_WITH_ARCHIVED = {
 
 #: Two people still owing/owed and three square. A settled person is folded
 #: behind a count, never dropped: the engine returns her deliberately and
-#: refuses to filter on a computed balance (entry 2026-08-14).
+#: refuses to filter on a computed balance.
 DASHBOARD_WITH_SETTLED_PEOPLE = {
     **DASHBOARD_RESPONSE,
     "people": [
@@ -162,8 +160,8 @@ def test_dashboard_happy(configured):
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 0, result.output
     assert "Month: 2026-04" in result.output
-    # New tabular layout: Name + Currency + Balance in one row per account; no
-    # parenthetical "(home: ...)" since the Home column was dropped.
+    # Tabular layout: Name + Currency + Balance in one row per account; no
+    # parenthetical "(home: ...)" and no Home column.
     assert "Month: 2026-04" in result.output
     assert "BCP Soles" in result.output
     assert "PEN" in result.output
@@ -191,16 +189,14 @@ def test_dashboard_include_archived(configured):
     assert result.exit_code == 0, result.output
     assert "Archived accounts:" in result.output
     assert "Old BCP" in result.output
-    # The archived category / hashtag lifetime panels were deleted from the
-    # engine on 2026-08-05 — an archived account still holds real money, an
-    # archived category holds only history and soft delete already hides it from
-    # the pickers. `--include-archived` now controls the accounts panel alone.
+    # `--include-archived` controls the accounts panel alone: an archived account
+    # still holds real money, an archived category holds only history.
     assert "Archived categories:" not in result.output
     assert "Archived hashtags:" not in result.output
     assert "Lifetime spent" not in result.output
 
     # Archived people are their own panel, and it sits after archived accounts
-    # (sketch pick D). They never merge: an archived person among the archived
+    # They never merge: an archived person among the archived
     # cards is exactly what the engine's record rules out.
     assert "Archived people:" in result.output
     assert "Diego" in result.output

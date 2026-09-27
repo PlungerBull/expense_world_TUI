@@ -1,4 +1,4 @@
-"""Contract: the three list shapes the engine moved to on 2026-09-23.
+"""Contract: the engine's three list shapes.
 
 The CLI's ledger, the "no batch" list and every flat list command are built on
 these facts, and the unit suite can only mock them:
@@ -147,7 +147,7 @@ def test_a_cursor_is_bound_to_its_sort(client, seeded):
 
 
 def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
-    """`transactions list --to <day>` sends the bare day (Phase 9); the engine
+    """`transactions list --to <day>` sends the bare day; the engine
     reads it as the whole day in `display_timezone` (engine `1f50722`)."""
     zone = _zone(client)
     account_id = _make_account(client)

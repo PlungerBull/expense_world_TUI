@@ -1,4 +1,4 @@
-"""Phase 2 System screen tests — Config + Auth & profile (fake client)."""
+"""System screen tests — Config + Auth & profile (fake client)."""
 
 from textual.widgets import Static
 
@@ -29,8 +29,7 @@ def test_redact_token():
 
 
 def test_config_screen_shows_only_the_engine_connection(monkeypatch):
-    """Engine url, token, main currency — and nothing else. The client-id and
-    cache-status rows went with the replica (2026-08-06)."""
+    """Engine url, token, main currency — and nothing else."""
     monkeypatch.setattr("expense.config.load", lambda: CFG)
 
     async def scenario(pilot, app):
@@ -64,7 +63,7 @@ def test_config_screen_reads_and_saves(monkeypatch):
 
 def test_config_screen_rejects_bad_engine_url(monkeypatch):
     """A scheme-less URL must error at save time, not brick every later call
-    with a generic connection error (backlog 6.3b — the TUI half of 3.4)."""
+    with a generic connection error."""
     saved = {}
     monkeypatch.setattr("expense.config.load", lambda: CFG)
     monkeypatch.setattr("expense.config.save", lambda c: saved.update(cfg=c))
@@ -106,8 +105,8 @@ def test_auth_provisioned_shows_identity(fake_client, monkeypatch):
         card = _screen_text(app.screen)
         assert "display name" in card and "Alex" in card
         assert "main currency" in card and "PEN" in card
-        # Main currency is read-only — the engine locked it (2026-08-01);
-        # the `m` set-currency flow is gone.
+        # Main currency is read-only — the engine locks it — so there is
+        # no `m` set-currency flow.
         assert not hasattr(screen, "action_currency")
         assert fake_client.puts == []
 
@@ -136,7 +135,7 @@ def test_auth_not_provisioned_bootstraps(fake_client, monkeypatch):
 
 def test_bootstrap_undetectable_timezone_notifies_not_crash(fake_client, monkeypatch):
     """Timezone detection failure toasts a remedy instead of crashing the app
-    through Textual's message pump (backlog 6.2d)."""
+    through Textual's message pump."""
     from expense.dates import TimezoneDetectionError
 
     _patch_auth(fake_client, monkeypatch, me=None)

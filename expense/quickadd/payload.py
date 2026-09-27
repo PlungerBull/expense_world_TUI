@@ -7,10 +7,9 @@ same body from the same row. Pure: `date` arrives already canonicalised
 
 **Sparse by omission, never by null.** A line with no title sends no `title`;
 a line with no category sends no `category_id`, and the engine files the row
-under `@Pendiente` (2026-09-12, docs/decisions.md "The Inbox is deleted"). An
+under `@Pendiente` (docs/decisions.md "A sparse line is a ledger row"). An
 explicit null would be a 422 on `category_id` and a *clear* on `title`, so
-the CLI never sends one on a create. (The second builder that used to live
-here, `inbox_payload`, left with the Inbox.)
+the CLI never sends one on a create.
 """
 
 from expense.quickadd.parse import ParsedLine

@@ -1,11 +1,11 @@
 """Pagination — widget window/indicator/keys + the shared helpers.
 
-Pages are min(PAGE_ROWS_CAP, what fits the terminal) since 2026-07-13 (adaptive
-rows, pick A): the ledger tests pin `run_test(size=…)` so the expected window
+Pages are min(PAGE_ROWS_CAP, what fits the terminal) (adaptive
+rows): the ledger tests pin `run_test(size=…)` so the expected window
 is deterministic — a 30-line harness proves the shrink, a tiny one proves the
 floor. The cap is `DEFAULT_PAGE_ROWS` (20) app-wide but `ENGINE_PAGE_CAP` on
-Transactions, which grows with the window (2026-08-29). Since 2026-09-26 the
-ledger is one growing list (M3): the window sizes what is drawn, and every read
+Transactions, which grows with the window. The
+ledger is one growing list: the window sizes what is drawn, and every read
 is `GROW_STEP` rows by cursor (`GrowingRead`, shared with the "no batch" pane).
 
 Mostly pure tests in the style of the other widget suites: `_build()` renders
@@ -129,7 +129,7 @@ def test_single_page_hides_page_keys_and_subtitle():
 
 
 def test_set_page_size_rewindows_around_cursor():
-    """Terminal resize (adaptive rows, 2026-07-13): the window re-slices to the
+    """Terminal resize (adaptive rows): the window re-slices to the
     new size and keeps following the cursor."""
     lst = _list(45)
     lst.set_page_size(10)
@@ -158,7 +158,7 @@ def _checklist(n: int = 25, **kwargs) -> CheckList:
 def test_checklist_windows_items_not_lines():
     out = _text(_checklist(25)._build())
     assert "txn 00" in out and "txn 19" in out
-    assert "txn 20" not in out  # 20 ITEMS per page (40 lines), picked 2026-07-11
+    assert "txn 20" not in out  # 20 ITEMS per page (40 lines)
 
 
 def test_checklist_page_status_counts_items():
@@ -195,7 +195,7 @@ def test_checklist_single_page_hides_page_keys():
 
 def test_checklist_set_page_size_keeps_checks():
     """Resize re-slices the window; membership is a key-set over the whole
-    batch, so checks survive (adaptive rows, 2026-07-13)."""
+    batch, so checks survive (adaptive rows)."""
     chk = _checklist(25, checked=["t3", "t22"])
     chk.set_page_size(6)
     out = _text(chk._build())
@@ -208,8 +208,8 @@ def test_checklist_set_page_size_keeps_checks():
 
 
 def _whole_fetch(n: int, prefix: str, calls: list):
-    """A fake that behaves like the 2026-09-23 engine: every row, and a 422
-    for paging it no longer has."""
+    """A fake that behaves like the engine: every row, and a 422
+    for any paging parameter."""
 
     def fake_fetch(cfg, **kw):
         assert "limit" not in kw and "offset" not in kw, "the engine refuses paging"
@@ -243,7 +243,7 @@ def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
     assert len(calls) == 1
 
 
-# ---- the ledger as one growing list (M3, 2026-09-26) -------------------------
+# ---- the ledger as one growing list ------------------------------------------
 
 
 def _ledger_rows(n: int) -> list[dict]:
@@ -353,7 +353,7 @@ def test_pgdn_at_the_end_sends_nothing(monkeypatch):
 
 
 def test_a_write_starts_the_list_over(monkeypatch):
-    """Owner, 2026-09-26: any write reloads the list fresh — the newest 10,
+    """Any write reloads the list fresh — the newest 10,
     recounted, the cursor on row 1 — like any app's list."""
     rows, reads, counts = _patch_transactions(monkeypatch)
 
@@ -379,8 +379,7 @@ def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
     """While the re-read after a write is in flight, the old list is still on
     screen, and its cursor points at the old list's end. A `pgdn` there must
     read nothing: on a filtered ledger the new list already ends one row
-    further along, so rows read from the old end would repeat one (review,
-    2026-09-26)."""
+    further along, so rows read from the old end would repeat one."""
     import expense.commands.transactions_cmd as tc
 
     rows, reads, counts = _patch_transactions(monkeypatch)
@@ -497,7 +496,7 @@ def test_a_selects_every_loaded_row(monkeypatch):
 
 
 def test_a_count_that_cannot_be_read_fails_the_ledger(monkeypatch):
-    """Owner, 2026-09-23: never rows beside a missing or guessed number."""
+    """Never rows beside a missing or guessed number."""
     _patch_transactions(monkeypatch, count_fails=True)
 
     async def checks(pilot, screen):
@@ -507,7 +506,7 @@ def test_a_count_that_cannot_be_read_fails_the_ledger(monkeypatch):
 
 
 def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
-    """The ledger takes the window it is given and no more (2026-08-29): the
+    """The ledger takes the window it is given and no more: the
     card spans #content's full width, and the panel's own height never exceeds
     it — a clipped bottom border and the undraggable scrollbar are what an
     overshooting LIST_FRAME_LINES looked like."""
@@ -517,9 +516,8 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
         content = screen.query_one("#content", VerticalScroll)
         # `list_ready` only proves the list mounted and the loader went away — it
         # says nothing about a layout pass having run, so every `.size` below can
-        # still be 0. Locally the layout has always landed by this point; on CI it
-        # had not, and this asserted `0 == 116` (2026-08-29, surfaced when a file
-        # rename changed collection order and with it the preceding workload).
+        # still be 0. Locally the layout usually lands by this point; on CI it
+        # may not, depending on collection order and the preceding workload.
         await wait_for(
             pilot,
             lambda: screen.query_one("#card").size.width > 0,
@@ -535,8 +533,8 @@ def test_transactions_panel_fills_and_fits_the_viewport(monkeypatch):
 
 def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
     """The window is the screenful (a 30-line terminal fits 15 rows: chrome 13,
-    the legend 2), capped at ENGINE_PAGE_CAP and floored at 5 — and since
-    2026-09-26 it sizes only what is drawn, never a read: every open asks for
+    the legend 2), capped at ENGINE_PAGE_CAP and floored at 5 — and it
+    sizes only what is drawn, never a read: every open asks for
     `GROW_STEP`."""
     _rows, reads, _counts = _patch_transactions(monkeypatch)
 
@@ -556,7 +554,7 @@ def test_the_ledger_window_fits_the_terminal_and_floors_at_five(monkeypatch):
 # ---- the shared base --------------------------------------------------------
 def test_both_list_widgets_page_on_the_same_arithmetic():
     """`CursorList` and `CheckList` render nothing alike, but they window, page
-    and count identically — one implementation since the two copies drifted."""
+    and count identically — one implementation, so they cannot drift."""
     assert issubclass(CursorList, WindowedList) and issubclass(CheckList, WindowedList)
     lst, chk = _list(45), _checklist(45)
     for widget in (lst, chk):
@@ -569,8 +567,8 @@ def test_both_list_widgets_page_on_the_same_arithmetic():
 
 
 def test_a_move_that_goes_nowhere_does_not_repaint():
-    """`CheckList.action_move` used to repaint on every keypress, including the
-    ones already at an edge; `CursorList` did not. They agree now."""
+    """Neither `CheckList.action_move` nor `CursorList` repaints on a keypress
+    that is already at an edge."""
     for widget in (_list(5), _checklist(5)):
         painted: list[int] = []
         widget._refresh = lambda sink=painted: sink.append(1)
@@ -634,13 +632,11 @@ def test_fit_rows_counts_two_line_rows_and_split_panes():
     """The two callers that hand-roll their own chrome: a pane sharing #content
     with a sibling, and a checklist whose items are two physical lines each.
 
-    Both numbers moved on 2026-09-20 and for different reasons. The browse
-    gained a line because its two panes stopped being the same size — the
-    batches pane keeps a caption naming the account, the accounts pane does
-    not. The checklist lost one because its `4` was simply **wrong**: it
-    omitted the two blank edge lines the table draws, so it asked for an item
-    that did not fit and #rlist, which is `overflow: hidden`, clipped it in
-    silence.
+    The browse's two panes are not the same size — the batches pane keeps a
+    caption naming the account, the accounts pane does not. The checklist
+    counts the two blank edge lines the table draws; leaving them out asks for
+    an item that does not fit, and #rlist, which is `overflow: hidden`, clips it
+    in silence.
 
     Mirrors `ReconciliationsScreen.pane_rows` and `_checklist_items`. If those
     change, this is where the new arithmetic gets re-stated.
@@ -650,7 +646,7 @@ def test_fit_rows_counts_two_line_rows_and_split_panes():
     assert _Measured(40).fit_rows("#rlist", chrome=frame, lines_per_row=2) == 17
 
 
-# ---- the frame the border became (2026-09-20) -------------------------------
+# ---- the frame ---------------------------------------------------------------
 def _frame_lines(widget, *, width: int = 60) -> int:
     """Physical lines `framed()` draws, counting the trailing one."""
     return render_text(widget.framed(), width=width).count("\n")
@@ -659,11 +655,9 @@ def _frame_lines(widget, *, width: int = 60) -> int:
 def test_the_frame_costs_exactly_list_frame_lines():
     """`LIST_FRAME_LINES` is derived from what is drawn, not from its comment.
 
-    This is the test the 2026-08-29 miscount needed and did not have. That
-    constant read 4 while the widgets drew 6, so every fitted list overflowed
-    its container by two lines — and because the containers clip in silence,
-    nothing failed. A comment cannot be wrong here any more: the number is
-    measured off the render.
+    A constant that disagrees with the widgets makes every fitted list overflow
+    its container — and because the containers clip in silence, nothing fails.
+    So the number is measured off the render.
 
     `framed()` takes no app and no layout, which is the whole reason it is a
     named method rather than an expression inside `_refresh`.

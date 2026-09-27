@@ -1,6 +1,6 @@
 """Pure parsing: one typed line -> ParsedLine. No I/O, no HTTP, no Textual.
 
-The grammar, as drawn in docs/mockups/expense-world-quickadd-batch.html:
+The grammar:
 
     tottus -38.60 $signature @korakuen #caja hoy
     title  amount $account   @category #tag  when
@@ -32,9 +32,9 @@ _AMOUNT = re.compile(r"^[+-]\$?[0-9][0-9,.]*$")
 _SIGILS = ("$", "@", "#")
 
 # What a line needs to become a ledger row: a signed amount and an account.
-# Title and category are optional since 2026-09-12 — a row with no category
+# Title and category are optional — a row with no category
 # is filed under @Pendiente by the engine, and a row with no title is a
-# titleless row (docs/decisions.md "The Inbox is deleted").
+# titleless row (docs/decisions.md "A sparse line is a ledger row").
 REQUIRED = ("amount", "account")
 
 
@@ -87,7 +87,8 @@ class ParsedLine:
         """Every required field present and every name resolved.
 
         Routing is the screen's call, not this module's: a complete row is
-        still refused when it is dated ahead (docs/decisions.md).
+        still refused when it is dated ahead (docs/decisions.md "A sparse line
+        is a ledger row").
         """
         return not self.missing and not self.unresolved
 
@@ -140,8 +141,8 @@ def _resolve(
     """Longest-first name matching. Returns (words consumed, hits).
 
     An exact name wins outright at the longest length that has one; failing
-    that, "contains anywhere" at the longest length with any hit (decided
-    2026-08-25 — the rule every existing picker already uses).
+    that, "contains anywhere" at the longest length with any hit (the rule
+    every existing picker already uses).
     """
     limit = max((e.words for e in entries), default=1)
     extra = _lookahead(words, start, limit)
@@ -212,7 +213,7 @@ def parse(
             if head:
                 count, hits = _resolve(words, index, head, refs[kind])
             else:
-                # A bare sigil means *show me what there is* (2026-08-29). It
+                # A bare sigil means *show me what there is*. It
                 # names nothing, so it can never resolve — it stands unresolved
                 # carrying every candidate, which is exactly a picker's input.
                 # No lookahead: the token is the one character.

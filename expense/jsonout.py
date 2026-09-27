@@ -2,13 +2,12 @@
 
 `--json` is the promise this tool makes to anything that isn't a person, so
 the bytes on the other end should not depend on which command produced them.
-They used to: thirty-one `json.dumps` calls spelled the same thing out by
-hand, and three of them — the bank importer's — passed `ensure_ascii=False`
-while the rest did not. So `expense import bank --json` wrote `Café` and
-`expense accounts list --json` wrote `Caf\\u00e9`, for the same account, on a
-ledger whose names are mostly Spanish.
+Every `--json` goes through here, so no command can pass `ensure_ascii=False`
+while another does not — which would write `Café` from one command and
+`Caf\\u00e9` from another, for the same account, on a ledger whose names are
+mostly Spanish.
 
-`ensure_ascii=False` won that argument: the escaped form is valid JSON that no
+`ensure_ascii=False` is the choice: the escaped form is valid JSON that no
 parser minds and no human can read, and every consumer here is UTF-8. The
 error envelope goes through `json_text` too — an error is machine-readable
 output like any other, and it carries engine messages with the same accents.

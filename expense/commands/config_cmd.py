@@ -10,7 +10,7 @@ app = typer.Typer(help="Manage ~/.expense-config", no_args_is_help=True)
 
 
 def _validate_engine_url(url: str) -> None:
-    # Validation lives in expense.config (shared with the TUI, backlog 6.3b);
+    # Validation lives in expense.config (shared with the TUI);
     # BadParameter keeps the CLI's usage-error rendering (exit 2, param hint).
     try:
         config_module.validate_engine_url(url)

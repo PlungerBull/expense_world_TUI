@@ -29,9 +29,8 @@ def _strip_panel(output: str) -> str:
     return " ".join(no_box.split())
 
 
-# Aggregates are home-currency ONLY since the engine's 2026-08-05 read-time
-# currency change: `spent_cents` and the native month totals were deleted, and
-# every survivor is nullable with an `unconverted_count` beside it.
+# Aggregates are home-currency ONLY, each nullable with an `unconverted_count`
+# beside it.
 SINGLE_MONTH_RESPONSE = {
     "month": {"year": 2026, "month": 3},
     "categories": [
@@ -99,7 +98,7 @@ RANGE_RESPONSE = {
 
 #: The three grid states side by side. `Gifts` has nothing in any month and must
 #: vanish; Food's December is a real zero (no activity → `—`) while its January
-#: is unpriceable (→ `3 unrated`). Conflating those two was the Phase 4 bug.
+#: is unpriceable (→ `3 unrated`). Those two must never be conflated.
 RANGE_THREE_STATES = {
     "months": [
         _month(
@@ -191,7 +190,7 @@ def test_monthly_single_happy(configured):
 
 @respx.mock
 def test_monthly_range_keeps_no_activity_and_unpriceable_apart(configured):
-    """The Phase 4 fix: `—` and `3 unrated` must not be the same cell."""
+    """`—` and `3 unrated` must not be the same cell."""
     respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=httpx.Response(200, json=RANGE_THREE_STATES)
     )
@@ -252,9 +251,6 @@ def test_monthly_range_happy(configured):
     assert "Totals (net)" in result.output
     assert "-2,100.00" in result.output
     assert "-1,150.00" in result.output
-    # inflow/outflow joined the range table with the Overview merge (2026-08-29):
-    # they were already in this payload, and the screen that used to draw them
-    # (Outstanding Amounts) no longer exists.
     assert "inflow" in result.output
     assert "outflow" in result.output
 
