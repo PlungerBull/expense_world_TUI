@@ -28,6 +28,7 @@ An index; the depth lives in each plan doc, which is deleted when it ships (its 
 | 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
 | 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
 | 5 | **Owner question:** after the official migration, will the owner still log card purchases by hand? If yes: a standing "rename your row to the bank's wording?" proposal in the import (an engine ask plus a mockup). If no: close this | [file-import-plan.md](file-import-plan.md) §6 | Open question, asked 2026-09-27 |
+| 6 | The agent loop: orchestrator + builder/tester/reviewer, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Decided 2026-09-27; owner to name the first spec (recommended: take up the engine's published contract) |
 
 **The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
 ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when
@@ -61,7 +62,11 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
 entry says what to ask for, why no client can do it properly today, and **what this repo deletes
 when it lands**. Handed to the owner for the engine coder; never edited in the engine repo.
 
-None open.
+- **Move `design-philosophy.md` out of the engine repo.** It is the product vision for every
+  client, not an engine rule, and once agents stay inside their own repo no client can read it
+  from the engine's folder. Owner's call (2026-09-27): it lives in the `productivity_world`
+  root, made a small tracked repo of its own (shared docs only, the project folders ignored)
+  so it has history and a backup. **This repo deletes** its CLAUDE.md link to the engine copy.
 
 ## Small defects
 
