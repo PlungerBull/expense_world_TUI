@@ -2,6 +2,10 @@
 
 > **2026-09-23:** everything here is built. The one step left, the contract run (§10 step 7),
 > is Phase 12 of [engine-uptake-plan.md](engine-uptake-plan.md); this file is deleted then.
+>
+> **2026-09-27:** audited before deletion; every durable fact now lives in a permanent doc
+> ([decisions.md](decisions.md) "Sealed periods: the engine guards, the client reports" and
+> the entries it names; cli-spec.md; the tests). Nothing here is needed after step 7.
 
 **Status: reviewed and settled 2026-09-20, not yet built.** This is ask **1 of 4**
 on the 2026-09-20 queue ([todo.md](todo.md) "Now"). Every decision in §7 is
