@@ -18,7 +18,7 @@ of being guessed.
 
 | Decision | Date |
 |---|---|
-| **One loop per repo**, not one loop over the whole `productivity_world` folder. "Done" (tests pass, committed) only means something inside one repo, and the wall between this client and the engine stays automatic. The three worker roles are written once and shared by every repo; each repo supplies its own rules through its own CLAUDE.md. | 2026-09-27 |
+| **One loop per repo**, not one loop over the whole `productivity_world` folder. "Done" (tests pass, committed) only means something inside one repo, and the wall between this client and the engine stays automatic. The worker roles are written once and shared by every repo; each repo supplies its own rules through its own CLAUDE.md. | 2026-09-27 |
 | **Start with this repo.** It has the most tests and guard rules, so it is the safest place to prove the setup. The engine repo copies it afterwards. | 2026-09-27 |
 | **[todo.md](todo.md) is the official task list.** "Done" still means *deleted from the list in the same commit* (the existing rule — git history is the archive). | 2026-09-27 |
 | **[decisions.md](decisions.md) is the official decision log.** | 2026-09-27 |
@@ -30,6 +30,7 @@ of being guessed.
 | **Questions for the owner live in [todo.md](todo.md) "Questions for the owner"**, a section of their own; every existing owner question moved there. | 2026-09-27 |
 | **Every session is the orchestrator, always** — a plain chat with the owner included. The main session never writes code or tests. | 2026-09-27 |
 | **The tester never writes tests or code.** When a criterion has no test that proves it, the tester says so in its report and the builder writes the test. | 2026-09-27 |
+| **A fourth worker, the librarian, keeps the docs aligned.** Every fact lives in exactly one doc and the others link to it, because a fact written in two places drifts: one copy gets changed and the other is forgotten. It fixes docs itself (never code, never todo.md or decisions.md). It checks the docs each task touched, and sweeps every doc when a spec finishes. | 2026-09-27 |
 | **One spec per piece of work, written by the owner** (in `docs/specs/`). The owner tells the orchestrator which spec is current; the orchestrator drafts that spec's tasks into todo.md and the owner approves them before the loop runs. The existing agent-written plan docs become drafts the owner rewrites or approves before their work starts. | 2026-09-27 |
 
 ## 3. The roles
@@ -39,9 +40,10 @@ of being guessed.
 | **Orchestrator** (the main session) | Picks the next task, writes its acceptance criteria, delegates, reads reports, decides the next step, commits, updates todo.md / decisions.md / the question list. **Never writes code.** | Docs only |
 | **Builder** | Implements one task, following CLAUDE.md. Reports what changed and why. | Code, tests, docs of this repo |
 | **Tester** | Checks the work against the task's acceptance criteria: runs the test suite, runs the app against the test engine, reports pass/fail with evidence. When a criterion has no test proving it, says so, and the builder writes one. | Runs things; never edits code or tests |
-| **Reviewer** | Reads the change for quality, security and this repo's rules (thin wrapper, no business logic, no literal colours, no secrets, one copy of shared code, docs updated). | Read-only |
+| **Reviewer** | Reads the change for quality, security and this repo's rules (thin wrapper, no business logic, no literal colours, no secrets, one copy of shared code). Doc structure is the librarian's. | Read-only |
+| **Librarian** | Keeps the docs aligned: every fact in one home with the other docs linking to it, no two docs disagreeing, docs matching the code, broken pointers fixed, the repo's doc rules (present tense, absolute dates, finished work deleted) kept. Where it can't tell which conflicting doc is right, it asks instead of picking. Reports what it moved or cut. | Docs of this repo, except todo.md and decisions.md (what those need goes in its report) |
 
-All three workers answer in the same fixed report shape (verdict, what was checked, what is
+All four workers answer in the same fixed report shape (verdict, what was checked, what is
 wrong, where), so the orchestrator reads them reliably.
 
 ## 4. The loop, per task
@@ -52,11 +54,13 @@ wrong, where), so the orchestrator reads them reliably.
 2. **Builder** implements.
 3. **Tester** checks. Fail → back to the builder with the tester's report.
 4. **Reviewer** checks. Rejection → back to the builder with the reviewer's report.
-5. After **4 failed rounds**, the task is parked, a question goes to the owner, and the loop
+5. **Librarian** checks the docs the task touched, and every doc that covers the same things,
+   and fixes them. When the task is the last of its spec, it sweeps every doc instead.
+6. After **4 failed rounds**, the task is parked, a question goes to the owner, and the loop
    moves on.
-6. **Done** = tester passed + reviewer approved + committed and pushed + deleted from todo.md
+7. **Done** = tester passed + reviewer approved + librarian done + committed and pushed + deleted from todo.md
    in that same commit.
-7. **When every remaining task is waiting on the owner** (a mockup to pick, a question to
+8. **When every remaining task is waiting on the owner** (a mockup to pick, a question to
    answer), the loop stops and hands the owner a short summary: what finished, and what is
    waiting in todo.md "Questions for the owner". It does not keep running with nothing to do. The owner
    answers, and restarts the loop.
@@ -81,10 +85,16 @@ Every session is the orchestrator, so the main session builds only docs and Clau
 the worker files (6.2), the hook settings (6.3) and the settings cleanup (6.4). A hook *script*,
 a test, or any other code waits for the builder that 6.2 creates. 6.5 is the loop's first job.
 
-### 6.2 The three worker files
+### 6.2 The four worker files
 
-Builder, tester and reviewer, written once in the owner's personal Claude settings so every
-repo shares them. Each one's tool limits are set in its file (§3).
+Builder, tester, reviewer and librarian, written once in the owner's personal Claude settings
+so every repo shares them. Each one's tool limits are set in its file (§3). Each reads the
+repo's CLAUDE.md for that repo's rules, so the files hold only what is the same everywhere.
+
+The librarian's file carries the one-home rule in general terms (which doc owns what comes
+from each repo's CLAUDE.md). Building 6.2 also updates CLAUDE.md "How work runs": the librarian
+joins the roles table and the per-task loop (§4 steps 5 and 7), and the reviewer's row stops
+covering doc structure.
 
 ### 6.3 Automatic guards (hooks)
 
