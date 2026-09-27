@@ -18,6 +18,18 @@ Every read command is a direct `GET` against the engine. There is no cache to wa
 - **Deleted is deleted** (engine, 2026-09-23). A deleted row is invisible to every client — no list returns it, its get is a 404 — and there is no restore and no `--include-deleted`. The engine keeps the row in its table; undeleting one is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). `expense activity list` still shows a deleted row's history.
 - Transaction reads always send `debit_as_negative=true`: every CLI/TUI surface renders debits negative, so the request pins the flag rather than depending on the engine default.
 
+### Three list shapes
+
+Since the engine's 2026-09-23 changes no list pages by position; every list is one of three shapes, and each is read its own way. The contract is engine-spec *Base Conventions* ([../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)); what each command prints under its table is cli-spec "Pagination (human mode)" ([cli-spec.md](cli-spec.md)).
+
+| Shape | Lists | How the CLI and TUI read it |
+|---|---|---|
+| **Whole** `{items}` | accounts, categories, hashtags, a category's hashtags, one account's reconciliations | One read, every row; no paging flags. |
+| **Cursor** `{items, limit, next_cursor}` | transactions | `?after=<next_cursor>` until it is `null`; the count is its own read (`/transactions/count`), once per list. The TUI's growing lists are [tui.md](tui.md) §5. |
+| **Cursor + date window** | activity, exchange-rate history | The cursor inside one window (30 days by default); older rows are a new window. Flat commands only. |
+
+A stale `limit`, `offset` or unknown parameter is the engine's `422`, never a quietly wrong answer.
+
 ## Write semantics
 
 Writes always go straight to the engine. There is **no offline write queue, no buffering, no replay**.

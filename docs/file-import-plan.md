@@ -1,6 +1,6 @@
 # File import as the intake — CLI/TUI plan (accepted 2026-09-19)
 
-**Status: accepted 2026-09-19 by the owner, not yet built.** Every rule below is a
+**Status: accepted 2026-09-19 by the owner; C2–C5 built 2026-09-26, C1 and §6 still open.** Every rule below is a
 decision, not a suggestion — settled item by item in the design conversation of that date.
 Two things are still open, and neither is scope: the naming check in §3, and the mockup
 gate on the import screen (CLAUDE.md, "Mock every screen before building it" — the screen
@@ -13,23 +13,17 @@ deleted — per the "each fact has one home" rule.
 The engine half of the same plan is
 [expense_world_engine/docs/file-import-plan.md](../../expense_world_engine/docs/file-import-plan.md).
 
-**Only C1 is still owned here** *(2026-09-26)*. On 2026-09-25 the engine shipped
-`POST /transactions/import`, which does the matching, the code backfill and the closed-period
-check itself. The owner moved the switch to it into the engine uptake,
-[engine-uptake-plan.md](engine-uptake-plan.md) **Phase 10b**, which also builds C2 and C4,
-makes C3 unnecessary (the engine has no amount-only rule) and turns C5 into rendering the
-engine's `sealed` outcome. §4–§7 below stay as the record of *what* was decided; Phase 10b is
-*how* it is built. §2 describes the importer before Phase 10b.
+**What is left here** *(2026-09-27)*: C1, the TUI import door (§3), and the one-time title
+alignment (§6), plus the warning in §11. C2–C5 shipped in the engine uptake (Phase 10b,
+2026-09-26) on the engine's `POST /transactions/import`: titles verbatim, no amount-only rule,
+the 2026-01-01 floor, closed periods shown. Their sections are deleted and their why is in
+[decisions.md](decisions.md) "Bank downloads are matched against the ledger" (the 2026-09-26
+amendment). The section numbers are kept, because other docs cite §3, §6 and §8.
 
 | Ask | Sections | Gate |
 |---|---|---|
-| ~~2 of 4~~ the import rules | §4–§7 | **Moved** into engine-uptake Phase 10b |
-| **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet; built on Phase 10b's code |
-
-§1–§2 and §8–§10 are context for both. **§6 was rewritten on 2026-09-26**: the one-time
-floor (a `--since` flag since 2026-09-20) is gone, 2026-01-01 is the only floor, and what
-made the one-time floor necessary is fixed at the source by a one-time title alignment,
-also in §6.
+| **4 of 4** — the TUI import door | §3 C1 | **[UI]**, no mockup drawn yet; built on [bank_import/engine.py](../expense/bank_import/engine.py) |
+| One-time title alignment | §6 | After the official migration, before the 2026 periods are completed |
 
 ---
 
@@ -52,19 +46,18 @@ mixes PEN and USD rows in one file and is already routed to two accounts.
 
 ---
 
-## 2. What is already built (verified 2026-09-19 — do not rebuild)
+## 2. What is already built (2026-09-26 — do not rebuild)
 
-- `expense import bank <file.xlsx>` — parse, account pick, ledger match, preview, `--apply`.
-- `operation_code` end to end: `sql/039` (nullable column, blank CHECK, partial UNIQUE on
-  `(user_id, account_id, operation_code)` over live rows), engine create/update/batch, and
-  the CLI writing it plus backfilling it onto rows that predate it.
-- Row-level duplicate matching **against the ledger, never against file history** — no
-  hashing, no "files I have seen" record ([decisions.md](decisions.md), "Bank downloads are
-  matched against the ledger, not hashed"). This is already the owner's stated rule: the
-  question is always "is this row in the database", never "was this file processed".
+- `expense import bank <file.xlsx>` — parse, account pick, one `POST /transactions/import`
+  (dry run by default), preview, `--apply` ([cli-spec.md](cli-spec.md) `expense import bank`).
+  The request and the response → rows live once, in
+  [bank_import/engine.py](../expense/bank_import/engine.py), for the TUI door to call.
+- `operation_code` end to end (`sql/039`); the engine writes it onto a matched ledger row that
+  lacks one.
+- Duplicates are matched **against the ledger, never against file history**, by the engine.
+  The question is always "is this row in the database", never "was this file processed".
 - Account routing: accounts folded by base name so one file feeds the PEN and USD legs of the
-  same card (`BCP PEN`/`BCP USD`, `BCP Signature PEN`/`BCP Signature USD`), with each row's
-  `Moneda` column choosing the leg.
+  same card, with each row's `Moneda` column choosing the leg.
 - Recovery from a wrong pick: select the rows in Home, `b`, move them to the right account.
 
 ---
@@ -105,92 +98,21 @@ Infinite card renamed, or whether a card is missing from the system.
 
 ---
 
-## 4. C2 — the parser stores the bank's string verbatim, whitespace collapsed
+## 4–5. C2 and C3 — shipped 2026-09-26
 
-Today: `title` = the merchant cut out of the descriptor, `description` = the raw string.
-
-**Change:** `title` = the bank's descriptor with runs of whitespace collapsed to single
-spaces and nothing else removed; `description` = not written at all.
-
-```
-bank:   'MAR DE COLAS           LIMA          PE'
-title:  'MAR DE COLAS LIMA PE'
-```
-
-- Delete `clean_title()` and `MERCHANT_WIDTH` from
-  [bank_import/parse.py](../expense/bank_import/parse.py).
-- Stop setting `description` in `payload_for()`
-  ([bank_import_cmd.py](../expense/commands/bank_import_cmd.py)). **`description` is the
-  notes field** — the TUI labels it "note" and the spreadsheet's `NOTAS` column imports into
-  it (701 of the live ledger's 3,895 rows have one). Filling it with a copy of the title
-  would put bank padding in a column the owner writes in.
-
-**Known consequence, accepted by the owner 2026-09-19.** The bank pads the merchant to a
-fixed width and fills the remainder with as much of the city as fits, so one merchant
-produces several strings — in the 2026-09-16 card export, 80 rows gave 59 distinct
-descriptors where the cleaned form gave 56:
-
-```
-'DLC*UBER RIDES'          vs  'DLC*UBER RIDES            LIMA'
-'EXPERTDENT                Lima'  vs  'EXPERTDENT             Miraflores    PE'
-'MAR DE COLAS'            vs  'MAR DE COLAS           LIMA          PE'
-```
-
-Those rows will read as different merchants in the ledger. Reports group by category, so
-they are unaffected. *Rejected alternative:* keep the cleaned merchant as the title (stable
-per merchant) — rejected because the title is meant to be exactly what the bank sent.
-
-**This does not weaken matching.** The two `Sueldo Soles` downloads of 2026-09-16 share 10
-movements and **zero fields differ between them**: the bank renders a given transaction
-identically every time. The variation above is between *different* purchases.
+Verbatim titles and the deleted amount-only rule; the why is in [decisions.md](decisions.md).
 
 ---
 
-## 5. C3 — matching: delete rule 4
+## 6. The one-time title alignment
 
-*Done by the engine (2026-09-25): `POST /transactions/import` runs rules 1–3 only. Phase 10b
-deletes the client matcher.*
-
-Rules kept, in order, each ledger row claimable once:
-
-1. operation code (exact, per account)
-2. same day + account + amount + title
-3. ±1 day + account + amount + title
-
-**Rule 4 (`±1 day, amount only`, title ignored) is deleted.** It is the only rule that can
-make the ledger *miss* a real row: it claims any ledger row of the same amount within a day
-regardless of description, so a genuinely new charge can be declared already-present and
-never written. The owner's rule is the opposite — **more rows beats fewer**, because a
-duplicate shows up at reconciliation and in the account balance, while a row that never
-arrived is invisible.
-
-Rule 4 existed to bridge hand-typed wording to the bank's. Once the one-time title alignment
-(§6) gives the hand-typed rows the bank's wording, and the 2026 backfill seals the closed
-months, rules 1–3 have both sides in the bank's own words.
-
-**What still produces a duplicate, accepted:** a charge that changes amount between
-authorisation and settlement, or moves more than a day. Reconciliation is the backstop.
-*Deferred alternative:* a per-row fingerprint column (date + raw text + amount + occurrence)
-with a UNIQUE index, which would make re-import impossible at the database and be immune to
-any edit. Not needed while the exposure is one open month.
-
----
-
-## 6. C4 — one floor, and the title alignment that replaced the second
-
-**The floor: 2026-01-01** (built in engine-uptake Phase 10b, `IMPORT_FLOOR` in
-[bank_import/engine.py](../expense/bank_import/engine.py)). Nothing dated earlier is ever sent.
-There is no `--since`.
-
-**Why the second floor went (owner, 2026-09-26).** It existed because the ledger's rows up to
-the end of the spreadsheet are hand-typed: no operation codes, and the owner's wording, not the
-bank's (`MAR DE COLAS LIMA` against the bank's `MAR DE COLAS LIMA PE`). The engine only
-matches identical titles, so a bank file overlapping those days would import them a second
-time. A typed-each-run floor made that one forgotten flag away, forever, because any later
-file reaching back re-opens it. The owner's answer: make the hand-typed rows carry the bank's
-wording once, and the problem is gone at the source. *Rejected:* the floor kept as a flag (the
-2026-09-20 decision); the floor saved once, on this machine or in the engine (both still fence
-off real history instead of fixing it).
+The floor (2026-01-01, `IMPORT_FLOOR` in [bank_import/engine.py](../expense/bank_import/engine.py))
+is built, and there is no `--since` (why: [decisions.md](decisions.md)). What stood in for a
+second floor is this alignment: the ledger's rows up to the end of the spreadsheet are
+hand-typed, with no operation codes and the owner's wording (`MAR DE COLAS LIMA` against the
+bank's `MAR DE COLAS LIMA PE`). The engine matches only identical titles, so a bank file
+overlapping those days would import them a second time. Giving those rows the bank's wording
+once removes the overlap at the source.
 
 **What the overlap is (measured read-only 2026-09-26, on the test ledger):**
 - BCP's Excel export holds the **last 20 movements** of a current account and the **last 80** of
@@ -223,22 +145,10 @@ and before the first real bank import. Not now: the current ledger is test data.
    engine's backfill on a `same_day` / `adjacent_day` match), and its dry run is the check:
    every aligned row must read `in ledger · … · +code`, none `new`.
 
-## 7. C5 — closed periods are shown, not hidden
+## 7. C5 — shipped 2026-09-26
 
-*Superseded in mechanism (2026-09-26): the engine reports each such row as `sealed` with the
-period's id. Phase 10b renders that as the visible block; the pre-filter and read below are
-not built. The decision (shown, not hidden) stands.*
-
-The importer asks the engine for the account's completed reconciliations and drops every file
-row dated inside one *before* matching. Those rows appear in the preview as their own
-**visible skipped block**, not silently — it is how the owner would notice the bank restating
-something inside a month already closed. The engine rule
-([engine plan §2](../../expense_world_engine/docs/file-import-plan.md)) is the floor under
-this, not the mechanism.
-
-The read is `GET /reconciliations?account_id=<id>`, which since 2026-09-23 returns the
-account's whole list, unpaged, so no paging loop is needed; keep the `status == "completed"`
-rows (`?status=` was declined, engine `open-bugs.md` D14).
+The engine returns a row inside a completed period as `sealed`; the preview shows it in its
+own block and never writes it. Why: [decisions.md](decisions.md).
 
 ---
 
@@ -249,7 +159,7 @@ rows (`?status=` was declined, engine `open-bugs.md` D14).
 | Merchant memory / category suggestions | Import already removes the typing; classification stays manual, as it is today. Home suggestions were rejected 2026-09-13 and that stands. |
 | Transfer / card-payment / ITF detection | `TRAN.CTAS.PROP.BM`, `PAG.T.PROP.VISA.BM` and `IMPUESTO ITF` import as ordinary rows and are classified by hand, exactly as they are now. Transfers are already two ordinary transactions (2026-08-16). |
 | Import provenance + undo | A wrong-account import is fixed with bulk `b` in Home. |
-| A per-row override in the preview | Once rule 4 is gone every verdict is a fact (matching code, or identical text + amount + date), not a guess. Nothing left to overrule. |
+| A per-row override in the preview | With no amount-only rule, every verdict is a fact (matching code, or identical text + amount + date), not a guess. Nothing left to overrule. |
 | Bulk "assign everything shown" on the reconciliation screen | The owner is doing the 2026 backfill by hand (≈1,100 toggles). Revisit if monthly closing proves tedious — the draft screen already lists exactly the account's unassigned rows inside the period's dates, so it is a single action away. |
 | Other banks, CSV, PDF | BCP only. |
 
@@ -277,17 +187,31 @@ month-end reconciliation difference is the only backstop.
    (Statement dates come from the EECC; the spreadsheet's `ESTADO_CUENTA` column — 1,646 of
    3,927 rows marked by cycle-closing month — is the cross-check on what each card statement
    actually contained, since a card cycle closes mid-month and cannot be derived from dates.)
-2. Engine: the wall + `operation_code` frozen
-   ([engine plan](../../expense_world_engine/docs/file-import-plan.md)).
-3. CLI: the importer on the engine's endpoint, with verbatim titles (§4), the 2026-01-01
-   floor (§6) and closed-period rows shown (§7): [engine-uptake-plan.md](engine-uptake-plan.md)
-   Phase 10b.
-3b. After the official migration, the one-time title alignment (§6), **before** step 1's
+2. After the official migration, the one-time title alignment (§6), **before** step 1's
    periods are completed.
-4. TUI import door (§3) — **mockup first**, per CLAUDE.md "Mock every screen before building
+3. TUI import door (§3) — **mockup first**, per CLAUDE.md "Mock every screen before building
    it".
-5. First real bank import.
+4. First real bank import.
 
 The spreadsheet importer (`expense import sheet`) is bootstrap scaffolding and is retired
 once the database becomes the record — the owner expects that within days of 2026-09-19, after
 testing. Nothing in this plan should keep it working.
+
+---
+
+## 11. Before any import writes a time of day
+
+*(Moved here 2026-09-27 from the engine debrief of 2026-09-23, §6.1, which is deleted at the
+uptake's cutover.)*
+
+The "no batch" pane's `!` flag (a row dated inside a reconciliation window) is computed
+client-side: the engine declined a per-row flag (engine `open-bugs.md` D13), because the
+engine makes the real decision at close time. The engine treats a period as whole calendar
+days in the user's timezone; the client compares the ISO date prefix of the row's `date`.
+**The two agree only because every live row is stored at exactly 00:00 America/Lima** (3,895
+of 3,895, checked 2026-09-23), and Lima has no daylight saving. Nothing enforces midnight.
+
+The bank importer sends bare days today, so it keeps the rule. **The first import, or any
+other writer, that stores a real time of day makes the `!` wrong on rows near midnight.** That
+is the point to ask the engine again: D13 names it as the condition for reopening the per-row
+flag.

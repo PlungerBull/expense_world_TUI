@@ -146,7 +146,7 @@ def fetch_rates_history(
     """GET /v1/exchange-rates/history (engine-direct). Raw response body.
 
     Stored daily rates, newest first (`rate_date DESC, base, target`), one row
-    per pair per day, inside one date window (engine debrief 6b §3): plain ISO
+    per pair per day, inside one date window (engine-spec, Date windows): plain ISO
     days, both inclusive; omitted bounds are the engine's (today in the user's
     zone, and 30 days before). One day is `date_from == date_to`.
     """

@@ -363,13 +363,20 @@ them — they are hand-written into the `?` card
 
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py),
 2026-09-12): `space` selects / unselects the cursor row without moving it (`↓` then
-`space` is the rhythm), `a` selects every row on the page or clears the selection,
+`space` is the rhythm), `a` selects every loaded row or clears the selection,
 `c` / `b` / `h` open the picker for category / account / hashtags, `esc` clears the
 selection if there is one, else goes back to the screen that opened the ledger. `space` is declared on
 `CursorList` but is live — key and footer both — only on a screen that handles
 `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open` goes through on the
 `?` card, so the Manage lists neither react to it nor advertise it. `h` is a *command*
 letter here, which is exactly what deleting the vim aliases on 2026-08-27 freed it for.
+
+**`pgdn` means "more of this list", in three ways** (2026-09-26). In the two growing lists,
+the ledger and the "no batch" pane, it appends the next 10 rows by cursor and puts the cursor
+on the first new one (footer `pgdn 10 more`; gone at the end), and `pgup` just goes up a
+screenful ([decisions.md](decisions.md) "Long lists grow, they do not page"). In every other
+list it is the next page of rows already loaded (§5). On Home it walks the month window one
+month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** (owner's shape, 2026-09-25, mockup
 [expense-world-engine-uptake.html](mockups/expense-world-engine-uptake.html) M2) opens on

@@ -824,7 +824,7 @@ def render_pagination_hint(
 ) -> None:
     """Print how to reach the rest of a paged list, when there is a rest.
 
-    Two shapes page (engine debrief 6b §0), each with its own line (mockup M5);
+    Two shapes page (engine-spec, Base Conventions), each with its own line (mockup M5);
     anything else — a whole list, a missing envelope — prints nothing.
 
     A cursor-paged body (`transactions list`) has no total: when it carries a
@@ -863,7 +863,7 @@ def _window_bound(value: object) -> str:
 def _render_window_hint(
     body: dict, cursor: object, *, note: str, older: Literal["instant", "day_before"]
 ) -> None:
-    """The date-window line of `render_pagination_hint` (engine debrief 6b §1).
+    """The date-window line of `render_pagination_hint` (engine-spec, Date windows).
 
     Rates' bounds are days and print as they are. Activity's are instants the
     engine already renders in the user's `display_timezone` (engine `aaee6bf`),

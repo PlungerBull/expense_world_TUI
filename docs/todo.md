@@ -17,8 +17,9 @@ Rules, unchanged from the backlog this file replaces
   quote the item's bolded title instead, so a renumber can never make them lie.
 
 **The CLI is behind the engine's current code (2026-09-23).** Catching up is the first item
-under *Now*, and it blocks everything else. Last green baseline before it: **1250 unit tests
-(2026-09-19)**, contract suite **24/24** against the disposable engine (2026-09-19).
+under *Now*, and it blocks everything else. Unit suite **1288 green** on the uptake code
+(2026-09-27, phases 1–11 built, not yet pushed); last contract run **24/24** against the
+disposable engine (2026-09-19), before the uptake.
 
 **The file has four working sections,** in this order:
 

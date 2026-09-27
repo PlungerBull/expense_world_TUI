@@ -62,9 +62,10 @@ class BankRow:
 
     line: int
     date_iso: str
-    #: The bank's descriptor with whitespace runs collapsed, nothing removed
-    #: (file-import-plan §4, C2): `MAR DE COLAS           LIMA          PE`
-    #: → `MAR DE COLAS LIMA PE`. The title is exactly what the bank sent.
+    #: The bank's descriptor with whitespace runs collapsed, nothing removed:
+    #: `MAR DE COLAS           LIMA          PE` → `MAR DE COLAS LIMA PE`. The title is
+    #: exactly what the bank sent (decisions.md, the 2026-09-26 amendment to
+    #: "Bank downloads are matched against the ledger").
     title: str
     currency: str
     amount_cents: int  # signed: negative = outflow, as the engine wants it

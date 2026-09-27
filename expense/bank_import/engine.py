@@ -13,7 +13,8 @@ from uuid import uuid4
 
 from expense.bank_import.parse import BankRow
 
-#: Nothing dated earlier is ever sent (file-import-plan §6, owner 2026-09-20).
+#: Nothing dated earlier is ever sent (decisions.md, the 2026-09-26 amendment to
+#: "Bank downloads are matched against the ledger").
 #: The only floor since 2026-09-26: the one-time `--since` was dropped once the
 #: hand-typed rows the bank files overlap are aligned to the bank's wording
 #: before the first real import (todo.md, "One-time title alignment").

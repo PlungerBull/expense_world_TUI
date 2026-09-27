@@ -87,7 +87,7 @@ def test_parse_sheet_reads_a_card_export():
 
 
 def test_the_title_is_the_banks_text_with_whitespace_collapsed():
-    """C2 (file-import-plan §4): nothing cut, only the padding runs folded."""
+    """Titles verbatim (decisions.md, bank downloads): nothing cut, only the padding runs folded."""
     rows, _ = parse_bank_sheet(
         _sheet(CARD_HEADERS, ("2026-09-11", "  MAR DE COLAS           LIMA          PE ", "S/", -1))
     )

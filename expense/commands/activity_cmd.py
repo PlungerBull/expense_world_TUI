@@ -283,7 +283,7 @@ def fetch_activity(
 ) -> dict:
     """GET /v1/activity (engine-direct). Returns the raw response body.
 
-    One date window per read (engine debrief 6b §1): omitted bounds are the
+    One date window per read (engine-spec, Date windows): omitted bounds are the
     engine's (now, and 30 days before), and `after` scrolls inside the window.
     `date_from` / `date_to` are sent as typed: a bare day is the whole day in
     the user's `display_timezone` and a time with an offset is that instant —

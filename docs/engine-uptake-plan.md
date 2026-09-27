@@ -118,7 +118,7 @@ the ledger (Phase 7). It replaced a builder's call that re-read as many rows as 
 | 10 | Offset code deleted | 6b §4 | — (**done**, `79abe7d`) |
 | 10b | Bank import through the engine's `POST /transactions/import` | engine-spec | — (**done**) |
 | 10c | Reconciliation periods are days | engine-spec *Date inputs* | — (**done**, `da1b8ce`, `954a4eb`) |
-| 11 | Docs and checks | — | — |
+| 11 | Docs and checks | — | — (**done**) |
 | 12 | Cutover: restart, verify, contract suite, delete the debriefs | all §4/§5 | — |
 
 **Order and dependencies.** Each phase can go to a different coder. What must land first:
@@ -657,7 +657,7 @@ half-dated branches of `format_period`, the undated guard in `blocking_windows`,
 reconciliation now carries both days. A contract test pins the rule (a missing `date_end` on
 create, and `null` on update, are both `422`).
 
-## Phase 11: docs and checks
+## Phase 11: docs and checks (done 2026-09-27)
 
 - [cli-spec.md](cli-spec.md): every flag change in Phases 3–5, 8 and 9, and the deleted commands.
   The "Pagination (human mode)" paragraph is **already rewritten** (Phase 4); only check that its
@@ -689,6 +689,15 @@ create, and `null` on update, are both `422`).
   Without this move, deleting the debrief loses the warning.
 - `pytest tests/unit`, `ruff check . && ruff format .`, `mypy`. Update the test count in
   CLAUDE.md and [todo.md](todo.md).
+
+**What was built (2026-09-27):** cli-spec.md and most of tui.md were already current from their
+own phases. New: cli-runtime.md "Three list shapes"; tui.md §4's three meanings of `pgdn`;
+decisions.md's six entries plus "Reconciliation periods are days" (owner, 2026-09-27: also the
+count, reload-fresh and periods-are-days calls), the bank entry's 2026-09-26 amendment, and
+supersession marks on four older index rows; file-import-plan.md trimmed to C1, the title
+alignment and the midnight caveat (§11) (owner, 2026-09-27), section numbers kept. Every
+citation of a debrief in docs and code now points at engine-spec, except the
+category-hashtags-plan link, which step 6 below handles.
 
 ## Phase 12: the cutover
 
