@@ -21,7 +21,7 @@ on the category if a category exists?"*). When it ships, its why moves to
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
 used with, most-used first. Read-only, no side effects. **Returns the whole list, unpaged,
-since 2026-09-23** (engine Phase 6.3; [engine-debrief-2026-09-23-phase6.md](engine-debrief-2026-09-23-phase6.md) §3):
+since 2026-09-23** (engine Phase 6.3; engine-spec *Base Conventions*, [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)):
 `?limit=` / `?offset=` are a `422`.
 
 ```json

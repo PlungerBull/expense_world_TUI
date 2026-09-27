@@ -224,7 +224,8 @@ def test_a_period_always_has_both_days(client):
 
 
 def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
-    """todo.md Small defects 1, closed from the outside. The working screen
+    """The last-day defect (found 2026-09-23, closed 2026-09-27 by this test's
+    first pass on the new engine: rows on `date_end` were left out). The working screen
     reads the account's rows with `date_from` / `date_to` set to the period's
     own days; a row logged at 23:30 local on `date_end` must be in that read."""
     zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])

@@ -16,10 +16,10 @@ Rules, unchanged from the backlog this file replaces
   time an item closes, and it has shifted twice already. Code and docs that point here
   quote the item's bolded title instead, so a renumber can never make them lie.
 
-**The CLI is behind the engine's current code (2026-09-23).** Catching up is the first item
-under *Now*, and it blocks everything else. Unit suite **1288 green** on the uptake code
-(2026-09-27, phases 1–11 built, not yet pushed); last contract run **24/24** against the
-disposable engine (2026-09-19), before the uptake.
+**The CLI caught up with the engine on 2026-09-27** (the engine uptake, pushed as `8c8781e`).
+Unit suite **1288 green**; contract suite **49/49** against the disposable engine on `:8002`
+(2026-09-27), the first run on the new engine code. One piece is left: the owner's TUI checks,
+the first item under *Now*.
 
 **The file has four working sections,** in this order:
 
@@ -39,18 +39,26 @@ whys moving to [decisions.md](decisions.md).
 
 | # | Item | Plan | Status |
 |---|---|---|---|
-| **0** | **Engine uptake: everything the engine changed on 2026-09-23** | [engine-uptake-plan.md](engine-uptake-plan.md) | In progress since 2026-09-23 |
-| 1 | Sealed periods reach the user | [sealed-periods-plan.md](sealed-periods-plan.md) | Built 2026-09-21/22; closes with the engine uptake's contract run |
-| 2 | ~~The import rules (C2–C5)~~ | **Moved into item 0** on 2026-09-26: [engine-uptake-plan.md](engine-uptake-plan.md) Phase 10b switches `import bank` to the engine's `POST /transactions/import` and builds C2 and C4 there | Moved |
-| 3 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
-| 4 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
-| 5 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
-| 6 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Decided 2026-09-26; runs after the re-import, before the 2026 periods are closed |
-| 7 | **Owner question:** after the official migration, will the owner still log card purchases by hand? If yes: a standing "rename your row to the bank's wording?" proposal in the import (an engine ask plus a mockup). If no: close this | [file-import-plan.md](file-import-plan.md) §6 | Open question, asked 2026-09-27; not a plan |
+| **0** | **The engine uptake's TUI checks** | The list below this table | Owner, through normal use on the real ledger |
+| 1 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | 4 decisions + **[UI]** |
+| 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
+| 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; 7 owner questions open; starts after the in-flight work |
+| 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Decided 2026-09-26; runs after the re-import, before the 2026 periods are closed |
+| 5 | **Owner question:** after the official migration, will the owner still log card purchases by hand? If yes: a standing "rename your row to the bank's wording?" proposal in the import (an engine ask plus a mockup). If no: close this | [file-import-plan.md](file-import-plan.md) §6 | Open question, asked 2026-09-27; not a plan |
 
-**Why this order.** The engine uptake comes first because nothing else can be tested against
-the engine until it lands, and it closes sealed periods on the way. It also carries the
-import rules now (Phase 10b), since they are what the first real bank import rests on. Tags that know the category is independent of them and
+**The engine uptake's TUI checks.** Everything else in the uptake was checked on 2026-09-27
+(scripted reads of the real ledger, the contract suite). Do these through normal use of
+`expense world` on the real ledger, undoing any change by hand, and report anything wrong;
+delete this list and item 0 when they pass:
+
+1. On a filtered ledger, re-category a few rows in bulk, then `pgdn`: no row skipped or repeated.
+2. On an account's "no batch" (`u`) list, edit a row, then `pgdn`: the same.
+3. The categories and hashtags screens show a correct "page N of M", and no `422` appears.
+4. In Reconciliations, `⏎` on an account shows its full history, oldest period first.
+5. On a batch's working screen, `r` keeps the header current; deleting that batch from another
+   terminal shows "record gone".
+
+**Why this order.** Tags that know the category is independent of the rest and
 could move earlier. The import door is the largest and the only one with nothing drawn. The
 title alignment waits for the official migration data (owner, 2026-09-26); it must run before
 the periods close, because a completed period locks its rows' titles.
@@ -60,11 +68,17 @@ One rule from the engine side is **absolute**
 **import first, reconcile second.** A reconciliation created before its rows exist seals the
 window against them, and the import is then refused.
 
+**Before the sheet re-import's `--apply`:** the sheet still files rows under `PENDIENTES`, as a
+category and as a hashtag, and the ledger has neither since the Inbox's deletion (2026-09-12:
+uncategorised rows go to the system category `@Pendiente`). Checked by a dry run on 2026-09-27;
+every other account, category and hashtag name resolves. Rename those rows in the sheet first,
+or the apply creates `PENDIENTES` again, both as a category and a hashtag.
+
 ```
-engine uptake (incl. Phase 10b, the importer on the engine)
+engine uptake (done 2026-09-27, TUI checks left)
       │
       ▼
-restart ──▶ owner: update the sheet, re-import ──▶ title alignment ──▶ create + close the 2026 periods
+owner: update the sheet, re-import ──▶ title alignment ──▶ create + close the 2026 periods
       │
       ▼
 category tags ──▶ import door ──▶ first real bank import
@@ -93,33 +107,15 @@ were declined (engine `open-bugs.md` D13, D14).
 
 Real bugs, each small and self-contained. None of them waits on the engine uptake unless it says so.
 
-1. **The reconciliation checklist never offers rows dated on the period's last day.** Found
-   2026-09-23. The draft working screen lists the account's unassigned rows "in range" with
-   `date_to=<date_end>` taken straight from the reconciliation
-   ([reconciliations.py](../expense/tui/screens/reconciliations.py), the `available` read). The
-   engine reads that bare date as midnight UTC at the **start** of `date_end`, 19:00 the evening
-   before in Lima, so every row dated on the last day (stored 05:00 UTC) is left out. On a
-   month-end statement that is the 31st's rows, which then block the close as "unassigned" with
-   no way to tick them from this screen. **Half fixed by the engine on 2026-09-26** (`1f50722`:
-   a bare date filter is the whole day), and the other half by engine `5922bbf` (a period's
-   ends are days, so the `date_end` the screen passes through is now a day, not an instant).
-   **Code side done in engine uptake Phase 10c**: a unit test pins the read byte for byte, and a
-   contract test (a row at 23:30 on the last day is in the read) runs at Phase 12. Delete this
-   entry when that run passes.
-
-2. **`expense transactions list --to <date>` excludes that date.** Same cause, flat side.
-   **Fixed by the engine on 2026-09-26** (`1f50722`); it closes at the restart (engine uptake
-   Phase 12), with Phase 9's help-text change. Delete this entry then.
-
-3. **The fixture-drift check cannot see stale envelope keys.**
+1. **The fixture-drift check cannot see stale envelope keys.**
    [check_fixture_drift.py](../scripts/check_fixture_drift.py) checks each fixture key against
    every engine schema at once, so a transaction fixture still carrying `total` or `offset`
-   passes, because those keys are real on other endpoints. Found 2026-09-23. After the engine uptake no
-   endpoint serves `total` or `offset` at all, so the first run after the restart will catch them.
-   The general fix (mapping each fixture to the endpoint it mocks) is the script's own documented
+   passes, because those keys are real on other endpoints. Found 2026-09-23. Since the engine
+   uptake no endpoint serves `total` or `offset` at all, and the run on 2026-09-27 found no stale
+   key. The general fix (mapping each fixture to the endpoint it mocks) is the script's own documented
    limitation. Low priority.
 
-4. **Field navigation in the edit form is broken on macOS.** `⌃↑` is Mission Control
+2. **Field navigation in the edit form is broken on macOS.** `⌃↑` is Mission Control
    and `⌃↓` is Application Windows — the OS claims both before the terminal sees them,
    so `^↑ Prev field` / `^↓ Next field` have very likely never worked. Raised by the
    user 2026-08-20 ("normal arrows up and down should switch between fields"), then
