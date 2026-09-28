@@ -5,8 +5,8 @@ spec's tasks live in that spec's "Tasks" section; everything else open lives her
 tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
 runs: CLAUDE.md "How work runs (the agent loop)".
 
-**Current spec:** none. The owner writes specs in [specs/](specs/) and names the current one
-here.
+**Current spec:** [specs/error-reasons.md](specs/error-reasons.md). The owner writes specs in
+[specs/](specs/) and names the current one here.
 
 - **Only the orchestrator edits this file** (and a spec's "Tasks" section). Workers put tasks
   and questions in their reports.
