@@ -133,7 +133,7 @@ A task that needs a screen does not stall the loop: draw the mockup, park the ta
 
 **Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. Two exceptions:
 
-- **Read-only**, until the todo.md task that takes up the engine's published contract lands: the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
+- **Read-only**, until this repo takes up the engine's published contract ([docs/agent-loop-plan.md](docs/agent-loop-plan.md) §6.5): the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
 - **The tester may run the test engine.** It starts the engine on `:8002` from `../expense_world_engine` over the disposable `expense_world_test` database, recreates the practice user with `deploy/local/seed-test-user.sh --force` at the start of each check, and uses that fresh key for that check only — exactly as [docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine" describes. It stops only the engine it started, never edits an engine file, never touches `:8000` or `~/.expense-config`, and never writes the key to a file.
 
 ## Status

@@ -170,7 +170,7 @@ An index; the depth lives in each plan doc, which is deleted when it ships (its 
 | 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; questions for the owner open; starts after the in-flight work |
 | 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
-| 5 | The agent loop: orchestrator + builder/tester/reviewer, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules are in CLAUDE.md, worker files built; guards and cleanup (§6.3–6.4) next; the first spec is a question for the owner |
+| 5 | The agent loop: orchestrator + builder/tester/reviewer/librarian, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules are in CLAUDE.md, worker files built; guards and cleanup (§6.3–6.4) next; the first spec is a question for the owner |
 
 **The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
 ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when

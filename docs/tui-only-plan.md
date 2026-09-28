@@ -42,7 +42,7 @@ answer before its step starts.
   resolution for reference flags", "Move between accounts convenience", and Parked "Flat-CLI
   color conventions". "`expense import csv`" depends on the imports question.
 - **New work goes TUI-first.** A new engine capability gets its TUI screen, plus a flat command
-  only as thin as the JSON-only answer allows.
+  only as thin as the answer on human output allows.
 
 ## Steps
 

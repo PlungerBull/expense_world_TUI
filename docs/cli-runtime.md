@@ -52,7 +52,7 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
 - `EXPENSE_CONFIG` redirects the config file. This isolates *local config only* — the same PAT still writes to the same ledger.
 - A **separate PAT for a separate user** is data isolation within the same database (PATs: cli-spec "Auth model").
-- **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and `deploy/local/create-test-db.sh --force` wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates`, then
+- **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and `deploy/local/create-test-db.sh --force` wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates` (`--force` reseeds: it drops the practice user's rows, revokes its old PATs and prints a fresh one), then
 
       SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
         ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
@@ -60,7 +60,7 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   (`python -m uvicorn`, not the console script — engine `deploy/local/README.md` "TCC".)
 
-  **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine. The engine's `seed-test-user.sh` still prints `8001`; the correction lives here because this repo never edits the engine.
+  **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine.
 
   **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.
 
