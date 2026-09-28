@@ -402,7 +402,7 @@ def _live_reason(seg: Segment, command: str) -> str | None:
         urls = [words[i + 1] for i, w in enumerate(words[:-1]) if w == "--engine-url"]
         urls += [w.split("=", 1)[1] for w in words if w.startswith("--engine-url=")]
         if not any(":8002" in u for u in urls):
-            return f"{LIVE}: check_fixture_drift.py defaults to :8000; pass --engine-url …:8002"
+            return f"{LIVE}: check_fixture_drift.py needs an explicit --engine-url …:8002"
     if _runs_pytest(seg):
         live = any("tests/contract" in w for w in seg.words) or re.search(
             r"(?<!\w)PYTEST_LIVE=1", command

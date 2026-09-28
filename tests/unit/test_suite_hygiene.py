@@ -18,6 +18,8 @@ simulating latency, not test waits.
 import re
 from pathlib import Path
 
+from tests.unit.helpers import load_drift_script
+
 TESTS_DIR = Path(__file__).resolve().parent
 SELF = Path(__file__).name  # this file quotes the very pattern it forbids
 
@@ -60,23 +62,6 @@ def test_justified_exemption_still_exists():
 # Guard: the fixture-drift exemptions must not outlive the keys they exempt
 # ---------------------------------------------------------------------------
 
-_DRIFT_SCRIPT = TESTS_DIR.parent.parent / "scripts" / "check_fixture_drift.py"
-
-
-def _drift_module():
-    """Load scripts/check_fixture_drift.py without importing `scripts` as a package.
-
-    The script is deliberately not a pytest file — it reads the engine's
-    openapi.json, and tests/unit is hermetic. Only its constants are read here,
-    which costs no network.
-    """
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("_check_fixture_drift", _DRIFT_SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
 
 def test_known_local_exemptions_still_match():
     """Every KNOWN_LOCAL key must still be a key some fixture writes.
@@ -89,7 +74,7 @@ def test_known_local_exemptions_still_match():
     envelope contract (pagination, the error shape, the bootstrap wrapper), so an
     entry no fixture happens to use today is documentation, not rot.
     """
-    drift = _drift_module()
+    drift = load_drift_script()
     in_use = set()
     for path in sorted(TESTS_DIR.glob("*.py")):
         source = path.read_text()

@@ -63,19 +63,6 @@ The practice engine (`:8002`) must be running for any task that reads the contra
 tester starts it; the orchestrator has the tester start it before handing such a task to the
 builder, and it is stopped after the task.
 
-### Save and check the contract version
-The fixture drift check (`scripts/check_fixture_drift.py`) targets the practice engine by
-default, reads the contract version, and compares it with the version saved in the repo.
-Passes if:
-- With no `--engine-url`, the check reads the practice engine on `:8002`, never the live one.
-- A matching version passes quietly; a different version is reported with both numbers and the
-  check fails, so a change can't slip by.
-- The saved version changes only by an explicit, separate step, never as a side effect of a
-  check.
-- Unit tests cover match, mismatch and a missing saved version without a running engine.
-- The tester's run against the practice engine passes, and the saved version equals what the
-  practice engine reports.
-
 ### The loop checks the version, and a change goes to the owner
 Passes if:
 - CLAUDE.md says the tester runs the version check at the start of every check and puts the

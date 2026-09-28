@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Report unit-test fixtures that still expect fields the engine no longer serves.
+"""Check the engine's contract version and report fixtures the engine no longer serves.
 
 Why this exists: `pytest tests/unit` is respx-mocked, so it validates the CLI
 against fixtures *we* wrote, not against the engine. It can stay green while
 pinning deleted fields — green means "the CLI agrees with itself". This closes
-that gap mechanically: the engine publishes every field it serves in
-`openapi.json`, so a fixture key that appears in no engine schema is either drift
-or a test-local key.
+that gap mechanically: the engine publishes its whole contract at
+`/openapi.json`, so a fixture key that appears in no engine schema is either
+drift or a test-local key.
 
 Deliberately NOT a pytest file. tests/unit is hermetic — `tests/unit/conftest.py`
 blocks real sockets on purpose — and that rule is worth more than the convenience
@@ -14,12 +14,23 @@ of folding this in. Run it by hand after any engine change:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002
 
-Name the :8002 test engine; the default target, `http://127.0.0.1:8000`, is the live one.
+The default target is the practice engine, `http://127.0.0.1:8002`; the flag only
+makes the target explicit.
 
-Exit code is 0 when nothing retired is found, 1 otherwise, so it also works as a
-gate. It cannot tell a retired engine field from a key a test invented for its own
-bookkeeping, so it prints the unknowns and leaves the judgement to a human — see
-KNOWN_LOCAL for the ones already triaged.
+CONTRACT VERSION. The engine's `info.version` changes whenever its contract
+changes. The version this repo was last checked against is saved in
+`scripts/engine-contract-version`: one line, the version and nothing else. Every
+run compares the two. A different version is reported with both numbers and fails
+the run even when every fixture key matches; a missing saved version fails too.
+The saved version changes only through the separate recording step, which writes
+the engine's current version and checks nothing:
+
+    python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
+
+Exit code is 0 when the version matches and nothing retired is found, 1 otherwise,
+so it also works as a gate. It cannot tell a retired engine field from a key a test
+invented for its own bookkeeping, so it prints the unknowns and leaves the
+judgement to a human — see KNOWN_LOCAL for the ones already triaged.
 
 KNOWN LIMITATION — it unions every schema rather than checking each fixture against
 the one endpoint it mocks, so a field that is real *somewhere* passes everywhere.
@@ -38,13 +49,15 @@ import json
 import re
 import sys
 import tokenize
-import urllib.error
-import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
-DEFAULT_ENGINE_URL = "http://127.0.0.1:8000"
+import httpx
+
+DEFAULT_ENGINE_URL = "http://127.0.0.1:8002"
 UNIT_TESTS = Path(__file__).resolve().parent.parent / "tests" / "unit"
+#: The contract version this repo was last checked against: one line, nothing else.
+SAVED_VERSION_FILE = Path(__file__).resolve().parent / "engine-contract-version"
 
 # Envelope keys the engine returns that are not schema properties: the list
 # envelopes (whole `{items}`, cursor `{items, limit, next_cursor}`), the error envelope
@@ -138,12 +151,68 @@ KNOWN_LOCAL = frozenset(
     }
 )
 
+# Unit-test files whose dicts are not engine fixtures, so the scan skips them.
+# test_claude_hooks.py builds Claude Code hook payloads (`tool_name`, `tool_input`,
+# `cwd`, ...) for the repo's guard hooks; none of them mocks the engine.
+NOT_FIXTURES = frozenset({"test_claude_hooks.py"})
+
 # A quoted dict key: `"some_key":`. Three chars minimum skips `"id":`-style noise
 # that is universally valid anyway.
 KEY_RE = re.compile(r'"([a-z][a-z0-9_]{2,})"\s*:')
 
 
-def engine_field_names(engine_url: str) -> set[str]:
+def fetch_contract(engine_url: str) -> dict:
+    """The engine's published contract, `GET /openapi.json`."""
+    url = engine_url.rstrip("/") + "/openapi.json"
+    try:
+        response = httpx.get(url, timeout=10)
+        response.raise_for_status()
+        doc = response.json()
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
+        sys.exit(
+            f"could not read {url}: {exc}\n"
+            "Is the engine running? See ../expense_world_engine/deploy/local/README.md"
+        )
+    if not isinstance(doc, dict):
+        sys.exit(f"{url} did not return a JSON object — wrong host?")
+    return doc
+
+
+def contract_version(doc: dict, engine_url: str) -> str:
+    """`info.version` of the contract; a contract without one is not the engine's."""
+    version = (doc.get("info") or {}).get("version")
+    if not isinstance(version, str) or not version.strip():
+        sys.exit(f"{engine_url} published no info.version — wrong host?")
+    return version.strip()
+
+
+def read_saved_version() -> str | None:
+    """The saved contract version, or None when none is recorded."""
+    try:
+        text = SAVED_VERSION_FILE.read_text().strip()
+    except FileNotFoundError:
+        return None
+    return text or None
+
+
+def version_problem(saved: str | None, engine: str, engine_url: str) -> str | None:
+    """What differs between the saved and the engine's version; None when they match."""
+    record = f"python scripts/check_fixture_drift.py --engine-url {engine_url} --record-version"
+    if saved is None:
+        return (
+            f"no saved contract version: scripts/{SAVED_VERSION_FILE.name} is missing or "
+            f"empty (the engine reports {engine}).\n"
+            f"Record one with: {record}"
+        )
+    if saved != engine:
+        return (
+            f"the engine's contract version has changed: saved {saved}, engine {engine}.\n"
+            f"Once the change is handled, record the new version with: {record}"
+        )
+    return None
+
+
+def engine_field_names(doc: dict, engine_url: str) -> set[str]:
     """Every field name the engine declares across all published schemas, plus
     every query-parameter name it declares on any path.
 
@@ -151,21 +220,11 @@ def engine_field_names(engine_url: str) -> set[str]:
     *sent* (`params["sort"]`, a fake's call log), and those dict keys are engine
     names too. Reading them from the contract, instead of listing them by hand,
     means a parameter the engine drops is reported like a dropped field."""
-    url = engine_url.rstrip("/") + "/openapi.json"
-    try:
-        with urllib.request.urlopen(url, timeout=10) as response:
-            doc = json.load(response)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        sys.exit(
-            f"could not read {url}: {exc}\n"
-            "Is the engine running? See ../expense_world_engine/deploy/local/README.md"
-        )
-
     names: set[str] = set()
     for schema in doc.get("components", {}).get("schemas", {}).values():
         names |= set((schema.get("properties") or {}).keys())
     if not names:
-        sys.exit(f"{url} published no schema properties — wrong host?")
+        sys.exit(f"{engine_url} published no schema properties — wrong host?")
     return names | _query_parameter_names(doc)
 
 
@@ -225,6 +284,8 @@ def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
     """Map every unknown fixture key to the file:line sites that use it."""
     sites: dict[str, list[str]] = defaultdict(list)
     for path in sorted(UNIT_TESTS.glob("*.py")):
+        if path.name in NOT_FIXTURES:
+            continue
         source = path.read_text()
         prose, comment_at = _prose_spans(source)
         for lineno, line in enumerate(source.splitlines(), 1):
@@ -237,22 +298,43 @@ def scan_fixtures(known: set[str]) -> dict[str, list[str]]:
     return sites
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument(
         "--engine-url",
         default=DEFAULT_ENGINE_URL,
         help=f"engine to read the contract from (default: {DEFAULT_ENGINE_URL})",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--record-version",
+        action="store_true",
+        help=(
+            f"save the engine's current contract version to scripts/{SAVED_VERSION_FILE.name} "
+            "and check nothing else"
+        ),
+    )
+    args = parser.parse_args(argv)
 
-    print(f"reading the engine's own published field list from {args.engine_url} ...")
-    known = engine_field_names(args.engine_url) | ENVELOPE_KEYS | KNOWN_LOCAL
+    print(f"reading the engine's published contract from {args.engine_url} ...")
+    doc = fetch_contract(args.engine_url)
+    engine_version = contract_version(doc, args.engine_url)
+
+    if args.record_version:
+        saved = read_saved_version()
+        SAVED_VERSION_FILE.write_text(engine_version + "\n")
+        print(f"recorded contract version {engine_version} (was {saved or 'none'}).")
+        return 0
+
+    problem = version_problem(read_saved_version(), engine_version, args.engine_url)
+    if problem:
+        print(f"\n{problem}")
+
+    known = engine_field_names(doc, args.engine_url) | ENVELOPE_KEYS | KNOWN_LOCAL
     sites = scan_fixtures(known)
 
     if not sites:
         print("\nno fixture claims a field the engine does not serve.")
-        return 0
+        return 1 if problem else 0
 
     print("\nfields the tests still expect, that the engine no longer has:")
     for key in sorted(sites):

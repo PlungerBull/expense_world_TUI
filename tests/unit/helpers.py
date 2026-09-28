@@ -10,6 +10,7 @@ import asyncio
 import io
 import re
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -472,3 +473,25 @@ def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, cal
         lambda: HOME_TAG_NAMES if names is None else names,
     )
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+
+# ---------------------------------------------------------------------------
+# scripts/check_fixture_drift.py, loaded as a module
+# ---------------------------------------------------------------------------
+
+DRIFT_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "check_fixture_drift.py"
+
+
+def load_drift_script():
+    """Load scripts/check_fixture_drift.py without importing `scripts` as a package.
+
+    The script is deliberately not a pytest file — it reads the engine's
+    openapi.json, and tests/unit is hermetic. Loading it costs no network; a
+    test that runs its `main` mocks the engine with respx.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_check_fixture_drift", DRIFT_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
