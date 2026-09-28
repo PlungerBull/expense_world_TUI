@@ -43,7 +43,8 @@ def format_status(value: object) -> str:
 
 def format_period(item: dict) -> str:
     """`date_start → date_end`. Shared by flat table + TUI. Both are calendar
-    days on the wire (engine `5922bbf`), and every period has both (`8f22ebb`)."""
+    days on the wire (contract: "Date inputs"), and every period has both
+    (contract: POST /v1/reconciliations)."""
     return f"{item['date_start']} → {item['date_end']}"
 
 
@@ -80,8 +81,11 @@ _COMPLETE_EMPTY_HINT = (
 #: The two 422s `complete` can answer with, and the two `create`/`update`
 #: can. Matched on the engine's **message**, never on the `fields` key: the
 #: empty-batch refusal and the unfiled-rows refusal both arrive under
-#: `fields["transactions"]`, so the key cannot tell them apart. The substrings
-#: below are quoted from app/helpers/reconciliations.py and periods.py.
+#: `fields["transactions"]`, so the key cannot tell them apart. The `complete`
+#: messages are quoted from the contract (contract:
+#: POST /v1/reconciliations/{reconciliation_id}/complete); the contract names only
+#: the key for the two period refusals (contract: POST /v1/reconciliations), so
+#: their substrings are the engine's messages as sent.
 _UNASSIGNED_HINT_BARE = (
     "Hint: some rows inside this period are in no batch. Find them with "
     "'expense transactions list --account-id <id> --unreconciled "
@@ -110,10 +114,11 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
             "name": item.get("name") or "(unnamed)",
             "period": format_period(item),
             "begin": format_cents(item.get("beginning_balance_cents")),
-            # Both nullable (engine sql/040) — an ending balance the
-            # user has not entered yet, and the add-up check that therefore has
-            # no answer. `—` rather than `(null)`; `0.00` still means a real
-            # entered zero, which is the distinction sql/040 exists to preserve.
+            # Both nullable (contract: "An omitted ending balance is `null`,
+            # never zero") — an ending balance the user has not entered yet, and
+            # the add-up check that therefore has no answer. `—` rather than
+            # `(null)`; `0.00` still means a real entered zero, which is the
+            # distinction that rule exists to preserve.
             "end": format_cents_or_dash(item.get("ending_balance_cents")),
             "diff": format_cents_or_dash(item.get("difference_cents")),
             "status": format_status(item.get("status")),
@@ -236,7 +241,7 @@ def create(
 
     Both balances are typed off the statement — the engine has no derived
     (chained) beginning balance, so `beginning_balance_cents` is
-    required. Both dates are required too, by the engine (`8f22ebb`): a
+    required. Both dates are required too (contract: POST /v1/reconciliations): a
     period's window is what completing seals.
 
     Both dates are calendar days and go to the engine as typed: no timezone is

@@ -203,7 +203,7 @@ def window_page(
     limit: int = 50,
 ) -> dict:
     """The `GET /activity` and `/exchange-rates/history` envelope — cursor-paged
-    inside a date window the engine echoes back (engine-spec, Date windows)."""
+    inside a date window the engine echoes back (contract: "Date windows")."""
     return {
         **cursor_page(items, next_cursor=next_cursor, limit=limit),
         "date_from": date_from,

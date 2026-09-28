@@ -3,7 +3,7 @@
 Shapes come from two real BCP downloads: a current-account export with `Numero de
 Operacion` and `11/09/2026` dates, and a card export with `2026-09-11` dates,
 mixed S/ and $, no operation number, and padded merchant descriptors. The
-response shape is engine-spec `POST /transactions/import`.
+response shape is the contract's (contract: POST /v1/transactions/import).
 """
 
 import pytest
@@ -276,8 +276,8 @@ def test_a_refusal_names_the_files_line_not_the_engines_index():
 def test_operation_refuses_booleans_and_fractions():
     """`True` must not stringify to "True", nor `12345.67` truncate to
     "12345". Either would be matched against the ledger and then WRITTEN onto
-    a transaction, where the engine's per-account UNIQUE (`sql/039`) makes the
-    invented code permanent."""
+    a transaction, where the engine's per-account uniqueness of the code
+    (contract: POST /v1/transactions) makes the invented code permanent."""
     assert parse_operation(True) is None
     assert parse_operation(False) is None
     assert parse_operation(12345.67) is None

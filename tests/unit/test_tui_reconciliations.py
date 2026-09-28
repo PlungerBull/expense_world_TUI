@@ -80,8 +80,8 @@ async def _wait_accounts(screen, pilot):
 
 def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeypatch):
     """One straight path: begin is always typed,
-    and `beginning_balance_source` must never be sent (request schemas are
-    extra="forbid", so shipping it is a 422)."""
+    and `beginning_balance_source` must never be sent: the engine forbids it,
+    so shipping it is a 422 (contract: POST /v1/reconciliations)."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -107,7 +107,7 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
 
 
 def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
-    """A period's ends are calendar days on the wire (engine `5922bbf`): the
+    """A period's ends are calendar days on the wire (contract: "Date inputs"): the
     typed text goes out unconverted, and any shape the engine would 422 is
     refused at the field instead — unpadded, compact, day-first, not a day."""
     _patch(monkeypatch)

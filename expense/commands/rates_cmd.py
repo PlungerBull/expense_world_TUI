@@ -32,15 +32,16 @@ def format_rate(value: object) -> str:
     """4-decimal display for the engine's `rate_e8` integers: 335187273 → `3.3519`.
 
     Integer arithmetic throughout — no float division — matching
-    `_resource.format_cents`. The engine's wire field became `rate_e8: int` in
-    sql/036 (it was `rate: float`, the last float on the money path), so there is
-    nothing to convert from and nothing to lose here: the halving-and-rounding
-    happens on integers and the result is assembled as text.
+    `_resource.format_cents`. The engine's wire field is `rate_e8: int`, the rate
+    × 10^8 (contract: GET /v1/exchange-rates), so there is nothing to convert
+    from and nothing to lose here: the halving-and-rounding happens on integers
+    and the result is assembled as text.
 
-    Rates are CHECK-positive engine-side, so no sign handling. A non-int value is
-    echoed rather than guessed at — including a float, which would mean the
-    engine had regressed to the old wire format and should be visible, not
-    quietly formatted as if nothing were wrong.
+    The engine never stores a non-positive rate (contract: "Rate ingestion:
+    implausible rates are refused, not stored"), so no sign handling. A non-int
+    value is echoed rather than guessed at — including a float, which breaks the
+    contract and should be visible, not quietly formatted as if nothing were
+    wrong.
     """
     if value is None:
         return "—"
@@ -61,7 +62,8 @@ def _render_rate(body: object) -> None:
 
     `rate_e8` is the one key that gets special handling, because it is the one
     key whose raw form is unreadable: the engine sends the rate x RATE_SCALE
-    (sql/036), so generic echo would print `rate_e8: 335187273`. It renders as
+    (contract: GET /v1/exchange-rates), so generic echo would print
+    `rate_e8: 335187273`. It renders as
     `rate: 3.3519`. `--json` is unaffected and still shows the raw integer.
     """
     if isinstance(body, dict):
@@ -96,8 +98,8 @@ def fetch_rate(
 def rate_is_stale(body: dict) -> bool | None:
     """True when the requested day has no rate row of its own.
 
-    Engine contract, `engine-spec.md` "Staleness: `rate_date` is the signal":
-    `GET /exchange-rates` returns both the day you asked about (`date`) and the
+    `GET /exchange-rates` (contract: "Staleness: `rate_date` is the signal")
+    returns both the day you asked about (`date`) and the
     day of the row it actually used (`rate_date`), and `rate_date < date` means
     the figure is being carried forward. That one comparison covers every way
     rate ingestion can fail — provider down, machine asleep, job crashed, or a
@@ -121,7 +123,8 @@ def fetch_rate_staleness(cfg, *, target: str, verbose: bool = False) -> bool | N
     """Whether today's rate for `target` is missing — True/False, or None if unknown.
 
     A `404` is the same condition at its extreme (no rate at all on or before
-    today) and counts as stale, per the engine spec. Every other engine error is
+    today) and counts as stale (contract: "Staleness: `rate_date` is the
+    signal"). Every other engine error is
     a question about the engine rather than about the rate, so it answers None.
 
     Connection and config failures are deliberately not caught here: only the
@@ -145,7 +148,7 @@ def fetch_rates_history(
     """GET /v1/exchange-rates/history (engine-direct). Raw response body.
 
     Stored daily rates, newest first (`rate_date DESC, base, target`), one row
-    per pair per day, inside one date window (engine-spec, Date windows): plain ISO
+    per pair per day, inside one date window (contract: "Date windows"): plain ISO
     days, both inclusive; omitted bounds are the engine's (today in the user's
     zone, and 30 days before). One day is `date_from == date_to`.
     """

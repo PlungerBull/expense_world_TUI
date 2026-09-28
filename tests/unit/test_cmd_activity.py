@@ -102,7 +102,7 @@ def test_list_with_filters_window_and_cursor(configured):
 @respx.mock
 def test_list_sends_bare_days_as_typed(configured):
     """The engine reads a bare day as that whole day in `display_timezone`
-    (engine `aaee6bf`), so the CLI converts nothing and reads no zone."""
+    (contract: GET /v1/activity), so the CLI converts nothing and reads no zone."""
     route = respx.get(f"{BASE}/v1/activity").mock(
         return_value=httpx.Response(
             200,

@@ -111,7 +111,7 @@ def test_reconciliations_lifecycle(client):
         )
         assert created["id"] == recon_id
         assert created["beginning_balance_cents"] == 958000
-        # a period's ends are calendar days both ways (engine `5922bbf`)
+        # a period's ends are calendar days both ways (contract: "Date inputs")
         assert (created["date_start"], created["date_end"]) == ("2026-04-01", "2026-04-30")
 
         listed = client.get("/reconciliations", params={"account_id": account_id})
@@ -164,9 +164,9 @@ def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
 
 
 def test_a_period_refuses_any_datetime(client):
-    """Periods are days (engine `5922bbf`): a midnight instant — what the CLI
-    once sent — is a 422 naming the field, so a client that still
-    converts cannot save a period at all."""
+    """Periods are days (contract: "Date inputs"): a midnight instant is a 422
+    naming the field, so a client that converts a typed day to an instant cannot
+    save a period at all."""
     account_id = _make_account(client)
     recon_id = str(uuid4())
     try:
@@ -190,10 +190,11 @@ def test_a_period_refuses_any_datetime(client):
 
 
 def test_a_period_always_has_both_days(client):
-    """Engine `8f22ebb` (`sql/042`): both days required on create, and `null`
-    refused for either on update. The CLI deleted its missing-date hint on
-    `complete`, the half-dated display branches and the undated guard in the
-    "no batch" list on the strength of this; if it relaxes, they are needed."""
+    """Both days required on create (contract: POST /v1/reconciliations), and
+    `null` refused for either on update
+    (contract: PUT /v1/reconciliations/{reconciliation_id}). The CLI has no
+    missing-date hint on `complete`, no half-dated display and no undated guard
+    in the "no batch" list because of this; if it relaxes, they are needed."""
     account_id = _make_account(client)
     recon_id = _make_reconciliation(client, account_id)
     missing_id = str(uuid4())

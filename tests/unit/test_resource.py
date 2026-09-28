@@ -143,11 +143,12 @@ def test_format_cents_or_dash_splits_absent_from_zero():
     """`(null)` is deliberately ugly so a null nobody expected gets noticed.
 
     A reconciliation's `ending_balance_cents` is null whenever you have opened
-    a batch and not yet read the closing figure off the statement (engine
-    sql/040) — ordinary, expected, and not something to shout about. It gets
-    the repo's absent-value mark instead, the same one `format_short_date`
-    uses. The pair below is the whole point: an entered zero is a real
-    statement balance and must never collapse into "not entered".
+    a batch and not yet read the closing figure off the statement (contract:
+    "An omitted ending balance is `null`, never zero") — ordinary, expected, and
+    not something to shout about. It gets the repo's absent-value mark instead,
+    the same one `format_short_date` uses. The pair below is the whole point: an
+    entered zero is a real statement balance and must never collapse into "not
+    entered".
     """
     assert format_cents_or_dash(None) == "—"
     assert format_cents_or_dash(0) == "0.00"
@@ -797,7 +798,7 @@ def test_fetch_all_cursor_pages_walks_by_next_cursor():
 
 
 def test_fetch_all_cursor_pages_short_page_with_cursor_keeps_going():
-    """A short page is not the end — only a null cursor is (engine-spec)."""
+    """A short page is not the end — only a null cursor is (contract: "Cursors")."""
     fetch_page, calls = _pager(
         [cursor_page([{"id": "a"}], next_cursor="c1"), cursor_page([{"id": "b"}])]
     )

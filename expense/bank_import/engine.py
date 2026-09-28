@@ -1,7 +1,7 @@
 """BankRows → the `POST /transactions/import` body, and its response → one
 view per row. Pure: no HTTP, no typer, no config.
 
-The engine does the matching (engine-spec `POST /transactions/import`): by
+The engine does the matching (contract: POST /v1/transactions/import): by
 operation code, then same day + title, then the adjacent day + title, each
 ledger row claimed once. This module only decides what is sent and how the
 answer reads, so the flat command and the TUI import door show the same thing.
@@ -19,7 +19,7 @@ from expense.bank_import.parse import BankRow
 #: Why: docs/decisions.md "Bank downloads are matched against the ledger".
 IMPORT_FLOOR = date(2026, 1, 1)
 
-#: Rows per request (engine `constants.IMPORT_MAX_ROWS`). A longer file is
+#: Rows per request, 1–500 (contract: POST /v1/transactions/import). A longer file is
 #: refused whole, never split: a row in a later request could be claimed by a
 #: row an earlier one had just created, and vanish without a word.
 IMPORT_MAX_ROWS = 500

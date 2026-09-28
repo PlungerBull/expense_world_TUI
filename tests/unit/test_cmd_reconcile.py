@@ -42,8 +42,9 @@ RECON_OFF_RESPONSE = {
 }
 
 # A batch opened before the statement arrived. Both fields are nullable
-# (engine sql/040): an ending balance not entered yet is null, never a 0
-# stand-in with the add-up check computed against it.
+# (contract: "An omitted ending balance is `null`, never zero"): an ending
+# balance not entered yet is null, never a 0 stand-in with the add-up check
+# computed against it.
 RECON_UNENTERED_RESPONSE = {
     **RECON_DRAFT_RESPONSE,
     "id": "44444444-4444-4444-4444-444444444444",
@@ -133,8 +134,9 @@ def test_list_renders_difference_column(configured):
 def test_list_renders_an_unentered_ending_balance_as_a_dash(configured):
     """A batch with no closing figure yet reads as absent, not as `(null)`.
 
-    `ending_balance_cents` and `difference_cents` are nullable (engine
-    sql/040), so "not entered" and "the statement says zero" differ on the
+    `ending_balance_cents` and `difference_cents` are nullable (contract: "An
+    omitted ending balance is `null`, never zero"), so "not entered" and "the
+    statement says zero" differ on the
     wire, and this asserts they differ on the screen too — the `0.00` on the
     balanced row is the control.
     """
@@ -209,10 +211,10 @@ def test_create_sends_both_required_fields(configured):
     assert body["name"] == "Statement April 2026"
     assert body["beginning_balance_cents"] == 100000
     assert body["ending_balance_cents"] == 150000
-    # calendar days, sent as typed — no midnight instant (engine `5922bbf`)
+    # calendar days, sent as typed — no midnight instant (contract: "Date inputs")
     assert body["date_start"] == "2026-04-01"
     assert body["date_end"] == "2026-04-30"
-    # neither exists; the request schemas are extra="forbid"
+    # neither exists; the engine forbids it (contract: POST /v1/reconciliations)
     assert "beginning_balance_source" not in body
     assert "sort_order" not in body
     assert "X-Idempotency-Key" in route.calls.last.request.headers
@@ -241,8 +243,8 @@ def test_create_without_beginning_balance_blocks_at_parse(configured):
 
 
 def test_create_without_date_end_blocks_at_parse(configured):
-    """The engine requires both days (`8f22ebb`); a required Typer option says
-    so at parse time, before any request."""
+    """The engine requires both days (contract: POST /v1/reconciliations); a
+    required Typer option says so at parse time, before any request."""
     result = runner.invoke(
         cli_app,
         [
@@ -567,7 +569,9 @@ def test_list_surfaces_an_engine_refusal(configured):
 _RID = "11111111-1111-1111-1111-111111111111"
 _COMPLETE = f"{BASE}/v1/reconciliations/{_RID}/complete"
 
-#: Quoted from the engine, app/helpers/reconciliations.py. The two refusals
+#: The `fields` texts are quoted from the contract (contract:
+#: POST /v1/reconciliations/{reconciliation_id}/complete); `_UNFILED_MSG` is the
+#: engine's message as sent, which the contract does not state. The two refusals
 #: below arrive under the SAME `fields` key, which is the whole reason the CLI
 #: dispatches on the message.
 _UNFILED_MSG = "Cannot complete reconciliation while transactions in its period are unassigned."

@@ -229,9 +229,10 @@ class QuickAddLogScreen(FormScreen):
             if cents is None:
                 self.notify("Amount: a signed decimal, e.g. -99.92", severity="error")
                 return
-            # Mid-form ergonomics guard; mirrors the engine's 422
-            # amount_cents "Must not be zero." (engine-spec.md POST
-            # /transactions). Deliberately kept client-side.
+            # Mid-form ergonomics guard; mirrors the engine's 422 on a zero
+            # amount_cents. The contract states it for edits, whose value rules
+            # match create (contract: PUT /v1/transactions/{transaction_id});
+            # create does not state it itself. Deliberately kept client-side.
             if cents == 0:
                 self.notify("Amount must be non-zero.", severity="error")
                 return

@@ -76,7 +76,8 @@ def test_log_lifecycle(client):
         assert created["amount_cents"] == 500
         assert created["transaction_type"] == 1  # 1 = EXPENSE
 
-        # A sparse row — no title, no category — is a ledger row too (sql/038):
+        # A sparse row — no title, no category — is a ledger row too
+        # (contract: POST /v1/transactions):
         # the engine files it under @Pendiente and stores the title as null.
         sparse_id = str(uuid4())
         sparse = client.post(

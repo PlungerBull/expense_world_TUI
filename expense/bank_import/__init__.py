@@ -9,7 +9,7 @@ Two modules, both pure (no HTTP, no typer, no config):
                rule, or inside a closed period), plus the days where the
                ledger holds a row of the same amount that no file row matched
 
-The matching itself is the engine's (engine-spec `POST /transactions/import`).
+The matching itself is the engine's (contract: POST /v1/transactions/import).
 The command that reads the file, asks which account and
 makes the one call is expense/commands/bank_import_cmd.py. The file name →
 account choice is remembered in the config, and the ledger holding more

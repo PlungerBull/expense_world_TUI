@@ -16,7 +16,7 @@ cli_app = make_cli_app(rates_app, "rates")
 runner = CliRunner()
 
 
-# The engine sends `rate_e8: int` — the rate x RATE_SCALE (engine sql/036).
+# The engine sends `rate_e8: int` — the rate x RATE_SCALE (contract: GET /v1/exchange-rates).
 # 92340000 is 0.9234, which is what the human-mode renderer must still print.
 RATE_RESPONSE = {
     "base": "USD",
@@ -215,9 +215,9 @@ def test_list_json_mode_passthrough(configured):
 
 
 # --- format_rate ----------------------------------------------------------
-# The engine's wire field became `rate_e8: int` (engine sql/036); it was
-# `rate: float`, the last float on the money path. These pin that the CLI side
-# closed with it — the display contract is unchanged, and nothing here divides.
+# The engine's wire field is `rate_e8: int` (contract: GET /v1/exchange-rates),
+# an integer, never a float. These pin that the CLI side formats it on integers
+# — nothing here divides.
 
 
 def test_format_rate_renders_four_decimals_from_the_scaled_integer():

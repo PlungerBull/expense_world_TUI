@@ -109,7 +109,7 @@ _CALENDAR_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 def is_calendar_day(text: str) -> bool:
     """True when `text` is exactly the day shape the engine accepts for a
-    reconciliation's `date_start` / `date_end` (engine-spec *Date inputs*):
+    reconciliation's `date_start` / `date_end` (contract: "Date inputs"):
     zero-padded `YYYY-MM-DD`, and a real day.
 
     The regex is not redundant: 3.11's `date.fromisoformat` also takes

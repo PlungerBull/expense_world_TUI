@@ -181,9 +181,10 @@ def test_list_all_filters_pass_through(configured):
 def test_list_rejects_retired_cleared_flag(configured):
     """--cleared/--no-cleared are gone from the surface entirely.
 
-    The engine has no such column (sql/035), and an unknown ?cleared= is not
-    an error, so the flag would return the full list looking like a filtered
-    answer. Confirmed-at-the-bank is a reconciliation question.
+    The engine has no `cleared`: create lists it as retired
+    (contract: POST /v1/transactions), and an unknown ?cleared= is a 422
+    (contract: "Unknown query parameters"). Confirmed-at-the-bank is a
+    reconciliation question.
     """
     for flag in ("--cleared", "--no-cleared"):
         result = runner.invoke(cli_app, ["transactions", "list", flag])

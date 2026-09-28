@@ -10,9 +10,9 @@ closes the panel. Nothing is read for an account until you press `⏎` on it.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine has no derived (chained) begin,
-so `beginning_balance_cents` is required. Both dates are required too, by the
-engine (`8f22ebb`), and are
-calendar days sent as typed (`5922bbf`); the form refuses any other shape at
+so `beginning_balance_cents` is required. Both dates are required too
+(contract: POST /v1/reconciliations), and are
+calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
 the field. POST /reconciliations.
 
 Working screen (ReconciliationDetailScreen): a checklist of the account's
@@ -720,8 +720,9 @@ class NewReconciliationScreen(FormScreen):
 
     def _required(self) -> tuple[str, ...]:
         # begin: the engine has no derived mode left, so it is typed off the
-        # statement. Both dates: the engine requires them (`8f22ebb`); asking
-        # here refuses an empty one at the field instead of as a 422 on save.
+        # statement. Both dates: the engine requires them
+        # (contract: POST /v1/reconciliations); asking here refuses an empty
+        # one at the field instead of as a 422 on save.
         return ("name", "account", "date_start", "date_end", "begin")
 
     def _label(self, key: str) -> str:
@@ -795,7 +796,7 @@ class NewReconciliationScreen(FormScreen):
             self._advance()
         elif key in _DATES:
             # Both required. The check is the exact day shape the engine takes
-            # (engine-spec *Date inputs*), caught here at the field rather
+            # (contract: "Date inputs"), caught here at the field rather
             # than as a 422 on save; the typed text is what gets sent.
             if not text:
                 self.notify(f"{_R_LABELS[key].capitalize()} is required.", severity="error")
@@ -839,8 +840,8 @@ class NewReconciliationScreen(FormScreen):
         # calendar days, sent as typed — the engine refuses any datetime here
         payload["date_start"] = self._values["date_start"]
         payload["date_end"] = self._values["date_end"]
-        # never send beginning_balance_source — the engine's request schemas are
-        # extra="forbid", so it would 422
+        # never send beginning_balance_source — the engine forbids it, so it
+        # would 422 (contract: POST /v1/reconciliations)
         payload["beginning_balance_cents"] = self._values["begin"]
         if self._values.get("end") is not None:
             payload["ending_balance_cents"] = self._values["end"]

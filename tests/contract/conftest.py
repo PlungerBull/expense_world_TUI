@@ -4,7 +4,7 @@ These tests hit a real engine and make real writes, so a contract run that would
 the real ledger **refuses to start**. Point it at the disposable practice database
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
-    # the normal, isolated way (see ../../../expense_world_engine/deploy/local/)
+    # the normal, isolated way (docs/cli-runtime.md "Working against the live engine")
     deploy/local/seed-test-user.sh --force          # prints the PAT once
     SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
       ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \

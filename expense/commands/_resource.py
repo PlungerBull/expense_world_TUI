@@ -137,7 +137,8 @@ def format_cents_or_dash(value: object) -> str:
     null means something went wrong — it is deliberately ugly so it gets
     noticed. It is the wrong output for a reconciliation's `ending_balance_cents`,
     which is null whenever you have opened a batch and not yet read the closing
-    figure off the statement (engine `sql/040`): a normal, expected,
+    figure off the statement (contract: "An omitted ending balance is `null`,
+    never zero"): a normal, expected,
     every-month state that should not read as a defect.
 
     `—` is already this repo's mark for an absent value — see `format_short_date`
@@ -290,7 +291,7 @@ def fetch_all_cursor_pages(
     """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
 
     `GET /transactions` is the one cursor-paged endpoint. The only stop is
-    `next_cursor` being null (engine-spec) — not a short page, not a count: a
+    `next_cursor` being null (contract: "Cursors") — not a short page, not a count: a
     page holding exactly the remaining rows already comes back null, and a
     short page with a cursor still has more.
     """
@@ -341,8 +342,8 @@ def load_category_name_map() -> dict[str, str]:
     return _load_name_map("/categories", None)
 
 
-# The engine's stable key for the system category an uncategorised row is
-# filed under (engine constants.SystemCategoryKey.PENDING, sql/038). Lookup is
+# The engine's stable key for `@Pendiente`, the system category an
+# uncategorised row is filed under (contract: POST /v1/categories). Lookup is
 # by this key, never by the display name — the owner may rename it.
 PENDING_SYSTEM_KEY = "pending"
 # What the CLI says when it has no reference list to read the real name from.
@@ -681,7 +682,7 @@ def print_warnings(body: dict) -> None:
     """Render an engine `warnings` envelope to stderr, one line each.
 
     The warnings channel is deliberately per-endpoint rather than uniform: the
-    key exists exactly where a warning can occur (engine-spec, "Warnings
+    key exists exactly where a warning can occur (contract: "Warnings
     channel"). One endpoint carries it: `POST /reconciliations/{id}/complete`
     where it reports a stretch of days no completed period
     covers.
@@ -810,7 +811,7 @@ def render_pagination_hint(
 ) -> None:
     """Print how to reach the rest of a paged list, when there is a rest.
 
-    Two shapes page (engine-spec, Base Conventions), each with its own line;
+    Two shapes page (contract: "Lists come in three shapes"), each with its own line;
     anything else — a whole list, a missing envelope — prints nothing.
 
     A cursor-paged body (`transactions list`) has no total: when it carries a
@@ -849,10 +850,10 @@ def _window_bound(value: object) -> str:
 def _render_window_hint(
     body: dict, cursor: object, *, note: str, older: Literal["instant", "day_before"]
 ) -> None:
-    """The date-window line of `render_pagination_hint` (engine-spec, Date windows).
+    """The date-window line of `render_pagination_hint` (contract: "Date windows").
 
     Rates' bounds are days and print as they are. Activity's are instants the
-    engine already renders in the user's `display_timezone` (engine `aaee6bf`),
+    engine already renders in the user's `display_timezone` (contract: GET /v1/activity),
     so they are only cut to date and minute (`2026-09-25 23:59`), with no zone
     math here. The `--to` in the "older" part is the echoed value, uncut.
     """

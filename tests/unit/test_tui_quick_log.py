@@ -202,10 +202,11 @@ def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
 def test_no_form_offers_cleared():
     """`cleared` is gone from the ledger — no form may offer it.
 
-    The engine has no such column (sql/035). Sending it is a 422 on an
-    unknown field, which rejects the whole body, so a lingering row here would lose
-    an entire edit. Nothing replaces it: a row is confirmed by belonging to a
-    completed reconciliation that adds up.
+    The engine has no `cleared`: create lists it as retired
+    (contract: POST /v1/transactions). Sending it is a 422 on an unknown field,
+    which rejects the whole body, so a lingering row here would lose an entire
+    edit. Nothing replaces it: a row is confirmed by belonging to a completed
+    reconciliation that adds up.
     """
     screen = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
     assert "cleared" not in screen._sequence()

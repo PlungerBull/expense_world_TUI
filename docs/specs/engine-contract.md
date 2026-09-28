@@ -63,15 +63,6 @@ The practice engine (`:8002`) must be running for any task that reads the contra
 tester starts it; the orchestrator has the tester start it before handing such a task to the
 builder, and it is stopped after the task.
 
-### Code comments cite the contract, not engine files
-Passes if:
-- No comment or docstring under `expense/`, `tests/` or `scripts/` cites `engine-spec`, an
-  engine migration (`sql/0NN`), or an engine module.
-- Each rewritten citation names the part of the live contract that states the rule (the
-  operation, like `POST /transactions/import`, or the section tag, like "Date windows"), and
-  the reviewer spot-checks that the named part really states it.
-- No code behaviour changes: `pytest tests/unit` passes unchanged.
-
 ### Docs stop linking into the engine's folder
 Passes if:
 - No doc in the repo (CLAUDE.md, README, `docs/`) links to or cites a path in

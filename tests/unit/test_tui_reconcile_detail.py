@@ -121,7 +121,7 @@ async def _wait_list(screen, pilot):
 def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
     """The tick-list's in-range read passes the period's own days to the
     engine's day filters, unconverted: a bare `date_to` is the whole last day
-    (engine `1f50722`), so rows dated on the 30th are offered too."""
+    (contract: GET /v1/transactions), so rows dated on the 30th are offered too."""
     _patch(monkeypatch)
     calls: list = []
     from expense.commands import transactions_cmd

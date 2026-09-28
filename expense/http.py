@@ -14,10 +14,10 @@ _WRITE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 
 # Bounded same-key retry for writes: the engine replays the
 # original response for a repeated X-Idempotency-Key, so re-sending after a
-# timeout or transient 5xx can never double-apply. Keys are PERMANENT engine
-# side (engine-spec.md, `sql/026`) — there is no TTL to outlive — and a replay
-# requires the same request, since each key stores a sha256 fingerprint over
-# method/path/query/body. Re-sending an identical request is exactly what the
+# timeout or transient 5xx can never double-apply. Keys never expire
+# (contract: "Idempotency") — there is no TTL to outlive — and a replay
+# requires the same request: the engine compares method, path, query string and
+# raw body. Re-sending an identical request is exactly what the
 # loop below does, so that holds. Scope is exactly
 # timeout + 5xx — a connect failure means the engine isn't reachable at all
 # and fails fast, and reads are safe for callers to re-run themselves.

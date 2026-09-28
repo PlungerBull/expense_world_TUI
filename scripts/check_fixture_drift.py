@@ -17,18 +17,10 @@ of folding this in. Run it by hand after any engine change:
 The default target is the practice engine, `http://127.0.0.1:8002`; the flag only
 makes the target explicit.
 
-CONTRACT VERSION. The engine's `info.version` changes whenever its contract
-changes. The version this repo was last checked against is saved in
-`scripts/engine-contract-version`: one line, the version and nothing else. Every
-run compares the two. A different version is reported with both numbers and fails
-the run even when every fixture key matches, and comes with what moved, read from
-the contract's own change log (`x-changelog`, newest first): every entry newer than
-the saved version, each with its date and every change as `kind: text`. When the
-saved version is not in the log, the log's first entry is not the engine's current
-version, or the log is missing or malformed, it says the whole contract changed
-instead. A missing saved version fails the run too.
-The saved version changes only through the separate recording step, which writes
-the engine's current version and checks nothing:
+CONTRACT VERSION. Every run also compares the engine's `info.version` with the one
+saved in `scripts/engine-contract-version`, fails when they differ and prints what
+moved; the rules live in docs/cli-runtime.md "Contract version". Saving a new
+version is its own step:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
 
@@ -176,7 +168,7 @@ def fetch_contract(engine_url: str) -> dict:
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         sys.exit(
             f"could not read {url}: {exc}\n"
-            "Is the engine running? See ../expense_world_engine/deploy/local/README.md"
+            'Is the engine running? See docs/cli-runtime.md "Working against the live engine"'
         )
     if not isinstance(doc, dict):
         sys.exit(f"{url} did not return a JSON object — wrong host?")

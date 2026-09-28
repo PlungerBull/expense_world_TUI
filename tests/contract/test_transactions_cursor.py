@@ -148,7 +148,7 @@ def test_a_cursor_is_bound_to_its_sort(client, seeded):
 
 def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
     """`transactions list --to <day>` sends the bare day; the engine
-    reads it as the whole day in `display_timezone` (engine `1f50722`)."""
+    reads it as the whole day in `display_timezone` (contract: GET /v1/transactions)."""
     zone = _zone(client)
     account_id = _make_account(client)
     late = _post_row(client, account_id, datetime(2026, 2, 20, 23, 30, tzinfo=zone))
@@ -164,7 +164,7 @@ def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
 
 
 def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
-    """Every request datetime needs an offset (engine `73a0bdc`). The CLI
+    """Every request datetime needs an offset (contract: "Datetime inputs"). The CLI
     renders the envelope, so the refusal must arrive as one: code, message and
     the offending key."""
     with pytest.raises(EngineError) as excinfo:
