@@ -47,18 +47,22 @@ class ConfigInvalidError(Exception):
     pass
 
 
-def error_haystack(err: EngineError) -> str:
-    """Lowercased message + string field values, for keyword hint-scanning.
+def reason_on(err: EngineError, field: str) -> str | None:
+    """The engine's reason code for `field`, or None when it names no reason there.
 
-    Shared by the 422-message scans in transactions_cmd and reconcile_cmd, which
-    match different keywords against the same haystack.
+    Hints switch on this, never on `message` or the `fields` texts, which are for
+    people and may be reworded (contract: "Error reasons").
     """
-    haystack = (err.message or "").lower()
-    if isinstance(err.fields, dict):
-        haystack += (
-            " " + " ".join(f"{k} {v}" for k, v in err.fields.items() if isinstance(v, str)).lower()
-        )
-    return haystack
+    if not isinstance(err.reasons, dict):
+        return None
+    return err.reasons.get(field)
+
+
+def has_reason(err: EngineError, *codes: str) -> bool:
+    """True when any field of `err` carries one of `codes` (contract: "Error reasons")."""
+    if not isinstance(err.reasons, dict):
+        return False
+    return any(code in codes for code in err.reasons.values())
 
 
 def format_error(err: Exception) -> str:
@@ -114,7 +118,9 @@ def render(err: Exception, *, json_mode: bool) -> tuple[str, int, bool]:
     for exc_type, (code, exit_code) in _ENVELOPE_ERRORS.items():
         if isinstance(err, exc_type):
             if json_mode:
-                envelope = {"error": {"code": code, "message": str(err), "fields": None}}
+                envelope = {
+                    "error": {"code": code, "message": str(err), "fields": None, "reasons": None}
+                }
                 return json_text(envelope), exit_code, False
             return "Error: " + format_error(err), exit_code, True
 

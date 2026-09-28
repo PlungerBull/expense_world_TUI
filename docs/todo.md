@@ -64,7 +64,7 @@ The version check against the practice engine reports saved `9d593f48328c0c6a`, 
 Unit tests (1676) and the live contract suite (49) still pass, and no fixture field drifted, so
 nothing is visibly broken; but the CLI matches message wording in places the engine now says to
 replace with `reasons` (the reconciliation refusal hints, sealed-period reporting). This lands
-both open engine asks, [reconciliation-refusal-reasons.md](engine-asks/reconciliation-refusal-reasons.md)
+both open engine asks, the reconciliation refusal reasons (landed, deleted with the CLI's switch)
 and [post-transactions-states-non-zero.md](engine-asks/post-transactions-states-non-zero.md).
 - **A.** Catch up as the next spec: switch every message match to `error.reasons`, check the
   batch and monthly-report error handling, cite the new contract parts, delete both asks,

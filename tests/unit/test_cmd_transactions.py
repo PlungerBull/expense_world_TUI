@@ -354,6 +354,7 @@ def test_update_422_reconciliation_lock_hint(configured):
             "VALIDATION_ERROR",
             "Field is read-only on a completed reconciliation.",
             {"amount_cents": "Locked by completed reconciliation."},
+            {"amount_cents": "LOCKED"},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "update", "abc", "--amount", "-100"])
@@ -409,12 +410,92 @@ def test_update_reconciliation_id_lock_422_hint(configured):
             "VALIDATION_ERROR",
             "Field locked.",
             {"reconciliation_id": "Locked by completed reconciliation."},
+            {"reconciliation_id": "LOCKED"},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "update", "abc", "--reconciliation-id", "r1"])
     assert result.exit_code == 1
     assert "expense reconcile revert" in result.output
     assert "reconciliation_id" in result.output
+
+
+_SEALED_TEXT = (
+    "Period 2026-07-24 to 2026-08-25 is sealed by completed reconciliation "
+    "'August 2026'. Revert it to draft to change anything inside it."
+)
+
+
+@respx.mock
+def test_update_sealed_period_422_hint(configured):
+    """A date moved into a sealed window (contract: "Sealed periods")."""
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Transaction falls inside a sealed reconciliation period.",
+            {"date": _SEALED_TEXT},
+            {"date": "SEALED_PERIOD"},
+        )
+    )
+    result = runner.invoke(cli_app, ["transactions", "update", "abc", "--date", "2026-08-01"])
+    assert result.exit_code == 1
+    assert "expense reconcile revert" in result.output
+    assert "'August 2026'" in result.output
+
+
+@respx.mock
+def test_update_assign_into_completed_422_hint(configured):
+    """Assigning into a completed batch (contract: PUT /v1/transactions/{transaction_id})."""
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            {"reconciliation_id": "Cannot assign transactions to a completed reconciliation."},
+            {"reconciliation_id": "RECONCILIATION_COMPLETED"},
+        )
+    )
+    result = runner.invoke(cli_app, ["transactions", "update", "abc", "--reconciliation-id", "r1"])
+    assert result.exit_code == 1
+    assert "expense reconcile revert" in result.output
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"amount_cents": "Locked by completed reconciliation."},
+        {"date": _SEALED_TEXT},
+        {"reconciliation_id": "Cannot assign transactions to a completed reconciliation."},
+    ],
+    ids=["locked", "sealed", "completed"],
+)
+@respx.mock
+def test_update_wording_alone_chooses_no_hint(configured, fields):
+    """Without a reason the engine's words choose nothing (contract: "Error reasons")."""
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "Field is read-only on a completed reconciliation.", fields
+        )
+    )
+    result = runner.invoke(cli_app, ["transactions", "update", "abc", "--title", "x"])
+    assert result.exit_code == 1
+    assert "Hint:" not in result.output
+
+
+@respx.mock
+def test_update_other_reason_chooses_no_hint(configured):
+    respx.put(f"{BASE}/v1/transactions/abc").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            {"amount_cents": "Must not be zero."},
+            {"amount_cents": "ZERO_AMOUNT"},
+        )
+    )
+    result = runner.invoke(cli_app, ["transactions", "update", "abc", "--amount", "0"])
+    assert result.exit_code == 1
+    assert "Hint:" not in result.output
 
 
 @respx.mock

@@ -60,22 +60,6 @@ order. Each is deleted here in the commit that finishes it. The practice engine 
 the new contract; the builder may read `/openapi.json` there (the "Error reasons" section and
 each operation's `x-error-reasons`).
 
-### Hints switch from wording to reasons
-Passes if:
-- Each hint is chosen from `error.reasons`, with the codes the contract's "Error reasons" lists:
-  - `reconcile_cmd.py` period hints: `RANGE_INVERTED` on `date_end`, `PERIOD_OVERLAPS` on
-    `date_start`; a badly formatted day (`INVALID_FORMAT`) gets neither hint.
-  - `reconcile_cmd.py` complete hints: `NO_TRANSACTIONS_ASSIGNED` and `UNASSIGNED_IN_PERIOD`
-    on `transactions`.
-  - `reconcile_cmd.py` locked-field check: `LOCKED`.
-  - `transactions_cmd.py` lock and sealed hint: `LOCKED`, `SEALED_PERIOD`,
-    `RECONCILIATION_COMPLETED`.
-- No hint in the CLI or TUI is chosen by searching `message` or `fields` text; the shared
-  wording-search helper is gone if nothing else uses it.
-- Every hint's text is unchanged, and each hint has a test driven by the reason, not the wording.
-- `docs/engine-asks/reconciliation-refusal-reasons.md` is deleted in this commit: the code it
-  replaces goes here.
-
 ### Batch and import errors follow the new shapes
 Passes if:
 - The batch writer, the bank import, the sheet import and the LOG bar name the refused row for

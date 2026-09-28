@@ -30,7 +30,7 @@ from expense.commands._resource import (
 )
 from expense.context import get_verbose
 from expense.dates import to_canonical_aware
-from expense.errors import EngineError, error_haystack, handle_errors
+from expense.errors import EngineError, handle_errors, has_reason
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
 
@@ -91,10 +91,14 @@ def _render_transaction_list(body: dict, *, json_mode: bool) -> None:
 
 
 def _update_hint_for(err: EngineError) -> str | None:
-    haystack = error_haystack(err)
-    if "reconciliation" in haystack and (
-        "complete" in haystack or "lock" in haystack or "read-only" in haystack
-    ):
+    """The completed-reconciliation hint for a refused edit, or None.
+
+    A locked field (`LOCKED`), a date moved into a sealed period (`SEALED_PERIOD`)
+    and an assignment into a completed batch (`RECONCILIATION_COMPLETED`) all
+    clear the same way: revert that reconciliation first
+    (contract: PUT /v1/transactions/{transaction_id}, "Error reasons").
+    """
+    if has_reason(err, "LOCKED", "SEALED_PERIOD", "RECONCILIATION_COMPLETED"):
         return _RECONCILIATION_LOCK_HINT
     return None
 

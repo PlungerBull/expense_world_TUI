@@ -22,7 +22,7 @@ from expense.commands._resource import (
     run_toggle,
 )
 from expense.context import get_verbose
-from expense.errors import EngineError, error_haystack, handle_errors
+from expense.errors import EngineError, handle_errors, has_reason, reason_on
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
 
@@ -79,13 +79,9 @@ _COMPLETE_EMPTY_HINT = (
     "Use 'expense transactions update <tx-id> --reconciliation-id <recon-id>'."
 )
 #: The two 422s `complete` can answer with, and the two `create`/`update`
-#: can. Matched on the engine's **message**, never on the `fields` key: the
-#: empty-batch refusal and the unfiled-rows refusal both arrive under
-#: `fields["transactions"]`, so the key cannot tell them apart. The `complete`
-#: messages are quoted from the contract (contract:
-#: POST /v1/reconciliations/{reconciliation_id}/complete); the contract names only
-#: the key for the two period refusals (contract: POST /v1/reconciliations), so
-#: their substrings are the engine's messages as sent.
+#: can. Each is chosen by the engine's reason on its field, never by wording
+#: (contract: "Error reasons"; POST /v1/reconciliations;
+#: POST /v1/reconciliations/{reconciliation_id}/complete).
 _UNASSIGNED_HINT_BARE = (
     "Hint: some rows inside this period are in no batch. Find them with "
     "'expense transactions list --account-id <id> --unreconciled "
@@ -145,23 +141,18 @@ def _render_reconciliation_list(body: dict, *, json_mode: bool) -> None:
 def _complete_hint(err: EngineError) -> str | None:
     """The recovery line for a refused `complete`, or None.
 
-    Two refusals, and **they share a `fields` key** —
-    "At least one transaction must be assigned." and
-    "N transaction(s) dated inside this period are not assigned to any
-    reconciliation." both arrive as `fields["transactions"]`. Only the message
-    separates them, which is why this reads the haystack rather than the key.
+    Both refusals name `fields["transactions"]`; the reason there tells them
+    apart (contract: POST /v1/reconciliations/{reconciliation_id}/complete).
     """
     if err.status != 422:
         return None
-    haystack = error_haystack(err)
-    if "unassigned" in haystack or "not assigned to any" in haystack:
+    reason = reason_on(err, "transactions")
+    if reason == "UNASSIGNED_IN_PERIOD":
         # The bare form, with placeholders: the refusal names neither the
         # account nor the window, and the engine has no read to fill them
         # in. The unfiled pane is the real way to find these rows.
         return _UNASSIGNED_HINT_BARE
-    if "transaction" in haystack and (
-        "no " in haystack or "empty" in haystack or "at least" in haystack
-    ):
+    if reason == "NO_TRANSACTIONS_ASSIGNED":
         return _COMPLETE_EMPTY_HINT
     return None
 
@@ -170,24 +161,23 @@ def _period_hint(err: EngineError) -> str | None:
     """The recovery line for a refused `create`/`update` window, or None.
 
     Completing a reconciliation seals its window, so the dates are rules, not
-    labels.
+    labels. An overlap names `date_start` (`PERIOD_OVERLAPS`), an inverted range
+    `date_end` (`RANGE_INVERTED`); a badly formatted day on either
+    (`INVALID_FORMAT`) gets neither hint (contract: POST /v1/reconciliations).
     """
     if err.status != 422:
         return None
-    haystack = error_haystack(err)
-    if "overlaps another" in haystack:
+    if reason_on(err, "date_start") == "PERIOD_OVERLAPS":
         return _OVERLAP_HINT
-    if "earlier than date_start" in haystack:
+    if reason_on(err, "date_end") == "RANGE_INVERTED":
         return _INVERTED_HINT
     return None
 
 
 def _is_field_locked_422(err: EngineError) -> bool:
-    if err.status != 422 or not isinstance(err.fields, dict):
-        return False
-    return any(
-        isinstance(message, str) and "locked" in message.lower() for message in err.fields.values()
-    )
+    """A field frozen by the completed reconciliation (`LOCKED`)
+    (contract: PUT /v1/reconciliations/{reconciliation_id})."""
+    return err.status == 422 and has_reason(err, "LOCKED")
 
 
 @app.command("list")

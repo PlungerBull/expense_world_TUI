@@ -2,6 +2,7 @@ import json
 from uuid import UUID
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -367,6 +368,7 @@ def test_create_malformed_day_is_the_engines_422(configured):
             "VALIDATION_ERROR",
             "Request validation failed.",
             {"date_end": "Must be a calendar day, YYYY-MM-DD."},
+            {"date_end": "INVALID_FORMAT"},
         )
     )
     result = runner.invoke(
@@ -389,6 +391,7 @@ def test_create_malformed_day_is_the_engines_422(configured):
     assert result.exit_code == 1
     assert json.loads(route.calls.last.request.content)["date_end"] == "2026-8-31"
     assert "Must be a calendar day" in result.output
+    assert "Hint:" not in result.output  # INVALID_FORMAT gets neither period hint
 
 
 def test_update_rejects_retired_source_flag(configured):
@@ -416,6 +419,7 @@ def test_update_field_locked_422_surfaces_hint(configured):
             {
                 "ending_balance_cents": "Locked while reconciliation is completed.",
             },
+            {"ending_balance_cents": "LOCKED"},
         )
     )
     result = runner.invoke(
@@ -492,7 +496,11 @@ def test_complete_happy_prints_the_record(configured):
 def test_complete_422_empty_batch_surfaces_hint(configured):
     respx.post(f"{BASE}/v1/reconciliations/11111111-1111-1111-1111-111111111111/complete").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "No transactions assigned to this reconciliation.", {}
+            422,
+            "VALIDATION_ERROR",
+            "No transactions assigned to this reconciliation.",
+            _EMPTY_FIELDS,
+            _EMPTY_REASONS,
         )
     )
     result = runner.invoke(
@@ -569,11 +577,10 @@ def test_list_surfaces_an_engine_refusal(configured):
 _RID = "11111111-1111-1111-1111-111111111111"
 _COMPLETE = f"{BASE}/v1/reconciliations/{_RID}/complete"
 
-#: The `fields` texts are quoted from the contract (contract:
+#: The `fields` texts and reasons are quoted from the contract (contract:
 #: POST /v1/reconciliations/{reconciliation_id}/complete); `_UNFILED_MSG` is the
 #: engine's message as sent, which the contract does not state. The two refusals
-#: below arrive under the SAME `fields` key, which is the whole reason the CLI
-#: dispatches on the message.
+#: below arrive under the SAME `fields` key; the reason there tells them apart.
 _UNFILED_MSG = "Cannot complete reconciliation while transactions in its period are unassigned."
 _UNFILED_FIELDS = {
     "transactions": (
@@ -581,7 +588,9 @@ _UNFILED_FIELDS = {
         "reconciliation. Assign or delete them first."
     )
 }
+_UNFILED_REASONS = {"transactions": "UNASSIGNED_IN_PERIOD"}
 _EMPTY_FIELDS = {"transactions": "At least one transaction must be assigned."}
+_EMPTY_REASONS = {"transactions": "NO_TRANSACTIONS_ASSIGNED"}
 
 
 @respx.mock
@@ -657,7 +666,9 @@ def test_complete_422_unfiled_rows_prints_the_bare_hint_and_reads_nothing(config
     hint names are the ones `transactions list` really has."""
     with respx.mock(assert_all_called=False) as mock:
         mock.post(_COMPLETE).mock(
-            return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
+            return_value=error_response(
+                422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS, _UNFILED_REASONS
+            )
         )
         result = runner.invoke(cli_app, ["reconcile", "complete", _RID])
         assert [call.request.method for call in mock.calls] == ["POST"]
@@ -670,21 +681,23 @@ def test_complete_422_unfiled_rows_prints_the_bare_hint_and_reads_nothing(config
 
 @respx.mock
 def test_the_two_complete_refusals_do_not_borrow_each_others_hint(configured):
-    """Both arrive as `fields["transactions"]`; only the message separates them.
+    """Both arrive as `fields["transactions"]`; only the reason separates them.
 
     Getting this backwards would tell someone with three untick'd rows to
     "assign at least one transaction", which is both wrong and confusing —
     they have assigned plenty.
     """
     respx.post(_COMPLETE).mock(
-        return_value=error_response(422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS)
+        return_value=error_response(
+            422, "VALIDATION_ERROR", _UNFILED_MSG, _UNFILED_FIELDS, _UNFILED_REASONS
+        )
     )
     unfiled = runner.invoke(cli_app, ["reconcile", "complete", _RID])
     assert "at least one transaction" not in unfiled.output
 
     respx.post(_COMPLETE).mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "No transactions assigned.", _EMPTY_FIELDS
+            422, "VALIDATION_ERROR", "No transactions assigned.", _EMPTY_FIELDS, _EMPTY_REASONS
         )
     )
     empty = runner.invoke(cli_app, ["reconcile", "complete", _RID])
@@ -705,6 +718,7 @@ def test_create_overlap_422_points_at_the_neighbours(configured):
                     "A day belongs to one statement."
                 )
             },
+            {"date_start": "PERIOD_OVERLAPS"},
         )
     )
     result = runner.invoke(
@@ -738,8 +752,115 @@ def test_update_inverted_range_422_surfaces_a_hint(configured):
             "VALIDATION_ERROR",
             "Reconciliation period validation failed.",
             {"date_end": "Must not be earlier than date_start."},
+            {"date_end": "RANGE_INVERTED"},
         )
     )
     result = runner.invoke(cli_app, ["reconcile", "update", _RID, "--date-end", "2026-01-01"])
     assert result.exit_code == 1
     assert "--date-end must not be earlier than --date-start" in result.output
+
+
+#: Each reconcile hint's refusal with its reasons stripped: the engine's words
+#: alone, which may be reworded (contract: "Error reasons"), choose no hint.
+_WORDING_ONLY = [
+    pytest.param(
+        ("put", f"/v1/reconciliations/{_RID}"),
+        ["reconcile", "update", _RID, "--ending-balance", "200000"],
+        "Cannot edit locked fields on completed reconciliation.",
+        {"ending_balance_cents": "Locked while reconciliation is completed."},
+        id="locked",
+    ),
+    pytest.param(
+        ("put", f"/v1/reconciliations/{_RID}"),
+        ["reconcile", "update", _RID, "--date-start", "2026-08-20"],
+        "Reconciliation period overlaps another on this account.",
+        {"date_start": "Overlaps 'August 2026' (2026-07-24 to 2026-08-25)."},
+        id="overlap",
+    ),
+    pytest.param(
+        ("put", f"/v1/reconciliations/{_RID}"),
+        ["reconcile", "update", _RID, "--date-end", "2026-01-01"],
+        "Reconciliation period validation failed.",
+        {"date_end": "Must not be earlier than date_start."},
+        id="inverted",
+    ),
+    pytest.param(
+        ("post", f"/v1/reconciliations/{_RID}/complete"),
+        ["reconcile", "complete", _RID],
+        _UNFILED_MSG,
+        _UNFILED_FIELDS,
+        id="unfiled",
+    ),
+    pytest.param(
+        ("post", f"/v1/reconciliations/{_RID}/complete"),
+        ["reconcile", "complete", _RID],
+        "No transactions assigned.",
+        _EMPTY_FIELDS,
+        id="empty",
+    ),
+]
+
+
+@pytest.mark.parametrize(("route", "argv", "message", "fields"), _WORDING_ONLY)
+def test_wording_alone_chooses_no_hint(configured, route, argv, message, fields):
+    method, path = route
+    with respx.mock:
+        getattr(respx, method)(f"{BASE}{path}").mock(
+            return_value=error_response(422, "VALIDATION_ERROR", message, fields)
+        )
+        result = runner.invoke(cli_app, argv)
+    assert result.exit_code == 1
+    assert "Hint:" not in result.output
+    assert message in result.output  # the engine's own words still render
+
+
+@respx.mock
+def test_update_overlap_422_points_at_the_neighbours(configured):
+    """`update` takes the same period hints as `create` (contract:
+    PUT /v1/reconciliations/{reconciliation_id})."""
+    respx.put(f"{BASE}/v1/reconciliations/{_RID}").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Reconciliation period overlaps another on this account.",
+            {"date_start": "Overlaps 'August 2026' (2026-07-24 to 2026-08-25)."},
+            {"date_start": "PERIOD_OVERLAPS"},
+        )
+    )
+    result = runner.invoke(cli_app, ["reconcile", "update", _RID, "--date-start", "2026-08-20"])
+    assert result.exit_code == 1
+    assert "reconcile list --account-id" in result.output
+    assert "expense reconcile revert" not in result.output
+
+
+@respx.mock
+def test_create_malformed_start_day_gets_no_overlap_hint(configured):
+    """`INVALID_FORMAT` on `date_start` — the overlap's field — is not an overlap."""
+    respx.post(f"{BASE}/v1/reconciliations").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            {"date_start": "Must be a calendar day, YYYY-MM-DD."},
+            {"date_start": "INVALID_FORMAT"},
+        )
+    )
+    result = runner.invoke(
+        cli_app,
+        [
+            "reconcile",
+            "create",
+            "--account-id",
+            "acct",
+            "--name",
+            "August 2026",
+            "--date-start",
+            "2026-8-1",
+            "--date-end",
+            "2026-08-31",
+            "--beginning-balance",
+            "0",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Hint:" not in result.output

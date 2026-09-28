@@ -9,34 +9,57 @@ from expense.errors import (
     ConfigMissingError,
     EngineConnectionError,
     EngineError,
-    error_haystack,
     format_error,
     handle_errors,
+    has_reason,
+    reason_on,
     render,
 )
 from tests.unit.helpers import error_body
 
 
-def _engine_error(message, fields=None, status=422):
+def _engine_error(message, fields=None, status=422, reasons=None):
     return EngineError(
-        code="VALIDATION_ERROR", message=message, fields=fields, status=status, raw_body={}
+        code="VALIDATION_ERROR",
+        message=message,
+        fields=fields,
+        status=status,
+        raw_body={},
+        reasons=reasons,
     )
 
 
-def test_error_haystack_lowercases_message():
-    assert error_haystack(_engine_error("No Transactions Assigned")) == "no transactions assigned"
+def test_reason_on_reads_the_fields_reason():
+    err = _engine_error(
+        "Request validation failed.",
+        fields={"date_end": "Must not be before date_start."},
+        reasons={"date_end": "RANGE_INVERTED"},
+    )
+    assert reason_on(err, "date_end") == "RANGE_INVERTED"
+    assert reason_on(err, "date_start") is None
 
 
-def test_error_haystack_folds_in_string_field_values():
-    haystack = error_haystack(_engine_error("Bad", fields={"transactions": "At Least one"}))
-    assert "bad" in haystack
-    assert "transactions at least one" in haystack
+def test_reason_on_is_none_without_reasons():
+    assert reason_on(_engine_error("gone", status=404), "date_end") is None
 
 
-def test_error_haystack_ignores_non_string_field_values():
-    haystack = error_haystack(_engine_error("Msg", fields={"count": 3, "note": "Keep"}))
-    assert "keep" in haystack
-    assert "3" not in haystack
+def test_has_reason_matches_any_field():
+    err = _engine_error(
+        "Request validation failed.",
+        fields={"title": "Locked.", "amount_cents": "Locked."},
+        reasons={"title": "LOCKED", "amount_cents": "LOCKED"},
+    )
+    assert has_reason(err, "SEALED_PERIOD", "LOCKED")
+    assert not has_reason(err, "SEALED_PERIOD")
+
+
+def test_has_reason_ignores_wording():
+    """The words alone decide nothing (contract: "Error reasons")."""
+    err = _engine_error(
+        "Locked while reconciliation is completed.",
+        fields={"amount_cents": "Locked while reconciliation is completed."},
+    )
+    assert not has_reason(err, "LOCKED")
 
 
 def test_engine_error_attributes():
@@ -133,6 +156,7 @@ def test_render_connection_error_json_envelope():
     envelope = json.loads(output)
     assert envelope["error"]["code"] == "CONNECTION_ERROR"
     assert envelope["error"]["fields"] is None
+    assert envelope["error"]["reasons"] is None
 
 
 def test_render_config_missing_human():
@@ -151,6 +175,7 @@ def test_render_config_invalid_json_envelope():
     envelope = json.loads(output)
     assert envelope["error"]["code"] == "CONFIG_INVALID"
     assert envelope["error"]["fields"] is None
+    assert envelope["error"]["reasons"] is None
 
 
 def test_envelope_error_families_are_exactly_connection_and_config():

@@ -126,7 +126,6 @@ KNOWN_LOCAL = frozenset(
         "count",
         "flag",
         "text",
-        "note",
         "dashboard",
         "whoami",
         "ping",

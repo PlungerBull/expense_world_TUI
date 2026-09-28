@@ -344,7 +344,7 @@ Decisions whose why lives elsewhere:
 
 **Decision.**
 - **The engine is the only guard.** No client checks a seal before a write or caches completed windows (they change under `revert`). The `!` flag and the bank import's `sealed` rows only report.
-- **Every refusal says what to do next** ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)): an inverted range names the flags; an overlap points at `reconcile list --account-id <id>`; on `complete`, an empty batch and unassigned rows each get their own hint. Both `complete` refusals share `fields["transactions"]`, so **the hint is chosen by the message**, and a test holds each hint to its wording.
+- **Every refusal says what to do next** ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)): an inverted range names the flags; an overlap points at `reconcile list --account-id <id>`; on `complete`, an empty batch and unassigned rows each get their own hint. Both `complete` refusals share `fields["transactions"]`; **the hint is chosen by the reason on that field** `NO_TRANSACTIONS_ASSIGNED` or `UNASSIGNED_IN_PERIOD` (contract: "Error reasons"), never by wording, and a test holds each hint to its reason.
 - **Only a date or account change can hit a seal**: of the bulk keys only `b` can be refused; `c` and `h` stay legal inside a sealed period. The LOG bar and the bank import name the sealing period on the refused row and still save the rest.
 - **`revert` shows nothing extra.**
 
