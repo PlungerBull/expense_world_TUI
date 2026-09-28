@@ -342,8 +342,9 @@ def test_monthly_range_too_wide_sent_to_engine_422_surfaces(configured):
         return_value=error_response(
             422,
             "VALIDATION_ERROR",
-            "Range span exceeds 24 months.",
-            {"to_month": "Range span exceeds 24 months."},
+            "Invalid input.",
+            {"to_month": "The range is longer than 24 months."},
+            {"to_month": "RANGE_TOO_WIDE"},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2024-01", "--to", "2026-04"])
@@ -357,13 +358,21 @@ def test_monthly_range_too_wide_sent_to_engine_422_surfaces(configured):
 def test_monthly_range_inverted_sent_to_engine_422_surfaces(configured):
     route = respx.get(f"{BASE}/v1/reports/monthly").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "Range start must be on or before range end.", None
+            422,
+            "VALIDATION_ERROR",
+            "Invalid input.",
+            {
+                "from_year": "The range ends before it starts.",
+                "to_year": "The range ends before it starts.",
+            },
+            {"from_year": "RANGE_INVERTED", "to_year": "RANGE_INVERTED"},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--from", "2026-04", "--to", "2025-11"])
     assert result.exit_code == 1
     assert route.call_count == 1
     assert "VALIDATION_ERROR" in result.output
+    assert "from_year: The range ends before it starts." in result.output
 
     request = route.calls.last.request
     assert request.url.params.get("from_year") == "2026"
@@ -378,8 +387,9 @@ def test_monthly_out_of_range_month_sent_to_engine_422_surfaces(configured):
         return_value=error_response(
             422,
             "VALIDATION_ERROR",
-            "Invalid month payload.",
+            "Invalid input.",
             {"month": "Must be between 1 and 12."},
+            {"month": "OUT_OF_RANGE"},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-13"])
@@ -408,8 +418,9 @@ def test_monthly_engine_422_surfaces_validation_error(configured):
         return_value=error_response(
             422,
             "VALIDATION_ERROR",
-            "Invalid month payload.",
-            {"year": "Must be between 2000 and 2100."},
+            "Invalid input.",
+            {"year": "Must be between 1900 and 2100."},
+            {"year": "OUT_OF_RANGE"},
         )
     )
     result = runner.invoke(cli_app, ["reports", "monthly", "--date", "2026-04"])

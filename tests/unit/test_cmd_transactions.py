@@ -595,7 +595,8 @@ def test_batch_422_surfaces_engine_envelope_without_hint(configured):
     envelope = error_body(
         "VALIDATION_ERROR",
         "Duplicate id within batch.",
-        {"transactions[1].id": "Duplicate id within batch."},
+        {"transactions.1.id": "Duplicate id within batch."},
+        {"transactions.1.id": "DUPLICATE_IN_REQUEST"},
     )
     respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(422, json=envelope)

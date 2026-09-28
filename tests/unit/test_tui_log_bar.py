@@ -635,6 +635,15 @@ def _script(client, responses):
     client.post = post
 
 
+def _refused(index: int, field: str, message: str, reason: str) -> EngineError:
+    """The batch 422: each refused item field keyed `transactions.<index>.<field>`,
+    its reason under the same key (contract: POST /v1/transactions/batch)."""
+    key = f"transactions.{index}.{field}"
+    return EngineError(
+        "VALIDATION_ERROR", "Invalid input.", {key: message}, 422, {}, reasons={key: reason}
+    )
+
+
 def _stage_lines(screen, *lines):
     for line in lines:
         _type(screen, line)
@@ -698,9 +707,9 @@ def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch)
 
 
 def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
-    """The engine refuses the batch without naming a row, the fallback
-    re-posts one row per batch, the first lands and the second does not — and
-    the screen says which is which, because "nothing was written" would be a
+    """The engine refuses the whole batch for one row, the fallback re-posts
+    one row per batch, the first lands and the second does not — and the
+    screen says which is which, because "nothing was written" would be a
     lie."""
     _patch(monkeypatch)
 
@@ -710,9 +719,9 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
         _script(
             fake_client,
             [
-                EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
                 {},
-                EngineError("VALIDATION_ERROR", "engine exploded", None, 422, {}),
+                _refused(0, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
             ],
         )
         await pilot.press("ctrl+s")
@@ -720,10 +729,10 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
 
         ledger, draft = screen._staged
         assert ledger.saved and ledger.error is None
-        assert not draft.saved and "engine exploded" in (draft.error or "")
+        assert not draft.saved and "Must not be zero." in (draft.error or "")
         out = _text(screen._staged_renderable())
         assert "✓" in out and "1 logged" in out
-        assert "row 2: " in out and "engine exploded" in out
+        assert "row 2: " in out and "Must not be zero." in out
         assert "ctrl+s retries just the rows without a ✓." in out
 
     run_app(scenario)
@@ -751,6 +760,7 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
         },
         422,
         {},
+        reasons={"transactions.0.date": "SEALED_PERIOD"},
     )
 
     async def scenario(pilot, app):
@@ -774,6 +784,37 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     run_app(scenario)
 
 
+def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
+    """A hashtag archived or deleted between staging and saving: the engine keys
+    it on its item, `transactions.<index>.hashtag_ids`, with the other item
+    failures. The row it belongs to carries the refusal; the other one ticks."""
+    _patch(monkeypatch)
+    unknown = "Some hashtag IDs are invalid."
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, USD_LINE, LEDGER_LINE)  # the second row carries #CAJA CHICA
+        _script(
+            fake_client,
+            [
+                _refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"),
+                {},
+                _refused(0, "hashtag_ids", unknown, "INVALID_REFERENCE"),
+            ],
+        )
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
+
+        plain, tagged = screen._staged
+        assert plain.saved and plain.error is None
+        assert not tagged.saved and unknown in (tagged.error or "")
+        out = " ".join(_text(screen._staged_renderable()).split())
+        assert "1 logged" in out
+        assert "row 2: " in out and f"hashtag_ids: {unknown}" in out
+
+    run_app(scenario)
+
+
 def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch):
     """Decision 2, the half that matters: nothing is ever written twice."""
     _patch(monkeypatch)
@@ -784,9 +825,9 @@ def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch)
         _script(
             fake_client,
             [
-                EngineError("VALIDATION_ERROR", "batch refused", None, 422, {}),
+                _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
                 {},
-                EngineError("VALIDATION_ERROR", "down", None, 422, {}),
+                _refused(0, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
             ],
         )
         await pilot.press("ctrl+s")

@@ -45,8 +45,22 @@ def _conflict() -> EngineError:
     return EngineError("CONFLICT", "id exists", None, 409, {})
 
 
-def _invalid() -> EngineError:
-    return EngineError("VALIDATION_ERROR", "amount_cents: Must not be zero.", None, 422, {})
+def _invalid(
+    index: int = 0, field: str = "amount_cents", reason: str = "ZERO_AMOUNT"
+) -> EngineError:
+    """The engine's batch 422: every refused item field keyed
+    `transactions.<index>.<field>`, with its reason under the same key
+    (contract: POST /v1/transactions/batch, "Error reasons")."""
+    key = f"transactions.{index}.{field}"
+    message = {"amount_cents": "Must not be zero.", "hashtag_ids": "Some hashtag IDs are invalid."}
+    return EngineError(
+        "VALIDATION_ERROR",
+        "Invalid input.",
+        {key: message.get(field, "Invalid.")},
+        422,
+        {},
+        reasons={key: reason},
+    )
 
 
 def test_an_empty_list_makes_no_call_at_all():
@@ -74,13 +88,44 @@ def test_chunking_splits_at_the_size_asked_for():
 def test_a_422_falls_back_to_one_row_per_batch_and_names_the_bad_one():
     """The engine will not say which row, so the fallback asks one at a time —
     the good rows still land and the bad one reports its own error."""
-    client = _Client([_invalid(), {}, _invalid(), {}])
+    client = _Client([_invalid(index=1), {}, _invalid(), {}])
     outcome = post_transaction_batch(client, _items(3))
 
     assert client.sizes == [3, 1, 1, 1]  # the chunk, then each row
     assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.CREATED]
     assert "Must not be zero" in outcome.errors[1]
     assert 0 not in outcome.errors and 2 not in outcome.errors
+
+
+def test_an_unknown_hashtag_names_its_own_row():
+    """An unknown hashtag is keyed on its item, `transactions.<index>.hashtag_ids`,
+    and reported with the other item failures in the same 422. The chunk is
+    refused as a whole; the singleton retry lands the good rows and pins the
+    refusal to the item whose hashtag the engine does not know."""
+    chunk_refusal = EngineError(
+        "VALIDATION_ERROR",
+        "Invalid input.",
+        {
+            "transactions.1.hashtag_ids": "Some hashtag IDs are invalid.",
+            "transactions.2.amount_cents": "Must not be zero.",
+        },
+        422,
+        {},
+        reasons={
+            "transactions.1.hashtag_ids": "INVALID_REFERENCE",
+            "transactions.2.amount_cents": "ZERO_AMOUNT",
+        },
+    )
+    client = _Client(
+        [chunk_refusal, {}, _invalid(field="hashtag_ids", reason="INVALID_REFERENCE"), _invalid()]
+    )
+    outcome = post_transaction_batch(client, _items(3))
+
+    assert client.sizes == [3, 1, 1, 1]
+    assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.FAILED]
+    assert "transactions.0.hashtag_ids: Some hashtag IDs are invalid." in outcome.errors[1]
+    assert "Must not be zero" in outcome.errors[2]
+    assert "hashtag" not in outcome.errors[2]
 
 
 def test_a_409_row_counts_as_written_not_failed():

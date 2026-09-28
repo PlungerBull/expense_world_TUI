@@ -7,8 +7,9 @@ chunk one row per batch, so the 199 good rows land and the bad one is named on
 its own.
 
 **Why it is needed although the engine names the failing row** (a 422 from
-that endpoint carries flat `fields` keys `transactions.<index>.<field>`, the
-same grammar a schema-level rejection uses). Better diagnostics cannot replace
+that endpoint carries flat `fields` keys `transactions.<index>.<field>`, for
+every item field `hashtag_ids` included, the same grammar a schema-level
+rejection uses). Better diagnostics cannot replace
 this pass, because its job is not diagnosis — it is **partial progress out of
 an atomic endpoint**. A 409
 ("a transaction with id X already exists", which is what a re-run after a

@@ -60,18 +60,13 @@ order. Each is deleted here in the commit that finishes it. The practice engine 
 the new contract; the builder may read `/openapi.json` there (the "Error reasons" section and
 each operation's `x-error-reasons`).
 
-### Batch and import errors follow the new shapes
-Passes if:
-- The batch writer, the bank import, the sheet import and the LOG bar name the refused row for
-  an unknown hashtag from its `transactions.<index>.hashtag_ids` key, with a test for each
-  surface that has its own mapping.
-- Nothing relies on `"Value error, "`, the old monthly-report messages, or sealed being reported
-  before a future date; tests that faked those shapes use the engine's current ones.
-- Faked engine replies carry `reasons` where the engine sends them, and the fixture check
-  passes against the practice engine.
-
 ### Citations, asks and the recorded version catch up
 Passes if:
+- Every faked engine `VALIDATION_ERROR` in `tests/unit` carries `reasons` with the same keys as
+  `fields` and a real code on each, and names at least one field, except the tests that leave
+  reasons out on purpose to prove wording alone chooses no hint.
+- Comment citations use the one form exactly, one citation per pair of brackets
+  (`reconcile_cmd.py` and `transactions_cmd.py` join or mix them).
 - Comments citing the zero-amount rule cite `(contract: POST /v1/transactions, "Validation")`,
   and comments about refusal hints cite `(contract: "Error reasons")` or the operation.
 - `docs/engine-asks/post-transactions-states-non-zero.md` is deleted.

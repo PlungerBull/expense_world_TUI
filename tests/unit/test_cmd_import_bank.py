@@ -502,6 +502,7 @@ def test_a_422_names_the_files_line_and_nothing_is_written(configured, monkeypat
                 "VALIDATION_ERROR",
                 "Import validation failed.",
                 {"rows.3.date": "Must not be in the future."},
+                {"rows.3.date": "FUTURE_DATE"},
             ),
         )
     )
@@ -520,7 +521,12 @@ def test_a_422_names_the_files_line_and_nothing_is_written(configured, monkeypat
 def test_a_422_under_json_is_the_raw_envelope(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS[:1])
     _engine()
-    envelope = error_body("VALIDATION_ERROR", "Import validation failed.", {"rows.0.date": "x"})
+    envelope = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"rows.0.date": "Must not be in the future."},
+        {"rows.0.date": "FUTURE_DATE"},
+    )
     respx.post(f"{BASE}/v1/transactions/import").mock(
         return_value=httpx.Response(422, json=envelope)
     )

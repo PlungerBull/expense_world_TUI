@@ -291,6 +291,7 @@ def test_opening_engine_error_reports_sheet_line(configured):
             "VALIDATION_ERROR",
             "Transaction validation failed.",
             {"date": "Must not be in the future."},
+            {"date": "FUTURE_DATE"},
         )
     )
 
@@ -306,6 +307,17 @@ def test_opening_engine_error_reports_sheet_line(configured):
 
 def _conflict() -> httpx.Response:
     return error_response(409, "CONFLICT", "id exists", None)
+
+
+def _refused(index: int, field: str, message: str, reason: str) -> httpx.Response:
+    """The batch 422: each refused item field keyed `transactions.<index>.<field>`,
+    its reason under the same key (contract: POST /v1/transactions/batch)."""
+    key = f"transactions.{index}.{field}"
+    return error_response(422, "VALIDATION_ERROR", "Invalid input.", {key: message}, {key: reason})
+
+
+def _zero(index: int = 0) -> httpx.Response:
+    return _refused(index, "amount_cents", "Must not be zero.", "ZERO_AMOUNT")
 
 
 @respx.mock
@@ -377,7 +389,7 @@ def test_per_row_fallback_reports_non_409_failure(configured):
         side_effect=[
             _conflict(),
             _conflict(),
-            error_response(422, "VALIDATION_ERROR", "bad", {}),
+            _zero(),
         ]
     )
 
@@ -390,7 +402,13 @@ def test_per_row_fallback_reports_non_409_failure(configured):
     assert result.tx_failed == 1
     failed_id = plan.tx_ids[3]
     # sheet-line context prefixed, engine text via format_error
-    assert result.failures == [(0, f"sheet line 3, id {failed_id}: VALIDATION_ERROR — bad")]
+    assert result.failures == [
+        (
+            0,
+            f"sheet line 3, id {failed_id}: VALIDATION_ERROR — Invalid input.\n"
+            "  transactions.0.amount_cents: Must not be zero.",
+        )
+    ]
 
 
 @respx.mock
@@ -438,9 +456,9 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
         side_effect=[
-            error_response(422, "VALIDATION_ERROR", "bad", {}),
+            _zero(index=1),
             httpx.Response(201, json={"created": []}),
-            error_response(422, "VALIDATION_ERROR", "bad", {}),
+            _zero(),
         ]
     )
 
@@ -471,9 +489,7 @@ def test_row_failure_keeps_engine_fields_detail(configured):
         side_effect=[
             _conflict(),
             _conflict(),
-            error_response(
-                422, "VALIDATION_ERROR", "Invalid input.", {"amount_cents": "Must not be zero."}
-            ),
+            _zero(),
         ]
     )
 
@@ -485,7 +501,41 @@ def test_row_failure_keeps_engine_fields_detail(configured):
     assert result.tx_failed == 1
     message = result.failures[0][1]
     assert "sheet line 3" in message  # the row is findable in the workbook
-    assert "amount_cents: Must not be zero." in message  # fields preserved
+    assert "transactions.0.amount_cents: Must not be zero." in message  # fields preserved
+
+
+@respx.mock
+def test_an_unknown_hashtag_names_its_sheet_line(configured):
+    """The engine keys an unknown hashtag on its item (`transactions.<index>.hashtag_ids`)
+    and reports it with the other item failures; the chunk is refused whole, the
+    singleton retry lands the good row, and the refused one is named by its
+    sheet line."""
+    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
+    _mock_existing(
+        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        categories=[],
+        hashtags=[],
+    )
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    unknown = "Some hashtag IDs are invalid."
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=[
+            _refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"),
+            httpx.Response(201, json={"created": []}),
+            _refused(0, "hashtag_ids", unknown, "INVALID_REFERENCE"),
+        ]
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res)
+
+    assert result.tx_created == 1 and result.tx_failed == 1
+    ((_, message),) = result.failures
+    assert message.startswith(f"sheet line 3, id {plan.tx_ids[3]}: ")
+    assert f"transactions.0.hashtag_ids: {unknown}" in message
 
 
 @respx.mock
