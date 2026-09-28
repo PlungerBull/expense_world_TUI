@@ -1,8 +1,8 @@
 # Agent loop setup — plan
 
 **Status:** The rules, the four workers, the guards and the loop's pre-approved commands are
-built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 next: its spec is
-written, its tasks wait to be drafted. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
+built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 in progress: its spec
+is written and its tasks are approved. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
 The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)

@@ -81,8 +81,13 @@ Passes if:
 - CLAUDE.md says the tester runs the version check at the start of every check and puts the
   result in its report.
 - CLAUDE.md says that on a moved version, the orchestrator stops starting new tasks and files
-  a question for the owner in todo.md listing what changed: the drift check's mismatches in this
-  repo, until the engine ask "The contract says what each version changed" lands.
+  a question for the owner in todo.md listing what changed: the contract's own change-log
+  entries (`x-changelog` in `/openapi.json`) newer than the saved version, or "the whole
+  contract changed" when the saved version is not in the log.
+- The version check prints those entries when the version has moved, so the tester's report
+  carries them.
+- The engine ask `docs/engine-asks/contract-change-log.md` is deleted in the same commit; it has
+  landed.
 - The link checker and the guard tests still pass.
 
 ### Code comments cite the contract, not engine files
