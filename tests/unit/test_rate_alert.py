@@ -108,7 +108,13 @@ def test_other_engine_errors_are_unknown_not_stale(configured):
     from expense import config as config_module
 
     respx.get(f"{BASE}/v1/exchange-rates").mock(
-        return_value=error_response(422, "VALIDATION_ERROR", "bad", {})
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "bad",
+            {"target": "'XXX' is not a valid currency code."},
+            {"target": "UNSUPPORTED_VALUE"},
+        )
     )
     assert fetch_rate_staleness(config_module.ensure_loaded(), target="XXX") is None
 

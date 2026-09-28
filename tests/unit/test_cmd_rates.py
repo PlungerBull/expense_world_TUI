@@ -95,6 +95,7 @@ def test_get_unsupported_currency_surfaces_engine_error(configured):
             "VALIDATION_ERROR",
             "Invalid currency code.",
             {"target": "'EUR' is not a valid currency code."},
+            {"target": "UNSUPPORTED_VALUE"},
         )
     )
     result = runner.invoke(cli_app, ["rates", "get", "--target", "EUR"])

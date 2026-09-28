@@ -56,9 +56,9 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
       SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
         ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
-        python -m uvicorn app.main:app --port 8002
+        .venv/bin/python -m uvicorn app.main:app --port 8002 > /tmp/expense-test-engine.log 2>&1 &
 
-  (`python -m uvicorn`, not the console script — the engine's local-deployment guide gives the reason under "TCC".)
+  Run it from the engine checkout. `.venv/bin/python` is the engine checkout's own interpreter, the only one with the engine's dependencies (a bare `python` may not exist, and the system `python3` has no `uvicorn`); `-m uvicorn`, not the console script — the engine's local-deployment guide gives the reason under "TCC". The trailing `&` and the redirect detach it: the engine keeps running after the agent that started it finishes, and its output goes to a log outside both checkouts. Started as an agent's own background task instead, it stops when that agent finishes.
 
   **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine.
 

@@ -74,14 +74,14 @@ _DELETE_LOCKED_HINT = (
     "Hint: this reconciliation is completed and cannot be deleted. "
     "Use 'expense reconcile revert <id> --yes' first."
 )
+#: The two 422s `complete` can answer with, and the two `create`/`update`
+#: can. Each is chosen by the engine's reason on its field, never by wording
+#: (contract: "Error reasons") (contract: POST /v1/reconciliations/{reconciliation_id}/complete)
+#: (contract: POST /v1/reconciliations) (contract: PUT /v1/reconciliations/{reconciliation_id}).
 _COMPLETE_EMPTY_HINT = (
     "Hint: assign at least one transaction to this reconciliation before completing. "
     "Use 'expense transactions update <tx-id> --reconciliation-id <recon-id>'."
 )
-#: The two 422s `complete` can answer with, and the two `create`/`update`
-#: can. Each is chosen by the engine's reason on its field, never by wording
-#: (contract: "Error reasons"; POST /v1/reconciliations;
-#: POST /v1/reconciliations/{reconciliation_id}/complete).
 _UNASSIGNED_HINT_BARE = (
     "Hint: some rows inside this period are in no batch. Find them with "
     "'expense transactions list --account-id <id> --unreconciled "

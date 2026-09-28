@@ -60,17 +60,5 @@ order. Each is deleted here in the commit that finishes it. The practice engine 
 the new contract; the builder may read `/openapi.json` there (the "Error reasons" section and
 each operation's `x-error-reasons`).
 
-### Citations, asks and the recorded version catch up
-Passes if:
-- Every faked engine `VALIDATION_ERROR` in `tests/unit` carries `reasons` with the same keys as
-  `fields` and a real code on each, and names at least one field, except the tests that leave
-  reasons out on purpose to prove wording alone chooses no hint.
-- Comment citations use the one form exactly, one citation per pair of brackets
-  (`reconcile_cmd.py` and `transactions_cmd.py` join or mix them).
-- Comments citing the zero-amount rule cite `(contract: POST /v1/transactions, "Validation")`,
-  and comments about refusal hints cite `(contract: "Error reasons")` or the operation.
-- `docs/engine-asks/post-transactions-states-non-zero.md` is deleted.
-- The version check is run first. If the engine reports a version newer than
-  `ef2132c3c3b2ff6f`, the entries the check prints for it go to the owner as a question and
-  this task waits. Otherwise the new version is recorded with the drift script's
-  `--record-version`, and a plain run then passes quietly. The todo.md question "The engine's contract moved" is deleted in this commit.
+All tasks are done. Next: the tester's acceptance check, then the librarian's sweep
+(CLAUDE.md "How work runs", "Per spec").

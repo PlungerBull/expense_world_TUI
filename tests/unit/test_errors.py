@@ -18,12 +18,12 @@ from expense.errors import (
 from tests.unit.helpers import error_body
 
 
-def _engine_error(message, fields=None, status=422, reasons=None):
+def _engine_error(message, fields=None, reasons=None):
     return EngineError(
         code="VALIDATION_ERROR",
         message=message,
         fields=fields,
-        status=status,
+        status=422,
         raw_body={},
         reasons=reasons,
     )
@@ -40,7 +40,8 @@ def test_reason_on_reads_the_fields_reason():
 
 
 def test_reason_on_is_none_without_reasons():
-    assert reason_on(_engine_error("gone", status=404), "date_end") is None
+    gone = EngineError(code="NOT_FOUND", message="gone", fields=None, status=404, raw_body={})
+    assert reason_on(gone, "date_end") is None
 
 
 def test_has_reason_matches_any_field():
@@ -68,7 +69,10 @@ def test_engine_error_attributes():
         message="Amount must not be zero",
         fields={"amount_cents": "Must not be zero"},
         status=422,
-        raw_body=error_body("VALIDATION_ERROR", "...", {"amount_cents": "..."}),
+        raw_body=error_body(
+            "VALIDATION_ERROR", "...", {"amount_cents": "..."}, {"amount_cents": "ZERO_AMOUNT"}
+        ),
+        reasons={"amount_cents": "ZERO_AMOUNT"},
     )
     assert err.code == "VALIDATION_ERROR"
     assert err.status == 422
@@ -82,6 +86,7 @@ def test_render_engine_error_human_with_fields():
         fields={"amount_cents": "Must not be zero"},
         status=422,
         raw_body={},
+        reasons={"amount_cents": "ZERO_AMOUNT"},
     )
     output, exit_code, use_stderr = render(err, json_mode=False)
     assert exit_code == 1
@@ -195,6 +200,7 @@ def test_format_error_engine_error_with_fields():
         fields={"amount_cents": "Must not be zero"},
         status=422,
         raw_body={},
+        reasons={"amount_cents": "ZERO_AMOUNT"},
     )
     output = format_error(err)
     assert not output.startswith("Error:")

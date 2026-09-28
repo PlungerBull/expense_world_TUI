@@ -40,42 +40,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine's contract moved: catch up now, and how?
-Asked 2026-09-28 · Blocks: every new task (CLAUDE.md "A moved contract version goes to the owner")
-The version check against the practice engine reports saved `9d593f48328c0c6a`, engine
-`ef2132c3c3b2ff6f`. What the contract changed, newest first, as the check prints it:
-- `ef2132c3c3b2ff6f` (2026-09-28)
-  - added: `error.reasons` on every error, same keys as `fields`, each naming the rule broken
-    (`RANGE_INVERTED`, `PERIOD_OVERLAPS`, `SEALED_PERIOD`, `LOCKED`, …); switch on `reasons`,
-    never on `fields` or message wording. *Error reasons* lists them all.
-  - added: `x-error-reasons` on every operation, listing the reasons it can return.
-  - changed: sealed periods are identified by the `SEALED_PERIOD` reason; the top-level message
-    is no longer a fixed string.
-  - changed: `POST /transactions/batch` keys an unknown hashtag on its item,
-    `transactions.<index>.hashtag_ids`, reported with the other item failures.
-  - changed: a field breaking two rules is named by the first rule checked (batch: a future
-    date inside a sealed period is now reported as a future date).
-  - changed: `GET /reports/monthly` field messages are full sentences.
-  - changed: date and datetime format messages no longer start with `"Value error, "`.
-- `b2405c2af20fb7e6` (2026-09-28)
-  - changed: wording only; `POST /transactions` states its full validation, including the
-    zero-amount `422`. Behaviour is unchanged.
-
-Unit tests (1676) and the live contract suite (49) still pass, and no fixture field drifted, so
-nothing is visibly broken; but the CLI matches message wording in places the engine now says to
-replace with `reasons` (the reconciliation refusal hints, sealed-period reporting). This lands
-both open engine asks, the reconciliation refusal reasons (landed, deleted with the CLI's switch)
-and [post-transactions-states-non-zero.md](engine-asks/post-transactions-states-non-zero.md).
-- **A.** Catch up as the next spec: switch every message match to `error.reasons`, check the
-  batch and monthly-report error handling, cite the new contract parts, delete both asks,
-  record the new version. You write the spec (or approve a draft the orchestrator writes).
-- **B.** Only the small part now: the comment citation and deleting the non-zero ask, then
-  record the version; the `reasons` switch waits as an item in "Now".
-- **C.** Not now: the loop stays stopped until you pick A or B.
-
-**Recommended:** A. Recording the version without switching to `reasons` would leave the CLI on
-wording the engine no longer promises, the exact thing this spec exists to prevent.
-
 ### Why does the practice engine start as `python -m uvicorn`?
 Asked 2026-09-28 · Blocks: nothing; [cli-runtime.md](cli-runtime.md) "Working against the live engine" points agents at a guide they may no longer open
 The ops guide says to start the practice engine as `python -m uvicorn`, not the `uvicorn` command,

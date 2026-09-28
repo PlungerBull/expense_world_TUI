@@ -749,24 +749,27 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     while the row that was fine still ticks.
     """
     _patch(monkeypatch)
-    sealed = EngineError(
-        "VALIDATION_ERROR",
-        "Transaction falls inside a sealed reconciliation period.",
-        {
-            "transactions.0.date": (
-                "Period 2026-08-01 to 2026-08-25 is sealed by completed reconciliation "
-                "'August 2026'. Revert it to draft to change anything inside it."
-            )
-        },
-        422,
-        {},
-        reasons={"transactions.0.date": "SEALED_PERIOD"},
+    sealed_text = (
+        "Period 2026-08-01 to 2026-08-25 is sealed by completed reconciliation "
+        "'August 2026'. Revert it to draft to change anything inside it."
     )
+
+    def sealed(index: int) -> EngineError:
+        key = f"transactions.{index}.date"
+        return EngineError(
+            "VALIDATION_ERROR",
+            "Transaction falls inside a sealed reconciliation period.",
+            {key: sealed_text},
+            422,
+            {},
+            reasons={key: "SEALED_PERIOD"},
+        )
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        _script(fake_client, [sealed, {}, sealed])  # chunk refused, row 1 lands, row 2 sealed
+        # the chunk is refused on its second item, row 1 lands alone, row 2 alone is sealed
+        _script(fake_client, [sealed(1), {}, sealed(0)])
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not screen._saving)
 

@@ -96,7 +96,7 @@ def _update_hint_for(err: EngineError) -> str | None:
     A locked field (`LOCKED`), a date moved into a sealed period (`SEALED_PERIOD`)
     and an assignment into a completed batch (`RECONCILIATION_COMPLETED`) all
     clear the same way: revert that reconciliation first
-    (contract: PUT /v1/transactions/{transaction_id}, "Error reasons").
+    (contract: "Error reasons") (contract: PUT /v1/transactions/{transaction_id}).
     """
     if has_reason(err, "LOCKED", "SEALED_PERIOD", "RECONCILIATION_COMPLETED"):
         return _RECONCILIATION_LOCK_HINT

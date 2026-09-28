@@ -50,7 +50,7 @@ def _invalid(
 ) -> EngineError:
     """The engine's batch 422: every refused item field keyed
     `transactions.<index>.<field>`, with its reason under the same key
-    (contract: POST /v1/transactions/batch, "Error reasons")."""
+    (contract: POST /v1/transactions/batch) (contract: "Error reasons")."""
     key = f"transactions.{index}.{field}"
     message = {"amount_cents": "Must not be zero.", "hashtag_ids": "Some hashtag IDs are invalid."}
     return EngineError(
@@ -86,8 +86,8 @@ def test_chunking_splits_at_the_size_asked_for():
 
 
 def test_a_422_falls_back_to_one_row_per_batch_and_names_the_bad_one():
-    """The engine will not say which row, so the fallback asks one at a time —
-    the good rows still land and the bad one reports its own error."""
+    """The engine refuses the chunk as a whole, so the fallback asks one row at
+    a time — the good rows still land and the bad one reports its own error."""
     client = _Client([_invalid(index=1), {}, _invalid(), {}])
     outcome = post_transaction_batch(client, _items(3))
 

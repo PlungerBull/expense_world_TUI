@@ -56,8 +56,15 @@ def _whole_list(rows: list):
     """The engine's shape: the list whole, and a 422 for any paging."""
 
     def respond(request: httpx.Request) -> httpx.Response:
-        if {"limit", "offset"} & set(request.url.params):
-            return error_response(422, "VALIDATION_ERROR", "unknown query parameter")
+        paging = sorted({"limit", "offset"} & set(request.url.params))
+        if paging:
+            return error_response(
+                422,
+                "VALIDATION_ERROR",
+                "unknown query parameter",
+                {name: "Not a parameter of this endpoint." for name in paging},
+                {name: "UNKNOWN_PARAMETER" for name in paging},
+            )
         return httpx.Response(200, json={"items": rows})
 
     return respond
@@ -631,7 +638,13 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
 
     def cat_post(request: httpx.Request) -> httpx.Response:
         if json.loads(request.content)["name"] == "WANTS":
-            return error_response(422, "VALIDATION_ERROR", "bad color", {})
+            return error_response(
+                422,
+                "VALIDATION_ERROR",
+                "bad color",
+                {"color": "Must be a 6-digit hex color, e.g. '#3b82f6'."},
+                {"color": "INVALID_FORMAT"},
+            )
         return httpx.Response(201, json={"id": "cat-ok"})
 
     respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)
@@ -826,7 +839,13 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
 
     def cat_post(request: httpx.Request) -> httpx.Response:
         if json.loads(request.content)["name"] == "WANTS":
-            return error_response(422, "VALIDATION_ERROR", "bad", {})
+            return error_response(
+                422,
+                "VALIDATION_ERROR",
+                "bad",
+                {"color": "Must be a 6-digit hex color, e.g. '#3b82f6'."},
+                {"color": "INVALID_FORMAT"},
+            )
         return httpx.Response(201, json={"id": "cat-ok"})
 
     respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)

@@ -413,6 +413,7 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
             {"account_id": "Period … is sealed by completed reconciliation 'August 2026'."},
             422,
             {},
+            reasons={"account_id": "SEALED_PERIOD"},
         )
 
     fake_client.put = put

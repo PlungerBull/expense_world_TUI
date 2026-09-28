@@ -131,7 +131,11 @@ def test_list_sends_bare_days_as_typed(configured):
 def test_list_surfaces_the_engines_refusal_of_a_bad_day(configured):
     respx.get(f"{BASE}/v1/activity").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "Request validation failed.", {"date_from": "Invalid day."}
+            422,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            {"date_from": "Invalid day."},
+            {"date_from": "INVALID_FORMAT"},
         )
     )
     result = runner.invoke(cli_app, ["activity", "list", "--from", "2026-02-30"])
@@ -212,7 +216,11 @@ def test_list_unknown_action_code_falls_back_to_int(configured):
 def test_list_422_bad_resource_id(configured):
     respx.get(f"{BASE}/v1/activity").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "resource_id must be a UUID", {"resource_id": "not a UUID"}
+            422,
+            "VALIDATION_ERROR",
+            "resource_id must be a UUID",
+            {"resource_id": "not a UUID"},
+            {"resource_id": "INVALID_FORMAT"},
         )
     )
     result = runner.invoke(cli_app, ["activity", "list", "--resource-id", "not-a-uuid"])

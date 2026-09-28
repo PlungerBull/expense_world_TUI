@@ -124,6 +124,7 @@ def test_settings_422_invalid_timezone_renders_engine_error(configured):
             "VALIDATION_ERROR",
             "Invalid input.",
             {"display_timezone": "Not a valid IANA timezone."},
+            {"display_timezone": "UNSUPPORTED_VALUE"},
         )
     )
     result = runner.invoke(cli_app, ["auth", "settings", "--display-timezone", "Mars/Olympus"])
@@ -174,7 +175,11 @@ def test_profile_json_mode(configured):
 def test_profile_422_renders_engine_error(configured):
     respx.put(f"{BASE}/v1/auth/profile").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "Invalid input.", {"display_name": "Must not be null."}
+            422,
+            "VALIDATION_ERROR",
+            "Invalid input.",
+            {"display_name": "Must not be null."},
+            {"display_name": "NOT_NULL"},
         )
     )
     result = runner.invoke(cli_app, ["auth", "profile", "--display-name", "Alex"])

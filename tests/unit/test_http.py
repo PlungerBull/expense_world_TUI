@@ -113,19 +113,26 @@ def test_reads_do_not_send_idempotency_key(config):
     assert "x-idempotency-key" not in route.calls.last.request.headers
 
 
+#: A 422 names its field; the only reason `GET /v1/auth/me` can give is an
+#: unknown query parameter (contract: GET /v1/auth/me).
+_UNKNOWN_PARAM = {"limit": "Not a parameter of this endpoint."}
+
+
 @pytest.mark.parametrize(
-    "status,code",
+    "status,code,fields,reasons",
     [
-        (401, "UNAUTHORIZED"),
-        (403, "FORBIDDEN"),
-        (404, "NOT_FOUND"),
-        (409, "CONFLICT"),
-        (422, "VALIDATION_ERROR"),
+        (401, "UNAUTHORIZED", None, None),
+        (403, "FORBIDDEN", None, None),
+        (404, "NOT_FOUND", None, None),
+        (409, "CONFLICT", None, None),
+        (422, "VALIDATION_ERROR", _UNKNOWN_PARAM, {"limit": "UNKNOWN_PARAMETER"}),
     ],
 )
 @respx.mock
-def test_engine_errors_translate_by_status(config, status, code):
-    respx.get(f"{BASE}/v1/auth/me").mock(return_value=error_response(status, code, "bad", None))
+def test_engine_errors_translate_by_status(config, status, code, fields, reasons):
+    respx.get(f"{BASE}/v1/auth/me").mock(
+        return_value=error_response(status, code, "bad", fields, reasons)
+    )
     with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
         client.get("/auth/me")
 
@@ -137,7 +144,11 @@ def test_engine_errors_translate_by_status(config, status, code):
 def test_validation_error_includes_fields(config):
     respx.put(f"{BASE}/v1/auth/settings").mock(
         return_value=error_response(
-            422, "VALIDATION_ERROR", "Invalid", {"main_currency": "Unsupported currency"}
+            422,
+            "VALIDATION_ERROR",
+            "Invalid",
+            {"main_currency": "Unsupported currency"},
+            {"main_currency": "UNSUPPORTED_VALUE"},
         )
     )
     with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
@@ -300,7 +311,11 @@ def test_write_connect_error_fails_fast(config):
 
 @respx.mock
 def test_write_4xx_is_not_retried(config):
-    route = respx.post(f"{BASE}/v1/accounts").mock(return_value=_envelope(422, "VALIDATION_ERROR"))
+    route = respx.post(f"{BASE}/v1/accounts").mock(
+        return_value=error_response(
+            422, "VALIDATION_ERROR", "boom", {"name": "Must not be empty."}, {"name": "EMPTY"}
+        )
+    )
     with ExpenseClient(config) as client, pytest.raises(EngineError):
         client.post("/accounts", json_body={"name": "x"})
 

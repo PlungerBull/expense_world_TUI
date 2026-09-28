@@ -542,9 +542,12 @@ def parse_hashtag_ids(raw: str) -> list[str]:
 
     Two behaviours here are load-bearing, not incidental:
 
-    * **No client-side UUID validation.** A bad id is the engine's 422
-      (`fields.hashtag_ids`, "Some hashtag IDs are invalid."), and it owns the
-      archived-hashtag rule too — the thin-wrapper rule says we don't second-guess it.
+    * **No client-side UUID validation.** A bad id is the engine's 422 on
+      `hashtag_ids`: `INVALID_FORMAT` when it is not a UUID, `INVALID_REFERENCE` when it
+      names no active hashtag (missing, deleted or archived), so the engine owns the
+      archived-hashtag rule too
+      (contract: POST /v1/transactions, "Validation") (contract: "Error reasons") —
+      the thin-wrapper rule says we don't second-guess it.
     * **`""` → `[]`, not `None`.** An empty string is an explicit *clear*, so callers
       must pass the result to `build_update_payload` only when the flag was supplied;
       `[]` is a real value the engine acts on, while a dropped key means "leave alone".

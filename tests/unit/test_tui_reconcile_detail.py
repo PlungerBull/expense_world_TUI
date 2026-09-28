@@ -428,6 +428,7 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
         {"transactions": "At least one transaction must be assigned."},
         422,
         {},
+        reasons={"transactions": "NO_TRANSACTIONS_ASSIGNED"},
     )
     notices: list = []
     monkeypatch.setattr(

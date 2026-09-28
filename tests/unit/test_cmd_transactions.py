@@ -228,6 +228,7 @@ def test_list_bad_sort_renders_engine_envelope(configured):
             "VALIDATION_ERROR",
             "Invalid query parameter.",
             {"sort": "Must be one of: date_desc, date_asc."},
+            {"sort": "INVALID_FORMAT"},
         )
     )
     result = runner.invoke(cli_app, ["transactions", "list", "--sort", "newest"])
@@ -427,7 +428,7 @@ _SEALED_TEXT = (
 
 @respx.mock
 def test_update_sealed_period_422_hint(configured):
-    """A date moved into a sealed window (contract: "Sealed periods")."""
+    """A date moved into a sealed window (contract: POST /v1/transactions, "Sealed periods")."""
     respx.put(f"{BASE}/v1/transactions/abc").mock(
         return_value=error_response(
             422,

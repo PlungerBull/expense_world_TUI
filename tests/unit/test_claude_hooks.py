@@ -694,6 +694,10 @@ def _ops_guide_start_command() -> str:
 def test_guard_lets_the_tester_run_the_ops_guide_command(box):
     command = _ops_guide_start_command()
     assert command.count("\\\n") == 2 and "--port 8002" in command
+    # the checkout's own interpreter, detached with its output in a log, so the
+    # engine outlives the agent that starts it
+    assert ".venv/bin/python -m uvicorn" in command
+    assert command.endswith(" &") and "> /tmp/" in command
     _allowed(
         box.guard("Bash", {"command": "cd ../expense_world_engine && " + command}, agent="tester")
     )
