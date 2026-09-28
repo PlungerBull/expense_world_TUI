@@ -4,8 +4,8 @@
 Nothing else tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
 runs: CLAUDE.md "How work runs (the agent loop)".
 
-**Current spec:** none named yet. The owner writes specs in [specs/](specs/) and names the
-current one here.
+**Current spec:** [specs/engine-contract.md](specs/engine-contract.md). The owner writes specs
+in [specs/](specs/) and names the current one here.
 
 - **Only the orchestrator edits this file.** Workers put tasks and questions in their reports.
 - **A spec's tasks** are drafted here by the orchestrator and approved by the owner before the
@@ -36,17 +36,6 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
-
-### Which spec does the loop run first?
-Asked 2026-09-27 · Blocks: the agent loop's trial run
-The loop needs a first spec to try itself on.
-- **A.** Take up the engine's published contract
-  ([agent-loop-plan.md](agent-loop-plan.md) §6.5): this repo reads the contract from the test
-  engine and stops reading the engine's folder.
-- **B.** An item from **Now**, which you name.
-
-**Recommended:** A. It has no screens and clear pass/fail checks, so the loop can prove itself
-safely. After it, you rank what comes next.
 
 ### Will you still log card purchases by hand after the official migration?
 Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Small defects

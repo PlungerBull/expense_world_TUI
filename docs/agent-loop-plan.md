@@ -1,9 +1,8 @@
 # Agent loop setup — plan
 
 **Status:** The rules, the four workers, the guards and the loop's pre-approved commands are
-built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 next, waiting on the
-owner's first spec. Written 2026-09-27. Delete this doc when the setup
-ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
+built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 next: its spec is
+written, its tasks wait to be drafted. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
 The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)
@@ -37,17 +36,7 @@ test or any other code waits for the builder. 6.5 is the loop's first job.
 
 ### 6.5 Take up the engine's published contract (the loop's first spec and trial run)
 
-Built by the loop itself: it is the first spec the owner writes, and the trial run. Today this repo still reads the engine's folder. Once this lands, it doesn't:
-
-1. Agents and `scripts/check_fixture_drift.py` read the contract from the **test engine**
-   (`:8002`), and record the contract version last checked against, so a version change is
-   noticed.
-2. Remove every link into `../expense_world_engine` — CLAUDE.md, README, cli-spec.md, other
-   docs, and the engine half of `tests/unit/test_docs_links.py`.
-3. Code comments that cite engine files (`sql/015` in `expense/currencies.py`, `sql/026` in
-   `expense/http.py`, and any others) cite the contract instead.
-4. Then "never read outside this repo" becomes absolute: the guard stops allowing reads of
-   the engine checkout, and `.claude/settings.json` drops its engine-docs `Read` entry.
+The loop's first spec and trial run: [specs/engine-contract.md](specs/engine-contract.md).
 
 ## 7. Rollout
 
@@ -60,4 +49,4 @@ Built by the loop itself: it is the first spec the owner writes, and the trial r
 
 ## 8. Open questions for the owner
 
-In [todo.md](todo.md) "Questions for the owner" ("Which spec does the loop run first?").
+None. Owner questions live in [todo.md](todo.md) "Questions for the owner".
