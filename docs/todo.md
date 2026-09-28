@@ -1,15 +1,17 @@
 # TODO — the workpad
 
-**The single open-work queue for this repo, and the one place questions for the owner wait.**
-Nothing else tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
+**The hub for open work in this repo, and the one place questions for the owner wait.** A
+spec's tasks live in that spec's "Tasks" section; everything else open lives here. Nothing else
+tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
 runs: CLAUDE.md "How work runs (the agent loop)".
 
 **Current spec:** [specs/engine-contract.md](specs/engine-contract.md). The owner writes specs
 in [specs/](specs/) and names the current one here.
 
-- **Only the orchestrator edits this file.** Workers put tasks and questions in their reports.
-- **A spec's tasks** are drafted here by the orchestrator and approved by the owner before the
-  loop runs. The plan docs linked under **Now** are drafts until the owner approves them or
+- **Only the orchestrator edits this file** (and a spec's "Tasks" section). Workers put tasks
+  and questions in their reports.
+- **A spec's tasks** are drafted into that spec's "Tasks" section by the orchestrator and
+  approved by the owner before the loop runs. The plan docs linked under **Now** are drafts until the owner approves them or
   rewrites them as specs.
 - **Closed items get deleted**, not ticked. Git history is the archive
   ([decisions.md](decisions.md) "The open-work list holds only open work").
@@ -18,8 +20,9 @@ in [specs/](specs/) and names the current one here.
 - **Absolute dates only.**
 - **Cite items by title, never by number** — numbering shifts every time an item closes.
 
-Sections: **Questions for the owner** · **Now** (the sequenced queue) · **Engine asks** ·
-**Small defects** · **Ergonomics**, **Cosmetic** and **Parked** (none of it blocking).
+Sections: **Questions for the owner** · **Now** (the sequenced queue) · **Small defects** ·
+**Ergonomics**, **Cosmetic** and **Parked** (none of it blocking). Engine asks are not here:
+each is its own file in [engine-asks/](engine-asks/).
 
 ---
 
@@ -186,23 +189,6 @@ category and as a hashtag; the ledger has neither (uncategorised rows go to the 
 Every other account, category and hashtag name resolves (dry run, 2026-09-27).
 
 ---
-
-## Engine asks
-
-**Raising these is encouraged, not a last resort** (CLAUDE.md "Ask the engine to change"). Each
-entry says what to ask for, why no client can do it properly today, and **what this repo deletes
-when it lands**. Handed to the owner for the engine coder; never edited in the engine repo.
-
-- **A test engine refuses to start half-pointed at the real ledger.** The engine reads any
-  database URL missing from its start command from its `.env`, and there `ADMIN_DB_URL` names
-  the real ledger (`expense_world`). So a test-engine start (`:8002`, ops guide in
-  [cli-runtime.md](cli-runtime.md) "Working against the live engine") that forgets
-  `ADMIN_DB_URL` runs its admin pool, which writes `exchange_rates`, against the real ledger
-  while the app pool uses the test database. Ask: the engine refuses to start when its two
-  database URLs name different databases (or a flag such as `--test` that requires both to be
-  `expense_world_test`). Every client's test setup inherits the protection. **This repo
-  deletes** the both-URLs-present check from the tester exception in
-  [.claude/hooks/guard.py](../.claude/hooks/guard.py) and keeps only the port rule.
 
 ## Small defects
 

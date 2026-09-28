@@ -24,13 +24,14 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/cli-spec.md](docs/cli-spec.md) | Command groups, output conventions | Local |
 | [docs/cli-runtime.md](docs/cli-runtime.md) | Runtime behavior — read/write semantics, error handling, working against the live engine | Local |
 | [docs/tui.md](docs/tui.md) | Textual TUI (`expense world`) — architecture, theming, keymap contract, test conventions | Local |
-| [docs/todo.md](docs/todo.md) | The **single open-work queue**, the current spec, and every question waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
+| [docs/todo.md](docs/todo.md) | The **hub for open work**: the current spec, work that belongs to no spec, and every question waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
 | [docs/specs/](docs/specs/) | The owner's specs, one per piece of work — what the loop builds | Local |
+| [docs/engine-asks/](docs/engine-asks/) | Every open engine ask, one standalone file each, handed as is to the engine coders; format in its README | Local |
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
 | [docs/mockups/](docs/mockups/) | HTML mockups — the approval gate for every screen and table | Local |
 | `engine-spec.md` | Every endpoint, every business rule — the API contract | [../expense_world_engine/docs/engine-spec.md](../expense_world_engine/docs/engine-spec.md) |
 
-Engine docs are **referenced, not copied**; the engine repo is a **sibling checkout** (`../expense_world_engine` — see README "Checkout layout"). Inside this repo too, **each fact has one home** — commands in cli-spec, the TUI in tui.md, open work in todo.md, rationale in decisions.md. When you ship something, update the owning doc.
+Engine docs are **referenced, not copied**; the engine repo is a **sibling checkout** (`../expense_world_engine` — see README "Checkout layout"). Inside this repo too, **each fact has one home** — commands in cli-spec, the TUI in tui.md, open work in todo.md (a spec's tasks in that spec, engine asks in engine-asks/), rationale in decisions.md. When you ship something, update the owning doc.
 
 Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone test** — every doc must work with zero conversation history; write needed context down (rationale goes in [docs/decisions.md](docs/decisions.md)). **(2) Executable beats prose** — when a convention can be checked mechanically, add a guard test next to the existing ones ([tests/unit/test_command_surface.py](tests/unit/test_command_surface.py), [tests/unit/test_tui_theme.py](tests/unit/test_tui_theme.py), [tests/unit/test_docs_links.py](tests/unit/test_docs_links.py)). **(3) Absolute dates only** — never "recently" or "last week". **(4) Present tense** — state what is and why; no history of how it got there, in docs or code comments.
 
@@ -55,7 +56,7 @@ Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone t
 ## Non-negotiable conventions
 
 **Ask the engine to change — that is not a last resort**
-Owner rule: *"DONT BE AFRAID OF ORDERING ENGINE TO CHANGE, its not a problem at all. Its better to get fully scalable and complete solutions over quick fixes or patches."* When the complete solution needs an engine change, **propose it.** Never quietly ship a client-side workaround, and never count "no engine changes needed" as a point in a design's favour. A capability the engine lacks gets reinvented in all four clients, usually subtly wrong (extra round trips, races, no pagination, a drifting copy of an engine rule). Never edit `../expense_world_engine` — write the ask up for the owner to hand to the engine coder; open asks live in [docs/todo.md](docs/todo.md) "Engine asks", with what the CLI deletes once each lands.
+Owner rule: *"DONT BE AFRAID OF ORDERING ENGINE TO CHANGE, its not a problem at all. Its better to get fully scalable and complete solutions over quick fixes or patches."* When the complete solution needs an engine change, **propose it.** Never quietly ship a client-side workaround, and never count "no engine changes needed" as a point in a design's favour. A capability the engine lacks gets reinvented in all four clients, usually subtly wrong (extra round trips, races, no pagination, a drifting copy of an engine rule). Never edit `../expense_world_engine` — write the ask up for the owner to hand to the engine coder. **Each ask is its own file** in [docs/engine-asks/](docs/engine-asks/), standing on its own so the owner can give it to the engine coders as is, and ending with what the CLI deletes once it lands. The folder is the list of open asks.
 
 **Thin wrapper**
 Every command parses args → calls an engine endpoint → formats output. No caching, no balance math, no validation beyond "do these flags make sense together." When logic is needed and the engine lacks it, the answer is an engine ask, never logic smuggled in here.
@@ -101,23 +102,23 @@ The owner is not a coder. Agents make every technical decision. The owner decide
 
 | Role | Does | May touch |
 |---|---|---|
-| **Orchestrator** (main session) | Picks the next task, writes its "passes if…" criteria, delegates, reads the reports, commits and pushes, files questions and rationale. **Never writes code or tests.** | Docs and Claude config; the only role that edits [docs/todo.md](docs/todo.md) and [docs/decisions.md](docs/decisions.md) |
-| **Builder** | Implements one task under this file's rules, and updates the doc that owns what it changed (cli-spec, tui.md, README, …) | Code, tests and docs of this repo, except todo.md and decisions.md |
+| **Orchestrator** (main session) | Picks the next task, writes its "passes if…" criteria, delegates, reads the reports, commits and pushes, files questions and rationale. **Never writes code or tests.** | Docs and Claude config; the only role that edits [docs/todo.md](docs/todo.md), [docs/decisions.md](docs/decisions.md) and a spec's "Tasks" section |
+| **Builder** | Implements one task under this file's rules, and updates the doc that owns what it changed (cli-spec, tui.md, README, …) | Code, tests and docs of this repo, except todo.md, decisions.md and docs/specs/ |
 | **Tester** | Checks each criterion: runs `pytest tests/unit`, runs the app against the test engine (`:8002`), reports pass/fail with evidence. A criterion no test proves is reported as such; the builder writes that test | Runs things; edits nothing. May start the test engine ("Stay inside this repo" below) |
 | **Reviewer** | Reads the change for correctness, quality, security and this file's conventions; doc structure is the librarian's | Read-only |
-| **Librarian** | Keeps the docs aligned: each fact in one home with the others linking to it ("Key documentation" above), no two docs disagreeing, docs matching the code, links resolving, the doc rules above kept. Where it can't tell which conflicting doc is right, it asks instead of picking | Docs of this repo, except todo.md and decisions.md |
+| **Librarian** | Keeps the docs aligned: each fact in one home with the others linking to it ("Key documentation" above), no two docs disagreeing, docs matching the code, links resolving, the doc rules above kept. Where it can't tell which conflicting doc is right, it asks instead of picking | Docs of this repo, except todo.md, decisions.md and docs/specs/ |
 
 The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `tester`, `reviewer`, `librarian`) and take this repo's rules from this file.
 
 **If you are a worker,** you have no owner to ask and you are not the orchestrator. When something is unclear, a rationale belongs in decisions.md, or a choice belongs to the owner, stop and put it in your report; the orchestrator files it. Every worker reports in one shape: **verdict · what was checked · what is wrong · where**.
 
-**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one in todo.md's "Current spec" line. The orchestrator drafts that spec's tasks into todo.md, the owner approves them, and then the loop runs on its own. It works only on the current spec.
+**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one in todo.md's "Current spec" line. The orchestrator drafts that spec's tasks into the spec's own "Tasks" section, the owner approves them, and then the loop runs on its own. It works only on the current spec. Everything above "Tasks" is the owner's; agents change it only when the owner asks. Work that belongs to no spec stays in todo.md.
 
 **Per task:**
 1. Take the next approved task and write its "passes if…" criteria. No clear criteria → a question for the owner first.
 2. Builder implements → tester checks → reviewer checks → librarian aligns the docs the task touched and every doc covering the same things (every doc, when the task is its spec's last). A fail or rejection goes back to the builder with that report.
 3. After **4 failed rounds**, park the task, add a question for the owner, and move on.
-4. **Done** = tester passed + reviewer approved + librarian done + committed and pushed + deleted from todo.md in that same commit.
+4. **Done** = tester passed + reviewer approved + librarian done + committed and pushed + deleted from its task list (the spec's "Tasks" section, or todo.md) in that same commit.
 5. **One task at a time** — the single branch means parallel builders would collide.
 6. When every remaining task waits on the owner, **stop** and give the owner a short summary: what finished and which questions wait. The owner answers and restarts the loop.
 
@@ -138,4 +139,4 @@ A task that needs a screen does not stall the loop: draw the mockup, park the ta
 
 ## Status
 
-Both surfaces are complete: the flat CLI wraps every engine endpoint that has a CLI surface (and is the canonical contract-validator surface), and the TUI `expense world` — the owner's day-to-day surface — covers the same ground on the same fetch/write layer. What exists: [docs/cli-spec.md](docs/cli-spec.md) (commands), [docs/tui.md](docs/tui.md) (TUI), [docs/cli-runtime.md](docs/cli-runtime.md) (runtime); why: [docs/decisions.md](docs/decisions.md). **Open work, including engine asks, known defects and questions for the owner, lives only in [docs/todo.md](docs/todo.md).**
+Both surfaces are complete: the flat CLI wraps every engine endpoint that has a CLI surface (and is the canonical contract-validator surface), and the TUI `expense world` — the owner's day-to-day surface — covers the same ground on the same fetch/write layer. What exists: [docs/cli-spec.md](docs/cli-spec.md) (commands), [docs/tui.md](docs/tui.md) (TUI), [docs/cli-runtime.md](docs/cli-runtime.md) (runtime); why: [docs/decisions.md](docs/decisions.md). **Open work, known defects and questions for the owner live only in [docs/todo.md](docs/todo.md) and the current spec's "Tasks" section; open engine asks in [docs/engine-asks/](docs/engine-asks/).**
