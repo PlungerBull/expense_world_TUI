@@ -29,7 +29,6 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
 | [docs/mockups/](docs/mockups/) | HTML mockups — the approval gate for every screen and table | Local |
 | `engine-spec.md` | Every endpoint, every business rule — the API contract | [../expense_world_engine/docs/engine-spec.md](../expense_world_engine/docs/engine-spec.md) |
-| `design-philosophy.md` | Product vision shared across all clients | [../expense_world_engine/docs/design-philosophy.md](../expense_world_engine/docs/design-philosophy.md) |
 
 Engine docs are **referenced, not copied**; the engine repo is a **sibling checkout** (`../expense_world_engine` — see README "Checkout layout"). Inside this repo too, **each fact has one home** — commands in cli-spec, the TUI in tui.md, open work in todo.md, rationale in decisions.md. When you ship something, update the owning doc.
 

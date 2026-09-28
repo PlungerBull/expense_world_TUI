@@ -18,7 +18,7 @@ Decisions whose why lives elsewhere:
 | PAT auth (`ewe_pat_` prefix) | [cli-spec.md](cli-spec.md) "Auth model" |
 | Public GitHub repo → secrets never enter the repo | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
 | Sanctioned deviations from the principles | [cli-spec.md](cli-spec.md) "Sanctioned exceptions" |
-| Rates cross the wire as integers (`rate_e8`) | `expense_world_engine/docs/currency-model-decision.md` |
+| Rates cross the wire as integers (`rate_e8`) | `expense_world_engine/docs/decisions.md` "Currency model" |
 
 ## What a half-written batch means (2026-08-25)
 

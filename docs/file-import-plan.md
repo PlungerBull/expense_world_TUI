@@ -6,7 +6,7 @@ check in §3, and the mockup gate on the import screen (the screen is decided, i
 not). When the work ships, its why moves to [decisions.md](decisions.md) and this file is
 deleted. Section numbers have gaps on purpose: other docs cite §3, §6 and §11.
 
-The engine half: [expense_world_engine/docs/file-import-plan.md](../../expense_world_engine/docs/file-import-plan.md).
+The engine half: [expense_world_engine/docs/decisions.md](../../expense_world_engine/docs/decisions.md#bank-statements) "Bank statements".
 
 ---
 
@@ -146,4 +146,4 @@ whole calendar days in the user's timezone. They agree **only because every live
 at 00:00 America/Lima** (and Lima has no daylight saving); nothing enforces midnight. The bank
 importer sends bare days. **The first writer that stores a real time of day makes the `!` wrong
 near midnight** — that is the point to ask the engine again for the per-row flag (engine
-`open-bugs.md` D13 names it as the reopening condition).
+`docs/decisions.md` D13 names it as the reopening condition).

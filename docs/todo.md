@@ -186,7 +186,7 @@ they pass:
 **Order.** Tags that know the category is independent and could move earlier. The title
 alignment waits for the official migration data and must run before the 2026 periods are
 completed, because a completed period locks its rows' titles. The engine's rule is absolute
-([engine plan §9](../../expense_world_engine/docs/file-import-plan.md)): **import first,
+([engine decisions.md](../../expense_world_engine/docs/decisions.md#import-first-reconcile-second) "Import first, reconcile second"): **import first,
 reconcile second** — a reconciliation created before its rows exist seals the window against
 them, and the import is then refused. Full sequence: [file-import-plan.md](file-import-plan.md)
 §10.
@@ -204,11 +204,7 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
 entry says what to ask for, why no client can do it properly today, and **what this repo deletes
 when it lands**. Handed to the owner for the engine coder; never edited in the engine repo.
 
-- **Move `design-philosophy.md` out of the engine repo.** It is the product vision for every
-  client, not an engine rule, and once agents stay inside their own repo no client can read it
-  from the engine's folder. Owner's call (2026-09-27): it lives in the `productivity_world`
-  root, made a small tracked repo of its own (shared docs only, the project folders ignored)
-  so it has history and a backup. **This repo deletes** its CLAUDE.md link to the engine copy.
+None open.
 
 ## Small defects
 
