@@ -158,6 +158,7 @@ class ExpenseClient:
             fields=error.get("fields"),
             status=response.status_code,
             raw_body=body,
+            reasons=error.get("reasons"),
         )
 
     def _notify_retry(self, attempt: int, attempts: int, cause: str) -> None:

@@ -136,21 +136,24 @@ def render_text(*renderables: object, width: int = 100, ansi: bool = False) -> s
 # disagree with its neighbours about what the engine sends.
 
 
-def error_body(code: str, message: str = "boom", fields: object = None) -> dict:
+def error_body(
+    code: str, message: str = "boom", fields: object = None, reasons: object = None
+) -> dict:
     """The engine's standard error envelope — see CLAUDE.md "Engine errors
     surface cleanly" and docs/cli-runtime.md.
 
     `fields` defaults to None (the shape a non-validation refusal has); pass a
-    dict for a 422, whose keys the engine names per row.
+    dict for a 422, whose keys the engine names per row. `reasons` carries the
+    same keys, each mapped to its reason code (contract: "Error reasons").
     """
-    return {"error": {"code": code, "message": message, "fields": fields}}
+    return {"error": {"code": code, "message": message, "fields": fields, "reasons": reasons}}
 
 
 def error_response(
-    status: int, code: str, message: str = "boom", fields: object = None
+    status: int, code: str, message: str = "boom", fields: object = None, reasons: object = None
 ) -> httpx.Response:
     """`error_body` as a respx-ready response."""
-    return httpx.Response(status, json=error_body(code, message, fields))
+    return httpx.Response(status, json=error_body(code, message, fields, reasons))
 
 
 def whole(items: list) -> dict:

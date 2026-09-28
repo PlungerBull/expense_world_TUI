@@ -147,6 +147,41 @@ def test_validation_error_includes_fields(config):
 
 
 @respx.mock
+def test_engine_error_keeps_the_reasons(config):
+    respx.put(f"{BASE}/v1/auth/settings").mock(
+        return_value=error_response(
+            422,
+            "VALIDATION_ERROR",
+            "Invalid",
+            {"main_currency": "Unsupported currency"},
+            {"main_currency": "UNSUPPORTED_VALUE"},
+        )
+    )
+    with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
+        client.put("/auth/settings", json_body={"main_currency": "EUR"})
+
+    assert exc.value.reasons == {"main_currency": "UNSUPPORTED_VALUE"}
+    assert exc.value.raw_body["error"]["reasons"] == {"main_currency": "UNSUPPORTED_VALUE"}
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"code": "NOT_FOUND", "message": "gone", "fields": None, "reasons": None},
+        {"code": "NOT_FOUND", "message": "gone"},
+    ],
+    ids=["reasons-null", "reasons-absent"],
+)
+@respx.mock
+def test_engine_error_without_reasons_is_none(config, error):
+    respx.get(f"{BASE}/v1/auth/me").mock(return_value=httpx.Response(404, json={"error": error}))
+    with ExpenseClient(config) as client, pytest.raises(EngineError) as exc:
+        client.get("/auth/me")
+
+    assert exc.value.reasons is None
+
+
+@respx.mock
 def test_connection_error_on_network_failure(config):
     respx.get(f"{BASE}/v1/auth/me").mock(side_effect=httpx.ConnectError("connection refused"))
     with ExpenseClient(config) as client, pytest.raises(EngineConnectionError) as exc:

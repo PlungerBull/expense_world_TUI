@@ -40,7 +40,7 @@ Writes go straight to the engine the moment you press enter. There is **no offli
 
 ## Engine errors surface cleanly
 
-The engine's `{ error: { code, message, fields } }` envelope is rendered intact (format in cli-spec "Output conventions"); `--json` prints it verbatim. Commands add a hint line for known refusals (e.g. "revert first" on a locked reconciliation) without replacing the engine's message.
+The engine's `{ error: { code, message, fields, reasons } }` envelope is rendered intact (format in cli-spec "Output conventions"); `--json` prints it verbatim. `EngineError` ([expense/errors.py](../expense/errors.py)) keeps `reasons` — each refused field's reason code (contract: "Error reasons"), `None` when the engine sends null — for code to decide on; the human display never shows them. Commands add a hint line for known refusals (e.g. "revert first" on a locked reconciliation) without replacing the engine's message.
 
 ## Working against the live engine
 

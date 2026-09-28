@@ -372,3 +372,30 @@ def test_create_conflict_surfaces_the_engine_envelope(spec, configured):
     assert result.exit_code == 1
     assert "CONFLICT" in result.output
     assert "That name is already taken." in result.output
+
+
+@resource
+@respx.mock
+def test_create_refusal_keeps_reasons_off_screen_and_in_json(spec, configured):
+    """A 422 carries a reason per field (contract: "Error reasons"). The human
+    display is the engine's message and field messages only; `--json` prints the
+    envelope as sent, reasons included."""
+    reply = error_response(
+        422,
+        "VALIDATION_ERROR",
+        "Request validation failed.",
+        {"name": "Name must not be empty."},
+        {"name": "EMPTY"},
+    )
+    respx.post(f"{BASE}/v1/{spec.name}").mock(return_value=reply)
+
+    human = _run(spec, "create", *spec.create_flags)
+    assert human.exit_code == 1
+    assert "Error: VALIDATION_ERROR — Request validation failed.\n" in human.output
+    assert "  name: Name must not be empty." in human.output
+    assert "EMPTY" not in human.output
+
+    as_json = _run(spec, "create", *spec.create_flags, "--json")
+    assert as_json.exit_code == 1
+    assert json.loads(as_json.output) == reply.json()
+    assert json.loads(as_json.output)["error"]["reasons"] == {"name": "EMPTY"}

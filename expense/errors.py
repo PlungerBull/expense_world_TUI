@@ -7,6 +7,13 @@ from expense.jsonout import json_text
 
 
 class EngineError(Exception):
+    """An engine error envelope `{ error: { code, message, fields, reasons } }`.
+
+    `fields` maps each refused field to its message; `reasons` maps the same keys to
+    the engine's reason code (contract: "Error reasons"). Both are `None` when the
+    engine sends null. `raw_body` is the response body as sent, for `--json`.
+    """
+
     def __init__(
         self,
         code: str,
@@ -14,11 +21,13 @@ class EngineError(Exception):
         fields: dict[str, Any] | None,
         status: int,
         raw_body: dict[str, Any],
+        reasons: dict[str, str] | None = None,
     ):
         super().__init__(message)
         self.code = code
         self.message = message
         self.fields = fields
+        self.reasons = reasons
         self.status = status
         self.raw_body = raw_body
 

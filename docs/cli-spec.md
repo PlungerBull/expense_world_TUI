@@ -176,7 +176,7 @@ Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, match
 - **Amounts** — currency symbol prefix (`S/ 8,420.50`, `$5,200.00`). Native + home currency side by side when they differ. Outflows prefixed with `-`.
 - **Dates (output)** — ISO 8601 (`2026-04-19`). Relative hints (`3 days ago`) only in `get` views.
 - **Dates (input)** — commands that accept `--date` (`expense log`, `expense transactions update`) take `YYYY-MM-DD`, `YYYY-MM-DD HH:MM[:SS]`, `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM-DDTHH:MM:SSZ`, or `YYYY-MM-DDTHH:MM:SS±HH:MM`. Naive forms get the local timezone attached by [expense/dates.py](../expense/dates.py) — the engine rejects naive datetimes, so this normalizer is the only place that accepts them. **Not** `reconcile create`/`update`: a period's dates are calendar days sent unnormalised.
-- **Errors** — the engine's `{ error: { code, message, fields } }` rendered as:
+- **Errors** — the engine's `{ error: { code, message, fields, reasons } }` rendered as (reason codes are not shown):
   ```
   Error: VALIDATION_ERROR — Amount must not be zero.
     amount_cents: Must not be zero.

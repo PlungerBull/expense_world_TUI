@@ -177,6 +177,45 @@ def test_format_error_engine_error_with_fields():
     assert "  amount_cents: Must not be zero" in output
 
 
+def test_format_error_leaves_reasons_off_screen():
+    """Reason codes are for deciding, not for showing: an error that carries
+    them reads exactly like the same error without them."""
+    kwargs = dict(
+        code="VALIDATION_ERROR",
+        message="Amount must not be zero",
+        fields={"amount_cents": "Must not be zero"},
+        status=422,
+        raw_body={},
+    )
+    with_reasons = EngineError(**kwargs, reasons={"amount_cents": "ZERO_AMOUNT"})
+    without = EngineError(**kwargs)
+
+    assert with_reasons.reasons == {"amount_cents": "ZERO_AMOUNT"}
+    assert without.reasons is None
+    assert format_error(with_reasons) == format_error(without)
+    assert format_error(with_reasons) == (
+        "VALIDATION_ERROR — Amount must not be zero\n  amount_cents: Must not be zero"
+    )
+    assert render(with_reasons, json_mode=False) == render(without, json_mode=False)
+
+
+def test_render_engine_error_json_keeps_the_reasons():
+    raw = error_body(
+        "VALIDATION_ERROR", "bad", {"amount_cents": "zero"}, {"amount_cents": "ZERO_AMOUNT"}
+    )
+    err = EngineError(
+        code="VALIDATION_ERROR",
+        message="bad",
+        fields={"amount_cents": "zero"},
+        status=422,
+        raw_body=raw,
+        reasons={"amount_cents": "ZERO_AMOUNT"},
+    )
+    output, _, _ = render(err, json_mode=True)
+    assert json.loads(output) == raw
+    assert json.loads(output)["error"]["reasons"] == {"amount_cents": "ZERO_AMOUNT"}
+
+
 def test_format_error_401_includes_hint():
     err = EngineError(
         code="UNAUTHORIZED",

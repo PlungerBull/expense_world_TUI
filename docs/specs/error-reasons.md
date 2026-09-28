@@ -60,13 +60,6 @@ order. Each is deleted here in the commit that finishes it. The practice engine 
 the new contract; the builder may read `/openapi.json` there (the "Error reasons" section and
 each operation's `x-error-reasons`).
 
-### The shared error keeps the engine's reasons
-Passes if:
-- The client's engine-error type carries `error.reasons` next to `fields`, read from every
-  error the engine sends (`null` when `fields` is).
-- The human error display is unchanged, and `--json` still prints the engine's error verbatim.
-- Unit tests cover an error with reasons, one without, and the display staying the same.
-
 ### Hints switch from wording to reasons
 Passes if:
 - Each hint is chosen from `error.reasons`, with the codes the contract's "Error reasons" lists:
