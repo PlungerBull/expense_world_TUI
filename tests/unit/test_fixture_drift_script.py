@@ -18,13 +18,20 @@ SAVED = "9d593f48328c0c6a"
 MOVED = "0123456789abcdef"
 
 
-def _contract(version):
+def _contract(version, changelog=None):
     account = dict(properties=dict(name={}, currency={}))
-    return dict(
+    doc = dict(
         info=dict(title="expense_world_engine", version=version),
         components=dict(schemas=dict(Account=account)),
         paths={},
     )
+    if changelog is not None:
+        doc["x-changelog"] = changelog
+    return doc
+
+
+def _entry(version, date, *changes):
+    return dict(version=version, date=date, changes=[dict(kind=k, text=t) for k, t in changes])
 
 
 @pytest.fixture
@@ -43,9 +50,9 @@ def drift(tmp_path, monkeypatch):
     return module
 
 
-def _serve(version):
+def _serve(version, changelog=None):
     return respx.get(f"{PRACTICE}/openapi.json").mock(
-        return_value=httpx.Response(200, json=_contract(version))
+        return_value=httpx.Response(200, json=_contract(version, changelog))
     )
 
 
@@ -162,3 +169,123 @@ def test_hook_payload_file_is_not_scanned(drift, capsys):
     (drift.UNIT_TESTS / "test_other.py").write_text(payload)
     assert drift.main(["--engine-url", PRACTICE]) == 1
     assert "tool_name" in capsys.readouterr().out
+
+
+NEWEST = "fedcba9876543210"
+OLDER = "1111222233334444"
+LOG = [
+    _entry(NEWEST, "2026-10-02", ("removed", "`GET /legacy`, gone."), ("added", "`sort=amount`.")),
+    _entry(MOVED, "2026-10-01", ("changed", "*Date windows*, end date is inclusive.")),
+    _entry(SAVED, "2026-09-27", ("added", "`x-changelog` itself.")),
+    _entry(OLDER, "2026-09-01", ("added", "an ancient change.")),
+]
+
+
+@respx.mock
+def test_moved_version_prints_every_entry_newer_than_saved_newest_first(drift, capsys):
+    _serve(NEWEST, LOG)
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    expected = "\n".join(
+        [
+            f"what the contract changed since {SAVED}, newest first:",
+            f"  {NEWEST}  2026-10-02",
+            "    removed: `GET /legacy`, gone.",
+            "    added: `sort=amount`.",
+            f"  {MOVED}  2026-10-01",
+            "    changed: *Date windows*, end date is inclusive.",
+        ]
+    )
+    assert expected in out
+    assert "`x-changelog` itself." not in out
+    assert "an ancient change." not in out
+    assert "2026-09-27" not in out
+    assert "whole contract changed" not in out
+
+
+@respx.mock
+def test_saved_version_absent_from_the_log_means_the_whole_contract_changed(drift, capsys):
+    _serve(NEWEST, LOG[:2])
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert "the whole contract changed" in out
+    assert f"saved {SAVED}, engine {NEWEST}" in out
+    assert "newest first:" not in out
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "changelog",
+    [
+        None,
+        [],
+        "not a list",
+        dict(version=NEWEST),
+        [None],
+        [dict(date="2026-10-02")],
+        [dict(version=NEWEST, changes=[])],
+        [dict(version=NEWEST, date="2026-10-02", changes="added")],
+        [dict(version=NEWEST, date="2026-10-02", changes=[dict(kind="added")])],
+        [dict(version=NEWEST, date="2026-10-02", changes=["added: text"])],
+        [LOG[0], None, LOG[2]],
+    ],
+    ids=[
+        "absent",
+        "empty",
+        "string",
+        "object",
+        "null-entry",
+        "no-version",
+        "no-date",
+        "changes-not-a-list",
+        "change-without-text",
+        "change-not-an-object",
+        "later-entry-malformed",
+    ],
+)
+def test_missing_or_malformed_changelog_means_the_whole_contract_changed(drift, capsys, changelog):
+    _serve(NEWEST, changelog)
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    assert "the whole contract changed" in capsys.readouterr().out
+
+
+@respx.mock
+def test_log_not_starting_at_the_engine_version_means_the_whole_contract_changed(drift, capsys):
+    """The engine's first entry is always its current version; if not, the log is not trusted."""
+    _serve(NEWEST, LOG[1:])
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert "the whole contract changed" in out
+    assert "newest first:" not in out
+    assert "*Date windows*" not in out
+
+
+@respx.mock
+def test_matching_version_prints_no_changelog(drift, capsys):
+    _serve(SAVED, LOG[2:])
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    assert drift.main(["--engine-url", PRACTICE]) == 0
+    out = capsys.readouterr().out
+    assert "changed" not in out
+    assert "`x-changelog` itself." not in out
+
+
+@respx.mock
+@pytest.mark.parametrize("info", ["a string", ["a", "list"], 7])
+def test_non_object_info_is_refused_cleanly(drift, info):
+    respx.get(f"{PRACTICE}/openapi.json").mock(
+        return_value=httpx.Response(200, json=dict(info=info, components={}))
+    )
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+
+    with pytest.raises(SystemExit, match="published no info.version"):
+        drift.main(["--engine-url", PRACTICE])

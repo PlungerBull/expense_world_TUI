@@ -122,6 +122,8 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 5. **One task at a time** — the single branch means parallel builders would collide.
 6. When every remaining task waits on the owner, **stop** and give the owner a short summary: what finished and which questions wait. The owner answers and restarts the loop.
 
+**A moved contract version goes to the owner.** When the tester's version check reports a moved version, the orchestrator starts no new task and files a question in todo.md "Questions for the owner" listing what changed exactly as the check prints it ([docs/cli-runtime.md](docs/cli-runtime.md) "Contract version"). The owner decides whether catching up becomes the next spec. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer, whatever the answer is; until then the check keeps failing and the loop stays stopped.
+
 A task that needs a screen does not stall the loop: draw the mockup, park the task, add a question asking the owner to pick, and move on.
 
 **What always goes to the owner — never guessed:**
@@ -135,7 +137,7 @@ A task that needs a screen does not stall the loop: draw the mockup, park the ta
 **Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. Two exceptions:
 
 - **Read-only**, until this repo takes up the engine's published contract ([docs/agent-loop-plan.md](docs/agent-loop-plan.md) §6.5): the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
-- **The tester may run the test engine.** It starts the engine on `:8002` from `../expense_world_engine` over the disposable `expense_world_test` database, recreates the practice user with `deploy/local/seed-test-user.sh --force` at the start of each check, and uses that fresh key for that check only — exactly as [docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine" describes. It stops only the engine it started, never edits an engine file, never touches `:8000` or `~/.expense-config`, and never writes the key to a file.
+- **The tester may run the test engine.** It starts the engine on `:8002` from `../expense_world_engine` over the disposable `expense_world_test` database, recreates the practice user with `deploy/local/seed-test-user.sh --force` at the start of each check, and uses that fresh key for that check only — exactly as [docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine" describes. It stops only the engine it started, never edits an engine file, never touches `:8000` or `~/.expense-config`, and never writes the key to a file. At the start of every check that uses the practice engine it runs the version check, `python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002` ([docs/cli-runtime.md](docs/cli-runtime.md) "Contract version"), and puts its result in its report.
 
 ## Status
 

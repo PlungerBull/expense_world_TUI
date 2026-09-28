@@ -63,20 +63,6 @@ The practice engine (`:8002`) must be running for any task that reads the contra
 tester starts it; the orchestrator has the tester start it before handing such a task to the
 builder, and it is stopped after the task.
 
-### The loop checks the version, and a change goes to the owner
-Passes if:
-- CLAUDE.md says the tester runs the version check at the start of every check and puts the
-  result in its report.
-- CLAUDE.md says that on a moved version, the orchestrator stops starting new tasks and files
-  a question for the owner in todo.md listing what changed: the contract's own change-log
-  entries (`x-changelog` in `/openapi.json`) newer than the saved version, or "the whole
-  contract changed" when the saved version is not in the log.
-- The version check prints those entries when the version has moved, so the tester's report
-  carries them.
-- The engine ask `docs/engine-asks/contract-change-log.md` is deleted in the same commit; it has
-  landed.
-- The link checker and the guard tests still pass.
-
 ### Code comments cite the contract, not engine files
 Passes if:
 - No comment or docstring under `expense/`, `tests/` or `scripts/` cites `engine-spec`, an

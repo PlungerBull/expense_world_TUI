@@ -21,7 +21,12 @@ CONTRACT VERSION. The engine's `info.version` changes whenever its contract
 changes. The version this repo was last checked against is saved in
 `scripts/engine-contract-version`: one line, the version and nothing else. Every
 run compares the two. A different version is reported with both numbers and fails
-the run even when every fixture key matches; a missing saved version fails too.
+the run even when every fixture key matches, and comes with what moved, read from
+the contract's own change log (`x-changelog`, newest first): every entry newer than
+the saved version, each with its date and every change as `kind: text`. When the
+saved version is not in the log, the log's first entry is not the engine's current
+version, or the log is missing or malformed, it says the whole contract changed
+instead. A missing saved version fails the run too.
 The saved version changes only through the separate recording step, which writes
 the engine's current version and checks nothing:
 
@@ -180,7 +185,8 @@ def fetch_contract(engine_url: str) -> dict:
 
 def contract_version(doc: dict, engine_url: str) -> str:
     """`info.version` of the contract; a contract without one is not the engine's."""
-    version = (doc.get("info") or {}).get("version")
+    info = doc.get("info")
+    version = info.get("version") if isinstance(info, dict) else None
     if not isinstance(version, str) or not version.strip():
         sys.exit(f"{engine_url} published no info.version — wrong host?")
     return version.strip()
@@ -195,8 +201,10 @@ def read_saved_version() -> str | None:
     return text or None
 
 
-def version_problem(saved: str | None, engine: str, engine_url: str) -> str | None:
-    """What differs between the saved and the engine's version; None when they match."""
+def version_problem(doc: dict, saved: str | None, engine: str, engine_url: str) -> str | None:
+    """What differs between the saved and the engine's version; None when they match.
+
+    A moved version carries the contract's change-log entries newer than `saved`."""
     record = f"python scripts/check_fixture_drift.py --engine-url {engine_url} --record-version"
     if saved is None:
         return (
@@ -207,9 +215,56 @@ def version_problem(saved: str | None, engine: str, engine_url: str) -> str | No
     if saved != engine:
         return (
             f"the engine's contract version has changed: saved {saved}, engine {engine}.\n"
+            f"{changes_report(doc, saved, engine)}\n"
             f"Once the change is handled, record the new version with: {record}"
         )
     return None
+
+
+def changes_since(doc: dict, saved: str, engine: str) -> list[dict] | None:
+    """The contract's change-log entries newer than `saved`, newest first.
+
+    Reads `x-changelog`, which the engine keeps newest first with one entry per
+    version move, its first entry being the current `engine` version. None means
+    the whole contract is to be treated as changed: the log is absent or malformed,
+    its first entry is not `engine`, or `saved` is not in it."""
+    log = doc.get("x-changelog")
+    if not isinstance(log, list) or not log:
+        return None
+    if not isinstance(log[0], dict) or log[0].get("version") != engine:
+        return None
+    newer: list[dict] = []
+    for entry in log:
+        if not isinstance(entry, dict) or not isinstance(entry.get("version"), str):
+            return None
+        if entry["version"] == saved:
+            return newer
+        changes = entry.get("changes")
+        if not isinstance(entry.get("date"), str) or not isinstance(changes, list):
+            return None
+        for change in changes:
+            if not isinstance(change, dict) or not all(
+                isinstance(change.get(k), str) for k in ("kind", "text")
+            ):
+                return None
+        newer.append(entry)
+    return None
+
+
+def changes_report(doc: dict, saved: str, engine: str) -> str:
+    """What the contract's own change log says moved since `saved`, as printable text."""
+    entries = changes_since(doc, saved, engine)
+    if entries is None:
+        return (
+            f"the contract's change log (x-changelog) is missing, unreadable, does not start "
+            f"at engine version {engine}, or does not list saved version {saved}, so the "
+            "whole contract changed."
+        )
+    lines = [f"what the contract changed since {saved}, newest first:"]
+    for entry in entries:
+        lines.append(f"  {entry['version']}  {entry['date']}")
+        lines += [f"    {change['kind']}: {change['text']}" for change in entry["changes"]]
+    return "\n".join(lines)
 
 
 def engine_field_names(doc: dict, engine_url: str) -> set[str]:
@@ -325,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"recorded contract version {engine_version} (was {saved or 'none'}).")
         return 0
 
-    problem = version_problem(read_saved_version(), engine_version, args.engine_url)
+    problem = version_problem(doc, read_saved_version(), engine_version, args.engine_url)
     if problem:
         print(f"\n{problem}")
 
