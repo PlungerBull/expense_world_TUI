@@ -180,7 +180,7 @@ Decisions whose why lives elsewhere:
 
 ## Contract tests verify against a disposable database, and refuse the real ledger (2026-08-16)
 
-**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [tests/contract/conftest.py](../tests/contract/conftest.py)). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
+**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [cli-runtime.md](cli-runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
 
 **Rejected.** *A warning banner instead of refusing* — useless when nobody is watching, which is when it matters. *A separate user in the real database* — the junk still accumulates in production. *The drift check inside `pytest tests/unit`* — the unit suite blocks sockets on purpose.
 
@@ -357,3 +357,11 @@ Decisions whose why lives elsewhere:
 **Why.** The commit hook already runs the unit tests on every commit, so a per-task tester only repeated them; its real value is the real engine and checking criteria rather than tests, which one pass per spec covers. Docs drift slowly, so one sweep at the end catches what per-task passes did. Reading is cheaper than testing, so the reviewer goes first.
 
 **Rejected.** *Tester and librarian after every task* — the first spec showed most of their time went on re-running what the commit hook checks and on small follow-up rounds. *No tester at all* — nothing else runs the app against the real engine or catches a criterion the tests miss.
+
+## The engine is learned only from its live contract (2026-09-28, owner)
+
+**Decision.** This repo learns how the engine behaves only from `GET /openapi.json` on the practice engine (`:8002`), read live; no copy of the contract is kept. Only its version is saved ([scripts/engine-contract-version](../scripts/engine-contract-version)); the fixture check compares it on every run and, when it moves, prints the contract's own change log (`x-changelog`). A moved version stops the loop and becomes a question for the owner, who decides whether catching up is the next spec; the new version is recorded only when acting on that answer. Code comments and docs cite the part of the contract that states a rule, as `(contract: …)` ([CLAUDE.md](../CLAUDE.md) "Key documentation"). No agent reads a file in the engine's folder: the guard blocks it for every agent, and the tester keeps only its start, reseed and stop there ([CLAUDE.md](../CLAUDE.md) "Stay inside this repo").
+
+**Why.** Reading the engine's folder broke the rule that agents stay inside this repo, and the web and iOS clients never see that folder: they have only the published contract, so this client validates the same thing they will use. A saved version with the engine's own change log says *that* the contract moved and *what* moved, without keeping a copy that goes stale.
+
+**Rejected.** *Keeping a copy of `openapi.json` in the repo* — it drifts, and each client would keep its own. *Accepting a moved version automatically* — an engine change would slip into the ledger's client unreviewed. *Reporting a change as the fixtures that no longer match* — it says what this repo's test data got wrong, not what the engine changed.

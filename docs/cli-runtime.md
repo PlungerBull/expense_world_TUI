@@ -64,7 +64,11 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.
 
-**The contract suite** (`tests/contract/`) hits a real engine and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 pytest tests/contract`. `EXPENSE_ENGINE_URL` names the target; its default is the live `http://127.0.0.1:8000`, so always set it to the `:8002` test engine.
+  **The key goes on the command line, nowhere else.** The reseed prints the practice user's fresh PAT once, in its output. Read it there and pass it inline as `EXPENSE_PAT=<key>` on the contract suite's own command line (below), never in a file (CLAUDE.md "Stay inside this repo"). The next reseed revokes it, so it is good for one check only. The session guard ([.claude/hooks/guard.py](../.claude/hooks/guard.py)) holds the file half: the seed's output may be redirected only to `/dev/null` and piped only into a plain `sed`/`grep`/`head`/`tail` filter (a `grep` pattern with no `[…]` or other glob), and a command run in the engine checkout that holds `$(…)` or a backtick is refused, so the key cannot be captured into a variable there either; its docstring lists the exact forms.
+
+  **Stop it when the check ends:** `kill <pid>` of the engine you started, or `lsof -ti :8002 | xargs kill` — the only stop forms the guard lets the tester run.
+
+**The contract suite** (`tests/contract/`) hits a real engine and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<key> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 pytest tests/contract`, `<key>` being the one the last reseed printed. `EXPENSE_ENGINE_URL` names the target (the session guard refuses a contract run without it set to `:8002`); its default is the live `http://127.0.0.1:8000`, so always set it to the `:8002` test engine.
 
 **It refuses to run against the real ledger.** Without `EXPENSE_PAT` the only credential is the developer's own config, so [tests/contract/conftest.py](../tests/contract/conftest.py) aborts the session with a message pointing at the practice database. `EXPENSE_ALLOW_REAL_LEDGER=1` overrides it.
 

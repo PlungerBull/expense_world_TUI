@@ -5,8 +5,8 @@ spec's tasks live in that spec's "Tasks" section; everything else open lives her
 tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
 runs: CLAUDE.md "How work runs (the agent loop)".
 
-**Current spec:** [specs/engine-contract.md](specs/engine-contract.md). The owner writes specs
-in [specs/](specs/) and names the current one here.
+**Current spec:** none. The owner writes specs in [specs/](specs/) and names the current one
+here.
 
 - **Only the orchestrator edits this file** (and a spec's "Tasks" section). Workers put tasks
   and questions in their reports.
@@ -39,6 +39,17 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
+
+### Why does the practice engine start as `python -m uvicorn`?
+Asked 2026-09-28 · Blocks: nothing; [cli-runtime.md](cli-runtime.md) "Working against the live engine" points agents at a guide they may no longer open
+The ops guide says to start the practice engine as `python -m uvicorn`, not the `uvicorn` command,
+and gives the reason only as a pointer to the engine's local-deployment guide ("TCC", a macOS
+permission rule). No agent may read the engine's folder now, so the reason has to be written here.
+- **A.** Paste the reason from that guide (or say it in your own words) and it goes into
+  cli-runtime.md.
+- **B.** Ask the engine coder to put it in the engine's published contract or a note you hand over.
+
+**Recommended:** A. It is one sentence, and it is an ops fact, not an API rule.
 
 ### Will you still log card purchases by hand after the official migration?
 Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Small defects
@@ -162,7 +173,7 @@ An index; the depth lives in each plan doc, which is deleted when it ships (its 
 | 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; questions for the owner open; starts after the in-flight work |
 | 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
-| 5 | The agent loop: orchestrator + builder/tester/reviewer/librarian, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules, worker files, guards and pre-approved commands built; §6.5 in progress as the loop's first spec ([specs/engine-contract.md](specs/engine-contract.md)) |
+| 5 | The agent loop: orchestrator + builder/tester/reviewer/librarian, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules, worker files, guards and pre-approved commands built; §6.5 (the first spec) finished 2026-09-28; rollout step 3 next: adjust, record the setup in decisions.md, delete the plan |
 
 **The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
 ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when
@@ -237,6 +248,12 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    the docstring's limits. [test_claude_hooks.py](../tests/unit/test_claude_hooks.py) has no
    Bash case whose hook `cwd` is the harness scratchpad or `~/.claude`; add one pinning that
    both pass. Builder work.
+
+5. **The contract suite's conftest repeats the ops guide and tells history.**
+   [tests/contract/conftest.py](../tests/contract/conftest.py): its module docstring copies the
+   seed, start and suite commands that [cli-runtime.md](cli-runtime.md) "Working against the
+   live engine" owns (cut it to a pointer), and the comment above `DEFAULT_ENGINE_URL`
+   describes an old default (state only what is). Builder work.
 
 ## Ergonomics
 

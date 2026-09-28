@@ -1,8 +1,10 @@
 # Agent loop setup — plan
 
 **Status:** The rules, the four workers, the guards and the loop's pre-approved commands are
-built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 in progress: its spec
-is written and its tasks are approved. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
+built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"). §6.5, the loop's first spec
+and trial run, is finished (2026-09-28): every task committed, the tester's acceptance check
+passed, the librarian's sweep done. Rollout steps 1 and 2 are done; step 3 is next (§7).
+Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
 The roles, the loop per task and per spec, and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)
@@ -36,13 +38,15 @@ test or any other code waits for the builder. 6.5 is the loop's first job.
 
 ### 6.5 Take up the engine's published contract (the loop's first spec and trial run)
 
-The loop's first spec and trial run: [specs/engine-contract.md](specs/engine-contract.md).
+The loop's first spec and trial run, "learn the engine only from its published contract".
+Finished 2026-09-28; its why is in [decisions.md](decisions.md) "The engine is learned only from its
+live contract".
 
 ## 7. Rollout
 
-1. Owner answers the open questions (§8).
-2. **Trial run:** the loop runs §6.5 as its first spec, owner watching.
-3. Adjust, record the setup in decisions.md, delete this doc.
+1. Owner answers the open questions (§8). Done.
+2. **Trial run:** the loop runs §6.5 as its first spec, owner watching. Done 2026-09-28.
+3. **Next.** Adjust, record the setup in decisions.md, delete this doc.
 4. Later: copy to the engine repo (with guards for its own real database); optionally a
    read-only status board at the `productivity_world` level showing each repo's loop and
    what waits on the owner.
