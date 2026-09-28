@@ -5,8 +5,8 @@ spec's tasks live in that spec's "Tasks" section; everything else open lives her
 tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
 runs: CLAUDE.md "How work runs (the agent loop)".
 
-**Current spec:** [specs/error-reasons.md](specs/error-reasons.md). The owner writes specs in
-[specs/](specs/) and names the current one here.
+**Current spec:** none. The owner writes specs in [specs/](specs/) and names the current one
+here.
 
 - **Only the orchestrator edits this file** (and a spec's "Tasks" section). Workers put tasks
   and questions in their reports.
@@ -249,11 +249,15 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    Bash case whose hook `cwd` is the harness scratchpad or `~/.claude`; add one pinning that
    both pass. Builder work.
 
-5. **The contract suite's conftest repeats the ops guide and tells history.**
+5. **The contract suite's conftest repeats the ops guide, out of date, and tells history.**
    [tests/contract/conftest.py](../tests/contract/conftest.py): its module docstring copies the
    seed, start and suite commands that [cli-runtime.md](cli-runtime.md) "Working against the
-   live engine" owns (cut it to a pointer), and the comment above `DEFAULT_ENGINE_URL`
-   describes an old default (state only what is). Builder work.
+   live engine" owns, and its start command is stale (bare `python`, not detached); cut it to a
+   pointer. The comment above `DEFAULT_ENGINE_URL` describes an old default (state only what
+   is). Also three citations name a fragment of a bold heading instead of the whole heading:
+   `(contract: "Cursors")` and `(contract: "Lists come in three shapes")` in
+   [_resource.py](../expense/commands/_resource.py), `(contract: "Cursors")` in
+   [test_resource.py](../tests/unit/test_resource.py). Builder work.
 
 ## Ergonomics
 

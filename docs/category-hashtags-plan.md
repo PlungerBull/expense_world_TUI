@@ -15,7 +15,7 @@ empty result or a >50-tag category.
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
 used with, most-used first. Read-only. **Returns the whole list, unpaged**
-(contract: "Base Conventions", "Lists come in three shapes"): `?limit=` / `?offset=` are a `422`.
+(contract: "Base Conventions", "Lists come in three shapes, and none of them is paged by position"): `?limit=` / `?offset=` are a `422`.
 
 ```json
 { "items": [ {"id": "<uuid>", "name": "ALQUILER", "uses": 142},

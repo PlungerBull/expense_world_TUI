@@ -18,7 +18,7 @@ Every read command is a direct `GET`. What a command prints is what the engine c
 
 ### Three list shapes
 
-No list pages by position; every list is one of three shapes, each read its own way. The rules are the engine's (contract: "Base Conventions", "Lists come in three shapes"), with (contract: "Base Conventions", "Cursors") and (contract: "Base Conventions", "Date windows"); what each command prints under its table is cli-spec "Pagination (human mode)".
+No list pages by position; every list is one of three shapes, each read its own way. The rules are the engine's (contract: "Base Conventions", "Lists come in three shapes, and none of them is paged by position"), with (contract: "Base Conventions", "Cursors, on every cursor-paged list") and (contract: "Base Conventions", "Date windows"); what each command prints under its table is cli-spec "Pagination (human mode)".
 
 | Shape | Lists | How the CLI and TUI read it |
 |---|---|---|
@@ -40,7 +40,7 @@ Writes go straight to the engine the moment you press enter. There is **no offli
 
 ## Engine errors surface cleanly
 
-The engine's `{ error: { code, message, fields, reasons } }` envelope is rendered intact (format in cli-spec "Output conventions"); `--json` prints it verbatim. `EngineError` ([expense/errors.py](../expense/errors.py)) keeps `reasons` — each refused field's reason code (contract: "Error reasons"), `None` when the engine sends null — for code to decide on; the human display never shows them. Commands add a hint line for known refusals (e.g. "revert first" on a locked reconciliation) without replacing the engine's message; each hint is chosen by the reason code (`reason_on` / `has_reason` in [expense/errors.py](../expense/errors.py)), never by the wording of `message` or `fields`. The `--json` envelope the CLI composes itself (`CONNECTION_ERROR`, `CONFIG_*`) has the same four keys, with `fields` and `reasons` null.
+The engine's `{ error: { code, message, fields, reasons } }` envelope is rendered intact (format in cli-spec "Output conventions"); `--json` prints it verbatim. `EngineError` ([expense/errors.py](../expense/errors.py)) keeps `reasons` — each refused field's reason code (contract: "Error reasons"), `None` when the engine sends it null or leaves it out — for code to decide on. Commands add a hint line for known refusals (e.g. "revert first" on a locked reconciliation) without replacing the engine's message; each hint is chosen by the reason code (`reason_on` / `has_reason` in [expense/errors.py](../expense/errors.py)), never by the wording of `message` or `fields`. The `--json` envelope the CLI composes itself (`CONNECTION_ERROR`, `CONFIG_*`) has the same four keys, with `fields` and `reasons` null.
 
 ## Working against the live engine
 
@@ -65,6 +65,8 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
   **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.
 
   **The key goes on the command line, nowhere else.** The reseed prints the practice user's fresh PAT once, in its output. Read it there and pass it inline as `EXPENSE_PAT=<key>` on the contract suite's own command line (below), never in a file (CLAUDE.md "Stay inside this repo"). The next reseed revokes it, so it is good for one check only. The session guard ([.claude/hooks/guard.py](../.claude/hooks/guard.py)) holds the file half: the seed's output may be redirected only to `/dev/null` and piped only into a plain `sed`/`grep`/`head`/`tail` filter (a `grep` pattern with no `[…]` or other glob), and a command run in the engine checkout that holds `$(…)` or a backtick is refused, so the key cannot be captured into a variable there either; its docstring lists the exact forms.
+
+  **Pointing `expense` at it.** The CLI reads its key only from the file `EXPENSE_CONFIG` names ([expense/config.py](../expense/config.py)), so hand it the config as a pipe instead of a file: `EXPENSE_CONFIG=<(printf '{"engine_url":"http://127.0.0.1:8002","token":"<key>","main_currency":"PEN"}') expense …`. `main_currency` is there because `auth me` otherwise saves it back into the config; a command that writes the config (`config set`, `import bank` remembering an account) fails on a pipe.
 
   **Stop it when the check ends:** `kill <pid>` of the engine you started, or `lsof -ti :8002 | xargs kill` — the only stop forms the guard lets the tester run.
 

@@ -365,3 +365,11 @@ Decisions whose why lives elsewhere:
 **Why.** Reading the engine's folder broke the rule that agents stay inside this repo, and the web and iOS clients never see that folder: they have only the published contract, so this client validates the same thing they will use. A saved version with the engine's own change log says *that* the contract moved and *what* moved, without keeping a copy that goes stale.
 
 **Rejected.** *Keeping a copy of `openapi.json` in the repo* — it drifts, and each client would keep its own. *Accepting a moved version automatically* — an engine change would slip into the ledger's client unreviewed. *Reporting a change as the fixtures that no longer match* — it says what this repo's test data got wrong, not what the engine changed.
+
+## Hints are chosen by the engine's reasons, never its wording (2026-09-28, owner)
+
+**Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The CLI and TUI choose every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `--json` passes the engine's envelope through verbatim, codes included ([cli-spec.md](cli-spec.md) "Output conventions").
+
+**Why.** The engine publishes its message wording for people and changes it without notice; a hint keyed to words breaks silently on a rewording, and web and iOS would copy the same fragile match. Reason codes are part of the published contract, listed per operation, so a change to them moves the contract version and reaches the owner.
+
+**Rejected.** *Showing the codes on screen* — the owner kept errors as they read today (2026-09-28); the codes are for code, and `--json` has them. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
