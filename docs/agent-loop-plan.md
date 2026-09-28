@@ -1,7 +1,8 @@
 # Agent loop setup — plan
 
-**Status:** The rules, the four workers and the guards are built (CLAUDE.md "How work runs",
-"Dev loop" → "Guards (hooks)"); §6.4 next. Written 2026-09-27. Delete this doc when the setup
+**Status:** The rules, the four workers, the guards and the loop's pre-approved commands are
+built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 next, waiting on the
+owner's first spec. Written 2026-09-27. Delete this doc when the setup
 ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
@@ -31,21 +32,12 @@ The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../C
 
 ## 6. What gets built
 
-Every session is the orchestrator, so the main session builds only docs and Claude config:
-the settings cleanup (6.4). A test or any other code waits for the builder. 6.5 is the loop's
-first job.
-
-### 6.4 Cleanup
-
-- Trim `.claude/settings.local.json`: it pre-approves blanket actions (reading anything in the
-  home folder, any `git push`, a stored cloud-database login command) that would undermine
-  the guards.
-- Confirm the fast tests are green before the first loop run.
+Every session is the orchestrator, so the main session builds only docs and Claude config. A
+test or any other code waits for the builder. 6.5 is the loop's first job.
 
 ### 6.5 Take up the engine's published contract (the loop's first spec and trial run)
 
-Built by the loop itself, once 6.4 exists: it is the first spec the owner writes, and the
-trial run. Today this repo still reads the engine's folder. Once this lands, it doesn't:
+Built by the loop itself: it is the first spec the owner writes, and the trial run. Today this repo still reads the engine's folder. Once this lands, it doesn't:
 
 1. Agents and `scripts/check_fixture_drift.py` read the contract from the **test engine**
    (`:8002`), and record the contract version last checked against, so a version change is
@@ -54,15 +46,15 @@ trial run. Today this repo still reads the engine's folder. Once this lands, it 
    docs, and the engine half of `tests/unit/test_docs_links.py`.
 3. Code comments that cite engine files (`sql/015` in `expense/currencies.py`, `sql/026` in
    `expense/http.py`, and any others) cite the contract instead.
-4. Then "never read outside this repo" becomes absolute.
+4. Then "never read outside this repo" becomes absolute: the guard stops allowing reads of
+   the engine checkout, and `.claude/settings.json` drops its engine-docs `Read` entry.
 
 ## 7. Rollout
 
 1. Owner answers the open questions (§8).
-2. Build §6.4.
-3. **Trial run:** the loop runs §6.5 as its first spec, owner watching.
-4. Adjust, record the setup in decisions.md, delete this doc.
-5. Later: copy to the engine repo (with guards for its own real database); optionally a
+2. **Trial run:** the loop runs §6.5 as its first spec, owner watching.
+3. Adjust, record the setup in decisions.md, delete this doc.
+4. Later: copy to the engine repo (with guards for its own real database); optionally a
    read-only status board at the `productivity_world` level showing each repo's loop and
    what waits on the owner.
 
