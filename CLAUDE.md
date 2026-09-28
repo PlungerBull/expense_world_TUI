@@ -33,7 +33,7 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 
 Engine docs are **referenced, not copied**; the engine repo is a **sibling checkout** (`../expense_world_engine` — see README "Checkout layout"). Inside this repo too, **each fact has one home** — commands in cli-spec, the TUI in tui.md, open work in todo.md, rationale in decisions.md. When you ship something, update the owning doc.
 
-Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone test** — every doc must work with zero conversation history; write needed context down (rationale goes in [docs/decisions.md](docs/decisions.md)). **(2) Executable beats prose** — when a convention can be checked mechanically, add a guard test next to the existing ones ([tests/unit/test_command_surface.py](tests/unit/test_command_surface.py), [tests/unit/test_tui_theme.py](tests/unit/test_tui_theme.py), [tests/unit/test_docs_links.py](tests/unit/test_docs_links.py)). **(3) Absolute dates only** — never "recently" or "last week".
+Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone test** — every doc must work with zero conversation history; write needed context down (rationale goes in [docs/decisions.md](docs/decisions.md)). **(2) Executable beats prose** — when a convention can be checked mechanically, add a guard test next to the existing ones ([tests/unit/test_command_surface.py](tests/unit/test_command_surface.py), [tests/unit/test_tui_theme.py](tests/unit/test_tui_theme.py), [tests/unit/test_docs_links.py](tests/unit/test_docs_links.py)). **(3) Absolute dates only** — never "recently" or "last week". **(4) Present tense** — state what is and why; no history of how it got there, in docs or code comments.
 
 ## Dev loop
 
@@ -97,14 +97,17 @@ Every new command lands with at least one happy-path + one error-shape unit test
 
 The owner is not a coder. Agents make every technical decision. The owner decides what users see (screens, flows, wording), money or business rules a spec does not cover, and anything touching real data.
 
-**Roles.** The main session is **always the orchestrator**, including a plain chat with the owner. Builder, tester and reviewer are **workers** it delegates to.
+**Roles.** The main session is **always the orchestrator**, including a plain chat with the owner. Builder, tester, reviewer and librarian are **workers** it delegates to.
 
 | Role | Does | May touch |
 |---|---|---|
 | **Orchestrator** (main session) | Picks the next task, writes its "passes if…" criteria, delegates, reads the reports, commits and pushes, files questions and rationale. **Never writes code or tests.** | Docs and Claude config; the only role that edits [docs/todo.md](docs/todo.md) and [docs/decisions.md](docs/decisions.md) |
 | **Builder** | Implements one task under this file's rules, and updates the doc that owns what it changed (cli-spec, tui.md, README, …) | Code, tests and docs of this repo, except todo.md and decisions.md |
-| **Tester** | Checks each criterion: runs `pytest tests/unit`, runs the app against the test engine (`:8002`), reports pass/fail with evidence. A criterion no test proves is reported as such; the builder writes that test | Runs things; edits nothing |
-| **Reviewer** | Reads the change for quality, security and this file's conventions | Read-only |
+| **Tester** | Checks each criterion: runs `pytest tests/unit`, runs the app against the test engine (`:8002`), reports pass/fail with evidence. A criterion no test proves is reported as such; the builder writes that test | Runs things; edits nothing. May start the test engine ("Stay inside this repo" below) |
+| **Reviewer** | Reads the change for correctness, quality, security and this file's conventions; doc structure is the librarian's | Read-only |
+| **Librarian** | Keeps the docs aligned: each fact in one home with the others linking to it ("Key documentation" above), no two docs disagreeing, docs matching the code, links resolving, the doc rules above kept. Where it can't tell which conflicting doc is right, it asks instead of picking | Docs of this repo, except todo.md and decisions.md |
+
+The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `tester`, `reviewer`, `librarian`) and take this repo's rules from this file.
 
 **If you are a worker,** you have no owner to ask and you are not the orchestrator. When something is unclear, a rationale belongs in decisions.md, or a choice belongs to the owner, stop and put it in your report; the orchestrator files it. Every worker reports in one shape: **verdict · what was checked · what is wrong · where**.
 
@@ -112,9 +115,9 @@ The owner is not a coder. Agents make every technical decision. The owner decide
 
 **Per task:**
 1. Take the next approved task and write its "passes if…" criteria. No clear criteria → a question for the owner first.
-2. Builder implements → tester checks → reviewer checks. A fail or rejection goes back to the builder with that report.
+2. Builder implements → tester checks → reviewer checks → librarian aligns the docs the task touched and every doc covering the same things (every doc, when the task is its spec's last). A fail or rejection goes back to the builder with that report.
 3. After **4 failed rounds**, park the task, add a question for the owner, and move on.
-4. **Done** = tester passed + reviewer approved + committed and pushed + deleted from todo.md in that same commit.
+4. **Done** = tester passed + reviewer approved + librarian done + committed and pushed + deleted from todo.md in that same commit.
 5. **One task at a time** — the single branch means parallel builders would collide.
 6. When every remaining task waits on the owner, **stop** and give the owner a short summary: what finished and which questions wait. The owner answers and restarts the loop.
 
@@ -128,7 +131,10 @@ A task that needs a screen does not stall the loop: draw the mockup, park the ta
 
 **Questions for the owner** live in todo.md "Questions for the owner", in the format given there: plain language, 2–3 options, a recommendation.
 
-**Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. One exception, **read-only**, until the todo.md task that takes up the engine's published contract lands: the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
+**Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. Two exceptions:
+
+- **Read-only**, until the todo.md task that takes up the engine's published contract lands: the engine docs linked in "Key documentation" and the engine checkout that `scripts/check_fixture_drift.py` reads.
+- **The tester may run the test engine.** It starts the engine on `:8002` from `../expense_world_engine` over the disposable `expense_world_test` database, recreates the practice user with `deploy/local/seed-test-user.sh --force` at the start of each check, and uses that fresh key for that check only — exactly as [docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine" describes. It stops only the engine it started, never edits an engine file, never touches `:8000` or `~/.expense-config`, and never writes the key to a file.
 
 ## Status
 
