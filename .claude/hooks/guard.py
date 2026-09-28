@@ -1,8 +1,9 @@
 """PreToolUse guard: blocks the tool calls CLAUDE.md forbids, before they run.
 
-Wired in `.claude/settings.json` for Bash, Read, Write, Edit, MultiEdit, NotebookEdit, Glob,
-Grep and WebFetch. Reads the hook JSON on stdin; a blocked call exits 2 with a one-line
-reason on stderr (Claude Code hands it back to the model), an allowed one exits 0 silently.
+Wired in `.claude/settings.json` for Bash, Read, Write, Edit, MultiEdit, NotebookRead,
+NotebookEdit, Glob, Grep and WebFetch. Reads the hook JSON on stdin; a blocked call exits 2
+with a one-line reason on stderr (Claude Code hands it back to the model), an allowed one
+exits 0 silently.
 Tests: `tests/unit/test_claude_hooks.py`.
 
 What it blocks:
@@ -18,22 +19,47 @@ What it blocks:
 - **Real config** ("Careful running live"): an `expense` run (`expense`, any `…/expense`,
   `python -m expense…`) without `EXPENSE_CONFIG=` somewhere in the command; any path to a
   `.expense-config` under the home folder, from a file tool or a Bash word.
-- **Outside the repo** ("Stay inside this repo"): a file-tool path, or a Bash word that is
-  an absolute, `~`, `$HOME` or `..` path (resolved against the hook's `cwd` and any `cd`
-  earlier in the command), that lands under the home folder but outside the repo. Allowed:
-  `~/.claude/**`; everything outside the home folder (system paths, the harness scratchpad
-  under `/private/tmp`); and reads of the sibling engine checkout `../expense_world_engine`.
-- **The engine checkout is read-only**: file-tool writes there are blocked for everyone. A
-  Bash command that runs there (a `cd` into it, the hook's `cwd`, or a path word inside it)
-  may only be a read (`cat`, `ls`, `grep`, `head`, `sed -n`, read-only `git`, …) with no
-  redirect into it — except that the **tester** (`agent_type == "tester"`) may also start
-  the test engine exactly as the ops guide says (`python -m uvicorn app.main:app --port
-  8002` with both `SUPABASE_DB_URL` and `ADMIN_DB_URL` in the command and every `*_DB_URL`
-  naming `expense_world_test`, env names compared case-insensitively — a missing one falls
-  back to the engine's `.env`, which points at the real ledger), run
-  `deploy/local/seed-test-user.sh --force`, and check it with `curl` (flags only from
-  `-s -S -f -i -v`, their bundles, `--silent --show-error --fail --max-time <n>`; every
-  URL on `127.0.0.1`/`localhost:8002`).
+- **Outside the repo** ("Stay inside this repo"): a file-tool path, or a Bash path that
+  lands under the home folder but outside the repo. A Bash word counts as a path when it is
+  absolute, `~`, `$HOME` or `..`; while the command's folder is outside the repo, any other
+  word too (not a flag, a `$` word or a URL), read against that folder, and a command run
+  in such a folder is itself a read there. The folder is the hook's `cwd`, then every `cd`
+  in the command: a bare `cd` goes home, and `cd -` goes back to the folder the last `cd`
+  left. Allowed: `~/.claude/**`; everything outside the home folder (system paths, the
+  harness scratchpad under `/private/tmp`).
+- **The engine checkout is closed** (the sibling `../expense_world_engine`): no agent reads
+  or writes a file there. Every file tool (Read, NotebookRead, Glob, Grep and the writers)
+  on a path inside it is blocked for everyone. A Bash command that runs there (after a `cd`
+  into it, from the hook's `cwd`, with a path word inside it, or with a `<`/`>` redirect into
+  it) is blocked. Two things pass:
+  - for everyone, a bare `cd <dir>` out of it (exactly one target word, no env prefix, no
+    redirect, the target outside it);
+  - for the **tester** (`agent_type == "tester"`) alone, the ops guide's commands, each with
+    no `$NAME`/`${…}` expansion other than `$HOME`: `cd <dir>` (one word); `sleep <n>`; a
+    bare `true`; the test-engine start (`<python> -m uvicorn app.main:app --port 8002`,
+    `<python>` being exactly `python`, `python3`, `.venv/bin/python` or
+    `.venv/bin/python3`, whose env prefix names only `*_DB_URL` variables, includes both
+    `SUPABASE_DB_URL` and `ADMIN_DB_URL`, and has every one naming `expense_world_test`,
+    env names compared
+    case-insensitively — a missing one falls back to the engine's `.env`, which points at
+    the real ledger); `deploy/local/seed-test-user.sh --force` with no env prefix (relative,
+    `..`, absolute or `~` path, or through `bash`/`sh`); `curl` and `lsof` with no env
+    prefix (curl flags only from `-s -S -f -i -v`, their bundles, `--silent --show-error
+    --fail --max-time <n>`; every URL on `127.0.0.1`/`localhost:8002`); the stop forms
+    below; and stdin filters with no env prefix and no file operand — `sed` whose every
+    script is one `s` command (delimiter not `?`, `*` or `[`; flags only `g`, `p`, `i`, `I`
+    or a number; options only `-E -r -n -e`), `grep` with one glob-free pattern and flags
+    from `-v -i -E -F -o -c -q -x -w`, `head`/`tail` with only `-n <n>`/`-<n>`.
+  A command that touches the engine checkout is blocked whole when it holds `$(`, a
+  backtick, `<(` or `>(` anywhere, or an `export`/`declare`/`typeset`/`readonly`/`local`/
+  `set`/`alias`/`eval`/`source`/`.` command. The engine's test-database wipe script is not
+  allowed: the ops guide does not give it to the tester.
+- **The practice user's key stays off disk** (CLAUDE.md "Stay inside this repo": the tester
+  never writes the key to a file), wherever the command runs: the seed's own redirects may
+  only be `/dev/null`, and every command piped straight after it (a pipe as `_shell.py`
+  marks one) must be one of the stdin filters above, redirecting only to `/dev/null` — so
+  `| sed 's/…/…/'` and `> /dev/null` pass, and `| tee f`, `|(tee f)`, `| cat > f` or `> f`
+  are blocked.
 - **Stopping processes** ("Stay inside this repo"): `kill`, `pkill`, `killall` and
   `xargs kill` are blocked for everyone except the tester, who may run
   `kill [-SIGNAL] <numeric pid>…` and `lsof -ti :8002 | xargs [-r] kill` (or
@@ -46,11 +72,29 @@ What it blocks:
   without `--detach` or with `-b`); `--no-verify`, `commit -n`, a commit with a `SKIP=`
   env prefix or after an `export SKIP=`; any `core.hooksPath`.
 
-Limits: it reads commands as `_shell.py` describes, so a relative path without `..`, a path
-built from variables, or a command hidden in `$(...)` or `bash -c "…"` passes. It is a
-tripwire against slips, not a sandbox. Malformed hook input fails open rather than crash:
-input that is not a JSON object, or a non-object `tool_input`, allows the call; a missing
-or non-string `cwd` only falls back to the repo root, and every other check still applies.
+Limits: it is a tripwire against slips, not a sandbox, and reads commands as `_shell.py`
+describes. What passes:
+
+- a path built from variables, or a command hidden in `$(...)` or `bash -c "…"`, in a
+  command that does not otherwise touch the engine checkout;
+- a `cd -` before any `cd` in the command (the guard does not know the shell's previous
+  folder), and `pushd`/`popd`;
+- the seed's key reaching a file through a `( … )` group: `(seed …) > f` or
+  `(seed …; true) | tee f`;
+- environment set before the command (an earlier `export`, a profile);
+- a tester's `sed` script the shell expands as a glob (an unquoted `s/x.*/y/` matching a
+  real path);
+- a test-engine start whose `*_DB_URL`s name an `expense_world_test` database on another
+  host (only the database name is checked);
+- a WebFetch `file://` URL.
+
+It errs the other way too: a word written like an engine path is blocked even as a
+`grep` pattern or `echo` text (`grep -rn '../expense_world_engine' docs`); search for the
+bare name (`grep -rn expense_world_engine docs`) instead.
+
+Malformed hook input fails open rather than crash: input that is not a JSON object, or a
+non-object `tool_input`, allows the call; a missing or non-string `cwd` only falls back to
+the repo root, and every other check still applies.
 """
 
 from __future__ import annotations
@@ -75,6 +119,9 @@ _CURL_BUNDLE = re.compile(r"-[sSfiv]+")
 _KILLERS = frozenset({"kill", "pkill", "killall"})
 _LSOF_8002 = (["-ti", ":8002"], ["-t", "-i", ":8002"])
 _PYTHON = re.compile(r"python(?:3(?:\.\d+)?)?")
+# The test-engine start: the PATH's python or the engine's own venv, nothing else.
+_START_PYTHONS = frozenset({"python", "python3", ".venv/bin/python", ".venv/bin/python3"})
+_START_ARGS = ["-m", "uvicorn", "app.main:app", "--port", "8002"]
 _READ_ONLY = frozenset(
     {
         "cat",
@@ -100,11 +147,21 @@ _READ_ONLY = frozenset(
         "dirname",
     }
 )
-_GIT_READ = frozenset(
-    {"log", "show", "diff", "status", "blame", "grep", "ls-files", "rev-parse", "describe"}
+# One sed `s` command: a delimiter that is not a glob character, pattern and replacement
+# (escapes allowed, no newline), and only the flags that neither read nor write a file.
+_SED_SUB = re.compile(
+    r"s([^\\\n?*\[])((?:(?!\1)[^\\\n]|\\.)*)\1((?:(?!\1)[^\\\n]|\\.)*)\1[gpiI0-9]*"
 )
-_FIND_WRITES = frozenset({"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fls"})
-_READ_TOOLS = frozenset({"Read", "Glob", "Grep"})
+# Shell text that runs another command or changes what the next one does: a command or
+# process substitution anywhere in the command, a builtin that sets shell state, and a
+# `$NAME`/`${…}` expansion other than `$HOME` in a tester-allowlisted command.
+_SUBSTITUTIONS = ("$(", "`", "<(", ">(")
+_SHELL_STATE = frozenset(
+    {"export", "declare", "typeset", "readonly", "local", "set", "alias", "eval", "source", "."}
+)
+_EXPANSION = re.compile(r"\$[\w{(]")
+_GREP_FLAGS = re.compile(r"-[viEFocqxw]+")
+_READ_TOOLS = frozenset({"Read", "NotebookRead", "Glob", "Grep"})
 _WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 
 
@@ -130,10 +187,23 @@ class Context:
             return (cwd / raw).resolve()
         return None
 
+    def resolve_word(self, raw: str, cwd: Path) -> Path | None:
+        """`resolve`, and outside the repo also any other word that could be a relative path.
+
+        Inside the repo a bare relative word is the repo's own file; in any other folder it
+        is read against that folder, so `cd /Users && cat name/…` is seen for what it reads.
+        """
+        path = self.resolve(raw, cwd)
+        if path is not None or is_within(cwd, self.repo):
+            return path
+        if not raw or raw.startswith(("-", "$")) or "://" in raw:
+            return None
+        return (cwd / raw).resolve()
+
     def in_engine(self, path: Path) -> bool:
         return is_within(path, self.engine)
 
-    def outside_reason(self, path: Path, *, write: bool) -> str | None:
+    def outside_reason(self, path: Path) -> str | None:
         """Why touching `path` is blocked, or None."""
         if path.name == ".expense-config" and is_within(path, self.home):
             return f"{LIVE}: never touch the real config {path}"
@@ -142,10 +212,17 @@ class Context:
         if is_within(path, self.home / ".claude"):
             return None
         if self.in_engine(path):
-            if write:
-                return f"{STAY}: the engine checkout is read-only ({path})"
-            return None
+            return None  # the engine checkout has its own rule: `engine_reason`, `check_bash`
         return f"{STAY}: {path} is outside this repo"
+
+    def engine_reason(self, path: Path) -> str | None:
+        """Why a file tool may not touch `path`, if it is in the engine checkout."""
+        if self.in_engine(path):
+            return (
+                f"{STAY}: no agent reads or writes the engine checkout ({path}); "
+                "the contract is the practice engine's /openapi.json"
+            )
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +244,7 @@ def check_tool(ctx: Context, tool: str, tool_input: dict[str, Any]) -> str | Non
             if not raw:
                 continue
             path = ctx.resolve(str(raw), ctx.cwd) or (ctx.cwd / str(raw)).resolve()
-            reason = ctx.outside_reason(path, write=tool in _WRITE_TOOLS)
+            reason = ctx.outside_reason(path) or ctx.engine_reason(path)
             if reason:
                 return reason
     return None
@@ -187,43 +264,91 @@ def _path_words(seg: Segment) -> list[str]:
     return out
 
 
-def _is_read_only(seg: Segment) -> bool:
-    name = seg.name
-    if name == "sed":
-        return "-n" in seg.words and not any(
-            w.startswith("-i") or w == "--in-place" for w in seg.words
-        )
-    if name == "find":
-        return not any(w in _FIND_WRITES for w in seg.words)
-    ga = git_args(seg)
-    if ga is not None:
-        return ga[0] in _GIT_READ
-    return name in _READ_ONLY
+def _expands(seg: Segment) -> bool:
+    """Any word, env value or redirect with a `$` expansion other than `$HOME`."""
+    words = [*seg.words, *seg.env.values(), *seg.redirects, *seg.inputs]
+    return any(_EXPANSION.search(re.sub(r"\$\{?HOME\b\}?", "", w)) for w in words)
+
+
+def _tester_idle(seg: Segment) -> bool:
+    """`cd <dir>`, `sleep <n>` and a bare `true`: they read no file."""
+    if seg.env:
+        return False
+    if seg.name == "cd":
+        return len(seg.words) <= 2
+    if seg.name == "sleep":
+        return len(seg.words) == 2 and bool(re.fullmatch(r"\d+(?:\.\d+)?", seg.words[1]))
+    return seg.words == ["true"]
+
+
+def _filters_stdin(seg: Segment) -> bool:
+    """`sed`/`grep`/`head`/`tail` that read only stdin: no file operand, no file flag, no env
+    prefix (`GREP_OPTIONS=-r` would turn a filter into a recursive read)."""
+    if seg.env:
+        return False
+    args = seg.words[1:]
+    if seg.name == "sed":
+        return _sed_on_stdin(args)
+    if seg.name == "grep":
+        patterns = [w for w in args if not _GREP_FLAGS.fullmatch(w)]
+        # no glob characters: the shell could expand the pattern into file names
+        return len(patterns) == 1 and not re.match(r"-|.*[*?\[]", patterns[0])
+    if seg.name in {"head", "tail"}:
+        i = 0
+        while i < len(args):
+            if args[i] == "-n" and i + 1 < len(args) and args[i + 1].isdigit():
+                i += 2
+            elif re.fullmatch(r"-n?\d+", args[i]):
+                i += 1
+            else:
+                return False
+        return True
+    return False
+
+
+def _sed_on_stdin(args: list[str]) -> bool:
+    scripts = 0
+    with_e = False
+    i = 0
+    while i < len(args):
+        word = args[i]
+        if word in {"-E", "-r", "-n"}:
+            i += 1
+        elif word == "-e" and i + 1 < len(args) and _SED_SUB.fullmatch(args[i + 1]):
+            scripts, with_e, i = scripts + 1, True, i + 2
+        elif not with_e and scripts == 0 and _SED_SUB.fullmatch(word):
+            scripts, i = 1, i + 1
+        else:
+            return False  # a file operand, a file flag, or a script that is not one `s`
+    return scripts > 0
 
 
 def _is_test_db(url: str) -> bool:
     return url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1] == "expense_world_test"
 
 
+def _is_seed(ctx: Context, seg: Segment, cwd: Path) -> bool:
+    """`deploy/local/seed-test-user.sh --force` (maybe through bash/sh), by any path."""
+    script = seg.words[1:] if seg.name in {"bash", "sh"} else seg.words
+    if len(script) != 2 or script[1] != "--force":
+        return False
+    target = ctx.resolve(script[0], cwd) or (cwd / script[0]).resolve()
+    seed = (ctx.engine / "deploy" / "local" / "seed-test-user.sh").resolve()
+    return is_within(target, seed)  # the same file, compared the way every path is
+
+
 def _tester_op(ctx: Context, seg: Segment, cwd: Path) -> bool:
     """The ops-guide commands the tester may run in the engine checkout."""
     words = seg.words
-    if _PYTHON.fullmatch(seg.name) and words[1:] == [
-        "-m",
-        "uvicorn",
-        "app.main:app",
-        "--port",
-        "8002",
-    ]:
-        env = {k.upper(): v for k, v in seg.env.items()}  # the engine ignores name case
-        db_urls = [v for k, v in seg.env.items() if k.upper().endswith("_DB_URL")]
-        required = {"SUPABASE_DB_URL", "ADMIN_DB_URL"} <= env.keys()
-        return required and all(_is_test_db(v) for v in db_urls)
-    script = words[1:] if seg.name in {"bash", "sh"} else words
-    if len(script) == 2 and script[1] == "--force":
-        target = (cwd / script[0]).resolve()  # an absolute script[0] replaces cwd
-        seed = (ctx.engine / "deploy" / "local" / "seed-test-user.sh").resolve()
-        return is_within(target, seed)  # the same file, compared the way every path is
+    if words[:1] and words[0] in _START_PYTHONS and words[1:] == _START_ARGS:
+        names = {k.upper() for k in seg.env}  # the engine ignores name case
+        only_db = all(k.endswith("_DB_URL") for k in names)  # no PYTHONPATH and the like
+        required = {"SUPABASE_DB_URL", "ADMIN_DB_URL"} <= names
+        return only_db and required and all(_is_test_db(v) for v in seg.env.values())
+    if seg.env:
+        return False
+    if _is_seed(ctx, seg, cwd):
+        return True
     if seg.name == "lsof":
         return words[1:] in _LSOF_8002
     if seg.name == "curl":
@@ -417,15 +542,33 @@ def _live_reason(seg: Segment, command: str) -> str | None:
 def check_bash(ctx: Context, command: str) -> str | None:
     cwd = ctx.cwd
     all_segments = segments(command)
+    substitutes = any(s in command for s in _SUBSTITUTIONS)
+    shell_state = any(s.name in _SHELL_STATE for s in all_segments)
+    seed_pipe = False
+    oldpwd: Path | None = None  # the folder a `cd -` returns to, once a `cd` has named it
     for seg in all_segments:  # the live engine first: it is the worst slip in any command
         reason = _live_reason(seg, command)
         if reason:
             return reason
     for index, seg in enumerate(all_segments):
-        paths = [p for raw in _path_words(seg) + seg.inputs if (p := ctx.resolve(raw, cwd))]
-        redirects = [ctx.resolve(raw, cwd) or (cwd / raw).resolve() for raw in seg.redirects]
-        for path in [*paths, *redirects]:
-            reason = ctx.outside_reason(path, write=False)
+        target = None
+        if seg.name == "cd":
+            word = seg.words[1] if len(seg.words) > 1 else "~"  # a bare `cd` goes home
+            if word == "-":
+                target = oldpwd
+            else:
+                target = ctx.resolve(word, cwd) or (cwd / word).resolve()
+        name = seg.words[0] if seg.words else ""
+        raws = [raw for raw in _path_words(seg) if not (raw == name and "/" not in raw)]
+        paths = [p for raw in raws if (p := ctx.resolve_word(raw, cwd))]
+        if target is not None:
+            paths.append(target)
+        redirects = [
+            ctx.resolve(raw, cwd) or (cwd / raw).resolve() for raw in seg.redirects + seg.inputs
+        ]
+        here = [] if seg.name == "cd" else [cwd]  # a command run in a folder reads there
+        for path in [*paths, *redirects, *here]:
+            reason = ctx.outside_reason(path)
             if reason:
                 return reason
         reason = _git_reason(seg, all_segments)
@@ -439,21 +582,53 @@ def check_bash(ctx: Context, command: str) -> str | None:
                     f"{STAY}: only the tester stops processes, in the form `kill <pid>` or "
                     "`lsof -ti :8002 | xargs kill` (and it stops only the engine it started)"
                 )
-        if ctx.in_engine(cwd) or any(ctx.in_engine(p) for p in [*paths, *redirects]):
+        # The practice user's key never reaches a file: the seed and every filter it pipes
+        # into may redirect only to /dev/null, and only stdin filters may read its output.
+        if _is_seed(ctx, seg, cwd):
+            seed_pipe = True
+            if any(raw != "/dev/null" for raw in seg.redirects):
+                return f"{STAY}: the practice user's key never goes to a file (only /dev/null)"
+        elif seed_pipe and seg.piped:
+            if not _filters_stdin(seg) or seg.inputs or _expands(seg):
+                return (
+                    f"{STAY}: the seed's output goes only through a stdin filter "
+                    "(`sed 's/…/…/'`, `grep`, `head`, `tail`), never to a file"
+                )
+            if any(raw != "/dev/null" for raw in seg.redirects):
+                return f"{STAY}: the practice user's key never goes to a file (only /dev/null)"
+        else:
+            seed_pipe = False
+        # a bare `cd <dir>` out of the engine checkout reads nothing there
+        leaving = (
+            seg.name == "cd"
+            and len(seg.words) <= 2
+            and not (seg.env or redirects)
+            and not (target and ctx.in_engine(target))
+        )
+        touches = ctx.in_engine(cwd) or any(ctx.in_engine(p) for p in [*paths, *redirects])
+        if touches and (substitutes or shell_state):
+            return (
+                f"{STAY}: no agent reads the engine checkout; a command there may not hold "
+                "`$(…)`, backticks, `<(…)`, `>(…)` or a shell-state builtin (`export`, …)"
+            )
+        if touches and not leaving:
             if any(ctx.in_engine(p) for p in redirects):
-                return f"{STAY}: the engine checkout is read-only (redirect into it)"
-            if not (stops or _is_read_only(seg) or (ctx.tester and _tester_op(ctx, seg, cwd))):
+                return f"{STAY}: no agent reads or writes the engine checkout (a redirect)"
+            tester_ok = (
+                ctx.tester
+                and not _expands(seg)
+                and (stops or _tester_idle(seg) or _filters_stdin(seg) or _tester_op(ctx, seg, cwd))
+            )
+            if not tester_ok:
                 who = (
                     "the tester may only start the :8002 test engine, reseed the practice "
                     "user and stop what it started"
                     if ctx.tester
-                    else "only the tester may start the test engine there"
+                    else "only the tester goes there, to start the test engine"
                 )
-                return f"{STAY}: the engine checkout is read-only; {who}"
-        if seg.name == "cd":
-            target = seg.words[1] if len(seg.words) > 1 else "~"
-            if target != "-":
-                cwd = ctx.resolve(target, cwd) or (cwd / target).resolve()
+                return f"{STAY}: no agent reads or writes the engine checkout; {who}"
+        if target is not None:
+            oldpwd, cwd = cwd, target
     return None
 
 

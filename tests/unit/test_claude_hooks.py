@@ -24,6 +24,8 @@ ADMIN_TEST_DB = "postgresql://owner@127.0.0.1:5432/expense_world_test"
 UVICORN = "python -m uvicorn app.main:app --port 8002"
 START_TEST_ENGINE = f"SUPABASE_DB_URL={TEST_DB} ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}"
 SCRATCH = "/private/tmp/claude-501/scratchpad"
+IN_ENGINE = "cd ../expense_world_engine && "
+SEED = "../expense_world_engine/deploy/local/seed-test-user.sh --force"
 
 
 class Sandbox:
@@ -140,7 +142,7 @@ BLOCKED_BASH = [
     ("grep -r token < ~/notes.txt", STAY),
     ("echo x > ~/out.txt", STAY),
     ("git -C ../other_repo status", STAY),
-    # the engine checkout is read-only
+    # the engine checkout is closed: no writes
     ("echo x > ../expense_world_engine/app/x.py", STAY),
     ("cd ../expense_world_engine && rm -rf app", STAY),
     ("sed -i '' s/a/b/ ../expense_world_engine/app/main.py", STAY),
@@ -148,6 +150,33 @@ BLOCKED_BASH = [
     ("git -C ../expense_world_engine commit -am x", STAY),
     ("cd {engine} && " + START_TEST_ENGINE, STAY),  # not the tester
     ("find ../expense_world_engine -name '*.pyc' -delete", STAY),
+    # ... and no reads, by any path spelling or after a `cd`
+    ("cat ../expense_world_engine/docs/engine-spec.md", STAY),
+    ("cat {engine}/app/main.py", STAY),
+    ("cat ~/Documents/expense_world_engine/app/main.py", STAY),
+    ("head -50 $HOME/Documents/expense_world_engine/README.md", STAY),
+    ("tail -n 20 ../expense_world_engine/app/main.py", STAY),
+    ("less ../expense_world_engine/app/main.py", STAY),
+    ("grep -rn uvicorn {engine}/deploy", STAY),
+    ("rg openapi ../expense_world_engine", STAY),
+    ("find ../expense_world_engine -name '*.md'", STAY),
+    ("ls ../expense_world_engine", STAY),
+    ("sed -n 1,20p ../expense_world_engine/app/main.py", STAY),
+    ("awk 'NR<5' ../expense_world_engine/app/main.py", STAY),
+    ("wc -l < ../expense_world_engine/app/main.py", STAY),
+    ("git -C ../expense_world_engine log --oneline -5", STAY),
+    ("git -C {engine} show HEAD:app/main.py", STAY),
+    ("git -C ../expense_world_engine diff HEAD~1", STAY),
+    ("cd ../expense_world_engine && ls deploy/local", STAY),
+    ("cd ../expense_world_engine && git log --oneline -5", STAY),
+    ("cd {engine} && cat app/main.py", STAY),
+    ("cd ../expense_world_engine", STAY),  # only the tester goes there
+    ("cd . <(cat ../expense_world_engine/app/main.py >&2)", STAY),  # not just a `cd`
+    ("cd {repo} ../expense_world_engine/app/main.py", STAY),
+    # relative paths are read against any folder outside the repo; a bare `cd` goes home
+    ("cd && cat Documents/expense_world_engine/app/main.py", STAY),
+    ("cd {home}/.. && cat home/Documents/expense_world_engine/app/main.py", STAY),
+    ("cd {home}/.. && grep -rn uvicorn home/Documents/expense_world_engine", STAY),
     # git: force-push and history rewrites
     ("git push --force", GIT),
     ("git push -f origin main", GIT),
@@ -212,10 +241,6 @@ ALLOWED_BASH = [
     "grep -n expense-config .gitignore",
     f"EXPENSE_CONFIG={SCRATCH}/cfg expense ping",
     f"export EXPENSE_CONFIG={SCRATCH}/cfg && .venv/bin/expense accounts list",
-    "cat ../expense_world_engine/docs/engine-spec.md",
-    "sed -n 1,20p ../expense_world_engine/app/main.py",
-    "cd ../expense_world_engine && git log --oneline -5 && ls deploy/local",
-    "grep -rn uvicorn {engine}/deploy",
     "cat ~/.claude/agents/builder.md",
     "ls /opt/homebrew/bin && echo x > /dev/null",
     f"echo x > {SCRATCH}/x.txt",
@@ -259,7 +284,27 @@ TESTER_ALLOWED = [
     ("lsof -t -i :8002 | xargs -r kill", "{engine}"),
     ("curl -sSf --max-time 5 http://localhost:8002/health", "{engine}"),
     ("curl --silent --fail -m 2 http://127.0.0.1:8002/health", "{engine}"),
-    ("cat app/main.py", "{engine}"),
+    # the seed by every path spelling, and its key redacted or dropped on the way out
+    ("{engine}/deploy/local/seed-test-user.sh --force", ""),
+    ("~/Documents/expense_world_engine/deploy/local/seed-test-user.sh --force", ""),
+    ("../expense_world_engine/deploy/local/seed-test-user.sh --force", ""),
+    ("bash {engine}/deploy/local/seed-test-user.sh --force", ""),
+    (
+        "cd ../expense_world_engine && deploy/local/seed-test-user.sh --force "
+        "| sed 's/ewe_pat_[A-Za-z0-9_]*/ewe_pat_<redacted>/g'",
+        "",
+    ),
+    (
+        "cd ../expense_world_engine && deploy/local/seed-test-user.sh --force 2>&1 "
+        "| grep -v ewe_pat_ | tail -n 5",
+        "",
+    ),
+    ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force > /dev/null", ""),
+    ("deploy/local/seed-test-user.sh --force | sed -E -e 's|ewe_pat_.*|<key>|'", "{engine}"),
+    ("deploy/local/seed-test-user.sh --force | head -3", "{engine}"),
+    ("cd ../expense_world_engine && sleep 2 && true", ""),
+    ("cd $HOME/Documents/expense_world_engine && deploy/local/seed-test-user.sh --force", ""),
+    (SEED + " 2>&1 | sed 's/ewe_pat_.*$/<key>/' > /dev/null", ""),
 ]
 
 
@@ -314,6 +359,66 @@ TESTER_BLOCKED = [
     ("cd ../expense_world_engine && deploy/local/create-test-db.sh --force", STAY),
     ("cd ../expense_world_engine && pip install httpx", STAY),
     ("cd ../expense_world_engine && git pull", STAY),
+    # the tester reads no engine file either
+    ("cd ../expense_world_engine && cat app/main.py", STAY),
+    ("cd ../expense_world_engine && ls", STAY),
+    ("cd ../expense_world_engine && git log --oneline -5", STAY),
+    ("cd ../expense_world_engine && sed -n 1p app/main.py", STAY),
+    ("cd ../expense_world_engine && sed 's/a/b/' app/main.py", STAY),
+    ("cd ../expense_world_engine && sed 's/a/b/w out.txt'", STAY),
+    ("cd ../expense_world_engine && sed -f script.sed", STAY),
+    ("cd ../expense_world_engine && sed 's/a/b/' < app/main.py", STAY),
+    ("cd ../expense_world_engine && grep -r uvicorn", STAY),
+    ("cd ../expense_world_engine && grep uvicorn app/main.py", STAY),
+    ("cd ../expense_world_engine && grep -f patterns.txt", STAY),
+    ("cd ../expense_world_engine && grep '*'", STAY),
+    ("cd ../expense_world_engine && tail README.md", STAY),
+    ("cd ../expense_world_engine && head -n 5 README.md", STAY),
+    ("cd ../expense_world_engine && echo *", STAY),
+    ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force | tee key.txt", STAY),
+    ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force > key.txt", STAY),
+    ("cat ../expense_world_engine/docs/engine-spec.md", STAY),
+    ("grep -rn uvicorn {engine}/deploy", STAY),
+    ("git -C ../expense_world_engine log -1", STAY),
+    # substitutions, extra arguments and env prefixes do not ride on an allowed command
+    (IN_ENGINE + "true <(cat app/main.py >&2)", STAY),
+    (IN_ENGINE + "sleep 0 <(cat app/main.py >&2)", STAY),
+    (IN_ENGINE + "true `cat app/main.py >&2`", STAY),
+    (IN_ENGINE + 'true "$(cat app/main.py >&2)"', STAY),
+    (IN_ENGINE + "true app/main.py", STAY),
+    (IN_ENGINE + "sleep 1 app/main.py", STAY),
+    (IN_ENGINE + "sleep x", STAY),
+    (IN_ENGINE + "cd deploy local", STAY),
+    (IN_ENGINE + "GREP_OPTIONS=-r grep uvicorn", STAY),
+    ("export GREP_OPTIONS=-r && " + IN_ENGINE + "grep uvicorn", STAY),
+    (IN_ENGINE + "grep $PATTERN", STAY),
+    (IN_ENGINE + 'sed "s/a/$X/"', STAY),
+    (IN_ENGINE + "sed 's?a?b?'", STAY),
+    (IN_ENGINE + "sed 's*a*b*'", STAY),
+    (IN_ENGINE + "sed 's[a[b['", STAY),
+    (IN_ENGINE + "PYTHONPATH=/private/tmp/x " + START_TEST_ENGINE, STAY),
+    (IN_ENGINE + START_TEST_ENGINE + " <(cat .env >&2)", STAY),
+    (IN_ENGINE + "BASH_ENV=x bash deploy/local/seed-test-user.sh --force", STAY),
+    (IN_ENGINE + "deploy/local/seed-test-user.sh --force `cat .env`", STAY),
+    (IN_ENGINE + "deploy/local/seed-test-user.sh $(cat .env)", STAY),
+    # the practice user's key never goes to a file, wherever the command runs
+    (SEED + " | sed 's/a/b/' > key.txt", STAY),
+    (SEED + f" > {SCRATCH}/key.txt", STAY),
+    (SEED + f" | tee {SCRATCH}/key.txt", STAY),
+    (SEED + " | cat > key.txt", STAY),
+    (SEED + " | dd of=key.txt", STAY),
+    (SEED + " | sed 's/a/b/' | tee key.txt", STAY),
+    (SEED + " 2>&1 | grep -v x >> key.txt", STAY),
+    # `cd -` returns to the folder the guard last left
+    (IN_ENGINE + "cd {repo} && cd - && cat app/main.py", STAY),
+    (IN_ENGINE + "cd {repo} && cd - && ls", STAY),
+    # the start runs only the PATH's python or the venv's
+    (IN_ENGINE + START_TEST_ENGINE.replace("python", "/private/tmp/x/python"), STAY),
+    (IN_ENGINE + START_TEST_ENGINE.replace("python", "tools/python3"), STAY),
+    # a pipe run into `(` or across a newline is still a pipe
+    (SEED + " |(tee key.txt)", STAY),
+    (SEED + " |\ntee key.txt", STAY),
+    ("(" + SEED + ")|tee key.txt", STAY),
     ("kill -9 -1", STAY),  # not a pid the tester started
     ("curl http://127.0.0.1:8000/health", LIVE),  # every other check still applies
     ("cat ~/Documents/notes.txt", STAY),
@@ -350,15 +455,68 @@ BLOCKED_TOOLS = [
     ("Read", {"file_path": "{repo}/../other_repo/x.py"}, STAY),
     ("Write", {"file_path": "{engine}/app/main.py"}, STAY),
     ("Edit", {"file_path": "{engine}/docs/engine-spec.md"}, STAY),
+    ("Read", {"file_path": "{engine}/docs/engine-spec.md"}, STAY),
+    ("Read", {"file_path": "{repo}/../expense_world_engine/app/main.py"}, STAY),
+    ("NotebookRead", {"notebook_path": "{engine}/notes.ipynb"}, STAY),
+    ("Grep", {"pattern": "uvicorn", "path": "{engine}"}, STAY),
+    ("Grep", {"pattern": "uvicorn", "path": "../expense_world_engine/deploy"}, STAY),
+    ("Glob", {"pattern": "../expense_world_engine/**/*.md"}, STAY),
+    ("Glob", {"pattern": "**/*.md", "path": "{engine}"}, STAY),
     ("WebFetch", {"url": "http://127.0.0.1:8000/health", "prompt": "x"}, LIVE),
     ("WebFetch", {"url": "http://localhost:8000/openapi.json", "prompt": "x"}, LIVE),
     ("WebFetch", {"url": "http://127.1:8000/health", "prompt": "x"}, LIVE),
 ]
 
 
+@pytest.mark.parametrize("agent", ["builder", None])
+def test_guard_lets_an_agent_leave_the_engine_but_not_read_it(box, agent):
+    _allowed(box.guard("Bash", {"command": "cd {repo} && ls"}, agent=agent, cwd="{engine}"))
+    _blocked(box.guard("Bash", {"command": "ls"}, agent=agent, cwd="{engine}"), STAY)
+    command = "cd {repo} <(cat app/main.py >&2)"
+    _blocked(box.guard("Bash", {"command": command}, agent=agent, cwd="{engine}"), STAY)
+    command = "cd {repo} && cd - && cat app/main.py"
+    _blocked(box.guard("Bash", {"command": command}, agent=agent, cwd="{engine}"), STAY)
+    command = "cd {repo} && cat ../expense_world_engine/app/main.py"
+    _blocked(box.guard("Bash", {"command": command}, agent=agent, cwd="{engine}"), STAY)
+
+
+OUTSIDE_CWD_READS = [
+    ("cat Documents/expense_world_engine/app/main.py", "{home}"),
+    ("ls", "{home}/Documents"),
+    ("cat home/Documents/expense_world_engine/app/main.py", "{home}/.."),
+    ("sed -n 1p expense_world_engine/app/main.py", "{home}/Documents"),
+]
+
+
+@pytest.mark.parametrize("agent", ["tester", "builder"])
+@pytest.mark.parametrize(("command", "cwd"), OUTSIDE_CWD_READS)
+def test_guard_reads_relative_paths_against_a_cwd_outside_the_repo(box, agent, command, cwd):
+    _blocked(box.guard("Bash", {"command": command}, agent=agent, cwd=cwd), STAY)
+
+
+def test_guard_lets_the_tester_cd_back_into_the_engine(box):
+    command = "cd {repo} && cd - && deploy/local/seed-test-user.sh --force > /dev/null"
+    _allowed(box.guard("Bash", {"command": command}, agent="tester", cwd="{engine}"))
+
+
 @pytest.mark.parametrize(("tool", "tool_input", "rule"), BLOCKED_TOOLS)
 def test_guard_blocks_tool(box, tool, tool_input, rule):
     _blocked(box.guard(tool, tool_input), rule)
+
+
+ENGINE_READS = [
+    ("Read", {"file_path": "{engine}/app/main.py"}, ""),
+    ("NotebookRead", {"notebook_path": "{engine}/x.ipynb"}, ""),
+    ("Grep", {"pattern": "uvicorn"}, "{engine}"),  # no path: the cwd, inside the engine
+    ("Glob", {"pattern": "**/*.py"}, "{engine}"),
+    ("Glob", {"pattern": "{engine}/deploy/**"}, ""),
+]
+
+
+@pytest.mark.parametrize("agent", ["tester", "builder", "reviewer", "librarian", None])
+@pytest.mark.parametrize(("tool", "tool_input", "cwd"), ENGINE_READS)
+def test_guard_blocks_every_agent_reading_the_engine(box, agent, tool, tool_input, cwd):
+    _blocked(box.guard(tool, tool_input, agent=agent, cwd=cwd), STAY)
 
 
 ALLOWED_TOOLS = [
@@ -367,9 +525,6 @@ ALLOWED_TOOLS = [
     ("Edit", {"file_path": "{repo}/docs/cli-spec.md"}),
     ("Write", {"file_path": "{home}/.claude/projects/p/memory/note.md"}),
     ("Read", {"file_path": "{home}/.claude/agents/builder.md"}),
-    ("Read", {"file_path": "{engine}/docs/engine-spec.md"}),
-    ("Grep", {"pattern": "uvicorn", "path": "{engine}"}),
-    ("Glob", {"pattern": "../expense_world_engine/**/*.md"}),
     ("Glob", {"pattern": "**/*.py"}),
     ("Grep", {"pattern": "x"}),
     ("Read", {"file_path": "/usr/lib/os-release"}),
@@ -541,6 +696,17 @@ def test_guard_lets_the_tester_run_the_ops_guide_command(box):
     assert command.count("\\\n") == 2 and "--port 8002" in command
     _allowed(
         box.guard("Bash", {"command": "cd ../expense_world_engine && " + command}, agent="tester")
+    )
+
+
+def test_guard_lets_the_tester_run_the_documented_reseed(box):
+    """The reseed exactly as CLAUDE.md and the ops guide name it, run from the engine."""
+    root = Path(__file__).resolve().parents[2]
+    seed = "deploy/local/seed-test-user.sh --force"
+    assert f"`{seed}`" in (root / "CLAUDE.md").read_text()
+    assert "`deploy/local/seed-test-user.sh`" in (root / "docs" / "cli-runtime.md").read_text()
+    _allowed(
+        box.guard("Bash", {"command": "cd ../expense_world_engine && " + seed}, agent="tester")
     )
 
 

@@ -5,7 +5,7 @@ built (CLAUDE.md "How work runs", "Dev loop" → "Guards (hooks)"); §6.5 in pro
 is written and its tasks are approved. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
 [decisions.md](decisions.md).
 
-The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)
+The roles, the loop per task and per spec, and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)
 "How work runs (the agent loop)".
 
 ## 2. Decisions already made
@@ -24,10 +24,10 @@ The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../C
 | **Questions for the owner live in [todo.md](todo.md) "Questions for the owner"**, a section of their own; every existing owner question moved there. | 2026-09-27 |
 | **Every session is the orchestrator, always** — a plain chat with the owner included. The main session never writes code or tests. | 2026-09-27 |
 | **The tester never writes tests or code.** When a criterion has no test that proves it, the tester says so in its report and the builder writes the test. | 2026-09-27 |
-| **A fourth worker, the librarian, keeps the docs aligned.** Every fact lives in exactly one doc and the others link to it, because a fact written in two places drifts: one copy gets changed and the other is forgotten. It fixes docs itself (never code, never todo.md or decisions.md). It checks the docs each task touched, and sweeps every doc when a spec finishes. | 2026-09-27 |
+| **A fourth worker, the librarian, keeps the docs aligned.** Every fact lives in exactly one doc and the others link to it, because a fact written in two places drifts: one copy gets changed and the other is forgotten. It fixes docs itself (never code, never todo.md or decisions.md). When it runs: [CLAUDE.md](../CLAUDE.md) "How work runs". | 2026-09-27 |
 | **One spec per piece of work, written by the owner** (in `docs/specs/`). The owner tells the orchestrator which spec is current; the orchestrator drafts that spec's tasks into the spec and the owner approves them before the loop runs. The existing agent-written plan docs become drafts the owner rewrites or approves before their work starts. | 2026-09-27 |
 | **Workers run on the same model as the main session** (`model: inherit`), whichever the owner picked for it. | 2026-09-27 |
-| **The tester may start the test engine** (`:8002`, from the engine folder) — the one standing exception to "never outside this repo" beyond reading; it never edits the engine. It **recreates the practice user each check** and uses that fresh key for that check only, so nothing is stored and practice data starts clean. | 2026-09-27 |
+| **The tester may start the test engine** (`:8002`, from the engine folder) — the one standing exception to "never outside this repo"; it never reads or edits an engine file. It **recreates the practice user each check** and uses that fresh key for that check only, so nothing is stored and practice data starts clean. | 2026-09-27 |
 
 ## 6. What gets built
 

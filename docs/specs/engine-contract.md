@@ -63,14 +63,5 @@ The practice engine (`:8002`) must be running for any task that reads the contra
 tester starts it; the orchestrator has the tester start it before handing such a task to the
 builder, and it is stopped after the task.
 
-### Close the engine folder to reading
-Passes if:
-- The guard blocks every agent, the tester included, from reading any file in the engine's
-  folder, while the tester can still start and reseed the practice engine there exactly as the
-  ops guide says.
-- `.claude/settings.json` no longer pre-approves reads of the engine docs.
-- `tests/unit/test_claude_hooks.py` proves both: a read is blocked, and the start and reseed
-  commands are allowed.
-- CLAUDE.md "Stay inside this repo" no longer lists reading the engine as an exception.
-- Finally, a search of the repo for `expense_world_engine` finds only the practice-engine
-  commands and the program's name. That is the spec's first done-check.
+All tasks are done. Next: the tester's acceptance check, then the librarian's sweep
+(CLAUDE.md "How work runs", "Per spec").

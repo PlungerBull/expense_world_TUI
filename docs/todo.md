@@ -230,6 +230,14 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    refusing to delete it shows a hint that names the wrong category. Name both, or word it without
    a name. Add an error-shape test deleting `@Pendiente`.
 
+4. **The guard's limits list misses two cases, and one rule has no test.**
+   [guard.py](../.claude/hooks/guard.py): a path inside a `python -c` or `awk` program string
+   is not checked (same class as the listed `bash -c`), and a bare heredoc body with a `cd`
+   line moves the guard's tracked folder, so the rest of the command is blocked. Name both in
+   the docstring's limits. [test_claude_hooks.py](../tests/unit/test_claude_hooks.py) has no
+   Bash case whose hook `cwd` is the harness scratchpad or `~/.claude`; add one pinning that
+   both pass. Builder work.
+
 ## Ergonomics
 
 1. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth

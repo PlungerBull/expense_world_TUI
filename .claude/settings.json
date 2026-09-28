@@ -13,14 +13,13 @@
       "Bash(git add *)",
       "Bash(PATH=\"$PWD/.venv/bin:$PATH\" git commit *)",
       "Bash(git push origin main)",
-      "Bash(git push)",
-      "Read(//Users/ternero/Documents/productivity_world/expense_world_engine/docs/**)"
+      "Bash(git push)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch",
+        "matcher": "Bash|Read|Write|Edit|MultiEdit|NotebookRead|NotebookEdit|Glob|Grep|WebFetch",
         "hooks": [
           {
             "type": "command",

@@ -6,8 +6,12 @@ hook's JSON input, and a rough split of a Bash command into its simple commands.
 The split is a tripwire's reading of a command, not a shell parser:
 
 - `shlex` in POSIX mode splits words and keeps quoted text whole; `;`, `&`, `|`, `(`, `)`
-  and newlines separate commands; `<`/`>` operators (with any file-descriptor digits
-  written against them, as in `2>&1`) and the word after them are redirects.
+  and newlines separate commands. A command straight after `|` or `|&` (parentheses or a
+  newline written against the bar count too: `(a)|b`, `a |(b)`, `a |⏎b`) is marked piped;
+  a command after anything else, such as `(a; b) | c`'s `c` after `b`, is not.
+  `<`/`>` operators (with any file-descriptor digits written against them, as in `2>&1`)
+  and the word after them are redirects. A `( … )` group is not tracked: its commands are
+  separate, and a redirect after the `)` (`(a) > f`) belongs to no command.
 - Leading `NAME=value` words are the command's environment; the wrappers `env`, `nohup`,
   `exec`, `command` and `time` are stepped over.
 - A backslash-newline continuation joins its two lines first.
@@ -104,6 +108,7 @@ class Segment:
     words: list[str] = field(default_factory=list)
     redirects: list[str] = field(default_factory=list)  # `>`/`>>` targets: writes
     inputs: list[str] = field(default_factory=list)  # `<` sources: reads
+    piped: bool = False  # its stdin is the previous command's output (`|` or `|&`)
 
     @property
     def name(self) -> str:
@@ -111,8 +116,8 @@ class Segment:
         return self.words[0].rsplit("/", 1)[-1] if self.words else ""
 
 
-def _segment(raw: list[str]) -> Segment:
-    seg = Segment()
+def _segment(raw: list[str], piped: bool = False) -> Segment:
+    seg = Segment(piped=piped)
     rest: list[str] = []
     i = 0
     while i < len(raw):
@@ -141,15 +146,18 @@ def segments(command: str) -> list[Segment]:
     """The simple commands in `command`, in order (see the module docstring for limits)."""
     out: list[Segment] = []
     current: list[str] = []
+    piped = False
     for tok in tokens(command):
         if _is_separator(tok):
             if current:
-                out.append(_segment(current))
+                out.append(_segment(current, piped))
             current = []
+            # `|` or `|&`, also run into parentheses or a newline (`(a)|b`, `a |(b)`, `a |⏎b`)
+            piped = re.sub(r"[()\n]", "", tok) in {"|", "|&"}
         else:
             current.append(tok)
     if current:
-        out.append(_segment(current))
+        out.append(_segment(current, piped))
     return out
 
 
