@@ -1,8 +1,9 @@
 # Agent loop setup — plan
 
-**Status:** The rules and the four workers are built (CLAUDE.md "How work runs"); §6.3–6.4
-next. Written 2026-09-27. Delete this doc when the setup ships; its lasting rules move to
-[CLAUDE.md](../CLAUDE.md), its why to [decisions.md](decisions.md).
+**Status:** The rules, the four workers and the guards are built (CLAUDE.md "How work runs",
+"Dev loop" → "Guards (hooks)"); §6.4 next. Written 2026-09-27. Delete this doc when the setup
+ships; its lasting rules move to [CLAUDE.md](../CLAUDE.md), its why to
+[decisions.md](decisions.md).
 
 The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../CLAUDE.md)
 "How work runs (the agent loop)".
@@ -31,26 +32,8 @@ The roles, the per-task loop and what goes to the owner live in [CLAUDE.md](../C
 ## 6. What gets built
 
 Every session is the orchestrator, so the main session builds only docs and Claude config:
-the hook settings (6.3) and the settings cleanup (6.4). A hook *script*, a test, or any other
-code waits for the builder. 6.5 is the loop's first job.
-
-### 6.3 Automatic guards (hooks)
-
-Kept in a shared settings file inside this repo, so they travel with it:
-
-- **After every edit:** tidy-check (`ruff`) the edited file; problems go straight back to the
-  builder.
-- **Before a commit or "done":** the fast tests (`pytest tests/unit`) must pass.
-- **Blocked outright:**
-  - any `expense …` command using the real config, and any call to the live engine (`:8000`);
-  - reading `~/.expense-config`;
-  - reading or writing outside this repo — except the tester starting the test engine and
-    reseeding the practice user (CLAUDE.md "Stay inside this repo"), which must still pass;
-  - force-push, history rewrites, new branches, and skipping the pre-commit checks
-    (`--no-verify` would skip the secret scan).
-- Guards run with the project's own tools (`.venv/bin` on the path — already needed for
-  commits today).
-- Each guard is tested once by deliberately tripping it.
+the settings cleanup (6.4). A test or any other code waits for the builder. 6.5 is the loop's
+first job.
 
 ### 6.4 Cleanup
 
@@ -61,7 +44,7 @@ Kept in a shared settings file inside this repo, so they travel with it:
 
 ### 6.5 Take up the engine's published contract (the loop's first spec and trial run)
 
-Built by the loop itself, once 6.3–6.4 exist: it is the first spec the owner writes, and the
+Built by the loop itself, once 6.4 exists: it is the first spec the owner writes, and the
 trial run. Today this repo still reads the engine's folder. Once this lands, it doesn't:
 
 1. Agents and `scripts/check_fixture_drift.py` read the contract from the **test engine**
@@ -76,7 +59,7 @@ trial run. Today this repo still reads the engine's folder. Once this lands, it 
 ## 7. Rollout
 
 1. Owner answers the open questions (§8).
-2. Build §6.3–6.4.
+2. Build §6.4.
 3. **Trial run:** the loop runs §6.5 as its first spec, owner watching.
 4. Adjust, record the setup in decisions.md, delete this doc.
 5. Later: copy to the engine repo (with guards for its own real database); optionally a

@@ -170,7 +170,7 @@ An index; the depth lives in each plan doc, which is deleted when it ships (its 
 | 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
 | 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; questions for the owner open; starts after the in-flight work |
 | 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
-| 5 | The agent loop: orchestrator + builder/tester/reviewer/librarian, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules are in CLAUDE.md, worker files built; guards and cleanup (§6.3–6.4) next; the first spec is a question for the owner |
+| 5 | The agent loop: orchestrator + builder/tester/reviewer/librarian, one loop per repo | [agent-loop-plan.md](agent-loop-plan.md) | Rules, worker files and guards built; settings cleanup (§6.4) next; the first spec is a question for the owner |
 
 **The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
 ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when
@@ -204,7 +204,16 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
 entry says what to ask for, why no client can do it properly today, and **what this repo deletes
 when it lands**. Handed to the owner for the engine coder; never edited in the engine repo.
 
-None open.
+- **A test engine refuses to start half-pointed at the real ledger.** The engine reads any
+  database URL missing from its start command from its `.env`, and there `ADMIN_DB_URL` names
+  the real ledger (`expense_world`). So a test-engine start (`:8002`, ops guide in
+  [cli-runtime.md](cli-runtime.md) "Working against the live engine") that forgets
+  `ADMIN_DB_URL` runs its admin pool, which writes `exchange_rates`, against the real ledger
+  while the app pool uses the test database. Ask: the engine refuses to start when its two
+  database URLs name different databases (or a flag such as `--test` that requires both to be
+  `expense_world_test`). Every client's test setup inherits the protection. **This repo
+  deletes** the both-URLs-present check from the tester exception in
+  [.claude/hooks/guard.py](../.claude/hooks/guard.py) and keeps only the port rule.
 
 ## Small defects
 

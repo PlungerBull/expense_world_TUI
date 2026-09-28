@@ -64,12 +64,12 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.
 
-**The contract suite** (`tests/contract/`) hits a real engine and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> pytest tests/contract`. `EXPENSE_ENGINE_URL` overrides the target (default `http://127.0.0.1:8000`; point it at `:8002`).
+**The contract suite** (`tests/contract/`) hits a real engine and is double-gated: `PYTEST_LIVE=1 EXPENSE_PAT=<token> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 pytest tests/contract`. `EXPENSE_ENGINE_URL` names the target; its default is the live `http://127.0.0.1:8000`, so always set it to the `:8002` test engine.
 
 **It refuses to run against the real ledger.** Without `EXPENSE_PAT` the only credential is the developer's own config, so [tests/contract/conftest.py](../tests/contract/conftest.py) aborts the session with a message pointing at the practice database. `EXPENSE_ALLOW_REAL_LEDGER=1` overrides it.
 
 What the suite does: walks real flows (config → ping → bootstrap → accounts/categories create → log → dashboard, plus the transaction cursor against `/count`, the whole lists, the activity window, `POST /transactions/import`, reconciliations and sealed periods, reports), redirects `EXPENSE_CONFIG` to a temp dir, and cleans up best-effort in reverse dependency order. Cleanup means **soft-deletes** — invisible to every client but still in the database — which is why it belongs on the practice database. Run it when engine-shape drift is suspected or before calling a release done; never in CI. It catches what mocks cannot, e.g. `amount_cents` returning as a magnitude unless the read asks for `debit_as_negative`.
 
-**Fixture drift.** The unit suite mocks the engine, so it cannot notice the engine changing shape. [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py) compares every unit fixture key against the engine's published `openapi.json`; run it after any engine change. It is not a pytest file, to keep the unit suite hermetic.
+**Fixture drift.** The unit suite mocks the engine, so it cannot notice the engine changing shape. [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py) compares every unit fixture key against the engine's published `openapi.json`; run it after any engine change, against the `:8002` test engine above (`--engine-url http://127.0.0.1:8002` — its default target is the live `:8000`). It is not a pytest file, to keep the unit suite hermetic.
 
 **Unit tests never touch the network.** `tests/unit/` is respx-mocked; autouse fixtures in [tests/unit/conftest.py](../tests/unit/conftest.py) redirect `EXPENSE_CONFIG` and block real sockets. Never bypass them.

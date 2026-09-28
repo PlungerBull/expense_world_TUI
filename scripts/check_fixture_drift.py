@@ -12,8 +12,9 @@ Deliberately NOT a pytest file. tests/unit is hermetic — `tests/unit/conftest.
 blocks real sockets on purpose — and that rule is worth more than the convenience
 of folding this in. Run it by hand after any engine change:
 
-    python scripts/check_fixture_drift.py
-    python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8001
+    python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002
+
+Name the :8002 test engine; the default target, `http://127.0.0.1:8000`, is the live one.
 
 Exit code is 0 when nothing retired is found, 1 otherwise, so it also works as a
 gate. It cannot tell a retired engine field from a key a test invented for its own

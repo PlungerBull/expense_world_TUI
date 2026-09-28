@@ -35,8 +35,11 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude Code session state (local-only)
-.claude/
+# Claude Code: local session state stays out of git; the shared settings and the
+# hook scripts they run are committed
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 
 # Secrets — defense in depth; real config lives at ~/.expense-config
 .expense-config
