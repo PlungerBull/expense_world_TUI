@@ -58,15 +58,14 @@ answer before its step starts.
    [README.md](../README.md), [cli-spec.md](cli-spec.md) and the "Repo name note" at the top of
    CLAUDE.md. `test_docs_links.py` catches any broken relative link.
 5. **Notify the engine coder.** The owner hands over the note below. This repo never edits the
-   engine. The engine docs that name this repo (2026-09-27) are `deploy/local/README.md`,
-   `deploy/local/seed-test-user.sh` and `docs/decisions.md`.
+   engine; the engine coder finds the references to the old name in the engine repo.
 6. **Delete this file**, and its row in todo.md.
 
 ## Draft note to the engine coder
 
 > The terminal client (`PlungerBull/expense_CLI_menu`) is being renamed to **<new name>**.
-> Please update the references in `deploy/local/README.md`, `deploy/local/seed-test-user.sh` and
-> `docs/decisions.md`, plus any sibling-checkout paths.
+> Please update every reference to the old name in the engine repo (its local-deployment guide,
+> the practice-user seed script and its decisions log), plus any sibling-checkout paths.
 >
 > What else changed: the owner uses only the TUI (`expense world`). The flat `expense …` commands
 > are now thin agent-verification tools, not a human surface. Nothing changes for the engine:

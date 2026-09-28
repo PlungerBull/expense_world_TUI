@@ -4,8 +4,8 @@ Written 2026-09-27. The loop's first spec and its trial run.
 
 ## Why
 
-This repo learns how the engine behaves by reading files inside the engine's folder
-(`../expense_world_engine`): docs link to them, code comments cite them, and agents are allowed
+This repo learns how the engine behaves by reading files inside the engine's folder:
+docs link to them, code comments cite them, and agents are allowed
 to open them. That breaks the rule that agents stay inside this repo, and it will not work for
 the web and iOS clients, which never see the engine's folder.
 
@@ -29,8 +29,8 @@ contract changes. This spec makes that contract the only way this repo learns ab
 4. **No doc links into the engine's folder.** CLAUDE.md, README, cli-spec.md, cli-runtime.md,
    decisions.md, todo.md, the plan docs and every other doc point at the contract instead. The
    link checker stops checking links into the engine's folder, because none remain.
-5. **No code comment cites an engine file.** Comments that cite `engine-spec.md` or an engine
-   migration (`sql/015`, `sql/026`, `sql/036` and the rest) cite the part of the contract
+5. **No code comment cites an engine file.** Comments that cite the engine's spec file or one of
+   its database migrations cite the part of the contract
    that states the rule instead.
 6. **Agents read nothing in the engine's folder.** The only access left is the tester
    starting and reseeding the practice engine there, exactly as today. No agent reads any file
@@ -62,16 +62,6 @@ this order. Each is deleted here in the commit that finishes it.
 The practice engine (`:8002`) must be running for any task that reads the contract. Only the
 tester starts it; the orchestrator has the tester start it before handing such a task to the
 builder, and it is stopped after the task.
-
-### Docs stop linking into the engine's folder
-Passes if:
-- No doc in the repo (CLAUDE.md, README, `docs/`) links to or cites a path in
-  `../expense_world_engine`, apart from the commands the tester uses to start and reseed the
-  practice engine.
-- Where a doc used such a link to state an engine rule, it points at the live contract instead.
-- `tests/unit/test_docs_links.py` no longer checks links into the engine's folder, and a guard
-  test fails if such a link comes back.
-- The orchestrator rewrites the todo.md and decisions.md mentions in the same commit.
 
 ### Close the engine folder to reading
 Passes if:

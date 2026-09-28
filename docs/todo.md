@@ -177,11 +177,11 @@ they pass:
 
 **Order.** Tags that know the category is independent and could move earlier. The title
 alignment waits for the official migration data and must run before the 2026 periods are
-completed, because a completed period locks its rows' titles. The engine's rule is absolute
-([engine decisions.md](../../expense_world_engine/docs/decisions.md#import-first-reconcile-second) "Import first, reconcile second"): **import first,
-reconcile second** — a reconciliation created before its rows exist seals the window against
-them, and the import is then refused. Full sequence: [file-import-plan.md](file-import-plan.md)
-§10.
+completed, because a completed period locks its rows' titles. The engine's rule is absolute:
+**import first, reconcile second**. A reconciliation completed before its rows exist seals the
+window against them (contract: POST /v1/transactions), and the import then skips those rows as
+`sealed`, never creating them (contract: POST /v1/transactions/import). Full sequence:
+[file-import-plan.md](file-import-plan.md) §10.
 
 **Before the sheet re-import's `--apply`:** the sheet still files rows under `PENDIENTES`, as a
 category and as a hashtag; the ledger has neither (uncategorised rows go to the system category
@@ -229,10 +229,6 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    (@Opening) can be renamed but not deleted."*, but `@Pendiente` is a system category too, so
    refusing to delete it shows a hint that names the wrong category. Name both, or word it without
    a name. Add an error-shape test deleting `@Pendiente`.
-
-4. **The docs link guard skips `docs/specs/`.** `DOC_FILES` in
-   [test_docs_links.py](../tests/unit/test_docs_links.py) globs only `docs/*.md`, so a broken
-   link in a spec goes unnoticed. Add `docs/specs/*.md`. Builder work.
 
 ## Ergonomics
 

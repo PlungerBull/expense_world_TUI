@@ -18,7 +18,7 @@ Decisions whose why lives elsewhere:
 | PAT auth (`ewe_pat_` prefix) | [cli-spec.md](cli-spec.md) "Auth model" |
 | Public GitHub repo → secrets never enter the repo | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
 | Sanctioned deviations from the principles | [cli-spec.md](cli-spec.md) "Sanctioned exceptions" |
-| Rates cross the wire as integers (`rate_e8`) | `expense_world_engine/docs/decisions.md` "Currency model" |
+| Rates cross the wire as integers (`rate_e8`, the rate × 10^8), so every client does exact integer maths with no float drift | (contract: GET /v1/exchange-rates) |
 
 ## What a half-written batch means (2026-08-25)
 
@@ -150,7 +150,7 @@ Decisions whose why lives elsewhere:
 
 ## Local-first deployment — the one engine moves to the user's Mac; cloud mothballed until iOS (2026-07-30)
 
-**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. The CLI's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: engine repo `deploy/local/README.md` and `deploy/cloud/README.md`.
+**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. The CLI's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: the engine's local- and cloud-deployment guides.
 
 **Rejected.** *Keep the cloud warm on a paid tier* — needs internet for every command and still leaves FX unwired. *Local-first writes with an LWW queue in the client* — the engine's writes have computed side effects, so optimistic acceptance means duplicating the engine or "saved" rows bouncing later. *Port the engine to SQLite* — rewrites the money layer and forks local from cloud.
 
@@ -304,7 +304,7 @@ Decisions whose why lives elsewhere:
 
 ## Deleted is deleted (2026-09-23)
 
-**Decision.** A delete is final from every client: there are no restore commands and no `--include-deleted`. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (engine repo `deploy/local/README.md`, "Undeleting a row"). Delete prompts are unchanged.
+**Decision.** A delete is final from every client: there are no restore commands and no `--include-deleted`. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (contract: "Base Conventions", "There is no restore"). Delete prompts are unchanged.
 
 **Rejected.** *A flat-only restore* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
 

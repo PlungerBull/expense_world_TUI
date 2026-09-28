@@ -1,21 +1,26 @@
 """Doc link-rot guard (CLAUDE.md "Docs must outlive any one contributor").
 
-Every relative markdown link in the top-level docs must resolve. Links into
-the sibling engine repo (../expense_world_engine) are verified only when that
-checkout is present — the sibling layout is a documented assumption (README
-"Checkout layout"), not something CI can rely on.
+Every relative link in the docs must resolve to a file inside this repo. The
+engine is learned only from its live contract (`GET /openapi.json`, CLAUDE.md
+"Key documentation"), so no doc links to or cites a path in the engine's
+folder; the one exception is the tester's start/reseed commands for the
+practice engine (docs/cli-runtime.md "Working against the live engine").
 """
 
 import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ENGINE_ROOT = REPO_ROOT.parent / "expense_world_engine"
+DOCS = REPO_ROOT / "docs"
 
 DOC_FILES = sorted(
     [REPO_ROOT / "AGENTS.md", REPO_ROOT / "CLAUDE.md", REPO_ROOT / "README.md"]
-    + list((REPO_ROOT / "docs").glob("*.md"))
+    + list(DOCS.glob("*.md"))
+    + list((DOCS / "specs").glob("*.md"))
+    + list((DOCS / "engine-asks").glob("*.md"))
 )
+# Scanned for engine-folder paths too: the mockups are HTML, not markdown links.
+ENGINE_SCAN_FILES = DOC_FILES + sorted((DOCS / "mockups").glob("*.html"))
 
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _FENCED_BLOCK = re.compile(r"```.*?```", re.DOTALL)
@@ -34,8 +39,16 @@ def _relative_targets(doc: Path) -> list[str]:
 
 
 def test_expected_doc_set_present():
-    names = {p.name for p in DOC_FILES}
-    assert {"AGENTS.md", "CLAUDE.md", "README.md", "decisions.md", "cli-spec.md"} <= names
+    names = {p.relative_to(REPO_ROOT).as_posix() for p in DOC_FILES}
+    assert {
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "docs/decisions.md",
+        "docs/cli-spec.md",
+        "docs/specs/README.md",
+        "docs/engine-asks/README.md",
+    } <= names
 
 
 def test_relative_doc_links_resolve():
@@ -43,12 +56,101 @@ def test_relative_doc_links_resolve():
     for doc in DOC_FILES:
         for target in _relative_targets(doc):
             resolved = (doc.parent / target).resolve()
-            if resolved.is_relative_to(REPO_ROOT):
-                if not resolved.exists():
-                    broken.append(f"{doc.relative_to(REPO_ROOT)} -> {target}")
-            elif ENGINE_ROOT.exists() and not resolved.exists():
-                broken.append(f"{doc.relative_to(REPO_ROOT)} -> {target} (engine repo)")
+            if not resolved.is_relative_to(REPO_ROOT):
+                broken.append(f"{doc.relative_to(REPO_ROOT)} -> {target} (outside this repo)")
+            elif not resolved.exists():
+                broken.append(f"{doc.relative_to(REPO_ROOT)} -> {target}")
     assert not broken, "Broken relative links:\n  " + "\n  ".join(broken)
+
+
+# ---- no path into the engine's folder ---------------------------------------
+# The link check above strips code spans and never sees HTML, so a path written
+# as text slips past it. These patterns catch the shapes such a path takes: a
+# relative path to the engine folder, any path inside it, and the engine's own
+# files named bare. The program's name alone (`expense_world_engine`) is not a
+# path and passes.
+
+_ENGINE_PATHS = [
+    re.compile(r"(?:\.\./)+expense_world_engine\b"),
+    re.compile(r"expense_world_engine/[\w.-]"),
+    re.compile(r"\bengine-spec(?:\.md)?\b"),
+    re.compile(r"\bdeploy/\w"),
+    re.compile(r"\bsql/\d{3}"),
+]
+
+# The tester's start/reseed commands for the practice engine (CLAUDE.md "Stay
+# inside this repo", docs/cli-runtime.md "Working against the live engine").
+# Each entry is (doc, exact text): a match wholly inside that text in that doc
+# passes; the same text anywhere else is still caught.
+_ALLOWED = [
+    ("CLAUDE.md", "It starts the engine on `:8002` from `../expense_world_engine`"),
+    ("CLAUDE.md", "`deploy/local/seed-test-user.sh --force`"),
+    ("docs/cli-runtime.md", "In the engine repo, `deploy/local/seed-test-user.sh` seeds"),
+]
+
+
+def _engine_path_hits(rel: str, text: str) -> list[str]:
+    allowed = [
+        (m.start(), m.end())
+        for doc, snippet in _ALLOWED
+        if doc == rel
+        for m in re.finditer(re.escape(snippet), text)
+    ]
+    hits = []
+    reported: list[tuple[int, int]] = []
+    for pattern in _ENGINE_PATHS:
+        for match in pattern.finditer(text):
+            if any(lo <= match.start() and match.end() <= hi for lo, hi in allowed):
+                continue
+            # One path can match two patterns (`../x/docs/...`); report it once.
+            if any(match.start() < hi and lo < match.end() for lo, hi in reported):
+                continue
+            reported.append(match.span())
+            lineno = text.count("\n", 0, match.start()) + 1
+            hits.append(f"{rel}:{lineno}: {match.group(0)}")
+    return hits
+
+
+def test_no_doc_cites_a_path_in_the_engine_folder():
+    hits = []
+    for doc in ENGINE_SCAN_FILES:
+        hits += _engine_path_hits(doc.relative_to(REPO_ROOT).as_posix(), doc.read_text())
+    assert not hits, (
+        "Docs cite paths in the engine's folder. Cite the live contract instead "
+        '(GET /openapi.json: "Section" or METHOD /v1/path), or say it in plain words:\n  '
+        + "\n  ".join(sorted(hits))
+    )
+
+
+def test_every_allowlisted_snippet_is_still_in_its_doc():
+    stale = [
+        f"{doc}: {snippet}"
+        for doc, snippet in _ALLOWED
+        if snippet not in (REPO_ROOT / doc).read_text()
+    ]
+    assert not stale, "Stale _ALLOWED entries (drop or update them):\n  " + "\n  ".join(stale)
+
+
+def test_engine_path_guard_trips():
+    engine = "expense_world_engine"
+    for text in (
+        f"[spec](../../{engine}/docs/engine-spec.md)",
+        f"see `../{engine}`",
+        f"`{engine}/docs/decisions.md`",
+        "engine-spec *Base Conventions*",
+        "engine repo `deploy/local/README.md`",
+        "`deploy/cloud/README.md`",
+        "migration `sql/026`",
+    ):
+        assert _engine_path_hits("docs/x.md", text), text
+    # A path matching two patterns is reported once.
+    assert len(_engine_path_hits("docs/x.md", f"[s](../../{engine}/docs/a.md)")) == 1
+    for doc, snippet in _ALLOWED:
+        assert not _engine_path_hits(doc, snippet), snippet
+        assert _engine_path_hits("docs/x.md", snippet), snippet
+    # The program's name, and the sibling-checkout tree, are not paths into it.
+    assert not _engine_path_hits("README.md", f"over the `{engine}` HTTP API")
+    assert not _engine_path_hits("README.md", f"└── {engine}/   ← engine")
 
 
 # ---- decisions.md headings quoted from the source ---------------------------

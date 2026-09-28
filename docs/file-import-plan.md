@@ -6,7 +6,7 @@ check in §3, and the mockup gate on the import screen (the screen is decided, i
 not). When the work ships, its why moves to [decisions.md](decisions.md) and this file is
 deleted. Section numbers have gaps on purpose: other docs cite §3, §6 and §11.
 
-The engine half: [expense_world_engine/docs/decisions.md](../../expense_world_engine/docs/decisions.md#bank-statements) "Bank statements".
+The engine half: (contract: POST /v1/transactions/import).
 
 ---
 
@@ -78,8 +78,9 @@ no operation number — no use for aligning titles. On the test ledger (2026-09-
 rows, 38 already identical, 69 with exactly one candidate, 14 with several, 1 with none.
 
 **When:** after the official migration (sheet updated and re-imported), **before** any 2026
-period is completed — a completed period locks its rows' `title` (engine-spec *Field
-locking*) — and before the first real bank import.
+period is completed — a completed period locks its rows' `title`
+(contract: PUT /v1/transactions/{transaction_id}, "Field locking") — and before the first real
+bank import.
 
 **How (owner, 2026-09-26: "app proposes, I approve"; no new screen, it runs once):**
 1. Re-download every export the bank offers and read them against the migrated ledger — reads

@@ -4,12 +4,12 @@ The Hands — a Python (Typer) CLI and Textual TUI over the `expense_world_engin
 
 See [CLAUDE.md](CLAUDE.md) for conventions, [docs/cli-spec.md](docs/cli-spec.md) for the command surface, [docs/tui.md](docs/tui.md) for the TUI, [docs/todo.md](docs/todo.md) for what is still open, and [docs/decisions.md](docs/decisions.md) for why the big calls went the way they did.
 
-> **Checkout layout:** the docs link into the engine repo by relative path — clone both as siblings or those links break:
+> **Checkout layout:** the engine repo is a sibling checkout; the tester starts and reseeds the practice engine from it ([docs/cli-runtime.md](docs/cli-runtime.md) "Working against the live engine"). The docs never link into it: the engine contract is read live from `GET /openapi.json` on a running engine ([CLAUDE.md](CLAUDE.md) "Key documentation").
 >
 > ```
 > <anything>/
 > ├── expense_world_CLI/      ← this repo
-> └── expense_world_engine/   ← engine (specs referenced, not copied)
+> └── expense_world_engine/   ← engine (the practice engine runs from here)
 > ```
 
 ## Install (dev)

@@ -13,12 +13,12 @@ Everything here applies equally to the TUI (`expense world`) and the importers (
 Every read command is a direct `GET`. What a command prints is what the engine computed at that moment, including home-currency figures (converted engine-side at read time).
 
 - The engine's responses are IDs-only; list renderers resolve names via live reference-list fetches (`load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` in [expense/commands/_resource.py](../expense/commands/_resource.py)), degrading to 8-char short ids on failure (cli-spec "Output conventions").
-- **Deleted is deleted.** A deleted row is invisible to every client — no list returns it, its get is a 404 — and no command restores it. The engine keeps the row in its table; undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). `expense activity list` still shows a deleted row's history.
+- **Deleted is deleted.** A deleted row is invisible to every client — no list returns it, its get is a 404 — and no command restores it. The engine keeps the row in its table; undeleting is an operator task outside the API (contract: "Base Conventions", "There is no restore"). `expense activity list` still shows a deleted row's history.
 - Transaction reads always send `debit_as_negative=true`, so the request pins the sign rather than depending on the engine default.
 
 ### Three list shapes
 
-No list pages by position; every list is one of three shapes, each read its own way. The contract is engine-spec *Base Conventions* ([../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)); what each command prints under its table is cli-spec "Pagination (human mode)".
+No list pages by position; every list is one of three shapes, each read its own way. The rules are the engine's (contract: "Base Conventions", "Lists come in three shapes"), with (contract: "Base Conventions", "Cursors") and (contract: "Base Conventions", "Date windows"); what each command prints under its table is cli-spec "Pagination (human mode)".
 
 | Shape | Lists | How the CLI and TUI read it |
 |---|---|---|
@@ -44,7 +44,7 @@ The engine's `{ error: { code, message, fields } }` envelope is rendered intact 
 
 ## Working against the live engine
 
-There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, launchd service on the owner's Mac — engine repo `deploy/local/README.md`). No staging, no sandbox — every PAT belongs to a real user and every write lands in the one true ledger.
+There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, launchd service on the owner's Mac, set up by the engine's local-deployment guide). No staging, no sandbox — every PAT belongs to a real user and every write lands in the one true ledger.
 
 **Developer default is live.** Plain `expense …` commands read `~/.expense-config` — the real credential. Reads are safe; ad-hoc writes are real writes. To inspect behaviour, use `--verbose` on a read, or the unit suite.
 
@@ -52,13 +52,13 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
 - `EXPENSE_CONFIG` redirects the config file. This isolates *local config only* — the same PAT still writes to the same ledger.
 - A **separate PAT for a separate user** is data isolation within the same database (PATs: cli-spec "Auth model").
-- **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and `deploy/local/create-test-db.sh --force` wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates` (`--force` reseeds: it drops the practice user's rows, revokes its old PATs and prints a fresh one), then
+- **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and the engine's test-database script, run with `--force`, wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates` (`--force` reseeds: it drops the practice user's rows, revokes its old PATs and prints a fresh one), then
 
       SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
         ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
         python -m uvicorn app.main:app --port 8002
 
-  (`python -m uvicorn`, not the console script — engine `deploy/local/README.md` "TCC".)
+  (`python -m uvicorn`, not the console script — the engine's local-deployment guide gives the reason under "TCC".)
 
   **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine.
 

@@ -2,7 +2,7 @@
 
 > The flat command surface of the Hands: a Python (Typer) CLI where every command is a thin wrapper around `expense_world_engine` endpoints — no business logic lives in the CLI.
 >
-> Engine contract (error shape, null-over-omission, idempotency, sign): [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md) · Runtime behaviour: [cli-runtime.md](cli-runtime.md) · The TUI: [tui.md](tui.md) · Open work: [todo.md](todo.md)
+> Engine contract (error shape, null-over-omission, idempotency, sign): (contract: "Base Conventions"), read live ([CLAUDE.md](../CLAUDE.md) "Key documentation") · Runtime behaviour: [cli-runtime.md](cli-runtime.md) · The TUI: [tui.md](tui.md) · Open work: [todo.md](todo.md)
 
 ---
 
@@ -13,8 +13,8 @@
 - The `debit_as_negative` convention is used end-to-end (negative = expense, positive = income), at input parsing and output rendering.
 - Every write carries an `X-Idempotency-Key`, re-sent unchanged on a bounded retry ([cli-runtime.md](cli-runtime.md) "Write semantics").
 - Engine errors surface intact: human mode may prettify, `--json` passes through verbatim — never swallow, never reformat lossily. (Deviations: Sanctioned exceptions below.)
-- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client; undeleting is an operator task (engine repo `deploy/local/README.md`, "Undeleting a row"). Archive/unarchive are prompt-free — reversible toggles, not destruction.
-- Archive = retired-but-real, delete = mistake/scrubbed (engine-spec).
+- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client; undeleting is an operator task outside the API (contract: "Base Conventions", "There is no restore"). Archive/unarchive are prompt-free — reversible toggles, not destruction.
+- Archive = retired-but-real (contract: POST /v1/accounts/{account_id}/archive), delete = mistake/scrubbed (contract: "Base Conventions", "Deleted is deleted").
 
 ### Sanctioned exceptions
 
@@ -30,7 +30,7 @@ Deliberate, reviewed deviations from the principles above — do not re-flag in 
 
 The engine issues long-lived Personal Access Tokens prefixed `ewe_pat_`; anything else falls through to JWT verification. The CLI treats the token as an opaque Bearer token and does no client-side validation.
 
-A PAT is obtained out-of-band: on the local deployment, by direct insert into `personal_access_tokens` (SHA-256 of the plaintext + `token_prefix`; engine `deploy/local/README.md`). No CLI command issues or revokes PATs.
+A PAT is obtained out-of-band: the first one is minted by the operator, outside the API (contract: POST /v1/auth/pat). No CLI command issues or revokes PATs.
 
 All engine endpoints except `GET /health` are mounted under `/v1/`. The HTTP client's base path is `<engine_url>/v1`, with `/health` the one unauthenticated, un-prefixed exception.
 

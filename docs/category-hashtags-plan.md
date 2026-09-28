@@ -14,9 +14,8 @@ empty result or a >50-tag category.
 ## 1. What the engine now does
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
-used with, most-used first. Read-only. **Returns the whole list, unpaged** (engine-spec *Base
-Conventions*, [../../expense_world_engine/docs/engine-spec.md](../../expense_world_engine/docs/engine-spec.md)):
-`?limit=` / `?offset=` are a `422`.
+used with, most-used first. Read-only. **Returns the whole list, unpaged**
+(contract: "Base Conventions", "Lists come in three shapes"): `?limit=` / `?offset=` are a `422`.
 
 ```json
 { "items": [ {"id": "<uuid>", "name": "ALQUILER", "uses": 142},
