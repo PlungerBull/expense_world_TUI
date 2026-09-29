@@ -46,124 +46,29 @@ category and hashtag name resolves (dry run, 2026-09-27). Import before you comp
 reconciliation: a completed reconciliation seals its window, and the import then skips those
 rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
 
-### Why does the practice engine start as `python -m uvicorn`?
-Asked 2026-09-28 · Blocks: nothing; [cli-runtime.md](cli-runtime.md) "Working against the live engine" points agents at a guide they may no longer open
-The ops guide says to start the practice engine as `python -m uvicorn`, not the `uvicorn` command,
-and gives the reason only as a pointer to the engine's local-deployment guide ("TCC", a macOS
-permission rule). No agent may read the engine's folder now, so the reason has to be written here.
-- **A.** Paste the reason from that guide (or say it in your own words) and it goes into
-  cli-runtime.md.
-- **B.** Ask the engine coder to put it in the engine's published contract or a note you hand over.
+### Bank names: rename your accounts, or teach the import the bank's names?
+Asked 2026-09-29 · Blocks: The TUI import door (C1), [file-import-plan.md](file-import-plan.md) §3
+The bank says `VISA Infinite Sapphire`, `Sueldo Soles` and `Cuenta Digital Dólares`; your
+accounts are `BCP Signature`, `BCP PEN` and `BCP USD`. They are the same accounts and the
+names should match. Also confirm that `VISA Infinite Sapphire` is `BCP Signature`.
+- **A.** Rename your accounts in the TUI to the bank's names, once. Nothing to build.
+- **B.** Keep your names. Each account also stores the bank's name for it, and the import picks
+  the account by itself (an engine ask, so web and iOS get it too, plus a mockup).
 
-**Recommended:** A. It is one sentence, and it is an ops fact, not an API rule.
+**Recommended:** A. It makes the names match with nothing to build.
 
-### Will you still log card purchases by hand after the official migration?
-Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Backlog
-"After `--apply`, the bank import's \"may be logged twice\" warning…"
-- **A.** Yes. The import then offers "rename your row to the bank's wording?" every time it
-  finds a match (an engine ask plus a mockup).
-- **B.** No. Nothing to build; this closes.
+### Tags that know the category: hide the other tags, or list them second?
+Asked 2026-09-29 · Blocks: Tags that know the category
+Panes **D** and **E** in [expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
+§3. Label pickers in apps like Todoist and Gmail rank; they do not hide.
+- **A. Pane D.** The category's tags come first, every other tag below a divider. No `##`, no
+  empty-list case, no legend change; only [category-hashtags-plan.md](category-hashtags-plan.md)
+  §5 H1 and H4 remain, each with a recommendation.
+- **B. Pane E.** Only the category's tags; `##` opens the rest. All four §5 choices remain, plus
+  where `##` goes in the full legend row.
 
-**Recommended:** none. It depends on how you will work.
+**Recommended:** A. Nothing is ever out of reach, and it is the smaller build.
 
-### Do the bank's product names match your accounts?
-Asked 2026-09-20 · Blocks: The TUI import door (C1), [file-import-plan.md](file-import-plan.md) §3
-The bank says `VISA Infinite Sapphire`, `Sueldo Soles` and `Cuenta Digital Dólares`. Your
-accounts are `BCP Signature`, `BCP PEN` and `BCP USD`.
-- **A.** They are the same accounts under other names. Only `BCP Signature` needs confirming:
-  it is the Infinite card, renamed.
-- **B.** A card is missing from the system and needs creating.
-
-**Recommended:** none. Only you know.
-
-### Tags that know the category: the four choices in §5
-Asked 2026-09-20 · Blocks: Tags that know the category
-[category-hashtags-plan.md](category-hashtags-plan.md) §5 holds four choices, H1–H4. Each is
-laid out with its reasons and a recommendation: which screens narrow the tag list, what a
-category with no tags shows, whether the "show all tags" shortcut is `##`, and whether usage
-counts show.
-- **A.** Accept all four recommendations.
-- **B.** Go through them one by one.
-
-**Recommended:** A. Each one is argued in §5.
-
-### Tags that know the category: does the legend row change?
-Asked 2026-09-20 · Blocks: Tags that know the category
-The LOG bar's one-row legend lists the whole quick-add grammar. If `##` (show all tags) ships,
-the legend is the only place anyone would discover it, and that row is already full.
-- **A.** The legend gains `##`, and something else gets shorter.
-- **B.** The legend stays as it is. `##` goes undocumented on screen.
-
-**Recommended:** none yet. The mockup re-pick decides it.
-
-### Tags that know the category: does a deleted transaction still count as "using" a tag?
-Asked 2026-09-20 · Blocks: Tags that know the category
-The engine says no. So deleting a row can quietly drop a tag out of that category's
-suggestions.
-- **A.** That matches what you expect. Keep it.
-- **B.** A deleted row should still count. That is an engine ask.
-
-**Recommended:** A. It is how the engine already works.
-
-### TUI-only: should the flat commands print JSON only?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-- **A.** JSON only. The human tables, page footers, colour swatches and name columns go.
-- **B.** Keep a plain human mode.
-
-**Recommended:** A. The agent reads JSON, and the TUI is the human view.
-
-### TUI-only: one flat command per engine endpoint, or only the ones the agent uses?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-- **A.** One per endpoint.
-- **B.** Only the ones the agent actually uses.
-
-**Recommended:** A, so the agent can check any endpoint.
-
-### TUI-only: what happens to `import bank`, `import sheet` and `expense log`?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-The imports are flat-only until the TUI import door ships, and `import bank` asks you which
-account a file belongs to. `expense log "<line>"` is the flat twin of the LOG bar.
-- **A.** They stay as human commands until the TUI import door ships, then shrink like the
-  rest.
-- **B.** They stay as human commands for good.
-
-**Recommended:** none yet.
-
-### TUI-only: which command guard tests stay?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-Every flat command must have an `Example:`, an error test, `--json` on reads and `--yes` on
-deletes ([test_command_surface.py](../tests/unit/test_command_surface.py)). Confirmation prompts
-are for people, and the agent always passes `--yes`.
-- **A.** Keep them all.
-- **B.** Drop the people-only ones (prompts, `Example:`). Keep the error test and `--json`.
-
-**Recommended:** none yet.
-
-### TUI-only: where does the shared code live?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-The TUI takes its reads and formatters from `expense/commands/*`. If the commands shrink, that
-name stops fitting.
-- **A.** It stays in `expense/commands/`.
-- **B.** It moves to a package not named after the commands.
-
-**Recommended:** none yet.
-
-### TUI-only: what is the repo's new name?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-Today it is `PlungerBull/expense_CLI_menu` on GitHub and `expense_world_CLI` locally. Name it,
-and say whether the `expense` command keeps its name:
-- **A.** `expense` stays.
-- **B.** `expense` changes too, to a name you give.
-
-**Recommended:** A. It is what you type every day.
-
-### TUI-only: is the note to the engine coder right?
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
-The draft is in [tui-only-plan.md](specs/tui-only-plan.md) "Draft note to the engine coder".
-- **A.** Send it as written, with the new name filled in.
-- **B.** Change it. Say how.
-
-**Recommended:** A.
 
 ---
 
@@ -173,12 +78,12 @@ Open work, not yet a spec. Bigger items link their plan doc, which is deleted wh
 ships (its why moves to [decisions.md](decisions.md)).
 
 - **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
-  Waits on the "Tags that know the category" questions above. **[UI]**
+  Waits on the "Tags that know the category" question above. **[UI]**
 - **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. Waits on
-  "Do the bank's product names match your accounts?" above. **[UI]**, nothing drawn.
+  "Bank names: rename your accounts, or teach the import the bank's names?" above. **[UI]**, nothing drawn.
 - **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
-  the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). Waits on the
-  "TUI-only" questions and the TUI check above.
+  the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
+  until the owner picks it up; its open questions live in the spec.
 - **One-time title alignment after the official migration.** Plan:
   [file-import-plan.md](file-import-plan.md) §6. Runs after the sheet re-import and before the
   2026 periods are completed, because a completed period locks its rows' titles. The engine's
@@ -215,9 +120,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
   Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
   twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
-  after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Tied to the question in Waiting on you
-  on hand-logged card purchases: if a rename proposal is built, this
-  case mostly stops happening.
+  after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Card purchases
+  come in mainly through the import and typing one by hand stays possible, so this case is rare
+  but real; no "rename to the bank's wording" offer is built.
 
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.

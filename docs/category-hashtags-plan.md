@@ -1,7 +1,8 @@
 # Tags that know the category — CLI/TUI plan
 
-**Status: not built.** The shape is decided (owner picked mockup pane **E**, 2026-09-20); §5 holds
-four forks that are not, and §6 points at the questions only the owner can answer. It answers the
+**Status: not built.** The shape is open again: pane **E** (only the category's tags) or pane
+**D** (the category's tags first, the rest below). Pane D leaves only H1 and H4 of §5; §6 points
+at the question. It answers the
 owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*. When
 it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 
@@ -168,14 +169,15 @@ costs width; in `categories hashtags` it is the whole point of the read.
 
 ## 6. Open questions for the owner
 
-In [todo.md](todo.md) "Waiting on you", the entries titled "Tags that know the category:
-…" — including one for the §5 choices.
+In [todo.md](todo.md) "Waiting on you", the entry titled "Tags that know the category: hide
+the other tags, or list them second?".
 
 ## 7. Non-goals
 
 | Not doing | Why |
 |---|---|
 | Category **suggestions** from tags (the reverse) | Merchant memory and category suggestion were rejected 2026-09-13 |
+| Counting deleted transactions as uses | A deleted row no longer uses its tags; this is the engine's rule (§1) and what the owner expects |
 | Persisting the ranking anywhere | §1's warning — it is derived, not stored |
 | Using `uses` to reorder the *full* list | The full list is alphabetical and predictable; re-ranking it would make the escape hatch's contents move around |
 

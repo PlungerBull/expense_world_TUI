@@ -1,7 +1,7 @@
 # The TUI is the only human surface; the flat CLI is for the agent
 
-**Starts after** [todo.md](../todo.md) "Check the TUI after the engine update" and whatever
-else is in flight then. **When done:** the why moves to [decisions.md](../decisions.md), and this
+**Deferred.** Nothing here starts until the owner picks this spec up. Then it starts after
+[todo.md](../todo.md) "Check the TUI after the engine update" and whatever else is in flight. **When done:** the why moves to [decisions.md](../decisions.md), and this
 file is deleted.
 
 ---
@@ -28,8 +28,68 @@ directly.
 
 ## Open questions for the owner
 
-In [todo.md](../todo.md) "Waiting on you", the entries titled "TUI-only: …". Each gets an
-answer before its step starts.
+Each gets an answer before its step starts. They wait here, not in todo.md, while the spec is
+deferred.
+
+### Should the flat commands print JSON only?
+Asked 2026-09-26
+- **A.** JSON only. The human tables, page footers, colour swatches and name columns go.
+- **B.** Keep a plain human mode.
+
+**Recommended:** A. The agent reads JSON, and the TUI is the human view.
+
+### One flat command per engine endpoint, or only the ones the agent uses?
+Asked 2026-09-26
+- **A.** One per endpoint.
+- **B.** Only the ones the agent actually uses.
+
+**Recommended:** A, so the agent can check any endpoint.
+
+### What happens to `import bank`, `import sheet` and `expense log`?
+Asked 2026-09-26
+The imports are flat-only until the TUI import door ships, and `import bank` asks you which
+account a file belongs to. `expense log "<line>"` is the flat twin of the LOG bar.
+- **A.** They stay as human commands until the TUI import door ships, then shrink like the
+  rest.
+- **B.** They stay as human commands for good.
+
+**Recommended:** none yet.
+
+### Which command guard tests stay?
+Asked 2026-09-26
+Every flat command must have an `Example:`, an error test, `--json` on reads and `--yes` on
+deletes ([test_command_surface.py](../../tests/unit/test_command_surface.py)). Confirmation prompts
+are for people, and the agent always passes `--yes`.
+- **A.** Keep them all.
+- **B.** Drop the people-only ones (prompts, `Example:`). Keep the error test and `--json`.
+
+**Recommended:** none yet.
+
+### Where does the shared code live?
+Asked 2026-09-26
+The TUI takes its reads and formatters from `expense/commands/*`. If the commands shrink, that
+name stops fitting.
+- **A.** It stays in `expense/commands/`.
+- **B.** It moves to a package not named after the commands.
+
+**Recommended:** none yet.
+
+### What is the repo's new name?
+Asked 2026-09-26
+Today it is `PlungerBull/expense_CLI_menu` on GitHub and `expense_world_CLI` locally. Name it,
+and say whether the `expense` command keeps its name:
+- **A.** `expense` stays.
+- **B.** `expense` changes too, to a name you give.
+
+**Recommended:** A. It is what you type every day.
+
+### Is the note to the engine coder right?
+Asked 2026-09-26
+The draft is "Draft note to the engine coder" below.
+- **A.** Send it as written, with the new name filled in.
+- **B.** Change it. Say how.
+
+**Recommended:** A.
 
 ## Consequences that follow directly
 
