@@ -24,7 +24,7 @@ from expense.jsonout import emit_json
 app = typer.Typer(help="Categories.", no_args_is_help=True)
 
 _RESOURCE = "categories"
-_SYSTEM_HINT = "The system category (@Opening) can be renamed but not deleted."
+SYSTEM_HINT = "System categories can be renamed but not deleted."
 
 
 def _render_category_list(body: dict, *, json_mode: bool) -> None:
@@ -181,7 +181,7 @@ def delete(
         yes=yes,
         json_output=json_output,
         hints={
-            403: f"Hint: {_SYSTEM_HINT}",
+            403: f"Hint: {SYSTEM_HINT}",
             409: (
                 "Hint: This category has transactions and cannot be deleted. "
                 "Recategorize them first if you want to retire it."

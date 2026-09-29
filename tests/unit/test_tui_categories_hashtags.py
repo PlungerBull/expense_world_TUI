@@ -25,6 +25,14 @@ def test_category_rows_swatch_and_system():
     assert by_id["c2"][1][2] == "system 🔒"  # system marker
 
 
+def test_categories_legend_is_the_cli_delete_hint():
+    """One copy of the system-category rule: the TUI legend is the CLI hint."""
+    from expense.commands.categories_cmd import SYSTEM_HINT
+
+    assert CategoriesScreen.LEGEND is SYSTEM_HINT
+    assert SYSTEM_HINT == "System categories can be renamed but not deleted."
+
+
 def test_hashtag_rows_hash_prefix():
     by_id = {r[0]: r for r in hashtag_rows(TAGS)}
     assert by_id["h1"][1][0] == "#trabajo"  # prefix added

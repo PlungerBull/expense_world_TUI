@@ -69,7 +69,7 @@ Config lives in `~/.expense-config` (chmod 600):
 
 ### `expense categories`
 - `categories list`, `get <id>`, `create`, `update`, `delete`. Categories are not archivable.
-- System categories (`@Opening`, `@Pendiente`) can be renamed but not deleted — the engine's 403 surfaces with a hint.
+- System categories (`@Opening`, `@Pendiente`) can be renamed but not deleted — the engine's 403 surfaces with `Hint: System categories can be renamed but not deleted.`
 
 ### `expense hashtags`
 - Same shape as categories: `list`, `get`, `create`, `update`, `delete`. Not archivable.

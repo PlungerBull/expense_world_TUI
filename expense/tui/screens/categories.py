@@ -1,9 +1,10 @@
 """Categories screen — spending buckets.
 
 Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
-(prefilled EditCategoryScreen). `enter` does nothing. The system category
-(@Opening) can be renamed/recolored (the engine keys it by `system_key`,
-not name) but cannot be deleted. Only accounts archive.
+(prefilled EditCategoryScreen). `enter` does nothing. System categories
+can be renamed/recolored (the engine keys them by `system_key`, not name)
+but cannot be deleted; the legend is the CLI's delete hint,
+`categories_cmd.SYSTEM_HINT`. Only accounts archive.
 """
 
 from expense.commands import categories_cmd
@@ -32,7 +33,7 @@ class CategoriesScreen(ResourceListScreen):
     TITLE = "Categories — buckets for every transaction"
     HEADERS = _HEADERS
     EMPTY = "(no categories)"
-    LEGEND = "the system category (@Opening) can be renamed but not deleted"
+    LEGEND = categories_cmd.SYSTEM_HINT
     RESOURCE = "categories"
 
     def fetch_items(self, cfg, **kw):

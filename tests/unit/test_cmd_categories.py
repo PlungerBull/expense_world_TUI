@@ -33,12 +33,21 @@ CATEGORY_RESPONSE = {
 LIST_RESPONSE = [CATEGORY_RESPONSE]
 
 
+PENDIENTE_ID = "33333333-3333-3333-3333-333333333333"
+
+
 @respx.mock
-def test_delete_403_prints_system_hint(configured):
-    respx.delete(f"{BASE}/v1/categories/sys").mock(
-        return_value=error_response(403, "FORBIDDEN", "System category cannot be modified.", None)
+def test_delete_403_on_pendiente_prints_system_hint(configured):
+    """@Pendiente is a system category: the 403 prints the engine error plus the hint.
+
+    The engine message here shares no words with the hint, so the hint is
+    chosen by the 403 status alone.
+    """
+    respx.delete(f"{BASE}/v1/categories/{PENDIENTE_ID}").mock(
+        return_value=error_response(403, "FORBIDDEN", "Operation not allowed.", None)
     )
-    result = runner.invoke(cli_app, ["categories", "delete", "sys", "--yes"])
+    result = runner.invoke(cli_app, ["categories", "delete", PENDIENTE_ID, "--yes"])
     assert result.exit_code == 1
-    assert "system category (@Opening)" in result.output
     assert "FORBIDDEN" in result.output
+    assert "Operation not allowed." in result.output
+    assert "Hint: System categories can be renamed but not deleted." in result.output.splitlines()

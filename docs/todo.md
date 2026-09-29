@@ -234,13 +234,7 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    the owner on hand-logged card purchases: if a rename proposal is built, this
    case mostly stops happening.
 
-3. **The system-category delete hint names only `@Opening`.** `_SYSTEM_HINT` in
-   [categories_cmd.py](../expense/commands/categories_cmd.py) reads *"The system category
-   (@Opening) can be renamed but not deleted."*, but `@Pendiente` is a system category too, so
-   refusing to delete it shows a hint that names the wrong category. Name both, or word it without
-   a name. Add an error-shape test deleting `@Pendiente`.
-
-4. **The guard's limits list misses two cases, and one rule has no test.**
+3. **The guard's limits list misses two cases, and one rule has no test.**
    [guard.py](../.claude/hooks/guard.py): a path inside a `python -c` or `awk` program string
    is not checked (same class as the listed `bash -c`), and a bare heredoc body with a `cd`
    line moves the guard's tracked folder, so the rest of the command is blocked. Name both in
@@ -248,7 +242,7 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    Bash case whose hook `cwd` is the harness scratchpad or `~/.claude`; add one pinning that
    both pass. Builder work.
 
-5. **The contract suite's conftest repeats the ops guide, out of date, and tells history.**
+4. **The contract suite's conftest repeats the ops guide, out of date, and tells history.**
    [tests/contract/conftest.py](../tests/contract/conftest.py): its module docstring copies the
    seed, start and suite commands that [cli-runtime.md](cli-runtime.md) "Working against the
    live engine" owns, and its start command is stale (bare `python`, not detached); cut it to a
