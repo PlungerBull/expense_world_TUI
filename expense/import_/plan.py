@@ -7,7 +7,7 @@ case-insensitive uniqueness.
 """
 
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from expense.import_ import mapping
@@ -19,10 +19,11 @@ class AccountSpec:
     """One account to ensure.
 
     ``name`` is what the engine is told; ``source_name`` is the raw sheet cell.
-    They differ only when a sheet name spans several currencies — the engine
-    gives every account exactly one currency, so such a name becomes several
-    accounts and each needs its own display name (see ``_split_account_name``).
-    Rows always resolve by ``source_name``, never by the derived one.
+    They differ when a sheet name spans several currencies — the engine gives
+    every account exactly one currency, so such a name becomes several accounts
+    and each needs its own display name (see ``_split_account_name``) — and
+    when the owner renames a (sheet name, currency) leg (``account_names`` in
+    ``build_plan``). Rows always resolve by ``source_name``, never by ``name``.
     """
 
     name: str
@@ -95,6 +96,12 @@ def _split_account_name(name: str, currency: str, currencies: set[str]) -> str:
     return f"{name} {currency}"
 
 
+def account_key(name: str, currency: str) -> tuple[str, str]:
+    """How a sheet account leg is identified: name case/space-insensitive,
+    currency upper-case — the same key rows and openings resolve by."""
+    return (name.strip().casefold(), currency.strip().upper())
+
+
 def _distinct_ci(names: Iterable[str]) -> list[str]:
     """Case-insensitive distinct, keeping the first-seen original casing."""
     seen: dict[str, str] = {}
@@ -109,7 +116,13 @@ def build_plan(
     parsed: list[ParsedRow],
     openings: list[OpeningRow],
     skipped: list[SkippedRow],
+    account_names: Mapping[tuple[str, str], str] | None = None,
 ) -> ImportPlan:
+    """``account_names`` maps a sheet leg (``account_key(sheet_name, currency)``)
+    to the ledger name it is written under, replacing the derived name; a leg
+    with no entry keeps the derived one, and an entry matching no leg is unused.
+    """
+    renames = dict(account_names or {})
     skips = list(skipped)
     rows: list[ParsedRow] = []
     tx_ids: dict[int, str] = {}
@@ -157,7 +170,8 @@ def build_plan(
         spanning.setdefault(name.casefold(), set()).add(currency)
     accounts = [
         AccountSpec(
-            name=_split_account_name(name, currency, spanning[name.casefold()]),
+            name=renames.get(account_key(name, currency))
+            or _split_account_name(name, currency, spanning[name.casefold()]),
             currency=currency,
             source_name=name,
         )

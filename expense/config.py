@@ -42,6 +42,11 @@ class Config(BaseModel):
     # the first time a file is imported, read on every run after, overridden
     # by --account.
     bank_files: dict[str, str] = {}
+    # `expense import sheet`: a sheet account leg ("BCP:PEN" — sheet name,
+    # colon, currency) → the ledger name it is written under ("Sueldo Soles").
+    # Written by --account-name, read on every run after; a flag for a key
+    # already here replaces it.
+    sheet_account_names: dict[str, str] = {}
 
 
 def load() -> Config | None:

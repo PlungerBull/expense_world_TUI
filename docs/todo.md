@@ -46,6 +46,13 @@ category and hashtag name resolves (dry run, 2026-09-27). Import before you comp
 reconciliation: a completed reconciliation seals its window, and the import then skips those
 rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
 
+Run the re-import with the four account renames, so the BCP accounts carry the bank's names
+([cli-spec.md](cli-spec.md) "Renaming an account leg"): `--account-name "BCP:PEN=Sueldo Soles"`,
+`--account-name "BCP:USD=Cuenta Digital Dólares"`,
+`--account-name "BCP Signature:PEN=VISA Infinite Sapphire PEN"` and
+`--account-name "BCP Signature:USD=VISA Infinite Sapphire USD"`. Check the dry run lists all
+four before `--apply`.
+
 ---
 
 ## Backlog
@@ -55,14 +62,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 - **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
   Shape and choices settled (pane D, §5 recommendations). **[UI]**
-- **Rename accounts during the sheet import.** The official migration writes each BCP
-  account under the bank's own name (`VISA Infinite Sapphire` is `BCP Signature`, upgraded), so
-  bank files and ledger agree from day one. A rename list on `expense import sheet`, keyed by
-  the sheet's name and currency. The four names: `BCP` (PEN) → `Sueldo Soles`, `BCP` (USD) →
-  `Cuenta Digital Dólares`, `BCP Signature` (PEN) → `VISA Infinite Sapphire PEN`,
-  `BCP Signature` (USD) → `VISA Infinite Sapphire USD`. Must land before the official migration.
 - **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. The
-  account names match the bank's once "Rename accounts during the sheet import" ships. **[UI]**,
+  account names match the bank's once the migration runs with the four renames. **[UI]**,
   nothing drawn.
 - **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
   the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**

@@ -42,6 +42,7 @@ Config lives in `~/.expense-config` (chmod 600):
 | `token` | PAT (prefix `ewe_pat_`). Sent verbatim as `Authorization: Bearer <token>`. |
 | `main_currency` | Mirrored from `/v1/auth/me` for formatting hints |
 | `bank_files` | The account picked per bank-download file stem (`expense import bank`) |
+| `sheet_account_names` | The ledger name per sheet account leg, keyed `SHEET_NAME:CUR` (`expense import sheet --account-name`) |
 
 ---
 
@@ -139,10 +140,11 @@ Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, match
   - **`--json`** is the engine's response verbatim; what the client held back goes to stderr.
 
 #### `expense import sheet`
-- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--json]` — the personal sheet → engine. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch`. Package: [expense/import_/](../expense/import_/).
+- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--account-name SHEET_NAME:CUR=LEDGER_NAME ...] [--json]` — the personal sheet → engine. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch`. Package: [expense/import_/](../expense/import_/).
 - **Opening balances:** rows marked `SALDO INICIAL` (case/whitespace-insensitive) in the title or category column go to `POST /v1/accounts/{id}/opening-balance` instead of the batch; their category/hashtag cells are discarded. One per (account, currency): extra rows are skipped as `duplicate-opening` (first line wins) and listed in the dry run. A 409 at apply time counts as already present.
-- **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches case- and whitespace-insensitively. Columns match by header name, each field accepting several spellings — the alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
+- **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches ignoring case and leading or trailing spaces. Columns match by header name, each field accepting several spellings — the alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
 - **Multi-currency account names split.** A `CUENTA` name used under two currencies becomes two accounts, each renamed with its currency (`BCP Oro` → `BCP Oro PEN` + `BCP Oro USD`). A name used under one currency passes through verbatim; a name already ending in its currency is not doubled. Rows resolve by the raw sheet name, so re-runs stay idempotent.
+- **Renaming an account leg.** `--account-name "BCP:PEN=Sueldo Soles"` (repeatable) writes the sheet's `BCP` rows in PEN, and its opening balance, to a ledger account named `Sueldo Soles` instead of the derived name; other legs keep theirs (`BCP USD`). The sheet name matches ignoring case and leading or trailing spaces, the currency is upper-cased, and the ledger name is everything after the first `=`. **It is remembered:** each rename is saved to `sheet_account_names` in the config (dry run included) and applied on every later run, so a re-run without the flag reuses `Sueldo Soles` instead of creating `BCP PEN`; passing the flag again for the same leg replaces the saved name. With no config file yet the rename applies to that run only. The dry run shows a renamed leg as `Sueldo Soles [PEN]  (from "BCP")`; `--json` carries it as `name` + `source_name`. A malformed value, a leg the sheet does not have, or a rename that lands two sheet legs on one ledger account (same name and currency) is a usage error (exit 2): nothing is written and nothing saved.
 
 ### `expense world`
 - `world` — launches the Textual TUI over the same fetch/write layer. `expense` with no args prints group help. Reference: [tui.md](tui.md).

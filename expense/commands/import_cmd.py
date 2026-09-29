@@ -61,8 +61,8 @@ def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
     typer.echo(f"\nAccounts to ensure ({len(plan.accounts)}):")
     for spec in sorted(plan.accounts, key=lambda s: (s.name.casefold(), s.currency)):
         # A name that spans currencies is split into one account per currency
-        # and renamed; show where each leg came from so the extra rows in this
-        # list are self-explaining rather than a surprise.
+        # and renamed, and --account-name renames a leg outright; show where
+        # each renamed leg came from so this list is self-explaining.
         origin = f'  (from "{spec.source_name}")' if spec.name != spec.source_name else ""
         typer.echo(f"  {spec.name} [{spec.currency}]{origin}")
 
@@ -78,6 +78,80 @@ def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
             whole, frac = divmod(abs(o.amount_cents), MINOR_UNIT_SCALE)
             major = f"{whole:,}.{frac:02d}"
             typer.echo(f"  {o.account} [{o.currency}]: {sign}{major} on {o.date_iso}")
+
+
+_ACCOUNT_NAME_HINT = "'--account-name'"
+
+
+def _parse_account_name(value: str) -> tuple[str, str, str]:
+    """`"BCP:PEN=Sueldo Soles"` → `("BCP", "PEN", "Sueldo Soles")`.
+
+    The ledger name is everything after the first `=`; the currency is what
+    follows the last `:` before it, so a sheet name may itself hold a colon.
+    """
+    left, eq, ledger = value.partition("=")
+    sheet, colon, currency = left.rpartition(":")
+    sheet, currency, ledger = sheet.strip(), currency.strip().upper(), ledger.strip()
+    if not eq or not colon or not sheet or not currency or not ledger:
+        raise typer.BadParameter(
+            f'{value!r} is not SHEET_NAME:CURRENCY=LEDGER_NAME (e.g. "BCP:PEN=Sueldo Soles").',
+            param_hint=_ACCOUNT_NAME_HINT,
+        )
+    return sheet, currency, ledger
+
+
+def _key_of_saved(saved_key: str) -> tuple[str, str] | None:
+    """A `sheet_account_names` key ("BCP:PEN") as a `plan.account_key`."""
+    sheet, colon, currency = saved_key.rpartition(":")
+    return plan_mod.account_key(sheet, currency) if colon and sheet and currency else None
+
+
+def _account_names(
+    saved: dict[str, str], flags: list[tuple[str, str, str]]
+) -> tuple[dict[str, str], dict[tuple[str, str], str]]:
+    """Merge the saved renames with this run's flags; a flag replaces a saved
+    entry for the same sheet leg, whatever its casing. Returns the dict to
+    save and the plan-side map keyed by `plan.account_key`."""
+    merged = dict(saved)
+    for sheet, currency, ledger in flags:
+        leg = plan_mod.account_key(sheet, currency)
+        for old in [k for k in merged if _key_of_saved(k) == leg]:
+            del merged[old]
+        merged[f"{sheet}:{currency}"] = ledger
+    by_leg: dict[tuple[str, str], str] = {}
+    for saved_key, ledger in merged.items():
+        leg_of = _key_of_saved(saved_key)
+        if leg_of is not None:
+            by_leg[leg_of] = ledger
+    return merged, by_leg
+
+
+def _check_account_names(
+    plan: plan_mod.ImportPlan,
+    flags: list[tuple[str, str, str]],
+    renamed: dict[tuple[str, str], str],
+) -> None:
+    """Refuse a flag naming a sheet leg the sheet does not have, and a rename
+    that lands two sheet legs on one ledger account."""
+    legs = {plan_mod.account_key(a.source_name, a.currency) for a in plan.accounts}
+    for sheet, currency, _ledger in flags:
+        if plan_mod.account_key(sheet, currency) not in legs:
+            raise typer.BadParameter(
+                f'the sheet has no account "{sheet}" in {currency}.',
+                param_hint=_ACCOUNT_NAME_HINT,
+            )
+    seen: dict[tuple[str, str], plan_mod.AccountSpec] = {}
+    for spec in plan.accounts:
+        other = seen.setdefault(plan_mod.account_key(spec.name, spec.currency), spec)
+        if other is spec:
+            continue
+        pair = {plan_mod.account_key(s.source_name, s.currency) for s in (spec, other)}
+        if pair & renamed.keys():
+            raise typer.BadParameter(
+                f'"{other.source_name}" and "{spec.source_name}" would both be written as '
+                f'"{spec.name}" [{spec.currency}].',
+                param_hint=_ACCOUNT_NAME_HINT,
+            )
 
 
 def _render_result(result: apply_mod.ApplyResult, *, json_output: bool) -> None:
@@ -138,6 +212,15 @@ def run_import(
         200, "--chunk-size", min=1, max=500, help="Transactions per batch request."
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit the plan/result as JSON."),
+    account_name: list[str] = typer.Option(
+        [],
+        "--account-name",
+        metavar="SHEET_NAME:CUR=LEDGER_NAME",
+        help=(
+            "Write a sheet account's CUR leg under another ledger name. Repeatable; "
+            "remembered in the config for every later run."
+        ),
+    ),
 ) -> None:
     """Import transactions from an .xlsx spreadsheet (dry-run by default).
 
@@ -157,6 +240,14 @@ def run_import(
     USD rows becomes "BCP Oro PEN" and "BCP Oro USD"). The dry-run names the
     origin of every renamed leg.
 
+    --account-name "SHEET_NAME:CUR=LEDGER_NAME" writes one sheet account's
+    currency leg under a ledger name of your choosing instead ("BCP:PEN=Sueldo
+    Soles"); the sheet name matches case- and space-insensitively. The rename
+    is saved to the config and applied on every later run, so a re-run without
+    the flag reuses the renamed account; passing it again for the same leg
+    replaces the saved name. A leg the sheet does not have, or two legs landing
+    on one ledger account, is a usage error and nothing is saved.
+
     Re-running --apply is safe for unchanged and appended sheets: transaction
     ids derive from each row's content plus its line number, so already-imported
     rows are skipped and new rows still land (a chunk mixing both falls back to
@@ -168,7 +259,10 @@ def run_import(
     row).
 
     Example: expense import sheet ~/Downloads/Presupuesto.xlsx
+
+    Example: expense import sheet ~/Downloads/Presupuesto.xlsx --account-name "BCP:PEN=Sueldo Soles"
     """
+    flags = [_parse_account_name(value) for value in account_name]
     try:
         sheet = read_workbook(file)
         parsed, openings, skipped = parse_sheet(sheet)
@@ -176,7 +270,16 @@ def run_import(
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
-    plan = plan_mod.build_plan(parsed, openings, skipped)
+    saved_cfg = config_module.load()
+    saved = dict(saved_cfg.sheet_account_names) if saved_cfg is not None else {}
+    merged, renamed = _account_names(saved, flags)
+    plan = plan_mod.build_plan(parsed, openings, skipped, account_names=renamed)
+    _check_account_names(plan, flags, renamed)
+    # Remembered on a dry run too: the flag was checked against this sheet.
+    # With no config yet there is nowhere to keep it; --apply needs one anyway.
+    if saved_cfg is not None and merged != saved:
+        saved_cfg.sheet_account_names = merged
+        config_module.save(saved_cfg)
 
     if not apply:
         _render_plan(plan, json_output=json_output)

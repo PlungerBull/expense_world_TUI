@@ -58,7 +58,7 @@ key. The list shows the legs folded:
 ```
 
 **Account names:** the ledger's BCP accounts carry the bank's product names, written by the
-sheet import ([todo.md](todo.md) "Rename accounts during the sheet import"), so the list above
+sheet import's `--account-name` ([cli-spec.md](cli-spec.md) "Renaming an account leg"), so the list above
 shows those names.
 
 ---
