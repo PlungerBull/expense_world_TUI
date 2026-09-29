@@ -1,35 +1,23 @@
 # TODO — the workpad
 
-**The hub for open work in this repo, and the one place questions for the owner wait.** A
-spec's tasks live in that spec's "Tasks" section; everything else open lives here. Nothing else
-tracks pending work — no issue tracker, no `TODO:` comments in code. How the work
-runs: CLAUDE.md "How work runs (the agent loop)".
+**The hub for open work in this repo.** A spec's tasks live in that spec's "Tasks" section;
+everything else open lives here, and nowhere else (no issue tracker, no `TODO:` comments). How
+the work runs: CLAUDE.md "How work runs (the agent loop)".
 
 **Current spec:** none. The owner writes specs in [specs/](specs/) and names the current one
 here.
 
-- **Only the orchestrator edits this file** (and a spec's "Tasks" section). Workers put tasks
-  and questions in their reports.
-- **A spec's tasks** are drafted into that spec's "Tasks" section by the orchestrator and
-  approved by the owner before the loop runs. The plan docs linked under **Now** are drafts until the owner approves them or
-  rewrites them as specs.
-- **Closed items get deleted**, not ticked. Git history is the archive
-  ([decisions.md](decisions.md) "The open-work list holds only open work").
-- Items marked **[UI]** need an HTML mockup in [mockups/](mockups/) reviewed and explicitly
-  picked before any code (CLAUDE.md "Mock every screen before building it").
-- **Absolute dates only.**
-- **Cite items by title, never by number** — numbering shifts every time an item closes.
-
-Sections: **Questions for the owner** · **Now** (the sequenced queue) · **Small defects** ·
-**Ergonomics**, **Cosmetic** and **Parked** (none of it blocking). Engine asks are not here:
-each is its own file in [engine-asks/](engine-asks/).
+Only the orchestrator edits this file; workers put tasks and questions in their reports. Closed
+items get deleted, not ticked ([decisions.md](decisions.md) "The open-work list holds only open
+work"). Cite items by title. **[UI]** means an HTML mockup in [mockups/](mockups/) must be
+picked before any code. Engine asks live in [engine-asks/](engine-asks/), one file each.
 
 ---
 
-## Questions for the owner
+## Waiting on you
 
-Everything waiting on the owner. The orchestrator adds an entry instead of guessing; once the
-owner answers, it acts on the answer and deletes the entry. Each entry:
+Everything that needs the owner: questions, and things only the owner can do. The orchestrator
+adds an entry instead of guessing, acts on the answer, then deletes the entry. A question reads:
 
 ```
 ### <title>
@@ -39,6 +27,27 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
+
+### Check the TUI after the engine update
+Asked 2026-09-26 · Blocks: The TUI is the only human surface
+Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
+and report anything wrong. This entry is deleted when they pass.
+
+1. On a filtered ledger, re-category a few rows in bulk, then `pgdn`: no row skipped or repeated.
+2. On an account's "no batch" (`u`) list, edit a row, then `pgdn`: the same.
+3. The categories and hashtags screens show a correct "page N of M", and no `422` appears.
+4. In Reconciliations, `⏎` on an account shows its full history, oldest period first.
+5. On a batch's working screen, `r` keeps the header current; deleting that batch from another
+   terminal shows "record gone".
+
+### Before you re-import the sheet: rename `PENDIENTES`
+Asked 2026-09-27 · Blocks: One-time title alignment after the official migration
+The sheet still files rows under `PENDIENTES`, as a category and as a hashtag; the ledger has
+neither (uncategorised rows go to the system category `@Pendiente`). Rename those rows in the
+sheet before the re-import's `--apply`, or it creates `PENDIENTES` again. Every other account,
+category and hashtag name resolves (dry run, 2026-09-27). Import before you complete any
+reconciliation: a completed reconciliation seals its window, and the import then skips those
+rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
 
 ### Why does the practice engine start as `python -m uvicorn`?
 Asked 2026-09-28 · Blocks: nothing; [cli-runtime.md](cli-runtime.md) "Working against the live engine" points agents at a guide they may no longer open
@@ -52,8 +61,8 @@ permission rule). No agent may read the engine's folder now, so the reason has t
 **Recommended:** A. It is one sentence, and it is an ops fact, not an API rule.
 
 ### Will you still log card purchases by hand after the official migration?
-Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Small defects
-"After `--apply`, the bank import's warning…"
+Asked 2026-09-27 · Blocks: [file-import-plan.md](file-import-plan.md) §6, and Backlog
+"After `--apply`, the bank import's \"may be logged twice\" warning…"
 - **A.** Yes. The import then offers "rename your row to the bank's wording?" every time it
   finds a match (an engine ask plus a mockup).
 - **B.** No. Nothing to build; this closes.
@@ -153,7 +162,7 @@ and say whether the `expense` command keeps its name:
 
 ### TUI-only: is the note to the engine coder right?
 Asked 2026-09-26 · Blocks: The TUI is the only human surface
-The draft is in [tui-only-plan.md](tui-only-plan.md) "Draft note to the engine coder".
+The draft is in [tui-only-plan.md](specs/tui-only-plan.md) "Draft note to the engine coder".
 - **A.** Send it as written, with the new name filled in.
 - **B.** Change it. Say how.
 
@@ -161,51 +170,30 @@ The draft is in [tui-only-plan.md](tui-only-plan.md) "Draft note to the engine c
 
 ---
 
-## Now
+## Backlog
 
-An index; the depth lives in each plan doc, which is deleted when it ships (its why moves to
-[decisions.md](decisions.md)).
+Open work, not yet a spec. Bigger items link their plan doc, which is deleted when the work
+ships (its why moves to [decisions.md](decisions.md)).
 
-| # | Item | Plan | Status |
-|---|---|---|---|
-| **0** | **The engine uptake's TUI checks** | The list below | Owner, through normal use on the real ledger |
-| 1 | Tags that know the category | [category-hashtags-plan.md](category-hashtags-plan.md) | Questions for the owner + **[UI]** |
-| 2 | The TUI import door (C1) | [file-import-plan.md](file-import-plan.md) §3 | **[UI]**, nothing drawn |
-| 3 | The TUI is the only human surface; the flat CLI is for the agent (incl. repo rename + engine-coder note) | [tui-only-plan.md](tui-only-plan.md) | Decided 2026-09-26; questions for the owner open; starts after the in-flight work |
-| 4 | One-time title alignment after the official migration | [file-import-plan.md](file-import-plan.md) §6 | Runs after the re-import, before the 2026 periods are completed |
+- **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
+  Waits on the "Tags that know the category" questions above. **[UI]**
+- **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. Waits on
+  "Do the bank's product names match your accounts?" above. **[UI]**, nothing drawn.
+- **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
+  the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). Waits on the
+  "TUI-only" questions and the TUI check above.
+- **One-time title alignment after the official migration.** Plan:
+  [file-import-plan.md](file-import-plan.md) §6. Runs after the sheet re-import and before the
+  2026 periods are completed, because a completed period locks its rows' titles. The engine's
+  rule is **import first, reconcile second**: a reconciliation completed before its rows exist
+  seals the window against them (contract: POST /v1/transactions), and the import then skips
+  those rows as `sealed` (contract: POST /v1/transactions/import). Full sequence:
+  [file-import-plan.md](file-import-plan.md) §10.
 
-**The engine uptake's TUI checks.** Do these through normal use of `expense world` on the real
-ledger, undoing any change by hand, and report anything wrong; delete this list and item 0 when
-they pass:
-
-1. On a filtered ledger, re-category a few rows in bulk, then `pgdn`: no row skipped or repeated.
-2. On an account's "no batch" (`u`) list, edit a row, then `pgdn`: the same.
-3. The categories and hashtags screens show a correct "page N of M", and no `422` appears.
-4. In Reconciliations, `⏎` on an account shows its full history, oldest period first.
-5. On a batch's working screen, `r` keeps the header current; deleting that batch from another
-   terminal shows "record gone".
-
-**Order.** Tags that know the category is independent and could move earlier. The title
-alignment waits for the official migration data and must run before the 2026 periods are
-completed, because a completed period locks its rows' titles. The engine's rule is absolute:
-**import first, reconcile second**. A reconciliation completed before its rows exist seals the
-window against them (contract: POST /v1/transactions), and the import then skips those rows as
-`sealed`, never creating them (contract: POST /v1/transactions/import). Full sequence:
-[file-import-plan.md](file-import-plan.md) §10.
-
-**Before the sheet re-import's `--apply`:** the sheet still files rows under `PENDIENTES`, as a
-category and as a hashtag; the ledger has neither (uncategorised rows go to the system category
-`@Pendiente`). Rename those rows in the sheet first, or the apply creates `PENDIENTES` again.
-Every other account, category and hashtag name resolves (dry run, 2026-09-27).
-
----
-
-## Small defects
-
-1. **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
+- **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
    Mission Control / Application Windows before the terminal sees them. The footer no longer
    advertises them; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
-   What is left is choosing the replacement. **[UI]**
+   What is left is choosing the replacement. **[bug]** **[UI]**
    - `shift+↑` / `shift+↓` are bindable (probed live). Then plain `↑↓` on the three fields with
      a suggestion list needs a meaning: options **J** and **K** in
      [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html)
@@ -218,7 +206,7 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
      earns a footer slot (`⇥ Field` beside `esc Cancel  ^s Save`), against the "arrows never
      get a slot" rule in [tui.md](tui.md) §4.
 
-2. **After `--apply`, the bank import's "may be logged twice" warning still says "check before
+- **After `--apply`, the bank import's "may be logged twice" warning still says "check before
    --apply".** `render_result` in [bank_import_cmd.py](../expense/commands/bank_import_cmd.py)
    prints `excess_lines` the same way on preview and apply, so after `--apply` it reads
    `! 1 ledger row no file row matched — check / before --apply, it may be logged twice` — too
@@ -230,16 +218,14 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
    Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
    twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
-   after-apply case beside pick C and let the owner pick. **[UI]** · Tied to the question for
-   the owner on hand-logged card purchases: if a rename proposal is built, this
+   after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Tied to the question in Waiting on you
+   on hand-logged card purchases: if a rename proposal is built, this
    case mostly stops happening.
 
-## Ergonomics
-
-1. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
+- **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
    <TAB>` shows subcommands. No design questions open.
 
-2. **Human-name resolution for reference flags.** Accept a UUID or a name on every
+- **Human-name resolution for reference flags.** Accept a UUID or a name on every
    `--account-id` / `--category-id` / `--hashtag-id` / `--reconciliation-id`, via the existing
    list endpoints: case-insensitive exact match, ambiguous matches rejected with a "be more
    specific" error pointing at `expense <resource> list`; UUIDs pass through. Deserves its own
@@ -247,30 +233,30 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    (contains-anywhere over `load_quickadd_refs`, [quickadd/parse.py](../expense/quickadd/parse.py))
    or keeps a stricter exact match.
 
-3. **"Move between accounts" convenience** — one command writing the two ordinary
+- **"Move between accounts" convenience** — one command writing the two ordinary
    `POST /transactions` a transfer consists of. Purely client-side sugar over two writes, which
    is also the argument against it. **[UI]** — needs a mockup covering naming, flags, and the
    two legs' default titles and categories. See [decisions.md](decisions.md) "Transfers are two
    ordinary transactions".
 
-4. **`expense import csv`** — only if a real migration needs it. Only a reader would be new; the
+- **`expense import csv`** — only if a real migration needs it. Only a reader would be new; the
    write half is shared ([batch_write.py](../expense/batch_write.py)).
 
-## Cosmetic — safe to leave
-
-1. **`PickerModal` carries rows but is still a modal.** A surface carrying rows should be a
+- **`PickerModal` carries rows but is still a modal.** A surface carrying rows should be a
    pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
    `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
    replacement needs drawing.
 
-2. **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Rename the class and
+- **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Rename the class and
    `quick_log.py` (≈6 source + 5 test files, nothing behavioural) — `EditFormScreen` /
    `edit_form.py` is the obvious target. [tui.md](tui.md) links to the module;
    `test_relative_doc_links_resolve` catches a miss.
 
 ---
 
-## Parked — no commitment
+## Parked
+
+No commitment. Declined ideas stay listed so they are not proposed again.
 
 - **Copy the agent loop to the engine repo**, with guards for its own real database; optionally a
   read-only board at the `productivity_world` level showing each repo's loop and what waits on the

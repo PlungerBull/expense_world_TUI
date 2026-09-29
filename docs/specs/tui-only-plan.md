@@ -1,7 +1,7 @@
 # The TUI is the only human surface; the flat CLI is for the agent
 
-**Starts after** item 0 in [todo.md](todo.md) *Now* (the engine uptake's TUI checks) and whatever
-else is in flight then. **When done:** the why moves to [decisions.md](decisions.md), and this
+**Starts after** item 0 in [todo.md](../todo.md) *Now* (the engine uptake's TUI checks) and whatever
+else is in flight then. **When done:** the why moves to [decisions.md](../decisions.md), and this
 file is deleted.
 
 ---
@@ -14,7 +14,7 @@ Claude verifying a change against the engine, the contract suite, and anything t
 `--json`. They are no longer a product for a person.
 
 **Why.** The TUI never runs a command: both surfaces are faces on the same Python functions
-(`fetch_*`, the formatters, `EngineWriteMixin.run_write`, [expense/http.py](../expense/http.py)),
+(`fetch_*`, the formatters, `EngineWriteMixin.run_write`, [expense/http.py](../../expense/http.py)),
 so polishing a flat human surface nobody reads was building every feature twice.
 
 **What stays true.** The engine is still the only home of business logic. Every engine endpoint
@@ -28,14 +28,14 @@ directly.
 
 ## Open questions for the owner
 
-In [todo.md](todo.md) "Questions for the owner", the entries titled "TUI-only: …". Each gets an
+In [todo.md](../todo.md) "Questions for the owner", the entries titled "TUI-only: …". Each gets an
 answer before its step starts.
 
 ## Consequences that follow directly
 
 - **Rules to rewrite:** CLAUDE.md "What this repo is", "Product scope and role" (the contract
   validator is now the owner using the TUI plus the agent using flat commands) and "Status".
-  [cli-spec.md](cli-spec.md) "Principles" ("human-readable by default") and "Output conventions"
+  [cli-spec.md](../cli-spec.md) "Principles" ("human-readable by default") and "Output conventions"
   (the table process rule). The mockup rule stops covering flat tables. It still covers every
   TUI screen.
 - **todo.md items that lose their reason:** Ergonomics "Shell completions", "Human-name
@@ -54,8 +54,8 @@ answer before its step starts.
 3. **Clean todo.md.** Delete the items listed above.
 4. **Rename the repo** (the new-name question): `gh repo rename` on GitHub (push access needs
    `gh auth switch --user PlungerBull`), update the local remote, rename the local folder if the
-   owner wants that, and update the references in this repo: [CLAUDE.md](../CLAUDE.md),
-   [README.md](../README.md), [cli-spec.md](cli-spec.md) and the "Repo name note" at the top of
+   owner wants that, and update the references in this repo: [CLAUDE.md](../../CLAUDE.md),
+   [README.md](../../README.md), [cli-spec.md](../cli-spec.md) and the "Repo name note" at the top of
    CLAUDE.md. `test_docs_links.py` catches any broken relative link.
 5. **Notify the engine coder.** The owner hands over the note below. This repo never edits the
    engine; the engine coder finds the references to the old name in the engine repo.
