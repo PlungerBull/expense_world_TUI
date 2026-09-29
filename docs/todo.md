@@ -46,29 +46,25 @@ category and hashtag name resolves (dry run, 2026-09-27). Import before you comp
 reconciliation: a completed reconciliation seals its window, and the import then skips those
 rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
 
-### Bank names: rename your accounts, or teach the import the bank's names?
-Asked 2026-09-29 · Blocks: The TUI import door (C1), [file-import-plan.md](file-import-plan.md) §3
-The bank says `VISA Infinite Sapphire`, `Sueldo Soles` and `Cuenta Digital Dólares`; your
-accounts are `BCP Signature`, `BCP PEN` and `BCP USD`. They are the same accounts and the
-names should match. Also confirm that `VISA Infinite Sapphire` is `BCP Signature`.
-- **A.** Rename your accounts in the TUI to the bank's names, once. Nothing to build.
-- **B.** Keep your names. Each account also stores the bank's name for it, and the import picks
-  the account by itself (an engine ask, so web and iOS get it too, plus a mockup).
-
-**Recommended:** A. It makes the names match with nothing to build.
-
-### Tags that know the category: hide the other tags, or list them second?
+### Tags that know the category: which screens rank, and do usage counts show?
 Asked 2026-09-29 · Blocks: Tags that know the category
-Panes **D** and **E** in [expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html)
-§3. Label pickers in apps like Todoist and Gmail rank; they do not hide.
-- **A. Pane D.** The category's tags come first, every other tag below a divider. No `##`, no
-  empty-list case, no legend change; only [category-hashtags-plan.md](category-hashtags-plan.md)
-  §5 H1 and H4 remain, each with a recommendation.
-- **B. Pane E.** Only the category's tags; `##` opens the rest. All four §5 choices remain, plus
-  where `##` goes in the full legend row.
+Pane D is the shape: the category's tags first, every other tag below. Two small choices are
+left, each argued in [category-hashtags-plan.md](category-hashtags-plan.md) §5:
+- **A.** Accept both: only the LOG bar ranks (H1), and the picker shows no usage counts (H2).
+- **B.** Go through them one by one.
 
-**Recommended:** A. Nothing is ever out of reach, and it is the smaller build.
+**Recommended:** A.
 
+### Sheet import: which names do the BCP accounts get?
+Asked 2026-09-29 · Blocks: Rename accounts during the sheet import
+The import will write the bank's names in place of the sheet's. The engine gives every account
+one currency, so the card is two accounts. Proposed, the sheet's name → the ledger's name:
+`BCP` (PEN) → `Sueldo Soles`, `BCP` (USD) → `Cuenta Digital Dólares`, `BCP Signature` (PEN)
+→ `VISA Infinite Sapphire PEN`, `BCP Signature` (USD) → `VISA Infinite Sapphire USD`.
+- **A.** Those four, as written.
+- **B.** Other names. Say which.
+
+**Recommended:** A. They match the bank's own names.
 
 ---
 
@@ -79,8 +75,14 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 - **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
   Waits on the "Tags that know the category" question above. **[UI]**
-- **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. Waits on
-  "Bank names: rename your accounts, or teach the import the bank's names?" above. **[UI]**, nothing drawn.
+- **Rename accounts during the sheet import.** The official migration writes each BCP
+  account under the bank's own name (`VISA Infinite Sapphire` is `BCP Signature`, upgraded), so
+  bank files and ledger agree from day one. A rename list on `expense import sheet`, keyed by
+  the sheet's name and currency. Waits on "Sheet import: which names do the BCP accounts get?"
+  above. Must land before the official migration.
+- **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. The
+  account names match the bank's once "Rename accounts during the sheet import" ships. **[UI]**,
+  nothing drawn.
 - **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
   the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
   until the owner picks it up; its open questions live in the spec.
@@ -160,10 +162,10 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 No commitment. Declined ideas stay listed so they are not proposed again.
 
-- **Copy the agent loop to the engine repo**, with guards for its own real database; optionally a
-  read-only board at the `productivity_world` level showing each repo's loop and what waits on the
-  owner. Outside this repo, so the owner starts it ([decisions.md](decisions.md) "The agent loop:
-  one per repo, the main session orchestrates").
+- **A read-only board over every repo's loop**, at the `productivity_world` level, showing what
+  each loop is doing and what waits on the owner. Worth it once more than two repos run a loop.
+  Copying the loop itself to the engine is an open ask:
+  [engine-asks/engine-agent-loop.md](engine-asks/engine-agent-loop.md).
 - **The quick-add launcher hotkey.** A global chord that opens the LOG bar from outside the TUI
   ([mockups/quick-add-launcher-options.html](mockups/quick-add-launcher-options.html), which
   also records the ⌘E conflict). Convenience, not access: `+` and `expense log "<line>"` exist.

@@ -57,9 +57,9 @@ key. The list shows the legs folded:
   2  BCP Signature    PEN + USD
 ```
 
-**Naming check with the owner:** the bank's product names do not match the account names. The
-question is in [todo.md](todo.md) "Waiting on you" ("Do the bank's product names match
-your accounts?").
+**Account names:** the ledger's BCP accounts carry the bank's product names, written by the
+sheet import ([todo.md](todo.md) "Rename accounts during the sheet import"), so the list above
+shows those names.
 
 ---
 
