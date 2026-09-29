@@ -4,9 +4,6 @@
 everything else open lives here, and nowhere else (no issue tracker, no `TODO:` comments). How
 the work runs: CLAUDE.md "How work runs (the agent loop)".
 
-**Current spec:** none. The owner writes specs in [specs/](specs/) and names the current one
-here.
-
 Only the orchestrator edits this file; workers put tasks and questions in their reports. Closed
 items get deleted, not ticked ([decisions.md](decisions.md) "The open-work list holds only open
 work"). Cite items by title. **[UI]** means an HTML mockup in [mockups/](mockups/) must be
@@ -29,7 +26,7 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### Check the TUI after the engine update
-Asked 2026-09-26 · Blocks: The TUI is the only human surface
+Asked 2026-09-29 · Blocks: The TUI is the only human surface
 Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
 and report anything wrong. This entry is deleted when they pass.
 
@@ -41,7 +38,7 @@ and report anything wrong. This entry is deleted when they pass.
    terminal shows "record gone".
 
 ### Before you re-import the sheet: rename `PENDIENTES`
-Asked 2026-09-27 · Blocks: One-time title alignment after the official migration
+Asked 2026-09-29 · Blocks: One-time title alignment after the official migration
 The sheet still files rows under `PENDIENTES`, as a category and as a hashtag; the ledger has
 neither (uncategorised rows go to the system category `@Pendiente`). Rename those rows in the
 sheet before the re-import's `--apply`, or it creates `PENDIENTES` again. Every other account,
@@ -191,66 +188,66 @@ ships (its why moves to [decisions.md](decisions.md)).
   [file-import-plan.md](file-import-plan.md) §10.
 
 - **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
-   Mission Control / Application Windows before the terminal sees them. The footer no longer
-   advertises them; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
-   What is left is choosing the replacement. **[bug]** **[UI]**
-   - `shift+↑` / `shift+↓` are bindable (probed live). Then plain `↑↓` on the three fields with
-     a suggestion list needs a meaning: options **J** and **K** in
-     [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html)
-     §4, neither picked.
-   - **`tab` / `shift+tab`**, not drawn in the mockup: plain `↑↓` keep their one meaning and
-     nothing is sacrificed. Every form has exactly one focusable widget (`Input#bar`), so `tab`
-     is free today. Fits [decisions.md](decisions.md) "One key per job".
-   - To decide with it: forms have no `?` card (a focused `Input` swallows printable keys), so
-     a form key has no discovery surface — possibly the one case where an arrow-family key
-     earns a footer slot (`⇥ Field` beside `esc Cancel  ^s Save`), against the "arrows never
-     get a slot" rule in [tui.md](tui.md) §4.
+  Mission Control / Application Windows before the terminal sees them. The footer no longer
+  advertises them; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
+  What is left is choosing the replacement. **[bug]** **[UI]**
+  - `shift+↑` / `shift+↓` are bindable (probed live). Then plain `↑↓` on the three fields with
+    a suggestion list needs a meaning: options **J** and **K** in
+    [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html)
+    §4, neither picked.
+  - **`tab` / `shift+tab`**, not drawn in the mockup: plain `↑↓` keep their one meaning and
+    nothing is sacrificed. Every form has exactly one focusable widget (`Input#bar`), so `tab`
+    is free today. Fits [decisions.md](decisions.md) "One key per job".
+  - To decide with it: forms have no `?` card (a focused `Input` swallows printable keys), so
+    a form key has no discovery surface — possibly the one case where an arrow-family key
+    earns a footer slot (`⇥ Field` beside `esc Cancel  ^s Save`), against the "arrows never
+    get a slot" rule in [tui.md](tui.md) §4.
 
 - **After `--apply`, the bank import's "may be logged twice" warning still says "check before
-   --apply".** `render_result` in [bank_import_cmd.py](../expense/commands/bank_import_cmd.py)
-   prints `excess_lines` the same way on preview and apply, so after `--apply` it reads
-   `! 1 ledger row no file row matched — check / before --apply, it may be logged twice` — too
-   late. The engine computes `excess` against the ledger before the write, so on an equal-count
-   day (owner typed `Starbucks`, bank says `STARBUCKS MIRAFLORES LIMA PE`) the bank's row has
-   just been written as `new` and the ledger now holds the duplicate. The picked mockup
-   ([mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html)
-   pane 2, pick C) and the test
-   (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
-   Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
-   twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
-   after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Tied to the question in Waiting on you
-   on hand-logged card purchases: if a rename proposal is built, this
-   case mostly stops happening.
+  --apply".** `render_result` in [bank_import_cmd.py](../expense/commands/bank_import_cmd.py)
+  prints `excess_lines` the same way on preview and apply, so after `--apply` it reads
+  `! 1 ledger row no file row matched — check / before --apply, it may be logged twice` — too
+  late. The engine computes `excess` against the ledger before the write, so on an equal-count
+  day (owner typed `Starbucks`, bank says `STARBUCKS MIRAFLORES LIMA PE`) the bank's row has
+  just been written as `new` and the ledger now holds the duplicate. The picked mockup
+  ([mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html)
+  pane 2, pick C) and the test
+  (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
+  Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
+  twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
+  after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Tied to the question in Waiting on you
+  on hand-logged card purchases: if a rename proposal is built, this
+  case mostly stops happening.
 
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
-   <TAB>` shows subcommands. No design questions open.
+  <TAB>` shows subcommands. No design questions open.
 
 - **Human-name resolution for reference flags.** Accept a UUID or a name on every
-   `--account-id` / `--category-id` / `--hashtag-id` / `--reconciliation-id`, via the existing
-   list endpoints: case-insensitive exact match, ambiguous matches rejected with a "be more
-   specific" error pointing at `expense <resource> list`; UUIDs pass through. Deserves its own
-   plan-mode session. Decide deliberately whether it reuses the quick-add matcher
-   (contains-anywhere over `load_quickadd_refs`, [quickadd/parse.py](../expense/quickadd/parse.py))
-   or keeps a stricter exact match.
+  `--account-id` / `--category-id` / `--hashtag-id` / `--reconciliation-id`, via the existing
+  list endpoints: case-insensitive exact match, ambiguous matches rejected with a "be more
+  specific" error pointing at `expense <resource> list`; UUIDs pass through. Deserves its own
+  plan-mode session. Decide deliberately whether it reuses the quick-add matcher
+  (contains-anywhere over `load_quickadd_refs`, [quickadd/parse.py](../expense/quickadd/parse.py))
+  or keeps a stricter exact match.
 
 - **"Move between accounts" convenience** — one command writing the two ordinary
-   `POST /transactions` a transfer consists of. Purely client-side sugar over two writes, which
-   is also the argument against it. **[UI]** — needs a mockup covering naming, flags, and the
-   two legs' default titles and categories. See [decisions.md](decisions.md) "Transfers are two
-   ordinary transactions".
+  `POST /transactions` a transfer consists of. Purely client-side sugar over two writes, which
+  is also the argument against it. **[UI]** — needs a mockup covering naming, flags, and the
+  two legs' default titles and categories. See [decisions.md](decisions.md) "Transfers are two
+  ordinary transactions".
 
 - **`expense import csv`** — only if a real migration needs it. Only a reader would be new; the
-   write half is shared ([batch_write.py](../expense/batch_write.py)).
+  write half is shared ([batch_write.py](../expense/batch_write.py)).
 
 - **`PickerModal` carries rows but is still a modal.** A surface carrying rows should be a
-   pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
-   `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
-   replacement needs drawing.
+  pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
+  `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
+  replacement needs drawing.
 
 - **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Rename the class and
-   `quick_log.py` (≈6 source + 5 test files, nothing behavioural) — `EditFormScreen` /
-   `edit_form.py` is the obvious target. [tui.md](tui.md) links to the module;
-   `test_relative_doc_links_resolve` catches a miss.
+  `quick_log.py` (≈6 source + 5 test files, nothing behavioural) — `EditFormScreen` /
+  `edit_form.py` is the obvious target. [tui.md](tui.md) links to the module;
+  `test_relative_doc_links_resolve` catches a miss.
 
 ---
 

@@ -1,6 +1,6 @@
 # The TUI is the only human surface; the flat CLI is for the agent
 
-**Starts after** item 0 in [todo.md](../todo.md) *Now* (the engine uptake's TUI checks) and whatever
+**Starts after** [todo.md](../todo.md) "Check the TUI after the engine update" and whatever
 else is in flight then. **When done:** the why moves to [decisions.md](../decisions.md), and this
 file is deleted.
 
@@ -28,7 +28,7 @@ directly.
 
 ## Open questions for the owner
 
-In [todo.md](../todo.md) "Questions for the owner", the entries titled "TUI-only: …". Each gets an
+In [todo.md](../todo.md) "Waiting on you", the entries titled "TUI-only: …". Each gets an
 answer before its step starts.
 
 ## Consequences that follow directly
@@ -38,7 +38,7 @@ answer before its step starts.
   [cli-spec.md](../cli-spec.md) "Principles" ("human-readable by default") and "Output conventions"
   (the table process rule). The mockup rule stops covering flat tables. It still covers every
   TUI screen.
-- **todo.md items that lose their reason:** Ergonomics "Shell completions", "Human-name
+- **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name
   resolution for reference flags", "Move between accounts convenience", and Parked "Flat-CLI
   color conventions". "`expense import csv`" depends on the imports question.
 - **New work goes TUI-first.** A new engine capability gets its TUI screen, plus a flat command

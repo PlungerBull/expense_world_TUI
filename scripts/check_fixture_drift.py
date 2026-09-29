@@ -215,10 +215,12 @@ def version_problem(doc: dict, saved: str | None, engine: str, engine_url: str) 
 def changes_since(doc: dict, saved: str, engine: str) -> list[dict] | None:
     """The contract's change-log entries newer than `saved`, newest first.
 
-    Reads `x-changelog`, which the engine keeps newest first with one entry per
-    version move, its first entry being the current `engine` version. None means
-    the whole contract is to be treated as changed: the log is absent or malformed,
-    its first entry is not `engine`, or `saved` is not in it."""
+    Reads `x-changelog`, which lists the released versions newest first, one entry
+    each, its first entry being the current `engine` version; a listed version is
+    never removed, and a version an engine serves might never be listed
+    (contract: "Base Conventions", "The contract"). None means the whole contract
+    is to be treated as changed: the log is absent or malformed, its first entry
+    is not `engine`, or `saved` is not in it."""
     log = doc.get("x-changelog")
     if not isinstance(log, list) or not log:
         return None

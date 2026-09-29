@@ -168,7 +168,7 @@ costs width; in `categories hashtags` it is the whole point of the read.
 
 ## 6. Open questions for the owner
 
-In [todo.md](todo.md) "Questions for the owner", the entries titled "Tags that know the category:
+In [todo.md](todo.md) "Waiting on you", the entries titled "Tags that know the category:
 …" — including one for the §5 choices.
 
 ## 7. Non-goals

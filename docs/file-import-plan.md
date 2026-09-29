@@ -58,7 +58,7 @@ key. The list shows the legs folded:
 ```
 
 **Naming check with the owner:** the bank's product names do not match the account names. The
-question is in [todo.md](todo.md) "Questions for the owner" ("Do the bank's product names match
+question is in [todo.md](todo.md) "Waiting on you" ("Do the bank's product names match
 your accounts?").
 
 ---

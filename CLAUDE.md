@@ -24,7 +24,7 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/cli-spec.md](docs/cli-spec.md) | Command groups, output conventions | Local |
 | [docs/cli-runtime.md](docs/cli-runtime.md) | Runtime behavior — read/write semantics, error handling, working against the live engine | Local |
 | [docs/tui.md](docs/tui.md) | Textual TUI (`expense world`) — architecture, theming, keymap contract, test conventions | Local |
-| [docs/todo.md](docs/todo.md) | The **hub for open work**: the current spec, work that belongs to no spec, and every question waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
+| [docs/todo.md](docs/todo.md) | The **hub for open work**: work that belongs to no spec, and everything waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
 | [docs/specs/](docs/specs/) | The owner's specs, one per piece of work — what the loop builds | Local |
 | [docs/engine-asks/](docs/engine-asks/) | Every open engine ask, one standalone file each, handed as is to the engine coders; format in its README | Local |
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
@@ -112,7 +112,7 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 
 **If you are a worker,** you have no owner to ask and you are not the orchestrator. When something is unclear, a rationale belongs in decisions.md, or a choice belongs to the owner, stop and put it in your report; the orchestrator files it. Every worker reports in one shape: **verdict · what was checked · what is wrong · where**.
 
-**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one in todo.md's "Current spec" line. The orchestrator drafts that spec's tasks into the spec's own "Tasks" section, the owner approves them, and then the loop runs on its own. It works only on the current spec. Everything above "Tasks" is the owner's; agents change it only when the owner asks. Work that belongs to no spec stays in todo.md.
+**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one when starting the loop. The orchestrator drafts that spec's tasks into the spec's own "Tasks" section, the owner approves them, and then the loop runs on its own. It works only on the current spec. Everything above "Tasks" is the owner's; agents change it only when the owner asks. Work that belongs to no spec stays in todo.md.
 
 **Per task:**
 1. Take the next approved task and write its "passes if…" criteria. No clear criteria → a question for the owner first.
@@ -127,7 +127,7 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 2. The librarian sweeps every doc.
 3. **Done** = the tester's acceptance check passed + the librarian's sweep done. The spec then retires as [docs/specs/README.md](docs/specs/README.md) says.
 
-**A moved contract version goes to the owner.** When the tester's version check reports a moved version, the orchestrator starts no new task and files a question in todo.md "Questions for the owner" listing what changed exactly as the check prints it ([docs/cli-runtime.md](docs/cli-runtime.md) "Contract version"). The owner decides whether catching up becomes the next spec. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer, whatever the answer is; until then the check keeps failing and the loop stays stopped.
+**A moved contract version goes to the owner.** When the tester's version check reports a moved version, the orchestrator starts no new task and files a question in todo.md "Waiting on you" listing what changed exactly as the check prints it ([docs/cli-runtime.md](docs/cli-runtime.md) "Contract version"). The owner decides whether catching up becomes the next spec. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer, whatever the answer is; until then the check keeps failing and the loop stays stopped.
 
 A task that needs a screen does not stall the loop: draw the mockup, park the task, add a question asking the owner to pick, and move on.
 
@@ -137,7 +137,7 @@ A task that needs a screen does not stall the loop: draw the mockup, park the ta
 - Anything touching real data — the live engine and `~/.expense-config` ("Careful running live" above).
 - Anything outside this repo.
 
-**Questions for the owner** live in todo.md "Questions for the owner", in the format given there: plain language, 2–3 options, a recommendation.
+**Questions for the owner** live in todo.md "Waiting on you", in the format given there: plain language, 2–3 options, a recommendation.
 
 **Stay inside this repo.** Read and write nothing outside it unless the owner permits it for that occasion. Not outside: your own Claude settings and memory. No agent reads any file in the engine's folder; the contract is the practice engine's `/openapi.json`. One exception:
 
