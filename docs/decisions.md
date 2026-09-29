@@ -350,6 +350,22 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *A client-side seal check* — a copy of an engine rule, stale the moment another client reverts. *A "close every month" bulk command* — would seal months nobody reviewed.
 
+## The agent loop: one per repo, the main session orchestrates (2026-09-27, owner)
+
+**Context.** The owner is not a coder. Work runs through agents that build, check and commit without asking about each task, while the owner keeps what users see, money rules a spec does not cover, and real data. The rules live in [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; this entry holds the why.
+
+**Decision.**
+- **One loop per repo.** The worker definitions are written once in `~/.claude/agents/` and shared; each repo supplies its rules through its own CLAUDE.md. This repo came first because it has the most tests and guards; the engine repo copies it.
+- **The main session is always the orchestrator** and never writes code or tests; the builder writes, the reviewer and tester only read and run, the librarian edits only docs.
+- **The tester never writes tests.** A criterion with no test proving it goes back to the builder.
+- **The loop runs on its own** once the owner approves a spec's tasks, pushing after every finished task, and stops only for what goes to the owner. A task needing a screen draws its mockup, parks, and the loop moves on.
+- **Workers run on the session's model** (`model: inherit`).
+- **The tester may start the practice engine**, the one exception to staying inside this repo, and recreates the practice user each check with a fresh key it never stores.
+
+**Why.** "Done" (tests pass, committed and pushed) only means something inside one repo, and a loop per repo keeps the wall between this client and the engine automatic. Every change is written by one agent and read by another, so nothing is approved by the agent that wrote it; the same holds for a tester that would otherwise write the test it then checks. Pushing after each task runs GitHub's checks on each one. A fresh practice key per check leaves nothing stored and practice data starting clean. A fact written in two docs drifts, which is why the librarian exists. The trial run and the next spec both finished on 2026-09-28 under these rules.
+
+**Rejected.** *One loop over the whole `productivity_world` folder* — "done" stops meaning anything across repos and the client–engine wall stops being automatic. *Checking in with the owner after every task* — the questions would be technical ones the owner hands back to the agents anyway.
+
 ## Review per task, test and align once per spec (2026-09-27, owner)
 
 **Decision.** Each task runs builder → reviewer → commit and push; the reviewer also confirms each "passes if…" item. When a spec's tasks are done, the tester runs once as an acceptance check against the practice engine (version check, fixture check, the live contract suite, the spec's done-checks, and the app when a screen changed), and anything that fails becomes a new task. The librarian runs last, sweeping every doc before the spec is retired.
