@@ -25,9 +25,9 @@ keeps the wall between client and engine automatic.
   it wins."* Everything this repo needs goes into its CLAUDE.md.
 - **The orchestrator** is not a file. It is the main session, told its job by CLAUDE.md.
 - **The practice engine**: the engine running on `:8002` over the disposable
-  `expense_world_test` database, with the practice user recreated by
-  the engine's practice-user seed script run with `--force`. The real ledger is the engine on `:8000` and its
-  real database.
+  `expense_world_test` database, with the practice user recreated by the engine's practice-user
+  seed script run with `--force`. The real ledger is the engine on `:8000` and its real
+  database.
 
 ### What to build, in this order
 
