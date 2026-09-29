@@ -1,7 +1,7 @@
 # Tags that know the category — CLI/TUI plan
 
 **Status: not built.** The shape is pane **D**: the category's tags first, every other tag
-below a divider. §5 holds the two choices left open; §6 points at the question. It answers the
+below a divider. §5 holds the settled choices. It answers the
 owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*. When
 it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 
@@ -56,7 +56,7 @@ Field rules that matter to this repo:
 - **Precedent for the fetch shape:** the LOG bar's account peek keeps `_peek_cache` per
   account plus a debounce timer.
 
-## 3. H1 — the flat command
+## 3. The flat command
 
 `expense categories hashtags <id>` — a read, with `--json`. No paging flags: the endpoint returns every row.
 
@@ -70,7 +70,7 @@ row is not a full hashtag record.
 `test_typer_tree_walk_finds_expected_command_count` holds a count constant that a
 new command bumps.
 
-## 4. H2 — the picker
+## 4. The picker
 
 **The shape (pane D):** with a category named in the line, `#` offers that category's tags
 first, most-used first, then a dim divider, then every other tag alphabetically. Nothing is
@@ -120,31 +120,16 @@ The category changes per keystroke, so this cannot ride the one-shot
 | Category typed but ambiguous | Full list — nothing has been chosen to filter by |
 | Fetch fails or is still in flight | Full list, exactly as today; the ranking appears when the fetch lands |
 
-## 5. Decisions to review
+## 5. Settled choices
 
-**H1 — which surfaces rank?** The LOG bar is certain. Three others pick hashtags.
+- **Only the LOG bar ranks.** It is the one surface where category and tags are chosen in one
+  breath. The bulk `h` pick sets tags on rows whose categories may differ, so there is no single
+  category to rank by; the edit form's category can change after the tags are chosen.
+- **The picker shows no usage counts.** The category's group is already ordered by use, so the
+  number costs width and says nothing new. The flat command shows them: there the count is the
+  point of the read.
 
-| | Scope | Notes |
-|---|---|---|
-| **A** *(recommended)* | LOG bar only | Where the ask came from, and the only surface where category and tags are chosen in one breath |
-| **B** | LOG bar + Home/Transactions bulk `h` | The bulk modal sets tags on rows whose categories may **differ from each other** — there is no single category to rank by |
-| **C** | Every hashtag picker | Includes the edit form, where the category field can change after the tags are chosen — the pool would need to re-rank mid-form |
-
-**A**, and B is arguably incoherent rather than merely bigger.
-
-**H2 — does `uses` show in the picker?** The endpoint returns it and pane D does
-not draw it.
-
-Recommended: **no** in the picker, **yes** in the flat command. The category's group
-is already ordered by use, so the number is decoration that
-costs width; in `categories hashtags` it is the whole point of the read.
-
-## 6. Open questions for the owner
-
-In [todo.md](todo.md) "Waiting on you", the entry titled "Tags that know the category: which
-screens rank, and do usage counts show?".
-
-## 7. Non-goals
+## 6. Non-goals
 
 | Not doing | Why |
 |---|---|
@@ -153,7 +138,7 @@ screens rank, and do usage counts show?".
 | Persisting the ranking anywhere | §1's warning — it is derived, not stored |
 | Using `uses` to reorder the tags below the divider | That group stays alphabetical and predictable; only the category's group is ranked |
 
-## 8. Tests
+## 7. Tests
 
 - `categories hashtags` happy path + error shape + `--json` passthrough;
   no pagination hint (the list is whole).
@@ -167,11 +152,10 @@ screens rank, and do usage counts show?".
 - The per-category cache is consulted on the second keystroke (one request, not
   two) and is not shared between categories.
 
-## 9. Sequence
+## 8. Sequence
 
-1. H1 and H2 answered (**[UI] gate**; pane D is the picked shape).
-2. `fetch_category_hashtags` in [categories_cmd.py](../expense/commands/categories_cmd.py),
+1. `fetch_category_hashtags` in [categories_cmd.py](../expense/commands/categories_cmd.py),
    shaped for both surfaces — flat table and picker pool.
-3. The flat command, with the column sign-off.
-4. The LOG bar: lazy fetch, debounce, per-category cache, the fallbacks in §4d.
-5. Contract test against the disposable engine — nothing in this repo calls the endpoint yet.
+2. The flat command, with the column sign-off.
+3. The LOG bar: lazy fetch, debounce, per-category cache, the fallbacks in §4d.
+4. Contract test against the disposable engine — nothing in this repo calls the endpoint yet.

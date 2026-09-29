@@ -46,26 +46,6 @@ category and hashtag name resolves (dry run, 2026-09-27). Import before you comp
 reconciliation: a completed reconciliation seals its window, and the import then skips those
 rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
 
-### Tags that know the category: which screens rank, and do usage counts show?
-Asked 2026-09-29 · Blocks: Tags that know the category
-Pane D is the shape: the category's tags first, every other tag below. Two small choices are
-left, each argued in [category-hashtags-plan.md](category-hashtags-plan.md) §5:
-- **A.** Accept both: only the LOG bar ranks (H1), and the picker shows no usage counts (H2).
-- **B.** Go through them one by one.
-
-**Recommended:** A.
-
-### Sheet import: which names do the BCP accounts get?
-Asked 2026-09-29 · Blocks: Rename accounts during the sheet import
-The import will write the bank's names in place of the sheet's. The engine gives every account
-one currency, so the card is two accounts. Proposed, the sheet's name → the ledger's name:
-`BCP` (PEN) → `Sueldo Soles`, `BCP` (USD) → `Cuenta Digital Dólares`, `BCP Signature` (PEN)
-→ `VISA Infinite Sapphire PEN`, `BCP Signature` (USD) → `VISA Infinite Sapphire USD`.
-- **A.** Those four, as written.
-- **B.** Other names. Say which.
-
-**Recommended:** A. They match the bank's own names.
-
 ---
 
 ## Backlog
@@ -74,12 +54,13 @@ Open work, not yet a spec. Bigger items link their plan doc, which is deleted wh
 ships (its why moves to [decisions.md](decisions.md)).
 
 - **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
-  Waits on the "Tags that know the category" question above. **[UI]**
+  Shape and choices settled (pane D, §5 recommendations). **[UI]**
 - **Rename accounts during the sheet import.** The official migration writes each BCP
   account under the bank's own name (`VISA Infinite Sapphire` is `BCP Signature`, upgraded), so
   bank files and ledger agree from day one. A rename list on `expense import sheet`, keyed by
-  the sheet's name and currency. Waits on "Sheet import: which names do the BCP accounts get?"
-  above. Must land before the official migration.
+  the sheet's name and currency. The four names: `BCP` (PEN) → `Sueldo Soles`, `BCP` (USD) →
+  `Cuenta Digital Dólares`, `BCP Signature` (PEN) → `VISA Infinite Sapphire PEN`,
+  `BCP Signature` (USD) → `VISA Infinite Sapphire USD`. Must land before the official migration.
 - **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. The
   account names match the bank's once "Rename accounts during the sheet import" ships. **[UI]**,
   nothing drawn.
