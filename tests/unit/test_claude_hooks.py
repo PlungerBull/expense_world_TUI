@@ -277,6 +277,9 @@ TESTER_ALLOWED = [
     ("cd ../expense_world_engine && " + START_TEST_ENGINE, ""),
     ("cd {engine} && " + START_TEST_ENGINE + f" > {SCRATCH}/engine.log 2>&1 &", ""),
     (START_TEST_ENGINE.replace("python", ".venv/bin/python"), "{engine}"),
+    # one test URL is enough: the engine refuses to start when its two URLs differ
+    (f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} {UVICORN}", ""),
+    (f"cd ../expense_world_engine && ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", ""),
     ("cd ../expense_world_engine && deploy/local/seed-test-user.sh --force", ""),
     ("bash deploy/local/seed-test-user.sh --force", "{engine}"),
     ("kill 12345", "{engine}"),
@@ -342,8 +345,29 @@ TESTER_BLOCKED = [
         f"{START_TEST_ENGINE}",
         STAY,
     ),
-    (f"cd ../expense_world_engine && ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", STAY),
-    (f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} {UVICORN}", STAY),
+    (
+        f"cd ../expense_world_engine && SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1"
+        f":5432/expense_world {UVICORN}",
+        STAY,
+    ),
+    (
+        "cd ../expense_world_engine && PYTHONPATH=/private/tmp/x "
+        f"SUPABASE_DB_URL={TEST_DB} {UVICORN}",
+        STAY,
+    ),
+    (f"cd ../expense_world_engine && FOO_URL={TEST_DB} {UVICORN}", STAY),
+    # a `*_DB_URL` name the engine ignores leaves both real URLs to `.env`
+    (f"cd ../expense_world_engine && FOO_DB_URL={TEST_DB} {UVICORN}", STAY),
+    (
+        f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} OTHER_DB_URL=postgresql://"
+        f"expense_engine@127.0.0.1:5432/expense_world {UVICORN}",
+        STAY,
+    ),
+    (
+        f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} "
+        + UVICORN.replace("8002", "8001"),
+        STAY,
+    ),
     ("cd ../expense_world_engine && curl -X POST http://127.0.0.1:8002/v1/accounts", STAY),
     ("cd ../expense_world_engine && curl -o x http://127.0.0.1:8002/health", STAY),
     ("lsof -ti :8000 | xargs kill", LIVE),

@@ -38,18 +38,20 @@ What it blocks:
     no `$NAME`/`${…}` expansion other than `$HOME`: `cd <dir>` (one word); `sleep <n>`; a
     bare `true`; the test-engine start (`<python> -m uvicorn app.main:app --port 8002`,
     `<python>` being exactly `python`, `python3`, `.venv/bin/python` or
-    `.venv/bin/python3`, whose env prefix names only `*_DB_URL` variables, includes both
-    `SUPABASE_DB_URL` and `ADMIN_DB_URL`, and has every one naming `expense_world_test`,
-    env names compared
-    case-insensitively — a missing one falls back to the engine's `.env`, which points at
-    the real ledger); `deploy/local/seed-test-user.sh --force` with no env prefix (relative,
-    `..`, absolute or `~` path, or through `bash`/`sh`); `curl` and `lsof` with no env
-    prefix (curl flags only from `-s -S -f -i -v`, their bundles, `--silent --show-error
-    --fail --max-time <n>`; every URL on `127.0.0.1`/`localhost:8002`); the stop forms
-    below; and stdin filters with no env prefix and no file operand — `sed` whose every
-    script is one `s` command (delimiter not `?`, `*` or `[`; flags only `g`, `p`, `i`, `I`
-    or a number; options only `-E -r -n -e`), `grep` with one glob-free pattern and flags
-    from `-v -i -E -F -o -c -q -x -w`, `head`/`tail` with only `-n <n>`/`-<n>`.
+    `.venv/bin/python3`, whose env prefix names only `SUPABASE_DB_URL` and/or
+    `ADMIN_DB_URL`, at least one of them, and every one naming `expense_world_test`, env
+    names compared case-insensitively — any other name is one the engine ignores, so it
+    guards nothing; a URL left off falls back to the engine's `.env`, and the engine refuses
+    to start when its two URLs name different databases, so a start with one test URL fails
+    at startup, while a start with none reads both from `.env`, which names the real ledger);
+    `deploy/local/seed-test-user.sh --force` with no env prefix (relative, `..`, absolute
+    or `~` path, or through `bash`/`sh`); `curl` and `lsof` with no env prefix (curl flags
+    only from `-s -S -f -i -v`, their bundles, `--silent --show-error --fail --max-time <n>`;
+    every URL on `127.0.0.1`/`localhost:8002`); the stop forms below; and stdin filters with
+    no env prefix and no file operand — `sed` whose every script is one `s` command
+    (delimiter not `?`, `*` or `[`; flags only `g`, `p`, `i`, `I` or a number; options only
+    `-E -r -n -e`), `grep` with one glob-free pattern and flags from
+    `-v -i -E -F -o -c -q -x -w`, `head`/`tail` with only `-n <n>`/`-<n>`.
   A command that touches the engine checkout is blocked whole when it holds `$(`, a
   backtick, `<(` or `>(` anywhere, or an `export`/`declare`/`typeset`/`readonly`/`local`/
   `set`/`alias`/`eval`/`source`/`.` command. The engine's test-database wipe script is not
@@ -347,9 +349,9 @@ def _tester_op(ctx: Context, seg: Segment, cwd: Path) -> bool:
     words = seg.words
     if words[:1] and words[0] in _START_PYTHONS and words[1:] == _START_ARGS:
         names = {k.upper() for k in seg.env}  # the engine ignores name case
-        only_db = all(k.endswith("_DB_URL") for k in names)  # no PYTHONPATH and the like
-        required = {"SUPABASE_DB_URL", "ADMIN_DB_URL"} <= names
-        return only_db and required and all(_is_test_db(v) for v in seg.env.values())
+        # only the two URLs the engine reads: no PYTHONPATH, no name the engine ignores
+        only_db = names <= {"SUPABASE_DB_URL", "ADMIN_DB_URL"}
+        return bool(names) and only_db and all(_is_test_db(v) for v in seg.env.values())
     if seg.env:
         return False
     if _is_seed(ctx, seg, cwd):
