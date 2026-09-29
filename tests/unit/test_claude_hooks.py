@@ -494,6 +494,21 @@ def test_guard_reads_relative_paths_against_a_cwd_outside_the_repo(box, agent, c
     _blocked(box.guard("Bash", {"command": command}, agent=agent, cwd=cwd), STAY)
 
 
+OUTSIDE_CWD_ALLOWED = [
+    ("ls", SCRATCH),
+    ("cat notes.txt && head -5 out/log.txt", SCRATCH),
+    ("ls", "{home}/.claude"),
+    ("cat agents/builder.md", "{home}/.claude"),
+    ("grep -rn builder agents", "{home}/.claude/projects"),
+]
+
+
+@pytest.mark.parametrize("agent", ["tester", "builder", None])
+@pytest.mark.parametrize(("command", "cwd"), OUTSIDE_CWD_ALLOWED)
+def test_guard_allows_a_cwd_in_the_scratchpad_or_claude_folder(box, agent, command, cwd):
+    _allowed(box.guard("Bash", {"command": command}, agent=agent, cwd=cwd))
+
+
 def test_guard_lets_the_tester_cd_back_into_the_engine(box):
     command = "cd {repo} && cd - && deploy/local/seed-test-user.sh --force > /dev/null"
     _allowed(box.guard("Bash", {"command": command}, agent="tester", cwd="{engine}"))

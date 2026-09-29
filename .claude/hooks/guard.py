@@ -77,6 +77,8 @@ describes. What passes:
 
 - a path built from variables, or a command hidden in `$(...)` or `bash -c "…"`, in a
   command that does not otherwise touch the engine checkout;
+- a path inside a program string such as `python -c "…"` or an `awk '…'` program, the
+  same way as `bash -c "…"`;
 - a `cd -` before any `cd` in the command (the guard does not know the shell's previous
   folder), and `pushd`/`popd`;
 - the seed's key reaching a file through a `( … )` group: `(seed …) > f` or
@@ -90,7 +92,10 @@ describes. What passes:
 
 It errs the other way too: a word written like an engine path is blocked even as a
 `grep` pattern or `echo` text (`grep -rn '../expense_world_engine' docs`); search for the
-bare name (`grep -rn expense_world_engine docs`) instead.
+bare name (`grep -rn expense_world_engine docs`) instead. A heredoc body is read as
+commands, so a `cd` line in a bare heredoc body moves the folder the guard tracks and the
+rest of the command is read against that folder, often blocked; write the body through
+`"$(cat <<'EOF' … EOF)"`, as CLAUDE.md "Dev loop" gives for commit messages.
 
 Malformed hook input fails open rather than crash: input that is not a JSON object, or a
 non-object `tool_input`, allows the call; a missing or non-string `cwd` only falls back to
