@@ -291,9 +291,9 @@ def fetch_all_cursor_pages(
     """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
 
     `GET /transactions` is the one cursor-paged endpoint. The only stop is
-    `next_cursor` being null (contract: "Cursors") — not a short page, not a count: a
-    page holding exactly the remaining rows already comes back null, and a
-    short page with a cursor still has more.
+    `next_cursor` being null (contract: "Base Conventions", "Cursors, on every
+    cursor-paged list") — not a short page, not a count: a page holding exactly the
+    remaining rows already comes back null, and a short page with a cursor still has more.
     """
     out: list[dict] = []
     after: str | None = None
@@ -814,7 +814,8 @@ def render_pagination_hint(
 ) -> None:
     """Print how to reach the rest of a paged list, when there is a rest.
 
-    Two shapes page (contract: "Lists come in three shapes"), each with its own line;
+    Two shapes page (contract: "Base Conventions", "Lists come in three shapes, and none
+    of them is paged by position"), each with its own line;
     anything else — a whole list, a missing envelope — prints nothing.
 
     A cursor-paged body (`transactions list`) has no total: when it carries a

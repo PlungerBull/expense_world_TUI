@@ -798,7 +798,10 @@ def test_fetch_all_cursor_pages_walks_by_next_cursor():
 
 
 def test_fetch_all_cursor_pages_short_page_with_cursor_keeps_going():
-    """A short page is not the end — only a null cursor is (contract: "Cursors")."""
+    """A short page is not the end — only a null cursor is.
+
+    (contract: "Base Conventions", "Cursors, on every cursor-paged list")
+    """
     fetch_page, calls = _pager(
         [cursor_page([{"id": "a"}], next_cursor="c1"), cursor_page([{"id": "b"}])]
     )

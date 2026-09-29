@@ -234,16 +234,6 @@ Every other account, category and hashtag name resolves (dry run, 2026-09-27).
    the owner on hand-logged card purchases: if a rename proposal is built, this
    case mostly stops happening.
 
-3. **The contract suite's conftest repeats the ops guide, out of date, and tells history.**
-   [tests/contract/conftest.py](../tests/contract/conftest.py): its module docstring copies the
-   seed, start and suite commands that [cli-runtime.md](cli-runtime.md) "Working against the
-   live engine" owns, and its start command is stale (bare `python`, not detached); cut it to a
-   pointer. The comment above `DEFAULT_ENGINE_URL` describes an old default (state only what
-   is). Also three citations name a fragment of a bold heading instead of the whole heading:
-   `(contract: "Cursors")` and `(contract: "Lists come in three shapes")` in
-   [_resource.py](../expense/commands/_resource.py), `(contract: "Cursors")` in
-   [test_resource.py](../tests/unit/test_resource.py). Builder work.
-
 ## Ergonomics
 
 1. **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth

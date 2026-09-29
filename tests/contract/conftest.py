@@ -4,21 +4,8 @@ These tests hit a real engine and make real writes, so a contract run that would
 the real ledger **refuses to start**. Point it at the disposable practice database
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
-    # the normal, isolated way (docs/cli-runtime.md "Working against the live engine")
-    deploy/local/seed-test-user.sh --force          # prints the PAT once
-    SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \
-      ADMIN_DB_URL=postgresql://<owner>@127.0.0.1:5432/expense_world_test \
-      python -m uvicorn app.main:app --port 8002
-    PYTEST_LIVE=1 EXPENSE_PAT=<seeded> EXPENSE_ENGINE_URL=http://127.0.0.1:8002 \
-        pytest tests/contract
-
-Two details that look like details and are not:
-**8002, not 8001** — `:8001` belongs to todo_world_engine, and pointed there every
-request 404s against a gym API while /health still answers `ok`. **Connect as
-`expense_engine`** — the engine refuses to start as a SUPERUSER, because that role
-bypasses RLS and would make tenant isolation engine-side only.
-
-Full ops guide: docs/cli-runtime.md "Working against the live engine".
+How to seed the practice user, start the test engine on :8002 and run this suite:
+docs/cli-runtime.md "Working against the live engine".
 """
 
 import os
@@ -29,9 +16,8 @@ from expense import config as config_module
 from expense.config import Config
 from expense.http import ExpenseClient
 
-# There is one engine: the local deployment. The old default was the mothballed
-# cloud host, which made EXPENSE_ENGINE_URL effectively mandatory while the docs
-# claimed the defaults suited the local profile.
+# The default is the one real engine, the local deployment. A practice run sets
+# EXPENSE_ENGINE_URL to the disposable test engine on :8002.
 DEFAULT_ENGINE_URL = "http://127.0.0.1:8000"
 
 ENGINE_URL = os.environ.get("EXPENSE_ENGINE_URL", DEFAULT_ENGINE_URL)
