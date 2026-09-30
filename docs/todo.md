@@ -34,6 +34,16 @@ and [tui-import-door.md](specs/tui-import-door.md) are first drafts. Each ends w
 questions and draft tasks. Correct what is wrong, answer the questions, and name the one the loop
 starts on.
 
+### Edit form: which key moves between fields?
+Asked 2026-09-29 · Blocks: Field navigation in the edit form is broken on macOS
+Open [expense-world-form-field-keys.html](mockups/expense-world-form-field-keys.html): three ways
+to fix it, drawn side by side.
+- **J.** `shift+↑↓` move fields; plain arrows only walk the suggestion list.
+- **K.** `shift+↑↓` move fields; plain arrows also move fields when no list is open.
+- **T.** `tab` / `shift+tab` move fields; plain arrows also move fields when no list is open.
+
+**Recommended:** T. It is the key every form uses, one key rather than two.
+
 ### Check the TUI after the engine update
 Asked 2026-09-29 · Blocks: The TUI is the only human surface
 Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
@@ -62,20 +72,13 @@ ships (its why moves to [decisions.md](decisions.md)).
   the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
   until the owner picks it up; its open questions live in the spec.
 - **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
-  Mission Control / Application Windows before the terminal sees them. The footer no longer
-  advertises them; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
-  What is left is choosing the replacement. **[bug]** **[UI]**
-  - `shift+↑` / `shift+↓` are bindable (probed live). Then plain `↑↓` on the three fields with
-    a suggestion list needs a meaning: options **J** and **K** in
-    [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html)
-    §4, neither picked.
-  - **`tab` / `shift+tab`**, not drawn in the mockup: plain `↑↓` keep their one meaning and
-    nothing is sacrificed. Every form has exactly one focusable widget (`Input#bar`), so `tab`
-    is free today. Fits [decisions.md](decisions.md) "One key per job".
-  - To decide with it: forms have no `?` card (a focused `Input` swallows printable keys), so
-    a form key has no discovery surface — possibly the one case where an arrow-family key
-    earns a footer slot (`⇥ Field` beside `esc Cancel  ^s Save`), against the "arrows never
-    get a slot" rule in [tui.md](tui.md) §4.
+  Mission Control / Application Windows before the terminal sees them, so the form has no working
+  key to move between fields; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
+  Options J, K and T are drawn in
+  [mockups/expense-world-form-field-keys.html](mockups/expense-world-form-field-keys.html); waits on
+  the pick above. The build retires §4 of
+  [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html) and the
+  `_form.py` comment pointing at it. **[bug]** **[UI]**
 
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.

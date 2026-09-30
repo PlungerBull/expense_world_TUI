@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Edit form field keys</title>
+<style>
+  :root{
+    --bg:#0e0e11; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68; --line:#2a2a30;
+    --term:#1e1e1e; --termtext:#cccccc; --add:#6a9955; --warn:#d7ba7d; --key:#4fc1ff; --mut:#666666;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:20px;
+       padding:36px 16px 80px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  h1{width:min(1180px,100%);font-size:17px;font-weight:600;margin:0}
+  h2{width:min(1180px,100%);font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+     color:var(--muted);margin:22px 0 -6px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{width:min(1180px,100%);color:var(--dim);font-size:12.5px;line-height:1.75;margin:0}
+  .sub b{color:var(--muted)} .sub code{color:#9aa3b2}
+  .row{width:min(1180px,100%);display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media (max-width:980px){.row{grid-template-columns:1fr}}
+  .tw{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .opt{font-size:13px;color:var(--text);font-weight:600}
+  .cap{font-size:11.5px;color:var(--dim);line-height:1.6}
+  .cap b{color:var(--muted)}
+  .app{background:var(--term);color:var(--termtext);font-size:11.5px;line-height:1.5;
+       padding:10px 12px;border-radius:5px;white-space:pre;overflow-x:auto;border:1px solid var(--line)}
+  .rev{background:var(--termtext);color:var(--term)}
+  .add{color:var(--add)} .warn{color:var(--warn)} .k{color:var(--key)} .mut{color:var(--mut)}
+  .pick{width:min(1180px,100%);border:1px solid var(--line);border-radius:6px;padding:14px 16px;
+        font-size:12.5px;line-height:1.8;color:var(--muted)}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<h1>Edit form: which key moves between fields?</h1>
+<p class="sub">Backs <code>docs/todo.md</code> "Field navigation in the edit form is broken on macOS". Today the form's
+field keys are <code>⌃↑</code> / <code>⌃↓</code>, and macOS takes them for Mission Control before the app sees them, so
+there is no working key to move between fields. Every pane shows the same form, on the <b>account</b> field with its
+suggestion list open, and below it what the arrows do on a field with no list (<b>title</b>). Pick a letter.</p>
+
+<h2>The three options</h2>
+<div class="row">
+  <div class="tw">
+    <div class="opt">J · shift+arrows move fields</div>
+    <div class="app">  ╭──────────────────────────────────╮
+  │ ACCOUNT                          │
+  ╰──────────────────────────────────╯
+   pick an account · ↑↓ highlight
+
+     <span class="rev">Sueldo Soles             PEN </span>
+     Cuenta Digital Dólares   USD
+     VISA Infinite Sapphire PEN
+
+   date      2026-03-05
+   title     Sueldo marzo
+   amount    6,519.00
+   <span class="rev">account   Sueldo Soles         </span>
+   category  SUELDO
+
+ <span class="k">esc</span> Cancel  <span class="k">^s</span> Save  <span class="add">⇧↑↓ Field</span>
+
+ <span class="mut">on TITLE:</span> ↑↓ <span class="warn">do nothing</span></div>
+    <div class="cap"><b>⇧↑ / ⇧↓</b> always move fields. Plain arrows only walk the list.
+    <br><b>Cost:</b> on four of the seven fields plain arrows do nothing.</div>
+  </div>
+
+  <div class="tw">
+    <div class="opt">K · shift+arrows, and plain arrows too</div>
+    <div class="app">  ╭──────────────────────────────────╮
+  │ ACCOUNT                          │
+  ╰──────────────────────────────────╯
+   pick an account · ↑↓ highlight
+
+     <span class="rev">Sueldo Soles             PEN </span>
+     Cuenta Digital Dólares   USD
+     VISA Infinite Sapphire PEN
+
+   date      2026-03-05
+   title     Sueldo marzo
+   amount    6,519.00
+   <span class="rev">account   Sueldo Soles         </span>
+   category  SUELDO
+
+ <span class="k">esc</span> Cancel  <span class="k">^s</span> Save  <span class="add">⇧↑↓ Field</span>
+
+ <span class="mut">on TITLE:</span> ↑↓ <span class="add">move fields</span></div>
+    <div class="cap"><b>⇧↑ / ⇧↓</b> always move fields. Plain arrows walk the list when one is open, and
+    move fields otherwise.
+    <br><b>Cost:</b> a two-key chord for the always-works key.</div>
+  </div>
+
+  <div class="tw">
+    <div class="opt">T · tab, and plain arrows too</div>
+    <div class="app">  ╭──────────────────────────────────╮
+  │ ACCOUNT                          │
+  ╰──────────────────────────────────╯
+   pick an account · ↑↓ highlight
+
+     <span class="rev">Sueldo Soles             PEN </span>
+     Cuenta Digital Dólares   USD
+     VISA Infinite Sapphire PEN
+
+   date      2026-03-05
+   title     Sueldo marzo
+   amount    6,519.00
+   <span class="rev">account   Sueldo Soles         </span>
+   category  SUELDO
+
+ <span class="k">esc</span> Cancel  <span class="k">^s</span> Save  <span class="add">⇥ Field</span>
+
+ <span class="mut">on TITLE:</span> ↑↓ <span class="add">move fields</span></div>
+    <div class="cap"><b>tab</b> moves to the next field, <b>shift+tab</b> to the previous, always. Plain arrows walk
+    the list when one is open, and move fields otherwise.
+    <br><b>Cost:</b> none found; <code>tab</code> is unused in the form today.</div>
+  </div>
+</div>
+
+<p class="sub"><b>Recommended: T.</b> Tab is the key every form on a computer uses to move between fields, it is one
+key rather than a chord, and plain arrows still move fields on a field with no list, as asked. In every option:
+<code>⏎</code> saves the field and moves on, <code>^s</code> saves the form, <code>⌃↑↓</code> stay off the footer, and
+read-only fields are skipped.</p>
+
+<div class="pick"><b>Pick:</b> J · K · <b>T</b> (recommended)</div>
+
+</body>
+</html>
