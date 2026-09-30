@@ -1,78 +1,90 @@
-# The TUI is the only human surface; the flat CLI is for the agent
+# The TUI is the only surface
 
-**Deferred.** Nothing here starts until the owner picks this spec up. Then it starts after
-[todo.md](../todo.md) "Check the TUI after the engine update" and whatever else is in flight. **When done:** the why moves to [decisions.md](../decisions.md), and this
-file is deleted.
+**Current spec** (picked up 2026-09-30). Tasks are drafted into a "Tasks" section at the end once
+the open questions below are answered. **When done:** the why moves to
+[decisions.md](../decisions.md), and this file is deleted.
 
 ---
 
-## The decision (owner, 2026-09-26)
+## The decision (owner, 2026-09-26, sharpened 2026-09-30)
 
-**The owner only ever uses the TUI (`expense world`).** The flat commands
-(`expense <group> <verb> --flag`) stay only as **thin commands the agent uses to check things**:
-Claude verifying a change against the engine, the contract suite, and anything that wants
-`--json`. They are no longer a product for a person.
+**The owner only ever uses the TUI (`expense world`) and never types a flat command.** The flat
+commands (`expense <group> <verb> --flag`) are deleted. Every feature is built once, in the TUI.
 
-**Why.** The TUI never runs a command: both surfaces are faces on the same Python functions
-(`fetch_*`, the formatters, `EngineWriteMixin.run_write`, [expense/http.py](../../expense/http.py)),
-so polishing a flat human surface nobody reads was building every feature twice.
+**Why.** The TUI never runs a command: both surfaces are faces on the same Python code (the
+engine reads, the formatters, the write plumbing, [expense/http.py](../../expense/http.py)).
+About 4,500 of the ~5,400 lines under `expense/commands/`, and about 310 unit tests, exist only
+for the typed commands. Keeping them meant building and approving every feature twice for a
+surface nobody reads.
 
 **What stays true.** The engine is still the only home of business logic. Every engine endpoint
-is still exercised before web and iOS exist. The difference is who does it: **the owner, through
-the TUI, for real use**, and **the agent, through the flat commands, for checks**. Neither the
+is still exercised before web and iOS exist: **the owner through the TUI, for real use**, and
+**the automated tests**, most of all the live contract suite against the practice engine, which
+already calls the engine directly and not through commands (10 of its 11 files). Neither the
 iOS app nor the web dashboard will ever call this repo; both talk to the engine's HTTPS API
 directly.
 
 **What it replaces:** decisions.md "Dual-UX strategy — flat commands + TUI + quick-add
 (2026-04-25)", which made flat commands canonical.
 
+## What stays typed
+
+- **`expense world`** — it is how the TUI opens.
+- **`expense import sheet`** — stays for good (owner, 2026-09-30). It is the door for the
+  owner's spreadsheet (PRESUPUESTO) and [official-migration.md](official-migration.md) runs on it.
+- **`expense import bank`** — stays until the TUI import door ([tui-import-door.md](tui-import-door.md))
+  ships, then it is deleted (owner, 2026-09-30). Until then it is the only way to bring bank
+  files in.
+
+Everything else typed goes, along with its tests, its human tables and [cli-spec.md](../cli-spec.md)
+(except what still describes the two imports and the config file).
+
+## What the TUI gains
+
+Today these can only be done with a typed command. Each becomes a TUI feature, and each gets an
+HTML mockup the owner picks before any code (owner, 2026-09-30):
+
+1. **First-time setup.** Enter the engine address and key in the TUI on a fresh machine. Today
+   the TUI can change them but cannot create the settings file, so it cannot start without
+   `expense config set`.
+2. **Delete.** Delete an account, a category, a hashtag, and a ledger transaction. Today the TUI
+   can only archive them, and deletes a transaction only from a reconciliation's "no batch" list.
+3. **Opening balance.** Set an account's starting balance.
+
+## What is left with no screen
+
+These engine features lose their only surface. The contract suite keeps exercising them:
+
+- Activity history and exchange-rate history (already out of the TUI: decisions.md "Activity and
+  Rates leave the TUI").
+- Editing a reconciliation's details (name, dates, balances) after it is created.
+- Updating the profile and the settings.
+- The single-month report (the TUI's Home shows the four-month grid).
+- Posting a JSON file of transactions (`transactions batch`), clearing the config file, and the
+  engine ping.
+
+Adding a screen for any of them later is new work of its own.
+
 ## Open questions for the owner
 
-Each gets an answer before its step starts. They wait here, not in todo.md, while the spec is
-deferred.
+Each gets an answer before its step starts.
 
-### Should the flat commands print JSON only?
-Asked 2026-09-26
-- **A.** JSON only. The human tables, page footers, colour swatches and name columns go.
-- **B.** Keep a plain human mode.
+### When you ask an agent to do something with your data, what does it use?
+Asked 2026-09-30
+Changing the app's code needs no commands: agents write code and tests. But a request like "log
+these ten receipts" or "how much did I spend on food in August?" acts on your ledger, and today
+an agent would type `expense …` commands for that. (Agents only ever touch the real ledger when
+you allow it for that occasion.)
+- **A.** One small typed command, `expense api`, that sends any request straight to the engine
+  (for example `expense api GET /reports/monthly` or `expense api POST /transactions
+  --data …`) and prints the engine's raw answer. It reuses the app's own connection, so it gets
+  the same key handling, retry safety and error messages. One command covers every engine
+  feature, forever, with nothing to keep in sync.
+- **B.** No typed commands. The agent writes a small one-off program for each request.
+- **C.** Keep every current command, printing raw data only, for agents.
 
-**Recommended:** A. The agent reads JSON, and the TUI is the human view.
-
-### One flat command per engine endpoint, or only the ones the agent uses?
-Asked 2026-09-26
-- **A.** One per endpoint.
-- **B.** Only the ones the agent actually uses.
-
-**Recommended:** A, so the agent can check any endpoint.
-
-### What happens to `import bank`, `import sheet` and `expense log`?
-Asked 2026-09-26
-The imports are flat-only until the TUI import door ships, and `import bank` asks you which
-account a file belongs to. `expense log "<line>"` is the flat twin of the LOG bar.
-- **A.** They stay as human commands until the TUI import door ships, then shrink like the
-  rest.
-- **B.** They stay as human commands for good.
-
-**Recommended:** none yet.
-
-### Which command guard tests stay?
-Asked 2026-09-26
-Every flat command must have an `Example:`, an error test, `--json` on reads and `--yes` on
-deletes ([test_command_surface.py](../../tests/unit/test_command_surface.py)). Confirmation prompts
-are for people, and the agent always passes `--yes`.
-- **A.** Keep them all.
-- **B.** Drop the people-only ones (prompts, `Example:`). Keep the error test and `--json`.
-
-**Recommended:** none yet.
-
-### Where does the shared code live?
-Asked 2026-09-26
-The TUI takes its reads and formatters from `expense/commands/*`. If the commands shrink, that
-name stops fitting.
-- **A.** It stays in `expense/commands/`.
-- **B.** It moves to a package not named after the commands.
-
-**Recommended:** none yet.
+**Recommended:** A. It keeps agents able to act for you with tested, retry-safe plumbing, at a
+fraction of the cost of C, and without the untested one-off programs of B.
 
 ### What is the repo's new name?
 Asked 2026-09-26
@@ -93,33 +105,40 @@ The draft is "Draft note to the engine coder" below.
 
 ## Consequences that follow directly
 
-- **Rules to rewrite:** CLAUDE.md "What this repo is", "Product scope and role" (the contract
-  validator is now the owner using the TUI plus the agent using flat commands) and "Status".
-  [cli-spec.md](../cli-spec.md) "Principles" ("human-readable by default") and "Output conventions"
-  (the table process rule). The mockup rule stops covering flat tables. It still covers every
-  TUI screen.
-- **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name
-  resolution for reference flags", "Move between accounts convenience", and Parked "Flat-CLI
-  color conventions". "`expense import csv`" depends on the imports question.
-- **New work goes TUI-first.** A new engine capability gets its TUI screen, plus a flat command
-  only as thin as the answer on human output allows.
+- **Rules to rewrite:** CLAUDE.md "What this repo is", "Product scope and role", "Human default,
+  JSON opt-in", "Confirm destructive operations" (it describes the TUI's confirm step, no longer
+  `--yes`), "Mock every screen" (no more flat tables), "One copy of everything shared" and
+  "Testing conventions" (the per-command guards go), "Status". [cli-runtime.md](../cli-runtime.md)
+  becomes the runtime doc for the TUI and the imports.
+- **Specs that shrink:** [tag-suggestions.md](tag-suggestions.md) drops its new flat command and
+  the question about its columns. [tui-import-door.md](tui-import-door.md) task 5 (the typed
+  `import bank` wording fix) goes if the door ships first.
+- **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name resolution
+  for reference flags", "Move between accounts convenience" (unless wanted as a TUI feature),
+  "`expense import csv`", and Parked "Flat-CLI color conventions" and "`auth pat create/revoke`".
+- **New work goes TUI-only.** A new engine capability gets its TUI screen and its contract test,
+  and nothing typed.
 
 ## Steps
 
 1. **Record the decision.** Add a decisions.md entry (Context / Decision / Rejected) that
-   supersedes "Dual-UX strategy". Rewrite the CLAUDE.md and cli-spec.md sections above.
-2. **Trim the flat surface** to the answers on output, coverage, imports, guard tests and shared code. That means human renderers,
-   pagination footers and prompts, their tests, and the guards in `test_command_surface.py`.
-   Move the shared layer if the shared-code answer says so. The unit suite stays green at every commit.
-3. **Clean todo.md.** Delete the items listed above.
-4. **Rename the repo** (the new-name question): `gh repo rename` on GitHub (push access needs
+   supersedes "Dual-UX strategy". Rewrite the rules listed above.
+2. **Move the shared code** out of `expense/commands/` into a home not named after commands.
+   Nothing the owner sees changes.
+3. **Build the three TUI features** in "What the TUI gains", each after its mockup is picked.
+   First-time setup comes before step 4, so the app can always start with no typed command.
+4. **Delete the typed commands** that "What stays typed" does not keep, with their tests, guards
+   and docs. The one contract test that walks through commands is rewritten to call the engine
+   directly. The unit suite stays green at every commit.
+5. **Clean todo.md.** Delete the items listed above.
+6. **Rename the repo** (the new-name question): `gh repo rename` on GitHub (push access needs
    `gh auth switch --user PlungerBull`), update the local remote, rename the local folder if the
-   owner wants that, and update the references in this repo: [CLAUDE.md](../../CLAUDE.md),
-   [README.md](../../README.md), [cli-spec.md](../cli-spec.md) and the "Repo name note" at the top of
-   CLAUDE.md. `test_docs_links.py` catches any broken relative link.
-5. **Notify the engine coder.** The owner hands over the note below. This repo never edits the
+   owner wants that, and update the references in this repo. `test_docs_links.py` catches any
+   broken relative link.
+7. **Notify the engine coder.** The owner hands over the note below. This repo never edits the
    engine; the engine coder finds the references to the old name in the engine repo.
-6. **Delete this file**, and its row in todo.md.
+8. **Delete `expense import bank`** once the TUI import door ships.
+9. **Delete this file**, and its row in todo.md.
 
 ## Draft note to the engine coder
 
@@ -127,7 +146,8 @@ The draft is "Draft note to the engine coder" below.
 > Please update every reference to the old name in the engine repo (its local-deployment guide,
 > the practice-user seed script and its decisions log), plus any sibling-checkout paths.
 >
-> What else changed: the owner uses only the TUI (`expense world`). The flat `expense …` commands
-> are now thin agent-verification tools, not a human surface. Nothing changes for the engine:
-> the TUI calls the same endpoints and still exercises them through real use. When the engine
-> docs call "the CLI" the first client, they now mean the TUI plus its agent-facing commands.
+> What else changed: the owner uses only the TUI (`expense world`), and the flat `expense …`
+> commands are gone apart from the spreadsheet and bank imports. Nothing changes for the engine:
+> the TUI calls the same endpoints and still exercises them through real use, and the contract
+> suite exercises the rest. When the engine docs call "the CLI" the first client, they now mean
+> the TUI.

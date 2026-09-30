@@ -46,7 +46,7 @@ refused, and some error hints stop showing because the engine reworded its messa
 later spec would be built and checked against the new contract anyway.
 
 ### Check the TUI after the engine update
-Asked 2026-09-29 · Blocks: The TUI is the only human surface
+Asked 2026-09-29 · Blocks: The TUI is the only surface
 Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
 and report anything wrong. This entry is deleted when they pass.
 
@@ -98,9 +98,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
 - **Import bank files from the TUI** (with the after-apply "may be logged twice" wording). Spec
   (draft): [specs/tui-import-door.md](specs/tui-import-door.md).
-- **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
-  the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
-  until the owner picks it up; its open questions live in the spec.
+- **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
+  features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
+  the current spec; its open questions live in the spec.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 
