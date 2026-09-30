@@ -14,7 +14,9 @@ picked before any code. Engine asks live in [engine-asks/](engine-asks/), one fi
 ## Waiting on you
 
 Everything that needs the owner: questions, and things only the owner can do. The orchestrator
-adds an entry instead of guessing, acts on the answer, then deletes the entry. A question reads:
+adds an entry instead of guessing, acts on the answer, then deletes the entry. After a round of
+answers it tells the owner what each answer unlocked, and drafts a spec in [specs/](specs/) for
+work that is now unblocked. A question reads:
 
 ```
 ### <title>
@@ -24,6 +26,13 @@ Asked <date> · Blocks: <task or spec>
 - **B.** <option>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
+
+### Review the three draft specs
+Asked 2026-09-29 · Blocks: each spec's work
+[tag-suggestions.md](specs/tag-suggestions.md), [official-migration.md](specs/official-migration.md)
+and [tui-import-door.md](specs/tui-import-door.md) are first drafts. Each ends with its open
+questions and draft tasks. Correct what is wrong, answer the questions, and name the one the loop
+starts on.
 
 ### Check the TUI after the engine update
 Asked 2026-09-29 · Blocks: The TUI is the only human surface
@@ -37,45 +46,21 @@ and report anything wrong. This entry is deleted when they pass.
 5. On a batch's working screen, `r` keeps the header current; deleting that batch from another
    terminal shows "record gone".
 
-### Before you re-import the sheet: rename `PENDIENTES`
-Asked 2026-09-29 · Blocks: One-time title alignment after the official migration
-The sheet still files rows under `PENDIENTES`, as a category and as a hashtag; the ledger has
-neither (uncategorised rows go to the system category `@Pendiente`). Rename those rows in the
-sheet before the re-import's `--apply`, or it creates `PENDIENTES` again. Every other account,
-category and hashtag name resolves (dry run, 2026-09-27). Import before you complete any
-reconciliation: a completed reconciliation seals its window, and the import then skips those
-rows as `sealed`, never creating them (contract: POST /v1/transactions/import).
-
-Run the re-import with the four account renames, so the BCP accounts carry the bank's names
-([cli-spec.md](cli-spec.md) "Renaming an account leg"): `--account-name "BCP:PEN=Sueldo Soles"`,
-`--account-name "BCP:USD=Cuenta Digital Dólares"`,
-`--account-name "BCP Signature:PEN=VISA Infinite Sapphire PEN"` and
-`--account-name "BCP Signature:USD=VISA Infinite Sapphire USD"`. Check the dry run lists all
-four before `--apply`.
-
 ---
 
 ## Backlog
 
-Open work, not yet a spec. Bigger items link their plan doc, which is deleted when the work
+Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Tags that know the category.** Plan: [category-hashtags-plan.md](category-hashtags-plan.md).
-  Shape and choices settled (pane D, §5 recommendations). **[UI]**
-- **The TUI import door (C1).** Plan: [file-import-plan.md](file-import-plan.md) §3. The
-  account names match the bank's once the migration runs with the four renames. **[UI]**,
-  nothing drawn.
+- **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
+- **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
+  Spec (draft): [specs/official-migration.md](specs/official-migration.md).
+- **Import bank files from the TUI** (with the after-apply "may be logged twice" wording). Spec
+  (draft): [specs/tui-import-door.md](specs/tui-import-door.md).
 - **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
   the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
   until the owner picks it up; its open questions live in the spec.
-- **One-time title alignment after the official migration.** Plan:
-  [file-import-plan.md](file-import-plan.md) §6. Runs after the sheet re-import and before the
-  2026 periods are completed, because a completed period locks its rows' titles. The engine's
-  rule is **import first, reconcile second**: a reconciliation completed before its rows exist
-  seals the window against them (contract: POST /v1/transactions), and the import then skips
-  those rows as `sealed` (contract: POST /v1/transactions/import). Full sequence:
-  [file-import-plan.md](file-import-plan.md) §10.
-
 - **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
   Mission Control / Application Windows before the terminal sees them. The footer no longer
   advertises them; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
@@ -91,22 +76,6 @@ ships (its why moves to [decisions.md](decisions.md)).
     a form key has no discovery surface — possibly the one case where an arrow-family key
     earns a footer slot (`⇥ Field` beside `esc Cancel  ^s Save`), against the "arrows never
     get a slot" rule in [tui.md](tui.md) §4.
-
-- **After `--apply`, the bank import's "may be logged twice" warning still says "check before
-  --apply".** `render_result` in [bank_import_cmd.py](../expense/commands/bank_import_cmd.py)
-  prints `excess_lines` the same way on preview and apply, so after `--apply` it reads
-  `! 1 ledger row no file row matched — check / before --apply, it may be logged twice` — too
-  late. The engine computes `excess` against the ledger before the write, so on an equal-count
-  day (owner typed `Starbucks`, bank says `STARBUCKS MIRAFLORES LIMA PE`) the bank's row has
-  just been written as `new` and the ledger now holds the duplicate. The picked mockup
-  ([mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html)
-  pane 2, pick C) and the test
-  (`test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front`) cover the preview only.
-  Proposed wording, not yet picked: *"! 1 day where the ledger may now hold the same movement
-  twice — check it and delete the extra one"*, with the same per-day lines under it. Draw the
-  after-apply case beside pick C and let the owner pick. **[bug]** **[UI]** · Card purchases
-  come in mainly through the import and typing one by hand stays possible, so this case is rare
-  but real; no "rename to the bank's wording" offer is built.
 
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.

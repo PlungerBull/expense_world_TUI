@@ -1,7 +1,7 @@
 # Tags that know the category — CLI/TUI plan
 
 **Status: not built.** The shape is pane **D**: the category's tags first, every other tag
-below a divider. §5 holds the settled choices. It answers the
+below a divider. §5 holds the settled choices. Spec: [tag-suggestions.md](specs/tag-suggestions.md). It answers the
 owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*. When
 it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 

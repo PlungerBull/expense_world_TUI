@@ -1,9 +1,9 @@
 # File import as the intake — what is left to build
 
-**Open: C1, the TUI import door (§3), and the one-time title alignment (§6); §11 is a standing
-warning.** Every rule here is an owner decision (2026-09-19 unless dated). Open: the naming
-check in §3, and the mockup gate on the import screen (the screen is decided, its layout is
-not). When the work ships, its why moves to [decisions.md](decisions.md) and this file is
+**Open: C1, the TUI import door (§3, spec [tui-import-door.md](specs/tui-import-door.md)), and
+the one-time title alignment (§6, spec [official-migration.md](specs/official-migration.md)); §11
+is a standing warning.** Every rule here is an owner decision (2026-09-19 unless dated). Open:
+the mockup gate on the import screen (the screen is decided, its layout is not). When the work ships, its why moves to [decisions.md](decisions.md) and this file is
 deleted. Section numbers have gaps on purpose: other docs cite §3, §6 and §11.
 
 The engine half: (contract: POST /v1/transactions/import).
@@ -60,6 +60,19 @@ key. The list shows the legs folded:
 **Account names:** the ledger's BCP accounts carry the bank's product names, written by the
 sheet import's `--account-name` ([cli-spec.md](cli-spec.md) "Renaming an account leg"), so the list above
 shows those names.
+
+**The after-apply note.** `render_result` in
+[bank_import_cmd.py](../expense/commands/bank_import_cmd.py) prints `excess_lines` the same way on
+preview and apply, so after `--apply` it still reads `… — check / before --apply, it may be
+logged twice`. The engine computes `excess` against the ledger before the write, so on an
+equal-count day (owner typed `Starbucks`, bank says `STARBUCKS MIRAFLORES LIMA PE`) the bank's
+row has just been written as `new` and the ledger now holds the duplicate. The picked mockup
+([expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html) pane 2, pick C)
+and `test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front` cover the preview only.
+Proposed wording, drawn beside pick C for the owner to pick: *"! 1 day where the ledger may now
+hold the same movement twice — check it and delete the extra one"*, with the same per-day lines
+under it. Card purchases arrive mainly through the import and typing one stays possible, so the
+case is rare but real; no "rename to the bank's wording" offer is built.
 
 ---
 
