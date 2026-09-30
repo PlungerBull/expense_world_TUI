@@ -20,7 +20,7 @@ from textual.widgets import Input
 
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.quickadd.names import matches
-from expense.tui.screens._form import FormScreen
+from expense.tui.screens._form import FormScreen, form_bindings
 
 _PALETTE = [
     ("#4a90d9", "blue"),
@@ -263,8 +263,12 @@ class NewAccountScreen(BarFormScreen):
 # Edit forms — same bar-form, prefilled, PUT instead of POST. Reached with `e`
 # on a Manage list row (ResourceListScreen). Currency is immutable
 # (engine rejects it), so account edit locks it to a read-only summary row.
+# Each declares `BINDINGS = form_bindings("Save")`: the footer names what
+# `ctrl+s` does here, not the parent's `Create`.
 # --------------------------------------------------------------------------- #
 class EditHashtagScreen(NewHashtagScreen):
+    BINDINGS = form_bindings("Save")
+
     def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]
@@ -283,6 +287,8 @@ class EditHashtagScreen(NewHashtagScreen):
 
 
 class EditCategoryScreen(NewCategoryScreen):
+    BINDINGS = form_bindings("Save")
+
     def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]
@@ -306,6 +312,8 @@ class EditCategoryScreen(NewCategoryScreen):
 
 
 class EditAccountScreen(NewAccountScreen):
+    BINDINGS = form_bindings("Save")
+
     def __init__(self, record: dict) -> None:
         super().__init__()
         self._id = record["id"]

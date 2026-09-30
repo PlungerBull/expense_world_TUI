@@ -9,7 +9,14 @@ import pytest
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError
-from expense.tui.screens.create_forms import NewAccountScreen
+from expense.tui.screens.create_forms import (
+    EditAccountScreen,
+    EditCategoryScreen,
+    EditHashtagScreen,
+    NewAccountScreen,
+    NewCategoryScreen,
+    NewHashtagScreen,
+)
 from expense.tui.screens.edit_form import EditFormScreen
 from tests.unit.helpers import render_text, run_app, wait_for, whole
 
@@ -291,8 +298,6 @@ def test_the_form_cannot_be_opened_without_a_record():
     can reopen that door by accident — it is a TypeError, not a second create
     form drifting quietly out of sync with the bar.
     """
-    import pytest
-
     with pytest.raises(TypeError):
         EditFormScreen()
 
@@ -301,9 +306,22 @@ def test_the_form_cannot_be_opened_without_a_record():
     ("make", "submit"),
     [
         (lambda: NewAccountScreen(), "Create"),
+        (lambda: NewCategoryScreen(), "Create"),
+        (lambda: NewHashtagScreen(), "Create"),
         (lambda: EditFormScreen(record=TXN, resource="transactions"), "Save"),
+        (lambda: EditAccountScreen(ACCOUNTS[0]), "Save"),
+        (lambda: EditCategoryScreen({"id": "cat1", "name": "Food"}), "Save"),
+        (lambda: EditHashtagScreen({"id": "tag1", "name": "#trip"}), "Save"),
     ],
-    ids=["create-form", "edit-form"],
+    ids=[
+        "new-account",
+        "new-category",
+        "new-hashtag",
+        "edit-form",
+        "edit-account",
+        "edit-category",
+        "edit-hashtag",
+    ],
 )
 def test_form_footer_reads_cancel_submit_field(fake_client, monkeypatch, make, submit):
     """`esc Cancel  ^s Save|Create  ⇥ Field`, in that order, and nothing else;
@@ -326,7 +344,9 @@ def test_form_footer_reads_cancel_submit_field(fake_client, monkeypatch, make, s
         first = screen._key
         await pilot.press("tab")
         await pilot.pause()
-        assert screen._key != first
+        # A one-field form (hashtag) has nowhere to move: moves stop at either end.
+        if len(screen._sequence()) > 1:
+            assert screen._key != first
         assert app.focused is screen.query_one("#bar", Input)
 
     run_app(scenario)

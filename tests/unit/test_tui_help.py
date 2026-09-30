@@ -400,28 +400,21 @@ def test_form_navigation_keys_are_not_advertised():
 def test_every_bar_form_takes_the_form_keymap_not_textuals_focus_cycling():
     """FormScreen drops Textual's Screen bindings (`inherit_bindings=False`);
     every subclass still merges FormScreen's keymap, so `tab` moves fields
-    everywhere and Screen's hidden copy key survives."""
-    from expense.tui.screens.create_forms import (
-        EditAccountScreen,
-        EditCategoryScreen,
-        EditHashtagScreen,
-        NewAccountScreen,
-        NewCategoryScreen,
-        NewHashtagScreen,
-    )
-    from expense.tui.screens.edit_form import EditFormScreen
-    from expense.tui.screens.reconciliations import NewReconciliationScreen
+    everywhere and Screen's hidden copy key survives. Walks every FormScreen
+    subclass, so a new form is covered without being listed here."""
+    import expense.tui.screens.create_forms  # noqa: F401 — registers subclasses
+    import expense.tui.screens.edit_form  # noqa: F401
+    import expense.tui.screens.reconciliations  # noqa: F401
+    from expense.tui.screens._form import FormScreen
 
-    for cls in (
-        EditFormScreen,
-        NewAccountScreen,
-        NewCategoryScreen,
-        NewHashtagScreen,
-        EditAccountScreen,
-        EditCategoryScreen,
-        EditHashtagScreen,
-        NewReconciliationScreen,
-    ):
+    def walk(cls):
+        for sub in cls.__subclasses__():
+            yield sub
+            yield from walk(sub)
+
+    forms = set(walk(FormScreen))
+    assert len(forms) >= 8, sorted(c.__name__ for c in forms)
+    for cls in forms:
         merged = cls._merged_bindings.key_to_bindings
         for key in ("escape", "ctrl+s", "tab", "shift+tab", "up", "down", "ctrl+c"):
             assert key in merged, f"{cls.__name__} lost {key}"

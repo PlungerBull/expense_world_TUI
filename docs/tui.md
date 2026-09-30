@@ -356,14 +356,14 @@ one copy for the edit form, the create/edit forms and the new-reconciliation for
 form, `esc` cancels. `tab` moves to the next field and `shift+tab` to the previous, on
 every field, whether or not a suggestion list is open. `FormScreen` is declared
 `inherit_bindings=False`, so Textual's focus-cycling `tab` never applies and the bar
-keeps focus; Screen's hidden `ctrl+c` copy key is declared again in `form_bindings`. Plain `↑`/`↓` walk the suggestion
-list when the field has a non-empty one and move to the previous/next field when it has
-none. `ctrl+↑`/`ctrl+↓` also move fields but are never advertised: macOS claims `⌃↑`
-(Mission Control) and `⌃↓` (Application Windows) before the terminal sees them. Every
-field move skips read-only fields and stops at either end. The footer reads
-`esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form): **`⇥ Field` is the form's one
-navigation footer slot**, because forms have no `?` card that could list the other keys
-(below). Guarded by `test_form_navigation_keys_are_not_advertised`.
+keeps focus; Screen's hidden `ctrl+c` copy key is declared again in `form_bindings`.
+Plain `↑`/`↓` walk the suggestion list when the field has a non-empty one and move to the
+previous/next field when it has none. `ctrl+↑`/`ctrl+↓` also move fields but are never
+advertised: macOS claims `⌃↑` (Mission Control) and `⌃↓` (Application Windows) before the
+terminal sees them. Every field move skips read-only fields and stops at either end.
+The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
+**`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
+that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.
 
 **The footer never advertises the arrow keys.** `Navigate` is declared `show=False` on
 `CursorList` and `CheckList`. The keys work unchanged and the `?` card still lists them.
