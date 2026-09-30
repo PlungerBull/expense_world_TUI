@@ -44,6 +44,17 @@ to fix it, drawn side by side.
 
 **Recommended:** T. It is the key every form uses, one key rather than two.
 
+### Catch up to engine contract 93a62b40ae9751d8 now?
+Asked 2026-09-29 · Blocks: Catch up to engine contract 93a62b40ae9751d8
+The engine coders changed the engine (list in the Backlog item of that name). Two of the changes
+break the app: moving a transaction that sits in an open reconciliation to another account is now
+refused, and some error hints stop showing because the engine reworded its messages.
+- **A.** Make the catch-up the next spec, ahead of the three drafts above.
+- **B.** Finish the current spec first, then catch up.
+
+**Recommended:** A, because the app is out of step with the engine until this is done, and every
+later spec would be built and checked against the new contract anyway.
+
 ### Check the TUI after the engine update
 Asked 2026-09-29 · Blocks: The TUI is the only human surface
 Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
@@ -63,6 +74,35 @@ and report anything wrong. This entry is deleted when they pass.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **Catch up to engine contract 93a62b40ae9751d8** (engine changes reported by the engine coders
+  2026-09-29). Waits on the question above; the new version is recorded (`--record-version`)
+  only in the commit that acts on the answer.
+  1. **Moving an assigned transaction names its reconciliation** (breaking).
+     `PUT /v1/transactions/{id}` changing `account_id` on a transaction assigned to a draft
+     reconciliation, without `reconciliation_id`, returns `422` on `account_id` with reason
+     `ASSIGNED_TO_RECONCILIATION` and changes nothing
+     (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}).
+     Every CLI/TUI path that moves a transaction between accounts also sends `reconciliation_id`:
+     `null` to unassign, or a draft reconciliation on the new account. The reason gets a hint
+     (e.g. "this transaction is in reconciliation X; unassign it or pick a draft on the new
+     account"). Done when no command can send an account change on an assigned transaction
+     without `reconciliation_id`.
+  2. **Match on error reasons, not wording** (breaking). Every error carries `reasons`, keyed like
+     `fields`, each value a published reason code; each operation lists its reasons under
+     `x-error-reasons` (contract: "Error format") (contract: "Error reasons"). Switch on reasons in
+     `reconcile_cmd.py` `_period_hint` (`RANGE_INVERTED`, `PERIOD_OVERLAPS`), `_complete_hint`
+     (`NO_TRANSACTIONS_ASSIGNED`, `UNASSIGNED_IN_PERIOD`), `_is_field_locked_422` (`LOCKED`), and
+     the lock/sealed hint in `transactions_cmd.py` (`LOCKED`, `SEALED_PERIOD`,
+     `RECONCILIATION_COMPLETED`); then delete `error_haystack`. Also breaking: the sealed-period
+     top-level message is no longer fixed (`SEALED_PERIOD` identifies it);
+     `POST /v1/transactions/batch` reports an unknown hashtag under
+     `transactions.<i>.hashtag_ids`, not bare `hashtag_ids`; `GET /v1/reports/monthly` field texts
+     are full sentences; date/datetime format errors no longer start with "Value error, ". Done
+     when the CLI reads error wording nowhere.
+  3. **The engine checks the test-engine database itself** (additive). It refuses to start when
+     `SUPABASE_DB_URL` and `ADMIN_DB_URL` name different databases or either names none. Drop the
+     repo's own check that a test-engine start command sets both URLs; keep only the `:8002`
+     rule. Done when that check is gone.
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
