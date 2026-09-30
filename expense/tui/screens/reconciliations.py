@@ -372,10 +372,10 @@ class ReconciliationsScreen(SectionScreen):
             # remedies for a row that is in no batch.
             record = self._unfiled_record()
             if record is not None:
-                from expense.tui.screens.quick_log import QuickAddLogScreen
+                from expense.tui.screens.edit_form import EditFormScreen
 
                 self.app.push_screen(
-                    QuickAddLogScreen(record=record),
+                    EditFormScreen(record=record),
                     lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
                 )
             return

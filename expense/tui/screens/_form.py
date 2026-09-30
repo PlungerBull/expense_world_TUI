@@ -4,7 +4,7 @@ One input bar cycles through a field sequence; a suggestion list under it
 offers picks; a summary table mirrors progress; `ctrl+s` (or enter on the
 last field) submits via `run_write`. Subclasses supply the field sequence,
 labels/hints, suggestion pools, commit handlers, and the submit request:
-BarFormScreen (static Field list), QuickAddLogScreen (dynamic sequence,
+BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
 locked fields, edit mode), NewReconciliationScreen (dynamic sequence).
 """
 

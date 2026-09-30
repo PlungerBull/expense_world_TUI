@@ -80,7 +80,7 @@ _ENGINE_FIELD = {
 }
 
 
-class QuickAddLogScreen(FormScreen):
+class EditFormScreen(FormScreen):
     BINDINGS = form_bindings("Save")
 
     def __init__(self, *, record: dict, resource: str = "transactions") -> None:

@@ -10,9 +10,9 @@ from textual.widgets import OptionList
 
 import expense.tui.screens.home as home
 from expense.tui.screens._base import SectionScreen
+from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
-from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from tests.unit.helpers import run_app, stub_home_month, wait_for
 
@@ -32,7 +32,7 @@ def _stub_loaders(monkeypatch):
     worker (_load), and the capture screens' entity loads."""
     monkeypatch.setattr(HomeScreen, "_load_month", lambda self: None)
     monkeypatch.setattr(SectionScreen, "_load", lambda self: None)
-    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr(LogBarScreen, "_load_entities", lambda self: None)
 
 

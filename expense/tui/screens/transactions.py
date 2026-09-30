@@ -4,7 +4,7 @@ Built on SectionScreen + the shared CursorList, as **one list that grows**
 (`GrowingRead`): it opens with the newest 10, `pgdn` appends the next 10 by
 the engine's cursor, and the legend reads `N of M loaded`. Any write starts it
 over from the newest 10. `enter` opens the
-record in the editable QuickAddLogScreen and `+` opens the LOG bar
+record in the editable EditFormScreen and `+` opens the LOG bar
 (`LogTransactionMixin`).
 
 **The filtered ledger is the categorising pass**. Home pushes this screen with
@@ -53,8 +53,8 @@ from expense.tui.screens._base import (
     screen_fetch_kwargs,
 )
 from expense.tui.screens._growing import GrowingRead, read_first
+from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.modals import PickerModal
-from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList
@@ -506,7 +506,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         item = self._by_id.get(event.key)
         if item:
             self.app.push_screen(
-                QuickAddLogScreen(record=item, resource="transactions"),
+                EditFormScreen(record=item, resource="transactions"),
                 self._after_detail,
             )
 

@@ -1,7 +1,7 @@
 """Smoke tests for the Transactions TUI screen."""
 
+from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.log_bar import LogBarScreen
-from expense.tui.screens.quick_log import QuickAddLogScreen
 from expense.tui.screens.transactions import TransactionsScreen, transaction_rows
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait_for_list, whole
@@ -71,7 +71,7 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
         await app.push_screen(TransactionsScreen())
         await wait_for_list(pilot, app)
         await pilot.press("enter")  # opens the edit screen, pre-filled
-        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         assert app.screen._resource == "transactions"
         assert app.screen._values["amount"] == 651900
 
@@ -89,7 +89,7 @@ def _patch_detail(monkeypatch, rows: list):
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     return calls
 
@@ -111,7 +111,7 @@ def test_esc_from_the_detail_keeps_the_rows_and_the_cursor(monkeypatch):
         assert key == "t13"
         reads = len(calls)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         assert len(calls) == reads  # nothing was read again
@@ -134,7 +134,7 @@ def test_a_save_from_the_detail_still_reloads_fresh(monkeypatch):
         await wait_for(pilot, lambda: len(screen._rows) == 20)
         reads = len(calls)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         app.screen._done()  # the save's success callback
         await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 10)
         await wait_for(pilot, lambda: screen.query_one(CursorList).cursor_index == 0)
@@ -151,7 +151,7 @@ def test_plus_opens_the_log_bar(monkeypatch):
     monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr(LogBarScreen, "_load_entities", lambda self: None)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 

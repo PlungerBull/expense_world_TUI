@@ -387,7 +387,7 @@ def account_choices(
     plus `current_balance_cents` when `with_balance`.
 
     Skips id-less rows and (unless `include_people`) person accounts. One copy
-    of the build shared by the quick-log form, the new-reconciliation form,
+    of the build shared by the edit form, the new-reconciliation form,
     and the reconciliations browse.
     """
     out: list[tuple] = []
@@ -459,8 +459,9 @@ def _id_name_map(rows: list) -> dict[str, str]:
 def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     """Fetch and shape the three reference lists a typed line resolves against.
 
-    One copy for both quick-add surfaces: the flat `expense log "…"` and the
-    TUI quick-log form. What the shaping decides, and why:
+    One copy for every caller: the flat `expense log "…"`, and in the TUI the
+    edit form, the LOG bar and the transactions screen. What the shaping
+    decides, and why:
 
     * **One superset accounts fetch** (`include_archived`, `include_people`)
       feeds both the name map and the suggestion pool; the pool then drops

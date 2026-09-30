@@ -102,11 +102,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
   replacement needs drawing.
 
-- **`QuickAddLogScreen` is an edit-only screen with a create-era name.** Rename the class and
-  `quick_log.py` (≈6 source + 5 test files, nothing behavioural) — `EditFormScreen` /
-  `edit_form.py` is the obvious target. [tui.md](tui.md) links to the module;
-  `test_relative_doc_links_resolve` catches a miss.
-
 ---
 
 ## Parked

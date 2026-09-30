@@ -703,11 +703,11 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
 def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
     """`⏎` on a row in no batch, then `esc`: not a write, so nothing is read
     again and the cursor stays on its row."""
-    from expense.tui.screens.quick_log import QuickAddLogScreen
+    from expense.tui.screens.edit_form import EditFormScreen
 
     _patch_browse(monkeypatch)
     calls, _counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
-    monkeypatch.setattr(QuickAddLogScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
@@ -717,7 +717,7 @@ def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
         key = screen._batch_list.cursor_key
         reads = len(calls)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, QuickAddLogScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         assert len(calls) == reads

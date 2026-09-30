@@ -8,7 +8,7 @@ PUT, and the suggestion pickers.
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError
-from expense.tui.screens.quick_log import QuickAddLogScreen
+from expense.tui.screens.edit_form import EditFormScreen
 from tests.unit.helpers import render_text, run_app, wait_for, whole
 
 ACCOUNTS = [
@@ -87,7 +87,7 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
     monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", rec("hashtags", HASHTAGS))
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         assert sorted(calls) == [("accounts", True), ("categories", False), ("hashtags", False)]
@@ -104,7 +104,7 @@ def test_edit_with_null_hashtag_ref_renders_dash_not_crash(fake_client, monkeypa
     record = {**TXN, "hashtag_ids": ["h1", None]}
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=record, resource="transactions")
+        screen = EditFormScreen(record=record, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         await wait_for(pilot, lambda: "—" in screen._display.get("hashtags", ""))
@@ -115,11 +115,11 @@ def test_edit_with_null_hashtag_ref_renders_dash_not_crash(fake_client, monkeypa
     run_app(scenario)
 
 
-def test_quick_log_guards_double_submit(fake_client, monkeypatch):
+def test_edit_form_guards_double_submit(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         screen._values.update(title="x", amount=-500, account="acc1", category="cat1")
@@ -135,7 +135,7 @@ def test_quick_log_guards_double_submit(fake_client, monkeypatch):
 
 def test_suggest_window_keeps_highlight_visible():
 
-    screen = QuickAddLogScreen(record=TXN, resource="transactions")
+    screen = EditFormScreen(record=TXN, resource="transactions")
     screen._current = 3  # account (an entity field)
     screen._suggestions = [(f"c{i}", f"Cat{i}", "PEN") for i in range(20)]
     screen._suggest_idx = 17
@@ -147,7 +147,7 @@ def test_edit_prefills_and_puts_only_changed_fields(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         assert screen._values["title"] == "Farmacia" and screen._values["amount"] == -4250
@@ -169,7 +169,7 @@ def test_edit_add_hashtag_puts_merged_hashtag_ids(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         screen._current = screen._sequence().index("hashtags")
@@ -189,7 +189,7 @@ def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         screen.action_submit()  # nothing changed
@@ -208,21 +208,21 @@ def test_no_form_offers_cleared():
     edit. Nothing replaces it: a row is confirmed by belonging to a completed
     reconciliation that adds up.
     """
-    screen = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
+    screen = EditFormScreen(record={"id": "t1", "title": "x"}, resource="transactions")
     assert "cleared" not in screen._sequence()
 
 
 def test_edit_sequence_offers_hashtags():
     """Hashtags are an ordinary editable field."""
-    tx = QuickAddLogScreen(record={"id": "t1", "title": "x"}, resource="transactions")
+    tx = EditFormScreen(record={"id": "t1", "title": "x"}, resource="transactions")
     assert "hashtags" in tx._sequence()
 
 
-def test_quick_log_rejects_zero_and_unknown_account(fake_client, monkeypatch):
+def test_edit_form_rejects_zero_and_unknown_account(fake_client, monkeypatch):
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         _enter(screen, "")  # date
@@ -236,7 +236,7 @@ def test_quick_log_rejects_zero_and_unknown_account(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
+def test_edit_form_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     """An engine/config error in _load_entities must not exit the app."""
     _patch(monkeypatch)
 
@@ -246,11 +246,11 @@ def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
-        QuickAddLogScreen, "notify", lambda self, message, **kw: notices.append(message)
+        EditFormScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: notices)
         assert notices and "engine down" in notices[0]
@@ -260,7 +260,7 @@ def test_quick_log_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch):
+def test_edit_form_fetch_error_uses_canonical_renderer(fake_client, monkeypatch):
     """Engine errors surface with the canonical text, not bare str(exc)."""
     _patch(monkeypatch)
 
@@ -270,11 +270,11 @@ def test_quick_log_fetch_error_uses_canonical_renderer(fake_client, monkeypatch)
     monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
-        QuickAddLogScreen, "notify", lambda self, message, **kw: notices.append(message)
+        EditFormScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
 
     async def scenario(pilot, app):
-        screen = QuickAddLogScreen(record=TXN, resource="transactions")
+        screen = EditFormScreen(record=TXN, resource="transactions")
         await app.push_screen(screen)
         await wait_for(pilot, lambda: notices)
         assert notices and "could not reach engine at https://x.invalid" in notices[0]
@@ -292,4 +292,4 @@ def test_the_form_cannot_be_opened_without_a_record():
     import pytest
 
     with pytest.raises(TypeError):
-        QuickAddLogScreen()
+        EditFormScreen()

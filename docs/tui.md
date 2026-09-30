@@ -42,7 +42,7 @@ expense/tui/
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth screens
-    quick_log.py    # the transaction EDIT form (`⏎` on a row); `record` is required
+    edit_form.py    # the transaction EDIT form (`⏎` on a row); `record` is required
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
                     #   the named account's ledger below it (AccountPeek), one save.
                     #   Parses through expense/quickadd/; `↵` stages a line or refuses

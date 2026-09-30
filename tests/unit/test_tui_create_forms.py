@@ -93,7 +93,7 @@ def test_new_account_required_name_blocks_submit(fake_client):
 # on the base class; the six tests above all let the write succeed. Eight
 # screens depend on it — NewHashtag,
 # NewCategory, NewAccount, their three Edit* subclasses, NewReconciliationScreen
-# and QuickAddLogScreen — so a regression there is a regression in all of them.
+# and EditFormScreen — so a regression there is a regression in all of them.
 
 
 def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST"):

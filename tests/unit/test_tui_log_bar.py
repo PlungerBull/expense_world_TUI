@@ -604,11 +604,11 @@ def test_the_plus_key_opens_the_log_bar(fake_client, monkeypatch):
     import inspect
 
     from expense.tui.screens._base import LogTransactionMixin
-    from expense.tui.screens.quick_log import QuickAddLogScreen
+    from expense.tui.screens.edit_form import EditFormScreen
 
     source = inspect.getsource(LogTransactionMixin.action_log_transaction)
     assert LogBarScreen.__name__ in source
-    assert QuickAddLogScreen.__name__ not in source
+    assert EditFormScreen.__name__ not in source
 
 
 # ---- the save --------------------------------------------------------------
