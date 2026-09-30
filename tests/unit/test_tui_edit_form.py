@@ -5,9 +5,11 @@ Edit-only: creating is the LOG bar's — see
 PUT, and the suggestion pickers.
 """
 
+import pytest
 from textual.widgets import Input
 
 from expense.errors import EngineConnectionError
+from expense.tui.screens.create_forms import NewAccountScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from tests.unit.helpers import render_text, run_app, wait_for, whole
 
@@ -293,3 +295,38 @@ def test_the_form_cannot_be_opened_without_a_record():
 
     with pytest.raises(TypeError):
         EditFormScreen()
+
+
+@pytest.mark.parametrize(
+    ("make", "submit"),
+    [
+        (lambda: NewAccountScreen(), "Create"),
+        (lambda: EditFormScreen(record=TXN, resource="transactions"), "Save"),
+    ],
+    ids=["create-form", "edit-form"],
+)
+def test_form_footer_reads_cancel_submit_field(fake_client, monkeypatch, make, submit):
+    """`esc Cancel  ^s Save|Create  ⇥ Field`, in that order, and nothing else;
+    `⇥` moves to the next field with the bar keeping focus."""
+    from textual.widgets import Footer
+    from textual.widgets._footer import FooterKey
+
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = make()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query(FooterKey)))
+        keys = screen.query_one(Footer).query(FooterKey)
+        assert [(k.key_display, k.description) for k in keys] == [
+            ("esc", "Cancel"),
+            ("^s", submit),
+            ("⇥", "Field"),
+        ]
+        first = screen._key
+        await pilot.press("tab")
+        await pilot.pause()
+        assert screen._key != first
+        assert app.focused is screen.query_one("#bar", Input)
+
+    run_app(scenario)

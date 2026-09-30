@@ -372,28 +372,59 @@ def test_footer_no_longer_offers_the_palette(monkeypatch):
 
 
 def test_form_navigation_keys_are_not_advertised():
-    """The form footer offers only `esc Cancel` and `^s Save`.
+    """The form footer offers `esc Cancel`, `^s Save` and `⇥ Field` — nothing else.
 
-    Two separate reasons, one outcome. `↑` / `↓` walk the suggestion list — the
-    plain-arrow navigation the list, tree and checklist widgets do not
-    advertise either. `^↑` /
-    `^↓` move between fields and **never worked on macOS**: the OS takes `⌃↑`
-    for Mission Control and `⌃↓` for Application Windows before the terminal
-    sees them, so the form was advertising two dead keys.
-
-    All four stay *bound* — they work wherever those system shortcuts are off,
-    and the replacement is still unpicked (docs/todo.md "Field navigation in
-    the edit form is broken on macOS"). This guard is
-    what fails if someone re-adds one as a plain tuple, which defaults to shown.
+    `⇥ Field` is the form's one navigation slot: tab moves fields on every
+    field, and forms have no `?` card that could list the rest. `shift+tab`
+    is its mirror. Plain `↑` / `↓` walk the suggestion list (or move fields
+    without one) — plain-arrow navigation the list, tree and checklist widgets
+    do not advertise either. `^↑` / `^↓` are bound but never advertised: macOS
+    takes `⌃↑` for Mission Control and `⌃↓` for Application Windows before the
+    terminal sees them. This guard is what fails if someone re-adds one as a
+    plain tuple, which defaults to shown.
     """
     bindings = [
         binding for item in form_bindings("Save") for binding in Binding.make_bindings([item])
     ]
     by_key = {binding.key: binding for binding in bindings}
 
-    assert {key for key, b in by_key.items() if b.show} == {"escape", "ctrl+s"}
-    for key in ("up", "down", "ctrl+up", "ctrl+down"):
+    assert {key for key, b in by_key.items() if b.show} == {"escape", "ctrl+s", "tab"}
+    assert (by_key["tab"].description, by_key["tab"].key_display) == ("Field", "⇥")
+    for key in ("shift+tab", "up", "down", "ctrl+up", "ctrl+down"):
         assert by_key[key].show is False, f"{key} is advertised in the form footer"
         # the card guard above still applies: hidden or not, a binding we
         # declare carries text.
         assert by_key[key].description
+
+
+def test_every_bar_form_takes_the_form_keymap_not_textuals_focus_cycling():
+    """FormScreen drops Textual's Screen bindings (`inherit_bindings=False`);
+    every subclass still merges FormScreen's keymap, so `tab` moves fields
+    everywhere and Screen's hidden copy key survives."""
+    from expense.tui.screens.create_forms import (
+        EditAccountScreen,
+        EditCategoryScreen,
+        EditHashtagScreen,
+        NewAccountScreen,
+        NewCategoryScreen,
+        NewHashtagScreen,
+    )
+    from expense.tui.screens.edit_form import EditFormScreen
+    from expense.tui.screens.reconciliations import NewReconciliationScreen
+
+    for cls in (
+        EditFormScreen,
+        NewAccountScreen,
+        NewCategoryScreen,
+        NewHashtagScreen,
+        EditAccountScreen,
+        EditCategoryScreen,
+        EditHashtagScreen,
+        NewReconciliationScreen,
+    ):
+        merged = cls._merged_bindings.key_to_bindings
+        for key in ("escape", "ctrl+s", "tab", "shift+tab", "up", "down", "ctrl+c"):
+            assert key in merged, f"{cls.__name__} lost {key}"
+        assert merged["tab"][0].action == "field(1)", cls.__name__
+        assert merged["shift+tab"][0].action == "field(-1)", cls.__name__
+        assert merged["ctrl+c"][0].action == "screen.copy_text", cls.__name__

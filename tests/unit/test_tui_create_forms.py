@@ -192,3 +192,94 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
         assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
 
     _run_refused(fake_client, monkeypatch, screen, ["Eliana Vega", ""], check, verb="PUT")
+
+
+# ---------------------------------------------------------------------------
+# field navigation — the shared `form_bindings` keymap, pressed for real
+# ---------------------------------------------------------------------------
+#
+# EditAccountScreen is the form with read-only fields: TYPE and CURRENCY are
+# locked, so the editable sequence is NAME (a plain text field, no list) and
+# COLOR (a palette list). Every bar form takes the same keymap from FormScreen.
+
+_ACCOUNT = {"id": "abc", "name": "Eliana", "currency_code": "PEN", "is_person": False}
+
+
+def _navigate(steps):
+    """Push the account edit form, then run each `(key, expected field)` step."""
+
+    async def scenario(pilot, app):
+        screen = EditAccountScreen(dict(_ACCOUNT))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        assert screen._key == "name"  # the first editable field
+        for key, expected in steps:
+            await pilot.press(key)
+            await pilot.pause()
+            assert screen._key == expected, f"after {key}: {screen._key}"
+            # the form's binding wins over the screen's focus-cycling: the bar
+            # still has focus after every key.
+            assert app.focused is screen.query_one("#bar", Input)
+
+    run_app(scenario)
+
+
+def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
+    """tab → next editable field, shift+tab → previous; both stop at the ends."""
+    _navigate(
+        [
+            ("tab", "color"),  # skips locked CURRENCY
+            ("tab", "color"),  # no editable field further on: stays
+            ("shift+tab", "name"),
+            ("shift+tab", "name"),  # TYPE is locked: stays
+        ]
+    )
+
+
+def test_tab_moves_fields_while_a_suggestion_list_is_open():
+    """On COLOR the palette list is open; tab and shift+tab still move fields."""
+
+    async def scenario(pilot, app):
+        screen = EditAccountScreen(dict(_ACCOUNT))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("tab")
+        await pilot.pause()
+        assert screen._key == "color" and screen._suggestions  # list open
+        await pilot.press("shift+tab")
+        await pilot.pause()
+        assert screen._key == "name"
+
+    run_app(scenario)
+
+
+def test_plain_arrows_walk_a_list_and_move_fields_without_one():
+    """NAME has no list, so `↓` moves on; COLOR's palette list takes `↑`/`↓`
+    until it empties, and then `↑` moves back."""
+
+    async def scenario(pilot, app):
+        screen = EditAccountScreen(dict(_ACCOUNT))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("down")  # NAME: no list → next field
+        await pilot.pause()
+        assert screen._key == "color" and len(screen._suggestions) > 2
+        await pilot.press("down", "down")
+        await pilot.pause()
+        assert (screen._key, screen._suggest_idx) == ("color", 2)
+        await pilot.press("up")
+        await pilot.pause()
+        assert (screen._key, screen._suggest_idx) == ("color", 1)
+        # type a word nothing matches: the list empties, so `↑` moves fields
+        screen.query_one("#bar", Input).value = "zzzz"
+        await pilot.pause()
+        assert screen._suggestions == []
+        await pilot.press("up")
+        await pilot.pause()
+        assert screen._key == "name"
+
+    run_app(scenario)
+
+
+def test_ctrl_arrows_still_move_fields():
+    _navigate([("ctrl+down", "color"), ("ctrl+up", "name")])

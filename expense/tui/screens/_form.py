@@ -24,32 +24,38 @@ from expense.tui.widgets.header import Breadcrumb
 def form_bindings(submit_desc: str) -> list[Binding | tuple[str, str, str]]:
     """The shared bar-form keymap; only the ctrl+s description varies.
 
-    The four navigation keys are bound but **not advertised**, so
-    the footer carries only `esc Cancel  ^s Save`:
+    The footer reads `esc Cancel  ^s Save  ⇥ Field` — `⇥ Field` is the form's
+    one navigation slot:
 
-    · `↑` / `↓` walk the suggestion list — plain-arrow navigation, unadvertised
-      here as in every list widget.
-    · `^↑` / `^↓` move between fields — except on macOS, where the OS claims
-      `⌃↑` for Mission Control and `⌃↓` for Application Windows before the
-      terminal sees them. They stay **bound** rather than deleted: they do work for anyone who has
-      turned those system shortcuts off, and the replacement key is still an
-      open choice (docs/todo.md "Field navigation in the edit form is
-      broken on macOS", options J/K in
-      docs/mockups/expense-world-plus-and-arrows.html §4).
+    · `tab` moves to the next field and `shift+tab` to the previous, on every
+      field, list open or not. FormScreen does not inherit Textual's Screen
+      bindings (whose `tab`/`shift+tab` cycle focus), so the bar keeps focus and
+      the footer reads in this list's order; Screen's hidden `ctrl+c` copy is
+      declared again here so nothing is lost.
+    · `↑` / `↓` walk the suggestion list when the field has a non-empty one,
+      and move to the previous / next field when it has none.
+    · `^↑` / `^↓` also move between fields. macOS claims `⌃↑` (Mission
+      Control) and `⌃↓` (Application Windows) before the terminal sees them,
+      so they are never advertised; they work wherever those system shortcuts
+      are off.
 
+    Every field move skips read-only fields and stops at either end.
     Guarded by `test_form_navigation_keys_are_not_advertised`.
     """
     return [
         ("escape", "cancel", "Cancel"),
         ("ctrl+s", "submit", submit_desc),
-        Binding("up", "suggest(-1)", "Highlight up", show=False),
-        Binding("down", "suggest(1)", "Highlight down", show=False),
+        Binding("tab", "field(1)", "Field", key_display="⇥"),
+        Binding("shift+tab", "field(-1)", "Prev field", show=False),
+        Binding("up", "arrow(-1)", "Highlight up or prev field", show=False),
+        Binding("down", "arrow(1)", "Highlight down or next field", show=False),
         Binding("ctrl+up", "field(-1)", "Prev field", show=False),
         Binding("ctrl+down", "field(1)", "Next field", show=False),
+        Binding("ctrl+c,super+c", "screen.copy_text", "Copy selected text", show=False),
     ]
 
 
-class FormScreen(EngineWriteMixin, Screen):
+class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     BINDINGS = form_bindings("Create")
     RESOURCE = ""  # engine collection for the default POST submit
 
@@ -160,6 +166,13 @@ class FormScreen(EngineWriteMixin, Screen):
         if self._suggestions:
             self._suggest_idx = max(0, min(len(self._suggestions) - 1, self._suggest_idx + delta))
             self._refresh_view()
+
+    def action_arrow(self, delta: int) -> None:
+        """Plain `↑`/`↓`: walk a non-empty suggestion list, else move fields."""
+        if self._suggestions:
+            self.action_suggest(delta)
+        else:
+            self.action_field(delta)
 
     def action_field(self, delta: int) -> None:
         self._current = self._step(delta)

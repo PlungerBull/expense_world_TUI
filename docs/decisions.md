@@ -220,9 +220,15 @@ Decisions whose why lives elsewhere:
 
 ## Logging is a key, not a menu row — plain `+`, and the footer stops naming the arrow keys (2026-08-20)
 
-**Decision.** **Plain `+`** (`LogTransactionMixin`, [_base.py](../expense/tui/screens/_base.py)) opens the LOG bar on Home and Transactions — one key, one meaning. Arrow keys are `show=False` in every footer (the `?` card still lists them). The form's field keys (`^↑`/`^↓`, which macOS claims for Mission Control) are **un-advertised, not unbound** — they work for anyone who turned those shortcuts off (`test_form_navigation_keys_are_not_advertised`).
+**Decision.** **Plain `+`** (`LogTransactionMixin`, [_base.py](../expense/tui/screens/_base.py)) opens the LOG bar on Home and Transactions — one key, one meaning. Arrow keys are `show=False` in every footer (the `?` card still lists them). The form's field keys are in "Form fields move with `tab`" below.
 
 **Rejected.** *`shift`+`+`* — unbindable: for a printable key the shift is already baked into the character. *A menu row* — the most frequent action with the most steps.
+
+## Form fields move with `tab` — plain arrows too, unless a suggestion list is open (2026-09-30)
+
+**Decision.** In every bar form, `tab` / `shift+tab` move to the next / previous field, always, and the footer shows `⇥ Field` — the form's one navigation slot, because a focused `Input` swallows `?` and forms have no help card. Plain `↑↓` walk the suggestion list when the field has one open and move fields otherwise. `^↑`/`^↓` stay bound and unadvertised. One copy: `form_bindings` ([_form.py](../expense/tui/screens/_form.py)).
+
+**Rejected.** *`^↑`/`^↓` as the field keys* — macOS claims them for Mission Control and Application Windows before the terminal sees them. *`shift+↑↓`* — a chord for the key that must always work, where `tab` is what every form uses. *Plain arrows only walking the list* — dead keys on the four fields with no list. *Plain arrows always moving fields* — the suggestion list would need a key of its own.
 
 ## One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` (2026-08-27)
 

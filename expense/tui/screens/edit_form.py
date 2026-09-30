@@ -16,15 +16,10 @@ Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
 only the changed fields.
 
-`enter` saves & advances · `↑/↓` move the suggestion highlight · `ctrl+s`
+`enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
+move the suggestion highlight, or the field when there is no list · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the
-account.
-
-Field navigation (`ctrl+↑/↓`) is bound but **unadvertised** — macOS claims both
-chords before the terminal sees them, so the footer does not offer them;
-the replacement key is still open (docs/todo.md "Field
-navigation in the edit form is broken on macOS"). See
-`form_bindings` in _form.py.
+account. The keymap is `form_bindings` in _form.py.
 """
 
 import copy

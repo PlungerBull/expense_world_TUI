@@ -34,16 +34,6 @@ and [tui-import-door.md](specs/tui-import-door.md) are first drafts. Each ends w
 questions and draft tasks. Correct what is wrong, answer the questions, and name the one the loop
 starts on.
 
-### Edit form: which key moves between fields?
-Asked 2026-09-29 · Blocks: Field navigation in the edit form is broken on macOS
-Open [expense-world-form-field-keys.html](mockups/expense-world-form-field-keys.html): three ways
-to fix it, drawn side by side.
-- **J.** `shift+↑↓` move fields; plain arrows only walk the suggestion list.
-- **K.** `shift+↑↓` move fields; plain arrows also move fields when no list is open.
-- **T.** `tab` / `shift+tab` move fields; plain arrows also move fields when no list is open.
-
-**Recommended:** T. It is the key every form uses, one key rather than two.
-
 ### Catch up to engine contract 93a62b40ae9751d8 now?
 Asked 2026-09-29 · Blocks: Catch up to engine contract 93a62b40ae9751d8
 The engine coders changed the engine (list in the Backlog item of that name). Two of the changes
@@ -111,15 +101,6 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The TUI is the only human surface; the flat CLI is for the agent** (with the repo rename and
   the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md). **Deferred**
   until the owner picks it up; its open questions live in the spec.
-- **Field navigation in the edit form is broken on macOS.** `⌃↑` / `⌃↓` are claimed by
-  Mission Control / Application Windows before the terminal sees them, so the form has no working
-  key to move between fields; the keys are still bound in [_form.py](../expense/tui/screens/_form.py).
-  Options J, K and T are drawn in
-  [mockups/expense-world-form-field-keys.html](mockups/expense-world-form-field-keys.html); waits on
-  the pick above. The build retires §4 of
-  [mockups/expense-world-plus-and-arrows.html](mockups/expense-world-plus-and-arrows.html) and the
-  `_form.py` comment pointing at it. **[bug]** **[UI]**
-
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

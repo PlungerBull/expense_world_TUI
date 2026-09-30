@@ -350,6 +350,21 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 `GET /transactions?account_id=…` per account, cached for the life of the screen, and a
 save invalidates what it wrote to.
 
+**The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
+one copy for the edit form, the create/edit forms and the new-reconciliation form):
+`⏎` saves the field and moves on (saving the form on the last field), `ctrl+s` saves the
+form, `esc` cancels. `tab` moves to the next field and `shift+tab` to the previous, on
+every field, whether or not a suggestion list is open. `FormScreen` is declared
+`inherit_bindings=False`, so Textual's focus-cycling `tab` never applies and the bar
+keeps focus; Screen's hidden `ctrl+c` copy key is declared again in `form_bindings`. Plain `↑`/`↓` walk the suggestion
+list when the field has a non-empty one and move to the previous/next field when it has
+none. `ctrl+↑`/`ctrl+↓` also move fields but are never advertised: macOS claims `⌃↑`
+(Mission Control) and `⌃↓` (Application Windows) before the terminal sees them. Every
+field move skips read-only fields and stops at either end. The footer reads
+`esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form): **`⇥ Field` is the form's one
+navigation footer slot**, because forms have no `?` card that could list the other keys
+(below). Guarded by `test_form_navigation_keys_are_not_advertised`.
+
 **The footer never advertises the arrow keys.** `Navigate` is declared `show=False` on
 `CursorList` and `CheckList`. The keys work unchanged and the `?` card still lists them.
 `pgdn`/`pgup` and `→ ←` expand/collapse **stay** in the footer: they are not obvious. New
