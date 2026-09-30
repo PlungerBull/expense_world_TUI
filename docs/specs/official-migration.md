@@ -13,7 +13,9 @@ The updated spreadsheet becomes the ledger of record, ready for bank files to ta
 - The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`,
   `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's
   `--account-name`, [cli-spec.md](../cli-spec.md) "Renaming an account leg").
-- No `PENDIENTES` category or hashtag appears; those rows land in the built-in `@Pendiente`.
+- No `PENDIENTES` category or hashtag appears. The import sends every row the sheet files under
+  the `PENDIENTES` category to the built-in `@Pendiente` and drops the `PENDIENTES` hashtag, so the
+  sheet stays as it is and a re-run never brings `PENDIENTES` back.
 - The hand-typed rows of the last weeks take the bank's wording, so a bank file covering those
   days matches them instead of adding them twice. The app proposes each change and the owner
   approves the list before anything is written ([file-import-plan.md](../file-import-plan.md) §6).
@@ -34,17 +36,6 @@ Everything that writes to the real ledger is run or approved by the owner.
 
 ## Open questions for the owner
 
-### `PENDIENTES`: fix the sheet by hand, or let the import handle it?
-Asked 2026-09-29
-The sheet uses `PENDIENTES` as a category and as a hashtag. The app already has a built-in
-category for rows not yet classified, `@Pendiente`. Imported as is, a second, separate
-`PENDIENTES` category appears beside it, plus a hashtag nobody wants.
-- **A.** You rename those rows in the sheet before the import.
-- **B.** The import sends `PENDIENTES` rows to `@Pendiente` and drops the `PENDIENTES` tag,
-  the same way it renames the accounts.
-
-**Recommended:** B. Your sheet stays as it is, and a re-run can never bring `PENDIENTES` back.
-
 ### Does the official data land on an empty ledger or on the 2026-08-20 import?
 Asked 2026-09-29
 The live ledger already holds the sheet as imported on 2026-08-20, with its accounts under the
@@ -61,7 +52,7 @@ accounts but leaves the rows already imported on the old ones.
 
 Draft, for the owner's approval.
 
-1. If `PENDIENTES` goes to the import: the import maps it to `@Pendiente` and drops the tag.
+1. The import sends `PENDIENTES` rows to `@Pendiente` and drops the `PENDIENTES` tag.
 2. The title-alignment tool: read the bank downloads against the ledger, write the proposal list
    to a local file outside the repo, apply only the approved changes.
 3. A written run sheet for the owner: every command in order, with what to check after each.
