@@ -40,8 +40,8 @@ are approved. Approve each one's draft tasks, and name the one the loop starts o
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up to engine contract 93a62b40ae9751d8** — runs before the other draft specs.
-  Spec (draft): [specs/engine-catch-up-93a62b40.md](specs/engine-catch-up-93a62b40.md).
+- **Catch up to engine contract 7e7cfb294fe255c7** — runs before the other draft specs.
+  Spec (draft): [specs/engine-catch-up-7e7cfb29.md](specs/engine-catch-up-7e7cfb29.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
