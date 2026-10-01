@@ -27,6 +27,40 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Record engine contract 84321bd839912a09?
+Asked 2026-10-01 · Blocks: Catch up to engine contract 84321bd839912a09, task 1
+The engine's contract moved from `5f65d4448df149d4` to `84321bd839912a09`. The version check
+prints, newest first:
+
+```
+84321bd839912a09  2026-09-30
+  changed: wording only, *Client-supplied UUIDs*: names `POST /transactions/import` as the one exception to the `409` on a taken `id` — a row it would create whose `id` is already one of your transactions is `422` (`ID_EXISTS`), as its own section states.
+b56ee45232ac44e0  2026-09-30
+  changed: `POST /auth/pat` with an `id` that is already taken answers `409` `CONFLICT` with `"A personal_access_token with id '<id>' already exists."`, naming the token by its `resource_type` like the `404` of `DELETE /auth/pat/{pat_id}`. It used to say `"A personal access token with id '<id>' already exists."`. The status, code and `fields: null` are unchanged.
+504242bad48e3996  2026-09-30
+  changed: `PUT /categories/{id}` refuses renaming a system category to the other system category's default name (`@Pendiente` to `@Opening`, or `@Opening` to `@Pendiente`): `422` on `name`, reason `RESERVED_NAME`, and nothing is written. Names are compared after trimming, case-insensitively, so `" @opening "` is refused too. It used to accept the rename while the other system category did not exist yet, and the write that later needed it then failed with `409`. A system category may still take its own default name back, and any other free name.
+  changed: wording only, `POST /categories` *Reserved names*: names are compared after trimming.
+5b7836a18917d7f1  2026-09-30
+  changed: `POST /accounts/{id}/opening-balance` answers `404` `NOT_FOUND` when no active account of yours has that id (unknown, deleted or another user's), like every other route addressed by an id, and writes nothing. It used to answer `422` on `account_id` (`INVALID_REFERENCE`). An archived account still answers `422` on `account_id` (`INVALID_REFERENCE`), and a person account `422` on `account_id` (`PERSON_ACCOUNT`).
+b0b944a97a0bd3e7  2026-09-30
+  added: reason `ID_EXISTS`. `POST /transactions/import` refuses a row it would create (outcome `new`) whose `id` already belongs to one of your transactions, deleted ones included: `422` on `rows.<index>.id`, in the dry run and the apply alike, and nothing is written. The dry run used to report such a row as `new`, and the apply then failed with `409`. A `matched` or `sealed` row is never refused for its `id`, so re-running an applied file with the same ids still matches every row and writes nothing. An `id` taken by another user still previews as `new` and fails the apply with `409`, as on every create.
+ee34e2bf828b9d4f  2026-09-30
+  changed: `POST /transactions`, `POST /transactions/batch` and `PUT /transactions/{id}` refuse a `hashtag_ids` list that names the same id twice: `422` on `hashtag_ids` (on `transactions.<index>.hashtag_ids` in a batch), reason `DUPLICATE_IN_REQUEST`, and nothing is written. It used to fail with `500`. `DUPLICATE_IN_REQUEST` is now listed in the `x-error-reasons` of `POST /transactions` and `PUT /transactions/{id}`.
+  changed: wording only, `PUT /transactions/{id}` *Field locking*: only the request's shape is checked before the lock, so a malformed or unknown field, an explicit `null` on a field that refuses it, or a repeated hashtag id is reported instead of `LOCKED`.
+93a62b40ae9751d8  2026-09-29
+  changed: wording only, *Assigning transactions* and `PUT /transactions/{id}`: the engine never unassigns a *moved* transaction on its own (deleting a reconciliation still unassigns); *Assigning transactions* points to `DELETE /reconciliations/{id}` for which transactions a delete unassigns.
+d5cb8b7561bb128f  2026-09-29
+  added: reason `ASSIGNED_TO_RECONCILIATION`. `PUT /transactions/{id}` that changes `account_id` on a transaction assigned to a draft reconciliation, without `reconciliation_id` in the same request, is now `422` on `account_id` and changes nothing. It used to move the transaction and leave it assigned to the old account's draft. Send `reconciliation_id: null` to move and unassign, or a draft on the new account to move and assign there. The rule is checked before the new account is validated, so a move to a missing or archived account reports it first (*Assigning transactions*).
+```
+
+Only `d5cb8b7561bb128f` needed app work, and it has shipped; the rest need none (the spec's
+"What it must do" says why each). The live contract suite passes against it, the move test
+included.
+- **A.** Record `84321bd839912a09` and finish the spec.
+- **B.** Hold, and look at a change first.
+
+**Recommended:** A, because every change is handled and the live suite passes.
+
 ### Review the three draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md), [official-migration.md](specs/official-migration.md)
