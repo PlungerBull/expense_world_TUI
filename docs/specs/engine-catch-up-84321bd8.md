@@ -44,9 +44,4 @@ Nothing the owner sees changes apart from the move working and its note.
 
 ## Tasks
 
-Approved by the owner, 2026-09-30.
-
-1. **Record contract version `84321bd839912a09`** (`--record-version` against `:8002`), and the
-   tester runs `test_moving_an_assigned_row_needs_the_unassign_in_the_same_body`
-   ([tests/contract/test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py))
-   against the practice engine. Passes if the drift check exits 0 and that test passes.
+None left; the acceptance check runs next.
