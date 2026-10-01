@@ -60,6 +60,8 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 
   The engine refuses to start when its two URLs name different databases, so a URL left off, which falls back to the engine's `.env` and the real ledger, fails at startup. Run it from the engine checkout. `.venv/bin/python` is the engine checkout's own interpreter, the only one with the engine's dependencies (a bare `python` may not exist, and the system `python3` has no `uvicorn`); `-m uvicorn` is how the engine's own local setup starts it, not the console script. The trailing `&` and the redirect detach it: the engine keeps running after the agent that started it finishes, and its output goes to a log outside both checkouts. Started as an agent's own background task instead, it stops when that agent finishes.
 
+  **A start that crashes may be the engine mid-edit.** The engine checkout's working tree can hold a half-written change, and the engine starts from the working tree, not from its last commit. When the engine fails to start, ask the owner whether the engine coders have unfinished work before writing an engine ask.
+
   **Port 8002, not 8001.** `:8001` is `todo_world_engine`'s — point the suite there and every request 404s while the refusal guard and the health check both look fine.
 
   **Connect as `expense_engine`, not the owner.** The engine refuses to start as a SUPERUSER, which would bypass every RLS policy. `postgresql:///expense_world_test` connects as the owner and hits that guard.

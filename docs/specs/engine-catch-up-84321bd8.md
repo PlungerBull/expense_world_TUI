@@ -1,4 +1,4 @@
-# Catch up to engine contract 7e7cfb294fe255c7
+# Catch up to engine contract 84321bd839912a09
 
 **Status: approved** (owner, 2026-09-30); the loop runs on it. It
 runs **before** the other draft specs (owner, 2026-09-30). When done, the why moves to
@@ -9,7 +9,7 @@ runs **before** the other draft specs (owner, 2026-09-30). When done, the why mo
 ## What it must do
 
 The engine coders changed the engine. The app was last checked against contract
-`5f65d4448df149d4`; the engine is now at `7e7cfb294fe255c7`. The app has to follow, so that it
+`5f65d4448df149d4`; the engine is now at `84321bd839912a09`. The app has to follow, so that it
 works against the engine as it is now.
 
 - **Moving a transaction that sits in an unfinished reconciliation to another account works
@@ -21,13 +21,16 @@ works against the engine as it is now.
   says `3 rows → BCP USD · 2 left their reconciliation`.
 - **The other changes since `5f65d4448df149d4` need no work**, so the new version is simply
   recorded:
-  - `93a62b40ae9751d8` is wording only.
-  - `ee34e2bf828b9d4f` refuses a hashtag named twice in one request (`DUPLICATE_IN_REQUEST`).
-    The app never sends one twice: quick-add drops the repeat and the hashtag pickers choose
-    each tag once.
-  - `7e7cfb294fe255c7` refuses an imported bank row whose `id` the ledger already has
-    (`ID_EXISTS`). The bank import gives every row a fresh `id` on every run, so it never sends
-    one the ledger has.
+  - wording only: the *Assigning transactions* rule, and the `409` when a personal access key's
+    id is taken. The app never creates personal access keys.
+  - a hashtag named twice in one request is refused (`DUPLICATE_IN_REQUEST`). The app never
+    sends one twice: quick-add drops the repeat and the hashtag pickers choose each tag once.
+  - an imported bank row whose `id` the ledger already has is refused (`ID_EXISTS`). The bank
+    import gives every row a fresh `id` on every run.
+  - an opening balance on an unknown or deleted account answers `404`, not `422`. The app has
+    no special message for either; it shows the engine's error.
+  - renaming one system category to the other's default name is refused (`RESERVED_NAME`).
+    The app shows the engine's error.
 
 Nothing the owner sees changes apart from the move working and its note.
 
@@ -43,8 +46,7 @@ Nothing the owner sees changes apart from the move working and its note.
 
 Approved by the owner, 2026-09-30.
 
-1. **Record contract version `7e7cfb294fe255c7`** (`--record-version` against `:8002`), and the
+1. **Record contract version `84321bd839912a09`** (`--record-version` against `:8002`), and the
    tester runs `test_moving_an_assigned_row_needs_the_unassign_in_the_same_body`
    ([tests/contract/test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py))
    against the practice engine. Passes if the drift check exits 0 and that test passes.
-   Waits on todo.md "Hand the practice-engine ask to the engine coders".

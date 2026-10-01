@@ -27,12 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand the practice-engine ask to the engine coders
-Asked 2026-09-30 · Blocks: Catch up to engine contract 7e7cfb294fe255c7, task 1
-The practice engine crashes as it starts. Give
-[engine-asks/engine-starts-on-its-own-python.md](engine-asks/engine-starts-on-its-own-python.md)
-to the engine coders, and say here when the engine starts again.
-
 ### Review the three draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md), [official-migration.md](specs/official-migration.md)
@@ -46,8 +40,8 @@ are approved. Approve each one's draft tasks, and name the one the loop starts o
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up to engine contract 7e7cfb294fe255c7** — runs before the other draft specs.
-  Spec (current): [specs/engine-catch-up-7e7cfb29.md](specs/engine-catch-up-7e7cfb29.md).
+- **Catch up to engine contract 84321bd839912a09** — runs before the other draft specs.
+  Spec (current): [specs/engine-catch-up-84321bd8.md](specs/engine-catch-up-84321bd8.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
