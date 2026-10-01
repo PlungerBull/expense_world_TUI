@@ -63,9 +63,8 @@ Field rules that matter to this repo:
 An endpoint with no flat surface is an untested contract, and the command answers "why is this
 tag not in my picker?" without the TUI.
 
-Columns, for the sign-off the process requires ([cli-spec.md](cli-spec.md)):
-**Name · Uses · Id.** Nothing else is in the payload, and deliberately so — the
-row is not a full hashtag record.
+Columns (signed off): **Name** only, in the engine's order (most-used first); `--json` carries
+`id` and `uses` for anyone who needs them.
 
 `test_typer_tree_walk_finds_expected_command_count` holds a count constant that a
 new command bumps.
@@ -125,9 +124,8 @@ The category changes per keystroke, so this cannot ride the one-shot
 - **Only the LOG bar ranks.** It is the one surface where category and tags are chosen in one
   breath. The bulk `h` pick sets tags on rows whose categories may differ, so there is no single
   category to rank by; the edit form's category can change after the tags are chosen.
-- **The picker shows no usage counts.** The category's group is already ordered by use, so the
-  number costs width and says nothing new. The flat command shows them: there the count is the
-  point of the read.
+- **No usage counts on screen.** The list is already ordered by use, so the number costs width
+  and says nothing new — in the picker and in the flat command's table alike.
 
 ## 6. Non-goals
 

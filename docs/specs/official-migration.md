@@ -10,6 +10,9 @@ When done, the why moves to [decisions.md](../decisions.md) and this file is del
 
 The updated spreadsheet becomes the ledger of record, ready for bank files to take over.
 
+The owner wipes the live database and imports the updated sheet once, onto an empty ledger.
+Nothing typed into the app before the wipe is kept.
+
 - The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`,
   `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's
   `--account-name`, [cli-spec.md](../cli-spec.md) "Renaming an account leg").
@@ -33,20 +36,6 @@ Everything that writes to the real ledger is run or approved by the owner.
 3. The title-alignment list was reviewed and applied.
 4. A dry run of a fresh bank download shows the aligned rows as already in the ledger, none as
    new.
-
-## Open questions for the owner
-
-### Does the official data land on an empty ledger or on the 2026-08-20 import?
-Asked 2026-09-29
-The live ledger already holds the sheet as imported on 2026-08-20, with its accounts under the
-old names (`BCP PEN`, …). A re-import with the new names on top of that creates the four new
-accounts but leaves the rows already imported on the old ones.
-- **A.** Start from an empty ledger, then import the updated sheet once.
-- **B.** Keep the ledger. The four existing accounts are renamed in the app first, and the
-  import then reuses them.
-
-**Recommended:** none. It depends on whether anything in the live ledger was typed after the
-2026-08-20 import and must be kept.
 
 ## Tasks
 

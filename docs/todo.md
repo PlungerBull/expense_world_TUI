@@ -45,18 +45,6 @@ refused, and some error hints stop showing because the engine reworded its messa
 **Recommended:** A, because the app is out of step with the engine until this is done, and every
 later spec would be built and checked against the new contract anyway.
 
-### Check the TUI after the engine update
-Asked 2026-09-29 · Blocks: The TUI is the only surface
-Do these through normal use of `expense world` on the real ledger, undoing any change by hand,
-and report anything wrong. This entry is deleted when they pass.
-
-1. On a filtered ledger, re-category a few rows in bulk, then `pgdn`: no row skipped or repeated.
-2. On an account's "no batch" (`u`) list, edit a row, then `pgdn`: the same.
-3. The categories and hashtags screens show a correct "page N of M", and no `422` appears.
-4. In Reconciliations, `⏎` on an account shows its full history, oldest period first.
-5. On a batch's working screen, `r` keeps the header current; deleting that batch from another
-   terminal shows "record gone".
-
 ---
 
 ## Backlog
