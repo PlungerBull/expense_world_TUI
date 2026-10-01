@@ -33,17 +33,21 @@ It is used for real only after [official-migration.md](official-migration.md) is
 ## Open questions for the owner
 
 ### The screens
-Asked 2026-09-29
-Nothing is drawn yet: the account list, the preview, the result, and the after-apply note. The
-mockups come first; the owner picks. With the new names, the two current accounts show
-separately (`Sueldo Soles`, `Cuenta Digital Dólares`) and the card's two legs fold into one
-line (`VISA Infinite Sapphire  PEN + USD`).
+Asked 2026-09-30
+Drawn in [expense-world-import-door.html](../mockups/expense-world-import-door.html): drop the
+file, pick the account, the preview, the result. Screens 1–3: fine as drawn, or what changes?
+Screen 4, the "may be logged twice" note after importing:
+- **A.** The same words as the preview.
+- **B.** "1 day where the ledger may now hold the same movement twice — check it and delete the
+  extra one".
+
+**Recommended:** B. It names the problem and the fix.
 
 ## Tasks
 
 Draft, for the owner's approval.
 
-1. Draw the mockups; the owner picks (**[UI] gate**).
+1. The owner picks the mockups (**[UI] gate**).
 2. Recognise a dropped or pasted path, in each terminal's format.
 3. The import screens: account list, preview, apply, reusing the typed import's engine call.
 4. Stop remembering accounts by file name; remove that saved setting.
