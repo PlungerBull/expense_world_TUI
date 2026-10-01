@@ -41,7 +41,7 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)).
 
 - **Catch up to engine contract 7e7cfb294fe255c7** — runs before the other draft specs.
-  Spec (draft): [specs/engine-catch-up-7e7cfb29.md](specs/engine-catch-up-7e7cfb29.md).
+  Spec (current): [specs/engine-catch-up-7e7cfb29.md](specs/engine-catch-up-7e7cfb29.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
@@ -49,7 +49,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   (draft): [specs/tui-import-door.md](specs/tui-import-door.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
-  the current spec; its open questions live in the spec.
+  next after the catch-up; its open questions live in the spec.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

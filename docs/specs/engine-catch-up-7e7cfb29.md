@@ -1,6 +1,6 @@
 # Catch up to engine contract 7e7cfb294fe255c7
 
-**Status: draft.** The owner reviews and completes this spec before the loop starts on it. It
+**Status: approved** (owner, 2026-09-30); the loop runs on it. It
 runs **before** the other draft specs (owner, 2026-09-30). When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -16,7 +16,9 @@ works against the engine as it is now.
   again.** The engine now refuses that move unless the app also says what happens to the
   reconciliation (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}). The
   app takes the transaction out of its old reconciliation as part of the move (owner,
-  2026-09-30), from the edit form and from `b` in Home alike, and a short note says so.
+  2026-09-30), from the edit form and from `b` in Home alike, and a short note says so
+  (owner, 2026-09-30): the edit form says `Saved. It left its reconciliation.`, and `b` in Home
+  says `3 rows → BCP USD · 2 left their reconciliation`.
 - **The other changes since `5f65d4448df149d4` need no work**, so the new version is simply
   recorded:
   - `93a62b40ae9751d8` is wording only.
@@ -37,28 +39,14 @@ Nothing the owner sees changes apart from the move working and its note.
    from its edit form and with `b` in Home, and the app says it left its reconciliation.
 4. A locked-field or sealed-period edit in `expense world` still shows its hint.
 
-## Open questions for the owner
-
-### What does the note say after the move?
-Asked 2026-09-30 · Blocks: task 1
-When a moved transaction leaves its reconciliation, a short note appears where the "Saved." or
-"3 rows → BCP USD" note appears today.
-- **A.** Edit form: `Saved. It left its reconciliation.` · Home `b`:
-  `3 rows → BCP USD · 2 left their reconciliation`.
-- **B.** The same, but naming the reconciliation: `Saved. It left reconciliation “August 2026”.`
-  In Home, with several rows, the names are left out (they can differ).
-
-**Recommended:** A, because the name costs an extra engine read on every move and you can see
-the reconciliation in its own screen anyway.
-
 ## Tasks
 
-Draft, for the owner's approval.
+Approved by the owner, 2026-09-30.
 
 1. **A move takes the transaction out of its reconciliation.** The edit form and the bulk `b`
    in Home add `reconciliation_id: null` to a write that changes a transaction's `account_id`
-   (contract: "Assigning transactions"), and show the note from the open question above when
-   the moved transaction was in a reconciliation. Passes if:
+   (contract: "Assigning transactions"), and show the note from "What it must do" when the
+   moved transaction was in a reconciliation. Passes if:
    - no TUI path can send an `account_id` change without `reconciliation_id`;
    - a row whose account does not change sends no `reconciliation_id`, so `b` onto the account
      a selected row is already on never takes it out of its reconciliation;
@@ -67,6 +55,6 @@ Draft, for the owner's approval.
      practice engine.
 
    The flat `expense transactions update --account-id` is not changed: the TUI-only spec
-   ([tui-only-plan.md](tui-only-plan.md)) deletes it. Waits on the open question above.
+   ([tui-only-plan.md](tui-only-plan.md)) deletes it.
 2. **Record contract version `7e7cfb294fe255c7`** (`--record-version` against `:8002`), in the
    commit that finishes task 1. Passes if the drift check exits 0.
