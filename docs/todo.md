@@ -27,18 +27,11 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The practice engine does not start
+### Hand the practice-engine ask to the engine coders
 Asked 2026-09-30 · Blocks: Catch up to engine contract 7e7cfb294fe255c7, task 1
-The practice engine (`:8002`) crashes as it starts with the command in
-[cli-runtime.md](cli-runtime.md) "Working against the live engine": the Python in the engine
-folder's `.venv` is 3.9, and the engine's code needs 3.10 or newer
-(`TypeError: unsupported operand type(s) for |: 'EnumMeta' and 'NoneType'`). The same command
-started it earlier on 2026-09-30, so something in the engine folder changed. Agents may not look
-inside that folder, so only you or the engine coders can fix it.
-- **A.** Ask the engine coders to rebuild the engine's `.venv` on Python 3.11 or newer.
-- **B.** Tell us the new way to start the engine, and the ops guide is updated.
-
-**Recommended:** A, because the engine's code already needs 3.10+ and this repo targets 3.11+.
+The practice engine crashes as it starts. Give
+[engine-asks/engine-starts-on-its-own-python.md](engine-asks/engine-starts-on-its-own-python.md)
+to the engine coders, and say here when the engine starts again.
 
 ### Review the three draft specs
 Asked 2026-09-29 · Blocks: each spec's work

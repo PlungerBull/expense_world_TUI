@@ -46,5 +46,5 @@ Approved by the owner, 2026-09-30.
 1. **Record contract version `7e7cfb294fe255c7`** (`--record-version` against `:8002`), and the
    tester runs `test_moving_an_assigned_row_needs_the_unassign_in_the_same_body`
    ([tests/contract/test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py))
-   against the practice engine. Passes if the drift check exits 0 and that test passes. Waits on
-   todo.md "The practice engine does not start".
+   against the practice engine. Passes if the drift check exits 0 and that test passes.
+   Waits on todo.md "Hand the practice-engine ask to the engine coders".
