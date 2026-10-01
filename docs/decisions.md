@@ -361,7 +361,7 @@ Decisions whose why lives elsewhere:
 **Context.** The owner is not a coder. Work runs through agents that build, check and commit without asking about each task, while the owner keeps what users see, money rules a spec does not cover, and real data. The rules live in [CLAUDE.md](../CLAUDE.md) "How work runs (the agent loop)"; this entry holds the why.
 
 **Decision.**
-- **One loop per repo.** The worker definitions are written once in `~/.claude/agents/` and shared; each repo supplies its rules through its own CLAUDE.md. This repo came first because it has the most tests and guards; the engine repo copies it.
+- **One loop per repo.** The worker definitions are written once in `~/.claude/agents/` and shared; each repo supplies its rules through its own CLAUDE.md. This repo came first because it has the most tests and guards; the engine repo runs its own copy, with its own guards and rulebook.
 - **The main session is always the orchestrator** and never writes code or tests; the builder writes, the reviewer and tester only read and run, the librarian edits only docs.
 - **The tester never writes tests.** A criterion with no test proving it goes back to the builder.
 - **The loop runs on its own** once the owner approves a spec's tasks, pushing after every finished task, and stops only for what goes to the owner. A task needing a screen draws its mockup, parks, and the loop moves on.
