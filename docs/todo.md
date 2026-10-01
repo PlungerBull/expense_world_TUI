@@ -40,8 +40,6 @@ are approved. Approve each one's draft tasks, and name the one the loop starts o
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up to engine contract 84321bd839912a09** — runs before the other draft specs.
-  Spec (current): [specs/engine-catch-up-84321bd8.md](specs/engine-catch-up-84321bd8.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
@@ -49,7 +47,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   (draft): [specs/tui-import-door.md](specs/tui-import-door.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
-  next after the catch-up; its open questions live in the spec.
+  the current spec; its open questions live in the spec.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

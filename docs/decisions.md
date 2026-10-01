@@ -395,3 +395,12 @@ Decisions whose why lives elsewhere:
 **Why.** The engine publishes its message wording for people and changes it without notice; a hint keyed to words breaks silently on a rewording, and web and iOS would copy the same fragile match. Reason codes are part of the published contract, listed per operation, so a change to them moves the contract version and reaches the owner.
 
 **Rejected.** *Showing the codes on screen* — the owner kept errors as they read today (2026-09-28); the codes are for code, and `--json` has them. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
+
+## A move to another account takes the row out of its reconciliation (2026-09-30, owner)
+
+**Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}). In the TUI a row changes account from its edit form or with `b` in Home.
+
+**Decision.** Both paths send `reconciliation_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `reconciliation_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
+
+**Rejected.**
+- Asking each time whether to unassign or to assign into a draft on the new account: a new screen for a choice whose second answer is the normal reconciling flow anyway.

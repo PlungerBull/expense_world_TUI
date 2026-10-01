@@ -145,6 +145,8 @@ one `PUT /transactions/{id}` per row, in order, on one client, then the list rea
 from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others.
+It stays selected only if the fresh read brings it back among the newest 10; further down
+it drops out of the selection.
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}), so `b` adds
@@ -154,8 +156,6 @@ that left one — `3 rows → BCP USD · 2 left their reconciliation` (`· 1 lef
 reconciliation` for one). The `⏎` edit form does the same when its account changes and
 says `Saved. It left its reconciliation.` instead of `Saved.`; both share
 `unassign_on_move` in [edit_form.py](../expense/tui/screens/edit_form.py).
-It stays selected only if the fresh read brings it back among the newest 10; further down
-it drops out of the selection.
 `esc` clears the selection if there is one, and otherwise goes back to the screen that
 opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
