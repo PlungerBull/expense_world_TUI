@@ -332,8 +332,7 @@ has no `?` — a focused `Input` swallows printable keys.
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
 never changes, so nothing below it moves; everything that *does* change (the amount echo,
 the resolved date in words, how many names a token matches, loading/writing) is the
-`#hint` row above it. Pick A of
-[mockups/expense-world-log-legend-and-picker.html](mockups/expense-world-log-legend-and-picker.html).
+`#hint` row above it.
 
 **The account peek.** The moment the typed line names an account, that account's posted
 ledger fills the room under the staged list — `AccountPeek`, five columns (date, title,

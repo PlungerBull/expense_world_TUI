@@ -10,7 +10,7 @@ moves to [decisions.md](../decisions.md), and this file and the plan are deleted
 
 - In the LOG bar, once a category is typed, `#` lists **that category's tags first**, most-used
   first, then a dim divider, then **every other tag**, A–Z. No tag is ever hidden (mockup pane D,
-  [expense-world-log-legend-and-picker.html](../mockups/expense-world-log-legend-and-picker.html) §3).
+  [expense-world-log-legend-and-picker.html](../mockups/expense-world-log-legend-and-picker.html)).
 - With no category, an unclear one, a category never tagged before, or while the list is still
   loading, `#` shows the same list as today.
 - Any tag can still be typed and saved with any category, even one never used with it before.
