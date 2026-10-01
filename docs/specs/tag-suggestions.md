@@ -9,7 +9,7 @@ moves to [decisions.md](../decisions.md), and this file and the plan are deleted
 ## What it must do
 
 - In the LOG bar, once a category is typed, `#` lists **that category's tags first**, most-used
-  first, then a dim divider, then **every other tag**, A–Z. No tag is ever hidden (mockup pane D,
+  first, then a dim divider, then **every other tag**, A–Z. No tag is ever hidden (mockup pane D, approved 2026-09-30,
   [expense-world-log-legend-and-picker.html](../mockups/expense-world-log-legend-and-picker.html)).
 - With no category, an unclear one, a category never tagged before, or while the list is still
   loading, `#` shows the same list as today.
@@ -32,8 +32,7 @@ moves to [decisions.md](../decisions.md), and this file and the plan are deleted
 
 Draft, for the owner's approval.
 
-1. Re-show mockup pane D; the owner confirms it (**[UI] gate**).
-2. The typed command (one column, Name) and the shared fetch it uses.
-3. The LOG bar ordering: fetch once per category, keep it for the screen's life, fall back to
+1. The typed command (one column, Name) and the shared fetch it uses.
+2. The LOG bar ordering: fetch once per category, keep it for the screen's life, fall back to
    today's list whenever the category's list is missing.
-4. A contract test against the practice engine: nothing calls this endpoint yet.
+3. A contract test against the practice engine: nothing calls this endpoint yet.

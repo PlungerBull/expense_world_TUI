@@ -30,9 +30,8 @@ Asked <date> · Blocks: <task or spec>
 ### Review the three draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md), [official-migration.md](specs/official-migration.md)
-and [tui-import-door.md](specs/tui-import-door.md) are first drafts. Each ends with its open
-questions and draft tasks. Correct what is wrong, answer the questions, and name the one the loop
-starts on.
+and [tui-import-door.md](specs/tui-import-door.md) have no open questions left and their mockups
+are approved. Approve each one's draft tasks, and name the one the loop starts on.
 
 ### Catch up to engine contract 93a62b40ae9751d8 now?
 Asked 2026-09-29 · Blocks: Catch up to engine contract 93a62b40ae9751d8
