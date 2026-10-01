@@ -43,18 +43,8 @@ Nothing the owner sees changes apart from the move working and its note.
 
 Approved by the owner, 2026-09-30.
 
-1. **A move takes the transaction out of its reconciliation.** The edit form and the bulk `b`
-   in Home add `reconciliation_id: null` to a write that changes a transaction's `account_id`
-   (contract: "Assigning transactions"), and show the note from "What it must do" when the
-   moved transaction was in a reconciliation. Passes if:
-   - no TUI path can send an `account_id` change without `reconciliation_id`;
-   - a row whose account does not change sends no `reconciliation_id`, so `b` onto the account
-     a selected row is already on never takes it out of its reconciliation;
-   - a row in a completed reconciliation is still refused with the lock hint, as today;
-   - unit tests cover each of these, and a contract test proves the move against the
-     practice engine.
-
-   The flat `expense transactions update --account-id` is not changed: the TUI-only spec
-   ([tui-only-plan.md](tui-only-plan.md)) deletes it.
-2. **Record contract version `7e7cfb294fe255c7`** (`--record-version` against `:8002`), in the
-   commit that finishes task 1. Passes if the drift check exits 0.
+1. **Record contract version `7e7cfb294fe255c7`** (`--record-version` against `:8002`), and the
+   tester runs `test_moving_an_assigned_row_needs_the_unassign_in_the_same_body`
+   ([tests/contract/test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py))
+   against the practice engine. Passes if the drift check exits 0 and that test passes. Waits on
+   todo.md "The practice engine does not start".

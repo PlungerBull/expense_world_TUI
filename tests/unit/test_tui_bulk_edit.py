@@ -105,6 +105,12 @@ def test_bulk_receipt_counts_rows():
     assert bulk_receipt(1, "#COMIDA #CAJAS") == "1 row → #COMIDA #CAJAS"
 
 
+def test_bulk_receipt_counts_the_rows_that_left_their_reconciliation():
+    assert bulk_receipt(3, "BCP USD", 0) == "3 rows → BCP USD"
+    assert bulk_receipt(3, "BCP USD", 1) == "3 rows → BCP USD · 1 left its reconciliation"
+    assert bulk_receipt(3, "BCP USD", 2) == "3 rows → BCP USD · 2 left their reconciliation"
+
+
 # ---- selection ---------------------------------------------------------------
 
 
@@ -201,7 +207,9 @@ def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monke
         assert app.screen._title == "ACCOUNT for 1 row"
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [("/transactions/t2", {"account_id": "acc2"})]
+        assert fake_client.puts == [
+            ("/transactions/t2", {"account_id": "acc2", "reconciliation_id": None})
+        ]
 
     run_app(scenario, size=(120, 30))
 
@@ -264,6 +272,104 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         assert ("", "2 rows → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
+
+    run_app(scenario, size=(120, 30))
+
+
+# ---- b: a move leaves the reconciliation ---------------------------------------
+# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id})
+
+#: t1 is assigned and moves, t2 is assigned but already on the picked account,
+#: t3 is in no reconciliation and moves.
+MIXED = [
+    {**ITEMS[0], "reconciliation_id": "r1"},
+    {**ITEMS[1], "account_id": "acc2", "reconciliation_id": "r2"},
+    {**ITEMS[2], "reconciliation_id": None},
+]
+
+
+def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatch):
+    _stub_ledger(monkeypatch, MIXED)
+    toasts: list[str] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: len(fake_client.puts) == 3)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"account_id": "acc2", "reconciliation_id": None}),
+            # already on acc2: not a move, so it keeps its reconciliation
+            ("/transactions/t2", {"account_id": "acc2"}),
+            ("/transactions/t3", {"account_id": "acc2", "reconciliation_id": None}),
+        ]
+        await wait_for(pilot, lambda: toasts)
+        # t3 was in no reconciliation, t2 stayed in its own: one left
+        assert toasts[0] == "3 rows → BCP Oro PEN · 1 left its reconciliation"
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
+    _stub_ledger(monkeypatch, MIXED)
+    toasts: list[str] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
+        await _open(app, pilot, screen)
+        await pilot.press("space", "b")  # t1, on acc1, back onto acc1
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("s", "i", "g", "enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t1", {"account_id": "acc1"})]
+        await wait_for(pilot, lambda: toasts)
+        assert toasts[0] == "1 row → BCP Signature PEN"
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_client, monkeypatch):
+    """The engine checks `LOCKED` first, `reconciliation_id` included: the
+    locked row is named with the engine's reason and is not counted as left."""
+    _stub_ledger(monkeypatch, MIXED)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/t1"):
+            raise EngineError(
+                "VALIDATION_ERROR",
+                "Fields are locked by a completed reconciliation.",
+                {"account_id": "Locked by completed reconciliation."},
+                422,
+                {},
+                reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        refused = next(m for t, m in toasts if t == "Refused")
+        assert refused.startswith("row 1: ") and "Locked by completed reconciliation." in refused
+        assert ("", "2 rows → BCP Oro PEN") in toasts  # t1 never left: nothing to count
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t1"}
 
     run_app(scenario, size=(120, 30))
 

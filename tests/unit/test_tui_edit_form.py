@@ -8,7 +8,7 @@ PUT, and the suggestion pickers.
 import pytest
 from textual.widgets import Input
 
-from expense.errors import EngineConnectionError
+from expense.errors import EngineConnectionError, EngineError
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
     EditCategoryScreen,
@@ -206,6 +206,118 @@ def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
         assert not fake_client.calls
 
     run_app(scenario)
+
+
+# ---- an account move leaves the reconciliation --------------------------------
+# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id})
+
+ASSIGNED = {**TXN, "reconciliation_id": "rec1"}
+
+
+def _record_notices(monkeypatch) -> list:
+    notices: list = []
+    monkeypatch.setattr(
+        EditFormScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, str(message))),
+    )
+    return notices
+
+
+def _move_and_save(record, account_text, fake_client, monkeypatch, *, settle):
+    """Open the form on `record`, pick the account `account_text` names, save;
+    returns (notices, the screen) once `settle(screen, notices)` holds."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        seen["screen"] = screen
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("account")
+        _enter(screen, account_text)
+        screen.action_submit()
+        await wait_for(pilot, lambda: settle(screen, notices))
+        seen["on_top"] = app.screen is screen
+
+    run_app(scenario)
+    return notices, seen
+
+
+def test_moving_an_assigned_row_unassigns_it_and_says_so(fake_client, monkeypatch):
+    notices, _seen = _move_and_save(
+        ASSIGNED, "BCP USD", fake_client, monkeypatch, settle=lambda s, n: n
+    )
+    assert fake_client.puts == [
+        ("/transactions/tx1", {"account_id": "acc2", "reconciliation_id": None})
+    ]
+    assert ("", "Saved. It left its reconciliation.") in notices
+
+
+def test_moving_an_unassigned_row_still_sends_the_unassign_and_says_saved(fake_client, monkeypatch):
+    """No path sends an account change without `reconciliation_id`; the note
+    speaks only when the row was in a reconciliation."""
+    notices, _seen = _move_and_save(
+        {**TXN, "reconciliation_id": None},
+        "BCP USD",
+        fake_client,
+        monkeypatch,
+        settle=lambda s, n: n,
+    )
+    assert fake_client.puts == [
+        ("/transactions/tx1", {"account_id": "acc2", "reconciliation_id": None})
+    ]
+    assert ("", "Saved.") in notices
+
+
+def test_an_edit_that_keeps_the_account_sends_no_reconciliation_id(fake_client, monkeypatch):
+    """Re-picking the row's own account is no change, so an assigned row edited
+    on another field keeps its reconciliation."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=ASSIGNED, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("account")
+        _enter(screen, "BCP PEN")  # the account it is already on
+        screen._current = screen._sequence().index("title")
+        _enter(screen, "Farmacia Inkafarma")
+        screen.action_submit()
+        await wait_for(pilot, lambda: notices)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"title": "Farmacia Inkafarma"})]
+    assert ("", "Saved.") in notices
+
+
+def test_a_move_on_a_completed_reconciliation_still_shows_the_lock(fake_client, monkeypatch):
+    """The engine checks `LOCKED` first; the form shows its refusal and stays."""
+    fake_client.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR",
+        "Fields are locked by a completed reconciliation.",
+        {"account_id": "Locked by completed reconciliation."},
+        422,
+        {},
+        reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+    )
+    notices, seen = _move_and_save(
+        ASSIGNED,
+        "BCP USD",
+        fake_client,
+        monkeypatch,
+        settle=lambda s, n: n and not s._submitting,
+    )
+    assert fake_client.puts == [
+        ("/transactions/tx1", {"account_id": "acc2", "reconciliation_id": None})
+    ]
+    title, message = notices[0]
+    assert title == "Failed"
+    assert "Locked by completed reconciliation." in message
+    assert seen["on_top"]  # not dismissed: nothing was saved
 
 
 def test_no_form_offers_cleared():

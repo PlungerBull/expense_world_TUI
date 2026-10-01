@@ -14,7 +14,9 @@ legend saying what the filter is and how many rows it holds. `space` selects
 rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens `PickerModal`; the write is one
-`PUT /transactions/{id}` per row, in order, and then the list reads fresh
+`PUT /transactions/{id}` per row, in order — an account move adds
+`reconciliation_id: null` to each row whose account changes, so it leaves its
+reconciliation — and then the list reads fresh
 from the newest 10, so on a filtered list the changed
 rows leave at once. A refused row is named by its number;
 the others go through. Title, description,
@@ -53,7 +55,7 @@ from expense.tui.screens._base import (
     screen_fetch_kwargs,
 )
 from expense.tui.screens._growing import GrowingRead, read_first
-from expense.tui.screens.edit_form import EditFormScreen
+from expense.tui.screens.edit_form import EditFormScreen, unassign_on_move
 from expense.tui.screens.modals import PickerModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
@@ -178,9 +180,31 @@ def group_refusals(failed: list[tuple[object, int, str]]) -> list[str]:
     return lines
 
 
-def bulk_receipt(count: int, label: str) -> str:
-    """The toast after a bulk write: `3 rows → KORAKUEN`."""
-    return f"{count} {'row' if count == 1 else 'rows'} → {label}"
+def bulk_receipt(count: int, label: str, left: int = 0) -> str:
+    """The toast after a bulk write: `3 rows → KORAKUEN`, and with `left`
+    rows taken out of their reconciliation by an account move,
+    `3 rows → BCP USD · 2 left their reconciliation`."""
+    receipt = f"{count} {'row' if count == 1 else 'rows'} → {label}"
+    if left == 1:
+        receipt += " · 1 left its reconciliation"
+    elif left > 1:
+        receipt += f" · {left} left their reconciliation"
+    return receipt
+
+
+def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object, dict, bool]]:
+    """(id, PUT body, leaves its reconciliation) per target row.
+
+    Each row gets its own copy of `payload`; an account move adds
+    `reconciliation_id: None` only to the rows whose account changes
+    (`unassign_on_move`), so a row already on the picked account keeps its
+    reconciliation."""
+    writes = []
+    for key in targets:
+        body = dict(payload)
+        leaves = unassign_on_move(body, by_id.get(key) or {})
+        writes.append((key, body, leaves))
+    return writes
 
 
 class TransactionsScreen(LogTransactionMixin, SectionScreen):
@@ -454,11 +478,11 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             payload = {BULK_FIELDS[kind]: picked}
         self._bulk_busy = True
         self.refresh_bindings()
-        self._bulk_write(targets, payload, label)
+        self._bulk_write(bulk_writes(targets, payload, self._by_id), label)
 
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")
-    def _bulk_write(self, targets: list, payload: dict, label: str) -> None:
+    def _bulk_write(self, writes: list[tuple[object, dict, bool]], label: str) -> None:
         """One PUT per row, in order, on one client; a refused row is kept by
         number and the rest go through — unlike `run_write`'s queue, which
         drops the remainder on the first error, because here every row's
@@ -467,25 +491,26 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         from expense.http import ExpenseClient
 
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
-        done = 0
+        done = left = 0
         failed: list[tuple[object, int, str]] = []
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                for key in targets:
+                for key, body, leaves in writes:
                     try:
-                        client.put(f"/transactions/{key}", json_body=payload)
+                        client.put(f"/transactions/{key}", json_body=body)
                         done += 1
+                        left += leaves
                     except Exception as exc:
                         failed.append((key, numbers.get(key, 0), format_error(exc)))
         except Exception as exc:
             failed.append((None, 0, format_error(exc)))
-        self.app.call_from_thread(self._bulk_finished, done, failed, label)
+        self.app.call_from_thread(self._bulk_finished, done, failed, label, left)
 
-    def _bulk_finished(self, done: int, failed: list, label: str) -> None:
+    def _bulk_finished(self, done: int, failed: list, label: str, left: int = 0) -> None:
         self._bulk_busy = False
         if done:
-            self.notify(bulk_receipt(done, label))
+            self.notify(bulk_receipt(done, label, left))
         # One toast per distinct reason, not per row — see `group_refusals`.
         lines = group_refusals(failed)
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"

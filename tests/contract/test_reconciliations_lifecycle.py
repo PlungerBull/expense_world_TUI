@@ -17,6 +17,9 @@ What this pins, and why each is a contract claim rather than a CLI one:
     revert unlocks them. This is the field-locking semantic docs/cli-runtime.md
     promises, and the only place it is exercised end to end.
   · delete cascade-unassigns; the transaction survives.
+  · moving an assigned row to another account must say what happens to its
+    draft reconciliation; `reconciliation_id: null` in the same body moves and
+    unassigns. The TUI's edit form and bulk `b` send exactly that.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -27,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from expense.errors import EngineError
+from expense.errors import EngineError, reason_on
 
 
 def _safe_delete(client, path):
@@ -366,4 +369,48 @@ def test_deleting_a_batch_unassigns_its_transactions_and_keeps_them(client):
     finally:
         _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_moving_an_assigned_row_needs_the_unassign_in_the_same_body(client):
+    """The move the TUI's edit form and bulk `b` make
+    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}).
+
+    An account change on a row in a draft reconciliation, with no
+    `reconciliation_id` in the body, is a 422 on `account_id` with reason
+    `ASSIGNED_TO_RECONCILIATION` and changes nothing. With
+    `reconciliation_id: null` in the same body the row moves and leaves the
+    batch — which is why `unassign_on_move` adds it.
+    """
+    account_id = _make_account(client)
+    other_id = _make_account(client)
+    tx_id = _make_transaction(client, account_id)
+    recon_id = _make_reconciliation(client, account_id)
+
+    try:
+        client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon_id})
+
+        with pytest.raises(EngineError) as excinfo:
+            client.put(f"/transactions/{tx_id}", json_body={"account_id": other_id})
+        assert excinfo.value.status == 422
+        assert reason_on(excinfo.value, "account_id") == "ASSIGNED_TO_RECONCILIATION"
+        unchanged = client.get(f"/transactions/{tx_id}")
+        assert unchanged["account_id"] == account_id
+        assert unchanged["reconciliation_id"] == recon_id
+
+        # the account it already has is not a move: no refusal, still assigned
+        client.put(f"/transactions/{tx_id}", json_body={"account_id": account_id})
+        assert client.get(f"/transactions/{tx_id}")["reconciliation_id"] == recon_id
+
+        client.put(
+            f"/transactions/{tx_id}",
+            json_body={"account_id": other_id, "reconciliation_id": None},
+        )
+        moved = client.get(f"/transactions/{tx_id}")
+        assert moved["account_id"] == other_id
+        assert moved.get("reconciliation_id") is None
+    finally:
+        _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{other_id}")
         _safe_delete(client, f"/accounts/{account_id}")
