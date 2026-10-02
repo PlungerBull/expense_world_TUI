@@ -37,4 +37,10 @@ It is used for real only after [official-migration.md](official-migration.md) is
 
 ## Tasks
 
-All tasks done; the acceptance check and the docs sweep remain.
+From the acceptance check (2026-10-02), waiting on the moved-contract question in
+[todo.md](../todo.md):
+
+1. The fixture check flags three test-only keys: `enter` and `escape` (Textual key names in the
+   import door's footer asserts) and `sheet_account_names` (the config test). Add each to
+   `KNOWN_LOCAL` in [scripts/check_fixture_drift.py](../../scripts/check_fixture_drift.py) with
+   what it is, so the check passes on a matching version.

@@ -27,6 +27,36 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Catch up to engine contract 8d2430081e64cd7c — now, or after the import door?
+Asked 2026-10-02 · Blocks: the import door's acceptance check, and every new task
+The engine coders changed the engine again (saved 84321bd839912a09, engine 8d2430081e64cd7c).
+What changed, exactly as the version check prints it:
+
+```
+8d2430081e64cd7c  2026-10-02
+  changed: wording only, `POST /people`: the refusal of an explicit `null` on `color` or `sort_order`, and the `color` default, are stated once under `POST /accounts`, which `POST /people` shares. The rule is unchanged.
+0784eae3d79f37fe  2026-10-02
+  changed: `GET /exchange-rates` and `GET /exchange-rates/history` answer `422 SETTINGS_MISSING` (`fields: {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."}`, reason `NOT_PROVISIONED`) when the caller's settings do not exist yet, whether or not a `date` or window was sent. They used to read "today" in UTC for such a caller. Both are now listed under *Settings preconditions*, and `SETTINGS_MISSING` is in their `x-error-codes` and `NOT_PROVISIONED` in their `x-error-reasons`. A caller with settings gets the same answers as before.
+  changed: wording only, *Calendar days*: states that a stored zone the engine does not recognise is read as UTC, which `GET /exchange-rates` used to state for itself alone.
+0c56cb602654a20a  2026-10-02
+  changed: `POST /accounts` and `POST /people` refuse an explicit `null` on `color` or `sort_order`: `422` on each such field, `"Must not be null."`, reason `NOT_NULL`, and nothing is written. Both nulls in one request report both fields. They used to treat `null` as omitted and apply the default. An omitted `color` still takes `#3b82f6` and an omitted `sort_order` still appends. `NOT_NULL` is now listed in their `x-error-reasons`, and their request schemas no longer offer `null` for either field.
+ba0ecb2a0472e990  2026-10-02
+  changed: `POST /transactions/batch` accepts at most 500 items, the same bound as the rows of `POST /transactions/import`. A batch of more is `422` on `transactions` (the list itself, not an item), reason `OUT_OF_RANGE`, message `"List should have at most 500 items after validation, not <n>"`, and nothing is written. It used to have no limit. `OUT_OF_RANGE` is now listed in its `x-error-reasons`, and its request schema states `maxItems: 500`.
+  changed: wording only, `POST /transactions/import`: the row bound names its `422` on `rows` (`OUT_OF_RANGE`) and that the batch shares it.
+28d04decdc632da6  2026-10-02
+  changed: `PUT /auth/profile` trims leading and trailing whitespace from `display_name` before storing it, and refuses an empty or whitespace-only `display_name` with `422` on `display_name`, `"Must not be empty."`, reason `EMPTY`; nothing is written. It used to store the value as sent, blank included. `EMPTY` is now listed in its `x-error-reasons`.
+  changed: `POST /auth/bootstrap` applies the same rule to `display_name`: a new user's name is stored trimmed, and an empty or whitespace-only `display_name` is `422` on `display_name` (`EMPTY`) on every call, also for an existing user, whose name is still never overwritten. Nothing is written on refusal, `last_login_at` included. It used to store a new user's name as sent and ignore an existing user's.
+```
+
+None of it touches importing. The app sends batches of 200 (under the new 500 cap) and its
+create forms always send a colour. What is left to check: an empty name at first-time setup is
+now refused, and a brand-new user's exchange rates answer with an error.
+- **A.** Catch up first (a small spec), then finish the import door's check.
+- **B.** Record the new version now, finish the import door's check, then catch up as the next spec.
+
+**Recommended:** B, because nothing in the import door depends on these changes, and the
+catch-up is a few checks and hints that fit their own small spec.
+
 ### Review the two draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
