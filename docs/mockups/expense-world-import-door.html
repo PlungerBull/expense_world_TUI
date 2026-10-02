@@ -46,9 +46,9 @@
 
 <div class="head">
   <h1>Import bank files from the TUI</h1>
-  <p>Backs <b>docs/specs/tui-import-door.md</b>. Screens 1–4 are approved, in the order you meet them: drop the
-  file, pick the account, check the preview, see the result (4: B). Screens 5–7 are the situations that leave the
-  usual path; each has a choice: pick a letter. The rows are invented (the repo is public).</p>
+  <p>Backs <b>docs/specs/tui-import-door.md</b>. Every screen is approved. Screens 1–4 are the usual path, in the
+  order you meet them: drop the file, pick the account, check the preview, see the result (4: B). Screens 5–7 leave
+  that path (5: A, 6: A, 7: B). The rows are invented (the repo is public).</p>
 </div>
 
 <!-- 1 -->
@@ -154,7 +154,7 @@
 
 <!-- 5 -->
 <div class="pane">
-  <div class="lbl">5 · The file is not a BCP export <span>— pick A or B</span></div>
+  <div class="lbl">5 · The file is not a BCP export <span>— A picked</span></div>
   <p class="blurb">You dropped a spreadsheet, but not a bank download (or the bank changed its columns). Nothing is
   sent to the engine. The message names what is missing and what the file has.</p>
   <div class="opt">
@@ -194,7 +194,7 @@
 
 <!-- 6 -->
 <div class="pane">
-  <div class="lbl">6 · Nothing new to import <span>— pick A or B</span></div>
+  <div class="lbl">6 · Nothing new to import <span>— A picked</span></div>
   <p class="blurb">Every row in the file is already in the ledger, which is what you see when you import the same
   file twice.</p>
   <div class="opt">
@@ -235,7 +235,7 @@
 
 <!-- 7 -->
 <div class="pane">
-  <div class="lbl">7 · Two files dropped, and you press esc on the first <span>— pick A or B</span></div>
+  <div class="lbl">7 · Two files dropped, and you press esc on the first <span>— B picked</span></div>
   <p class="blurb">Both files go through screens 2–4 one after the other; the top line says which one you are on.
   The question is what <code>esc</code> does before the first file is imported.</p>
   <div class="opt">
@@ -271,8 +271,7 @@
 </div>
 
 <div class="pick">
-  <b>What I need from you:</b> screen 5 — <b>A</b> (recommended) or B · screen 6 — <b>A</b> (recommended) or B ·
-  screen 7 — A or <b>B</b> (recommended).
+  <b>Picked:</b> screen 4 B · screen 5 A · screen 6 A · screen 7 B.
 </div>
 
 </body>
