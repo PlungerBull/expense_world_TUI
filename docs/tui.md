@@ -18,6 +18,8 @@ expense/tui/
   app.py            # ExpenseApp(App): screen stack, global bindings, worker helper
   app.tcss          # Textual CSS — layout + the structural ANSI fills (§3)
   theme.py          # the ANSI Theme + the PALETTE constant Rich content styles with
+  dropped.py        # dropped_bank_files() — is the LOG bar's line a dropped/pasted
+                    #   bank file (or several)? Pure: text in, paths or None out
   widgets/
     header.py       # Breadcrumb — slim section header (home banner lives in home.py)
                     #   + rate_alert() — the `!` staleness mark both headers share
@@ -336,6 +338,24 @@ is empty; `ctrl+s` writes everything not already written; `ctrl+x` drops the pic
 row; `esc` unpicks, then leaves (confirming if rows are staged and unwritten). The bar
 always holds focus, which is why no bare letter is a command there and why the screen
 has no `?` — a focused `Input` swallows printable keys.
+
+**A dropped bank file.** Dragging a file onto the terminal makes the emulator type its
+path into the bar, each in its own shell syntax: Terminal.app backslash-escapes spaces,
+parentheses and every other shell-special character, and puts several dropped files on
+one line separated by spaces; VS Code's terminal single-quotes the path for bash and zsh
+(double quotes for some other shells) and inserts only the first file of a multi-file
+drop. A path pasted or typed by hand may also be raw, spaces and all. One pure function,
+`dropped_bank_files` in [dropped.py](../expense/tui/dropped.py), reads every form: the
+line is bank files only when **every** word is an absolute (or `~/`) path to an existing
+`.xlsx` file, any letter case; one word that is not leaves the whole line quick-add.
+Typing, pasting and dropping reach it as the same text. While it holds, quick-add stands
+down — no token colouring, no picker, no refusal, no account peek (hidden, still on its
+last account), no legend row — and the hint reads `bank file · <name> · ⏎ import it`,
+or `bank files · <n> · ⏎ import them, one by one` with each name on its own indented
+line. The footer reads `esc Cancel  ⏎ Import` (`ctrl+s` is off while files are in the
+bar). `↵` stages nothing and calls nothing: it hands the paths to
+`LogBarScreen.import_bank_files`. Editing the line back to anything else returns the bar
+to quick-add on the same keystroke.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

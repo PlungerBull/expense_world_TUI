@@ -36,9 +36,8 @@ It is used for real only after [official-migration.md](official-migration.md) is
 
 ## Tasks
 
-Draft, for the owner's approval.
+Approved by the owner 2026-10-02.
 
-1. Recognise a dropped or pasted path, in each terminal's format.
-2. The import screens: account list, preview, apply, the after-apply wording (screen 4 B) and
+1. The import screens: account list, preview, apply, the after-apply wording (screen 4 B) and
    screens 5–7, reusing the typed import's engine call.
-3. Stop remembering accounts by file name; remove that saved setting.
+2. Stop remembering accounts by file name; remove that saved setting.

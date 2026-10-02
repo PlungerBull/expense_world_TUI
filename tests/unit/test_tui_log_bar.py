@@ -1298,3 +1298,174 @@ def test_a_bare_dollar_offers_every_account(fake_client, monkeypatch):
         assert screen._peek_account == "acc1"
 
     run_app(scenario, size=(110, 30))
+
+
+# ---- dropped bank files ------------------------------------------------------
+def _bank_file(tmp_path, name: str = "Sueldo Soles (1).xlsx"):
+    path = tmp_path / name
+    path.write_bytes(b"")
+    return path
+
+
+def _escaped(path) -> str:
+    """What Terminal.app types for a drop."""
+    return "".join("\\" + c if c in " ()" else c for c in str(path))
+
+
+def _shown_bindings(screen) -> dict[str, str]:
+    return {
+        key: active.binding.description
+        for key, active in screen.active_bindings.items()
+        if active.binding.show
+    }
+
+
+def _spy_import(screen) -> list:
+    handed: list = []
+    screen.import_bank_files = handed.append
+    return handed
+
+
+def test_a_dropped_file_stands_quick_add_down(fake_client, monkeypatch, tmp_path):
+    """No colouring, no picker, no refusal, no peek — and the bar says what it holds."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, LEDGER_LINE)  # a line naming an account opens the peek
+        assert screen.query_one("#peek", AccountPeek).display
+        _type(screen, _escaped(path))
+        await pilot.pause()
+
+        assert screen._files == [path]
+        assert screen._parsed is None and screen._hl.parsed is None  # no colouring
+        assert screen._picker is None and screen._refused is None
+        assert not screen.query_one("#peek", AccountPeek).display
+        assert screen._peek_account == "acc1"  # hidden, not forgotten
+        assert not screen.query_one("#legend", Static).display
+        assert screen._staged_renderable() is None  # the invitation stands down
+        hint = screen.query_one("#hint", Static).content
+        assert hint.plain == "bank file · Sueldo Soles (1).xlsx · ⏎ import it"
+        assert any(span.style == ACCENT for span in hint.spans)  # colour from the theme
+        assert _shown_bindings(screen) == {"escape": "Cancel", "enter": "Import"}
+
+    run_app(scenario)
+
+
+def test_several_dropped_files_list_one_name_per_line(fake_client, monkeypatch, tmp_path):
+    first = _bank_file(tmp_path)
+    second = _bank_file(tmp_path, "Cuenta Digital Dólares.xlsx")
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, f"'{first}' '{second}'")  # VS Code's quoting
+        assert screen._files == [first, second]
+        assert screen._hint().split("\n") == [
+            "bank files · 2 · ⏎ import them, one by one",
+            "  Sueldo Soles (1).xlsx",
+            "  Cuenta Digital Dólares.xlsx",
+        ]
+
+    run_app(scenario)
+
+
+def test_editing_back_to_a_line_returns_to_quick_add_at_once(fake_client, monkeypatch, tmp_path):
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, str(path))
+        assert screen._files is not None
+        _type(screen, str(path)[:-1])  # one character off: no such file
+        assert screen._files is None
+        assert screen.query_one("#legend", Static).display
+        assert _shown_bindings(screen) == {"escape": "Cancel", "ctrl+s": "Save"}
+        _type(screen, "")
+        assert screen._files is None and screen._hint() == ""
+        _type(screen, LEDGER_LINE)
+        screen.on_input_submitted()
+        assert [e.line for e in screen._staged] == [LEDGER_LINE]  # ↵ stages again
+
+    run_app(scenario)
+
+
+def test_enter_on_dropped_files_hands_them_over_and_stages_nothing(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _bank_file(tmp_path)
+    peek = _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        handed = _spy_import(screen)
+        _type(screen, _escaped(path))
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert handed == [[path]]
+        assert screen._staged == []
+        assert fake_client.calls == []  # no engine call at all
+        assert peek.accounts == [] and peek.counted == []
+        assert _bar(screen).value == _escaped(path)
+        assert app.screen is screen
+
+    run_app(scenario)
+
+
+def test_the_import_hook_shows_nothing_yet(fake_client, monkeypatch, tmp_path):
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, str(path))
+        before = screen._hint()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._hint() == before
+        assert len(app._notifications) == 0  # no placeholder, no toast
+        assert screen._staged == [] and fake_client.calls == []
+        assert app.screen is screen
+
+    run_app(scenario)
+
+
+def test_a_pasted_path_goes_through_the_same_recognition(fake_client, monkeypatch, tmp_path):
+    from textual import events
+
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        handed = _spy_import(screen)
+        _bar(screen).post_message(events.Paste(_escaped(path) + " \n"))
+        await wait_for(pilot, lambda: screen._files is not None, message="paste not seen")
+        assert screen._files == [path]
+        assert screen.query_one("#hint", Static).content.plain.startswith("bank file ·")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert handed == [[path]] and screen._staged == []
+
+    run_app(scenario)
+
+
+def test_a_typed_path_goes_through_the_same_recognition(fake_client, monkeypatch, tmp_path):
+    path = _bank_file(tmp_path, "movimientos.xlsx")
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        handed = _spy_import(screen)
+        await pilot.press(*str(path))
+        await wait_for(pilot, lambda: screen._files is not None, message="typing not seen")
+        assert _bar(screen).value == str(path)
+        assert screen._files == [path]
+        await pilot.press("enter")
+        await pilot.pause()
+        assert handed == [[path]] and screen._staged == []
+
+    run_app(scenario)

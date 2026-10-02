@@ -47,9 +47,17 @@ docs/decisions.md "Four calls for the LOG bar":
 * the batch totals **per currency** — soles are never added to dollars;
 * the refusal under the bar reuses **route.py's own phrases**, so there is one
   wording.
+
+**A dropped bank file**: a line that is nothing but paths to `.xlsx` files —
+dragged onto the terminal, pasted or typed — is not a transaction.
+`expense/tui/dropped.py` decides it from the text alone; while it holds, the
+bar stands quick-add down (no colouring, no picker, no peek, no refusal), the
+hint names the file(s), the footer reads `esc Cancel  ⏎ Import`, and `↵` hands
+the files to `import_bank_files` instead of staging anything.
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from uuid import uuid4
 
 from rich.console import Group, RenderableType
@@ -84,6 +92,7 @@ from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
+from expense.tui.dropped import dropped_bank_files
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
@@ -144,6 +153,28 @@ REFUSED_HINT = "not staged — fix the line and press ↵ again"
 EDIT_HINT = "the row came back as the line that made it · ↵ puts it back · esc leaves it alone"
 SIGN_HINT = "a sign is what makes a number an amount"
 LOADING_HINT = "loading accounts, categories and tags…"
+
+
+def bank_files_hint(files: list[Path]) -> Text:
+    """What the bar says while it holds dropped files instead of a line.
+
+    One file: `bank file · Sueldo Soles (1).xlsx · ⏎ import it`. Several:
+    `bank files · 2 · ⏎ import them, one by one`, each name on its own
+    indented line under it — they are imported one after the other.
+    """
+    if len(files) == 1:
+        return Text.assemble(
+            ("bank file", ACCENT), f" · {files[0].name} · ", ("⏎", "bold"), " import it"
+        )
+    hint = Text.assemble(
+        ("bank files", ACCENT),
+        f" · {len(files)} · ",
+        ("⏎", "bold"),
+        " import them, one by one",
+    )
+    for path in files:
+        hint.append(f"\n  {path.name}")
+    return hint
 
 
 def wire_date(parsed: ParsedLine) -> str:
@@ -648,6 +679,10 @@ class LogBarScreen(Screen):
         Binding("up", "move(-1)", "Up", show=False),
         Binding("down", "move(1)", "Down", show=False),
         Binding("ctrl+s", "save", "Save"),
+        # Live only while the bar holds dropped files (`check_action`). Then
+        # `priority` lets it take `enter` ahead of the Input's own submit and
+        # show in the footer; otherwise it stands aside and `↵` submits.
+        Binding("enter", "import_files", "Import", priority=True),
     ]
 
     crumb = ("Capture & ledger", "Log")
@@ -675,6 +710,8 @@ class LogBarScreen(Screen):
         self._peek_note: dict[str, str] = {}
         self._peek_wanted: str | None = None
         self._peek_timer = None
+        # the files the bar holds instead of a line — `None` when it is a line
+        self._files: list[Path] | None = None
 
     # ---- layout ------------------------------------------------------------
     def compose(self) -> ComposeResult:
@@ -715,10 +752,18 @@ class LogBarScreen(Screen):
 
     # ---- parsing -----------------------------------------------------------
     def _reparse(self, text: str) -> None:
-        """Re-read the bar and recompute what the picker would offer."""
+        """Re-read the bar and recompute what the picker would offer.
+
+        Dropped files come first: a line of paths is not parsed at all, so
+        nothing quick-add draws from the parse can react to it.
+        """
         self._refused = None  # any edit is a new attempt
+        files = dropped_bank_files(text)
+        if (files is None) != (self._files is None):
+            self.refresh_bindings()  # the footer swaps `ctrl+s Save` for `⏎ Import`
+        self._files = files
         refs = self._refs
-        if refs is None or not text.strip():
+        if files is not None or refs is None or not text.strip():
             self._parsed = None
             self._picker = None
         else:
@@ -766,9 +811,33 @@ class LogBarScreen(Screen):
         self._reparse(text)
 
     # ---- keys --------------------------------------------------------------
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Dropped files swap the footer: `⏎ Import` in, `ctrl+s Save` out."""
+        if action == "import_files":
+            return self._files is not None
+        if action == "save":
+            return self._files is None
+        return True
+
+    def action_import_files(self) -> None:
+        """`⏎` on dropped files — never a stage, never an engine call here."""
+        if self._files is not None:
+            self.import_bank_files(list(self._files))
+
+    def import_bank_files(self, paths: list[Path]) -> None:
+        """Where `⏎` hands the dropped files, in the order they were dropped.
+
+        The import screens (account, preview, apply) start here; this screen
+        does nothing else with them.
+        """
+
     def on_input_submitted(self, event: Input.Submitted | None = None) -> None:
-        """`↵`: complete the open token · stage the line · lift a picked row."""
+        """`↵`: import dropped files · complete the open token · stage the line
+        · lift a picked row."""
         bar = self.query_one("#bar", Input)
+        if self._files is not None:
+            self.action_import_files()
+            return
         if self._picker is not None and self._candidates():
             self._complete_token()
         elif bar.value.strip():
@@ -1017,7 +1086,13 @@ class LogBarScreen(Screen):
         label = "LOG" if self._editing is None else f"EDIT {self._editing + 1}"
         self.query_one("#field", Label).update(label)
         self.query_one("#bar", Input).refresh()
-        self.query_one("#hint", Static).update(Text(self._hint(), style="dim"))
+        files = self._files
+        if files is not None and not self._saving:
+            hint = bank_files_hint(files)
+        else:
+            hint = Text(self._hint(), style="dim")
+        self.query_one("#hint", Static).update(hint)
+        self.query_one("#legend", Static).display = files is None
         self.query_one("#suggest", Static).update(self._suggest_renderable())
         staged = self.query_one("#staged", Static)
         content = self._staged_renderable()
@@ -1059,6 +1134,10 @@ class LogBarScreen(Screen):
     def _sync_peek(self) -> None:
         """Point the panel at that account, fetching its page once."""
         peek = self.query_one("#peek", AccountPeek)
+        if self._files is not None:
+            # hidden, not retargeted: the account it was on survives the files
+            peek.display = False
+            return
         refs = self._refs
         target = self._peek_target()
         self._peek_account = target
@@ -1144,6 +1223,8 @@ class LogBarScreen(Screen):
         """
         if self._saving:
             return SAVING_HINT
+        if self._files is not None:
+            return bank_files_hint(self._files).plain
         if self._refs is None:
             return LOADING_HINT
         if self._editing is not None:
@@ -1206,6 +1287,8 @@ class LogBarScreen(Screen):
         """
         refs = self._refs
         if refs is None:
+            return None
+        if not self._staged and not self._last_save and self._files is not None:
             return None
         if not self._staged and not self._last_save and self._peek_target() is not None:
             return None
