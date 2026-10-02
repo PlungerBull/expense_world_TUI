@@ -107,6 +107,8 @@ KNOWN_LOCAL = frozenset(
         "height",
         # CLI-side config file fields — never sent to the engine
         "engine_url",
+        # the renames `expense import sheet` remembers per sheet account
+        "sheet_account_names",
         # a config key no Config field holds: the stale-config load test
         # writes it on purpose to prove an unknown key loads and is dropped
         "bank_files",
@@ -144,6 +146,9 @@ KNOWN_LOCAL = frozenset(
         "begin",
         # a fake cursor value the paging tests hand back
         "c10",
+        # Textual key names the import door's footer-binding asserts look up
+        "enter",
+        "escape",
     }
 )
 

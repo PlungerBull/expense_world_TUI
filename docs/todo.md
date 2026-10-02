@@ -41,13 +41,15 @@ question lives in it.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Two flaky unit tests.** Each failed once in a full `pytest tests/unit` run on 2026-10-02
+- **Three flaky unit tests.** Each failed once in a full `pytest tests/unit` run on 2026-10-02
   and passes alone; for each, find whether the test asserts too early or the screen has a race.
   - `test_toggle_error_drops_queued_intents_and_resyncs`
     ([test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py)): 2 PUTs sent,
     1 expected — the queued toggle went out before the failing PUT's error dropped it.
   - `test_config_screen_shows_only_the_engine_connection`
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
+  - `test_enter_home_with_unwritten_staged_rows_asks_first`
+    ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
 - **Catch up to engine contract 8d2430081e64cd7c** — after the import door (owner, 2026-10-02).
   Spec (draft): [specs/engine-catch-up-8d243008.md](specs/engine-catch-up-8d243008.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
