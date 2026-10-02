@@ -107,8 +107,8 @@ KNOWN_LOCAL = frozenset(
         "height",
         # CLI-side config file fields — never sent to the engine
         "engine_url",
-        # `expense import bank`'s file→account memory, written into the
-        # config file so a second run of the same download needs no --account
+        # a config key no Config field holds: the stale-config load test
+        # writes it on purpose to prove an unknown key loads and is dropped
         "bank_files",
         "client_id",
         "future_field",

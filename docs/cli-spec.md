@@ -41,7 +41,6 @@ Config lives in `~/.expense-config` (chmod 600):
 | `engine_url` | Base URL of the engine (`http://127.0.0.1:8000`) |
 | `token` | PAT (prefix `ewe_pat_`). Sent verbatim as `Authorization: Bearer <token>`. |
 | `main_currency` | Mirrored from `/v1/auth/me` for formatting hints |
-| `bank_files` | The account picked per bank-download file stem (`expense import bank`) |
 | `sheet_account_names` | The ledger name per sheet account leg, keyed `SHEET_NAME:CUR` (`expense import sheet --account-name`) |
 
 ---
@@ -133,7 +132,7 @@ Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, match
 
 #### `expense import bank`
 - `import bank <file.xlsx> [--account <name>] [--apply] [--all] [--json]` — a BCP download (sheet `data`: Fecha, Descripcion, Moneda, Monto, optional Numero de Operacion) → the ledger under `@Pendiente`. The engine does the duplicate matching in one `POST /transactions/import` ([expense/bank_import/engine.py](../expense/bank_import/engine.py)); the rules and their why: [decisions.md](decisions.md) "Bank downloads are matched against the ledger".
-  - **The account is asked, not read.** On a TTY the accounts are listed (a card's PEN and USD legs are one entry); the pick is remembered per file stem in `bank_files`. `--account` overrides and re-remembers; off a TTY it is required until remembered. A file holding a currency the pick has no leg for is refused whole.
+  - **The account is asked, not read.** On a TTY the accounts are listed (a card's PEN and USD legs are one entry); the account is asked every run and nothing is remembered by file name, so a re-download (`Sueldo Soles (1).xlsx`) asks like any other file. `--account` names it instead and saves nothing; off a TTY, and under `--json`, it is required. A file holding a currency the pick has no leg for is refused whole.
   - **Limits:** rows before 2026-01-01 are not sent (counted in the summary); a file over 500 rows is refused before any call.
   - **Preview:** the first 8 rows (`--all` for every one), numbered by their line in the file, each with its match; then the counts and a warning for any day where the ledger holds rows no file row matched. `--apply` is the same call with `dry_run: false`.
   - **Errors:** a `422` refuses the whole file and names each refused row by its line; a line the parser could not read is listed and not sent, and under `--apply` makes the exit code 1.

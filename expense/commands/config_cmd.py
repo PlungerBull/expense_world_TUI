@@ -48,9 +48,9 @@ def set_cmd(
         )
     else:
         # Copy-and-update, never a field-by-field rebuild: naming the fields
-        # drops every one this command has no flag for, which silently wiped
-        # `bank_files` (the file → account memory `import bank` writes) on any
-        # `config set`. A new Config field must not need an edit here to survive.
+        # drops every one this command has no flag for, such as
+        # `sheet_account_names` (the renames `import sheet` writes). A new
+        # Config field must not need an edit here to survive.
         updates: dict[str, object] = {}
         if engine_url:
             updates["engine_url"] = engine_url

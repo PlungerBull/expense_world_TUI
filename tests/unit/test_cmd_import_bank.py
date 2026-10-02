@@ -115,8 +115,13 @@ def _only_the_import_was_written():
 
 
 # ---- the account ------------------------------------------------------------
+def _saved_config() -> dict:
+    return json.loads(config_module.config_path().read_text())
+
+
 @respx.mock
-def test_account_flag_is_used_and_remembered(configured, monkeypatch):
+def test_account_flag_is_used_and_nothing_is_saved(configured, monkeypatch):
+    before = _saved_config()
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
     result = _run(
@@ -124,23 +129,27 @@ def test_account_flag_is_used_and_remembered(configured, monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert "Account: BCP Signature" in result.output
-    assert config_module.load().bank_files == {"VISA Infinite Sapphire": "BCP Signature"}
+    assert _saved_config() == before
+    assert "bank_files" not in _saved_config()
 
 
 @respx.mock
-def test_remembered_account_needs_no_flag(configured, monkeypatch):
-    cfg = config_module.load()
-    cfg.bank_files = {"VISA Infinite Sapphire": "BCP Signature"}
-    config_module.save(cfg)
+def test_a_run_with_the_flag_leaves_nothing_for_the_next_run(configured, monkeypatch):
+    """No memory: after `--account`, the same file off a TTY still needs it."""
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
-    result = _run(monkeypatch, ["import", "bank", "/tmp/VISA Infinite Sapphire.xlsx"])
-    assert result.exit_code == 0, result.output
-    assert 'remembered for "VISA Infinite Sapphire"' in result.output
+    first = _run(
+        monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx", "--account", "BCP Signature"]
+    )
+    assert first.exit_code == 0, first.output
+    second = _run(monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx"])
+    assert second.exit_code == 1
+    assert "--account is required in non-interactive mode." in second.output
+    assert "remembered" not in second.output
 
 
 @respx.mock
-def test_off_a_tty_with_nothing_remembered_the_flag_is_required(configured, monkeypatch):
+def test_off_a_tty_without_the_flag_it_is_required(configured, monkeypatch):
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
     result = _run(monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx"])
@@ -149,9 +158,23 @@ def test_off_a_tty_with_nothing_remembered_the_flag_is_required(configured, monk
 
 
 @respx.mock
-def test_on_a_tty_the_accounts_are_listed_folded_and_the_answer_is_remembered(
-    configured, monkeypatch
-):
+def test_json_without_the_flag_is_an_error_even_on_a_tty(configured, monkeypatch):
+    """`--json` never prompts: stdout stays free for the engine's body, so
+    the account has to come from `--account`."""
+    _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
+    route = _engine()
+    result = _run(
+        monkeypatch, ["import", "bank", "VISA Infinite Sapphire.xlsx", "--json"], tty=True
+    )
+    assert result.exit_code == 1
+    assert "Error: --account is required in non-interactive mode." in result.output
+    assert "Which account is this?" not in result.output
+    assert not route.called
+
+
+@respx.mock
+def test_on_a_tty_the_accounts_are_listed_folded_and_asked_every_run(configured, monkeypatch):
+    before = _saved_config()
     _feed(monkeypatch, CARD_HEADERS, CARD_ROWS)
     _engine()
     result = _run(
@@ -162,7 +185,15 @@ def test_on_a_tty_the_accounts_are_listed_folded_and_the_answer_is_remembered(
     assert "1  BCP     PEN + USD" in result.output
     assert "2  BCP Signature     PEN + USD" in result.output
     assert "Retired" not in result.output and "Eliana" not in result.output
-    assert config_module.load().bank_files == {"VISA Infinite Sapphire": "BCP Signature"}
+    assert _saved_config() == before
+
+    # The same file again, and a browser re-download of it: both ask again.
+    for name in ("VISA Infinite Sapphire.xlsx", "VISA Infinite Sapphire (1).xlsx"):
+        again = _run(monkeypatch, ["import", "bank", name], tty=True, input="2\n")
+        assert again.exit_code == 0, again.output
+        assert "Which account is this?" in again.output
+        assert "remembered" not in again.output
+    assert _saved_config() == before
 
 
 @respx.mock

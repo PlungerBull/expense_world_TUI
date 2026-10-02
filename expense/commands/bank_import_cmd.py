@@ -1,7 +1,7 @@
 """`expense import bank <file.xlsx>` — a bank download → the ledger, under @Pendiente.
 
-The flow: read the sheet, ask which account (remembered
-per file name after the first run), then hand every row to the engine's
+The flow: read the sheet, ask which account (every run — nothing is
+remembered by file name), then hand every row to the engine's
 `POST /transactions/import` in **one** call, which matches the rows against
 the ledger and, under `--apply`, writes what is missing in one database
 transaction. A day where the ledger holds a row of the same amount that no
@@ -20,7 +20,6 @@ and the currency column chooses the leg per row.
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import NoReturn
 
 import typer
@@ -145,42 +144,28 @@ def _find_group(groups: list[AccountGroup], wanted: str) -> AccountGroup | None:
 def choose_group(
     groups: list[AccountGroup],
     *,
-    file_key: str,
-    cfg,
     account_flag: str | None,
     quiet: bool = False,
 ) -> AccountGroup:
-    """`--account` wins; then the remembered pick for this file name; then a
-    prompt on a TTY. Whatever was chosen is remembered for next time.
+    """`--account` wins; otherwise a prompt on a TTY, every run. Nothing is
+    remembered: a browser re-download (`Sueldo Soles (1).xlsx`) is asked like
+    any other file.
 
     `quiet` (JSON mode) prints nothing and never prompts — the answer has to
-    come from the flag or the memory, or the run fails like a non-TTY one.
+    come from the flag, or the run fails like a non-TTY one.
     """
     say = (lambda _text: None) if quiet else typer.echo
     if account_flag is not None:
         group = _find_group(groups, account_flag)
         if group is None:
             _fail(f"no account named {account_flag!r}. Known: " + ", ".join(g.base for g in groups))
-        _remember(cfg, file_key, account_flag)
         say(f"  Account: {group.base}")
         return group
-
-    remembered = (cfg.bank_files or {}).get(file_key)
-    if remembered:
-        group = _find_group(groups, remembered)
-        if group is not None:
-            say(
-                f'  Account: {group.base} (remembered for "{file_key}"; pass --account to override)'
-            )
-            return group
-        say(f"  (the remembered account {remembered!r} no longer exists)")
 
     # Looked up through the module so the test seam (`_resource.stdin_is_tty`)
     # is the one the prompt actually consults.
     if quiet or not _resource.stdin_is_tty():
-        _fail(
-            "--account is required in non-interactive mode (nothing is remembered for this file)."
-        )
+        _fail("--account is required in non-interactive mode.")
     typer.echo("")
     typer.echo("  Which account is this?")
     for i, g in enumerate(groups, start=1):
@@ -192,17 +177,7 @@ def choose_group(
         picked = _find_group(groups, answer)  # a name typed instead of a number
         if picked is None:
             _fail(f"{answer!r} is not one of the accounts listed.")
-    _remember(cfg, file_key, picked.base)
     return picked
-
-
-def _remember(cfg, file_key: str, base: str) -> None:
-    files = dict(cfg.bank_files or {})
-    if files.get(file_key) == base:
-        return
-    files[file_key] = base
-    cfg.bank_files = files
-    config_module.save(cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -308,9 +283,7 @@ def prepare(cfg, *, file: str, account_flag: str | None, quiet: bool, verbose: b
     groups = account_groups(accounts)
     if not groups:
         _fail("no accounts exist yet — create one first (expense accounts create).")
-    group = choose_group(
-        groups, file_key=Path(file).stem, cfg=cfg, account_flag=account_flag, quiet=quiet
-    )
+    group = choose_group(groups, account_flag=account_flag, quiet=quiet)
 
     try:
         return prepared_for(file, group, rows, bad)
@@ -621,7 +594,7 @@ def bank(
         None,
         "--account",
         help="Which account the file belongs to, by name (a card's base name covers both "
-        "currencies). Remembered per file name; omit to reuse or be asked.",
+        "currencies). Omit to be asked.",
     ),
     apply: bool = typer.Option(
         False, "--apply", help="Write the new rows. Default is a dry-run preview."
@@ -633,8 +606,8 @@ def bank(
 ) -> None:
     """Import a bank download (dry-run by default); new rows land under @Pendiente.
 
-    Reads the bank's sheet, asks which account it is (remembered per file
-    name after the first run), and sends every row dated 2026-01-01 or later
+    Reads the bank's sheet, asks which account it is (every run, unless
+    --account names it), and sends every row dated 2026-01-01 or later
     to the engine, which compares it with what the ledger already holds: by
     the bank's operation number when the file has one, otherwise by day,
     amount and title, with a one-day tolerance. Only rows the ledger does not

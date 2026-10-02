@@ -7,6 +7,8 @@ arrives. The sheet reaches the typed command's reader through its
 that echoes each row's id and decides its outcome.
 """
 
+import threading
+
 from textual.widgets import Input, Static
 
 from expense.bank_import.engine import ExcessGroup
@@ -532,8 +534,6 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
 
 
 def test_a_repeated_enter_on_the_preview_sends_one_apply(fake_client, monkeypatch, tmp_path):
-    import threading
-
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})

@@ -37,6 +37,4 @@ It is used for real only after [official-migration.md](official-migration.md) is
 
 ## Tasks
 
-Approved by the owner 2026-10-02.
-
-1. Stop remembering accounts by file name; remove that saved setting.
+All tasks done; the acceptance check and the docs sweep remain.

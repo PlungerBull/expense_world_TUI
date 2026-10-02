@@ -168,3 +168,30 @@ def test_corrupt_config_renders_clean_cli_error(tmp_config):
     assert result.exit_code == 3
     envelope = json.loads(result.output)
     assert envelope["error"]["code"] == "CONFIG_INVALID"
+
+
+def test_a_stale_bank_files_key_loads_and_is_dropped_on_save():
+    """A config written while the account was remembered per file name still
+    carries `bank_files`: it loads, and the next save leaves the key out.
+    Runs on the autouse hermetic EXPENSE_CONFIG path, never the real file."""
+    path = config.config_path()
+    assert "hermetic-config" in str(path)
+    path.write_text(
+        json.dumps(
+            {
+                "engine_url": "https://example.com",
+                "token": "ewe_pat_abc123",
+                "bank_files": {"Sueldo Soles": "BCP", "Sueldo Soles (1)": "BCP"},
+            }
+        )
+    )
+
+    cfg = config.load()
+    assert cfg is not None
+    assert cfg.token == "ewe_pat_abc123"
+    assert not hasattr(cfg, "bank_files")
+
+    config.save(cfg)
+    saved = json.loads(path.read_text())
+    assert "bank_files" not in saved
+    assert saved["token"] == "ewe_pat_abc123"

@@ -31,17 +31,13 @@ def validate_engine_url(url: str) -> None:
 
 
 class Config(BaseModel):
-    # extra="ignore": an older config file may carry keys nothing reads.
+    # extra="ignore": an older config file may carry keys nothing reads; they
+    # load without error and are dropped on the next save.
     model_config = ConfigDict(extra="ignore")
 
     engine_url: str
     token: str | None = None
     main_currency: str | None = None
-    # `expense import bank`: the file's stem ("VISA Infinite Sapphire") → the
-    # account base name it was last imported into ("BCP Signature"). Written
-    # the first time a file is imported, read on every run after, overridden
-    # by --account.
-    bank_files: dict[str, str] = {}
     # `expense import sheet`: a sheet account leg ("BCP:PEN" — sheet name,
     # colon, currency) → the ledger name it is written under ("Sueldo Soles").
     # Written by --account-name, read on every run after; a flag for a key

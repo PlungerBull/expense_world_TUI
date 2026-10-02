@@ -11,7 +11,7 @@ Two modules, both pure (no HTTP, no typer, no config):
 
 The matching itself is the engine's (contract: POST /v1/transactions/import).
 The command that reads the file, asks which account and
-makes the one call is expense/commands/bank_import_cmd.py. The file name →
-account choice is remembered in the config, and the ledger holding more
+makes the one call is expense/commands/bank_import_cmd.py. The account is
+asked every run, never remembered by file name, and the ledger holding more
 than the file is a loud warning.
 """

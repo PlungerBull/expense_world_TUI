@@ -191,16 +191,16 @@ def test_clear_without_yes_in_non_tty_errors(tmp_config):
     assert "non-interactive" in result.output
 
 
-def test_set_preserves_bank_files_which_no_flag_touches(tmp_config):
-    """`config set` rebuilt the Config by naming fields, so every field it has
-    no flag for was dropped — `bank_files` (the file stem → account memory
-    `expense import bank` writes) was wiped by any `config set`."""
+def test_set_preserves_sheet_account_names_which_no_flag_touches(tmp_config):
+    """`config set` copies the Config and updates it, so a field it has no
+    flag for — `sheet_account_names`, the renames `expense import sheet`
+    writes — survives any `config set`."""
     tmp_config.write_text(
         json.dumps(
             {
                 "engine_url": BASE,
                 "token": "ewe_pat_old",
-                "bank_files": {"VISA Infinite Sapphire": "BCP Signature"},
+                "sheet_account_names": {"BCP:PEN": "Sueldo Soles"},
             }
         )
     )
@@ -210,7 +210,7 @@ def test_set_preserves_bank_files_which_no_flag_touches(tmp_config):
 
     cfg = config_module.load()
     assert cfg.token == "ewe_pat_new"
-    assert cfg.bank_files == {"VISA Infinite Sapphire": "BCP Signature"}
+    assert cfg.sheet_account_names == {"BCP:PEN": "Sueldo Soles"}
 
 
 def test_set_leaves_every_other_config_field_alone(tmp_config):
