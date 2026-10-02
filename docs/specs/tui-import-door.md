@@ -39,4 +39,13 @@ It is used for real only after [official-migration.md](official-migration.md) is
 
 Approved by the owner 2026-10-02.
 
-1. Stop remembering accounts by file name; remove that saved setting.
+1. Import screens, follow-ups (owner, 2026-10-02): with files still to come, a nothing-new
+   preview's `⏎` reads "Next file" and moves on; the `esc` label counts the files still to come
+   (`Cancel both` on file 1 of 2, `Cancel` on file 2 of 2). Kept as built: `⏎ Home` with unsaved
+   staged rows asks the discard question first; the plural after-import line ("… check them and
+   delete the extra ones"). Also from the review: docs/tui.md's nothing-new footer line, a
+   contract citation on the "excess before it writes" comment, the keymap contract in docs/tui.md
+   §4 naming the import door's exceptions, tests for the account-pick refusal and a double `⏎`
+   on the preview, and footer relabelling without Textual's private bindings if a public way
+   exists.
+2. Stop remembering accounts by file name; remove that saved setting.
