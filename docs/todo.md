@@ -41,6 +41,11 @@ question lives in it.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **Flaky unit test: `test_toggle_error_drops_queued_intents_and_resyncs`**
+  ([test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py)). Failed once in a
+  full `pytest tests/unit` run on 2026-10-02 (2 PUTs sent, 1 expected: the queued toggle went out
+  before the failing PUT's error dropped it) and passed 6 of 6 alone. Either the test asserts
+  before the queue settles or the screen has a real race; find which.
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
