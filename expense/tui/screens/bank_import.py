@@ -184,12 +184,18 @@ class ImportRun:
             return (*CRUMB, f"file {self.index + 1} of {len(self.files)}")
         return (*CRUMB, self.current.path.name)
 
+    @property
+    def left(self) -> int:
+        """The files still to come, the current one included."""
+        return len(self.files) - self.index
+
     def cancel_label(self) -> str:
         """esc's word before a file is written: it stops this file and every
-        file after it (screen 7 B)."""
-        if not self.several:
-            return "Cancel"
-        return "Cancel both" if len(self.files) == 2 else "Cancel all"
+        file after it (screen 7 B), so it counts them — `Cancel all` (three or
+        more), `Cancel both` (two), `Cancel` (this one alone)."""
+        if self.left >= 3:
+            return "Cancel all"
+        return "Cancel both" if self.left == 2 else "Cancel"
 
 
 def _relabel(screen: Screen, key: str, description: str) -> None:
@@ -247,6 +253,11 @@ class _ImportScreen(Screen):
 
     def body(self) -> RenderableType:
         raise NotImplementedError
+
+    def _next_file(self) -> None:
+        """On to the next file's account list; nothing is written here."""
+        self._run.index += 1
+        self.app.switch_screen(ImportAccountScreen(self._run, self._owner))
 
     def _close(self, *, home: bool = False) -> None:
         """Back to the LOG bar; it decides what the bar and the stack do next."""
@@ -504,7 +515,8 @@ def failure_lines(err: Exception, prepared: Prepared, *, applied: bool) -> list[
 
 class ImportPreviewScreen(_ImportScreen):
     """The engine's dry run of this file on this account. Nothing is written
-    until `⏎`; with nothing new, `⏎` does nothing at all (screen 6 A)."""
+    until `⏎`. With nothing new (screen 6 A), `⏎` opens the next file's
+    account list when a file follows, and does nothing on the last one."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -543,9 +555,20 @@ class ImportPreviewScreen(_ImportScreen):
             and not self._writing
         )
 
+    @property
+    def can_skip(self) -> bool:
+        """Nothing new, a file after this one: `⏎` moves on, writing nothing."""
+        return (
+            self._placed is not None
+            and self.new_count == 0
+            and not self._failure
+            and not self._writing
+            and self._run.has_next
+        )
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "apply":
-            return self.can_apply
+            return self.can_apply or self.can_skip
         if action == "page":
             delta = parameters[0] if parameters else 1
             if delta == 1:
@@ -597,9 +620,12 @@ class ImportPreviewScreen(_ImportScreen):
         new = self.new_count
         if new:
             _relabel(self, "enter", f"Import {new} {_plural(new, 'row', 'rows')}")
-        elif not self._run.several:
-            # Nothing to write: esc only goes back (screen 6 A). With files
-            # after this one it still stops them all, and says so.
+        elif self._run.has_next:
+            # Nothing to write, a file still to come: ⏎ moves on to it, and
+            # esc still stops this file and the ones after it.
+            _relabel(self, "enter", "Next file")
+        else:
+            # Nothing to write and no file after: esc only goes back (screen 6 A).
             _relabel(self, "escape", "Back")
         self.refresh_bindings()
         self._repaint()
@@ -620,6 +646,9 @@ class ImportPreviewScreen(_ImportScreen):
 
     # ---- keys ----------------------------------------------------------------
     def action_apply(self) -> None:
+        if self.can_skip:
+            self._next_file()
+            return
         if not self.can_apply:
             return
         self._writing = True
@@ -704,9 +733,10 @@ def result_lines(
     """`✓ 9 rows imported · Sueldo Soles`, `under @Pendiente`, and the days
     where the ledger may now hold one movement twice (screen 4 B).
 
-    The engine computes `excess` before it writes, so on such a day a row the
-    apply just wrote as `new` may be the same movement the ledger already had
-    under another wording — hence "may now hold".
+    The engine computes `excess` before it writes
+    (contract: POST /v1/transactions/import), so on such a day a row the apply
+    just wrote as `new` may be the same movement the ledger already had under
+    another wording — hence "may now hold".
     """
     new = sum(1 for p in placed if p.outcome == "new")
     head = Text(f"✓ {new} {_plural(new, 'row', 'rows')} imported", style=PALETTE.success)
@@ -762,8 +792,7 @@ class ImportResultScreen(_ImportScreen):
 
     def action_next(self) -> None:
         if self._run.has_next:
-            self._run.index += 1
-            self.app.switch_screen(ImportAccountScreen(self._run, self._owner))
+            self._next_file()
             return
         self._close(home=True)
 

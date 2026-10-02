@@ -329,6 +329,62 @@ def test_the_card_sends_each_row_to_the_leg_of_its_currency(fake_client, monkeyp
     run_app(scenario, size=(120, 40))
 
 
+def test_a_currency_the_picked_account_has_no_leg_for_is_refused_on_the_list(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        account = await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN: no USD leg
+        await pilot.pause()
+        assert app.screen is account
+        assert account._refused[-1].plain == (
+            "BCP holds PEN only, and this file has 1 row in USD. Pick the card that has "
+            "both, or an account in that currency."
+        )
+        assert account._refused[-1].plain in " ".join(_body(account).split())
+        assert fake_client.posts == []  # not even a dry run
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_a_file_with_nothing_on_or_after_the_floor_is_refused_with_its_lines(
+    fake_client, monkeypatch, tmp_path
+):
+    path = _bank_file(tmp_path)
+    rows = [
+        ("2025-12-30", "UBER TRIP", "S/", -4.2),
+        ("2026-09-08", "MYSTERY", "S/", "abc"),
+    ]
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, rows)})
+    _engine(fake_client)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        account = await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN
+        await pilot.pause()
+        assert app.screen is account
+        assert [line.plain for line in account._refused] == [
+            '! row 3: "abc" is not an amount',
+            "nothing to import — no row of this file is dated 2026-01-01 or later.",
+        ]
+        body = _body(account)
+        assert '! row 3: "abc" is not an amount' in body
+        assert "nothing to import — no row of this file is dated 2026-01-01 or later." in body
+        assert fake_client.posts == []
+
+    run_app(scenario, size=(160, 40))
+
+
 # ---- screen 3: the preview --------------------------------------------------------
 def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
     fake_client, monkeypatch, tmp_path
@@ -473,6 +529,43 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
         assert [r["id"] for r in dry["rows"]] == [r["id"] for r in applied["rows"]]
 
     run_app(scenario, size=(120, 40))
+
+
+def test_a_repeated_enter_on_the_preview_sends_one_apply(fake_client, monkeypatch, tmp_path):
+    import threading
+
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client)
+    answer = fake_client.post
+    release = threading.Event()
+
+    def held(path, json_body=None):
+        if not json_body["dry_run"]:
+            release.wait(timeout=5)  # the apply is still on its way
+        return answer(path, json_body)
+
+    fake_client.post = held
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        await pilot.press("enter", "enter", "enter")
+        await pilot.pause()
+        assert app.screen is preview and preview._writing
+        assert "enter" not in _shown(preview)
+        release.set()
+        await _on(pilot, app, ImportResultScreen, "no result screen")
+        assert _imports(fake_client) == [True, False]
+
+    try:
+        run_app(scenario, size=(120, 40))
+    finally:
+        release.set()
 
 
 def test_an_engine_error_on_apply_is_shown_and_nothing_more_is_sent(
@@ -668,6 +761,121 @@ def test_esc_on_the_first_file_cancels_both(fake_client, monkeypatch, tmp_path):
         await _drop(pilot, screen, first, second, third)
         account = await _preview(pilot, app)
         assert _shown(account) == {"escape": "Cancel all", "enter": "Pick"}
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_nothing_new_with_a_file_to_come_moves_on_without_writing(
+    fake_client, monkeypatch, tmp_path
+):
+    first = _bank_file(tmp_path)
+    second = _bank_file(tmp_path, "Cuenta Corriente.xlsx")
+    _patch(monkeypatch)
+    _feed(
+        monkeypatch,
+        {
+            first.name: (HEADERS, CARD_ROWS),
+            second.name: (HEADERS, [("2026-09-12", "PAGO PLANILLA", "S/", 6519)]),
+        },
+    )
+    # the card's four rows are in the ledger already; the second file's one is new
+    _engine(
+        fake_client, lambda i, r: _matched("operation_code") if r["account_id"] != "bcp-pen" else {}
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, first, second)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        assert "nothing to import" in _body(preview)
+        assert _shown(preview) == {"escape": "Cancel both", "enter": "Next file"}
+        await pilot.press("enter")
+        account = await _preview(pilot, app)
+        assert account is not preview
+        assert "Import  ▸  file 2 of 2" in _crumb(account)
+        assert _imports(fake_client) == [True]  # the dry run only; nothing written
+        assert _shown(account) == {"escape": "Cancel", "enter": "Pick"}
+        await pilot.press("down", "enter")  # BCP PEN
+        preview = await _previewed(pilot, app)
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 1 row"}
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_nothing_new_on_the_last_of_several_files_goes_back_only(
+    fake_client, monkeypatch, tmp_path
+):
+    first = _bank_file(tmp_path)
+    second = _bank_file(tmp_path, "Cuenta Corriente.xlsx")
+    _patch(monkeypatch)
+    _feed(
+        monkeypatch,
+        {
+            first.name: (HEADERS, CARD_ROWS),
+            second.name: (HEADERS, [("2026-09-12", "PAGO PLANILLA", "S/", 6519)]),
+        },
+    )
+    # the card's rows are new; the second file's one is in the ledger already
+    _engine(
+        fake_client, lambda i, r: _matched("operation_code") if r["account_id"] == "bcp-pen" else {}
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, first, second)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        await _previewed(pilot, app)
+        await pilot.press("enter")
+        await _on(pilot, app, ImportResultScreen, "no first result")
+        await pilot.press("enter")
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        assert lines[-1] == "nothing to import"
+        assert _shown(preview) == {"escape": "Back"}
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.screen is preview
+        assert _imports(fake_client) == [True, False, True]
+        await pilot.press("escape")
+        await _on(pilot, app, LogBarScreen, "esc Back did not return to the bar")
+        assert _imports(fake_client) == [True, False, True]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_esc_word_counts_the_files_still_to_come(fake_client, monkeypatch, tmp_path):
+    files = [_bank_file(tmp_path, f"{name}.xlsx") for name in ("Uno", "Dos", "Tres")]
+    _patch(monkeypatch)
+    _feed(monkeypatch, {p.name: (HEADERS, CARD_ROWS) for p in files})
+    _engine(fake_client)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, *files)
+        account = await _preview(pilot, app)
+        assert _shown(account) == {"escape": "Cancel all", "enter": "Pick"}  # 1 of 3
+        await pilot.press("enter")
+        await _previewed(pilot, app)
+        await pilot.press("enter")
+        await _on(pilot, app, ImportResultScreen, "no first result")
+        await pilot.press("enter")
+        account = await _preview(pilot, app)
+        assert "Import  ▸  file 2 of 3" in _crumb(account)
+        assert _shown(account) == {"escape": "Cancel both", "enter": "Pick"}
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        assert _shown(preview) == {"escape": "Cancel both", "enter": "Import 4 rows"}
+        # esc on file 2 of 3 cancels it and file 3; file 1 stays imported
+        await pilot.press("escape")
+        await _on(pilot, app, LogBarScreen, "esc did not return to the bar")
+        assert app.screen is screen
+        assert preview._run.imported == 1
+        assert _imports(fake_client) == [True, False, True]
 
     run_app(scenario, size=(120, 40))
 

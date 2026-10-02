@@ -205,22 +205,27 @@ three full screens that replace one another above the LOG bar:
 | Screen | Shows | Keys |
 |---|---|---|
 | **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — the typed import's `account_groups`, archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
-| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the typed import's verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows`, `pgdn`/`pgup`, `esc Cancel` |
+| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the typed import's verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `under @Pendiente` dim; when the engine's `excess` names any day, `! 1 day where the ledger may now hold the same movement twice — check it and delete the extra one` (`2 days … check them and delete the extra ones`) with one `date · amount` line per day under it | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
-A preview with nothing new keeps the table and the summary, adds dim `nothing to import`,
-and `⏎` does nothing; its footer is `esc Back`. `⏎` on a preview sends the same rows, under
-the same ids, as the apply — one `POST /transactions/import` with `dry_run: false` through
-the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
+A preview with nothing new keeps the table and the summary and adds dim `nothing to import`.
+On the last (or only) file `⏎` does nothing and the footer is `esc Back`. With a file still
+to come the footer is `esc Cancel both` / `esc Cancel all` (below) and `⏎ Next file`, and
+`⏎` opens the next file's account list, writing nothing. `⏎` on a preview with new rows
+sends the same rows, under the same ids, as the apply — one `POST /transactions/import`
+with `dry_run: false` through the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
 stays on the preview, the rows it names by file line, and nothing else is sent. The
 account a pick cannot hold (a currency with no leg, more than 500 rows, nothing on or after
 2026-01-01) is refused on the account list in the typed import's words.
 
 **Several files** carry `Import ▸ file 1 of 2` in the crumb and the file's name under the
-question. `esc` before a file is written cancels it and every file after it — the footer
-says `esc Cancel both` (two files) or `esc Cancel all` (more); a file already imported stays
-imported. **`esc`** on any import screen lands on the LOG bar with the bar cleared and the
-staged rows as they were; a row lifted for editing goes back unchanged when the drop is imported.
+question. `esc` before a file is written cancels it and every file after it, and its word
+counts the files still to come, this one included: `esc Cancel all` (three or more),
+`esc Cancel both` (two), `esc Cancel` (this one alone — `esc Back` on a nothing-new preview).
+File 1 of 2 says `Cancel both`, file 2 of 2 `Cancel`, file 2 of 3 `Cancel both`. A file
+already imported stays imported. **`esc`** on any import screen lands on the LOG bar with
+the bar cleared and the staged rows as they were; a row lifted for editing goes back
+unchanged when the drop is imported.
 `⏎ Home` leaves the bar for Home, through the bar's discard question when rows are staged
 and unwritten, and Home reads afresh: this month's window, every category folded, the
 cursor on the first category (`HomeScreen.start_fresh`). The TUI never reads or writes the
@@ -331,6 +336,17 @@ them — they are hand-written into the `?` card
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
   advertise `⏎ Open` falsely.
+
+**The import door's exceptions** (§2 "The import door",
+[bank_import.py](../expense/tui/screens/bank_import.py)):
+
+- **`⏎ Import N rows` writes.** On the preview `⏎` is the apply — the one key on an import
+  screen that changes data, named in the footer with the count it writes.
+- **The preview's `pgdn`/`pgup` are hinted in the body, not the footer.** The
+  `… N more · pgdn` / `… N above · pgup` line under the table says where more rows are; the
+  footer keeps to `esc` and `⏎`.
+- **No `r` on the import screens.** Each reads once, when it opens — the account list, the
+  preview's dry run; dropping the file on the LOG bar again reads both afresh.
 
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py)):
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
