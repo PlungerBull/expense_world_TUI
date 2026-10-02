@@ -266,6 +266,33 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar, and to a card row that moves a day between downloads. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor* — one forgotten flag from duplicates. *A cleaned merchant name as the title* — the title is what the bank sent.
 
+## The TUI import door — a drop is text, read up front, asked every time (2026-10-02)
+
+**Decision.** (1) **A dropped or pasted path is recognised as text** by one pure function
+([dropped.py](../expense/tui/dropped.py)): the terminal types the path, so no mouse tracking or
+emulator hook is involved. Terminal.app's backslash escapes and VS Code's quotes are both read.
+**A line counts as files only if every word is an existing `.xlsx` path**; otherwise it stays
+quick-add, so a half-recognised line never imports some files and stages the rest. VS Code's
+terminal inserts one file per drop, so several files at once work in Terminal.app only.
+(2) **Every file is read before any screen opens**; a file that is not a BCP export keeps the
+LOG bar where it is, with what it is missing, and nothing is sent. (3) **Three full screens**
+(account list, preview, result) replace one another above the bar, built on the typed import's
+own read, engine call and verdicts. (4) **The account is asked every time** (see "Bank downloads
+are matched against the ledger" (1)). (5) **`esc` cancels this file and every later one**,
+because `esc` means cancel everywhere in the app; a file already imported stays imported. A
+nothing-new file with files after it moves on with `⏎`. (6) **The result screen says the ledger
+*may now hold* the same movement twice.** The engine computes `excess` against the ledger
+before it writes (contract: POST /v1/transactions/import), so on an equal-count day (typed
+`Starbucks`, bank `STARBUCKS MIRAFLORES LIMA PE`) the bank's row has just been written as `new`
+next to the typed one. Card purchases arrive mainly through the import and typing one stays
+possible, so the case is rare but real.
+
+**Rejected.** *Remembering the account per file name* — a browser re-download is a new name.
+*Splitting quoted paths glued together by repeated VS Code drops* — it reads the line in a way a
+shell would not. *A "rename to the bank's wording" offer after apply* — the note names the day;
+deleting the extra row is one key in the ledger. *A separate error screen for a non-BCP file* —
+the bar is where the right file gets dropped next.
+
 ## Home is the month — a live list, `⏎` is the filter, and bulk edits are select + one key (2026-09-12)
 
 **Decision.** (1) **Home is a live list off the one `/dashboard` read**: categories (see "Home draws four months"), then accounts and people **in their own currency with the code beside the figure**, then LEDGER, MANAGE and SYSTEM as always-open section headers with every screen a row. A failed read is one dim row with the reason. (2) **`⏎` on a row pushes Transactions with a `LedgerFilter`** — the engine's own `?category_id=` / `?account_id=` — crumbed `Ledger ▸ NAME`. (3) **Bulk is select + one key**: `space` selects, `a` selects every loaded row, `c` / `b` / `h` open one `PickerModal` over the selection (or the cursor row) and write **one `PUT /transactions/{id}` per row on its own worker**, then reload. A refused row is named by number and does not stop the others — which is why this is not `run_write`'s drop-on-error queue. (4) **Changed rows leave a filtered list at once**; the toast is the receipt. (5) **`esc` clears a selection, otherwise pops the screen** — the filter is the door, not a state. (6) **Hashtags replace the set** (the engine's `hashtag_ids` semantics); an empty apply is refused rather than read as "clear every tag". (7) **`@Pendiente` is pickable**, so a wrong bulk pick can be undone.

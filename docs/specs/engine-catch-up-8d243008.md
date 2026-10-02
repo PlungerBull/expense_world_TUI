@@ -1,6 +1,6 @@
 # Catch up to engine contract 8d2430081e64cd7c
 
-**Status: draft.** Runs after [tui-import-door.md](tui-import-door.md) (owner, 2026-10-02).
+**Status: draft.** Comes after the TUI import door, which is done (owner, 2026-10-02).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -39,3 +39,6 @@ Draft, for the owner's approval.
 2. A guard that the batch chunk size stays at or under the engine's 500.
 3. Hints for `EMPTY` on `display_name` (first-time setup, profile) and for `SETTINGS_MISSING`
    on the rate reads, matched on the reason code, never the wording.
+4. With the practice engine up, settle two citations against the live contract: the transaction
+   path written both `{id}` and `{transaction_id}` across the docs and code, and a citation for
+   the calendar-day rule in [file-import-plan.md](../file-import-plan.md) §11.

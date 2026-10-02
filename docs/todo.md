@@ -30,9 +30,7 @@ Asked <date> · Blocks: <task or spec>
 ### Review the two draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
-have no open questions left and their mockups are approved. Approve each one's draft tasks. The
-current spec is [tui-import-door.md](specs/tui-import-door.md) (owner, 2026-10-02); its own
-question lives in it.
+have no open questions left and their mockups are approved. Approve each one's draft tasks.
 
 ---
 
@@ -50,16 +48,14 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
   - `test_enter_home_with_unwritten_staged_rows_asks_first`
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
-- **Catch up to engine contract 8d2430081e64cd7c** — after the import door (owner, 2026-10-02).
+- **Catch up to engine contract 8d2430081e64cd7c** (owner, 2026-10-02: after the import door).
   Spec (draft): [specs/engine-catch-up-8d243008.md](specs/engine-catch-up-8d243008.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
-- **Import bank files from the TUI** (with the after-apply "may be logged twice" wording). Spec
-  (current): [specs/tui-import-door.md](specs/tui-import-door.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
-  paused behind the import door; its open questions live in the spec.
+  paused; its open questions live in the spec.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

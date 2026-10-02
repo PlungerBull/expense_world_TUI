@@ -1,6 +1,6 @@
 # The TUI is the only surface
 
-**Paused** behind [tui-import-door.md](tui-import-door.md) (owner, 2026-10-02). Tasks are drafted into a "Tasks" section at the end once
+**Paused** (owner, 2026-10-02); the TUI import door it waited on is done. Tasks are drafted into a "Tasks" section at the end once
 the open questions below are answered. **When done:** the why moves to
 [decisions.md](../decisions.md), and this file is deleted.
 
@@ -32,9 +32,8 @@ directly.
 - **`expense world`** — it is how the TUI opens.
 - **`expense import sheet`** — stays for good (owner, 2026-09-30). It is the door for the
   owner's spreadsheet (PRESUPUESTO) and [official-migration.md](official-migration.md) runs on it.
-- **`expense import bank`** — stays until the TUI import door ([tui-import-door.md](tui-import-door.md))
-  ships, then it is deleted (owner, 2026-09-30). Until then it is the only way to bring bank
-  files in.
+- **`expense import bank`** — deleted (owner, 2026-09-30, step 8 below): the TUI import door
+  has shipped and brings bank files in.
 
 Everything else typed goes, along with its tests, its human tables and [cli-spec.md](../cli-spec.md)
 (except what still describes the two imports and the config file).
@@ -111,7 +110,7 @@ The draft is "Draft note to the engine coder" below.
   "Testing conventions" (the per-command guards go), "Status". [cli-runtime.md](../cli-runtime.md)
   becomes the runtime doc for the TUI and the imports.
 - **Specs that shrink:** [tag-suggestions.md](tag-suggestions.md) drops its new flat command and
-  the question about its columns. [tui-import-door.md](tui-import-door.md) leaves the typed
+  the question about its columns. The TUI import door leaves the typed
   `import bank` wording alone, since the command goes.
 - **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name resolution
   for reference flags", "Move between accounts convenience" (unless wanted as a TUI feature),

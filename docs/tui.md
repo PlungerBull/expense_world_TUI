@@ -214,8 +214,8 @@ to come the footer is `esc Cancel both` / `esc Cancel all` (below) and `⏎ Next
 `⏎` opens the next file's account list, writing nothing. `⏎` on a preview with new rows
 sends the same rows, under the same ids, as the apply — one `POST /transactions/import`
 with `dry_run: false` through the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
-stays on the preview, the rows it names by file line, and nothing else is sent. The
-account a pick cannot hold (a currency with no leg, more than 500 rows, nothing on or after
+stays on the preview, the rows it names by file line, and nothing else is sent. A file the
+picked account cannot hold (a currency with no leg, more than 500 rows, nothing on or after
 2026-01-01) is refused on the account list in the typed import's words.
 
 **Several files** carry `Import ▸ file 1 of 2` in the crumb and the file's name under the
@@ -228,8 +228,7 @@ the bar cleared and the staged rows as they were; a row lifted for editing goes 
 unchanged when the drop is imported.
 `⏎ Home` leaves the bar for Home, through the bar's discard question when rows are staged
 and unwritten, and Home reads afresh: this month's window, every category folded, the
-cursor on the first category (`HomeScreen.start_fresh`). The TUI never reads or writes the
-typed command's per-file account memory.
+cursor on the first category (`HomeScreen.start_fresh`).
 
 **`d` is the TUI's one destructive key.** Cursor row only, never a selection, and the
 confirm says the part that matters: **no screen or command can bring the row back.**
@@ -347,6 +346,8 @@ them — they are hand-written into the `?` card
   footer keeps to `esc` and `⏎`.
 - **No `r` on the import screens.** Each reads once, when it opens — the account list, the
   preview's dry run; dropping the file on the LOG bar again reads both afresh.
+- **No `?` on the import screens.** They do not take `HelpBindingMixin`; the footer is their
+  whole key list.
 
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py)):
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
@@ -451,7 +452,8 @@ that could list the other keys (below). Guarded by `test_form_navigation_keys_ar
 
 **The footer never advertises the arrow keys.** `Navigate` is declared `show=False` on
 `CursorList` and `CheckList`. The keys work unchanged and the `?` card still lists them.
-`pgdn`/`pgup` and `→ ←` expand/collapse **stay** in the footer: they are not obvious. New
+`pgdn`/`pgup` and `→ ←` expand/collapse **stay** in the footer: they are not obvious (the
+import preview's `pgdn`/`pgup` are the exception above). New
 bindings inherit this rule — if a key only says "the cursor moves", it does not get a
 footer slot.
 

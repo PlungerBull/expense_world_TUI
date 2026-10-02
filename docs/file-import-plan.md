@@ -1,10 +1,10 @@
 # File import as the intake — what is left to build
 
-**Open: C1, the TUI import door (§3, spec [tui-import-door.md](specs/tui-import-door.md)), and
-the one-time title alignment (§6, spec [official-migration.md](specs/official-migration.md)); §11
-is a standing warning.** Every rule here is an owner decision (2026-09-19 unless dated). Open:
-nothing; the screens are approved in [expense-world-import-door.html](mockups/expense-world-import-door.html). When the work ships, its why moves to [decisions.md](decisions.md) and this file is
-deleted. Section numbers have gaps on purpose: other docs cite §3, §6 and §11.
+**Open: the one-time title alignment (§6, spec [official-migration.md](specs/official-migration.md));
+§11 is a standing warning.** The TUI import door is built ([decisions.md](decisions.md)
+"The TUI import door"). Every rule here is an owner decision (2026-09-19
+unless dated). When the work ships, its why moves to [decisions.md](decisions.md) and this file
+is deleted. Section numbers have gaps on purpose: other docs cite §6 and §10.
 
 The engine half: (contract: POST /v1/transactions/import).
 
@@ -23,51 +23,8 @@ already parse ([bank_import/parse.py](../expense/bank_import/parse.py)).
 **Reuse, don't rebuild:** `expense import bank` ([cli-spec.md](cli-spec.md)) does parse →
 account pick → one `POST /transactions/import` (dry run by default) → preview → `--apply`. The
 request and the response → rows live once, in
-[bank_import/engine.py](../expense/bank_import/engine.py), for the TUI door to call. Recovery
-from a wrong account pick: select the rows in Home, `b`.
-
----
-
-## 3. C1 — the TUI import door **[UI — mockup required before code]**
-
-`+` opens the LOG bar; dragging an `.xlsx` onto the terminal makes the emulator insert the
-file's path as text. The bar notices the line is a path to an existing `.xlsx` and switches from
-quick-add to "import this file".
-
-Mechanics, all verified:
-
-- Textual 8.2.7 emits paste events and the LOG bar is a plain `Input`
-  ([log_bar.py](../expense/tui/screens/log_bar.py)); `run(mouse=False)` is irrelevant — this is
-  the terminal inserting text, not mouse tracking.
-- **Escaping differs by emulator**: Terminal.app backslash-escapes spaces and parentheses, VS
-  Code wraps the path in quotes. Unescape and strip quotes.
-- **Several files dropped at once** arrive as several space-separated paths.
-- Typing or pasting a path does the same thing, so the decision is a pure function (text in →
-  import or quick-add), testable without a terminal.
-
-Then: account list → preview → apply.
-
-**The account list replaces the filename memory.** The account is asked every time; nothing is
-remembered by file name. Keyed by `Path(file).stem`, `Sueldo Soles (1).xlsx` (every browser
-re-download) would be a new key that prompts again and grows the config forever. The list
-shows every account, a card's two currency legs folded into one line ([expense-world-import-door.html](mockups/expense-world-import-door.html) screen 2).
-
-**Account names:** the ledger's BCP accounts carry the bank's product names, written by the
-sheet import's `--account-name` ([cli-spec.md](cli-spec.md) "Renaming an account leg"), so the list
-shows those names.
-
-**The after-apply note.** `render_result` in
-[bank_import_cmd.py](../expense/commands/bank_import_cmd.py) prints `excess_lines` the same way on
-preview and apply, so after `--apply` it still reads `… — check / before --apply, it may be
-logged twice`. The engine computes `excess` against the ledger before the write, so on an
-equal-count day (owner typed `Starbucks`, bank says `STARBUCKS MIRAFLORES LIMA PE`) the bank's
-row has just been written as `new` and the ledger now holds the duplicate. The picked mockup
-([expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html) pane 2, pick C)
-and `test_unmatched_ledger_rows_are_one_line_per_day_counted_up_front` cover the preview only.
-The after-apply wording (picked, [expense-world-import-door.html](mockups/expense-world-import-door.html) screen 4 B): *"! 1 day where the ledger may now
-hold the same movement twice — check it and delete the extra one"*, with the same per-day lines
-under it. Card purchases arrive mainly through the import and typing one stays possible, so the
-case is rare but real; no "rename to the bank's wording" offer is built.
+[bank_import/engine.py](../expense/bank_import/engine.py), and the TUI import door calls the
+same code. Recovery from a wrong account pick: select the rows in Home, `b`.
 
 ---
 
@@ -117,8 +74,8 @@ bank import.
 | Bulk "assign everything shown" on the reconciliation screen | Revisit if monthly closing proves tedious — the draft screen already lists exactly the rows it would assign. |
 | Other banks, CSV, PDF | BCP only. |
 
-`expense import bank` **stays** beside the TUI door: the reference implementation the TUI calls
-into, scriptable (`--json`, `--account`), and the way in if the TUI has a problem.
+`expense import bank` is deleted with the other typed commands, now that the TUI door exists
+(owner, 2026-09-30; [tui-only-plan.md](specs/tui-only-plan.md)).
 
 ---
 
@@ -139,11 +96,10 @@ backstop.
    each card statement contained, since a card cycle closes mid-month).
 2. After the official migration, the title alignment (§6), **before** step 1's periods are
    completed.
-3. TUI import door (§3) — mockup first.
-4. First real bank import.
+3. First real bank import.
 
-`expense import sheet` is bootstrap scaffolding, retired once the database becomes the record;
-nothing in this plan should keep it working.
+`expense import sheet` stays for good: it is the door for the owner's spreadsheet (owner,
+2026-09-30; [tui-only-plan.md](specs/tui-only-plan.md)).
 
 ---
 
@@ -154,4 +110,5 @@ client-side by comparing the ISO date prefix of the row's `date`; the engine tre
 whole calendar days in the user's timezone. They agree **only because every live row is stored
 at 00:00 America/Lima** (and Lima has no daylight saving); nothing enforces midnight. The bank
 importer sends bare days. **The first writer that stores a real time of day makes the `!` wrong
-near midnight** — that is the point to ask the engine again for the per-row flag.
+near midnight** — that is the point to write an engine ask for the per-row flag
+([engine-asks/](engine-asks/)).

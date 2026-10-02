@@ -27,6 +27,7 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/todo.md](docs/todo.md) | The **hub for open work**: work that belongs to no spec, and everything waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
 | [docs/specs/](docs/specs/) | The owner's specs, one per piece of work — what the loop builds | Local |
 | [docs/engine-asks/](docs/engine-asks/) | Every open engine ask, one standalone file each, handed as is to the engine coders; format in its README | Local |
+| [docs/cli-answers/](docs/cli-answers/) | The engine coders' drop box: one file per engine change this client must catch up with, written by them; read it as input when planning catch-up work | Local |
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
 | [docs/mockups/](docs/mockups/) | HTML mockups — the approval gate for every screen and table | Local |
 | The engine contract | Every endpoint, every business rule, every error code — the API contract (sections in `info.description`, rules per tag and per operation) | Live: `GET /openapi.json` on the practice engine (`http://127.0.0.1:8002/openapi.json`) |
