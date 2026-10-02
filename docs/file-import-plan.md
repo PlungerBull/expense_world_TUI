@@ -159,5 +159,4 @@ client-side by comparing the ISO date prefix of the row's `date`; the engine tre
 whole calendar days in the user's timezone. They agree **only because every live row is stored
 at 00:00 America/Lima** (and Lima has no daylight saving); nothing enforces midnight. The bank
 importer sends bare days. **The first writer that stores a real time of day makes the `!` wrong
-near midnight** — that is the point to ask the engine again for the per-row flag (engine
-`docs/decisions.md` D13 names it as the reopening condition).
+near midnight** — that is the point to ask the engine again for the per-row flag.

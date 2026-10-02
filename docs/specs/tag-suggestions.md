@@ -3,6 +3,8 @@
 **Status: draft.** The owner reviews and completes this spec before the loop starts on it.
 How it gets built: [category-hashtags-plan.md](../category-hashtags-plan.md). When done, the why
 moves to [decisions.md](../decisions.md), and this file and the plan are deleted.
+The engine side is live: the tags a category's transactions use, most-used first, the whole list
+in one answer (contract: GET /v1/categories/{category_id}/hashtags).
 
 ---
 
