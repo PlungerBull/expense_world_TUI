@@ -50,15 +50,11 @@ Then: account list → preview → apply.
 **The account list replaces the filename memory.** Today the account is remembered under
 `Path(file).stem`, so `Sueldo Soles (1).xlsx` (every browser re-download) is a new key that
 prompts again and grows the config forever. Ask every time, and delete the `bank_files` config
-key. The list shows the legs folded:
-
-```
-  1  BCP              PEN + USD
-  2  BCP Signature    PEN + USD
-```
+key. The list shows every account, a card's two currency legs folded into one line
+([expense-world-import-door.html](mockups/expense-world-import-door.html) screen 2).
 
 **Account names:** the ledger's BCP accounts carry the bank's product names, written by the
-sheet import's `--account-name` ([cli-spec.md](cli-spec.md) "Renaming an account leg"), so the list above
+sheet import's `--account-name` ([cli-spec.md](cli-spec.md) "Renaming an account leg"), so the list
 shows those names.
 
 **The after-apply note.** `render_result` in

@@ -27,11 +27,12 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Review the three draft specs
+### Review the two draft specs
 Asked 2026-09-29 · Blocks: each spec's work
-[tag-suggestions.md](specs/tag-suggestions.md), [official-migration.md](specs/official-migration.md)
-and [tui-import-door.md](specs/tui-import-door.md) have no open questions left and their mockups
-are approved. Approve each one's draft tasks, and name the one the loop starts on.
+[tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
+have no open questions left and their mockups are approved. Approve each one's draft tasks. The
+current spec is [tui-import-door.md](specs/tui-import-door.md) (owner, 2026-10-02); its own
+question lives in it.
 
 ---
 
@@ -44,10 +45,10 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).
 - **Import bank files from the TUI** (with the after-apply "may be logged twice" wording). Spec
-  (draft): [specs/tui-import-door.md](specs/tui-import-door.md).
+  (current): [specs/tui-import-door.md](specs/tui-import-door.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
-  the current spec; its open questions live in the spec.
+  paused behind the import door; its open questions live in the spec.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

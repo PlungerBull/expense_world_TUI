@@ -1,6 +1,6 @@
 # The TUI is the only surface
 
-**Current spec** (picked up 2026-09-30). Tasks are drafted into a "Tasks" section at the end once
+**Paused** behind [tui-import-door.md](tui-import-door.md) (owner, 2026-10-02). Tasks are drafted into a "Tasks" section at the end once
 the open questions below are answered. **When done:** the why moves to
 [decisions.md](../decisions.md), and this file is deleted.
 
@@ -111,8 +111,8 @@ The draft is "Draft note to the engine coder" below.
   "Testing conventions" (the per-command guards go), "Status". [cli-runtime.md](../cli-runtime.md)
   becomes the runtime doc for the TUI and the imports.
 - **Specs that shrink:** [tag-suggestions.md](tag-suggestions.md) drops its new flat command and
-  the question about its columns. [tui-import-door.md](tui-import-door.md) task 5 (the typed
-  `import bank` wording fix) goes if the door ships first.
+  the question about its columns. [tui-import-door.md](tui-import-door.md) leaves the typed
+  `import bank` wording alone, since the command goes.
 - **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name resolution
   for reference flags", "Move between accounts convenience" (unless wanted as a TUI feature),
   "`expense import csv`", and Parked "Flat-CLI color conventions" and "`auth pat create/revoke`".
