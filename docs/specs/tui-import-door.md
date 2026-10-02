@@ -9,7 +9,8 @@ How it gets built: [file-import-plan.md](../file-import-plan.md) §3. When done,
 ## What it must do
 
 - In `expense world`, `+` opens the LOG bar. Dragging a BCP `.xlsx` onto the terminal, or
-  pasting its path, turns the bar into "import this file". Several files at once work too.
+  pasting its path, turns the bar into "import this file". Several files at once work too, in
+  Terminal.app; VS Code's terminal takes one file per drop, so there they go one at a time.
 - It then asks which account the file belongs to, **every time**. Nothing is remembered by file
   name, so a re-download named `… (1).xlsx` behaves like any other file.
 - A preview shows each row as new or already in the ledger. Nothing is written until the owner
@@ -39,5 +40,8 @@ It is used for real only after [official-migration.md](official-migration.md) is
 Approved by the owner 2026-10-02.
 
 1. The import screens: account list, preview, apply, the after-apply wording (screen 4 B) and
-   screens 5–7, reusing the typed import's engine call.
+   screens 5–7, reusing the typed import's engine call. With several files, `⏎` on a result
+   reads "Next file" and opens the next file's account list; on the last, "Home". Dropping a
+   file while a staged row is lifted for editing drops the edit: the row keeps its line and the
+   import starts (owner, 2026-10-02).
 2. Stop remembering accounts by file name; remove that saved setting.
