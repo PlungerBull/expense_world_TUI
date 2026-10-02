@@ -1415,24 +1415,6 @@ def test_enter_on_dropped_files_hands_them_over_and_stages_nothing(
     run_app(scenario)
 
 
-def test_the_import_hook_shows_nothing_yet(fake_client, monkeypatch, tmp_path):
-    path = _bank_file(tmp_path)
-    _patch(monkeypatch)
-
-    async def scenario(pilot, app):
-        screen = await _open(app, pilot)
-        _type(screen, str(path))
-        before = screen._hint()
-        await pilot.press("enter")
-        await pilot.pause()
-        assert screen._hint() == before
-        assert len(app._notifications) == 0  # no placeholder, no toast
-        assert screen._staged == [] and fake_client.calls == []
-        assert app.screen is screen
-
-    run_app(scenario)
-
-
 def test_a_pasted_path_goes_through_the_same_recognition(fake_client, monkeypatch, tmp_path):
     from textual import events
 

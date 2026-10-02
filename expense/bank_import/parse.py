@@ -78,17 +78,48 @@ class BadRow:
     reason: str
 
 
+#: The bank's own spelling of each required column, keyed by the normalized
+#: label `match_headers` reports as missing — what a refusal names.
+COLUMN_TITLES = {
+    "fecha": "Fecha",
+    "descripcion": "Descripcion",
+    "moneda": "Moneda",
+    "monto": "Monto",
+}
+
+
+_COLUMN_ORDER = {label: i for i, label in enumerate(COLUMN_TITLES)}
+
+
 class BankFormatError(Exception):
-    """The header row is missing a required column."""
+    """The header row is missing a required column.
+
+    `missing` holds the bank's spelling of each absent column (`Fecha`) and
+    `found` the sheet's own non-empty headers, for a screen that lays the two
+    out on lines of their own; the message says both in one sentence.
+    """
+
+    def __init__(self, message: str, *, missing: list[str], found: list[str]) -> None:
+        super().__init__(message)
+        self.missing = missing
+        self.found = found
 
 
 def header_index(headers: list[object]) -> dict[str, int]:
     """Field → column index, or BankFormatError naming what is missing."""
     index, missing = match_headers(headers, FIELD_HEADERS, REQUIRED_FIELDS)
     if missing:
+        present = [h for h in headers if h is not None and str(h).strip()]
         found = ", ".join(repr(h) for h in headers if h is not None) or "(none)"
         raise BankFormatError(
-            f"The sheet is missing required column(s): {', '.join(missing)}. Found headers: {found}"
+            f"The sheet is missing required column(s): {', '.join(missing)}. "
+            f"Found headers: {found}",
+            # in the bank's own column order, not the matcher's
+            missing=[
+                COLUMN_TITLES.get(label, label)
+                for label in sorted(missing, key=lambda m: _COLUMN_ORDER.get(m, len(_COLUMN_ORDER)))
+            ],
+            found=[str(h).strip() for h in present],
         )
     return index
 

@@ -50,6 +50,10 @@ Screen {
     height: 1fr;
     padding: 1 2;
 }
+/* the import door's screens (bank_import.py): one body under the crumb */
+#import-body {
+    padding: 1 2;
+}
 /* the section content card; its max-width is set per-screen (SectionScreen.
    CARD_WIDTH) so amounts sit in a tidy column rather than spreading wide. */
 #card {

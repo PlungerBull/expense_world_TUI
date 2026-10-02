@@ -429,6 +429,14 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
     def action_reload(self) -> None:
         self._load_month()
 
+    def start_fresh(self) -> None:
+        """Before Home comes back after a write elsewhere (the import door's
+        `⏎ Home`): the window back on this month, every category folded, and
+        the cursor on the first category once the resume's read lands."""
+        self._end = self._today
+        self._state = FOLDED
+        self._menu_has_month = False
+
     # ---- data ---------------------------------------------------------------
     @work(thread=True, exclusive=True, group="home-month")
     def _load_month(self) -> None:

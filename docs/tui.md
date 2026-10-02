@@ -52,6 +52,10 @@ expense/tui/
                     #   /transactions/batch (via expense/batch_write.py). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
+    bank_import.py  # the import door behind the LOG bar: a dropped bank file →
+                    #   which account → preview → result, one file after another.
+                    #   Reads, previews and applies through the typed `expense
+                    #   import bank`'s own code (bank_import_cmd.py, bank_import/)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people
@@ -185,6 +189,42 @@ a count that cannot be read fails the pane. `r`, an edit and a delete all start 
 from the oldest ten, cursor on row 1. The **`!` flag is a hint, not a ruling** — it marks
 a row whose date falls inside a batch window this screen already holds, so it costs no
 request; the engine stays the authority at close time.
+
+**The import door — a dropped bank file into the ledger**
+([bank_import.py](../expense/tui/screens/bank_import.py), screens in
+[expense-world-import-door.html](mockups/expense-world-import-door.html)). `↵` on the LOG
+bar's dropped files (§4 "A dropped bank file") reads every file at once, before any screen
+opens, through the same reader as `expense import bank`
+([cli-spec.md](cli-spec.md)). A file that is not a BCP export, or cannot be read, keeps the
+bar where it is: the hint reads `not a BCP bank file · missing the columns Fecha, Monto`
+with `it has: <its headers>` dim under it, the footer is `esc Cancel` alone, nothing is
+sent, and the next keystroke clears it. With several files dropped, the hint names the
+first bad one and none of them starts. Otherwise each file, in drop order, goes through
+three full screens that replace one another above the LOG bar:
+
+| Screen | Shows | Keys |
+|---|---|---|
+| **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — the typed import's `account_groups`, archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
+| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the typed import's verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows`, `pgdn`/`pgup`, `esc Cancel` |
+| **✓ 9 rows imported · <account>** | `under @Pendiente` dim; when the engine's `excess` names any day, `! 1 day where the ledger may now hold the same movement twice — check it and delete the extra one` (`2 days … check them and delete the extra ones`) with one `date · amount` line per day under it | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
+
+A preview with nothing new keeps the table and the summary, adds dim `nothing to import`,
+and `⏎` does nothing; its footer is `esc Back`. `⏎` on a preview sends the same rows, under
+the same ids, as the apply — one `POST /transactions/import` with `dry_run: false` through
+the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
+stays on the preview, the rows it names by file line, and nothing else is sent. The
+account a pick cannot hold (a currency with no leg, more than 500 rows, nothing on or after
+2026-01-01) is refused on the account list in the typed import's words.
+
+**Several files** carry `Import ▸ file 1 of 2` in the crumb and the file's name under the
+question. `esc` before a file is written cancels it and every file after it — the footer
+says `esc Cancel both` (two files) or `esc Cancel all` (more); a file already imported stays
+imported. **`esc`** on any import screen lands on the LOG bar with the bar cleared and the
+staged rows as they were; a row lifted for editing goes back unchanged when the drop is imported.
+`⏎ Home` leaves the bar for Home, through the bar's discard question when rows are staged
+and unwritten, and Home reads afresh: this month's window, every category folded, the
+cursor on the first category (`HomeScreen.start_fresh`). The TUI never reads or writes the
+typed command's per-file account memory.
 
 **`d` is the TUI's one destructive key.** Cursor row only, never a selection, and the
 confirm says the part that matters: **no screen or command can bring the row back.**
@@ -353,9 +393,9 @@ down — no token colouring, no picker, no refusal, no account peek (hidden, sti
 last account), no legend row — and the hint reads `bank file · <name> · ⏎ import it`,
 or `bank files · <n> · ⏎ import them, one by one` with each name on its own indented
 line. The footer reads `esc Cancel  ⏎ Import` (`ctrl+s` is off while files are in the
-bar). `↵` stages nothing and calls nothing: it hands the paths to
-`LogBarScreen.import_bank_files`. Editing the line back to anything else returns the bar
-to quick-add on the same keystroke.
+bar). `↵` stages nothing: it hands the paths to `LogBarScreen.import_bank_files`, which
+starts the import door (§2 "The import door"). Editing the line back to anything else
+returns the bar to quick-add on the same keystroke.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

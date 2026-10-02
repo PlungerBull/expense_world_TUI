@@ -21,6 +21,7 @@ and the currency column chooses the leg per row.
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 
@@ -73,8 +74,25 @@ class AccountGroup:
             return next(iter(self.legs.values()))[1]
         return f"{self.base}     {' + '.join(sorted(self.legs))}"
 
+    @property
+    def name(self) -> str:
+        """What the account is called: the leg's own name, or a card's base."""
+        if len(self.legs) == 1:
+            return next(iter(self.legs.values()))[1]
+        return self.base
 
-def _fail(message: str) -> None:
+    @property
+    def currencies(self) -> str:
+        """`PEN`, or `PEN + USD` for a card with a leg per currency."""
+        return " + ".join(sorted(self.legs))
+
+    @property
+    def leg_names(self) -> dict[str, str]:
+        """leg account id → its name, for naming the engine's `excess` groups."""
+        return {ident: name for ident, name in self.legs.values()}
+
+
+def _fail(message: str) -> NoReturn:
     typer.echo(f"Error: {message}", err=True)
     raise typer.Exit(code=1)
 
@@ -190,6 +208,33 @@ def _remember(cfg, file_key: str, base: str) -> None:
 # ---------------------------------------------------------------------------
 # reading the file: parse, pick the account, apply the floor
 # ---------------------------------------------------------------------------
+class ImportRefused(Exception):
+    """A file, or a file and an account pick, the import will not send.
+
+    The message is the sentence both doors print. `list_bad` says the
+    file's refused lines explain it (nothing left after the floor), so a door
+    shows them before the sentence. A refused read keeps its cause
+    (`BankFormatError`, `ImportFileError`, …) as `__cause__`.
+    """
+
+    def __init__(self, message: str, *, list_bad: bool = False) -> None:
+        super().__init__(message)
+        self.list_bad = list_bad
+
+
+def read_bank_file(file: str) -> tuple[list[BankRow], list[BadRow]]:
+    """The bank's sheet → (rows, refused lines). Reads only; raises
+    ImportRefused when the file cannot be read or is not a bank export."""
+    try:
+        sheet = read_workbook(file, sheet_name=SHEET_NAME)
+        rows, bad = parse_bank_sheet(sheet)
+    except (ImportDependencyError, ImportFileError, BankFormatError) as exc:
+        raise ImportRefused(str(exc)) from exc
+    if not rows and not bad:
+        raise ImportRefused("the sheet has no rows.")
+    return rows, bad
+
+
 @dataclass(frozen=True)
 class Prepared:
     """Everything decided before the engine is asked: the rows that go, and
@@ -207,6 +252,43 @@ class Prepared:
         return any(r.operation_code for r in self.rows)
 
 
+def prepared_for(
+    file: str, group: AccountGroup, rows: list[BankRow], bad: list[BadRow]
+) -> Prepared:
+    """The file's rows on the picked account's legs, the floor applied — or
+    ImportRefused when the pick has no leg for a currency, the file is too long
+    for one request, or nothing is dated on or after the floor."""
+    currencies = sorted({r.currency for r in rows})
+    missing = [c for c in currencies if c not in group.legs]
+    if missing:
+        held = " and ".join(sorted(group.legs)) or "nothing"
+        n = sum(1 for r in rows if r.currency in missing)
+        raise ImportRefused(
+            f"{group.base} holds {held} only, and this file has {n} row{'' if n == 1 else 's'} in "
+            f"{' and '.join(missing)}. Pick the card that has both, or an account in that currency."
+        )
+
+    kept, before_floor = split_floor(rows)
+    if len(kept) > IMPORT_MAX_ROWS:
+        raise ImportRefused(
+            f"this file has {len(kept)} rows to import; one import takes at most "
+            f"{IMPORT_MAX_ROWS}. Export a shorter date range from the bank and import each part."
+        )
+    if not kept:
+        raise ImportRefused(
+            f"nothing to import — no row of this file is dated {IMPORT_FLOOR} or later.",
+            list_bad=True,
+        )
+    return Prepared(
+        file=file,
+        group=group,
+        rows=rows,
+        bad=bad,
+        before_floor=before_floor,
+        sent=sent_rows(kept, group.legs),
+    )
+
+
 def prepare(cfg, *, file: str, account_flag: str | None, quiet: bool, verbose: bool) -> Prepared:
     """Read the sheet, settle which account it belongs to, drop the rows under
     the floor and refuse a file too long for one request. Reads only.
@@ -215,14 +297,10 @@ def prepare(cfg, *, file: str, account_flag: str | None, quiet: bool, verbose: b
     which is what `--json` wants.
     """
     try:
-        sheet = read_workbook(file, sheet_name=SHEET_NAME)
-        rows, bad = parse_bank_sheet(sheet)
-    except (ImportDependencyError, ImportFileError, BankFormatError) as exc:
+        rows, bad = read_bank_file(file)
+    except ImportRefused as exc:
         _fail(str(exc))
-    if not rows and not bad:
-        _fail("the sheet has no rows.")
 
-    currencies = sorted({r.currency for r in rows})
     if rows and not quiet:
         typer.echo("  " + _file_banner(rows, bad))
 
@@ -234,33 +312,13 @@ def prepare(cfg, *, file: str, account_flag: str | None, quiet: bool, verbose: b
         groups, file_key=Path(file).stem, cfg=cfg, account_flag=account_flag, quiet=quiet
     )
 
-    missing = [c for c in currencies if c not in group.legs]
-    if missing:
-        held = " and ".join(sorted(group.legs)) or "nothing"
-        n = sum(1 for r in rows if r.currency in missing)
-        _fail(
-            f"{group.base} holds {held} only, and this file has {n} row{'' if n == 1 else 's'} in "
-            f"{' and '.join(missing)}. Pick the card that has both, or an account in that currency."
-        )
-
-    kept, before_floor = split_floor(rows)
-    if len(kept) > IMPORT_MAX_ROWS:
-        _fail(
-            f"this file has {len(kept)} rows to import; one import takes at most "
-            f"{IMPORT_MAX_ROWS}. Export a shorter date range from the bank and import each part."
-        )
-    if not kept:
-        for b in bad:
-            typer.echo(f"  ! row {b.line}: {b.reason}", err=True)
-        _fail(f"nothing to import — no row of this file is dated {IMPORT_FLOOR} or later.")
-    return Prepared(
-        file=file,
-        group=group,
-        rows=rows,
-        bad=bad,
-        before_floor=before_floor,
-        sent=sent_rows(kept, group.legs),
-    )
+    try:
+        return prepared_for(file, group, rows, bad)
+    except ImportRefused as exc:
+        if exc.list_bad:
+            for b in bad:
+                typer.echo(f"  ! row {b.line}: {b.reason}", err=True)
+        _fail(str(exc))
 
 
 def _file_banner(rows: list[BankRow], bad: list[BadRow]) -> str:
@@ -278,18 +336,24 @@ def _file_banner(rows: list[BankRow], bad: list[BadRow]) -> str:
 # ---------------------------------------------------------------------------
 # the one call
 # ---------------------------------------------------------------------------
-def post_import(cfg, prepared: Prepared, *, dry_run: bool, verbose: bool) -> dict:
-    """`POST /transactions/import`. The apply is this one call, not a dry run
+def import_call(client, prepared: Prepared, *, dry_run: bool) -> dict:
+    """`POST /transactions/import` on a client the caller opened — the one
+    request both doors make. The apply is this one call, not a dry run
     followed by a write: its response is what happened. The client's
     idempotency key covers a retry.
 
     The client's default read timeout (60 s). Measured against the
     local engine: a 500-row dry run answers in 0.05 s, and an apply adds at
     most 500 inserts in one transaction."""
+    return client.post(
+        "/transactions/import", json_body=request_body(prepared.sent, dry_run=dry_run)
+    )
+
+
+def post_import(cfg, prepared: Prepared, *, dry_run: bool, verbose: bool) -> dict:
+    """`import_call` on a client of its own."""
     with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.post(
-            "/transactions/import", json_body=request_body(prepared.sent, dry_run=dry_run)
-        )
+        return import_call(client, prepared, dry_run=dry_run)
 
 
 def period_names(cfg, placed: list[Placed], *, verbose: bool) -> tuple[dict[str, str], str | None]:
@@ -362,31 +426,57 @@ def render_result(
         typer.echo(f"  ! row {b.line}: {b.reason}")
 
 
-def summary_line(prepared: Prepared, placed: list[Placed], *, applied: bool) -> str:
-    total = len(prepared.rows) + len(prepared.bad)
-    new = sum(1 for p in placed if p.outcome == "new")
-    matched = [p for p in placed if p.outcome == "matched"]
-    sealed = sum(1 for p in placed if p.outcome == "sealed")
+@dataclass(frozen=True)
+class ImportCounts:
+    """What one answer adds up to — the figures both doors' summaries print."""
+
+    total: int  # the file's lines: read, refused, and under the floor alike
+    new: int
+    matched: int
+    by_rule: dict[str, int]
+    codes: int  # matched rows the engine writes an operation code onto
+    sealed: int
+    before_floor: int
+    refused: int
+
+
+def import_counts(prepared: Prepared, placed: list[Placed]) -> ImportCounts:
     by_rule: dict[str, int] = {}
-    for p in matched:
-        by_rule[p.rule or ""] = by_rule.get(p.rule or "", 0) + 1
+    for p in placed:
+        if p.outcome == "matched":
+            by_rule[p.rule or ""] = by_rule.get(p.rule or "", 0) + 1
+    return ImportCounts(
+        total=len(prepared.rows) + len(prepared.bad),
+        new=sum(1 for p in placed if p.outcome == "new"),
+        matched=sum(by_rule.values()),
+        by_rule=by_rule,
+        codes=sum(1 for p in placed if p.backfill_code),
+        sealed=sum(1 for p in placed if p.outcome == "sealed"),
+        before_floor=len(prepared.before_floor),
+        refused=len(prepared.bad),
+    )
+
+
+def summary_line(prepared: Prepared, placed: list[Placed], *, applied: bool) -> str:
+    counts = import_counts(prepared, placed)
+    by_rule = counts.by_rule
     # Strongest rule first, always, so the breakdown reads the same for every
     # file instead of following whichever rule claimed the first row.
     detail = " · ".join(
         f"{by_rule[rule]} by {label}" for rule, label in RULE_LABELS.items() if by_rule.get(rule)
     )
-    parts = [f"{total} rows", f"{new} new", f"{len(matched)} in the ledger"]
+    parts = [f"{counts.total} rows", f"{counts.new} new", f"{counts.matched} in the ledger"]
     if detail:
         parts[-1] += f" ({detail})"
-    codes = sum(1 for p in placed if p.backfill_code)
+    codes = counts.codes
     if codes:
         done = "written" if applied else "to write"
         parts.append(f"{codes} code{'' if codes == 1 else 's'} {done}")
-    if sealed:
-        parts.append(f"{sealed} in a closed period")
-    if prepared.before_floor:
-        parts.append(f"{len(prepared.before_floor)} before {IMPORT_FLOOR.year}")
-    parts.append(f"{len(prepared.bad)} refused")
+    if counts.sealed:
+        parts.append(f"{counts.sealed} in a closed period")
+    if counts.before_floor:
+        parts.append(f"{counts.before_floor} before {IMPORT_FLOOR.year}")
+    parts.append(f"{counts.refused} refused")
     return "  ·  ".join(parts)
 
 
@@ -418,6 +508,13 @@ def sealed_lines(placed: list[Placed], names: dict[str, str]) -> list[str]:
     return lines
 
 
+def excess_head(excess: list[ExcessGroup]) -> str:
+    """`! 2 ledger rows no file row matched — check` — the preview's warning,
+    in both doors."""
+    n = sum(e.unclaimed for e in excess)
+    return f"! {n} ledger row{'' if n == 1 else 's'} no file row matched — check"
+
+
 def excess_lines(excess: list[ExcessGroup]) -> list[str]:
     if not excess:
         return []
@@ -427,9 +524,8 @@ def excess_lines(excess: list[ExcessGroup]) -> list[str]:
     # One line per day, the count of unmatched ledger rows up front
     # (docs/mockups/expense-world-bank-import-10b.html).
     n = sum(e.unclaimed for e in excess)
-    rows_word = f"{n} ledger row{'' if n == 1 else 's'}"
     lines = [
-        f"! {rows_word} no file row matched — check",
+        excess_head(excess),
         f"  before --apply, {'it' if n == 1 else 'one'} may be logged twice",
     ]
     for e in excess:
@@ -476,19 +572,23 @@ def render_refusal(err: EngineError, prepared: Prepared) -> None:
     typer.echo("  Nothing was written.", err=True)
 
 
+def incomplete_sentence(gap: IncompleteAnswer, prepared: Prepared) -> str:
+    """What an answer short of (or beyond) the rows sent means, in both doors."""
+    n = len(prepared.sent)
+    return (
+        f"the engine answered {n - len(gap.missing)} of the {n} rows sent"
+        + (f", plus {len(gap.unknown)} it was never sent" if gap.unknown else "")
+        + " — nothing below would be complete, so nothing is shown."
+    )
+
+
 def _check_answer(response: dict, prepared: Prepared, *, applied: bool) -> list[Placed]:
     """Every sent row answered, or exit 1 saying so — never a count that is
     quietly short."""
     try:
         return placements(response, prepared.sent)
     except IncompleteAnswer as gap:
-        n = len(prepared.sent)
-        typer.echo(
-            f"Error: the engine answered {n - len(gap.missing)} of the {n} rows sent"
-            + (f", plus {len(gap.unknown)} it was never sent" if gap.unknown else "")
-            + " — nothing below would be complete, so nothing is shown.",
-            err=True,
-        )
+        typer.echo(f"Error: {incomplete_sentence(gap, prepared)}", err=True)
         for s in gap.missing:
             typer.echo(f"  ! row {s.row.line}: no answer", err=True)
         if applied:
@@ -567,11 +667,10 @@ def bank(
     else:
         placed = _check_answer(response, prepared, applied=apply)
         names, names_error = period_names(cfg, placed, verbose=verbose)
-        legs = {i: n for i, n in prepared.group.legs.values()}
         render_result(
             prepared,
             placed,
-            excess_groups(response, legs),
+            excess_groups(response, prepared.group.leg_names),
             names,
             show_all=show_all,
             applied=apply,

@@ -39,9 +39,4 @@ It is used for real only after [official-migration.md](official-migration.md) is
 
 Approved by the owner 2026-10-02.
 
-1. The import screens: account list, preview, apply, the after-apply wording (screen 4 B) and
-   screens 5–7, reusing the typed import's engine call. With several files, `⏎` on a result
-   reads "Next file" and opens the next file's account list; on the last, "Home". Dropping a
-   file while a staged row is lifted for editing drops the edit: the row keeps its line and the
-   import starts (owner, 2026-10-02).
-2. Stop remembering accounts by file name; remove that saved setting.
+1. Stop remembering accounts by file name; remove that saved setting.

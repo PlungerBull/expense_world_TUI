@@ -53,7 +53,9 @@ dragged onto the terminal, pasted or typed — is not a transaction.
 `expense/tui/dropped.py` decides it from the text alone; while it holds, the
 bar stands quick-add down (no colouring, no picker, no peek, no refusal), the
 hint names the file(s), the footer reads `esc Cancel  ⏎ Import`, and `↵` hands
-the files to `import_bank_files` instead of staging anything.
+the files to `import_bank_files` instead of staging anything: it reads them and
+opens the import door (`bank_import.py`), or says under the bar why a file is
+not a bank export.
 """
 
 from dataclasses import dataclass, field
@@ -712,6 +714,11 @@ class LogBarScreen(Screen):
         self._peek_timer = None
         # the files the bar holds instead of a line — `None` when it is a line
         self._files: list[Path] | None = None
+        # why the files in the bar cannot be imported (screen 5 A), until the
+        # next keystroke
+        self._file_problem: Text | None = None
+        # where leaving goes: the screen under the bar, or Home after an import
+        self._home_after = False
 
     # ---- layout ------------------------------------------------------------
     def compose(self) -> ComposeResult:
@@ -758,6 +765,7 @@ class LogBarScreen(Screen):
         nothing quick-add draws from the parse can react to it.
         """
         self._refused = None  # any edit is a new attempt
+        self._file_problem = None
         files = dropped_bank_files(text)
         if (files is None) != (self._files is None):
             self.refresh_bindings()  # the footer swaps `ctrl+s Save` for `⏎ Import`
@@ -814,22 +822,83 @@ class LogBarScreen(Screen):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Dropped files swap the footer: `⏎ Import` in, `ctrl+s Save` out."""
         if action == "import_files":
-            return self._files is not None
+            return self._files is not None and self._file_problem is None
         if action == "save":
             return self._files is None
         return True
 
     def action_import_files(self) -> None:
         """`⏎` on dropped files — never a stage, never an engine call here."""
-        if self._files is not None:
+        if self._files is not None and self._file_problem is None:
             self.import_bank_files(list(self._files))
 
     def import_bank_files(self, paths: list[Path]) -> None:
         """Where `⏎` hands the dropped files, in the order they were dropped.
 
-        The import screens (account, preview, apply) start here; this screen
-        does nothing else with them.
+        Every file is read here, before any screen opens. One that is not a
+        bank export keeps the bar where it is and says why under it (screen
+        5 A); otherwise the import screens take over (`bank_import.py`). A row
+        lifted for editing goes back to its place unchanged: the edit is
+        dropped, never the row.
         """
+        from expense.tui.screens.bank_import import (
+            ImportAccountScreen,
+            ImportRun,
+            problem_hint,
+            read_dropped,
+        )
+
+        files, problem = read_dropped(paths)
+        if problem is not None:
+            self._file_problem = problem_hint(problem, name_it=len(paths) > 1)
+            self.refresh_bindings()
+            self._refresh_view()
+            return
+        self._editing = None
+        self._refresh_view()
+        self.app.push_screen(ImportAccountScreen(ImportRun(files), self))
+
+    def import_closed(self, run, *, home: bool) -> None:
+        """An import screen closed; the bar is cleared either way. `home` (⏎
+        on the last result) goes on to Home, through the discard question
+        when rows are staged and unwritten, as `esc` does."""
+        if run.imported:
+            self._peek_cache.clear()  # the import wrote to the ledger it shows
+        self._set_bar("")
+        self._completed = False
+        self.refresh_bindings()
+        self._refresh_view()
+        if not home:
+            return
+        self._home_after = True
+        if self._pending():
+            self.app.push_screen(DiscardStagedModal(len(self._pending())), self._after_home_ask)
+            return
+        self._leave()
+
+    def _after_home_ask(self, answer: str | None) -> None:
+        """A cancelled discard question keeps the bar, so `esc` leaves to the
+        screen under it again."""
+        if answer is None:
+            self._home_after = False
+        self._after_discard(answer)
+
+    def _leave(self) -> None:
+        """Close the bar — to the screen under it, or to Home after an import,
+        which then reads afresh (first rows, cursor on the first)."""
+        if not self._home_after:
+            self.dismiss()
+            return
+        from expense.tui.screens.home import HomeScreen
+
+        stack = self.app.screen_stack
+        home = next((s for s in stack if isinstance(s, HomeScreen)), None)
+        if home is None:
+            self.dismiss()
+            return
+        home.start_fresh()
+        for _ in range(len(stack) - 1 - stack.index(home)):
+            self.app.pop_screen()
 
     def on_input_submitted(self, event: Input.Submitted | None = None) -> None:
         """`↵`: import dropped files · complete the open token · stage the line
@@ -882,7 +951,7 @@ class LogBarScreen(Screen):
             self.app.push_screen(DiscardStagedModal(len(self._pending())), self._after_discard)
             return
         else:
-            self.dismiss()
+            self._leave()
             return
         self._refresh_view()
 
@@ -894,7 +963,7 @@ class LogBarScreen(Screen):
         as no error at all.
         """
         if answer == "discard":
-            self.dismiss()
+            self._leave()
         elif answer == "save":
             self._begin_save(leave_after=True)
 
@@ -990,8 +1059,9 @@ class LogBarScreen(Screen):
         if written:
             self._last_save = written
         if leave_after and not self._pending():
-            self.dismiss()
+            self._leave()
             return
+        self._home_after = False  # a failed save-first keeps the bar, and esc its way out
         if self._pending():
             self.notify("Some rows were not written.", title="Failed", severity="error")
         elif written:
@@ -1087,7 +1157,9 @@ class LogBarScreen(Screen):
         self.query_one("#field", Label).update(label)
         self.query_one("#bar", Input).refresh()
         files = self._files
-        if files is not None and not self._saving:
+        if files is not None and self._file_problem is not None:
+            hint = self._file_problem
+        elif files is not None and not self._saving:
             hint = bank_files_hint(files)
         else:
             hint = Text(self._hint(), style="dim")
@@ -1223,6 +1295,8 @@ class LogBarScreen(Screen):
         """
         if self._saving:
             return SAVING_HINT
+        if self._files is not None and self._file_problem is not None:
+            return self._file_problem.plain
         if self._files is not None:
             return bank_files_hint(self._files).plain
         if self._refs is None:
