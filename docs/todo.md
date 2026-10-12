@@ -27,10 +27,35 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Review the two draft specs
-Asked 2026-09-29 · Blocks: each spec's work
-[tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
-have no open questions left and their mockups are approved. Approve each one's draft tasks.
+### The typed command for a category's tags: build it or not
+Asked 2026-10-12 · Blocks: [specs/tag-suggestions.md](specs/tag-suggestions.md) task 1
+The spec asks for a typed command, `expense categories hashtags <category-id>`. The LOG bar
+needs only the shared code behind it, and [specs/tui-only-plan.md](specs/tui-only-plan.md)
+deletes the typed commands.
+- **A.** Build only the shared code; no typed command.
+- **B.** Build the typed command too, as the spec says.
+**Recommended:** A, because you use only the TUI and the command would be deleted with the others.
+
+### A sheet row that is `PENDIENTES` on one side only
+Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
+A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`
+hashtag. What happens to the row's other label?
+- **A.** Category `COMIDA` + hashtag `PENDIENTES` goes to `@Pendiente` and loses `COMIDA`;
+  category `PENDIENTES` + hashtag `#LUZ` keeps `#LUZ`.
+- **B.** Category `COMIDA` + hashtag `PENDIENTES` keeps `COMIDA` and only loses the hashtag.
+- **C.** Any such row goes to `@Pendiente` with no hashtag at all.
+**Recommended:** none; it is your rule for your sheet.
+
+### Splitting one bank line into several rows
+Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
+A bank line's code sits on one row only, and card lines carry no code. A line of 100 split into
+60 and 40 is not recognised when that period is uploaded again, and the line is added a second
+time. Do you split bank lines, in the sheet today or in the app later?
+- **A.** Yes. Ask the engine to give every bank line an identity it keeps, shared by the parts
+  of a split, so a re-upload matches the line to its parts.
+- **B.** No. One bank line is always one row; nothing to build.
+**Recommended:** A if you ever split, because every client needs the same rule and only the
+engine can keep it.
 
 ### Where "Pendiente" sits when you re-categorise several rows at once
 Asked 2026-10-11 · Blocks: nothing
@@ -84,7 +109,7 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
-  Spec (draft): [specs/official-migration.md](specs/official-migration.md).
+  Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
   paused; its open questions live in the spec.

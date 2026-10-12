@@ -37,4 +37,3 @@ Draft, for the owner's approval.
 1. The typed command (one column, Name) and the shared fetch it uses.
 2. The LOG bar ordering: fetch once per category, keep it for the screen's life, fall back to
    today's list whenever the category's list is missing.
-3. A contract test against the practice engine: nothing calls this endpoint yet.

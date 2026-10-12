@@ -51,7 +51,9 @@ Field rules that matter to this repo:
 
 ## 2. What exists today
 
-- **No surface at all.** Nothing in this repo calls the endpoint.
+- **No surface at all.** Only the contract suite calls the endpoint
+  ([test_category_hashtags.py](../tests/contract/test_category_hashtags.py)), which pins the rules in §1
+  against the practice engine.
 - **The tag pool is global and flat.** `load_quickadd_refs`
   ([_resource.py](../expense/commands/_resource.py)) reads `GET /hashtags` once
   and hands the full list to `parse()`.
@@ -166,4 +168,3 @@ The category changes per keystroke, so this cannot ride the one-shot
    shaped for both surfaces — flat table and picker pool.
 2. The flat command, with the column sign-off.
 3. The LOG bar: lazy fetch, debounce, per-category cache, the fallbacks in §4d.
-4. Contract test against the disposable engine — nothing in this repo calls the endpoint yet.
