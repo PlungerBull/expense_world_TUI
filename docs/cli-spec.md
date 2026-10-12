@@ -13,7 +13,7 @@
 - The `debit_as_negative` convention is used end-to-end (negative = expense, positive = income), at input parsing and output rendering.
 - Every write carries an `X-Idempotency-Key`, re-sent unchanged on a bounded retry ([cli-runtime.md](cli-runtime.md) "Write semantics").
 - Engine errors surface intact: human mode may prettify, `--json` passes through verbatim — never swallow, never reformat lossily. (Deviations: Sanctioned exceptions below.)
-- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client; undeleting is an operator task outside the API (contract: "Base Conventions", "There is no restore"). Archive/unarchive are prompt-free — reversible toggles, not destruction.
+- Destructive operations (delete, revert) prompt for confirmation unless `--yes` / `-y` is passed. A delete is final from every client ([cli-runtime.md](cli-runtime.md) "Read semantics"). Archive/unarchive are prompt-free — reversible toggles, not destruction.
 - Archive = retired-but-real (contract: POST /v1/accounts/{account_id}/archive), delete = mistake/scrubbed (contract: "Base Conventions", "Deleted is deleted").
 
 ### Sanctioned exceptions
@@ -182,4 +182,4 @@ Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, match
   Error: VALIDATION_ERROR — Amount must not be zero.
     amount_cents: Must not be zero.
   ```
-- **`--json`** — pass-through: no reshaping, no truncation, no key renaming. Two-space indent, keys in the engine's order, UTF-8 written as UTF-8 (`Café`, not `Café`). One serialiser, [expense/jsonout.py](../expense/jsonout.py), for every command and for the error envelope.
+- **`--json`** — pass-through: no reshaping, no truncation, no key renaming. Two-space indent, keys in the engine's order, UTF-8 written as UTF-8 (`Café`, not `Caf\u00e9`). One serialiser, [expense/jsonout.py](../expense/jsonout.py), for every command and for the error envelope.

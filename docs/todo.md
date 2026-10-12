@@ -58,8 +58,6 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
   - `test_enter_home_with_unwritten_staged_rows_asks_first`
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
-- **Catch up to engine contract 8d2430081e64cd7c.**
-  Spec (current): [specs/engine-catch-up-8d243008.md](specs/engine-catch-up-8d243008.md).
 - **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft): [specs/official-migration.md](specs/official-migration.md).

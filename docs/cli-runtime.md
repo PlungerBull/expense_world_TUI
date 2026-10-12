@@ -12,7 +12,7 @@ Everything here applies equally to the TUI (`expense world`) and the importers (
 
 Every read command is a direct `GET`. What a command prints is what the engine computed at that moment, including home-currency figures (converted engine-side at read time).
 
-- The engine's responses are IDs-only; list renderers resolve names via live reference-list fetches (`load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` in [expense/commands/_resource.py](../expense/commands/_resource.py)), degrading to 8-char short ids on failure (cli-spec "Output conventions").
+- The engine's responses are IDs-only; list renderers resolve names through live reference-list reads, with a short-id fallback when one fails (cli-spec "Output conventions", "Name resolution").
 - **Deleted is deleted.** A deleted row is invisible to every client — no list returns it, its get is a 404 — and no command restores it. The engine keeps the row in its table; undeleting is an operator task outside the API (contract: "Base Conventions", "There is no restore"). `expense activity list` still shows a deleted row's history.
 - Transaction reads always send `debit_as_negative=true`, so the request pins the sign rather than depending on the engine default.
 

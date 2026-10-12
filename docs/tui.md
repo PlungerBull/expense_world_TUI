@@ -48,8 +48,9 @@ expense/tui/
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
                     #   the named account's ledger below it (AccountPeek), one save.
                     #   Parses through expense/quickadd/; `↵` stages a line or refuses
-                    #   it in place; ctrl+s writes every row in ONE POST
-                    #   /transactions/batch (via expense/batch_write.py). Saved rows
+                    #   it in place; ctrl+s writes every row through POST
+                    #   /transactions/batch (via expense/batch_write.py; chunking in
+                    #   cli-runtime.md "Bulk writes"). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
@@ -525,7 +526,7 @@ everything loaded and `pgup` goes up a screenful. The window sizes only what is 
 resize reads nothing. After a write (a bulk key, the `⏎` edit, `+`) it starts over from
 the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with `esc` is
 not a write: nothing is read and the list comes back as it was — the rows `pgdn` loaded
-and the cursor on its row (owner, 2026-09-27); the form dismisses with `True` only on a
+and the cursor on its row; the form dismisses with `True` only on a
 save. The "no batch" pane on
 Reconciliations grows through the same `GrowingRead`, oldest first — one copy of the
 cursor, the count, the `pgdn` read and the rule that a `pgdn` read never lands on a list a
