@@ -1031,7 +1031,16 @@ class LogBarScreen(Screen):
         `CREATED` and `EXISTED` both mean the engine holds the row — the second
         is a replay of an id we already minted, which is exactly what a retry
         after a half-written save produces.
+
+        A refusal that stopped the run (`outcome.refusal`) is about the account,
+        not about any row: it is said once, as a toast, and no row carries it.
         """
+        if outcome.refusal is not None:
+            for index, result in enumerate(outcome.results):
+                written = result in (RowResult.CREATED, RowResult.EXISTED)
+                self._mark(rows[index], written, None)
+            self.notify(format_error(outcome.refusal), title="Failed", severity="error")
+            return
         errors = outcome.errors
         for index, result in enumerate(outcome.results):
             entry = rows[index]

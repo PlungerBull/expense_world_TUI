@@ -431,3 +431,12 @@ the bar is where the right file gets dropped next.
 
 **Rejected.**
 - Asking each time whether to unassign or to assign into a draft on the new account: a new screen for a choice whose second answer is the normal reconciling flow anyway.
+
+## Missing settings stop a multi-write run (2026-10-11)
+
+**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that needs the user's settings (contract: GET /v1/exchange-rates). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([cli-runtime.md](cli-runtime.md) "Bulk writes").
+
+**Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home. `expense transactions batch` stays a single atomic request and shows whatever the engine answers, including the refusal of a file over the batch limit.
+
+**Rejected.** *Retry row by row like any other `422`* — one extra request per row, and the same four-line error under every row. *Split an oversized `transactions batch` file into several requests* — the command promises all-or-nothing.
+

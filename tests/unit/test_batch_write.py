@@ -189,6 +189,51 @@ def test_a_chunk_level_refusal_is_not_retried_row_by_row():
     assert outcome.errors == {i: "FORBIDDEN — nope" for i in range(3)}
 
 
+def _settings_missing() -> EngineError:
+    """The refusal every route that needs settings gives before first-time setup."""
+    return EngineError(
+        "SETTINGS_MISSING",
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        422,
+        {},
+        reasons={"user_settings": "NOT_PROVISIONED"},
+    )
+
+
+def test_settings_missing_fails_the_chunk_once_and_stops_the_run():
+    """It is a 422, but about the account and not about any row: no row-by-row
+    fallback, no later chunk, and one failure for the chunk it met."""
+    refusal = _settings_missing()
+    client = _Client([refusal])
+    outcome = post_transaction_batch(client, _items(5), chunk_size=3)
+
+    assert client.sizes == [3]  # exactly one POST
+    assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.UNSENT] * 2
+    assert len(outcome.failures) == 1
+    assert outcome.failures[0].indices == (0, 1, 2)
+    assert outcome.failures[0].message.count("Hint:") == 1
+    assert outcome.stopped and outcome.stop_chunk_index == 0
+    assert outcome.refusal is refusal
+    assert outcome.stop_error is None  # that one is the connection's
+    assert outcome.unsent == [3, 4]
+
+
+def test_settings_missing_inside_the_fallback_also_stops():
+    client = _Client([_invalid(), {}, _settings_missing()])
+    outcome = post_transaction_batch(client, _items(3))
+
+    assert client.sizes == [3, 1, 1]  # the third row never went
+    assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.UNSENT]
+    assert [f.indices for f in outcome.failures] == [(1,)]
+    assert outcome.stopped and outcome.refusal is not None
+
+
+def test_another_refusal_leaves_no_stop_behind():
+    outcome = post_transaction_batch(_Client([_invalid(), _invalid()]), _items(1))
+    assert not outcome.stopped and outcome.refusal is None
+
+
 def test_a_connection_error_stops_and_leaves_the_tail_unsent():
     """Unsent is not failed: those rows never reached the engine, so they are
     safe to retry exactly as they are."""

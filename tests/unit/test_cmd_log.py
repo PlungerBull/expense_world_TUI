@@ -156,8 +156,12 @@ def test_log_422_settings_missing_prints_hint(configured):
         ["log", "--title", "x", "--amount", "-100", "--account-id", "a", "--category-id", "c"],
     )
     assert result.exit_code == 1
-    assert "expense auth bootstrap" in result.output
-    assert "SETTINGS_MISSING" in result.output
+    assert result.output == (
+        "Error: SETTINGS_MISSING — User settings missing.\n"
+        "  user_settings: Must be provisioned via bootstrap.\n"
+        "\n"
+        "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.\n"
+    )
 
 
 # ---------------------------------------------------------------------------

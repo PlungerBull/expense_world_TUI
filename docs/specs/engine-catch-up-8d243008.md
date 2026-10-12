@@ -32,16 +32,16 @@ Nothing the owner sees changes apart from the two clearer messages.
 
 ## Tasks
 
-1. The first-time-setup hint for `SETTINGS_MISSING` lives once, in the shared error text, so the
-   rate reads and every other command and screen show it; matched on the error code, never the
-   wording.
-2. The display name goes to the engine as typed: the TUI's first-time-setup prompt neither trims
+1. The display name goes to the engine as typed: the TUI's first-time-setup prompt neither trims
    it nor drops a blank one, and the engine's `EMPTY` refusal is shown (first-time setup,
    profile), matched on the reason code, never the wording. Other prompts keep their behaviour.
-3. With the practice engine up, settle two citations against the live contract: the transaction
+2. With the practice engine up, settle two citations against the live contract: the transaction
    path written both `{id}` and `{transaction_id}` across the docs and code, and a citation for
    the calendar-day rule in [file-import-plan.md](../file-import-plan.md) §11.
-4. With the practice engine up, two wordings checked against the live contract and the code: the
+3. With the practice engine up, two wordings checked against the live contract and the code: the
    LOG bar's module docstring on why a refused batch is retried row by row
    (`expense/tui/screens/log_bar.py`, against `expense/batch_write.py`), and how
    [cli-spec.md](../cli-spec.md) describes the input of `transactions batch`.
+4. Three loose ends of the stop on `SETTINGS_MISSING`: a bulk edit keeps the rows it never sent
+   selected; the sheet importer's outcome folding does not label a refusal-stopped run a
+   connection error; the `SETTINGS_MISSING` constant's comment cites both rate reads.

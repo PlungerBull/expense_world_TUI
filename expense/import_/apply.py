@@ -21,7 +21,12 @@ from expense.batch_write import (
 )
 from expense.commands._resource import items_of, query_params
 from expense.dates import to_canonical_aware
-from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.errors import (
+    EngineConnectionError,
+    EngineError,
+    format_error,
+    refuses_every_write,
+)
 from expense.http import ExpenseClient
 from expense.import_ import mapping
 from expense.import_.parse import OpeningRow, ParsedRow
@@ -99,7 +104,9 @@ def _resolve_each(
     `describe(spec)` and the loop continues, so one bad resource does not abort
     the whole import. An `EngineConnectionError`
     propagates: the engine is unreachable, so nothing further can succeed and a
-    re-run converges once it's back.
+    re-run converges once it's back. So does an account-wide refusal
+    (`errors.refuses_every_write`): every later write would draw it too, so the
+    run ends there and the command reports it once.
     """
     index_of = index_of or key_of
     ids: dict = {}
@@ -115,6 +122,8 @@ def _resolve_each(
             try:
                 client.post(f"/{resource}", json_body={"id": nid, **payload_of(spec, i)})
             except EngineError as err:
+                if refuses_every_write(err):
+                    raise
                 failures.append(f"{resource[:-1]} {describe(spec)}: {format_error(err)}")
                 continue
             existing[key] = nid
@@ -231,7 +240,8 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
     A 409 means the seed already landed (replayed transaction_id, or the
     account already carries an opening balance) — counted as already-present,
     mirroring the singleton-batch semantics. Returns False when a connection
-    error stopped the run (remaining openings are counted failed).
+    error stopped the run (remaining openings are counted failed). An
+    account-wide refusal (`errors.refuses_every_write`) propagates, ending the run.
     """
     for pos, row in enumerate(plan.openings):
         account_key = (row.account.strip().casefold(), row.currency)
@@ -253,6 +263,8 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
             )
             result.opening_created += 1
         except EngineError as err:
+            if refuses_every_write(err):
+                raise
             if err.status == 409:
                 result.opening_skipped_existing += 1
             else:
@@ -353,5 +365,9 @@ def apply_plan(
         items.append(build_tx_payload(row, tx_id, res))
         line_by_id[tx_id] = row.line
     outcome = post_transaction_batch(client, items, chunk_size=chunk_size)
+    if outcome.refusal is not None:
+        # An account-wide refusal ends the run like one on a resource create or
+        # an opening balance does: the command reports it once.
+        raise outcome.refusal
     _fold_outcome(outcome, items, line_by_id, result)
     return result

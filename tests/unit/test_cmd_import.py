@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from expense import config as config_module
 from expense.batch_write import ENGINE_BATCH_MAX
 from expense.commands import import_cmd
+from expense.errors import EngineError
 from expense.http import ExpenseClient
 from expense.import_ import apply as apply_mod
 from expense.import_ import plan as plan_mod
@@ -913,3 +914,115 @@ def test_missing_openpyxl_friendly_error(configured, monkeypatch):
     result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
     assert result.exit_code == 1
     assert "openpyxl" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Before first-time setup
+# ---------------------------------------------------------------------------
+# `SETTINGS_MISSING` is about the account, not about the write that drew it, so
+# the first one ends the run and is reported once — wherever it lands.
+
+_SETTINGS_MISSING = (
+    422,
+    "SETTINGS_MISSING",
+    "User settings have not been provisioned.",
+    {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+    {"user_settings": "NOT_PROVISIONED"},
+)
+_SETTINGS_MISSING_HUMAN = (
+    "Error: SETTINGS_MISSING — User settings have not been provisioned.\n"
+    "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+    "\n"
+    "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.\n"
+)
+
+
+def _three_row_sheet(monkeypatch) -> None:
+    """Three rows, each with its own category, so a resource pass has three creates."""
+    rows = []
+    for line, (category, amount) in enumerate([("WANTS", -44), ("NEEDS", -55), ("FUN", -66)], 2):
+        cells = list(_CELLS)
+        cells[1], cells[4] = category, amount
+        rows.append(RawRow(line, cells))
+    monkeypatch.setattr(
+        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=_HEADERS, rows=rows)
+    )
+
+
+def _writes() -> list[str]:
+    return [c.request.url.path for c in respx.calls if c.request.method != "GET"]
+
+
+@respx.mock
+def test_apply_stops_on_settings_missing_at_a_resource_create(configured, monkeypatch):
+    _three_row_sheet(monkeypatch)
+    _mock_existing(accounts=[], categories=[], hashtags=[])
+    respx.post(f"{BASE}/v1/accounts").mock(return_value=error_response(*_SETTINGS_MISSING))
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+
+    assert result.exit_code == 1
+    assert result.output == _SETTINGS_MISSING_HUMAN
+    assert result.output.count("Hint:") == 1
+    assert _writes() == ["/v1/accounts"]  # no category, hashtag, opening or batch after it
+
+
+@respx.mock
+def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
+    _three_row_sheet(monkeypatch)
+    _mock_existing(
+        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        categories=[{"id": f"c{n}", "name": n} for n in ("WANTS", "NEEDS", "FUN")],
+        hashtags=[{"id": "h", "name": "Salidas"}],
+    )
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=error_response(*_SETTINGS_MISSING)
+    )
+
+    result = runner.invoke(
+        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "2"]
+    )
+
+    assert result.exit_code == 1
+    assert result.output == _SETTINGS_MISSING_HUMAN
+    assert result.output.count("Hint:") == 1
+    assert _writes() == ["/v1/transactions/batch"]  # no row-by-row retry, no second chunk
+
+
+@respx.mock
+def test_apply_settings_missing_json_is_the_engines_body(configured, monkeypatch):
+    _three_row_sheet(monkeypatch)
+    _mock_existing(accounts=[], categories=[], hashtags=[])
+    refusal = error_response(*_SETTINGS_MISSING)
+    respx.post(f"{BASE}/v1/accounts").mock(return_value=refusal)
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--json"])
+
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == refusal.json()
+    assert "Hint" not in result.output
+
+
+@respx.mock
+def test_settings_missing_at_an_opening_balance_ends_the_run(configured):
+    plan = plan_mod.build_plan([_prow(2)], [_orow(7), _orow(8, account="BBVA PEN")], [])
+    _mock_existing(
+        accounts=[
+            {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"},
+            {"id": "acc-bbva", "name": "BBVA PEN", "currency_code": "PEN"},
+        ],
+        categories=[{"id": "c", "name": "WANTS"}],
+        hashtags=[{"id": "h", "name": "Salidas"}],
+    )
+    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
+        return_value=error_response(*_SETTINGS_MISSING)
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        with pytest.raises(EngineError) as raised:
+            apply_mod.apply_plan(client, plan, res)
+
+    assert raised.value.code == "SETTINGS_MISSING"
+    assert _writes() == ["/v1/accounts/acc-pen/opening-balance"]  # no second seed, no batch

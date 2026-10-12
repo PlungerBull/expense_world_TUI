@@ -276,6 +276,55 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
     run_app(scenario, size=(120, 30))
 
 
+def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monkeypatch):
+    """A refusal about the account, not the row: every later PUT would draw it
+    too, so none goes out and the hint is on screen once."""
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+    puts: list[str] = []
+
+    def put(path, json_body=None):
+        puts.append(path)
+        raise EngineError(
+            "SETTINGS_MISSING",
+            "User settings have not been provisioned.",
+            {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+            422,
+            {},
+            reasons={"user_settings": "NOT_PROVISIONED"},
+        )
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: bool(toasts))
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+        assert puts == ["/transactions/t1"]
+        assert toasts == [
+            (
+                "Refused",
+                "row 1: SETTINGS_MISSING — User settings have not been provisioned.\n"
+                "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+                "\n"
+                "Hint: Your user_settings row is missing. "
+                "Run 'expense auth bootstrap' to provision it.",
+            )
+        ]
+
+    run_app(scenario, size=(120, 30))
+
+
 # ---- b: a move leaves the reconciliation ---------------------------------------
 # (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id})
 

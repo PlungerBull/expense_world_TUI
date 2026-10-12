@@ -151,6 +151,8 @@ one `PUT /transactions/{id}` per row, in order, on one client, then the list rea
 from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others.
+The one refusal that does stop them is `SETTINGS_MISSING`
+([cli-runtime.md](cli-runtime.md) "Bulk writes").
 It stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
 **A move takes a row out of its reconciliation.** The engine refuses an account change on

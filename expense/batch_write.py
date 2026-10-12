@@ -32,7 +32,7 @@ save safe: nothing can be written twice.
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from expense.errors import EngineConnectionError, EngineError, format_error
+from expense.errors import EngineConnectionError, EngineError, format_error, refuses_every_write
 from expense.http import ExpenseClient
 
 #: The most transactions the engine takes in one request; a longer list is
@@ -52,7 +52,7 @@ class RowResult(StrEnum):
     CREATED = "created"  # the engine accepted it
     EXISTED = "existed"  # 409 — the id was already there, so the row IS in
     FAILED = "failed"  # 422/4xx that names this row
-    UNSENT = "unsent"  # a connection error stopped the run before it went
+    UNSENT = "unsent"  # the run stopped before it went
 
 
 @dataclass(frozen=True)
@@ -76,11 +76,16 @@ class BatchOutcome:
 
     results: list[RowResult]
     failures: list[BatchFailure] = field(default_factory=list)
-    #: True when a connection error halted the run — everything still `UNSENT`
-    #: was never sent, so it is safe to retry.
+    #: True when the run halted before the end — on a connection error
+    #: (`stop_error`) or on an account-wide refusal (`refusal`). Everything
+    #: still `UNSENT` was never sent, so it is safe to retry.
     stopped: bool = False
     stop_error: str | None = None
     stop_chunk_index: int | None = None
+    #: The refusal that stopped the run because every further write would draw
+    #: it too (`errors.refuses_every_write`). Its chunk is one `BatchFailure`;
+    #: a caller reports it once, not per row.
+    refusal: EngineError | None = None
 
     @property
     def errors(self) -> dict[int, str]:
@@ -127,7 +132,9 @@ def post_transaction_batch(
     Never raises for an engine-side outcome: every item comes back with a
     `RowResult`, so the caller renders a summary instead of a traceback. A
     connection error stops the run (`stopped=True`) with the remaining items
-    marked `UNSENT` — they were never sent, so they are safe to retry.
+    marked `UNSENT` — they were never sent, so they are safe to retry. So does
+    an account-wide refusal (`errors.refuses_every_write`): its chunk is failed
+    as one group with no row-by-row fallback, and no later chunk goes out.
 
     A `chunk_size` below 1 or above `ENGINE_BATCH_MAX` is a programming error
     and raises `ValueError` before anything is sent.
@@ -143,9 +150,12 @@ def post_transaction_batch(
         try:
             client.post(BATCH_PATH, json_body={"transactions": chunk})
         except EngineError as err:
+            if refuses_every_write(err):
+                _fail_and_stop(outcome, span, err, chunk_index)
+                return outcome  # every later chunk stays UNSENT
             if err.status in (409, 422):
                 if not _post_singletons(client, chunk, offset, chunk_index, outcome):
-                    return outcome  # a connection error inside the fallback
+                    return outcome  # the fallback stopped the run
                 continue
             # 401/403/5xx would fail identically per row — don't hammer.
             for index in span:
@@ -162,6 +172,18 @@ def post_transaction_batch(
     return outcome
 
 
+def _fail_and_stop(
+    outcome: BatchOutcome, indices: tuple[int, ...], err: EngineError, chunk_index: int
+) -> None:
+    """Fail `indices` as one group on an account-wide refusal, and stop the run."""
+    for index in indices:
+        outcome.results[index] = RowResult.FAILED
+    outcome.failures.append(BatchFailure(indices, format_error(err), chunk_index))
+    outcome.stopped = True
+    outcome.stop_chunk_index = chunk_index
+    outcome.refusal = err
+
+
 def _post_singletons(
     client: ExpenseClient,
     chunk: list[dict],
@@ -171,14 +193,17 @@ def _post_singletons(
 ) -> bool:
     """Re-post a 409'd/422'd chunk one row per batch so the bad row names itself.
 
-    Returns False when a connection error stopped the run; the chunk's unsent
-    tail and every later chunk keep their `UNSENT` default.
+    Returns False when a connection error or an account-wide refusal stopped the
+    run; the chunk's unsent tail and every later chunk keep their `UNSENT` default.
     """
     for pos, item in enumerate(chunk):
         index = offset + pos
         try:
             client.post(BATCH_PATH, json_body={"transactions": [item]})
         except EngineError as err:
+            if refuses_every_write(err):
+                _fail_and_stop(outcome, (index,), err, chunk_index)
+                return False
             if err.status == 409:
                 outcome.results[index] = RowResult.EXISTED
             else:

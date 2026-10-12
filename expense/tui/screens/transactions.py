@@ -48,7 +48,7 @@ from expense.commands._resource import (
     load_quickadd_refs,
     resolve_name,
 )
-from expense.errors import format_error
+from expense.errors import format_error, refuses_every_write
 from expense.tui.screens._base import (
     LogTransactionMixin,
     SectionScreen,
@@ -486,7 +486,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         """One PUT per row, in order, on one client; a refused row is kept by
         number and the rest go through — unlike `run_write`'s queue, which
         drops the remainder on the first error, because here every row's
-        intent is independent of its neighbours'."""
+        intent is independent of its neighbours'. An account-wide refusal
+        (`errors.refuses_every_write`) is the exception: every later row would
+        draw it too, so the run stops there."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
@@ -503,6 +505,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                         left += leaves
                     except Exception as exc:
                         failed.append((key, numbers.get(key, 0), format_error(exc)))
+                        if refuses_every_write(exc):
+                            break
         except Exception as exc:
             failed.append((None, 0, format_error(exc)))
         self.app.call_from_thread(self._bulk_finished, done, failed, label, left)

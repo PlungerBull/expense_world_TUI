@@ -284,3 +284,55 @@ def test_list_surfaces_an_engine_refusal(configured):
     assert result.exit_code == 1
     assert "UPSTREAM_ERROR" in result.output
     assert "Rate provider is unavailable." in result.output
+
+
+# A user who has not run first-time setup: the rate reads answer `SETTINGS_MISSING`
+# like every other route that needs settings (contract: GET /v1/exchange-rates).
+SETTINGS_MISSING = (
+    422,
+    "SETTINGS_MISSING",
+    "User settings have not been provisioned.",
+    {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+    {"user_settings": "NOT_PROVISIONED"},
+)
+SETTINGS_MISSING_HUMAN = (
+    "Error: SETTINGS_MISSING — User settings have not been provisioned.\n"
+    "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+    "\n"
+    "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.\n"
+)
+
+
+@respx.mock
+def test_get_settings_missing_shows_the_error_and_the_setup_hint(configured):
+    respx.get(f"{BASE}/v1/exchange-rates").mock(return_value=error_response(*SETTINGS_MISSING))
+    result = runner.invoke(cli_app, ["rates", "get", "--target", "PEN"])
+    assert result.exit_code == 1
+    assert result.output == SETTINGS_MISSING_HUMAN
+
+
+@respx.mock
+def test_list_settings_missing_shows_the_error_and_the_setup_hint(configured):
+    respx.get(f"{BASE}/v1/exchange-rates/history").mock(
+        return_value=error_response(*SETTINGS_MISSING)
+    )
+    result = runner.invoke(cli_app, ["rates", "list"])
+    assert result.exit_code == 1
+    assert result.output == SETTINGS_MISSING_HUMAN
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    ("path", "args"),
+    [
+        ("/v1/exchange-rates", ["rates", "get", "--target", "PEN", "--json"]),
+        ("/v1/exchange-rates/history", ["rates", "list", "--json"]),
+    ],
+)
+def test_settings_missing_json_is_the_raw_body_without_the_hint(configured, path, args):
+    response = error_response(*SETTINGS_MISSING)
+    respx.get(f"{BASE}{path}").mock(return_value=response)
+    result = runner.invoke(cli_app, args)
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == response.json()
+    assert "Hint" not in result.output

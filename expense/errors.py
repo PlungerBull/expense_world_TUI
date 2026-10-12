@@ -65,10 +65,27 @@ def has_reason(err: EngineError, *codes: str) -> bool:
     return any(code in codes for code in err.reasons.values())
 
 
+# The engine's code for a user whose settings do not exist yet; the rate reads answer
+# it like every other route that needs settings (contract: GET /v1/exchange-rates).
+SETTINGS_MISSING = "SETTINGS_MISSING"
+
+
+def refuses_every_write(err: Exception) -> bool:
+    """True for a refusal about the account, not about the request that drew it.
+
+    `SETTINGS_MISSING` holds until first-time setup runs, so every further write
+    of the same run would be refused for the same reason. A run of several writes
+    stops on it and reports it once. Matched on the error code alone.
+    """
+    return isinstance(err, EngineError) and err.code == SETTINGS_MISSING
+
+
 def format_error(err: Exception) -> str:
     """Human-readable error text, without the leading 'Error: ' prefix.
 
-    Shared by render()'s human branch (CLI) and the TUI toasts/banners.
+    Shared by render()'s human branch (CLI) and the TUI toasts/banners, so a hint
+    added here reaches every command and screen. Hints switch on the status or the
+    error code, never on `message` or the `fields` texts.
     """
     if isinstance(err, EngineError):
         lines = [f"{err.code} — {err.message}"]
@@ -81,6 +98,12 @@ def format_error(err: Exception) -> str:
                 "Hint: token is missing or invalid. Run "
                 "'expense config set --token <pat>' to install a fresh PAT, "
                 "or 'expense auth bootstrap' if your account is not yet provisioned."
+            )
+        if err.code == SETTINGS_MISSING:
+            lines.append("")
+            lines.append(
+                "Hint: Your user_settings row is missing. "
+                "Run 'expense auth bootstrap' to provision it."
             )
         return "\n".join(lines)
     if isinstance(err, EngineConnectionError):

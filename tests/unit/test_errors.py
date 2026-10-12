@@ -13,6 +13,7 @@ from expense.errors import (
     handle_errors,
     has_reason,
     reason_on,
+    refuses_every_write,
     render,
 )
 from tests.unit.helpers import error_body
@@ -260,6 +261,80 @@ def test_format_error_401_includes_hint():
     assert "expense config set --token" in output
 
 
+SETTINGS_HINT = (
+    "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it."
+)
+
+
+def _settings_missing(message, fields, reasons=None, raw_body=None):
+    return EngineError(
+        code="SETTINGS_MISSING",
+        message=message,
+        fields=fields,
+        status=422,
+        raw_body=raw_body or {},
+        reasons=reasons,
+    )
+
+
+def test_format_error_settings_missing_includes_the_setup_hint():
+    """The first-time-setup hint has one home, so every command and screen shows it
+    (contract: GET /v1/exchange-rates)."""
+    err = _settings_missing(
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        {"user_settings": "NOT_PROVISIONED"},
+    )
+    assert format_error(err) == (
+        "SETTINGS_MISSING — User settings have not been provisioned.\n"
+        "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+        "\n" + SETTINGS_HINT
+    )
+    assert format_error(err).count("Hint:") == 1
+
+
+@pytest.mark.parametrize(
+    ("message", "fields"),
+    [
+        ("User settings have not been provisioned.", {"user_settings": "Must be provisioned."}),
+        ("reworded", {"something_else": "also reworded"}),
+        ("", None),
+    ],
+)
+def test_format_error_settings_hint_follows_the_code_not_the_wording(message, fields):
+    assert format_error(_settings_missing(message, fields)).endswith("\n\n" + SETTINGS_HINT)
+
+
+def test_format_error_other_422_has_no_setup_hint():
+    """Another code gets no hint, even carrying the very words of a settings refusal."""
+    err = EngineError(
+        code="VALIDATION_ERROR",
+        message="User settings have not been provisioned.",
+        fields={"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        status=422,
+        raw_body={},
+        reasons={"user_settings": "NOT_PROVISIONED"},
+    )
+    assert "Hint:" not in format_error(err)
+    assert "expense auth bootstrap" not in format_error(err)
+
+
+def test_render_settings_missing_json_is_the_raw_body_without_the_hint():
+    raw = error_body(
+        "SETTINGS_MISSING",
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        {"user_settings": "NOT_PROVISIONED"},
+    )
+    err = _settings_missing(
+        raw["error"]["message"], raw["error"]["fields"], raw["error"]["reasons"], raw
+    )
+    output, exit_code, use_stderr = render(err, json_mode=True)
+    assert json.loads(output) == raw
+    assert "Hint" not in output
+    assert (exit_code, use_stderr) == (1, False)
+
+
 def test_format_error_connection_error():
     err = EngineConnectionError(
         url="https://nonexistent.invalid",
@@ -345,3 +420,19 @@ def test_handle_errors_propagates_unexpected():
 
     with pytest.raises(RuntimeError, match="bug"):
         cmd()
+
+
+def test_refuses_every_write_follows_the_code_alone():
+    assert refuses_every_write(_settings_missing("reworded", None))
+    assert not refuses_every_write(
+        EngineError(
+            code="VALIDATION_ERROR",
+            message="User settings have not been provisioned.",
+            fields={"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+            status=422,
+            raw_body={},
+            reasons={"user_settings": "NOT_PROVISIONED"},
+        )
+    )
+    assert not refuses_every_write(EngineError("UNAUTHORIZED", "no", None, 401, {}))
+    assert not refuses_every_write(EngineConnectionError("http://x", RuntimeError("down")))

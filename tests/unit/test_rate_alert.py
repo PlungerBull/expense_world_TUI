@@ -234,3 +234,35 @@ def test_startup_fetch_is_silent_without_config():
         assert app.rate_stale is None
 
     run_app(scenario)
+
+
+@respx.mock
+def test_startup_fetch_is_silent_before_first_time_setup(configured):
+    """A user whose settings do not exist yet gets `SETTINGS_MISSING` from the rate
+    read (contract: GET /v1/exchange-rates). That is a question about the account,
+    not an answer about the rate: no mark, no toast, and the app keeps running."""
+    from expense import config as config_module
+
+    cfg = config_module.ensure_loaded()
+    cfg.main_currency = "PEN"
+    config_module.save(cfg)
+
+    refusal = error_response(
+        422,
+        "SETTINGS_MISSING",
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        {"user_settings": "NOT_PROVISIONED"},
+    )
+    rate = respx.get(f"{BASE}/v1/exchange-rates").mock(return_value=refusal)
+    respx.route().mock(return_value=refusal)
+
+    async def scenario(pilot, app):
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert rate.called
+        assert app.rate_stale is None
+        assert not list(app._notifications)
+        assert app.is_running
+
+    run_app(scenario)

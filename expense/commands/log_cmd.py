@@ -46,7 +46,7 @@ from expense.commands._resource import (
 )
 from expense.context import get_verbose
 from expense.dates import now_local_iso, to_canonical_aware, today_local
-from expense.errors import EngineError, handle_errors
+from expense.errors import handle_errors
 from expense.http import ExpenseClient
 from expense.jsonout import json_text
 from expense.quickadd.parse import ParsedLine, parse
@@ -409,13 +409,4 @@ def _echo_block(parsed: ParsedLine, routing: Routing, refs: QuickAddRefs) -> Non
 
 def _post(cfg, path: str, payload: dict, *, verbose: bool) -> dict:
     with ExpenseClient(cfg, verbose=verbose) as client:
-        try:
-            return client.post(path, json_body=payload)
-        except EngineError as err:
-            if err.code == "SETTINGS_MISSING":
-                typer.echo(
-                    "Hint: Your user_settings row is missing. "
-                    "Run 'expense auth bootstrap' to provision it.",
-                    err=True,
-                )
-            raise
+        return client.post(path, json_body=payload)

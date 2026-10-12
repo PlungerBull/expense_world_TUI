@@ -787,6 +787,51 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     run_app(scenario)
 
 
+def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
+    """Before first-time setup the engine refuses the batch for a reason that is
+    about the account, not about any row: one POST, one toast carrying the error
+    and its hint, and no row wearing a copy of it."""
+    _patch(monkeypatch)
+    refusal = EngineError(
+        "SETTINGS_MISSING",
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        422,
+        {},
+        reasons={"user_settings": "NOT_PROVISIONED"},
+    )
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        monkeypatch.setattr(
+            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
+        )
+        _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE)
+        _script(fake_client, [refusal])
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
+
+        assert len(fake_client.posts) == 1  # no row-by-row retry
+        assert all(not e.saved and e.error is None for e in screen._staged)
+        assert app.screen is screen
+        assert toasts == [
+            (
+                "Failed",
+                "SETTINGS_MISSING — User settings have not been provisioned.\n"
+                "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+                "\n"
+                "Hint: Your user_settings row is missing. "
+                "Run 'expense auth bootstrap' to provision it.",
+            ),
+            ("Failed", "Some rows were not written."),
+        ]
+        out = _text(screen._staged_renderable())
+        assert "SETTINGS_MISSING" not in out and "Hint" not in out
+
+    run_app(scenario)
+
+
 def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
     """A hashtag archived or deleted between staging and saving: the engine keys
     it on its item, `transactions.<index>.hashtag_ids`, with the other item
