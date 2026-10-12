@@ -321,12 +321,53 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
                 "Run 'expense auth bootstrap' to provision it.",
             )
         ]
+        # the refused row and the two never sent stay selected for the retry
+        assert screen._selected == {"t1", "t2", "t3"}
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
+    fake_client, monkeypatch
+):
+    """The run stops at row 2: row 1 went through and leaves the selection, row 2
+    was refused and row 3 was never sent, so those two stay selected."""
+    _stub_ledger(monkeypatch)
+    puts: list[str] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        puts.append(path)
+        if path.endswith("/t2"):
+            raise EngineError(
+                "SETTINGS_MISSING",
+                "User settings have not been provisioned.",
+                {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+                422,
+                {},
+                reasons={"user_settings": "NOT_PROVISIONED"},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: len(puts) == 2)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+        assert puts == ["/transactions/t1", "/transactions/t2"]
+        assert screen._selected == {"t2", "t3"}
 
     run_app(scenario, size=(120, 30))
 
 
 # ---- b: a move leaves the reconciliation ---------------------------------------
-# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id})
+# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id})
 
 #: t1 is assigned and moves, t2 is assigned but already on the picked account,
 #: t3 is in no reconciliation and moves.

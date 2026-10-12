@@ -218,18 +218,22 @@ def test_bootstrap_prompt_wording_is_unchanged(fake_client, monkeypatch):
 
 def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch):
     """The engine's `EMPTY` refusal reaches the "Bootstrap failed" toast through
-    the shared error text — code, message and the field line, nothing added."""
+    the shared error text — code, message and the field line, nothing added.
+
+    The code, the field text and the reason are the engine's
+    (contract: POST /v1/auth/bootstrap); the contract fixes no top-level
+    `message`, so this one is its example's (contract: "Base Conventions", "Error format")."""
     _patch_auth(fake_client, monkeypatch, me=None)
     monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
     body = error_body(
         "VALIDATION_ERROR",
-        "Invalid input.",
+        "Human-readable description.",
         {"display_name": "Must not be empty."},
         {"display_name": "EMPTY"},
     )
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
-        "Invalid input.",
+        "Human-readable description.",
         {"display_name": "Must not be empty."},
         422,
         body,
@@ -237,7 +241,9 @@ def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch
     )
     notices: list = []
     monkeypatch.setattr(
-        AuthScreen, "notify", lambda self, message, **kw: notices.append((message, kw))
+        AuthScreen,
+        "notify",
+        lambda self, message, *, title, severity: notices.append((message, title, severity)),
     )
 
     async def scenario(pilot, app):
@@ -248,8 +254,10 @@ def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch
         assert fake_client.posts[0][1]["display_name"] == "   "
         assert notices == [
             (
-                "VALIDATION_ERROR — Invalid input.\n  display_name: Must not be empty.",
-                {"title": "Bootstrap failed", "severity": "error"},
+                "VALIDATION_ERROR — Human-readable description.\n"
+                "  display_name: Must not be empty.",
+                "Bootstrap failed",
+                "error",
             )
         ]
 

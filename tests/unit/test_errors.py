@@ -279,7 +279,7 @@ def _settings_missing(message, fields, reasons=None, raw_body=None):
 
 def test_format_error_settings_missing_includes_the_setup_hint():
     """The first-time-setup hint has one home, so every command and screen shows it
-    (contract: GET /v1/exchange-rates)."""
+    (contract: "Error codes")."""
     err = _settings_missing(
         "User settings have not been provisioned.",
         {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
@@ -297,7 +297,7 @@ def test_format_error_settings_missing_includes_the_setup_hint():
     ("message", "fields"),
     [
         ("User settings have not been provisioned.", {"user_settings": "Must be provisioned."}),
-        ("reworded", {"something_else": "also reworded"}),
+        ("reworded", {"user_settings": "also reworded"}),
         ("", None),
     ],
 )

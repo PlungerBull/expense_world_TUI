@@ -11,8 +11,9 @@ correcting one is a PUT of what changed, not a line retyped from scratch.
 
 **The save** is `ctrl+s`: every staged row goes to `POST /transactions/batch`,
 one chunk per request, through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
-`expense import` uses, because the engine refuses an atomic batch without
-saying which row. What that means when only some of it lands is four
+`expense import` uses, because a refused batch writes none of its rows
+(contract: POST /v1/transactions/batch, "No partial success"). What that means
+when only some of it lands is four
 calls, recorded in docs/decisions.md "What a half-written batch means": the
 screen stays and the ticks are the receipt, a retry re-sends only the rows
 without one, an unstaged line in the bar is never written, and the discard

@@ -81,7 +81,7 @@ def unassign_on_move(payload: dict, record: dict) -> bool:
 
     A PUT that changes `account_id` on a row assigned to a draft reconciliation
     must say what happens to the assignment, or the engine refuses it
-    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}).
+    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}).
     So a payload whose `account_id` differs from the row's gains
     `reconciliation_id: None` — the move unassigns. An `account_id` equal to the
     row's is not a move and gains nothing, so the row keeps its reconciliation.

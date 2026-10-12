@@ -229,6 +229,14 @@ def test_settings_missing_inside_the_fallback_also_stops():
     assert outcome.stopped and outcome.refusal is not None
 
 
+def test_stopped_is_read_off_what_stopped_the_run():
+    """There is no stop without its cause: a run is stopped exactly when it
+    carries the connection error or the account-wide refusal that halted it."""
+    assert not BatchOutcome(results=[]).stopped
+    assert BatchOutcome(results=[], stop_error="down").stopped
+    assert BatchOutcome(results=[], refusal=_settings_missing()).stopped
+
+
 def test_another_refusal_leaves_no_stop_behind():
     outcome = post_transaction_batch(_Client([_invalid(), _invalid()]), _items(1))
     assert not outcome.stopped and outcome.refusal is None

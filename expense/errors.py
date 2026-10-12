@@ -65,8 +65,9 @@ def has_reason(err: EngineError, *codes: str) -> bool:
     return any(code in codes for code in err.reasons.values())
 
 
-# The engine's code for a user whose settings do not exist yet; the rate reads answer
-# it like every other route that needs settings (contract: GET /v1/exchange-rates).
+# The engine's code for a user whose settings do not exist yet (contract: "Error codes").
+# Both rate reads list it among the codes they can return
+# (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history).
 SETTINGS_MISSING = "SETTINGS_MISSING"
 
 

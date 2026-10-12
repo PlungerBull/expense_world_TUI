@@ -374,7 +374,7 @@ def test_deleting_a_batch_unassigns_its_transactions_and_keeps_them(client):
 
 def test_moving_an_assigned_row_needs_the_unassign_in_the_same_body(client):
     """The move the TUI's edit form and bulk `b` make
-    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}).
+    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}).
 
     An account change on a row in a draft reconciliation, with no
     `reconciliation_id` in the body, is a 422 on `account_id` with reason

@@ -8,7 +8,7 @@ import respx
 from typer.testing import CliRunner
 
 from expense import config as config_module
-from expense.batch_write import ENGINE_BATCH_MAX
+from expense.batch_write import ENGINE_BATCH_MAX, BatchFailure, BatchOutcome, RowResult
 from expense.commands import import_cmd
 from expense.errors import EngineError
 from expense.http import ExpenseClient
@@ -987,6 +987,48 @@ def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
     assert result.output == _SETTINGS_MISSING_HUMAN
     assert result.output.count("Hint:") == 1
     assert _writes() == ["/v1/transactions/batch"]  # no row-by-row retry, no second chunk
+
+
+def test_fold_outcome_raises_a_refusal_stopped_run_and_folds_nothing():
+    """A run an account-wide refusal stopped is no connection error: the fold
+    raises the refusal itself and leaves the result as it found it."""
+    refusal = EngineError(_SETTINGS_MISSING[1], _SETTINGS_MISSING[2], _SETTINGS_MISSING[3], 422, {})
+    items = [{"id": "a"}, {"id": "b"}]
+    outcome = BatchOutcome(
+        results=[RowResult.FAILED, RowResult.UNSENT],
+        failures=[BatchFailure((0,), "refused", 0)],
+        stop_chunk_index=0,
+        refusal=refusal,
+    )
+    result = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
+
+    with pytest.raises(EngineError) as raised:
+        apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
+
+    assert raised.value is refusal
+    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 0)
+    assert result.failures == []
+
+
+def test_fold_outcome_labels_only_a_connection_stop_a_connection_error():
+    items = [{"id": "a"}, {"id": "b"}]
+    outcome = BatchOutcome(
+        results=[RowResult.CREATED, RowResult.UNSENT], stop_error="down", stop_chunk_index=1
+    )
+    result = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
+
+    apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
+
+    assert (result.tx_created, result.tx_failed) == (1, 1)
+    assert result.failures == [
+        (1, "CONNECTION_ERROR: down — rows from sheet line 3 on were not sent")
+    ]
+
+    clean = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
+    apply_mod._fold_outcome(
+        BatchOutcome(results=[RowResult.CREATED] * 2), items, {"a": 2, "b": 3}, clean
+    )
+    assert clean.tx_created == 2 and clean.failures == []
 
 
 @respx.mock

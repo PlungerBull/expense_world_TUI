@@ -107,7 +107,8 @@ backstop.
 
 The "no batch" pane's `!` flag (a row dated inside a reconciliation window) is computed
 client-side by comparing the ISO date prefix of the row's `date`; the engine treats a period as
-whole calendar days in the user's timezone. They agree **only because every live row is stored
+whole calendar days in the user's timezone (contract: "Base Conventions", "Calendar days").
+They agree **only because every live row is stored
 at 00:00 America/Lima** (and Lima has no daylight saving); nothing enforces midnight. The bank
 importer sends bare days. **The first writer that stores a real time of day makes the `!` wrong
 near midnight** — that is the point to write an engine ask for the per-row flag

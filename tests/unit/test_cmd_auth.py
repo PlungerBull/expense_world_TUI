@@ -171,43 +171,33 @@ def test_profile_json_mode(configured):
     assert json.loads(result.output) == updated_user
 
 
-@respx.mock
-def test_profile_422_renders_engine_error(configured):
-    respx.put(f"{BASE}/v1/auth/profile").mock(
-        return_value=error_response(
-            422,
-            "VALIDATION_ERROR",
-            "Invalid input.",
-            {"display_name": "Must not be null."},
-            {"display_name": "NOT_NULL"},
-        )
-    )
-    result = runner.invoke(cli_app, ["auth", "profile", "--display-name", "Alex"])
-    assert result.exit_code == 1
-    assert "VALIDATION_ERROR" in result.output
-    assert "display_name" in result.output
-
-
+# The engine's refusal of an empty or whitespace-only name, the same on both
+# writes: a 422 `VALIDATION_ERROR` on `display_name`, "Must not be empty.", reason
+# `EMPTY` (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile).
+# The contract fixes no top-level `message`, so this one is its example's
+# (contract: "Base Conventions", "Error format").
 _EMPTY_NAME = (
     422,
     "VALIDATION_ERROR",
-    "Invalid input.",
+    "Human-readable description.",
     {"display_name": "Must not be empty."},
     {"display_name": "EMPTY"},
 )
-_NAME_WRITES = {
-    "bootstrap": ("POST", "/v1/auth/bootstrap", ["--timezone", "America/Lima"]),
-    "profile": ("PUT", "/v1/auth/profile", []),
-}
+#: The two commands that send a display name: command, method, path, other flags.
+_NAME_WRITES = [
+    ("bootstrap", "POST", "/v1/auth/bootstrap", ["--timezone", "America/Lima"]),
+    ("profile", "PUT", "/v1/auth/profile", []),
+]
+_NAME_WRITE_ARGS = ("command", "method", "path", "extra")
+_NAME_WRITE_IDS = [command for command, *_ in _NAME_WRITES]
 
 
 @respx.mock
-@pytest.mark.parametrize("command", list(_NAME_WRITES))
+@pytest.mark.parametrize(_NAME_WRITE_ARGS, _NAME_WRITES, ids=_NAME_WRITE_IDS)
 @pytest.mark.parametrize("typed", ["  Alex Tern  ", "", "   "], ids=["padded", "empty", "spaces"])
-def test_display_name_is_sent_exactly_as_typed(configured, command, typed):
+def test_display_name_is_sent_exactly_as_typed(configured, command, method, path, extra, typed):
     """No local trim and no local blank check; the engine owns both
     (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile)."""
-    method, path, extra = _NAME_WRITES[command]
     route = respx.request(method, f"{BASE}{path}").mock(
         return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
     )
@@ -217,22 +207,21 @@ def test_display_name_is_sent_exactly_as_typed(configured, command, typed):
 
 
 @respx.mock
-@pytest.mark.parametrize("command", list(_NAME_WRITES))
-def test_blank_display_name_shows_the_engines_refusal(configured, command):
-    method, path, extra = _NAME_WRITES[command]
+@pytest.mark.parametrize(_NAME_WRITE_ARGS, _NAME_WRITES, ids=_NAME_WRITE_IDS)
+def test_blank_display_name_shows_the_engines_refusal(configured, command, method, path, extra):
     route = respx.request(method, f"{BASE}{path}").mock(return_value=error_response(*_EMPTY_NAME))
     result = runner.invoke(cli_app, ["auth", command, "--display-name", "   ", *extra])
     assert result.exit_code == 1
     assert json.loads(route.calls.last.request.content)["display_name"] == "   "
     assert result.output == (
-        "Error: VALIDATION_ERROR — Invalid input.\n  display_name: Must not be empty.\n"
+        "Error: VALIDATION_ERROR — Human-readable description.\n"
+        "  display_name: Must not be empty.\n"
     )
 
 
 @respx.mock
-@pytest.mark.parametrize("command", list(_NAME_WRITES))
-def test_blank_display_name_json_is_the_engines_raw_body(configured, command):
-    method, path, extra = _NAME_WRITES[command]
+@pytest.mark.parametrize(_NAME_WRITE_ARGS, _NAME_WRITES, ids=_NAME_WRITE_IDS)
+def test_blank_display_name_json_is_the_engines_raw_body(configured, command, method, path, extra):
     refusal = error_response(*_EMPTY_NAME)
     respx.request(method, f"{BASE}{path}").mock(return_value=refusal)
     result = runner.invoke(cli_app, ["auth", command, "--display-name", "", "--json", *extra])

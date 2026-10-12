@@ -53,7 +53,7 @@ Config lives in `~/.expense-config` (chmod 600):
 - `config clear`
 
 ### `expense auth`
-- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; later calls only bump `last_login_at`. Both surfaces send the display name exactly as typed, here and on `auth profile`: the engine trims it and refuses an empty or whitespace-only one with a 422 (`display_name`, reason `EMPTY`), writing nothing (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile).
+- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; later calls only bump `last_login_at`. The display name is sent exactly as typed, here, on `auth profile` and in the TUI's first-time setup: the engine trims it and refuses an empty or whitespace-only one with a 422 (`display_name`, reason `EMPTY`), writing nothing (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile).
 - `auth me` (alias: `whoami`) → `GET /v1/auth/me`
 - `auth profile --display-name <n>` → `PUT /v1/auth/profile`. Re-bootstrap never overwrites a profile-set name.
 - `auth settings --display-timezone <tz>` → `PUT /v1/auth/settings` — the only mutable setting. The home currency is read-only.
@@ -90,7 +90,7 @@ Two forms, one command, never mixed — passing a line **and** a content flag is
 - `transactions get <id>` — full detail; history via `expense activity list --resource-type transaction --resource-id <id>`.
 - `transactions update <id>` — partial update, including `hashtag_ids` and `reconciliation_id`. Field locks under a completed reconciliation surface as the engine's 422 with a "revert the reconciliation to draft first" hint; a date moved into a sealed period, or an assignment into a completed reconciliation, gets the same hint.
 - `transactions delete <id>`.
-- `transactions batch` — atomic multi-create from flags or a stdin JSON payload.
+- `transactions batch` — atomic multi-create from a JSON array of transactions, read from `--file` or stdin.
 
 ### `expense reconcile`
 - `reconcile list --account-id <id> [--json]` — the account is required. The whole list in the engine's period order (`date_start ASC, created_at ASC`), no paging flags, no footer. Rows carry a `Diff` column — the engine's `difference_cents`. A reconciliation's rows are `expense transactions list --reconciliation-id <id>`.

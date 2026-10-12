@@ -47,9 +47,9 @@ def test_every_modal_box_renders_with_size():
     [
         ({}, "  Groceries  ", "Groceries"),
         ({}, "   ", ""),
-        ({"verbatim": True}, "  Groceries  ", "  Groceries  "),
-        ({"verbatim": True}, "   ", "   "),
-        ({"verbatim": True}, "", ""),
+        (dict(verbatim=True), "  Groceries  ", "  Groceries  "),
+        (dict(verbatim=True), "   ", "   "),
+        (dict(verbatim=True), "", ""),
     ],
     ids=["default-trims", "default-blank", "verbatim-padded", "verbatim-spaces", "verbatim-empty"],
 )
@@ -66,7 +66,7 @@ def test_prompt_trims_by_default_and_only_verbatim_keeps_whitespace(kwargs, type
     run_app(scenario)
 
 
-@pytest.mark.parametrize("kwargs", [{}, {"verbatim": True}], ids=["default", "verbatim"])
+@pytest.mark.parametrize("kwargs", [{}, dict(verbatim=True)], ids=["default", "verbatim"])
 def test_prompt_esc_cancels_with_none(kwargs):
     async def scenario(pilot, app):
         results: list = []

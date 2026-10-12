@@ -209,7 +209,7 @@ def test_edit_no_changes_does_not_submit(fake_client, monkeypatch):
 
 
 # ---- an account move leaves the reconciliation --------------------------------
-# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id})
+# (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id})
 
 ASSIGNED = {**TXN, "reconciliation_id": "rec1"}
 

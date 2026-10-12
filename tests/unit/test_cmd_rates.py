@@ -286,8 +286,9 @@ def test_list_surfaces_an_engine_refusal(configured):
     assert "Rate provider is unavailable." in result.output
 
 
-# A user who has not run first-time setup: the rate reads answer `SETTINGS_MISSING`
-# like every other route that needs settings (contract: GET /v1/exchange-rates).
+# A user who has not run first-time setup: the settings do not exist yet, which is
+# `SETTINGS_MISSING` (contract: "Error codes"). Both rate reads list it among the codes
+# they can return (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history).
 SETTINGS_MISSING = (
     422,
     "SETTINGS_MISSING",

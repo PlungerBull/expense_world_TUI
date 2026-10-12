@@ -152,12 +152,13 @@ from the newest 10 with the cursor on row 1: on a filtered list the changed rows
 at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others.
 The one refusal that does stop them is `SETTINGS_MISSING`
-([cli-runtime.md](cli-runtime.md) "Bulk writes").
-It stays selected only if the fresh read brings it back among the newest 10; further down
+([cli-runtime.md](cli-runtime.md) "Bulk writes"): the rows after it are never sent, and stay
+selected with the refused one.
+A row stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
-(contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}), so `b` adds
+(contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds
 `reconciliation_id: null` to each row whose account changes, and only to those: a row
 already on the picked account keeps its reconciliation. The receipt then counts the rows
 that left one — `3 rows → BCP USD · 2 left their reconciliation` (`· 1 left its

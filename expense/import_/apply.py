@@ -1,12 +1,15 @@
 """Write path: resolve-or-create resources, then POST transactions in batches.
 
 Accounts/categories/hashtags are created FIRST (so they have ids); transactions
-then reference those ids. The batch endpoint is atomic: a chunk-level 409 ("at
-least one id pre-exists") or 422 ("at least one row is invalid") says nothing
-about WHICH row, so the chunk is retried row-by-row (singleton batches) —
-pre-existing rows are skipped, invalid rows report their sheet line, and the
-rest still land. Re-runs after a partial run or with appended sheet rows
-converge instead of silently dropping.
+then reference those ids. The batch endpoint is atomic: a refused chunk writes
+none of its rows (contract: POST /v1/transactions/batch, "No partial success").
+A 422 keys every refused item `transactions.<index>.<field>`
+(contract: POST /v1/transactions/batch, "Error shape"); a 409 (an id or
+operation code already in the ledger) is not keyed by index
+(contract: POST /v1/transactions/batch). So a chunk refused either way is
+retried row-by-row (singleton batches) — pre-existing rows are skipped, invalid
+rows report their sheet line, and the rest still land. Re-runs after a partial
+run or with appended sheet rows converge instead of silently dropping.
 """
 
 from dataclasses import dataclass, field
@@ -301,7 +304,15 @@ def _fold_outcome(
     the TUI's LOG bar; what stays here is the sheet-line
     phrasing, which only a workbook has. A grouped failure keeps its range
     (`sheet lines 2-3`) so a chunk-level 403 is still reported once.
+
+    An account-wide refusal that stopped the run (`outcome.refusal`) is raised
+    instead of folded, leaving `result` untouched: it ends the run like one on
+    a resource create or an opening balance does, and the command reports it
+    once. The only stop folded here is a connection error.
     """
+    if outcome.refusal is not None:
+        raise outcome.refusal
+
     for row in outcome.results:
         if row is RowResult.CREATED:
             result.tx_created += 1
@@ -319,7 +330,7 @@ def _fold_outcome(
             where = f"{where}, id {rows[0]['id']}"
         result.failures.append((failure.chunk_index, f"{where}: {failure.message}"))
 
-    if outcome.stopped:
+    if outcome.stop_error is not None:
         unsent = [line_by_id[items[i]["id"]] for i in outcome.unsent]
         where = f"rows from sheet line {min(unsent)} on were not sent" if unsent else "run stopped"
         result.failures.append(
@@ -365,9 +376,5 @@ def apply_plan(
         items.append(build_tx_payload(row, tx_id, res))
         line_by_id[tx_id] = row.line
     outcome = post_transaction_batch(client, items, chunk_size=chunk_size)
-    if outcome.refusal is not None:
-        # An account-wide refusal ends the run like one on a resource create or
-        # an opening balance does: the command reports it once.
-        raise outcome.refusal
-    _fold_outcome(outcome, items, line_by_id, result)
+    _fold_outcome(outcome, items, line_by_id, result)  # raises an account-wide refusal
     return result

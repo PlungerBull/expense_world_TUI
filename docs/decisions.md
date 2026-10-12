@@ -425,7 +425,7 @@ the bar is where the right file gets dropped next.
 
 ## A move to another account takes the row out of its reconciliation (2026-09-30, owner)
 
-**Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{id}). In the TUI a row changes account from its edit form or with `b` in Home.
+**Context.** A reconciliation holds only rows on its own account. The engine refuses a write that changes a row's account while the row sits in a draft reconciliation, unless the same write says what happens to the assignment (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}). In the TUI a row changes account from its edit form or with `b` in Home.
 
 **Decision.** Both paths send `reconciliation_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `reconciliation_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
 
@@ -434,7 +434,7 @@ the bar is where the right file gets dropped next.
 
 ## Missing settings stop a multi-write run (2026-10-11)
 
-**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that needs the user's settings (contract: GET /v1/exchange-rates). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([cli-runtime.md](cli-runtime.md) "Bulk writes").
+**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that lists that code (contract: "Error codes"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([cli-runtime.md](cli-runtime.md) "Bulk writes").
 
 **Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home. `expense transactions batch` stays a single atomic request and shows whatever the engine answers, including the refusal of a file over the batch limit.
 

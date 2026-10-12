@@ -1,20 +1,24 @@
 """Post transactions through the atomic batch endpoint, and land every good row.
 
 `POST /transactions/batch` is all-or-nothing: one bad row in a chunk and none
-of the chunk is written. The singleton retry — shared by `expense import`
-and the TUI's LOG bar rather than kept in two copies — re-posts the refused
-chunk one row per batch, so the good rows land and the bad one is named on
-its own.
+of the chunk is written
+(contract: POST /v1/transactions/batch, "No partial success"). The singleton
+retry — shared by `expense import` and the TUI's LOG bar rather than kept in
+two copies — re-posts the refused chunk one row per batch, so the good rows
+land and the bad one is named on its own.
 
 **Why it is needed although the engine names the failing row** (a 422 from
-that endpoint carries flat `fields` keys `transactions.<index>.<field>`, for
-every item field `hashtag_ids` included, the same grammar a schema-level
-rejection uses). Better diagnostics cannot replace
-this pass, because its job is not diagnosis — it is **partial progress out of
-an atomic endpoint**. A 409
+that endpoint carries flat `fields` keys `transactions.<index>.<field>`, the
+same grammar a schema-level rejection uses
+(contract: POST /v1/transactions/batch, "Error shape"), for every item field,
+`hashtag_ids` included (contract: POST /v1/transactions/batch)). Better
+diagnostics cannot replace this pass, because its job is not diagnosis — it is
+**partial progress out of an atomic endpoint**. A 409
 ("a transaction with id X already exists", which is what a re-run after a
 half-written save looks like) refuses the whole chunk and carries no per-row
-key at all; and even a fully-named 422 leaves the good rows unwritten. That is
+key at all (contract: POST /v1/transactions/batch); and even a fully-named 422
+leaves the good rows unwritten
+(contract: POST /v1/transactions/batch, "No partial success"). That is
 the engine behaving as specified — batch is all or nothing by design — so the
 client is the right place to decide that a partly-valid import should still
 make progress.
@@ -76,16 +80,20 @@ class BatchOutcome:
 
     results: list[RowResult]
     failures: list[BatchFailure] = field(default_factory=list)
-    #: True when the run halted before the end — on a connection error
-    #: (`stop_error`) or on an account-wide refusal (`refusal`). Everything
-    #: still `UNSENT` was never sent, so it is safe to retry.
-    stopped: bool = False
+    #: The connection error that halted the run before the end, as text.
     stop_error: str | None = None
     stop_chunk_index: int | None = None
     #: The refusal that stopped the run because every further write would draw
     #: it too (`errors.refuses_every_write`). Its chunk is one `BatchFailure`;
     #: a caller reports it once, not per row.
     refusal: EngineError | None = None
+
+    @property
+    def stopped(self) -> bool:
+        """True when the run halted before the end — on a connection error
+        (`stop_error`) or on an account-wide refusal (`refusal`). Everything
+        still `UNSENT` was never sent, so it is safe to retry."""
+        return self.stop_error is not None or self.refusal is not None
 
     @property
     def errors(self) -> dict[int, str]:
@@ -131,7 +139,7 @@ def post_transaction_batch(
 
     Never raises for an engine-side outcome: every item comes back with a
     `RowResult`, so the caller renders a summary instead of a traceback. A
-    connection error stops the run (`stopped=True`) with the remaining items
+    connection error stops the run (`stopped`) with the remaining items
     marked `UNSENT` — they were never sent, so they are safe to retry. So does
     an account-wide refusal (`errors.refuses_every_write`): its chunk is failed
     as one group with no row-by-row fallback, and no later chunk goes out.
@@ -163,7 +171,6 @@ def post_transaction_batch(
             outcome.failures.append(BatchFailure(span, format_error(err), chunk_index))
             continue
         except EngineConnectionError as err:
-            outcome.stopped = True
             outcome.stop_error = format_error(err)
             outcome.stop_chunk_index = chunk_index
             return outcome  # this chunk and every later one stay UNSENT
@@ -179,7 +186,6 @@ def _fail_and_stop(
     for index in indices:
         outcome.results[index] = RowResult.FAILED
     outcome.failures.append(BatchFailure(indices, format_error(err), chunk_index))
-    outcome.stopped = True
     outcome.stop_chunk_index = chunk_index
     outcome.refusal = err
 
@@ -210,7 +216,6 @@ def _post_singletons(
                 outcome.results[index] = RowResult.FAILED
                 outcome.failures.append(BatchFailure((index,), format_error(err), chunk_index))
         except EngineConnectionError as err:
-            outcome.stopped = True
             outcome.stop_error = format_error(err)
             outcome.stop_chunk_index = chunk_index
             return False

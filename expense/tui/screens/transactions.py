@@ -488,17 +488,18 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         drops the remainder on the first error, because here every row's
         intent is independent of its neighbours'. An account-wide refusal
         (`errors.refuses_every_write`) is the exception: every later row would
-        draw it too, so the run stops there."""
+        draw it too, so the run stops there and the rows after it are never sent."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
         done = left = 0
         failed: list[tuple[object, int, str]] = []
+        unsent: list[object] = []
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                for key, body, leaves in writes:
+                for sent, (key, body, leaves) in enumerate(writes, start=1):
                     try:
                         client.put(f"/transactions/{key}", json_body=body)
                         done += 1
@@ -506,12 +507,15 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                     except Exception as exc:
                         failed.append((key, numbers.get(key, 0), format_error(exc)))
                         if refuses_every_write(exc):
+                            unsent = [later for later, *_ in writes[sent:]]
                             break
         except Exception as exc:
             failed.append((None, 0, format_error(exc)))
-        self.app.call_from_thread(self._bulk_finished, done, failed, label, left)
+        self.app.call_from_thread(self._bulk_finished, done, failed, label, left, unsent)
 
-    def _bulk_finished(self, done: int, failed: list, label: str, left: int = 0) -> None:
+    def _bulk_finished(
+        self, done: int, failed: list, label: str, left: int = 0, unsent: tuple | list = ()
+    ) -> None:
         self._bulk_busy = False
         if done:
             self.notify(bulk_receipt(done, label, left))
@@ -524,7 +528,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key
         # retries exactly it; one past the newest 10 is dropped by `build`.
-        self._selected = {key for key, _n, _m in failed if key is not None}
+        # So does a row never sent because an account-wide refusal stopped the
+        # run: the retry covers the refused row and every row after it.
+        self._selected = {key for key, _n, _m in failed if key is not None} | set(unsent)
         self._reload_fresh()
 
     # ---- single-row doors ----------------------------------------------------
