@@ -1,14 +1,16 @@
 """System screen tests — Config + Auth & profile (fake client)."""
 
+import pytest
 from textual.widgets import Static
 
 from expense.config import Config
+from expense.errors import EngineError
 from expense.tui.screens.system import (
     AuthScreen,
     ConfigScreen,
     _redact_token,
 )
-from tests.unit.helpers import render_text, run_app, wait_for
+from tests.unit.helpers import error_body, render_text, run_app, wait_for
 
 CFG = Config(
     engine_url="https://engine.example",
@@ -129,6 +131,127 @@ def test_auth_not_provisioned_bootstraps(fake_client, monkeypatch):
         path, body = fake_client.posts[0]
         assert path == "/auth/bootstrap"
         assert body == {"display_name": "Alex", "timezone": "America/Lima"}
+
+    run_app(scenario)
+
+
+async def _open_bootstrap_prompt(pilot, app) -> AuthScreen:
+    screen = AuthScreen()
+    await app.push_screen(screen)
+    await wait_for(pilot, lambda: bool(app.screen.query(".legend")))
+    screen.action_bootstrap()
+    await wait_for(pilot, lambda: bool(app.screen.query("#prompt")))
+    return screen
+
+
+@pytest.mark.parametrize("typed", ["  Alex Tern \t", "", "   "], ids=["padded", "empty", "spaces"])
+def test_bootstrap_sends_the_display_name_exactly_as_typed(fake_client, monkeypatch, typed):
+    """No local trim and no local blank check: the engine trims the name and
+    refuses an empty one (contract: POST /v1/auth/bootstrap)."""
+    _patch_auth(fake_client, monkeypatch, me=None)
+    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
+
+    async def scenario(pilot, app):
+        await _open_bootstrap_prompt(pilot, app)
+        app.screen.query_one("#prompt").value = typed
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [
+            ("/auth/bootstrap", {"display_name": typed, "timezone": "America/Lima"})
+        ]
+
+    run_app(scenario)
+
+
+def test_bootstrap_sends_typed_keystrokes_with_their_spaces(fake_client, monkeypatch):
+    """Through the keyboard rather than the widget's value: the padding survives."""
+    _patch_auth(fake_client, monkeypatch, me=None)
+    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
+
+    async def scenario(pilot, app):
+        await _open_bootstrap_prompt(pilot, app)
+        await pilot.press("space", "A", "l", "space", "enter")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts[0][1]["display_name"] == " Al "
+
+    run_app(scenario)
+
+
+def test_bootstrap_esc_cancels_and_sends_nothing(fake_client, monkeypatch):
+    _patch_auth(fake_client, monkeypatch, me=None)
+    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
+    started: list = []
+    real = AuthScreen._bootstrap
+    monkeypatch.setattr(
+        AuthScreen, "_bootstrap", lambda self, name: (started.append(name), real(self, name))
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open_bootstrap_prompt(pilot, app)
+        app.screen.query_one("#prompt").value = "Alex"
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()  # a non-event: the cancel starts no write
+        assert started == []
+        assert fake_client.posts == []
+
+    run_app(scenario)
+
+
+def test_bootstrap_prompt_wording_is_unchanged(fake_client, monkeypatch):
+    _patch_auth(fake_client, monkeypatch, me=None)
+
+    async def scenario(pilot, app):
+        await _open_bootstrap_prompt(pilot, app)
+        box = app.screen.query_one("#modal")
+        assert (
+            _screen_text(box).split()
+            == (
+                "Bootstrap your display name — creates your user record [enter] save [esc] cancel"
+            ).split()
+        )
+        prompt = app.screen.query_one("#prompt")
+        assert prompt.value == "" and prompt.placeholder == "" and not prompt.password
+
+    run_app(scenario)
+
+
+def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch):
+    """The engine's `EMPTY` refusal reaches the "Bootstrap failed" toast through
+    the shared error text — code, message and the field line, nothing added."""
+    _patch_auth(fake_client, monkeypatch, me=None)
+    monkeypatch.setattr("expense.dates.detect_timezone", lambda *a, **k: "America/Lima")
+    body = error_body(
+        "VALIDATION_ERROR",
+        "Invalid input.",
+        {"display_name": "Must not be empty."},
+        {"display_name": "EMPTY"},
+    )
+    fake_client.errors["POST"] = EngineError(
+        "VALIDATION_ERROR",
+        "Invalid input.",
+        {"display_name": "Must not be empty."},
+        422,
+        body,
+        {"display_name": "EMPTY"},
+    )
+    notices: list = []
+    monkeypatch.setattr(
+        AuthScreen, "notify", lambda self, message, **kw: notices.append((message, kw))
+    )
+
+    async def scenario(pilot, app):
+        await _open_bootstrap_prompt(pilot, app)
+        app.screen.query_one("#prompt").value = "   "
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: notices)
+        assert fake_client.posts[0][1]["display_name"] == "   "
+        assert notices == [
+            (
+                "VALIDATION_ERROR — Invalid input.\n  display_name: Must not be empty.",
+                {"title": "Bootstrap failed", "severity": "error"},
+            )
+        ]
 
     run_app(scenario)
 

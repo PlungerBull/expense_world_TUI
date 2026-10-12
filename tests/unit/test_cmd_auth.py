@@ -188,6 +188,58 @@ def test_profile_422_renders_engine_error(configured):
     assert "display_name" in result.output
 
 
+_EMPTY_NAME = (
+    422,
+    "VALIDATION_ERROR",
+    "Invalid input.",
+    {"display_name": "Must not be empty."},
+    {"display_name": "EMPTY"},
+)
+_NAME_WRITES = {
+    "bootstrap": ("POST", "/v1/auth/bootstrap", ["--timezone", "America/Lima"]),
+    "profile": ("PUT", "/v1/auth/profile", []),
+}
+
+
+@respx.mock
+@pytest.mark.parametrize("command", list(_NAME_WRITES))
+@pytest.mark.parametrize("typed", ["  Alex Tern  ", "", "   "], ids=["padded", "empty", "spaces"])
+def test_display_name_is_sent_exactly_as_typed(configured, command, typed):
+    """No local trim and no local blank check; the engine owns both
+    (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile)."""
+    method, path, extra = _NAME_WRITES[command]
+    route = respx.request(method, f"{BASE}{path}").mock(
+        return_value=httpx.Response(200, json=BOOTSTRAP_RESPONSE)
+    )
+    result = runner.invoke(cli_app, ["auth", command, "--display-name", typed, *extra])
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls.last.request.content)["display_name"] == typed
+
+
+@respx.mock
+@pytest.mark.parametrize("command", list(_NAME_WRITES))
+def test_blank_display_name_shows_the_engines_refusal(configured, command):
+    method, path, extra = _NAME_WRITES[command]
+    route = respx.request(method, f"{BASE}{path}").mock(return_value=error_response(*_EMPTY_NAME))
+    result = runner.invoke(cli_app, ["auth", command, "--display-name", "   ", *extra])
+    assert result.exit_code == 1
+    assert json.loads(route.calls.last.request.content)["display_name"] == "   "
+    assert result.output == (
+        "Error: VALIDATION_ERROR — Invalid input.\n  display_name: Must not be empty.\n"
+    )
+
+
+@respx.mock
+@pytest.mark.parametrize("command", list(_NAME_WRITES))
+def test_blank_display_name_json_is_the_engines_raw_body(configured, command):
+    method, path, extra = _NAME_WRITES[command]
+    refusal = error_response(*_EMPTY_NAME)
+    respx.request(method, f"{BASE}{path}").mock(return_value=refusal)
+    result = runner.invoke(cli_app, ["auth", command, "--display-name", "", "--json", *extra])
+    assert result.exit_code == 1
+    assert json.loads(result.output) == json.loads(refusal.content)
+
+
 @respx.mock
 def test_bootstrap_timezone_auto_detected_from_tz_env(configured, monkeypatch):
     monkeypatch.setenv("TZ", "America/Lima")

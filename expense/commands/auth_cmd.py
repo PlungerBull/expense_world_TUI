@@ -174,9 +174,7 @@ def whoami(
 @handle_errors
 def profile(
     ctx: typer.Context,
-    display_name: str | None = typer.Option(
-        None, "--display-name", help="New display name. Cannot be cleared (engine rejects null)."
-    ),
+    display_name: str | None = typer.Option(None, "--display-name", help="New display name."),
     json_output: bool = JSON_OPT,
 ) -> None:
     """PUT /v1/auth/profile. Mutate identity fields on the users row.

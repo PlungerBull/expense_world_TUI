@@ -9,6 +9,8 @@ future Textual bump (or a stray edit) reintroduces the collapse. Asserting the
 while the box rendered empty; we assert it has size.
 """
 
+import pytest
+
 from expense.tui.screens.modals import (
     ConfirmModal,
     PickerModal,
@@ -38,3 +40,41 @@ def test_every_modal_box_renders_with_size():
             await wait_for(pilot, lambda: not app.screen.query("#modal"))
 
     run_app(scenario, size=(100, 40))
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "typed", "expected"),
+    [
+        ({}, "  Groceries  ", "Groceries"),
+        ({}, "   ", ""),
+        ({"verbatim": True}, "  Groceries  ", "  Groceries  "),
+        ({"verbatim": True}, "   ", "   "),
+        ({"verbatim": True}, "", ""),
+    ],
+    ids=["default-trims", "default-blank", "verbatim-padded", "verbatim-spaces", "verbatim-empty"],
+)
+def test_prompt_trims_by_default_and_only_verbatim_keeps_whitespace(kwargs, typed, expected):
+    async def scenario(pilot, app):
+        results: list = []
+        await app.push_screen(PromptModal("Rename", "New name", **kwargs), results.append)
+        await wait_for(pilot, lambda: app.screen.query("#prompt"))
+        app.screen.query_one("#prompt").value = typed
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: results)
+        assert results == [expected]
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"verbatim": True}], ids=["default", "verbatim"])
+def test_prompt_esc_cancels_with_none(kwargs):
+    async def scenario(pilot, app):
+        results: list = []
+        await app.push_screen(PromptModal("Rename", "New name", **kwargs), results.append)
+        await wait_for(pilot, lambda: app.screen.query("#prompt"))
+        app.screen.query_one("#prompt").value = "typed"
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: results)
+        assert results == [None]
+
+    run_app(scenario)

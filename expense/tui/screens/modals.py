@@ -42,18 +42,27 @@ class ConfirmModal(ModalScreen[bool]):
 
 class PromptModal(ModalScreen[str | None]):
     """Single-line text prompt. `enter` submits the value, `esc` cancels (None).
-    `password=True` masks input (for the token). Dismisses with the string."""
+    `password=True` masks input (for the token). Dismisses with the string,
+    trimmed — or exactly as typed with `verbatim=True`, for a value whose
+    whitespace is the engine's to judge."""
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
     def __init__(
-        self, title: str, message: str = "", *, value: str = "", password: bool = False
+        self,
+        title: str,
+        message: str = "",
+        *,
+        value: str = "",
+        password: bool = False,
+        verbatim: bool = False,
     ) -> None:
         super().__init__()
         self._title = title
         self._message = message
         self._value = value
         self._password = password
+        self._verbatim = verbatim
 
     def compose(self) -> ComposeResult:
         rows = [Static(Text(self._title), classes="modal-title")]
@@ -68,7 +77,7 @@ class PromptModal(ModalScreen[str | None]):
         self.query_one("#prompt", Input).focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.dismiss(event.value.strip())
+        self.dismiss(event.value if self._verbatim else event.value.strip())
 
     def action_cancel(self) -> None:
         self.dismiss(None)

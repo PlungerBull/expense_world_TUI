@@ -177,12 +177,16 @@ class AuthScreen(SectionScreen):
         ]
 
     def action_bootstrap(self) -> None:
+        # The name goes out exactly as typed, blank included: the engine trims it
+        # and refuses an empty one (contract: POST /v1/auth/bootstrap). Only `esc`
+        # (None) sends nothing.
         def cb(name: str | None) -> None:
-            if name:
+            if name is not None:
                 self._bootstrap(name)
 
         self.app.push_screen(
-            PromptModal("Bootstrap", "your display name — creates your user record"), cb
+            PromptModal("Bootstrap", "your display name — creates your user record", verbatim=True),
+            cb,
         )
 
     def _bootstrap(self, display_name: str) -> None:

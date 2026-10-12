@@ -53,9 +53,9 @@ Config lives in `~/.expense-config` (chmod 600):
 - `config clear`
 
 ### `expense auth`
-- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; later calls only bump `last_login_at`.
+- `auth bootstrap` → `POST /v1/auth/bootstrap` (first-login upsert, idempotent). `--display-name` and `--timezone` are honored only on the first call; later calls only bump `last_login_at`. Both surfaces send the display name exactly as typed, here and on `auth profile`: the engine trims it and refuses an empty or whitespace-only one with a 422 (`display_name`, reason `EMPTY`), writing nothing (contract: POST /v1/auth/bootstrap) (contract: PUT /v1/auth/profile).
 - `auth me` (alias: `whoami`) → `GET /v1/auth/me`
-- `auth profile --display-name <n>` → `PUT /v1/auth/profile`. The engine rejects clearing it to null; re-bootstrap never overwrites a profile-set name.
+- `auth profile --display-name <n>` → `PUT /v1/auth/profile`. Re-bootstrap never overwrites a profile-set name.
 - `auth settings --display-timezone <tz>` → `PUT /v1/auth/settings` — the only mutable setting. The home currency is read-only.
 
 ### `expense accounts`
