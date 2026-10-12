@@ -14,8 +14,11 @@ empty result or a >50-tag category.
 ## 1. What the engine now does
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
-used with, most-used first. Read-only. **Returns the whole list, unpaged**
-(contract: "Base Conventions", "Lists come in three shapes, and none of them is paged by position"): `?limit=` / `?offset=` are a `422`.
+used with, most-used first. Read-only (contract: GET /v1/categories/{category_id}/hashtags).
+**Returns the whole list, unpaged**
+(contract: "Base Conventions", "Lists come in three shapes, and none of them is paged by position").
+The route declares no query parameter, so `?limit=` / `?offset=` are a `422`
+(contract: "Base Conventions", "Unknown query parameters").
 
 ```json
 { "items": [ {"id": "<uuid>", "name": "ALQUILER", "uses": 142},
@@ -24,19 +27,25 @@ used with, most-used first. Read-only. **Returns the whole list, unpaged**
 
 Field rules that matter to this repo:
 
-- **`uses` counts transactions, not junction rows.** A row carrying two tags adds
-  1 to each, never 2 to either. Safe to show as a transaction count.
-- **Ordering is `uses DESC, created_at ASC`** (not name: a name is mutable).
-- **An empty list is not a 404.** It means "no tags used here yet", which is what
-  every category returns before it has history. `404` means the category is not
-  yours or is deleted.
-- Soft-deleted junction rows, transactions and hashtags are excluded, so a retired tag is
+- **`uses` counts transactions.** A row carrying two tags adds 1 to each
+  (contract: GET /v1/categories/{category_id}/hashtags, "`uses` counts transactions").
+  Safe to show as a transaction count.
+- **Ordering is `uses` descending, then the hashtag's creation time**
+  (contract: GET /v1/categories/{category_id}/hashtags, "Ordering").
+- **An empty list is not a 404**; `404` means the category is not yours or is deleted
+  (contract: GET /v1/categories/{category_id}/hashtags). This plan reads an empty list as
+  "no tags used here yet".
+- Removed tag links, deleted transactions and deleted hashtags are excluded
+  (contract: GET /v1/categories/{category_id}/hashtags, "Exclusions"), so a retired tag is
   never suggested.
+- A tag never used on the category is not returned; the client appends those from
+  `GET /hashtags` (contract: GET /v1/categories/{category_id}/hashtags, "The relationship is derived from the ledger").
 
-> ⚠️ **Never cache this as a mapping.** There is no category→hashtag link in the
-> schema and deliberately never will be; the answer is derived from the ledger on
-> every read and changes the moment something is tagged. A local table would be a
-> stale copy of a fact the engine computes correctly. An **in-session** cache is
+> ⚠️ **Never cache this as a mapping.** There is no declared link between a category and a
+> hashtag; the relationship is derived from the ledger
+> (contract: GET /v1/categories/{category_id}/hashtags, "The relationship is derived from the ledger").
+> This plan therefore treats the answer as able to change the moment something is tagged: a
+> local table would be a stale copy of a fact the engine computes. An **in-session** cache is
 > a different thing and is required — see §4.
 
 ## 2. What exists today
@@ -106,8 +115,8 @@ The category changes per keystroke, so this cannot ride the one-shot
 - cache per category id **for the life of the screen** — this is not the
   forbidden mapping, it is one screen's session, and without it every keystroke
   is an HTTP call;
-- one plain GET: the list comes back whole (bounded by the 500-hashtag cap), so there is
-  nothing to page.
+- one plain GET: the list comes back whole, bounded by the hashtag create cap of 500
+  (contract: "Base Conventions", "Create caps"), so there is nothing to page.
 
 ### 4d. The states the mockup does not draw
 
