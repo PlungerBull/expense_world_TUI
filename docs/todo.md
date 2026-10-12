@@ -52,13 +52,6 @@ first), so A–Z would be the app sorting a list itself.
 **Recommended:** C, because web and iOS need the same list and should not each sort it; B if you
 want it without waiting on the engine.
 
-### Hand the engine coders one ask
-Asked 2026-10-11 · Blocks: nothing
-[engine-asks/answers-carry-their-own-instructions.md](engine-asks/answers-carry-their-own-instructions.md)
-asks them to confirm the practice engine's start command in full, because their answer points at
-an engine file this repo cannot read. Only you can hand it over.
-**Recommended:** none, it is an errand.
-
 ---
 
 ## Backlog
@@ -70,6 +63,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the
   docstring's limits, with a test.
+
+- **The guard allows a practice-engine start with only one of the two database URLs.** The engine
+  coders' rule is that `SUPABASE_DB_URL` and `ADMIN_DB_URL` are both set on the start command,
+  every time; the guard accepts either one alone and leans on the engine refusing to start
+  ([guard.py](../.claude/hooks/guard.py)). Require both, with a test.
 
 - **A test docstring tells history.** `test_tui_reconciliations.py` line 157 says "`date_start`
   orders the batch now"; state it in the present tense
