@@ -27,18 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The first-time-setup hint in the TUI
-Asked 2026-10-11 · Blocks: nothing
-When the engine answers that first-time setup has not been done, every command and TUI toast adds
-one hint: "Your user_settings row is missing. Run 'expense auth bootstrap' to provision it." Inside
-the TUI the way to do it is the System screen's Bootstrap key, not a typed command.
-Variants drawn in [mockups/expense-world-setup-hint.html](mockups/expense-world-setup-hint.html).
-- **A.** Keep this one wording everywhere.
-- **B.** One plain wording everywhere, naming the System screen and the command.
-- **C.** Each surface names only its own way: the toast the screen and key, a typed command the command.
-**Recommended:** B, because the hint as written sends a TUI user to a command they never type, and
-one sentence stays one home.
-
 ### Review the two draft specs
 Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)

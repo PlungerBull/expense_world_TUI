@@ -45,7 +45,7 @@ The engine's `{ error: { code, message, fields, reasons } }` envelope is rendere
 Two hints belong to no single command and live in the shared error text, `format_error` in [expense/errors.py](../expense/errors.py), which the CLI's human output and the TUI's toasts and banners print. Every command, and every screen that reports an engine error through that text, shows them after a blank line under the engine's code, message and fields; the TUI bank import shows them in its toast, its on-screen refusal being the code, the message and the refused rows:
 
 - **A `401`** — the token is missing or invalid: `expense config set --token <pat>`, or `expense auth bootstrap` for an account not yet provisioned.
-- **`SETTINGS_MISSING`** — the user's settings do not exist yet (contract: "Error codes"). Both rate reads list it among the codes they can return (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history). Matched on the error code alone: `Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.`
+- **`SETTINGS_MISSING`** — the user's settings do not exist yet (contract: "Error codes"). Both rate reads list it among the codes they can return (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history). Matched on the error code alone: `Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.`
 
 Neither reaches `--json`, which stays the engine's body. The TUI's launch-time rate check shows nothing on any engine error, this one included.
 

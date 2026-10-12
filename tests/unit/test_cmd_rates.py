@@ -300,7 +300,8 @@ SETTINGS_MISSING_HUMAN = (
     "Error: SETTINGS_MISSING — User settings have not been provisioned.\n"
     "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
     "\n"
-    "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.\n"
+    "Hint: First-time setup is not done yet. "
+    "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.\n"
 )
 
 

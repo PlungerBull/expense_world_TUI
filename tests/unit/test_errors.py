@@ -262,7 +262,8 @@ def test_format_error_401_includes_hint():
 
 
 SETTINGS_HINT = (
-    "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it."
+    "Hint: First-time setup is not done yet. "
+    "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'."
 )
 
 

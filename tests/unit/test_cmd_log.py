@@ -160,7 +160,8 @@ def test_log_422_settings_missing_prints_hint(configured):
         "Error: SETTINGS_MISSING — User settings missing.\n"
         "  user_settings: Must be provisioned via bootstrap.\n"
         "\n"
-        "Hint: Your user_settings row is missing. Run 'expense auth bootstrap' to provision it.\n"
+        "Hint: First-time setup is not done yet. "
+        "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.\n"
     )
 
 

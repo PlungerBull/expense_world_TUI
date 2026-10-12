@@ -103,8 +103,8 @@ def format_error(err: Exception) -> str:
         if err.code == SETTINGS_MISSING:
             lines.append("")
             lines.append(
-                "Hint: Your user_settings row is missing. "
-                "Run 'expense auth bootstrap' to provision it."
+                "Hint: First-time setup is not done yet. "
+                "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'."
             )
         return "\n".join(lines)
     if isinstance(err, EngineConnectionError):

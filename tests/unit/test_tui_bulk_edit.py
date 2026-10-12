@@ -317,8 +317,8 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
                 "row 1: SETTINGS_MISSING — User settings have not been provisioned.\n"
                 "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
                 "\n"
-                "Hint: Your user_settings row is missing. "
-                "Run 'expense auth bootstrap' to provision it.",
+                "Hint: First-time setup is not done yet. "
+                "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.",
             )
         ]
         # the refused row and the two never sent stay selected for the retry
