@@ -50,9 +50,7 @@ not change. The app must:
 
 ## Tasks
 
-3. **Record the new contract version.** With the practice engine running, the version check
-   prints only the wording entry above; then the version is recorded. Done last, so the check
-   keeps failing until the rest of the catch-up is in.
+No task is open.
 
 After the tasks: the acceptance check (the five checks above), the doc sweep, then this spec and
 both answers are deleted in one commit.
