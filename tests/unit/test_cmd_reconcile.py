@@ -740,6 +740,7 @@ def test_create_overlap_422_points_at_the_neighbours(configured):
     )
     assert result.exit_code == 1
     assert "a day belongs to exactly one statement" in result.output.lower()
+    assert "oldest statement first" in result.output
     assert "reconcile list --account-id" in result.output
     assert "Overlaps 'August 2026'" in result.output  # the engine's own words survive
 
@@ -829,6 +830,7 @@ def test_update_overlap_422_points_at_the_neighbours(configured):
     )
     result = runner.invoke(cli_app, ["reconcile", "update", _RID, "--date-start", "2026-08-20"])
     assert result.exit_code == 1
+    assert "oldest statement first" in result.output
     assert "reconcile list --account-id" in result.output
     assert "expense reconcile revert" not in result.output
 

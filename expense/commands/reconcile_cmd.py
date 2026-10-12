@@ -89,8 +89,8 @@ _UNASSIGNED_HINT_BARE = (
 )
 _INVERTED_HINT = "Hint: --date-end must not be earlier than --date-start."
 _OVERLAP_HINT = (
-    "Hint: a day belongs to exactly one statement. See the neighbours in "
-    "statement order with 'expense reconcile list --account-id <id>'."
+    "Hint: a day belongs to exactly one statement. See the neighbours, oldest "
+    "statement first, with 'expense reconcile list --account-id <id>'."
 )
 
 
@@ -188,7 +188,8 @@ def list_(
         ...,
         "--account-id",
         help="The account whose reconciliations to list (required: the engine lists "
-        "one account at a time). Every one comes back, in period order.",
+        "one account at a time). Every one comes back, by statement start date, "
+        "oldest first.",
     ),
     json_output: bool = JSON_OPT,
 ) -> None:
@@ -293,7 +294,7 @@ def update(
     """PUT /v1/reconciliations/{id}. Partial update.
 
     `--date-start` is also how you reposition a batch: an account's batches
-    are ordered by their statement start date.
+    are ordered by their statement start date, oldest first.
 
     Example: expense reconcile update <id> --name "March 2026" --ending-balance 12500
     """

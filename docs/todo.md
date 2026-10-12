@@ -44,7 +44,7 @@ an item of a list the engine orders.
 ### Tags below the divider: A–Z or the engine's order
 Asked 2026-10-11 · Blocks: [specs/tag-suggestions.md](specs/tag-suggestions.md)
 The tag-suggestions spec lists a category's own tags first, then a divider, then every other tag
-A–Z. Everywhere else the app shows tags in the engine's order (your own `sort_order`, then oldest
+A–Z. Everywhere else the app shows tags in the engine's order (your own `sort_order` ascending, then oldest
 first), so A–Z would be the app sorting a list itself.
 - **A.** Keep A–Z below the divider, as the approved mockup shows.
 - **B.** Below the divider, keep the engine's order, the same as today's `#` list.
