@@ -10,6 +10,7 @@ from collections import Counter
 import typer
 
 from expense import config as config_module
+from expense.batch_write import CHUNK_SIZE, ENGINE_BATCH_MAX
 from expense.context import get_verbose
 from expense.currencies import MINOR_UNIT_SCALE
 from expense.errors import handle_errors
@@ -209,7 +210,11 @@ def run_import(
         False, "--apply", help="Actually write to the engine. Default is a dry-run preview."
     ),
     chunk_size: int = typer.Option(
-        200, "--chunk-size", min=1, max=500, help="Transactions per batch request."
+        CHUNK_SIZE,
+        "--chunk-size",
+        min=1,
+        max=ENGINE_BATCH_MAX,
+        help="Transactions per batch request.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit the plan/result as JSON."),
     account_name: list[str] = typer.Option(

@@ -17,6 +17,7 @@ from expense.batch_write import (
     BatchOutcome,
     RowResult,
     post_transaction_batch,
+    require_sendable_chunk_size,
 )
 from expense.commands._resource import items_of, query_params
 from expense.dates import to_canonical_aware
@@ -324,6 +325,7 @@ def apply_plan(
     *,
     chunk_size: int = CHUNK_SIZE,
 ) -> ApplyResult:
+    require_sendable_chunk_size(chunk_size)  # before the opening balances are written
     result = ApplyResult(resolve=res)
 
     # Opening balances go first: seeds are account-level state, and if the

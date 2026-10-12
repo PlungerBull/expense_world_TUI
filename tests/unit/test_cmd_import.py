@@ -3,10 +3,12 @@
 import json
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
 from expense import config as config_module
+from expense.batch_write import ENGINE_BATCH_MAX
 from expense.commands import import_cmd
 from expense.http import ExpenseClient
 from expense.import_ import apply as apply_mod
@@ -595,6 +597,43 @@ def test_chunking_splits_batches(configured):
 
     sizes = [len(json.loads(c.request.content)["transactions"]) for c in batch_route.calls]
     assert sizes == [200, 200, 50]
+
+
+@respx.mock
+def test_a_chunk_size_above_the_engines_limit_is_refused_before_any_write(configured):
+    """A programming error: nothing goes out, the opening balance included."""
+    plan = plan_mod.build_plan([_prow(2)], [_orow(3)], [])
+    _mock_existing(
+        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        categories=[],
+        hashtags=[],
+    )
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    opening_route = respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
+        return_value=httpx.Response(201, json={"id": "ob"})
+    )
+    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        sent_before = len(respx.calls)
+        with pytest.raises(ValueError, match="above the engine's limit"):
+            apply_mod.apply_plan(client, plan, res, chunk_size=ENGINE_BATCH_MAX + 1)
+    assert not opening_route.called
+    assert not batch_route.called
+    assert len(respx.calls) == sent_before
+
+
+def test_import_sheet_refuses_a_chunk_size_flag_above_the_engines_limit(configured):
+    """The flag's ceiling is the engine's limit, read from its one home."""
+    over = CliRunner().invoke(
+        cli_app, ["import", "sheet", "whatever.xlsx", "--chunk-size", str(ENGINE_BATCH_MAX + 1)]
+    )
+    assert over.exit_code == 2
+    assert f"1<=x<={ENGINE_BATCH_MAX}" in over.output
 
 
 @respx.mock

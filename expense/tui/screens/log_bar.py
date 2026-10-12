@@ -9,8 +9,8 @@ staged row back up, `ctrl+x` drops one, `esc` confirms a discard.
 id, a version and possibly a reconciliation freezing four of its fields, so
 correcting one is a PUT of what changed, not a line retyped from scratch.
 
-**The save** is `ctrl+s`: one `POST /transactions/batch` for every staged row,
-through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
+**The save** is `ctrl+s`: every staged row goes to `POST /transactions/batch`,
+one chunk per request, through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
 `expense import` uses, because the engine refuses an atomic batch without
 saying which row. What that means when only some of it lands is four
 calls, recorded in docs/decisions.md "What a half-written batch means": the
@@ -992,7 +992,7 @@ class LogBarScreen(Screen):
 
     @work(thread=True, group="engine-write")
     def _save(self, leave_after: bool) -> None:
-        """One `POST /transactions/batch` for every row without a tick.
+        """Send every row without a tick to `POST /transactions/batch`, in chunks.
 
         Not `EngineWriteMixin.run_write`: that is one request per queued item,
         it drops the response, and it clears the queue on the first error —

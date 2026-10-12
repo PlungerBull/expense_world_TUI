@@ -9,6 +9,8 @@ import pytest
 
 from expense.batch_write import (
     BATCH_PATH,
+    CHUNK_SIZE,
+    ENGINE_BATCH_MAX,
     BatchOutcome,
     RowResult,
     post_transaction_batch,
@@ -83,6 +85,41 @@ def test_chunking_splits_at_the_size_asked_for():
     client = _Client()
     post_transaction_batch(client, _items(450), chunk_size=200)
     assert client.sizes == [200, 200, 50]
+
+
+def test_the_chunk_size_stays_at_or_under_the_engines_limit():
+    """The engine refuses a longer list whole (contract: POST /v1/transactions/batch)."""
+    assert ENGINE_BATCH_MAX == 500
+    assert 1 <= CHUNK_SIZE <= ENGINE_BATCH_MAX
+
+
+def test_the_default_chunk_is_the_module_constant():
+    client = _Client()
+    post_transaction_batch(client, _items(CHUNK_SIZE + 1))
+    assert client.sizes == [CHUNK_SIZE, 1]
+
+
+def test_a_chunk_at_the_engines_limit_goes_out_whole():
+    client = _Client()
+    post_transaction_batch(client, _items(ENGINE_BATCH_MAX + 1), chunk_size=ENGINE_BATCH_MAX)
+    assert client.sizes == [ENGINE_BATCH_MAX, 1]
+
+
+@pytest.mark.parametrize("chunk_size", [0, -1, -200])
+@pytest.mark.parametrize("n_items", [0, 3])
+def test_a_chunk_size_below_one_is_refused_before_anything_is_sent(chunk_size, n_items):
+    client = _Client()
+    with pytest.raises(ValueError, match="below 1 transaction per batch"):
+        post_transaction_batch(client, _items(n_items), chunk_size=chunk_size)
+    assert client.calls == []
+
+
+@pytest.mark.parametrize("n_items", [0, 3, ENGINE_BATCH_MAX + 1])
+def test_a_chunk_size_above_the_engines_limit_is_refused_before_anything_is_sent(n_items):
+    client = _Client()
+    with pytest.raises(ValueError, match="above the engine's limit of 500"):
+        post_transaction_batch(client, _items(n_items), chunk_size=ENGINE_BATCH_MAX + 1)
+    assert client.calls == []
 
 
 def test_a_422_falls_back_to_one_row_per_batch_and_names_the_bad_one():

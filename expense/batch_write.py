@@ -1,9 +1,9 @@
 """Post transactions through the atomic batch endpoint, and land every good row.
 
-`POST /transactions/batch` is all-or-nothing: one bad row in a chunk of 200 and
-none of the 200 are written. The singleton retry — shared by `expense import`
+`POST /transactions/batch` is all-or-nothing: one bad row in a chunk and none
+of the chunk is written. The singleton retry — shared by `expense import`
 and the TUI's LOG bar rather than kept in two copies — re-posts the refused
-chunk one row per batch, so the 199 good rows land and the bad one is named on
+chunk one row per batch, so the good rows land and the bad one is named on
 its own.
 
 **Why it is needed although the engine names the failing row** (a 422 from
@@ -35,7 +35,11 @@ from enum import StrEnum
 from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.http import ExpenseClient
 
-#: Rows per atomic batch. The engine takes larger ones; this bounds how much a
+#: The most transactions the engine takes in one request; a longer list is
+#: refused whole with a 422 on `transactions` (contract: POST /v1/transactions/batch).
+ENGINE_BATCH_MAX = 500
+
+#: Rows per atomic batch. Kept under `ENGINE_BATCH_MAX` to bound how much a
 #: singleton retry has to re-post when one row in a chunk is bad.
 CHUNK_SIZE = 200
 
@@ -98,6 +102,23 @@ class BatchOutcome:
         return [i for i, r in enumerate(self.results) if r is RowResult.UNSENT]
 
 
+def require_sendable_chunk_size(chunk_size: int) -> None:
+    """Raise `ValueError` for a `chunk_size` that cannot be sent.
+
+    Below 1 there is no chunk to send; above `ENGINE_BATCH_MAX` the engine
+    refuses every chunk. A programming error, not something a user reaches. A
+    caller that writes anything before its batch calls this first, so nothing
+    lands ahead of it.
+    """
+    if chunk_size < 1:
+        raise ValueError(f"chunk_size {chunk_size} is below 1 transaction per batch")
+    if chunk_size > ENGINE_BATCH_MAX:
+        raise ValueError(
+            f"chunk_size {chunk_size} is above the engine's limit of {ENGINE_BATCH_MAX} "
+            "transactions per batch"
+        )
+
+
 def post_transaction_batch(
     client: ExpenseClient, items: list[dict], *, chunk_size: int = CHUNK_SIZE
 ) -> BatchOutcome:
@@ -107,7 +128,11 @@ def post_transaction_batch(
     `RowResult`, so the caller renders a summary instead of a traceback. A
     connection error stops the run (`stopped=True`) with the remaining items
     marked `UNSENT` — they were never sent, so they are safe to retry.
+
+    A `chunk_size` below 1 or above `ENGINE_BATCH_MAX` is a programming error
+    and raises `ValueError` before anything is sent.
     """
+    require_sendable_chunk_size(chunk_size)
     outcome = BatchOutcome(results=[RowResult.UNSENT] * len(items))
     if not items:
         return outcome
