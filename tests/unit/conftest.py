@@ -66,6 +66,32 @@ def _hermetic_paths(tmp_path, monkeypatch):
     yield
 
 
+#: The terminal every unit test sees: 80x24, the size `shutil.get_terminal_size`
+#: falls back to with no terminal, and Textual's `run_test` default.
+TERMINAL_SIZE = (80, 24)
+
+
+@pytest.fixture(autouse=True)
+def _pinned_terminal_size(monkeypatch):
+    """Give EVERY test the same terminal size, whatever window runs the suite.
+
+    Typer prints a usage error in a Rich box as wide as the terminal. Rich
+    takes that width from an exported COLUMNS first, then from the real window.
+    A shell that exports a small COLUMNS, or a narrow window, wraps the box
+    mid-sentence, so a plain substring assertion on `result.output` fails
+    without being wrong about anything. Setting COLUMNS and LINES here
+    replaces the shell's values and outranks the window, so CliRunner output
+    is the same in a 40-column pane, a 250-column one and a pipe.
+
+    TUI tests are untouched: Textual's headless driver takes its size from
+    `run_test(size=...)`, never from the environment.
+    """
+    columns, lines = TERMINAL_SIZE
+    monkeypatch.setenv("COLUMNS", str(columns))
+    monkeypatch.setenv("LINES", str(lines))
+    yield
+
+
 @pytest.fixture
 def configured(tmp_path, monkeypatch):
     """Config saved under tmp_path — every command runs engine-direct."""
