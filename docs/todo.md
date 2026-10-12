@@ -66,14 +66,14 @@ an engine file this repo cannot read. Only you can hand it over.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up to engine contract `26c9f9880ad3540c`** (list orders state their direction; the
-  practice engine starts only with its own Python). Spec (current):
-  [specs/engine-catch-up-26c9f988.md](specs/engine-catch-up-26c9f988.md).
-
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the
   docstring's limits, with a test.
+
+- **A test docstring tells history.** `test_tui_reconciliations.py` line 157 says "`date_start`
+  orders the batch now"; state it in the present tense
+  ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
 
 - **Three flaky unit tests.** Each failed once in a full `pytest tests/unit` run on 2026-10-02
   and passes alone; for each, find whether the test asserts too early or the screen has a race.

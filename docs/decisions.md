@@ -440,3 +440,26 @@ the bar is where the right file gets dropped next.
 
 **Rejected.** *Retry row by row like any other `422`* — one extra request per row, and the same four-line error under every row. *Split an oversized `transactions batch` file into several requests* — the command promises all-or-nothing.
 
+## The practice engine starts with its own Python only (2026-10-12)
+
+**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The tester starts the practice engine from this repo's sessions, behind the session guard ([cli-runtime.md](cli-runtime.md) "Working against the live engine").
+
+**Decision.** The guard allows one start command, word for word, with the engine checkout's `.venv/bin/python` as its interpreter, and refuses every other spelling. The ops guide gives the same command, so the command a person copies and the command the guard accepts are one text.
+
+**Rejected.** *A list of acceptable interpreters* (`python`, `python3`, …) — each resolves to whatever the shell finds first, which may be this repo's Python or the system's, without the engine's dependencies or on the wrong version. *Accepting any path that ends in the engine's interpreter* — the guard would have to resolve paths to know it is the same file.
+
+## A list's order is written in the contract's words, in one home (2026-10-12)
+
+**Context.** The contract states each list's order with its direction: accounts come by `sort_order` ascending, then creation time, oldest first (contract: GET /v1/accounts, "Ordering"). Every client shows a list as the engine returns it.
+
+**Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([cli-spec.md](cli-spec.md) `reconcile list` for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen or command sorts a list the engine orders.
+
+**Rejected.** *SQL-style shorthand* (a column name followed by a sort keyword) — it names columns the contract does not publish and reads as knowledge of the engine's insides. *Stating the order wherever the list appears* — the copies drift.
+
+## The unit suite pins its terminal size (2026-10-12)
+
+**Context.** Typer prints a usage error in a box as wide as the terminal, and the width comes from the shell's `COLUMNS` or the window. The commit gate runs the unit suite in whatever session commits.
+
+**Decision.** An autouse fixture in [tests/unit/conftest.py](../tests/unit/conftest.py) sets every test's terminal to 80×24, so the suite's result does not depend on the shell or the window ([cli-runtime.md](cli-runtime.md) "Unit tests never touch the network").
+
+**Rejected.** *Loosening each assertion to survive wrapping* — every new test would have to remember it.
