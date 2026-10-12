@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setup hint wording</title>
+<style>
+  :root{
+    --page:#050506; --pad:#000; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#cf8d8d; --warn:#d6b97f; --line:#23232a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{max-width:1100px;margin:0 auto;padding:40px 16px 90px;font-family:var(--mono);
+       color:var(--text);-webkit-font-smoothing:antialiased}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:86ch}
+  .head b,.blurb b{color:var(--text)}
+  section{margin-top:44px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:88ch}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--dim);font-size:12px}
+  pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);
+      white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .n{color:var(--neg)} .a{color:var(--accent)}
+  .pick{margin-top:38px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>Setup hint · what the app says when first-time setup is missing</h1>
+  <p>When the engine answers that first-time setup has not been done, the app adds one hint line under the
+     engine's error. The hint is the only part the app writes; the lines above it are the engine's own and are
+     drawn here with a stand-in sentence. <b>Not approved.</b> Variant A is what the app shows today.</p>
+  <p>Each variant is drawn twice: as the toast in <b>expense world</b> at 80 columns, and as the output of a
+     typed command.</p>
+</div>
+
+<section>
+  <div class="lbl">A <span>· one wording everywhere, as today</span></div>
+  <p class="blurb">Names a database term and a typed command, in the TUI too.</p>
+  <div class="grid">
+    <div class="term"><div class="bar">expense world · toast</div><pre>
+<span class="n">▌</span> <span class="b">Failed</span>
+<span class="n">▌</span> SETTINGS_MISSING — <span class="d">the engine's</span>
+<span class="n">▌</span> <span class="d">sentence, wrapped to the toast.</span>
+<span class="n">▌</span>
+<span class="n">▌</span> Hint: Your user_settings row is
+<span class="n">▌</span> missing. Run 'expense auth
+<span class="n">▌</span> bootstrap' to provision it.</pre></div>
+    <div class="term"><div class="bar">typed command</div><pre>
+<span class="n">Error:</span> SETTINGS_MISSING — <span class="d">the engine's sentence.</span>
+  user_settings: <span class="d">the engine's field text.</span>
+
+Hint: Your user_settings row is missing. Run
+'expense auth bootstrap' to provision it.</pre></div>
+  </div>
+</section>
+
+<section>
+  <div class="lbl">B <span>· one plain wording everywhere, naming both ways</span></div>
+  <p class="blurb">The same sentence on both surfaces. It says what is missing in plain words and names the TUI
+     screen and the typed command.</p>
+  <div class="grid">
+    <div class="term"><div class="bar">expense world · toast</div><pre>
+<span class="n">▌</span> <span class="b">Failed</span>
+<span class="n">▌</span> SETTINGS_MISSING — <span class="d">the engine's</span>
+<span class="n">▌</span> <span class="d">sentence, wrapped to the toast.</span>
+<span class="n">▌</span>
+<span class="n">▌</span> Hint: First-time setup is not done
+<span class="n">▌</span> yet. Open System ▸ Auth &amp; profile
+<span class="n">▌</span> and press b, or run 'expense auth
+<span class="n">▌</span> bootstrap'.</pre></div>
+    <div class="term"><div class="bar">typed command</div><pre>
+<span class="n">Error:</span> SETTINGS_MISSING — <span class="d">the engine's sentence.</span>
+  user_settings: <span class="d">the engine's field text.</span>
+
+Hint: First-time setup is not done yet. Open
+System ▸ Auth &amp; profile and press b, or run
+'expense auth bootstrap'.</pre></div>
+  </div>
+</section>
+
+<section>
+  <div class="lbl">C <span>· each surface names only its own way</span></div>
+  <p class="blurb">The toast points at the screen and key; the typed command points at the command. Shorter in
+     both places; the app keeps two sentences instead of one.</p>
+  <div class="grid">
+    <div class="term"><div class="bar">expense world · toast</div><pre>
+<span class="n">▌</span> <span class="b">Failed</span>
+<span class="n">▌</span> SETTINGS_MISSING — <span class="d">the engine's</span>
+<span class="n">▌</span> <span class="d">sentence, wrapped to the toast.</span>
+<span class="n">▌</span>
+<span class="n">▌</span> Hint: First-time setup is not done
+<span class="n">▌</span> yet. Open System ▸ Auth &amp; profile
+<span class="n">▌</span> and press b.</pre></div>
+    <div class="term"><div class="bar">typed command</div><pre>
+<span class="n">Error:</span> SETTINGS_MISSING — <span class="d">the engine's sentence.</span>
+  user_settings: <span class="d">the engine's field text.</span>
+
+Hint: First-time setup is not done yet. Run
+'expense auth bootstrap'.</pre></div>
+  </div>
+</section>
+
+<div class="pick">
+  <b>Pick one:</b> A, B or C. The wording inside a variant can still be changed; say which letter and what to
+  reword.
+</div>
+</body>
+</html>

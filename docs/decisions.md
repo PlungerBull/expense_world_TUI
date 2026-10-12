@@ -331,7 +331,7 @@ the bar is where the right file gets dropped next.
 
 ## The transaction list pages by cursor (2026-09-23)
 
-**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). This was an engine ask, and it is the case behind CLAUDE.md's "Ask the engine to change" rule.
+**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). The engine owns paging and the count, which is the case behind CLAUDE.md's "Ask the engine to change" rule.
 
 **Rejected.** *Offset paging* — a list that shrinks while you file rows silently skips rows. *A probe-then-offset-then-reverse read for oldest-first* — two reads, a race at the page edge, and a pattern every client would copy.
 
@@ -345,7 +345,7 @@ the bar is where the right file gets dropped next.
 
 **Decision.** Activity and Rates have no TUI screens; the flat `expense activity list` and `expense rates list` stay, with `--from` / `--to` / `--after` and a line naming the window read ([cli-spec.md](cli-spec.md) "Pagination"). A bare `--from`/`--to` day is sent as typed; the engine reads it as a whole day in `display_timezone`. No TUI screen reads a date window.
 
-**Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens. *Converting a typed day to an instant client-side* — the engine's date rule copied into the client; tried and removed.
+**Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens. *Converting a typed day to an instant client-side* — the engine's date rule copied into the client.
 
 ## Long lists grow, they do not page (2026-09-25, owner)
 
@@ -395,7 +395,7 @@ the bar is where the right file gets dropped next.
 - **Workers run on the session's model** (`model: inherit`).
 - **The tester may start the practice engine**, the one exception to staying inside this repo, and recreates the practice user each check with a fresh key it never stores.
 
-**Why.** "Done" (tests pass, committed and pushed) only means something inside one repo, and a loop per repo keeps the wall between this client and the engine automatic. Every change is written by one agent and read by another, so nothing is approved by the agent that wrote it; the same holds for a tester that would otherwise write the test it then checks. Pushing after each task runs GitHub's checks on each one. A fresh practice key per check leaves nothing stored and practice data starting clean. A fact written in two docs drifts, which is why the librarian exists. The trial run and the next spec both finished on 2026-09-28 under these rules.
+**Why.** "Done" (tests pass, committed and pushed) only means something inside one repo, and a loop per repo keeps the wall between this client and the engine automatic. Every change is written by one agent and read by another, so nothing is approved by the agent that wrote it; the same holds for a tester that would otherwise write the test it then checks. Pushing after each task runs GitHub's checks on each one. A fresh practice key per check leaves nothing stored and practice data starting clean. A fact written in two docs drifts, which is why the librarian exists.
 
 **Rejected.** *One loop over the whole `productivity_world` folder* — "done" stops meaning anything across repos and the client–engine wall stops being automatic. *Checking in with the owner after every task* — the questions would be technical ones the owner hands back to the agents anyway.
 
@@ -405,7 +405,7 @@ the bar is where the right file gets dropped next.
 
 **Why.** The commit hook already runs the unit tests on every commit, so a per-task tester only repeated them; its real value is the real engine and checking criteria rather than tests, which one pass per spec covers. Docs drift slowly, so one sweep at the end catches what per-task passes did. Reading is cheaper than testing, so the reviewer goes first.
 
-**Rejected.** *Tester and librarian after every task* — the first spec showed most of their time went on re-running what the commit hook checks and on small follow-up rounds. *No tester at all* — nothing else runs the app against the real engine or catches a criterion the tests miss.
+**Rejected.** *Tester and librarian after every task* — most of their time goes on re-running what the commit hook checks and on small follow-up rounds. *No tester at all* — nothing else runs the app against the real engine or catches a criterion the tests miss.
 
 ## The engine is learned only from its live contract (2026-09-28, owner)
 

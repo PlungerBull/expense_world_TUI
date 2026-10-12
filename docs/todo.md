@@ -32,10 +32,12 @@ Asked 2026-10-11 · Blocks: nothing
 When the engine answers that first-time setup has not been done, every command and TUI toast adds
 one hint: "Your user_settings row is missing. Run 'expense auth bootstrap' to provision it." Inside
 the TUI the way to do it is the System screen's Bootstrap key, not a typed command.
+Variants drawn in [mockups/expense-world-setup-hint.html](mockups/expense-world-setup-hint.html).
 - **A.** Keep this one wording everywhere.
-- **B.** One plain-language wording that names first-time setup, the System screen and the command.
-**Recommended:** B, because the hint as written sends a TUI user to a command they never type; the
-variants come as a mockup to pick from.
+- **B.** One plain wording everywhere, naming the System screen and the command.
+- **C.** Each surface names only its own way: the toast the screen and key, a typed command the command.
+**Recommended:** B, because the hint as written sends a TUI user to a command they never type, and
+one sentence stays one home.
 
 ### Review the two draft specs
 Asked 2026-09-29 · Blocks: each spec's work
@@ -64,6 +66,10 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
   features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
   paused; its open questions live in the spec.
+- **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
+  is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
+  some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
+  not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
 - **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
   <TAB>` shows subcommands. No design questions open.
 

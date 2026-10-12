@@ -1,9 +1,12 @@
 # CLI answers
 
-Engine changes the CLI has to catch up with, one file per change, ready for the owner to hand over. A file is the engine's half of the conversation. A client's ask comes in as a standalone file (CLAUDE.md → "Asks from the client"), and the reply or follow-up goes out from here.
+The engine coders' drop box: one file per engine change this client has to catch up with. The
+engine coders write the files and the owner drops them here. This repo reads them as input and
+never writes one. The other direction, what this client needs from the engine, is
+[engine-asks/](../engine-asks/).
 
-- **Only the orchestrator writes here,** like `docs/todo.md`. Workers name a client break in their report.
-- **One file per change,** named by its slug (`published-contract.md`). Each file stands alone for a reader with no engine context: it names routes, fields, statuses and contract versions, never engine file paths or internal names.
+- **One file per change,** named by its slug (`published-contract.md`). Each stands alone: it
+  names routes, fields, statuses and contract versions, never engine file paths or internal names.
 - **Every file has this shape:**
 
   ```
@@ -16,4 +19,9 @@ Engine changes the CLI has to catch up with, one file per change, ready for the 
   ## Done when
   ```
 
-- **Delete the file once the owner says the CLI has caught up.** Git history keeps it.
+- **A file is a pointer, not the contract.** Every rule it names is read from the live contract
+  before anything is built on it ([CLAUDE.md](../../CLAUDE.md) "Key documentation").
+- **The orchestrator plans from it:** a change becomes a task in the spec that catches up with
+  that contract version, or a spec of its own ([specs/](../specs/)).
+- **Deleted when the client has caught up,** by the orchestrator, in the commit that retires the
+  spec covering it. Git history keeps it.

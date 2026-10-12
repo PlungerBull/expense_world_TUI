@@ -1,0 +1,345 @@
+<title>Expense World XP</title>
+<style>
+  /* Layout: one column of terminal frames, read top to bottom in the order a month meets them. Terminal-dark by choice, like every mockup in this folder. */
+  :root{
+    color-scheme:dark;
+    --page:#050506; --pad:#000; --text:#d6d6da; --muted:#878b94; --dim:#5b5f68;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#cf8d8d; --warn:#d6b97f; --gold:#e0c27a; --line:#23232a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page);color:var(--text)}
+  body{display:flex;flex-direction:column;align-items:center;gap:38px;
+       padding-block:40px 90px;padding-inline:16px;font-family:var(--mono);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600;text-wrap:balance}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:86ch}
+  .head b,.blurb b,.pick b{color:var(--text)}
+  .group{width:min(1080px,100%);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);
+         border-top:1px solid var(--line);padding-top:14px;margin-bottom:-18px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:88ch}
+  .blurb code{color:var(--text);font-size:12px}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#000}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:14px 18px 18px;overflow-x:auto}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;font-variant-numeric:tabular-nums}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .m{color:var(--muted)}
+  .n{color:var(--neg)} .p{color:var(--pos)} .w{color:var(--warn)} .o{color:var(--gold)}
+  .rev{background:var(--text);color:#0b0b0e}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){.opt{grid-template-columns:1fr}}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .pick{border:1px solid var(--line);border-radius:10px;padding:14px 18px;color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+</style>
+
+<div class="head">
+  <h1>Expense World XP · the whole system in the TUI</h1>
+  <p>Sketch for <b>productivity_world/expense-world-xp-system.md</b>. <b>Not approved and nothing is built.</b>
+  It shows where each piece lives and what you see when it happens, in the order a normal month runs.
+  Every amount, name and XP price is invented. XP prices are placeholders until the pricing question is settled.</p>
+  <p>Four surfaces: a <b>strip on Home</b> (always on), <b>toasts</b> when something is earned,
+  a <b>chapter recap</b> once a month, and a <b>Character</b> screen for the full picture. Plus a one-time setup:
+  a role on each account and on some categories.</p>
+</div>
+
+<div class="group">Always on</div>
+
+<!-- 1 -->
+<div class="pane">
+  <div class="lbl">1 · Home, with the XP strip <span>— one line under the brand, above the grid</span></div>
+  <p class="blurb">Left: your <b>level</b>, which only goes up. Middle: the <b>Shield</b> (the Freedom ladder),
+  which moves with your savings balance. Right: the work waiting for you. Everything below the strip is today's Home.
+  Accounts now show their <b>role</b>, and a new <b>PROGRESS</b> section opens the Character screen.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre><span class="b">expense world</span><span class="d">▍ Home</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="o b">Lv 14</span>  <span class="o">▰▰▰▰▰▰</span><span class="d">▱▱▱▱</span>  2,340 / 3,800 XP     <span class="a">Shield</span> <span class="p">▰▰▰▰</span><span class="d">▱▱</span> 4.2 mo · Steady     <span class="w">@Pendiente 37</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="d">CATEGORIES                      Jul 2026     Aug 2026     Sep 2026     Oct 2026</span>
+  Comida                       <span class="n">-1,204.30    -1,388.10    -1,150.75      -212.40</span>
+  Transporte                     <span class="n">-310.00      -284.50      -342.10       -48.20</span>
+  Vivienda                     <span class="n">-1,800.00    -1,800.00    -1,800.00    -1,800.00</span>
+  Salidas                        <span class="n">-420.90      -615.00      -380.40</span>          <span class="d">—</span>
+  Sueldo                        <span class="p">6,519.00     6,519.00     6,519.00</span>          <span class="d">—</span>
+  @Pendiente                         <span class="d">—            —            —</span>      <span class="n">-611.90</span>
+  <span class="d">…</span>
+
+ <span class="d">BANK ACCOUNTS                                        balance today</span>
+  Sueldo Soles               <span class="d">everyday</span>            S/  3,912.40
+  Ahorro Emergencia          <span class="a">savings</span>             S/ 17,560.00
+  Fondo Mutuo                <span class="a">investing</span>           S/ 18,940.00
+  Broker USD                 <span class="a">investing</span>           $   2,450.00
+  VISA Infinite Sapphire     <span class="a">credit</span>              S/ <span class="n">-2,184.70</span>
+
+ <span class="d">LEDGER</span>
+  Transactions
+  Reconciliations
+ <span class="d">PROGRESS</span>
+  <span class="rev"> Character                                                       </span>
+ <span class="d">MANAGE</span>
+  Accounts   Categories   Hashtags
+
+ <span class="a">⏎</span> Open  <span class="a">+</span> Log  <span class="a">pgdn</span> Earlier  <span class="a">?</span> Help</pre></div></div>
+</div>
+
+<div class="group">A normal month, as it happens</div>
+
+<!-- 2 -->
+<div class="pane">
+  <div class="lbl">2 · Import the bank file <span>— the import door's last screen, plus one line</span></div>
+  <p class="blurb">The existing after-import screen gains a reward line. Importing pays a small flat amount every time,
+  so the habit itself pays.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre>  <span class="p">✓ 47 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente</span>
+
+  <span class="o">+15 XP</span>  <span class="d">Import</span>
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div>
+</div>
+
+<!-- 3 -->
+<div class="pane">
+  <div class="lbl">3 · Categorise in the ledger <span>— space + c, as today</span></div>
+  <p class="blurb">Each bulk edit that moves rows out of <code>@Pendiente</code> earns a little XP, shown as a toast in the
+  bottom-right corner (Textual's own notification). Rows categorised within a few days of the purchase earn a
+  <b>fresh</b> bonus.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre><span class="b">expense world</span><span class="d">▍ Ledger › @Pendiente</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="d">   date        title                       account               amount   category</span>
+ <span class="p">✓</span> 2026-10-01  MERCADO NORTE               Sueldo Soles          <span class="n">-61.30</span>   Comida
+ <span class="p">✓</span> 2026-10-01  CAFE ANDINO LIMA PE         VISA Infinite         <span class="n">-18.50</span>   Comida
+ <span class="p">✓</span> 2026-09-30  PANADERIA SAN JOSE          Sueldo Soles          <span class="n">-12.80</span>   Comida
+   2026-09-30  UBER TRIP                   VISA Infinite          <span class="n">-9.40</span>   <span class="w">@Pendiente</span>
+   2026-09-29  CINE PLAZA LIMA PE          VISA Infinite         <span class="n">-28.00</span>   <span class="w">@Pendiente</span>
+ <span class="d">… 32 more</span>
+                                                         <span class="d">╭──────────────────────────────╮</span>
+                                                         <span class="d">│</span> 12 rows → Comida             <span class="d">│</span>
+                                                         <span class="d">│</span> <span class="o">+24 XP</span>   <span class="d">fresh</span> <span class="o">+8</span>            <span class="d">│</span>
+                                                         <span class="d">╰──────────────────────────────╯</span>
+ <span class="a">space</span> Select  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">esc</span> Home</pre></div></div>
+</div>
+
+<!-- 4 -->
+<div class="pane">
+  <div class="lbl">4 · @Pendiente reaches zero <span>— Clean Slate</span></div>
+  <p class="blurb">A bigger toast when the last row is categorised. On Home, the right end of the strip turns from
+  the yellow count into a quiet check.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre>                                                         <span class="d">╭──────────────────────────────╮</span>
+                                                         <span class="d">│</span> <span class="p b">Clean Slate</span>                  <span class="d">│</span>
+                                                         <span class="d">│</span> every row has a category     <span class="d">│</span>
+                                                         <span class="d">│</span> <span class="o">+50 XP</span>                       <span class="d">│</span>
+                                                         <span class="d">╰──────────────────────────────╯</span>
+
+ Home strip afterwards:
+ <span class="o b">Lv 14</span>  <span class="o">▰▰▰▰▰▰▰</span><span class="d">▱▱▱</span>  2,482 / 3,800 XP     <span class="a">Shield</span> <span class="p">▰▰▰▰</span><span class="d">▱▱</span> 4.2 mo · Steady     <span class="p">✓ all filed</span></pre></div></div>
+</div>
+
+<!-- 5 -->
+<div class="pane">
+  <div class="lbl">5 · Complete a card reconciliation <span>— the card boss, one fight per statement cycle</span></div>
+  <p class="blurb">Completing a reconciliation on a <b>credit</b> account resolves that cycle's fight. You win if the
+  cycle holds no row in a <b>penalty</b> category (interest, fees), meaning the statement was paid in full. A lost
+  fight still pays for reconciling. It never takes XP away. Reverting the reconciliation withdraws what it paid.</p>
+  <div class="opt">
+    <div>
+      <div class="oh">Won <span>— paid in full</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre>  <span class="p">✓ Reconciliation completed</span>
+    VISA Infinite Sapphire · Sep 2026
+
+  <span class="b">Card cycle</span>  <span class="p b">WON</span>
+    no interest, no fees this cycle
+
+  <span class="o">+40 XP</span>   <span class="d">reconciled</span>
+  <span class="o">+120 XP</span>  <span class="d">cycle won</span>
+  <span class="d">record: 10 of the last 12 cycles</span>
+
+ <span class="a">⏎</span> Done</pre></div></div>
+    </div>
+    <div>
+      <div class="oh">Lost <span>— interest charged</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre>  <span class="p">✓ Reconciliation completed</span>
+    VISA Infinite Sapphire · Sep 2026
+
+  <span class="b">Card cycle</span>  <span class="w b">LOST</span>
+    S/ 84.30 interest charged
+
+  <span class="o">+40 XP</span>   <span class="d">reconciled</span>
+  <span class="d">record: 9 of the last 12 cycles</span>
+
+
+ <span class="a">⏎</span> Done</pre></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 6 -->
+<div class="pane">
+  <div class="lbl">6 · Set what your investments are worth <span>— about once a month</span></div>
+  <p class="blurb">Opened from Character (<code>u</code>) or from an investing account. You type today's value. The engine
+  records the difference as returns. Everything else that entered the account since the last value counts as a
+  contribution. XP is paid only on new ground: after a dip, it starts again once the loss is recovered.</p>
+  <div class="opt">
+    <div>
+      <div class="oh">Up month</div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre>╭─ Fondo Mutuo ──────────────────────────╮
+│                                        │
+│  last value   S/ 17,728.00 <span class="d">· 2 Sep</span>     │
+│  worth today  S/ 18,940.00<span class="rev"> </span>            │
+│                                        │
+│  <span class="d">since 2 Sep</span>                           │
+│  contributed  S/  1,000.00  <span class="o">+100 XP</span>    │
+│  returns      S/    212.00  <span class="o">+42 XP</span>     │
+│               <span class="p">+1.1%</span>                    │
+╰────────────────────────────────────────╯
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Save</pre></div></div>
+    </div>
+    <div>
+      <div class="oh">Down month</div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre>╭─ Fondo Mutuo ──────────────────────────╮
+│                                        │
+│  last value   S/ 18,940.00 <span class="d">· 2 Oct</span>     │
+│  worth today  S/ 18,600.00<span class="rev"> </span>            │
+│                                        │
+│  <span class="d">since 2 Oct</span>                           │
+│  contributed  S/      0.00             │
+│  returns      S/   <span class="n">-340.00</span>             │
+│  <span class="d">S/ 340 below your peak. Returns XP</span>    │
+│  <span class="d">starts again once that is recovered.</span>  │
+╰────────────────────────────────────────╯
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Save</pre></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 7 -->
+<div class="pane">
+  <div class="lbl">7 · The chapter recap <span>— the first time you open the TUI in a new month</span></div>
+  <p class="blurb">A one-time card over Home that closes last month. It tells the month as a story: what you earned,
+  how the Shield moved, whether you levelled up. Months with nothing to show for a line just leave that line out.
+  <code>⏎</code> dismisses it. Past chapters stay on the Character screen.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre>      ╭─ <span class="b">September 2026</span> · chapter closed ───────────────────────────────────╮
+      │                                                                     │
+      │   Savings rate     31%                       <span class="o b">SILVER</span>      <span class="o">+150 XP</span>    │
+      │   No-spend days    9    <span class="d">2 bonus weeks</span>                     <span class="o">+110 XP</span>   │
+      │   Invested         S/ 1,000 · returns S/ 212             <span class="o">+142 XP</span>    │
+      │   Card cycles      2 of 2 won                            <span class="o">+240 XP</span>    │
+      │   Bookkeeping      3 imports · Clean Slate ×2 · 2 recon  <span class="o">+310 XP</span>    │
+      │                                                         <span class="d">───────</span>     │
+      │                                                          <span class="o b">952 XP</span>     │
+      │                                                                     │
+      │   Shield    3.8 → <span class="p">4.2 months</span>        Steady · Secure at 6.0          │
+      │                                                                     │
+      │   <span class="o b">Level 13 → 14</span>                                                     │
+      │                                                        <span class="a">⏎</span> Continue   │
+      ╰─────────────────────────────────────────────────────────────────────╯</pre></div></div>
+</div>
+
+<div class="group">The full picture</div>
+
+<!-- 8 -->
+<div class="pane">
+  <div class="lbl">8 · Character <span>— Home › PROGRESS › Character</span></div>
+  <p class="blurb">Everything in one read-only screen, summary first. The <b>Shield</b> is the emergency fund in
+  savings accounts, and it is complete at 6 months. Past that it points the extra toward investing. <b>Wealth</b>
+  covers the investing accounts. <b>Card cycles</b> keep a record per card. <b>This month</b> shows progress so far,
+  with no-spend days as a small calendar. <b>Chapters</b> lists past recaps.</p>
+  <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+  <div class="app"><pre><span class="b">expense world</span><span class="d">▍ Progress › Character</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+ <span class="o b">LEVEL 14</span>   <span class="o">▰▰▰▰▰▰▰</span><span class="d">▱▱▱</span>  2,482 / 3,800 XP              <span class="d">lifetime 21,640 XP</span>
+            <span class="d">wealth 8,920 · medals 2,350 · bookkeeping 6,480 · cards 2,960 · no-spend 930</span>
+
+ <span class="d">SHIELD                                 emergency fund · savings accounts</span>
+   Survivor <span class="p">✓</span> ─── Steady <span class="p">✓</span> ─── Secure <span class="d">○</span>      <span class="p">▰▰▰▰</span><span class="d">▱▱</span>  4.2 of 6 months
+   Ahorro Emergencia  S/ 17,560          typical month S/ 4,180 <span class="d">(median, last 12)</span>
+   <span class="d">S/ 7,520 to Secure</span>
+
+ <span class="d">WEALTH                                 investing accounts</span>
+   Contributed  S/ 24,000  <span class="d">all time · at peak</span>
+   Returns      S/  3,540  <span class="d">all time · at peak</span>                       <span class="a">u</span> <span class="d">set values</span>
+   Fondo Mutuo   S/ 18,940.00   <span class="d">valued 2 Oct</span>
+   Broker USD    $   2,450.00   <span class="w">valued 14 Sep · stale</span>
+
+ <span class="d">CARD CYCLES</span>
+   VISA Infinite Sapphire   <span class="p">10</span> of last 12 won    <span class="p">■■■■</span><span class="w">□</span><span class="p">■■■■■</span><span class="w">□</span><span class="p">■</span>
+   Mastercard Black         <span class="p">12</span> of last 12 won    <span class="p">■■■■■■■■■■■■</span>
+
+ <span class="d">THIS MONTH · Oct 2026</span>
+   Savings rate  27%  <span class="d">silver pace</span>     @Pendiente <span class="w">37</span>     XP so far <span class="o">142</span>
+   No-spend days  <span class="b">1</span>            <span class="d">M  T  W  T  F  S  S</span>
+                                     <span class="d">         ·  </span><span class="p">○</span><span class="d">  ·  ·  ·</span>
+                                     <span class="d">·  ·  ·  ·  ·  ·  ·</span>    <span class="p">○</span> <span class="d">no-spend  ● spent  · ahead</span>
+
+ <span class="d">CHAPTERS</span>
+   Sep <span class="o">SILVER</span> 952 · Aug <span class="o b">GOLD</span> 1,210 · Jul <span class="o">BRONZE</span> 640 · Jun <span class="d">—</span> 410 · <span class="d">…</span>
+
+ <span class="a">u</span> Set investing values  <span class="a">⏎</span> Open chapter  <span class="a">esc</span> Home  <span class="a">?</span> Help</pre></div></div>
+</div>
+
+<div class="group">One-time setup</div>
+
+<!-- 9 -->
+<div class="pane">
+  <div class="lbl">9 · Give accounts and categories a role <span>— a new column on two existing screens</span></div>
+  <p class="blurb">The system rests on two markings. An <b>account role</b> decides which accounts feed the Shield
+  (savings), Wealth (investing) and card cycles (credit). A <b>category role</b> tells moves between your own accounts
+  apart from spending (<b>move</b>), lets bills not break a no-spend day (<b>fixed</b>), and marks interest and fees
+  (<b>penalty</b>). <code>r</code> opens a small picker. Most rows keep the default.</p>
+  <div class="opt">
+    <div>
+      <div class="oh">Accounts</div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre><span class="b">expense world</span><span class="d">▍ Manage › Accounts</span>
+<span class="d">──────────────────────────────────────────</span>
+ <span class="d">name                     cur   role</span>
+ Sueldo Soles             PEN   <span class="d">everyday</span>
+ <span class="rev"> Ahorro Emergencia        PEN   savings  </span>
+ Fondo Mutuo              PEN   <span class="a">investing</span>
+ Broker USD               USD   <span class="a">investing</span>
+ VISA Infinite Sapphire   PEN   <span class="a">credit</span>
+ Efectivo                 PEN   <span class="d">everyday</span>
+
+ <span class="a">r</span> Role  <span class="a">⏎</span> Edit  <span class="a">esc</span> Home</pre></div></div>
+    </div>
+    <div>
+      <div class="oh">Categories</div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense world</span></div>
+      <div class="app"><pre><span class="b">expense world</span><span class="d">▍ Manage › Categories</span>
+<span class="d">──────────────────────────────────────────</span>
+ <span class="d">name                     role</span>
+ Comida                   <span class="d">normal</span>
+ Vivienda                 <span class="a">fixed</span>
+ Servicios                <span class="a">fixed</span>
+ <span class="rev"> Pago tarjeta             move     </span>
+ Ahorro / Inversión       <span class="a">move</span>
+ Intereses y comisiones   <span class="a">penalty</span>
+
+ <span class="a">r</span> Role  <span class="a">⏎</span> Edit  <span class="a">esc</span> Home</pre></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="pick">
+  <b>What this sketch decides, and what it leaves open</b>
+  <ol>
+    <li><b>Placement</b> (for review): strip on Home, toasts, monthly recap, Character under a new PROGRESS section, roles as a column on Accounts and Categories.</li>
+    <li><b>Never shown</b>: XP going down, red penalties, streak warnings, reminders to log by hand.</li>
+    <li><b>Placeholders</b>: every XP amount, the medal thresholds, the recap trigger (first open of a new month), where investing values are set.</li>
+    <li><b>Open</b> (in the design doc): XP pricing, one level or per-pillar levels, the level curve, whether past history earns XP.</li>
+  </ol>
+</div>
