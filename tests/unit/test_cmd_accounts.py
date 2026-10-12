@@ -12,6 +12,7 @@ import json
 from uuid import UUID
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -195,6 +196,32 @@ def test_create_stays_bank_only(configured):
     )
     assert result.exit_code == 0, result.output
     assert "is_person" not in json.loads(route.calls.last.request.content)
+
+
+@pytest.mark.parametrize(
+    ("command", "path", "response"),
+    [
+        ("create", "accounts", ACCOUNT_RESPONSE),
+        ("create-person", "people", PERSON_RESPONSE),
+    ],
+)
+@respx.mock
+def test_create_without_color_or_sort_order_omits_both_keys(command, path, response, configured):
+    """An unset `--color` / `--sort-order` leaves the key out of the body, so the
+    engine applies its default; an explicit `null` on either is a 422
+    (contract: POST /v1/accounts) (contract: POST /v1/people)."""
+    route = respx.post(f"{BASE}/v1/{path}").mock(return_value=httpx.Response(201, json=response))
+    result = runner.invoke(
+        cli_app,
+        ["accounts", command, "--name", "Eliana", "--currency-code", "PEN"],
+    )
+    assert result.exit_code == 0, result.output
+
+    # The raw bytes on the wire: a `null` value would still be a present key.
+    body = json.loads(route.calls.last.request.content)
+    assert "color" not in body
+    assert "sort_order" not in body
+    assert None not in body.values()
 
 
 @respx.mock

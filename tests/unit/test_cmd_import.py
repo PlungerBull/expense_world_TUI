@@ -162,6 +162,9 @@ def test_apply_split_currency_account_creates_both_legs(configured):
         ("BCP Oro PEN", "PEN"),
         ("BCP Oro USD", "USD"),
     ]
+    # Colour and order are left to the engine's defaults: the keys are absent,
+    # never `null`, which is a 422 (contract: POST /v1/accounts).
+    assert all(set(p) == {"id", "name", "currency_code"} for p in posted)
     # Account ids are client-minted, so the posted bodies are the source of truth.
     pen_id, usd_id = posted[0]["id"], posted[1]["id"]
     assert pen_id != usd_id

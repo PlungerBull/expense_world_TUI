@@ -1,6 +1,6 @@
 # Catch up to engine contract 8d2430081e64cd7c
 
-**Status: draft.** Comes after the TUI import door, which is done (owner, 2026-10-02).
+**Status: current.** The owner approved the tasks on 2026-10-11.
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -32,13 +32,13 @@ Nothing the owner sees changes apart from the two clearer messages.
 
 ## Tasks
 
-Draft, for the owner's approval.
-
-1. Check every create path for accounts and people: no explicit `null` on `color` or
-   `sort_order`; a unit test proves it.
-2. A guard that the batch chunk size stays at or under the engine's 500.
-3. Hints for `EMPTY` on `display_name` (first-time setup, profile) and for `SETTINGS_MISSING`
-   on the rate reads, matched on the reason code, never the wording.
+1. A guard that the batch chunk size stays at or under the engine's 500.
+2. The first-time-setup hint for `SETTINGS_MISSING` lives once, in the shared error text, so the
+   rate reads and every other command and screen show it; matched on the error code, never the
+   wording.
+3. The display name goes to the engine as typed: the TUI's first-time-setup prompt neither trims
+   it nor drops a blank one, and the engine's `EMPTY` refusal is shown (first-time setup,
+   profile), matched on the reason code, never the wording. Other prompts keep their behaviour.
 4. With the practice engine up, settle two citations against the live contract: the transaction
    path written both `{id}` and `{transaction_id}` across the docs and code, and a citation for
    the calendar-day rule in [file-import-plan.md](../file-import-plan.md) §11.

@@ -1,5 +1,6 @@
 """Create-form tests (new hashtag / category / account, fake client)."""
 
+import pytest
 from textual.widgets import Input, Static
 
 from expense.errors import EngineError
@@ -60,6 +61,22 @@ def test_new_account_type_person_posts_to_people(fake_client):
     assert path == "/people"
     assert body["name"] == "Eliana" and body["currency_code"] == "PEN"
     assert "is_person" not in body
+
+
+@pytest.mark.parametrize(
+    ("type_step", "path"),
+    [("", "/accounts"), ("person", "/people")],
+    ids=["bank", "person"],
+)
+def test_new_account_without_color_omits_color_and_sort_order(fake_client, type_step, path):
+    """A skipped COLOR leaves the key out of the body, and the form has no
+    order field, so the engine applies both defaults; an explicit `null` on
+    either is a 422 (contract: POST /v1/accounts) (contract: POST /v1/people)."""
+    posted_path, body = _run(fake_client, NewAccountScreen(), [type_step, "Eliana", "PEN", ""])
+    assert posted_path == path
+    assert "color" not in body
+    assert "sort_order" not in body
+    assert None not in body.values()
 
 
 def test_edit_account_locks_type_and_currency(fake_client):
