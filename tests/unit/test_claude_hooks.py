@@ -21,7 +21,8 @@ import pytest
 HOOKS = Path(__file__).resolve().parents[2] / ".claude" / "hooks"
 TEST_DB = "postgresql://expense_engine@127.0.0.1:5432/expense_world_test"
 ADMIN_TEST_DB = "postgresql://owner@127.0.0.1:5432/expense_world_test"
-UVICORN = "python -m uvicorn app.main:app --port 8002"
+START_PYTHON = ".venv/bin/python"
+UVICORN = f"{START_PYTHON} -m uvicorn app.main:app --port 8002"
 START_TEST_ENGINE = f"SUPABASE_DB_URL={TEST_DB} ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}"
 SCRATCH = "/private/tmp/claude-501/scratchpad"
 IN_ENGINE = "cd ../expense_world_engine && "
@@ -276,7 +277,7 @@ TESTER_ALLOWED = [
     ("curl -s http://127.0.0.1:8002/health", "{engine}"),
     ("cd ../expense_world_engine && " + START_TEST_ENGINE, ""),
     ("cd {engine} && " + START_TEST_ENGINE + f" > {SCRATCH}/engine.log 2>&1 &", ""),
-    (START_TEST_ENGINE.replace("python", ".venv/bin/python"), "{engine}"),
+    (START_TEST_ENGINE, "{engine}"),
     # one test URL is enough: the engine refuses to start when its two URLs differ
     (f"cd ../expense_world_engine && SUPABASE_DB_URL={TEST_DB} {UVICORN}", ""),
     (f"cd ../expense_world_engine && ADMIN_DB_URL={ADMIN_TEST_DB} {UVICORN}", ""),
@@ -436,9 +437,6 @@ TESTER_BLOCKED = [
     # `cd -` returns to the folder the guard last left
     (IN_ENGINE + "cd {repo} && cd - && cat app/main.py", STAY),
     (IN_ENGINE + "cd {repo} && cd - && ls", STAY),
-    # the start runs only the PATH's python or the venv's
-    (IN_ENGINE + START_TEST_ENGINE.replace("python", "/private/tmp/x/python"), STAY),
-    (IN_ENGINE + START_TEST_ENGINE.replace("python", "tools/python3"), STAY),
     # a pipe run into `(` or across a newline is still a pipe
     (SEED + " |(tee key.txt)", STAY),
     (SEED + " |\ntee key.txt", STAY),
@@ -453,6 +451,33 @@ TESTER_BLOCKED = [
 def test_guard_tester_exception_is_narrow(box, command, rule):
     cwd = "{engine}" if command.startswith("kill") else ""
     _blocked(box.guard("Bash", {"command": command}, agent="tester", cwd=cwd), rule)
+
+
+# Every interpreter but the engine checkout's own `.venv/bin/python`.
+OTHER_START_PYTHONS = [
+    "python",
+    "python3",
+    "python3.12",
+    ".venv/bin/python3",
+    ".venv/bin/python3.12",
+    "./.venv/bin/python",
+    "venv/bin/python",
+    "tools/python3",
+    "/usr/bin/python3",
+    "/private/tmp/x/python",
+    "{engine}/.venv/bin/python",
+    "{repo}/.venv/bin/python",  # the CLI's own venv
+    "../expense_world_CLI/.venv/bin/python",
+]
+
+
+@pytest.mark.parametrize("python", OTHER_START_PYTHONS)
+@pytest.mark.parametrize("prefix", [IN_ENGINE, ""])
+def test_guard_starts_the_test_engine_with_its_own_python_only(box, python, prefix):
+    assert START_TEST_ENGINE.count(START_PYTHON) == 1
+    command = prefix + START_TEST_ENGINE.replace(START_PYTHON, python)
+    cwd = "" if prefix else "{engine}"
+    _blocked(box.guard("Bash", {"command": command}, cwd=cwd, agent="tester"), STAY)
 
 
 @pytest.mark.parametrize("agent", ["builder", "reviewer", "librarian", None])

@@ -36,9 +36,10 @@ What it blocks:
     redirect, the target outside it);
   - for the **tester** (`agent_type == "tester"`) alone, the ops guide's commands, each with
     no `$NAME`/`${…}` expansion other than `$HOME`: `cd <dir>` (one word); `sleep <n>`; a
-    bare `true`; the test-engine start (`<python> -m uvicorn app.main:app --port 8002`,
-    `<python>` being exactly `python`, `python3`, `.venv/bin/python` or
-    `.venv/bin/python3`, whose env prefix names only `SUPABASE_DB_URL` and/or
+    bare `true`; the test-engine start (`.venv/bin/python -m uvicorn app.main:app --port
+    8002`, the interpreter written exactly so — the engine checkout's own, the one built on
+    the Python 3.12 the engine needs; any other interpreter word is refused — whose env
+    prefix names only `SUPABASE_DB_URL` and/or
     `ADMIN_DB_URL`, at least one of them, and every one naming `expense_world_test`, env
     names compared case-insensitively — any other name is one the engine ignores, so it
     guards nothing; a URL left off falls back to the engine's `.env`, and the engine refuses
@@ -126,9 +127,8 @@ _CURL_BUNDLE = re.compile(r"-[sSfiv]+")
 _KILLERS = frozenset({"kill", "pkill", "killall"})
 _LSOF_8002 = (["-ti", ":8002"], ["-t", "-i", ":8002"])
 _PYTHON = re.compile(r"python(?:3(?:\.\d+)?)?")
-# The test-engine start: the PATH's python or the engine's own venv, nothing else.
-_START_PYTHONS = frozenset({"python", "python3", ".venv/bin/python", ".venv/bin/python3"})
-_START_ARGS = ["-m", "uvicorn", "app.main:app", "--port", "8002"]
+# The test-engine start: the engine checkout's own interpreter, nothing else.
+_START_COMMAND = [".venv/bin/python", "-m", "uvicorn", "app.main:app", "--port", "8002"]
 _READ_ONLY = frozenset(
     {
         "cat",
@@ -347,7 +347,7 @@ def _is_seed(ctx: Context, seg: Segment, cwd: Path) -> bool:
 def _tester_op(ctx: Context, seg: Segment, cwd: Path) -> bool:
     """The ops-guide commands the tester may run in the engine checkout."""
     words = seg.words
-    if words[:1] and words[0] in _START_PYTHONS and words[1:] == _START_ARGS:
+    if words == _START_COMMAND:
         names = {k.upper() for k in seg.env}  # the engine ignores name case
         # only the two URLs the engine reads: no PYTHONPATH, no name the engine ignores
         only_db = names <= {"SUPABASE_DB_URL", "ADMIN_DB_URL"}

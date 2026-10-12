@@ -32,16 +32,6 @@ Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
 have no open questions left and their mockups are approved. Approve each one's draft tasks.
 
-### Approve the tasks of the engine catch-up
-Asked 2026-10-11 · Blocks: [specs/engine-catch-up-26c9f988.md](specs/engine-catch-up-26c9f988.md)
-The spec covers both answers the engine coders left on 2026-10-11 and has three draft tasks.
-Nothing you see in the app changes. Until its last task the version check keeps failing, so the
-loop starts nothing else.
-- **A.** Approve the three tasks as drafted.
-- **B.** Change them first.
-**Recommended:** A, because the live check confirmed every claim in both answers and the tasks
-only close what they leave open.
-
 ### Hand the engine coders one ask
 Asked 2026-10-11 · Blocks: nothing
 [engine-asks/answers-carry-their-own-instructions.md](engine-asks/answers-carry-their-own-instructions.md)
@@ -57,8 +47,13 @@ Open work. Items with a spec link it; the rest are not yet a spec. Bigger items 
 ships (its why moves to [decisions.md](decisions.md)).
 
 - **Catch up to engine contract `26c9f9880ad3540c`** (list orders state their direction; the
-  practice engine starts only with its own Python). Spec (draft):
+  practice engine starts only with its own Python). Spec (current):
   [specs/engine-catch-up-26c9f988.md](specs/engine-catch-up-26c9f988.md).
+
+- **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
+  the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
+  ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the
+  docstring's limits, with a test.
 
 - **Three flaky unit tests.** Each failed once in a full `pytest tests/unit` run on 2026-10-02
   and passes alone; for each, find whether the test asserts too early or the screen has a race.

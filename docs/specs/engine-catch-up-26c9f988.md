@@ -1,6 +1,6 @@
 # Catch up to engine contract 26c9f9880ad3540c
 
-**Status: draft.** The owner approves the tasks before the loop starts on it.
+**Status: current.** The owner approved the tasks; the loop runs on it.
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted, together
 with the two answers it covers:
 [ordering-direction-stated.md](../cli-answers/ordering-direction-stated.md) and
@@ -50,12 +50,6 @@ not change. The app must:
 
 ## Tasks
 
-Draft, for the owner's approval.
-
-1. **The guard starts the practice engine with one Python only.** The tester's allowed start
-   takes the engine checkout's `.venv/bin/python` and nothing else; a bare `python` or `python3`
-   is refused, with a test for each. The guard's own description and the ops guide's line on
-   which Python to use say the same thing, and say the engine needs Python 3.12.
 2. **The five orders are stated once, with their direction and their citation.** The plan for
    tag suggestions, the `reconcile list` line of the command spec, and the two code comments on
    the reconciliation list give the order in the contract's words and cite it. The reviewer
