@@ -50,10 +50,6 @@ not change. The app must:
 
 ## Tasks
 
-2. **The five orders are stated once, with their direction and their citation.** The plan for
-   tag suggestions, the `reconcile list` line of the command spec, and the two code comments on
-   the reconciliation list give the order in the contract's words and cite it. The reviewer
-   confirms no screen or command sorts any of the five lists itself.
 3. **Record the new contract version.** With the practice engine running, the version check
    prints only the wording entry above; then the version is recorded. Done last, so the check
    keeps failing until the rest of the catch-up is in.

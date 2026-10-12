@@ -54,9 +54,9 @@ def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dic
     Shared by the flat `reconcile list` command and the TUI's Reconciliations
     screens. The engine lists one account at a time: the
     account is required, the list comes back whole as `{items}` — no `limit`,
-    no `offset`, no `total` — in period order, `date_start ASC,
-    created_at ASC`. There is no read by id; a row not in its account's list
-    has been deleted.
+    no `offset`, no `total` — sorted `date_start` ascending, then creation time,
+    oldest first (contract: "Reconciliations", "Ordering"). There is no read
+    by id; a row not in its account's list has been deleted.
     """
     return fetch_body(
         cfg,

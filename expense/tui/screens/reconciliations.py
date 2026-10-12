@@ -2,11 +2,13 @@
 
 Per-account bank-statement batches. The browse opens on the accounts alone;
 `⏎` on one reads that account's reconciliations (`GET /reconciliations?
-account_id=`, whole, in the engine's period order: `date_start ASC,
-created_at ASC`) and opens them in a panel under the accounts, the
-cursor in it. There `⏎` opens the working screen, `n` creates one for the
-account, `u` swaps the panel for the account's rows in no batch, and `esc`
-closes the panel. Nothing is read for an account until you press `⏎` on it.
+account_id=`, whole) and opens them in a panel under the accounts, the
+cursor in it. They stand in the order the engine returns them: `date_start`
+ascending, then creation time, oldest first
+(contract: "Reconciliations", "Ordering"). There `⏎` opens the working
+screen, `n` creates one for the account, `u` swaps the panel for the
+account's rows in no batch, and `esc` closes the panel. Nothing is read for
+an account until you press `⏎` on it.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine has no derived (chained) begin,
@@ -191,10 +193,11 @@ class ReconciliationsScreen(SectionScreen):
     The screen opens on the account list alone, and nothing about
     reconciliations is read until you press `⏎` on an account: the engine lists
     them one account at a time (`GET /reconciliations?account_id=`, whole, in
-    period order), so moving the cursor costs nothing. `⏎` reads that account's
-    list and opens the panel under the accounts with the cursor in it. There
-    `⏎` opens a reconciliation, `n` creates one, `u` swaps the panel for the
-    account's rows in no batch, and `esc` closes the panel.
+    the order the module docstring gives), so moving the cursor costs nothing.
+    `⏎` reads that account's list and opens the panel under the accounts with
+    the cursor in it. There `⏎` opens a reconciliation, `n` creates one, `u`
+    swaps the panel for the account's rows in no batch, and `esc` closes the
+    panel.
     """
 
     crumb = ("Capture & ledger", "Reconciliations")

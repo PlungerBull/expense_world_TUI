@@ -106,7 +106,9 @@ def base_name(name: str, currency: str) -> str:
 
 
 def account_groups(accounts: list[dict]) -> list[AccountGroup]:
-    """Live, non-person accounts folded by base name, in their sort order."""
+    """Live, non-person accounts folded by base name, each base where its first
+    account stands in the order given — the engine's: `sort_order` ascending,
+    then creation time, oldest first (contract: GET /v1/accounts, "Ordering")."""
     order: list[str] = []
     legs: dict[str, dict[str, tuple[str, str]]] = {}
     for a in accounts:

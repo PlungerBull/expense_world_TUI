@@ -203,3 +203,59 @@ def test_decision_pointers_in_code_resolve():
     assert not broken, "Quoted decisions.md headings that no longer exist:\n  " + "\n  ".join(
         broken
     )
+
+
+# ---- the five list orders carry their direction ------------------------------
+# The contract states the order of accounts, categories, a category's tags,
+# tags and an account's reconciliations with its direction. A doc or a comment
+# that cites one of those "Ordering" rules gives the direction in the same
+# paragraph, and none paraphrases an order as SQL. The owner's specs are not
+# scanned: they list the citations under one sentence that carries the wording.
+
+_ORDERING_CITATIONS = (
+    '(contract: GET /v1/accounts, "Ordering")',
+    '(contract: GET /v1/categories, "Ordering")',
+    '(contract: GET /v1/categories/{category_id}/hashtags, "Ordering")',
+    '(contract: "Reconciliations", "Ordering")',
+)
+_SQL_ORDER = re.compile(r"\b(?:date_start|created_at|sort_order|uses)`?\s+(?:ASC|DESC)\b")
+_PARAGRAPH_BREAK = re.compile(r"\n[ \t#:]*\n")
+
+ORDER_SCAN_FILES = sorted(
+    [doc for doc in DOC_FILES if doc.parent != DOCS / "specs"]
+    + list(PKG.rglob("*.py"))
+    + [p for p in (REPO_ROOT / "tests").rglob("*.py") if p != Path(__file__).resolve()]
+)
+
+
+def _order_hits(rel: str, text: str) -> list[str]:
+    hits = [f"{rel}: SQL-style order `{m.group(0)}`" for m in _SQL_ORDER.finditer(text)]
+    for paragraph in _PARAGRAPH_BREAK.split(text):
+        flat = " ".join(paragraph.split())
+        for citation in _ORDERING_CITATIONS:
+            if citation in flat and "oldest first" not in flat:
+                hits.append(f"{rel}: {citation} without its direction")
+    return hits
+
+
+def test_list_orders_state_their_direction():
+    hits = []
+    for path in ORDER_SCAN_FILES:
+        hits += _order_hits(path.relative_to(REPO_ROOT).as_posix(), path.read_text())
+    assert not hits, (
+        'Give the order in the contract\'s words, direction included ("oldest first"):\n  '
+        + "\n  ".join(hits)
+    )
+
+
+def test_list_order_guard_trips():
+    for text in (
+        "in period order (`date_start ASC, created_at ASC`)",
+        "sorted by `sort_order` ASC",
+        "by `uses` DESC",
+        f"`uses` descending, then creation time\n{_ORDERING_CITATIONS[2]}.",
+        f"# `date_start` ascending\n# {_ORDERING_CITATIONS[3]}\n#\n# oldest first, elsewhere",
+    ):
+        assert _order_hits("docs/x.md", text), text
+    for citation in _ORDERING_CITATIONS:
+        assert not _order_hits("docs/x.md", f"then creation time, oldest first\n  {citation}.")

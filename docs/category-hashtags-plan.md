@@ -14,7 +14,8 @@ empty result or a >50-tag category.
 ## 1. What the engine now does
 
 `GET /v1/categories/{category_id}/hashtags` — the hashtags this category has been
-used with, most-used first. Read-only (contract: GET /v1/categories/{category_id}/hashtags).
+used with, most-used first; the full order is under "Field rules" below. Read-only
+(contract: GET /v1/categories/{category_id}/hashtags).
 **Returns the whole list, unpaged**
 (contract: "Base Conventions", "Lists come in three shapes, and none of them is paged by position").
 The route declares no query parameter, so `?limit=` / `?offset=` are a `422`
@@ -30,7 +31,7 @@ Field rules that matter to this repo:
 - **`uses` counts transactions.** A row carrying two tags adds 1 to each
   (contract: GET /v1/categories/{category_id}/hashtags, "`uses` counts transactions").
   Safe to show as a transaction count.
-- **Ordering is `uses` descending, then the hashtag's creation time**
+- **Ordering is `uses` descending, then the hashtag's creation time, oldest first**
   (contract: GET /v1/categories/{category_id}/hashtags, "Ordering").
 - **An empty list is not a 404**; `404` means the category is not yours or is deleted
   (contract: GET /v1/categories/{category_id}/hashtags). This plan reads an empty list as
@@ -72,7 +73,7 @@ Field rules that matter to this repo:
 An endpoint with no flat surface is an untested contract, and the command answers "why is this
 tag not in my picker?" without the TUI.
 
-Columns (signed off): **Name** only, in the engine's order (most-used first); `--json` carries
+Columns (signed off): **Name** only, in the order the engine returns them (§1); `--json` carries
 `id` and `uses` for anyone who needs them.
 
 `test_typer_tree_walk_finds_expected_command_count` holds a count constant that a
@@ -81,7 +82,7 @@ new command bumps.
 ## 4. The picker
 
 **The shape (pane D):** with a category named in the line, `#` offers that category's tags
-first, most-used first, then a dim divider, then every other tag alphabetically. Nothing is
+first, in the order the engine returns them (§1), then a dim divider, then every other tag alphabetically. Nothing is
 hidden, so a first cross-category use of a tag is a few `↓` away, and typing filters both
 groups as it does today. With no category named — or an ambiguous one — the full list stands,
 exactly as today.
@@ -133,7 +134,7 @@ The category changes per keystroke, so this cannot ride the one-shot
 - **Only the LOG bar ranks.** It is the one surface where category and tags are chosen in one
   breath. The bulk `h` pick sets tags on rows whose categories may differ, so there is no single
   category to rank by; the edit form's category can change after the tags are chosen.
-- **No usage counts on screen.** The list is already ordered by use, so the number costs width
+- **No usage counts on screen.** The list already arrives most-used first (§1), so the number costs width
   and says nothing new — in the picker and in the flat command's table alike.
 
 ## 6. Non-goals

@@ -288,9 +288,9 @@ def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
 
 
 def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
-    """The account's list arrives in period order (`date_start ASC,
-    created_at ASC`); the screen does not re-sort it. Served out of date order
-    on purpose, so a re-sort would show."""
+    """The account's list arrives `date_start` ascending, then creation time,
+    oldest first (contract: "Reconciliations", "Ordering"); the screen does not
+    re-sort it. Served out of date order on purpose, so a re-sort would show."""
     served = [
         {
             "id": "b-march",

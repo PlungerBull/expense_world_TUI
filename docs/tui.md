@@ -371,7 +371,8 @@ window one month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** opens on
 the **account list alone**, full height, and reads no reconciliations: the engine lists
-them one account at a time (`GET /reconciliations?account_id=`, whole, in period order),
+them one account at a time (`GET /reconciliations?account_id=`, whole, in the order [cli-spec.md](cli-spec.md) gives
+under `reconcile list`),
 so moving the account cursor costs nothing. `⏎ Its reconciliations` reads that account's
 list and opens the **panel** under the accounts, halving the height, with the cursor in
 it; the open account keeps an accent `▸`, and the breadcrumb grows to

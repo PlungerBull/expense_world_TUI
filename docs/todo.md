@@ -32,6 +32,26 @@ Asked 2026-09-29 · Blocks: each spec's work
 [tag-suggestions.md](specs/tag-suggestions.md) and [official-migration.md](specs/official-migration.md)
 have no open questions left and their mockups are approved. Approve each one's draft tasks.
 
+### Where "Pendiente" sits when you re-categorise several rows at once
+Asked 2026-10-11 · Blocks: nothing
+In Transactions, `c` on selected rows lists your categories in the engine's order and puts
+`@Pendiente` last. The engine itself lists `@Pendiente` first. It is the one place the app moves
+an item of a list the engine orders.
+- **A.** Keep it last: it is the "undo a wrong pick" choice, out of the way of the real ones.
+- **B.** Put it first, where the engine puts it.
+**Recommended:** A, because it is how the screen works today and the everyday picks stay on top.
+
+### Tags below the divider: A–Z or the engine's order
+Asked 2026-10-11 · Blocks: [specs/tag-suggestions.md](specs/tag-suggestions.md)
+The tag-suggestions spec lists a category's own tags first, then a divider, then every other tag
+A–Z. Everywhere else the app shows tags in the engine's order (your own `sort_order`, then oldest
+first), so A–Z would be the app sorting a list itself.
+- **A.** Keep A–Z below the divider, as the approved mockup shows.
+- **B.** Below the divider, keep the engine's order, the same as today's `#` list.
+- **C.** Ask the engine for the whole two-group list, so no client sorts anything.
+**Recommended:** C, because web and iOS need the same list and should not each sort it; B if you
+want it without waiting on the engine.
+
 ### Hand the engine coders one ask
 Asked 2026-10-11 · Blocks: nothing
 [engine-asks/answers-carry-their-own-instructions.md](engine-asks/answers-carry-their-own-instructions.md)
