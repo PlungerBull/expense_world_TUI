@@ -1,7 +1,8 @@
-# Tags that know the category — CLI/TUI plan
+# Tags that know the category — TUI plan
 
-**Status: not built.** The shape is pane **D**: the category's tags first, every other tag
-below a divider. §5 holds the settled choices. Spec: [tag-suggestions.md](specs/tag-suggestions.md). It answers the
+**Status: not built; waits on the engine.** The shape is pane **D**: the category's tags first,
+every other tag below a divider. The engine sends both groups in one ordered answer once the ask
+[category-tag-suggestions-whole-list.md](engine-asks/category-tag-suggestions-whole-list.md) lands; the app merges and sorts nothing. §5 holds the settled choices. Spec: [tag-suggestions.md](specs/tag-suggestions.md). It answers the
 owner's ask *"can we only suggest hashtags that exist on the category if a category exists?"*. When
 it ships, its why moves to [decisions.md](decisions.md) and this file is deleted.
 
@@ -39,8 +40,8 @@ Field rules that matter to this repo:
 - Removed tag links, deleted transactions and deleted hashtags are excluded
   (contract: GET /v1/categories/{category_id}/hashtags, "Exclusions"), so a retired tag is
   never suggested.
-- A tag never used on the category is not returned; the client appends those from
-  `GET /hashtags` (contract: GET /v1/categories/{category_id}/hashtags, "The relationship is derived from the ledger").
+- A tag never used on the category is not returned; the engine ask adds those as a second group
+  (contract: GET /v1/categories/{category_id}/hashtags, "The relationship is derived from the ledger").
 
 > ⚠️ **Never cache this as a mapping.** There is no declared link between a category and a
 > hashtag; the relationship is derived from the ledger
@@ -68,23 +69,10 @@ Field rules that matter to this repo:
 - **Precedent for the fetch shape:** the LOG bar's account peek keeps `_peek_cache` per
   account plus a debounce timer.
 
-## 3. The flat command
-
-`expense categories hashtags <id>` — a read, with `--json`. No paging flags: the endpoint returns every row.
-
-An endpoint with no flat surface is an untested contract, and the command answers "why is this
-tag not in my picker?" without the TUI.
-
-Columns (signed off): **Name** only, in the order the engine returns them (§1); `--json` carries
-`id` and `uses` for anyone who needs them.
-
-`test_typer_tree_walk_finds_expected_command_count` holds a count constant that a
-new command bumps.
-
 ## 4. The picker
 
 **The shape (pane D):** with a category named in the line, `#` offers that category's tags
-first, in the order the engine returns them (§1), then a dim divider, then every other tag alphabetically. Nothing is
+first, in the order the engine returns them (§1), then a dim divider, then every other tag, in the order the engine sends them. Nothing is
 hidden, so a first cross-category use of a tag is a few `↓` away, and typing filters both
 groups as it does today. With no category named — or an ambiguous one — the full list stands,
 exactly as today.
@@ -137,7 +125,7 @@ The category changes per keystroke, so this cannot ride the one-shot
   breath. The bulk `h` pick sets tags on rows whose categories may differ, so there is no single
   category to rank by; the edit form's category can change after the tags are chosen.
 - **No usage counts on screen.** The list already arrives most-used first (§1), so the number costs width
-  and says nothing new — in the picker and in the flat command's table alike.
+  and says nothing new.
 
 ## 6. Non-goals
 
@@ -146,12 +134,10 @@ The category changes per keystroke, so this cannot ride the one-shot
 | Category **suggestions** from tags (the reverse) | Merchant memory and category suggestion were rejected 2026-09-13 |
 | Counting deleted transactions as uses | A deleted row no longer uses its tags; this is the engine's rule (§1) and what the owner expects |
 | Persisting the ranking anywhere | §1's warning — it is derived, not stored |
-| Using `uses` to reorder the tags below the divider | That group stays alphabetical and predictable; only the category's group is ranked |
+| Sorting either group in the app | The order of both groups is the engine's |
 
 ## 7. Tests
 
-- `categories hashtags` happy path + error shape + `--json` passthrough;
-  no pagination hint (the list is whole).
 - **The critical one:** a full tag name typed against a category that has never
   used it still resolves and still stages. §4a is the regression this guards.
 - `#` with a resolved category offers that category's tags first, then the divider, then every
@@ -164,7 +150,6 @@ The category changes per keystroke, so this cannot ride the one-shot
 
 ## 8. Sequence
 
-1. `fetch_category_hashtags` in [categories_cmd.py](../expense/commands/categories_cmd.py),
-   shaped for both surfaces — flat table and picker pool.
-2. The flat command, with the column sign-off.
-3. The LOG bar: lazy fetch, debounce, per-category cache, the fallbacks in §4d.
+1. The engine ask lands; the contract test follows the new answer.
+2. The mockup is re-shown and picked.
+3. The LOG bar: one shared fetch, lazy, debounced, cached per category, with the fallbacks in §4d.

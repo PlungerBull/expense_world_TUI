@@ -27,15 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The typed command for a category's tags: build it or not
-Asked 2026-10-12 · Blocks: [specs/tag-suggestions.md](specs/tag-suggestions.md) task 1
-The spec asks for a typed command, `expense categories hashtags <category-id>`. The LOG bar
-needs only the shared code behind it, and [specs/tui-only-plan.md](specs/tui-only-plan.md)
-deletes the typed commands.
-- **A.** Build only the shared code; no typed command.
-- **B.** Build the typed command too, as the spec says.
-**Recommended:** A, because you use only the TUI and the command would be deleted with the others.
-
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
 A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`
@@ -65,17 +56,6 @@ an item of a list the engine orders.
 - **A.** Keep it last: it is the "undo a wrong pick" choice, out of the way of the real ones.
 - **B.** Put it first, where the engine puts it.
 **Recommended:** A, because it is how the screen works today and the everyday picks stay on top.
-
-### Tags below the divider: A–Z or the engine's order
-Asked 2026-10-11 · Blocks: [specs/tag-suggestions.md](specs/tag-suggestions.md)
-The tag-suggestions spec lists a category's own tags first, then a divider, then every other tag
-A–Z. Everywhere else the app shows tags in the engine's order (your own `sort_order` ascending, then oldest
-first), so A–Z would be the app sorting a list itself.
-- **A.** Keep A–Z below the divider, as the approved mockup shows.
-- **B.** Below the divider, keep the engine's order, the same as today's `#` list.
-- **C.** Ask the engine for the whole two-group list, so no client sorts anything.
-**Recommended:** C, because web and iOS need the same list and should not each sort it; B if you
-want it without waiting on the engine.
 
 ---
 
@@ -107,7 +87,8 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
   - `test_enter_home_with_unwritten_staged_rows_asks_first`
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
-- **Tag suggestions that know the category.** Spec (draft): [specs/tag-suggestions.md](specs/tag-suggestions.md).
+- **Tag suggestions that know the category.** Spec: [specs/tag-suggestions.md](specs/tag-suggestions.md);
+  waits on the engine ask [category-tag-suggestions-whole-list.md](engine-asks/category-tag-suggestions-whole-list.md). **[UI]**
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
