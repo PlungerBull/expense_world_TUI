@@ -7,7 +7,7 @@ moves to [decisions.md](../decisions.md), and this file is deleted.
 
 ## The decision
 
-**The owner only ever uses the TUI (`expense world`) and never types a flat command.** The flat
+**The owner only ever uses the TUI and never types a flat command.** The flat
 commands (`expense <group> <verb> --flag`) are deleted. Every feature is built once, in the TUI.
 
 **Why.** The TUI never runs a command: both surfaces are faces on the same Python code (the
@@ -27,7 +27,7 @@ both talk to the engine's HTTPS API directly.
 
 ## What stays typed
 
-- **`expense world`** — it is how the TUI opens.
+- **`expense`**, alone — it opens the TUI. Today that is `expense world`; the word `world` goes.
 - **`expense import sheet`** — the door for the owner's spreadsheet (PRESUPUESTO);
   [official-migration.md](official-migration.md) runs on it.
 
@@ -69,8 +69,8 @@ Adding a screen for any of them later is new work of its own.
 
 The repo is named `expense_world_TUI` in both places: on GitHub (today
 `PlungerBull/expense_CLI_menu`) and as the local folder (today `expense_world_CLI`). The same
-repo is renamed, not replaced, so its history and its CI carry over. The `expense` command keeps
-its name.
+repo is renamed, not replaced, so its history and its CI carry over. The command is still
+`expense`.
 
 - **GitHub** forwards the old address to the new one, so old links keep working.
 - **The local folder** takes three things with it: the `.venv` is rebuilt (it stores the old
@@ -93,13 +93,14 @@ over as is. It says:
 
 ## How the owner knows it is done
 
-1. On a machine with no settings file, `expense world` opens, asks for the engine address and
+1. On a machine with no settings file, `expense` opens the app, asks for the engine address and
    the key, and then works. No typed command is needed first.
 2. In the app, an account, a category, a hashtag and a transaction can each be deleted, and each
    asks before it deletes.
 3. In the app, an account's opening balance can be set.
 4. A bank file is imported from the app.
-5. `expense --help` lists `world` and `import sheet`, and nothing else.
+5. `expense` alone opens the app, `expense world` no longer exists, and `expense --help` lists
+   `import sheet` and nothing else.
 6. The repo is `PlungerBull/expense_world_TUI` on GitHub, the old GitHub address lands on it,
    and the local folder is `expense_world_TUI`.
 7. [engine-asks/](../engine-asks/) holds the brief, and it lists the six features with no screen.
@@ -133,7 +134,8 @@ with a mockup the owner picks.
    screens, each behind a confirm.
 5. **Opening balance [UI].** Set an account's starting balance from the account's screen.
 6. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
-   with their tests, guards and docs. The contract tests that walk through commands call the
+   with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
+   the code and in every doc that names it. The contract tests that walk through commands call the
    engine directly. The rules listed in "Consequences" are rewritten in the same task. The unit
    suite stays green at every commit.
 7. **Clean todo.md.** Delete the items listed in "Consequences".
