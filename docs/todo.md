@@ -89,9 +89,9 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
-- **The TUI is the only surface** (flat commands deleted except the imports, three new TUI
-  features, the repo rename and the engine-coder note). Spec: [specs/tui-only-plan.md](specs/tui-only-plan.md),
-  paused; its open questions live in the spec.
+- **The TUI is the only surface** (flat commands deleted except the sheet import, three new TUI
+  features, the repo rename and the brief to the engine coders). Spec:
+  [specs/tui-only-plan.md](specs/tui-only-plan.md); its tasks wait for the owner's approval.
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
@@ -106,12 +106,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   plan-mode session. Decide deliberately whether it reuses the quick-add matcher
   (contains-anywhere over `load_quickadd_refs`, [quickadd/parse.py](../expense/quickadd/parse.py))
   or keeps a stricter exact match.
-
-- **"Move between accounts" convenience** — one command writing the two ordinary
-  `POST /transactions` a transfer consists of. Purely client-side sugar over two writes, which
-  is also the argument against it. **[UI]** — needs a mockup covering naming, flags, and the
-  two legs' default titles and categories. See [decisions.md](decisions.md) "Transfers are two
-  ordinary transactions".
 
 - **`expense import csv`** — only if a real migration needs it. Only a reader would be new; the
   write half is shared ([batch_write.py](../expense/batch_write.py)).
@@ -139,3 +133,6 @@ No commitment. Declined ideas stay listed so they are not proposed again.
 - **Flat-CLI color conventions** beyond what ships. No demand established.
 - **`auth pat create` / `auth pat revoke`.** PATs are issued out-of-band; a future web dashboard
   is expected to issue them. See [cli-spec.md](cli-spec.md) "Auth model".
+- **An MCP server for agents.** The way for an agent to read or write the ledger on the owner's
+  behalf, talking to the engine as every client does. It belongs beside the engine, not in this
+  repo, and is a piece of work of its own.
