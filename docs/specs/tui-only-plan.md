@@ -1,6 +1,6 @@
 # The TUI is the only surface
 
-The current spec. Its tasks, at the end, wait for the owner's approval. **When done:** the why
+The current spec. **When done:** the why
 moves to [decisions.md](../decisions.md), and this file is deleted.
 
 ---
@@ -21,9 +21,6 @@ is still exercised before web and iOS exist: **the owner through the TUI, for re
 **the automated tests**, most of all the live contract suite against the practice engine, which
 calls the engine directly. Neither the iOS app nor the web dashboard will ever call this repo;
 both talk to the engine's HTTPS API directly.
-
-**What it replaces:** decisions.md "Dual-UX strategy — flat commands + TUI + quick-add
-(2026-04-25)", which made flat commands canonical.
 
 ## What stays typed
 
@@ -93,7 +90,8 @@ over as is. It says:
 
 ## How the owner knows it is done
 
-1. On a machine with no settings file, `expense` opens the app, asks for the engine address and
+1. With no settings file (a fresh machine, or the app pointed at an empty location with
+   `EXPENSE_CONFIG`), `expense` opens the app, asks for the engine address and
    the key, and then works. No typed command is needed first.
 2. In the app, an account, a category, a hashtag and a transaction can each be deleted, and each
    asks before it deletes.
@@ -121,27 +119,25 @@ over as is. It says:
 
 ## Tasks
 
-Drafted by the orchestrator; the loop starts when the owner approves them. **[UI]** tasks start
+Approved by the owner on 2026-10-13. **[UI]** tasks start
 with a mockup the owner picks.
 
-1. **Record the decision.** A decisions.md entry (Context / Decision / Rejected) that supersedes
-   "Dual-UX strategy" and records that agents get no typed commands.
-2. **Move the shared code** out of `expense/commands/` into a home not named after commands (the
+1. **Move the shared code** out of `expense/commands/` into a home not named after commands (the
    engine reads, the formatters, the quick-add fetch). Nothing the owner sees changes.
-3. **First-time setup [UI].** With no settings file, the TUI asks for the engine address and the
+2. **First-time setup [UI].** With no settings file, the TUI asks for the engine address and the
    key and creates the file.
-4. **Delete [UI].** Delete an account, a category, a hashtag and a ledger transaction from their
+3. **Delete [UI].** Delete an account, a category, a hashtag and a ledger transaction from their
    screens, each behind a confirm.
-5. **Opening balance [UI].** Set an account's starting balance from the account's screen.
-6. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
+4. **Opening balance [UI].** Set an account's starting balance from the account's screen.
+5. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
    with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
    the code and in every doc that names it. The contract tests that walk through commands call the
    engine directly. The rules listed in "Consequences" are rewritten in the same task. The unit
    suite stays green at every commit.
-7. **Clean todo.md.** Delete the items listed in "Consequences".
-8. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
+6. **Clean todo.md.** Delete the items listed in "Consequences".
+7. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
    every mention of the old name in this repo.
-9. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+8. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-10. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
+9. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).

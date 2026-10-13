@@ -52,11 +52,13 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *Default an unsigned amount to expense* (offered, declined) — hidden behaviour that diverges from what the engine stores and forces the parser to infer intent.
 
-## Dual-UX strategy — flat commands + TUI + quick-add (2026-04-25)
+## The TUI is the only surface (2026-10-13, owner)
 
-**Decision.** Three surfaces over one implementation: **flat commands** (canonical, scriptable, the contract-validator surface), the **TUI** `expense world` for management and discovery, and the **quick-add grammar** for capture (`expense log` and the LOG bar). Every interactive action goes through the shared fetch/write layer. `expense` with no args prints group help.
+**Context.** The owner uses only the TUI and never types a flat command. The TUI never runs a command: it calls the same Python reads, formatters and write plumbing the commands call, so a typed command is a second face on a feature, built and approved a second time for a surface nobody reads. Web and iOS call the engine's HTTPS API, never this repo.
 
-**Rejected.** *Interactive-first* (slower for capture, unscriptable); *folding flat commands under the interactive surface* (kills scripting and testing); *a second interactive surface beside the TUI* (every feature built twice).
+**Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. The work that gets the repo there is [specs/tui-only-plan.md](specs/tui-only-plan.md).
+
+**Rejected.** *Flat commands as the canonical surface beside the TUI* — every feature built, tested and approved twice. *One generic `expense api` command for agents* — an agent acting on the ledger belongs behind an MCP server beside the engine, not behind a command in this client. *Keeping every command as JSON-only for agents* — the same double build, for no reader.
 
 ## Mockup-first, and showing ≠ approval (hardened 2026-05-24)
 

@@ -91,7 +91,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **The TUI is the only surface** (flat commands deleted except the sheet import, three new TUI
   features, the repo rename and the brief to the engine coders). Spec:
-  [specs/tui-only-plan.md](specs/tui-only-plan.md); its tasks wait for the owner's approval.
+  [specs/tui-only-plan.md](specs/tui-only-plan.md), the current spec.
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
