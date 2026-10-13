@@ -109,9 +109,7 @@ The draft is "Draft note to the engine coder" below.
   `--yes`), "Mock every screen" (no more flat tables), "One copy of everything shared" and
   "Testing conventions" (the per-command guards go), "Status". [cli-runtime.md](../cli-runtime.md)
   becomes the runtime doc for the TUI and the imports.
-- **Specs that shrink:** [tag-suggestions.md](tag-suggestions.md) drops its new flat command and
-  the question about its columns. The TUI import door leaves the typed
-  `import bank` wording alone, since the command goes.
+- **The TUI import door** leaves the typed `import bank` wording alone, since the command goes.
 - **todo.md items that lose their reason:** Backlog "Shell completions", "Human-name resolution
   for reference flags", "Move between accounts convenience" (unless wanted as a TUI feature),
   "`expense import csv`", and Parked "Flat-CLI color conventions" and "`auth pat create/revoke`".

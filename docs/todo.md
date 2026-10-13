@@ -87,8 +87,6 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
   - `test_enter_home_with_unwritten_staged_rows_asks_first`
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
-- **Tag suggestions that know the category.** Spec: [specs/tag-suggestions.md](specs/tag-suggestions.md);
-  waits on the engine ask [category-tag-suggestions-whole-list.md](engine-asks/category-tag-suggestions-whole-list.md). **[UI]**
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **The TUI is the only surface** (flat commands deleted except the imports, three new TUI

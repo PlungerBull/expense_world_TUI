@@ -463,3 +463,11 @@ the bar is where the right file gets dropped next.
 **Decision.** An autouse fixture in [tests/unit/conftest.py](../tests/unit/conftest.py) sets every test's terminal to 80×24, so the suite's result does not depend on the shell or the window ([cli-runtime.md](cli-runtime.md) "Unit tests never touch the network").
 
 **Rejected.** *Loosening each assertion to survive wrapping* — every new test would have to remember it.
+
+## The tag picker is one full list, narrowed by typing (2026-10-13, owner)
+
+**Context.** The LOG bar's `#` lists every tag. The engine can also say which tags a category's transactions use, most-used first (contract: GET /v1/categories/{category_id}/hashtags).
+
+**Decision.** `#` shows every tag in the order the engine lists them, read once from `GET /v1/hashtags`, and typing keeps the tags whose name contains the text, case- and accent-blind, in that same order ([quickadd/names.py](../expense/quickadd/names.py)). The list is the same whichever category the line names; the app sorts and merges nothing. The category-tags endpoint has no screen; the contract suite exercises it ([test_category_hashtags.py](../tests/contract/test_category_hashtags.py)).
+
+**Rejected.** *A category's own tags first, a divider, then the rest* — two groups need a second order, and each client would pick its own. *The engine sending that two-group list* — declined by the engine coders: with one list there is nothing to merge. *Hiding the tags a category has never used* — any tag may go on any category. *A typed command listing a category's tags* — the TUI is the surface in use.
