@@ -1,4 +1,4 @@
-# expense_CLI_menu
+# expense_world_TUI
 
 The Hands — a Textual TUI over the `expense_world_engine` HTTP API (local, `http://127.0.0.1:8000`, set as `engine_url` in `~/.expense-config`), plus one typed command for the owner's spreadsheet. Every screen is a thin wrapper around engine endpoints; zero business logic lives here.
 

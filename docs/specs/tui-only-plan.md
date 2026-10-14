@@ -64,8 +64,8 @@ Adding a screen for any of them later is new work of its own.
 
 ## The rename
 
-The repo is named `expense_world_TUI` in both places: on GitHub (today
-`PlungerBull/expense_CLI_menu`) and as the local folder (today `expense_world_CLI`). The same
+The repo is named `expense_world_TUI` in both places: on GitHub (renamed
+2026-10-14) and as the local folder (today `expense_world_CLI`). The same
 repo is renamed, not replaced, so its history and its CI carry over. The command is still
 `expense`.
 
@@ -132,9 +132,7 @@ with a mockup the owner picks.
    `esc` after a half-refused save just leaves, and screen 6's note stays as drawn. **Waits on
    the engine:**
    [account-opening-balance.md](../engine-asks/account-opening-balance.md).
-2. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
-   every mention of the old name in this repo.
-3. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+2. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-4. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
+3. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).

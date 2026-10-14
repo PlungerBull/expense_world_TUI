@@ -1,4 +1,4 @@
-# expense_CLI_menu — CLAUDE.md
+# expense_world_TUI — CLAUDE.md
 
 > The interactive surface is the Textual TUI, opened by typing `expense`.
 
@@ -75,7 +75,7 @@ The engine's error shape (`{ error: { code, message, fields } }`) is rendered to
 Deletes and reverts ask first, and only `y` confirms; a delete is final from every client, and its question says no screen can bring it back. Archive and unarchive are prompt-free — reversible toggles, not destruction.
 
 **Config isolation**
-Auth token + engine URL live in `~/.expense-config`. Never checked in, never shared across machines. The GitHub repo (`PlungerBull/expense_CLI_menu`) is **public** by deliberate choice, so any committed secret is public and permanent in git history; credentials must never enter the repo.
+Auth token + engine URL live in `~/.expense-config`. Never checked in, never shared across machines. The GitHub repo (`PlungerBull/expense_world_TUI`) is **public** by deliberate choice, so any committed secret is public and permanent in git history; credentials must never enter the repo.
 
 **Mock every screen before building it — every time**
 Before writing or changing UI code for any user-facing view — screen, list, form, report, message — first present its **HTML mockup in [docs/mockups/](docs/mockups/)** and wait for the user's review, **every time, even for a screen approved before** (the user re-reads the mockup each session). **Showing mockups is not approval:** never implement (even in auto-accept mode) until the user explicitly picks one. This includes tables: a new list or a column change needs a proposed column set + sign-off first. When a detail is unspecified or ambiguous, **stop and ask** — the orchestrator asks the owner; a worker stops and puts the question in its report ("How work runs" below).
