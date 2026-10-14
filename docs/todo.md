@@ -84,8 +84,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   orders the batch now"; state it in the present tense
   ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
 
-- **Three flaky unit tests.** Each failed once in a full `pytest tests/unit` run on 2026-10-02
-  and passes alone; for each, find whether the test asserts too early or the screen has a race.
+- **Three flaky unit tests.** Each failed in a full `pytest tests/unit` run on 2026-10-02 and
+  passes alone; on 2026-10-14 `test_enter_home_with_unwritten_staged_rows_asks_first` blocked two
+  commits and `test_config_screen_shows_only_the_engine_connection` one; for each, find whether the test asserts too early or the screen has a race.
   - `test_toggle_error_drops_queued_intents_and_resyncs`
     ([test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py)): 2 PUTs sent,
     1 expected — the queued toggle went out before the failing PUT's error dropped it.
@@ -102,20 +103,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **Shell completions** — zsh, bash, fish. `expense <TAB>` shows commands, `expense auth
-  <TAB>` shows subcommands. No design questions open.
-
-- **Human-name resolution for reference flags.** Accept a UUID or a name on every
-  `--account-id` / `--category-id` / `--hashtag-id` / `--reconciliation-id`, via the existing
-  list endpoints: case-insensitive exact match, ambiguous matches rejected with a "be more
-  specific" error pointing at `expense <resource> list`; UUIDs pass through. Deserves its own
-  plan-mode session. Decide deliberately whether it reuses the quick-add matcher
-  (contains-anywhere over `load_quickadd_refs`, [quickadd/parse.py](../expense/quickadd/parse.py))
-  or keeps a stricter exact match.
-
-- **`expense import csv`** — only if a real migration needs it. Only a reader would be new; the
-  write half is shared ([batch_write.py](../expense/batch_write.py)).
-
 - **`PickerModal` carries rows but is still a modal.** A surface carrying rows should be a
   pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
   `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
@@ -131,14 +118,11 @@ No commitment. Declined ideas stay listed so they are not proposed again.
   each loop is doing and what waits on the owner. Worth it once more than two repos run a loop.
 - **The quick-add launcher hotkey.** A global chord that opens the LOG bar from outside the TUI
   ([mockups/quick-add-launcher-options.html](mockups/quick-add-launcher-options.html), which
-  also records the ⌘E conflict). Convenience, not access: `+` and `expense log "<line>"` exist.
+  also records the ⌘E conflict). Convenience, not access: `+` opens the LOG bar inside the app.
 - **The quick-add "recents" row** (numbered last-N templates). **Declined 2026-08-25**; listed
   only so it is not re-proposed.
 - **TUI live niceties.** Auto-refresh / watch mode, search-as-you-type, richer dashboards.
   Mouse stays **off** — see [tui.md](tui.md) §4.
-- **Flat-CLI color conventions** beyond what ships. No demand established.
-- **`auth pat create` / `auth pat revoke`.** PATs are issued out-of-band; a future web dashboard
-  is expected to issue them. See [cli-spec.md](cli-spec.md) "Auth model".
 - **An MCP server for agents.** The way for an agent to read or write the ledger on the owner's
   behalf, talking to the engine as every client does. It belongs beside the engine, not in this
   repo, and is a piece of work of its own.
