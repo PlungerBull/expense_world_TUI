@@ -104,7 +104,7 @@ Decisions whose why lives elsewhere:
 
 ## Every data table pages at 20 rows (2026-07-11)
 
-**Decision.** `DEFAULT_PAGE_ROWS = 20` in [_resource.py](../expense/commands/_resource.py), one copy for CLI and TUI. **CLI:** human mode sends `limit=20` on cursor-paged lists via `effective_limit`; explicit flags win; `--json` sends no default and stays byte-verbatim. **TUI:** full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
+**Decision.** `DEFAULT_PAGE_ROWS = 20` in [reads.py](../expense/reads.py), one copy for CLI and TUI. **CLI:** human mode sends `limit=20` on cursor-paged lists via `effective_limit`; explicit flags win; `--json` sends no default and stays byte-verbatim. **TUI:** full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
 
 **Rejected.** *Client-side slicing of engine-paged reads* — the next client must inherit real pagination. *Auto-fetching when `↓` reaches the edge* — holding a key would fire a read per keystroke.
 
@@ -176,7 +176,7 @@ Decisions whose why lives elsewhere:
 
 ## Home aggregates are nullable — `3 unrated` is a state, not a number (2026-08-16)
 
-**Decision.** The engine returns `null` for a home-currency aggregate when any row in the group has no resolvable rate, with an `unconverted_count`. The client renders that as **`3 unrated`** in the cell — never `0.00` and never a native-currency fallback (which would read USD cents as PEN cents). One shared pair, `format_aggregate` / `has_aggregate` in [_resource.py](../expense/commands/_resource.py), backs CLI and TUI. Month cells carry the count, so *no activity* (dim `—`) and *unpriceable* stay distinct. A category with nothing in the report is not drawn; `categories list` and `--json` still show every one.
+**Decision.** The engine returns `null` for a home-currency aggregate when any row in the group has no resolvable rate, with an `unconverted_count`. The client renders that as **`3 unrated`** in the cell — never `0.00` and never a native-currency fallback (which would read USD cents as PEN cents). One shared pair, `format_aggregate` / `has_aggregate` in [formatting.py](../expense/formatting.py), backs CLI and TUI. Month cells carry the count, so *no activity* (dim `—`) and *unpriceable* stay distinct. A category with nothing in the report is not drawn; `categories list` and `--json` still show every one.
 
 **Rejected.** *A partial total with a marker* — a half-true number on screen. *`n/a (3)`* — an abbreviation to learn. *A footnote with the count* — loses which row it belongs to.
 
@@ -190,7 +190,7 @@ Decisions whose why lives elsewhere:
 
 **Decision — creation.** `expense accounts create-person`, and in the TUI a **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; `person` posts to `POST /people`. `is_person` is never sent — the endpoint is the flag — and TYPE is read-only on the edit form.
 
-**Decision — settled people.** Folded behind a count (`▸ 3 settled`), never dropped — on the flat dashboard and on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [_resource.py](../expense/commands/_resource.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
+**Decision — settled people.** Folded behind a count (`▸ 3 settled`), never dropped — on the flat dashboard and on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
 **Decision — archived people.** On the flat dashboard, `--include-archived` adds `archived_people` as its own panel right after archived accounts — two lists, as on every other surface — and it is not folded: the panel is what the flag was passed to see.
 

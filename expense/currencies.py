@@ -10,7 +10,7 @@ SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
 
 
 # The minor-unit scale: how many minor units make one major unit. Consumed by
-# quickadd/money.py (both directions), commands/_resource.format_cents and
+# quickadd/money.py (both directions), formatting.format_cents and
 # commands/import_cmd.
 #
 # ⚠️ One constant for every currency is correct ONLY because the tuple above is

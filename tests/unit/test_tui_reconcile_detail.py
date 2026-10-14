@@ -106,7 +106,7 @@ def _patch(monkeypatch):
             return {"items": AVAILABLE}
         return {"items": []}
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
@@ -124,16 +124,16 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
     (contract: GET /v1/transactions), so rows dated on the 30th are offered too."""
     _patch(monkeypatch)
     calls: list = []
-    from expense.commands import transactions_cmd
+    from expense import reads
 
-    fake = transactions_cmd.fetch_transactions  # _patch's fake
+    fake = reads.fetch_transactions  # _patch's fake
 
     def spy(cfg, **k):
         assert "offset" not in k
         calls.append(k)
         return fake(cfg, **k)
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", spy)
+    monkeypatch.setattr("expense.reads.fetch_transactions", spy)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -315,7 +315,7 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
             return {"items": ASSIGNED}
         return {"items": [*ASSIGNED, fresh_row]}
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(completed))
@@ -344,7 +344,7 @@ def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
             return cursor_page([{"id": f"t{i}"} for i in range(200)], next_cursor="c1")
         return cursor_page([{"id": f"t{200 + i}"} for i in range(40)])
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
     rows = _fetch_all_txns(object(), reconciliation="r1")
     assert calls == [(200, None), (200, "c1")]
     assert [r["id"] for r in rows] == [f"t{i}" for i in range(240)]
@@ -421,7 +421,7 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
             return {"items": AVAILABLE}
         return {"items": []}
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
         "Cannot complete reconciliation with no assigned transactions.",
@@ -613,7 +613,7 @@ def test_r_refreshes_record_from_its_account_list_and_never_writes(fake_client, 
         reads.append(account_id)
         return whole([dict(other), dict(fresh)])
 
-    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", listed)
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", listed)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(completed))
@@ -635,7 +635,7 @@ def test_r_refresh_dismisses_when_record_gone(fake_client, monkeypatch):
     and pop. Absent is reliable now: the list is never a page of it."""
     _patch(monkeypatch)
     monkeypatch.setattr(
-        "expense.commands.reconcile_cmd.fetch_reconciliations",
+        "expense.reads.fetch_reconciliations",
         lambda cfg, *, account_id, **k: whole([{**DRAFT, "id": "someone-else"}]),
     )
 
@@ -695,7 +695,7 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     def boom(cfg, **k):
         raise RuntimeError("engine down")
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", boom)
+    monkeypatch.setattr("expense.reads.fetch_transactions", boom)
     notices: list = []
     monkeypatch.setattr(
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)

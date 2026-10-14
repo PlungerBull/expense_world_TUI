@@ -20,7 +20,7 @@ from rich.rule import Rule
 from rich.text import Text
 from textual.widgets import Static
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS
+from expense.reads import DEFAULT_PAGE_ROWS
 
 
 def page_indicator(

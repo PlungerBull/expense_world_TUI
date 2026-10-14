@@ -1,9 +1,10 @@
 import typer
 
 from expense import config as config_module
-from expense.commands._resource import YES_OPT, redact_token, require_yes
+from expense.commands._resource import YES_OPT, require_yes
 from expense.config import Config
 from expense.errors import ConfigInvalidError, handle_errors
+from expense.formatting import redact_token
 from expense.jsonout import emit_json
 
 app = typer.Typer(help="Manage ~/.expense-config", no_args_is_help=True)

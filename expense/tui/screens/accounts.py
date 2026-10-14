@@ -11,7 +11,7 @@ EditAccountScreen); `a` toggles archive immediately — a second `a` undoes.
 
 from textual.binding import Binding
 
-from expense.commands import accounts_cmd
+from expense import reads
 from expense.tui.screens._base import ResourceListScreen
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, swatch
@@ -53,7 +53,7 @@ class AccountsScreen(ResourceListScreen):
     ]
 
     def fetch_items(self, cfg, **kw):
-        return accounts_cmd.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
+        return reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
 
     def action_archive(self) -> None:
         if self._toggle_busy:

@@ -3,67 +3,29 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     JSON_OPT,
     YES_OPT,
     build_update_payload,
-    fetch_body,
-    format_cents,
     format_cents_or_dash,
-    items_of,
-    load_account_name_map,
     print_warnings,
-    query_params,
     render_record,
     render_table,
     require_yes,
-    resolve_name,
     run_delete,
     run_toggle,
 )
 from expense.context import get_verbose
 from expense.errors import EngineError, handle_errors, has_reason, reason_on
+from expense.formatting import format_cents, format_period, format_status, resolve_name
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import items_of, load_account_name_map
 
 app = typer.Typer(help="Reconciliations.", no_args_is_help=True)
 
 _RESOURCE = "reconciliations"
-
-
-STATUS_LABELS = {1: "draft", 2: "completed"}
-
-
-def format_status(value: object) -> str:
-    """Human label for the engine's integer status. Shared by flat table + TUI."""
-    if value is None:
-        return "—"
-    return STATUS_LABELS.get(value, str(value))
-
-
-def format_period(item: dict) -> str:
-    """`date_start → date_end`. Shared by flat table + TUI. Both are calendar
-    days on the wire (contract: "Date inputs"), and every period has both
-    (contract: POST /v1/reconciliations)."""
-    return f"{item['date_start']} → {item['date_end']}"
-
-
-def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:
-    """GET /v1/reconciliations?account_id= → the raw engine body. Pure data.
-
-    Shared by the flat `reconcile list` command and the TUI's Reconciliations
-    screens. The engine lists one account at a time: the
-    account is required, the list comes back whole as `{items}` — no `limit`,
-    no `offset`, no `total` — sorted `date_start` ascending, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"). There is no read
-    by id; a row not in its account's list has been deleted.
-    """
-    return fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}",
-        params=query_params(account_id=account_id),
-        verbose=verbose,
-    )
 
 
 _FIELD_LOCKED_HINT = (
@@ -200,7 +162,7 @@ def list_(
     Example: expense reconcile list --account-id <account-id>
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_reconciliations(cfg, account_id=account, verbose=get_verbose(ctx))
+    body = reads.fetch_reconciliations(cfg, account_id=account, verbose=get_verbose(ctx))
     _render_reconciliation_list(body, json_mode=json_output)
 
 

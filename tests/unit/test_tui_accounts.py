@@ -53,7 +53,7 @@ def test_account_rows_type_balance_status_and_swatch():
 
 
 def test_accounts_screen_lists_and_edits(monkeypatch):
-    import expense.commands.accounts_cmd as ac
+    import expense.reads as ac
 
     monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(ITEMS))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())

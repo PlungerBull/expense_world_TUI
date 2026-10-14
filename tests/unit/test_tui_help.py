@@ -34,9 +34,7 @@ from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait
 
 def _stub_engine(monkeypatch, items=()):
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda cfg, **k: {"items": list(items)}
-    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda cfg, **k: {"items": list(items)})
     fake_ledger(monkeypatch, [])
     for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
@@ -314,15 +312,9 @@ def test_question_mark_types_a_character_inside_a_form(monkeypatch):
     question mark — the behaviour we want, pinned so a later app-level binding
     cannot quietly take the key away."""
     _stub_engine(monkeypatch)
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda cfg, **k: {"items": []}
-    )
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda cfg, **k: {"items": []}
-    )
-    monkeypatch.setattr(
-        "expense.commands.hashtags_cmd.fetch_hashtags", lambda cfg, **k: {"items": []}
-    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda cfg, **k: {"items": []})
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda cfg, **k: {"items": []})
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda cfg, **k: {"items": []})
 
     async def scenario(pilot, app):
         from textual.widgets import Input

@@ -15,9 +15,7 @@ ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False
 
 
 def _stub_accounts(monkeypatch):
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
-    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
 
 
 def test_refresh_mid_write_does_not_cancel_the_write(fake_client, monkeypatch):

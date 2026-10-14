@@ -10,8 +10,8 @@ the other in drop order, through three full screens:
     ImportPreviewScreen   the engine's dry run, nothing written yet
     ImportResultScreen    what the apply wrote, and the days to check
 
-Every step is the typed `expense import bank`'s own code
-(expense/commands/bank_import_cmd.py): the same read, the same account
+Every step is the code the typed `expense import bank` runs too
+(expense/bank_import/flow.py): the same read, the same account
 folding, the same `Prepared` rows, the same one `POST /transactions/import`
 (contract: POST /v1/transactions/import) and the same verdicts. What is here is
 only what the screens draw, from docs/mockups/expense-world-import-door.html.
@@ -33,7 +33,10 @@ from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import Footer, Static
 
+from expense import reads
+from expense.bank_import import flow
 from expense.bank_import.engine import (
+    IMPORT_FLOOR,
     ExcessGroup,
     IncompleteAnswer,
     Placed,
@@ -42,11 +45,7 @@ from expense.bank_import.engine import (
     placements,
     row_refusals,
 )
-from expense.bank_import.parse import BadRow, BankFormatError, BankRow
-from expense.commands import accounts_cmd, bank_import_cmd
-from expense.commands._resource import format_cents, items_of
-from expense.commands.bank_import_cmd import (
-    IMPORT_FLOOR,
+from expense.bank_import.flow import (
     AccountGroup,
     ImportRefused,
     Prepared,
@@ -59,7 +58,10 @@ from expense.commands.bank_import_cmd import (
     read_bank_file,
     sealed_lines,
 )
+from expense.bank_import.parse import BadRow, BankFormatError, BankRow
 from expense.errors import EngineError, format_error
+from expense.formatting import format_cents
+from expense.reads import items_of
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.theme import AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_cell
@@ -311,9 +313,7 @@ class ImportAccountScreen(_ImportScreen):
 
         try:
             cfg = config_module.ensure_loaded()
-            body = accounts_cmd.fetch_accounts(
-                cfg, include_people=False, **screen_fetch_kwargs(self.app)
-            )
+            body = reads.fetch_accounts(cfg, include_people=False, **screen_fetch_kwargs(self.app))
             groups = account_groups(items_of(body))
         except Exception as exc:  # surfaced on the screen, never a crash
             self.app.call_from_thread(self._load_failed, format_error(exc))
@@ -593,7 +593,7 @@ class ImportPreviewScreen(_ImportScreen):
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                response = bank_import_cmd.import_call(client, prepared, dry_run=dry_run)
+                response = flow.import_call(client, prepared, dry_run=dry_run)
             placed = placements(response, prepared.sent)
             excess = excess_groups(response, prepared.group.leg_names)
             names: dict[str, str] = {}

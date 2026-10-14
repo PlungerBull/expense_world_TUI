@@ -14,10 +14,10 @@ from datetime import date
 
 from textual.widgets import Input, Label, Static
 
-from expense.commands._resource import QuickAddRefs
 from expense.errors import EngineConnectionError, EngineError
 from expense.quickadd.parse import parse
 from expense.quickadd.route import route
+from expense.reads import QuickAddRefs
 from expense.tui.screens.log_bar import (
     LEGEND_LINE,
     AccountPeek,
@@ -132,16 +132,12 @@ def _patch(monkeypatch, peek: "_PeekFetch | None" = None) -> "_PeekFetch":
     that assert on it: the panel fires on any line that names an account, and
     an unpatched fetch would be a real request out of a unit test.
     """
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
-    )
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: CATEGORIES
-    )
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: HASHTAGS)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: CATEGORIES)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: HASHTAGS)
     peek = peek or _PeekFetch()
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", peek)
-    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", peek.count)
+    monkeypatch.setattr("expense.reads.fetch_transactions", peek)
+    monkeypatch.setattr("expense.reads.count_transactions", peek.count)
     return peek
 
 

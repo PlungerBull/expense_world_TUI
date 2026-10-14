@@ -28,8 +28,8 @@ is what must not drift between them:
 from collections.abc import Callable
 from typing import Any
 
-from expense.commands._resource import items_of
 from expense.errors import format_error
+from expense.reads import items_of
 from expense.tui.widgets.cursor_list import GROW_STEP
 
 #: `(limit, after) -> the engine's body`, run on a worker thread.

@@ -15,8 +15,8 @@ from rich.text import Text
 from textual.widget import Widget
 from textual.widgets import Static
 
-from expense.commands._resource import redact_token
 from expense.errors import format_error
+from expense.formatting import redact_token
 from expense.tui.screens._base import SectionScreen
 from expense.tui.screens.modals import PromptModal
 
@@ -128,7 +128,7 @@ class AuthScreen(SectionScreen):
 
     def fetch(self) -> dict:
         from expense import config as config_module
-        from expense.commands import auth_cmd
+        from expense import reads
         from expense.errors import EngineError
         from expense.http import ExpenseClient
 
@@ -139,7 +139,7 @@ class AuthScreen(SectionScreen):
             # targets. Reading /auth/me here directly left a TUI-only user
             # with no cached currency and so no warning, ever.
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                body = auth_cmd.fetch_me(cfg, client=client)
+                body = reads.fetch_me(cfg, client=client)
         except EngineError as exc:
             if exc.status == 404:
                 return {"provisioned": False}

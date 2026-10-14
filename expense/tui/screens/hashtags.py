@@ -6,7 +6,7 @@ doesn't provide. `n` creates; `e` renames the cursor row (prefilled
 EditHashtagScreen). `enter` does nothing. Only accounts archive.
 """
 
-from expense.commands import hashtags_cmd
+from expense import reads
 from expense.tui.screens._base import ResourceListScreen
 
 _HEADERS = ["Name"]
@@ -32,7 +32,7 @@ class HashtagsScreen(ResourceListScreen):
     def fetch_items(self, cfg, **kw):
         # The engine returns every row; the 20-row window pages
         # over the full set locally, so "page 2 of N" stays honest.
-        return hashtags_cmd.fetch_hashtags(cfg, **kw)
+        return reads.fetch_hashtags(cfg, **kw)
 
     def rows(self, items: list) -> list:
         return hashtag_rows(items)

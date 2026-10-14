@@ -1,4 +1,5 @@
-"""Direct unit tests for the shared command helpers in expense/commands/_resource.py.
+"""Direct unit tests for the helpers in expense/commands/_resource.py, expense/reads.py
+and expense/formatting.py.
 
 Covers: build_update_payload, require_yes, render_totals,
 render_pagination_hint, run_toggle (including the hints= path added in
@@ -14,36 +15,40 @@ from typer.testing import CliRunner
 
 from expense import config as config_module
 from expense.commands._resource import (
-    account_choices,
     build_update_payload,
-    fetch_all_cursor_pages,
-    fetch_body,
-    format_aggregate,
     format_bool,
-    format_cents,
     format_cents_or_dash,
     format_field_value,
-    format_hashtag_cell,
-    format_month,
-    has_aggregate,
-    items_of,
-    load_account_name_map,
-    load_category_name_map,
-    load_hashtag_name_map,
-    load_quickadd_refs,
     parse_hashtag_ids,
-    query_params,
-    redact_token,
     render_pagination_hint,
     render_record,
     render_table,
     render_totals,
     require_yes,
     run_toggle,
+)
+from expense.errors import EngineError, handle_errors
+from expense.formatting import (
+    format_aggregate,
+    format_cents,
+    format_hashtag_cell,
+    format_month,
+    has_aggregate,
+    redact_token,
     settled_label,
     split_settled,
 )
-from expense.errors import EngineError, handle_errors
+from expense.reads import (
+    account_choices,
+    fetch_all_cursor_pages,
+    fetch_body,
+    items_of,
+    load_account_name_map,
+    load_category_name_map,
+    load_hashtag_name_map,
+    load_quickadd_refs,
+    query_params,
+)
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import cursor_page, error_response, whole
 
@@ -413,7 +418,7 @@ def test_format_hashtag_cell_empty_or_non_list_is_dash():
 
 
 # --- parse_hashtag_ids -------------------------------------------------------
-# Lives in _resource.py so the commands taking
+# Lives in commands/_resource.py so the commands taking
 # `--hashtag-ids` (transactions update, log) share one
 # parse. Behaviour pinned here rather than in each command's suite.
 
@@ -820,7 +825,7 @@ def test_fetch_all_cursor_pages_full_page_with_null_cursor_stops():
 def test_fetch_all_cursor_pages_never_sends_offset(configured):
     """Through the real fetch: `offset` is a 422 on `GET /transactions`."""
     from expense import config as config_module
-    from expense.commands.transactions_cmd import fetch_transactions
+    from expense.reads import fetch_transactions
 
     route = respx.get(f"{BASE}/v1/transactions").mock(
         side_effect=[

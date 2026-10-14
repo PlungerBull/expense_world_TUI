@@ -11,9 +11,9 @@ import threading
 
 from textual.widgets import Input, Static
 
+from expense.bank_import import flow
 from expense.bank_import.engine import ExcessGroup
-from expense.commands import bank_import_cmd
-from expense.commands.bank_import_cmd import account_groups
+from expense.bank_import.flow import account_groups
 from expense.errors import EngineError
 from expense.import_.reader import RawRow, SheetData
 from expense.tui.screens.bank_import import (
@@ -70,22 +70,16 @@ def _feed(monkeypatch, sheets: dict) -> None:
         headers, rows = sheets[Path(path).name]
         return _sheet(headers, rows)
 
-    monkeypatch.setattr(bank_import_cmd, "read_workbook", read)
+    monkeypatch.setattr(flow, "read_workbook", read)
 
 
 def _patch(monkeypatch) -> None:
     """The LOG bar's reference reads, its peek, and the account list."""
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
-    )
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: whole([])
-    )
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: whole([]))
-    monkeypatch.setattr(
-        "expense.commands.transactions_cmd.fetch_transactions", lambda *a, **k: whole([])
-    )
-    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", lambda *a, **k: 0)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_transactions", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.count_transactions", lambda *a, **k: 0)
 
 
 def _engine(fake_client, decide=None, *, excess=None):

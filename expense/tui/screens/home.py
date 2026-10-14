@@ -42,13 +42,10 @@ from textual.screen import Screen
 from textual.widgets import Footer, OptionList, Static
 from textual.widgets.option_list import Option
 
-from expense.commands import dashboard_cmd, reports_cmd
-from expense.commands._resource import (
-    load_hashtag_name_map,
-    settled_label,
-    split_settled,
-)
+from expense import formatting, reads
 from expense.errors import format_error
+from expense.formatting import settled_label, split_settled
+from expense.reads import load_hashtag_name_map
 from expense.tui.screens._base import LogTransactionMixin, screen_fetch_kwargs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
@@ -167,8 +164,8 @@ def _as_text(value: object, style: str = "") -> Text:
 
 def _grid_cell(value: object, palette: Palette | None, rule: str = AMOUNT_RULE) -> Text:
     """A month cell: the amount, a dim `—` for no activity, or `3 unrated`."""
-    if reports_cmd.cell_is_empty(value):
-        return Text(reports_cmd.NO_ACTIVITY_MARK, style="dim")
+    if formatting.cell_is_empty(value):
+        return Text(formatting.NO_ACTIVITY_MARK, style="dim")
     assert isinstance(value, dict)
     return _as_text(aggregate_cell(value.get("cents"), value.get("unconverted"), palette, rule))
 
@@ -229,7 +226,7 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
             )
     rows.append(HomeRow(None, "", ["─" for _ in labels], dim=True))
     totals = grid["totals"]
-    for key in reports_cmd.TOTALS_KEYS:
+    for key in formatting.TOTALS_KEYS:
         signed = key == "net"
         cells = [
             _grid_cell(totals[key].get(lbl), palette, AMOUNT_RULE if signed else "plain")
@@ -448,13 +445,13 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            dashboard = dashboard_cmd.fetch_dashboard(cfg, **kw)
-            body = reports_cmd.fetch_range(
+            dashboard = reads.fetch_dashboard(cfg, **kw)
+            body = reads.fetch_range(
                 cfg, from_ym=shift_month(*end, -(WINDOW_MONTHS - 1)), to_ym=end, **kw
             )
             data = {
                 "dashboard": dashboard,
-                "grid": reports_cmd.build_range_grid(body.get("months") or []),
+                "grid": formatting.build_range_grid(body.get("months") or []),
                 "names": load_hashtag_name_map(),
                 "end": end,
             }

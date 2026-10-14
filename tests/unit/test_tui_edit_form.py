@@ -40,13 +40,9 @@ def _patch(monkeypatch):
     Name maps derive from the same fetches — no separate
     load_*_name_map seams to patch.
     """
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
-    )
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: CATEGORIES
-    )
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: HASHTAGS)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: CATEGORIES)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: HASHTAGS)
 
 
 def _enter(screen, text):
@@ -87,13 +83,11 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
         return fetch
 
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts",
+        "expense.reads.fetch_accounts",
         rec("accounts", whole([*ACCOUNTS, archived])),
     )
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", rec("categories", CATEGORIES)
-    )
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", rec("hashtags", HASHTAGS))
+    monkeypatch.setattr("expense.reads.fetch_categories", rec("categories", CATEGORIES))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", rec("hashtags", HASHTAGS))
 
     async def scenario(pilot, app):
         screen = EditFormScreen(record=TXN, resource="transactions")
@@ -364,7 +358,7 @@ def test_edit_form_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("engine down")
 
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
+    monkeypatch.setattr("expense.reads.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
         EditFormScreen, "notify", lambda self, message, **kw: notices.append(message)
@@ -388,7 +382,7 @@ def test_edit_form_fetch_error_uses_canonical_renderer(fake_client, monkeypatch)
     def boom(*a, **k):
         raise EngineConnectionError(url="https://x.invalid", original=Exception("refused"))
 
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
+    monkeypatch.setattr("expense.reads.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
         EditFormScreen, "notify", lambda self, message, **kw: notices.append(message)

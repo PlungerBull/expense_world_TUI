@@ -5,34 +5,38 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
     YES_OPT,
     build_update_payload,
     effective_limit,
-    fetch_body,
-    format_cents,
-    format_hashtag_cell,
-    format_short_date,
-    items_of,
-    load_account_name_map,
-    load_category_name_map,
-    load_hashtag_name_map,
     parse_hashtag_ids,
-    query_params,
     render_pagination_hint,
     render_record,
     render_table,
-    resolve_name,
     run_delete,
-    truncate,
 )
 from expense.context import get_verbose
 from expense.dates import to_canonical_aware
 from expense.errors import EngineError, handle_errors, has_reason
+from expense.formatting import (
+    format_cents,
+    format_hashtag_cell,
+    format_short_date,
+    resolve_name,
+    truncate,
+)
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import (
+    fetch_body,
+    items_of,
+    load_account_name_map,
+    load_category_name_map,
+    load_hashtag_name_map,
+)
 
 app = typer.Typer(
     help="Ledger transactions: list, view, edit, delete, batch.",
@@ -103,129 +107,6 @@ def _update_hint_for(err: EngineError) -> str | None:
     return None
 
 
-def _filter_params(
-    *,
-    account: str | None,
-    category: str | None,
-    hashtag: str | None,
-    reconciliation: str | None,
-    unreconciled: bool,
-    date_from: str | None,
-    date_to: str | None,
-    search: str | None,
-) -> dict:
-    """The filters `GET /transactions` and `/transactions/count` share — one copy.
-
-    The engine declares them once for both endpoints, so the list and its count
-    describe the same rows by construction; this mirrors that. Filters only:
-    paging, `sort` and `debit_as_negative` are the list's own, and the count
-    422s on any parameter it does not declare.
-    """
-    return query_params(
-        account_id=account,
-        category_id=category,
-        hashtag_id=hashtag,
-        reconciliation_id=reconciliation,
-        unreconciled=unreconciled,
-        date_from=date_from,
-        date_to=date_to,
-        search=search,
-    )
-
-
-def fetch_transactions(
-    cfg,
-    *,
-    account: str | None = None,
-    category: str | None = None,
-    hashtag: str | None = None,
-    reconciliation: str | None = None,
-    unreconciled: bool = False,
-    date_from: str | None = None,
-    date_to: str | None = None,
-    search: str | None = None,
-    sort: str | None = None,
-    after: str | None = None,
-    limit: int | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/transactions → the raw engine body. Pure data, no render.
-
-    Cursor-paged: pass the previous page's `next_cursor` as `after`; `null`
-    means the last page. There is no `offset` and no `total` — the count is
-    `count_transactions`. A cursor belongs to one filter + sort, so a caller
-    that changes either starts again from `after=None`.
-
-    Shared by the flat `transactions list` command and the TUI screens.
-    """
-    params = {
-        **_filter_params(
-            account=account,
-            category=category,
-            hashtag=hashtag,
-            reconciliation=reconciliation,
-            unreconciled=unreconciled,
-            date_from=date_from,
-            date_to=date_to,
-            search=search,
-        ),
-        **query_params(
-            sort=sort,
-            after=after,
-            limit=limit,
-            # Always signed: every CLI/TUI surface renders debits negative, so the
-            # request pins the flag rather than depending on the engine default.
-            debit_as_negative=True,
-        ),
-    }
-    return fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}",
-        params=params,
-        verbose=verbose,
-    )
-
-
-def count_transactions(
-    cfg,
-    *,
-    account: str | None = None,
-    category: str | None = None,
-    hashtag: str | None = None,
-    reconciliation: str | None = None,
-    unreconciled: bool = False,
-    date_from: str | None = None,
-    date_to: str | None = None,
-    search: str | None = None,
-    verbose: bool = False,
-) -> int:
-    """GET /v1/transactions/count → how many rows the same filters match.
-
-    Raises when the body carries no int `count`. A count that falls back to a
-    guess (`len(items)`) is how two panes showed "1 to file" over 1,716 rows
-    with no error; a pane that cannot get the number fails instead.
-    """
-    body = fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}/count",
-        params=_filter_params(
-            account=account,
-            category=category,
-            hashtag=hashtag,
-            reconciliation=reconciliation,
-            unreconciled=unreconciled,
-            date_from=date_from,
-            date_to=date_to,
-            search=search,
-        ),
-        verbose=verbose,
-    )
-    count = body.get("count") if isinstance(body, dict) else None
-    if not isinstance(count, int) or isinstance(count, bool):
-        raise ValueError(f"GET /transactions/count answered without a count: {body!r}")
-    return count
-
-
 @app.command("list")
 @handle_errors
 def list_(
@@ -288,7 +169,7 @@ def list_(
     """
     cfg = config_module.ensure_loaded()
     limit = effective_limit(limit, json_mode=json_output)
-    body = fetch_transactions(
+    body = reads.fetch_transactions(
         cfg,
         account=account,
         category=category,

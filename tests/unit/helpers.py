@@ -192,8 +192,8 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
             raise RuntimeError("count unavailable")
         return len(rows)
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fetch)
-    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", count)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fetch)
+    monkeypatch.setattr("expense.reads.count_transactions", count)
     return calls, counts
 
 
@@ -467,10 +467,10 @@ def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, cal
         return dict(months=HOME_MONTHS if months is None else months)
 
     monkeypatch.setattr(
-        "expense.commands.dashboard_cmd.fetch_dashboard",
+        "expense.reads.fetch_dashboard",
         lambda *a, **k: HOME_DASHBOARD if dashboard is None else dashboard,
     )
-    monkeypatch.setattr("expense.commands.reports_cmd.fetch_range", fake_range)
+    monkeypatch.setattr("expense.reads.fetch_range", fake_range)
     monkeypatch.setattr(
         "expense.tui.screens.home.load_hashtag_name_map",
         lambda: HOME_TAG_NAMES if names is None else names,

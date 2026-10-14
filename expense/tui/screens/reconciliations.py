@@ -38,21 +38,20 @@ from textual.widget import Widget
 from textual.widgets import Footer, Input, Static
 from textual.worker import get_current_worker
 
-from expense.commands import accounts_cmd, reconcile_cmd, transactions_cmd
-from expense.commands._resource import (
+from expense import formatting, reads
+from expense.dates import is_calendar_day
+from expense.errors import format_error
+from expense.formatting import format_cents, resolve_name
+from expense.quickadd.money import amount_to_text, parse_amount
+from expense.quickadd.names import matches
+from expense.reads import (
     account_choices,
     fetch_all_cursor_pages,
-    format_cents,
     items_of,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
-    resolve_name,
 )
-from expense.dates import is_calendar_day
-from expense.errors import format_error
-from expense.quickadd.money import amount_to_text, parse_amount
-from expense.quickadd.names import matches
 from expense.tui.screens._base import (
     AdaptiveRowsMixin,
     ContentSwapLockMixin,
@@ -71,8 +70,8 @@ from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
 
 # Status labels + period formatting are owned by the commands layer
-# (reconcile_cmd.format_status / format_period) — one copy, per the §5 rule.
-_period = reconcile_cmd.format_period
+# (formatting.format_status / format_period) — one copy, per the §5 rule.
+_period = formatting.format_period
 
 _BATCH_HEADERS = ["Name", "Period", "Begin", "End", "Diff", "Status"]
 _UNFILED_HEADERS = ["", "Date", "Title", "Amount", "Category"]
@@ -146,7 +145,7 @@ def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
             amount_cell(it.get("beginning_balance_cents"), palette, BALANCE_RULE),
             amount_cell(it.get("ending_balance_cents"), palette, BALANCE_RULE),
             difference_cell(it.get("difference_cents"), palette),
-            reconcile_cmd.format_status(status),
+            formatting.format_status(status),
         ]
         rows.append((it.get("id"), cells, "dim" if status == 2 else ""))
     return rows
@@ -237,13 +236,11 @@ class ReconciliationsScreen(SectionScreen):
 
         cfg = config_module.ensure_loaded()
         kw = screen_fetch_kwargs(self.app)
-        accts = items_of(accounts_cmd.fetch_accounts(cfg, **kw))
+        accts = items_of(reads.fetch_accounts(cfg, **kw))
         accounts = account_choices(accts, include_people=False, with_balance=True)
         recons = None
         if self._open_aid is not None:
-            recons = items_of(
-                reconcile_cmd.fetch_reconciliations(cfg, account_id=self._open_aid, **kw)
-            )
+            recons = items_of(reads.fetch_reconciliations(cfg, account_id=self._open_aid, **kw))
         return {"recons": recons, "accounts": accounts}
 
     def _selected_account(self):
@@ -401,7 +398,7 @@ class ReconciliationsScreen(SectionScreen):
         worker = get_current_worker()
         try:
             cfg = config_module.ensure_loaded()
-            body = reconcile_cmd.fetch_reconciliations(
+            body = reads.fetch_reconciliations(
                 cfg, account_id=account_id, **screen_fetch_kwargs(self.app)
             )
         except Exception as exc:
@@ -511,7 +508,7 @@ class ReconciliationsScreen(SectionScreen):
         from expense import config as config_module
 
         def page(limit: int, after: str | None) -> dict:
-            return transactions_cmd.fetch_transactions(
+            return reads.fetch_transactions(
                 config_module.ensure_loaded(),
                 account=account_id,
                 sort="date_asc",
@@ -536,9 +533,7 @@ class ReconciliationsScreen(SectionScreen):
             kw = screen_fetch_kwargs(self.app)
             items, next_cursor, total = read_first(
                 self._unfiled_page(account_id),
-                lambda: transactions_cmd.count_transactions(
-                    cfg, account=account_id, **UNFILED_FILTER, **kw
-                ),
+                lambda: reads.count_transactions(cfg, account=account_id, **UNFILED_FILTER, **kw),
             )
             cat_names = load_category_name_map()
         except Exception as exc:
@@ -754,7 +749,7 @@ class NewReconciliationScreen(FormScreen):
 
         try:
             cfg = config_module.ensure_loaded()
-            body = accounts_cmd.fetch_accounts(cfg, **screen_fetch_kwargs(self.app))
+            body = reads.fetch_accounts(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             self.app.call_from_thread(self.notify, format_error(exc), severity="error")
             return
@@ -867,9 +862,7 @@ def _fetch_all_txns(cfg, **kw) -> list[dict]:
     the checklist; page through instead.
     """
     return fetch_all_cursor_pages(
-        lambda limit, after: transactions_cmd.fetch_transactions(
-            cfg, after=after, limit=limit, **kw
-        )
+        lambda limit, after: reads.fetch_transactions(cfg, after=after, limit=limit, **kw)
     )
 
 
@@ -973,7 +966,7 @@ class ReconciliationDetailScreen(
         palette = PALETTE
         # short-id placeholder until _load_txns resolves the name worker-side
         acct = self._acct_name or resolve_name(self._account_id, {})
-        status = reconcile_cmd.format_status(r.get("status"))
+        status = formatting.format_status(r.get("status"))
         begin = amount_cell(r.get("beginning_balance_cents"), palette, BALANCE_RULE)
         end = amount_cell(r.get("ending_balance_cents"), palette, BALANCE_RULE)
         diff = difference_cell(r.get("difference_cents"), palette)
@@ -1020,7 +1013,7 @@ class ReconciliationDetailScreen(
                 # misrepresent balances and the read-only gate. There is no
                 # read by id: the account's list is whole,
                 # so a row missing from it is a row that was deleted.
-                listed = reconcile_cmd.fetch_reconciliations(cfg, account_id=self._account_id, **kw)
+                listed = reads.fetch_reconciliations(cfg, account_id=self._account_id, **kw)
                 fresh = next((r for r in items_of(listed) if r.get("id") == self._id), None)
                 if worker.is_cancelled:
                     return

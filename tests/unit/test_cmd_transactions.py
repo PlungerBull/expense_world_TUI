@@ -637,7 +637,7 @@ def test_batch_empty_array_errors(configured):
 @respx.mock
 def test_fetch_transactions_sends_sort_and_after_never_offset(configured):
     from expense import config as config_module
-    from expense.commands.transactions_cmd import fetch_transactions
+    from expense.reads import fetch_transactions
 
     route = respx.get(f"{BASE}/v1/transactions").mock(
         return_value=httpx.Response(200, json=cursor_page([TRANSACTION_RESPONSE]))
@@ -665,7 +665,7 @@ def test_count_transactions_sends_the_filters_and_nothing_else(configured):
     """The count 422s on any parameter it does not declare — `debit_as_negative`,
     `sort`, `limit` and `after` are the list's own and must never reach it."""
     from expense import config as config_module
-    from expense.commands.transactions_cmd import count_transactions
+    from expense.reads import count_transactions
 
     route = respx.get(f"{BASE}/v1/transactions/count").mock(
         return_value=httpx.Response(200, json={"count": 1716})
@@ -689,7 +689,7 @@ def test_count_transactions_sends_the_filters_and_nothing_else(configured):
 def test_count_transactions_raises_without_an_int_count(configured, body):
     """Never a guessed number: a body without an int `count` is an error."""
     from expense import config as config_module
-    from expense.commands.transactions_cmd import count_transactions
+    from expense.reads import count_transactions
 
     respx.get(f"{BASE}/v1/transactions/count").mock(return_value=httpx.Response(200, json=body))
     with pytest.raises(ValueError, match="without a count"):
@@ -702,7 +702,7 @@ def test_list_and_count_take_the_same_filters():
     than the list shows, with no error anywhere."""
     import inspect
 
-    from expense.commands.transactions_cmd import count_transactions, fetch_transactions
+    from expense.reads import count_transactions, fetch_transactions
 
     list_only = {"sort", "after", "limit"}
     list_params = set(inspect.signature(fetch_transactions).parameters) - list_only

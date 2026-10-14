@@ -19,7 +19,8 @@ import threading
 import pytest
 from textual.containers import VerticalScroll
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, effective_limit, items_of
+from expense.commands._resource import effective_limit
+from expense.reads import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, items_of
 from expense.tui.screens._base import AdaptiveRowsMixin
 from expense.tui.screens._growing import read_first
 from expense.tui.widgets.checklist import CheckList
@@ -223,9 +224,7 @@ def test_categories_manage_reads_the_whole_list_once(monkeypatch):
     """The manage screens window locally over the full set; the engine
     returns it whole, so one read holds every row."""
     calls: list = []
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", _whole_fetch(150, "c", calls)
-    )
+    monkeypatch.setattr("expense.reads.fetch_categories", _whole_fetch(150, "c", calls))
     from expense.tui.screens.categories import CategoriesScreen
 
     assert len(items_of(CategoriesScreen().fetch_items(None))) == 150
@@ -234,9 +233,7 @@ def test_categories_manage_reads_the_whole_list_once(monkeypatch):
 
 def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
     calls: list = []
-    monkeypatch.setattr(
-        "expense.commands.hashtags_cmd.fetch_hashtags", _whole_fetch(130, "h", calls)
-    )
+    monkeypatch.setattr("expense.reads.fetch_hashtags", _whole_fetch(130, "h", calls))
     from expense.tui.screens.hashtags import HashtagsScreen
 
     assert len(items_of(HashtagsScreen().fetch_items(None))) == 130
@@ -380,7 +377,7 @@ def test_pgdn_during_a_rereading_write_reads_nothing(monkeypatch):
     screen, and its cursor points at the old list's end. A `pgdn` there must
     read nothing: on a filtered ledger the new list already ends one row
     further along, so rows read from the old end would repeat one."""
-    import expense.commands.transactions_cmd as tc
+    import expense.reads as tc
 
     rows, reads, counts = _patch_transactions(monkeypatch)
     fetch = tc.fetch_transactions
@@ -420,7 +417,7 @@ def test_a_pgdn_read_that_lands_after_a_write_is_dropped(monkeypatch):
     started the list over while that read was out, and the read came back
     after the fresh list was in. Its rows belong to the old list — they are
     dropped, never appended onto the new one."""
-    import expense.commands.transactions_cmd as tc
+    import expense.reads as tc
 
     rows, reads, counts = _patch_transactions(monkeypatch)
     fetch = tc.fetch_transactions
@@ -739,7 +736,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
         for i in range(40)
     ]
     monkeypatch.setattr(
-        "expense.commands.transactions_cmd.fetch_transactions",
+        "expense.reads.fetch_transactions",
         lambda cfg, **k: cursor_page(txns),
     )
     for name in ("account", "category", "hashtag"):

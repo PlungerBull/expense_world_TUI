@@ -122,22 +122,20 @@ over as is. It says:
 Approved by the owner on 2026-10-13. **[UI]** tasks start
 with a mockup the owner picks.
 
-1. **Move the shared code** out of `expense/commands/` into a home not named after commands (the
-   engine reads, the formatters, the quick-add fetch). Nothing the owner sees changes.
-2. **First-time setup [UI].** With no settings file, the TUI asks for the engine address and the
+1. **First-time setup [UI].** With no settings file, the TUI asks for the engine address and the
    key and creates the file.
-3. **Delete [UI].** Delete an account, a category, a hashtag and a ledger transaction from their
+2. **Delete [UI].** Delete an account, a category, a hashtag and a ledger transaction from their
    screens, each behind a confirm.
-4. **Opening balance [UI].** Set an account's starting balance from the account's screen.
-5. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
+3. **Opening balance [UI].** Set an account's starting balance from the account's screen.
+4. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
    with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
    the code and in every doc that names it. The contract tests that walk through commands call the
    engine directly. The rules listed in "Consequences" are rewritten in the same task. The unit
    suite stays green at every commit.
-6. **Clean todo.md.** Delete the items listed in "Consequences".
-7. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
+5. **Clean todo.md.** Delete the items listed in "Consequences".
+6. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
    every mention of the old name in this repo.
-8. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+7. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-9. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
+8. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).

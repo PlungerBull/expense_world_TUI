@@ -3,6 +3,7 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     INCLUDE_ARCHIVED_OPT,
     JSON_OPT,
@@ -10,11 +11,7 @@ from expense.commands._resource import (
     build_update_payload,
     color_supported,
     color_swatch,
-    fetch_body,
     format_bool,
-    format_cents,
-    items_of,
-    query_params,
     render_record,
     render_table,
     run_delete,
@@ -23,8 +20,10 @@ from expense.commands._resource import (
 from expense.context import get_verbose
 from expense.dates import now_local_iso, to_canonical_aware
 from expense.errors import EngineError, handle_errors
+from expense.formatting import format_cents
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import fetch_body, items_of
 
 app = typer.Typer(help="Bank accounts.", no_args_is_help=True)
 
@@ -66,28 +65,6 @@ def _render_account_list(body: dict, *, json_mode: bool) -> None:
     )
 
 
-def fetch_accounts(
-    cfg,
-    *,
-    include_archived: bool = False,
-    include_people: bool = False,
-    verbose: bool = False,
-):
-    """GET /v1/accounts → the raw engine body. Pure data.
-
-    Shared by the flat `accounts list` command and the TUI's Accounts screen.
-    The engine returns every row as `{items}` and refuses `limit`/`offset`
-    — there is no page to ask for.
-    """
-    params = query_params(include_archived=include_archived, include_people=include_people)
-    return fetch_body(
-        cfg,
-        path=f"/{_RESOURCE}",
-        params=params,
-        verbose=verbose,
-    )
-
-
 @app.command("list")
 @handle_errors
 def list_(
@@ -103,7 +80,7 @@ def list_(
     Example: expense accounts list --include-archived
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_accounts(
+    body = reads.fetch_accounts(
         cfg,
         include_archived=include_archived,
         include_people=include_people,

@@ -313,7 +313,7 @@ def test_auth_screen_caches_the_home_currency_like_the_cli_does(fake_client, mon
     """The TUI read `/auth/me` on its own and threw the settings away, so a
     TUI-only user never got a cached `main_currency` — and the header's
     stale-rate check skips entirely without one (`app.refresh_rate_status`).
-    Both surfaces go through `auth_cmd.fetch_me` now."""
+    Both surfaces go through `reads.fetch_me` now."""
     saved: list = []
     fake_client.get_responses["/auth/me"] = {
         "user": {"display_name": "Alex", "id": "u1"},

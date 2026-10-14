@@ -80,14 +80,14 @@ class ExpenseApp(App):
         to ask, so the check is skipped rather than guessed at.
         """
         from expense import config as config_module
-        from expense.commands import rates_cmd
+        from expense import reads
 
         try:
             cfg = config_module.ensure_loaded()
             target = getattr(cfg, "main_currency", None)
             if not target:
                 return
-            stale = rates_cmd.fetch_rate_staleness(cfg, target=target, verbose=self._verbose)
+            stale = reads.fetch_rate_staleness(cfg, target=target, verbose=self._verbose)
         except Exception:
             return
         self.call_from_thread(self._set_rate_stale, stale)

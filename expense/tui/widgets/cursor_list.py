@@ -38,7 +38,7 @@ from textual.message import Message
 from textual.strip import Strip
 from textual.widgets import OptionList
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS
+from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList, page_indicator
 
 __all__ = [

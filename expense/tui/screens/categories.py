@@ -4,10 +4,10 @@ Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
 (prefilled EditCategoryScreen). `enter` does nothing. System categories
 can be renamed/recolored (the engine keys them by `system_key`, not name)
 but cannot be deleted; the legend is the CLI's delete hint,
-`categories_cmd.SYSTEM_HINT`. Only accounts archive.
+`formatting.SYSTEM_HINT`. Only accounts archive.
 """
 
-from expense.commands import categories_cmd
+from expense import formatting, reads
 from expense.tui.screens._base import ResourceListScreen
 from expense.tui.widgets.cells import swatch
 
@@ -33,13 +33,13 @@ class CategoriesScreen(ResourceListScreen):
     TITLE = "Categories — buckets for every transaction"
     HEADERS = _HEADERS
     EMPTY = "(no categories)"
-    LEGEND = categories_cmd.SYSTEM_HINT
+    LEGEND = formatting.SYSTEM_HINT
     RESOURCE = "categories"
 
     def fetch_items(self, cfg, **kw):
         # The engine returns every row; the 20-row window pages
         # over the full set locally, so "page 2 of N" stays honest.
-        return categories_cmd.fetch_categories(cfg, **kw)
+        return reads.fetch_categories(cfg, **kw)
 
     def rows(self, items: list) -> list:
         return category_rows(items)

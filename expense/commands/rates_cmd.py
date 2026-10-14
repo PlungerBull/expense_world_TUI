@@ -1,20 +1,19 @@
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     JSON_OPT,
     LIMIT_OPT,
     effective_limit,
-    fetch_body,
-    items_of,
-    query_params,
     render_pagination_hint,
     render_table,
 )
 from expense.context import get_verbose
 from expense.currencies import RATE_SCALE
-from expense.errors import EngineError, handle_errors
+from expense.errors import handle_errors
 from expense.jsonout import emit_json
+from expense.reads import fetch_body, items_of, query_params
 
 app = typer.Typer(help="Exchange rates.", no_args_is_help=True)
 
@@ -32,7 +31,7 @@ def format_rate(value: object) -> str:
     """4-decimal display for the engine's `rate_e8` integers: 335187273 → `3.3519`.
 
     Integer arithmetic throughout — no float division — matching
-    `_resource.format_cents`. The engine's wire field is `rate_e8: int`, the rate
+    `formatting.format_cents`. The engine's wire field is `rate_e8: int`, the rate
     × 10^8 (contract: GET /v1/exchange-rates), so there is nothing to convert
     from and nothing to lose here: the halving-and-rounding happens on integers
     and the result is assembled as text.
@@ -75,65 +74,6 @@ def _render_rate(body: object) -> None:
             typer.echo(f"  {key}: {display}")
     else:
         emit_json(body)
-
-
-def fetch_rate(
-    cfg,
-    *,
-    target: str,
-    base: str | None = None,
-    date: str | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/exchange-rates (engine-direct). Returns the raw response body.
-
-    `base` / `date` are omitted when None so the engine defaults (USD, today)
-    apply.
-    """
-    params = query_params(target=target, base=base, date=date)
-
-    return fetch_body(cfg, path="/exchange-rates", params=params, verbose=verbose)
-
-
-def rate_is_stale(body: dict) -> bool | None:
-    """True when the requested day has no rate row of its own.
-
-    `GET /exchange-rates` (contract: "Staleness: `rate_date` is the signal")
-    returns both the day you asked about (`date`) and the
-    day of the row it actually used (`rate_date`), and `rate_date < date` means
-    the figure is being carried forward. That one comparison covers every way
-    rate ingestion can fail — provider down, machine asleep, job crashed, or a
-    rate refused as implausible by the engine's plausibility guard — which is
-    why the engine exposes no bespoke staleness field for a client to read.
-
-    Returns None when the body carries no usable pair of dates. That is the
-    "don't know" answer, and callers must render nothing rather than guess: a
-    shape change should go quiet, never cry wolf.
-
-    String comparison is deliberate — both fields are ISO `YYYY-MM-DD`, which
-    sorts lexicographically, and parsing them would only add a failure mode.
-    """
-    asked, used = body.get("date"), body.get("rate_date")
-    if not isinstance(asked, str) or not isinstance(used, str):
-        return None
-    return used < asked
-
-
-def fetch_rate_staleness(cfg, *, target: str, verbose: bool = False) -> bool | None:
-    """Whether today's rate for `target` is missing — True/False, or None if unknown.
-
-    A `404` is the same condition at its extreme (no rate at all on or before
-    today) and counts as stale (contract: "Staleness: `rate_date` is the
-    signal"). Every other engine error is
-    a question about the engine rather than about the rate, so it answers None.
-
-    Connection and config failures are deliberately not caught here: only the
-    caller knows whether going quiet is the right response to being offline.
-    """
-    try:
-        return rate_is_stale(fetch_rate(cfg, target=target, verbose=verbose))
-    except EngineError as err:
-        return True if err.status == 404 else None
 
 
 def fetch_rates_history(
@@ -258,7 +198,7 @@ def get(
     Example: expense rates get --target EUR --date 2026-04-01
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_rate(cfg, target=target, base=base, date=date, verbose=get_verbose(ctx))
+    body = reads.fetch_rate(cfg, target=target, base=base, date=date, verbose=get_verbose(ctx))
 
     if json_output:
         emit_json(body)

@@ -19,7 +19,7 @@ import respx
 from textual.widgets import Static
 
 import expense.tui.screens.home as home
-from expense.commands.rates_cmd import fetch_rate_staleness, rate_is_stale
+from expense.reads import fetch_rate_staleness, rate_is_stale
 from expense.tui.theme import Palette
 from expense.tui.widgets.header import RATE_ALERT_MARK, Breadcrumb, rate_alert
 from tests.unit.helpers import ENGINE_URL as BASE

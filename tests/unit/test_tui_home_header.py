@@ -11,7 +11,7 @@ listed in full — they do not fold.
 from rich.text import Text
 
 import expense.tui.screens.home as home
-from expense.commands.reports_cmd import build_range_grid
+from expense.formatting import build_range_grid
 from expense.tui.theme import Palette
 from tests.unit.helpers import HOME_DASHBOARD, HOME_MONTHS, HOME_TAG_NAMES, render_text
 

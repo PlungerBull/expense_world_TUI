@@ -9,8 +9,8 @@ PUTs are asserted, never sent.
 from rich.text import Text
 
 import expense.tui.screens.transactions as tx_mod
-from expense.commands._resource import QuickAddRefs
 from expense.errors import EngineError
+from expense.reads import QuickAddRefs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
@@ -146,7 +146,7 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
     _stub_ledger(monkeypatch)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts",
+        "expense.reads.fetch_accounts",
         lambda cfg, **k: {"items": [{"id": "a1", "name": "BCP", "is_archived": False}]},
     )
 

@@ -22,7 +22,6 @@ from expense.batch_write import (
     post_transaction_batch,
     require_sendable_chunk_size,
 )
-from expense.commands._resource import items_of, query_params
 from expense.dates import to_canonical_aware
 from expense.errors import (
     EngineConnectionError,
@@ -34,6 +33,7 @@ from expense.http import ExpenseClient
 from expense.import_ import mapping
 from expense.import_.parse import OpeningRow, ParsedRow
 from expense.import_.plan import ImportPlan
+from expense.reads import items_of, query_params
 
 
 @dataclass

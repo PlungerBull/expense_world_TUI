@@ -75,26 +75,22 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, Static
 
+from expense import reads
 from expense.batch_write import BatchOutcome, RowResult, post_transaction_batch
-from expense.commands import transactions_cmd
-from expense.commands._resource import (
-    QuickAddRefs,
-    currency_of,
+from expense.dates import now_local_iso, to_canonical_aware, today_local
+from expense.errors import EngineConnectionError, format_error
+from expense.formatting import (
     format_cents,
     format_hashtag_cell,
     format_short_date,
-    items_of,
-    load_quickadd_refs,
-    pending_label,
     resolve_name,
     truncate,
 )
-from expense.dates import now_local_iso, to_canonical_aware, today_local
-from expense.errors import EngineConnectionError, format_error
 from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
+from expense.reads import QuickAddRefs, currency_of, items_of, load_quickadd_refs, pending_label
 from expense.tui.dropped import dropped_bank_files
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
@@ -1266,10 +1262,8 @@ class LogBarScreen(Screen):
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            body = transactions_cmd.fetch_transactions(
-                cfg, account=account_id, limit=PEEK_LIMIT, **kw
-            )
-            total = transactions_cmd.count_transactions(cfg, account=account_id, **kw)
+            body = reads.fetch_transactions(cfg, account=account_id, limit=PEEK_LIMIT, **kw)
+            total = reads.count_transactions(cfg, account=account_id, **kw)
         except Exception as exc:  # a peek is a courtesy: it reports, never raises
             self.app.call_from_thread(self._peek_failed, account_id, format_error(exc))
             return

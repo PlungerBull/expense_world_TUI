@@ -2,7 +2,7 @@
 
 from rich.text import Text
 
-from expense.commands._resource import format_aggregate, format_cents, unconverted_of
+from expense.formatting import format_aggregate, format_cents, unconverted_of
 from expense.tui.theme import Palette
 
 

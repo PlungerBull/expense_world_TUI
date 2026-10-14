@@ -58,7 +58,7 @@ def test_batch_rows_format():
 def _patch(monkeypatch):
     """Screen-specific patches; the client/config seams come from fake_client."""
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts",
+        "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
                 {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"},
@@ -190,9 +190,9 @@ def _patch_browse(monkeypatch, items=None, fail=False):
             raise RuntimeError("reconciliations unavailable")
         return whole([r for r in rows if r.get("account_id") == account_id])
 
-    monkeypatch.setattr("expense.commands.reconcile_cmd.fetch_reconciliations", fetch)
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", fetch)
     monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts",
+        "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
                 {
@@ -516,7 +516,7 @@ def test_new_reconciliation_fetch_error_notifies_not_crash(fake_client, monkeypa
     def boom(*a, **k):
         raise RuntimeError("engine down")
 
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
+    monkeypatch.setattr("expense.reads.fetch_accounts", boom)
     notices: list = []
     monkeypatch.setattr(
         NewReconciliationScreen, "notify", lambda self, message, **kw: notices.append(message)
@@ -608,8 +608,8 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
             raise RuntimeError("count unavailable")
         return len(rows) if total is None else total
 
-    monkeypatch.setattr("expense.commands.transactions_cmd.fetch_transactions", fetch)
-    monkeypatch.setattr("expense.commands.transactions_cmd.count_transactions", count)
+    monkeypatch.setattr("expense.reads.fetch_transactions", fetch)
+    monkeypatch.setattr("expense.reads.count_transactions", count)
     monkeypatch.setattr("expense.tui.screens.reconciliations.load_category_name_map", lambda: {})
     return calls, counts
 

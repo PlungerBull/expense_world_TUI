@@ -27,7 +27,7 @@ from rich.text import Text
 from textual.binding import Binding
 from textual.message import Message
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS
+from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList

@@ -1,10 +1,8 @@
 """Shared helpers for resource sub-apps (accounts, categories, hashtags)."""
 
 import os
-import re
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Literal
 
@@ -13,10 +11,18 @@ import typer
 from expense import config as config_module
 from expense.config import Config
 from expense.context import get_verbose
-from expense.currencies import MINOR_UNIT_SCALE
 from expense.errors import EngineError
+from expense.formatting import (
+    UNRATED_SUFFIX,
+    format_aggregate,
+    format_cents,
+    has_aggregate,
+    unconverted_of,
+    visible_len,
+)
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import DEFAULT_PAGE_ROWS, load_hashtag_name_map
 
 # Shared option declarations — one wording for flags repeated across command
 # modules. Never mutate these; a command whose flag means something different
@@ -29,13 +35,6 @@ LIMIT_OPT = typer.Option(
 )
 INCLUDE_ARCHIVED_OPT = typer.Option(False, "--include-archived", help="Include archived rows.")
 YES_OPT = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
-
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
-
-
-def visible_len(text: str) -> int:
-    """Length of `text` ignoring ANSI escape sequences."""
-    return len(_ANSI_RE.sub("", text))
 
 
 def pad_left(text: str, width: int) -> str:
@@ -90,45 +89,6 @@ def color_swatch(hex_value: object, *, color: bool) -> str:
     return f"\x1b[38;2;{r};{g};{b}m██\x1b[0m"
 
 
-def truncate(text: object, max_width: int) -> str:
-    """Truncate `text` to `max_width` visible chars, appending `…` if cut."""
-    if text is None:
-        return ""
-    s = str(text)
-    if visible_len(s) <= max_width:
-        return s
-    if max_width <= 1:
-        return s[:max_width]
-    return s[: max_width - 1] + "…"
-
-
-def format_short_date(iso_value: object) -> str:
-    """`2026-04-24T12:00:00Z` → `2026-04-24`. None / non-string → `—`."""
-    if not isinstance(iso_value, str) or len(iso_value) < 10:
-        return "—"
-    return iso_value[:10]
-
-
-def format_cents(value: object) -> str:
-    """Render an integer-cents amount as grouped major units with 2 decimals.
-
-    `651900` → `6,519.00`; `-418797` → `-4,187.97`; `0` → `0.00`; None → `(null)`.
-
-    Integer arithmetic throughout — no float division — so large amounts never
-    drift. This is a human-display convenience only; `--json` output stays the
-    raw engine integer. Non-int, non-None values fall back to `str()`.
-    """
-    if value is None:
-        return "(null)"
-    if not isinstance(value, int) or isinstance(value, bool):
-        return str(value)
-    negative = value < 0
-    cents = -value if negative else value
-    major, minor = divmod(cents, MINOR_UNIT_SCALE)
-    body = f"{major:,}.{minor:02d}"
-    return f"-{body}" if negative else body
-
-
 def format_cents_or_dash(value: object) -> str:
     """`format_cents`, but an absent amount is `—` rather than `(null)`.
 
@@ -147,62 +107,6 @@ def format_cents_or_dash(value: object) -> str:
     entire point of the engine change this pairs with.
     """
     return "—" if value is None else format_cents(value)
-
-
-UNRATED_SUFFIX = "unrated"
-
-
-def unconverted_of(payload: object) -> int:
-    """The `unconverted_count` on an aggregate object, or 0 when absent/odd.
-
-    Every home aggregate the engine returns — a category, a `hashtag_breakdown`
-    row, a month's `totals` — carries this count alongside its figure.
-    """
-    if not isinstance(payload, dict):
-        return 0
-    count = payload.get("unconverted_count")
-    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-        return 0
-    return count
-
-
-def format_aggregate(value: object, unconverted_count: object = 0) -> str:
-    """Render a home-currency aggregate, which the engine may refuse to total.
-
-    The engine converts currency at read time, so every aggregate is
-    nullable and paired with an `unconverted_count`: when any row in the group
-    falls on a date with no resolvable rate, the figure comes back `None` and the
-    count says how many rows are behind it.
-
-    **A `None` here is neither zero nor missing** — the engine declined to report
-    a partial total — so it renders as `3 unrated`, never `0.00`, and never by
-    falling back to a native figure (the exact bug the engine deleted: reading
-    USD cents as PEN cents understated by 3.58×).
-
-    A present figure formats exactly as `format_cents` does.
-    """
-    if isinstance(value, int) and not isinstance(value, bool):
-        return format_cents(value)
-    count = unconverted_of({"unconverted_count": unconverted_count})
-    if count > 0:
-        return f"{count} {UNRATED_SUFFIX}"
-    return format_cents(value)
-
-
-def has_aggregate(value: object, unconverted_count: object = 0) -> bool:
-    """Whether an aggregate row is worth drawing at all.
-
-    A category or hashtag combination with nothing spent this period is not
-    rendered — the engine returns every non-deleted category whether or not it
-    has activity, so the full-list view is `expense categories list`, not a
-    report.
-
-    A row the engine *could not price* is emphatically not empty: it keeps its
-    line and says `3 unrated`, so it is never mistaken for one with no spending.
-    """
-    if unconverted_of({"unconverted_count": unconverted_count}) > 0:
-        return True
-    return isinstance(value, int) and not isinstance(value, bool) and value != 0
 
 
 def format_field_value(key: object, value: object) -> str:
@@ -237,305 +141,11 @@ def format_bool(value: object) -> str:
     return "yes" if bool(value) else "no"
 
 
-def format_month(month: dict | None) -> str:
-    """Render the engine's `{year, month}` object as `YYYY-MM`."""
-    if isinstance(month, dict):
-        year = month.get("year")
-        m = month.get("month")
-        if isinstance(year, int) and isinstance(m, int):
-            return f"{year:04d}-{m:02d}"
-    return "(unknown)"
-
-
-def redact_token(token: str) -> str:
-    """8-prefix + 4-suffix mask for PATs; `****` when too short to mask safely.
-
-    Callers own the empty/None policy (CLI shows None, TUI shows `(none)`).
-    """
-    if len(token) <= 8:
-        return "****"
-    return f"{token[:8]}****{token[-4:]}"
-
-
-def items_of(body: object) -> list:
-    """Rows of an engine list body (`{"items": [...]}`); [] for anything else.
-
-    Every engine list endpoint returns an object with `items` — no route has
-    returns a bare array — so a bare list is not a body and
-    yields no rows. That also makes a test fake still serving the old shape
-    fail loudly instead of passing. Strict list-or-empty — never hands a dict
-    or None to a row-builder.
-    """
-    if not isinstance(body, dict):
-        return []
-    items = body.get("items")
-    return items if isinstance(items, list) else []
-
-
-ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
-# Rows per table page, everywhere a human reads one: CLI list output and TUI
-# lists share this single copy (20-row standard).
-DEFAULT_PAGE_ROWS = 20
-
-
 def effective_limit(limit: int | None, *, json_mode: bool) -> int | None:
     """The limit a list command sends: DEFAULT_PAGE_ROWS in human mode unless
     the user passed --limit. `--json` requests are left untouched (no default),
     so the raw body stays exactly what the engine returns today."""
     return DEFAULT_PAGE_ROWS if limit is None and not json_mode else limit
-
-
-def fetch_all_cursor_pages(
-    fetch_page: Callable[[int, str | None], Any], *, page_size: int = ENGINE_PAGE_CAP
-) -> list[dict]:
-    """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
-
-    `GET /transactions` is the one cursor-paged endpoint. The only stop is
-    `next_cursor` being null (contract: "Base Conventions", "Cursors, on every
-    cursor-paged list") — not a short page, not a count: a page holding exactly the
-    remaining rows already comes back null, and a short page with a cursor still has more.
-    """
-    out: list[dict] = []
-    after: str | None = None
-    while True:
-        body = fetch_page(page_size, after)
-        out.extend(items_of(body))
-        after = body.get("next_cursor") if isinstance(body, dict) else None
-        if after is None:
-            return out
-
-
-def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
-    """Live id → name map over one reference-list endpoint. Empty on any failure.
-
-    The engine's responses are IDs-only, so renderers join against these maps
-    to show human names. An empty map is always safe — callers fall back to
-    short ids — which is why every failure (no config, engine down, auth)
-    degrades to `{}` instead of raising.
-    """
-    try:
-        cfg = config_module.ensure_loaded()
-        with ExpenseClient(cfg) as client:
-            items = items_of(client.get(path, params=params))
-    except Exception:
-        return {}
-    out: dict[str, str] = {}
-    for item in items:
-        rid = item.get("id")
-        name = item.get("name")
-        if isinstance(rid, str) and isinstance(name, str):
-            out[rid] = name
-    return out
-
-
-def load_account_name_map() -> dict[str, str]:
-    """Live account id → name map. Empty on any failure.
-
-    Includes archived + people accounts so transaction rows can resolve
-    references to retired accounts. Soft-deleted excluded.
-    """
-    return _load_name_map("/accounts", {"include_archived": "true", "include_people": "true"})
-
-
-def load_category_name_map() -> dict[str, str]:
-    """Live category id → name map. Empty on any failure."""
-    return _load_name_map("/categories", None)
-
-
-# The engine's stable key for `@Pendiente`, the system category an
-# uncategorised row is filed under (contract: POST /v1/categories). Lookup is
-# by this key, never by the display name — the owner may rename it.
-PENDING_SYSTEM_KEY = "pending"
-# What the CLI says when it has no reference list to read the real name from.
-PENDING_FALLBACK_NAME = "pendiente"
-
-
-def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
-    """`(id, name)` of the @Pendiente row among category rows, or None."""
-    for c in categories:
-        if c.get("system_key") == PENDING_SYSTEM_KEY and isinstance(c.get("id"), str):
-            return (c["id"], c.get("name") or PENDING_FALLBACK_NAME)
-    return None
-
-
-def load_hashtag_name_map() -> dict[str, str]:
-    """Live hashtag id → name map. Empty on any failure.
-
-    The engine returns hashtag UUIDs in `hashtag_breakdown` rows and
-    `hashtag_ids` columns; renderers join against this map to display human
-    names like `Food + Club`. Empty map is safe — callers fall back to raw ids.
-    """
-    return _load_name_map("/hashtags", None)
-
-
-def resolve_name(uuid_value: object, name_map: dict[str, str]) -> str:
-    """Resolve `uuid_value` via `name_map`, falling back to a short-id form.
-
-    None / non-string → `—`. Unresolvable UUID → first 8 chars (e.g. `de37af15`).
-    """
-    if uuid_value is None:
-        return "—"
-    if not isinstance(uuid_value, str):
-        return str(uuid_value)
-    return name_map.get(uuid_value, uuid_value[:8])
-
-
-def account_choices(
-    items: list, *, include_people: bool = True, with_balance: bool = False
-) -> list[tuple]:
-    """Picker tuples from account rows: `(id, name-or-'(unnamed)', currency)`,
-    plus `current_balance_cents` when `with_balance`.
-
-    Skips id-less rows and (unless `include_people`) person accounts. One copy
-    of the build shared by the edit form, the new-reconciliation form,
-    and the reconciliations browse.
-    """
-    out: list[tuple] = []
-    for a in items:
-        if not a.get("id"):
-            continue
-        if not include_people and a.get("is_person"):
-            continue
-        row: tuple = (a["id"], a.get("name") or "(unnamed)", a.get("currency_code") or "?")
-        if with_balance:
-            row = (*row, a.get("current_balance_cents"))
-        out.append(row)
-    return out
-
-
-@dataclass(frozen=True)
-class QuickAddRefs:
-    """The reference lists the quick-add grammar matches names against.
-
-    `accounts`/`categories`/`hashtags` are the `(id, name, …)` tuples
-    `quickadd.parse()` takes — extra columns are ignored, so accounts keep
-    their currency for rendering. The three `*_names` maps are the *full*
-    id → name sets (archived and system rows included), for resolving ids that
-    the matching pool deliberately excludes.
-    """
-
-    accounts: list[tuple]
-    categories: list[tuple]
-    hashtags: list[tuple]
-    account_names: dict[str, str]
-    category_names: dict[str, str]
-    hashtag_names: dict[str, str]
-    # `(id, name)` of the @Pendiente system row, or None until the engine has
-    # seeded it. Not in the matching pool (a typed line never names it; an
-    # empty category IS it), but the echo and the staged list render its name.
-    pending: tuple[str, str] | None = None
-
-
-def pending_label(refs: "QuickAddRefs") -> str:
-    """What a row with no category reads as — the @Pendiente row's own display
-    name (the owner may have renamed it), or the plain word before it exists."""
-    return refs.pending[1] if refs.pending else PENDING_FALLBACK_NAME
-
-
-def currency_of(refs: "QuickAddRefs", account_id: object) -> str:
-    """The account's currency code, or `''` when no account is named.
-
-    The currency was only ever going to come from the account — a typed line
-    never says which (`$` in `-$1800` is decoration). Shared by the flat
-    `expense log "…"` echo and the TUI staged list, which needs it per row to
-    total a batch **per currency**: soles are never added to dollars.
-    """
-    if not isinstance(account_id, str):
-        return ""
-    for row in refs.accounts:
-        if row[0] == account_id and len(row) > 2:
-            return str(row[2])
-    return ""
-
-
-def _id_name_map(rows: list) -> dict[str, str]:
-    return {
-        r["id"]: r["name"]
-        for r in rows
-        if isinstance(r.get("id"), str) and isinstance(r.get("name"), str)
-    }
-
-
-def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
-    """Fetch and shape the three reference lists a typed line resolves against.
-
-    One copy for every caller: the flat `expense log "…"`, and in the TUI the
-    edit form, the LOG bar and the transactions screen. What the shaping
-    decides, and why:
-
-    * **One superset accounts fetch** (`include_archived`, `include_people`)
-      feeds both the name map and the suggestion pool; the pool then drops
-      archived accounts, so you cannot type your way into a retired one but a
-      transaction that already names one still renders.
-    * **System categories are excluded** from the pool — `@Opening` is the
-      engine's own bookkeeping, and `@Pendiente` is what an *empty* category
-      means, so neither is something a typed line names.
-    * **One read each, and it is every row** — the engine returns these lists
-      whole, so no tag is invisible to the picker or unmatchable from a typed
-      line.
-    """
-    from expense.commands import accounts_cmd, categories_cmd, hashtags_cmd
-
-    accts = items_of(
-        accounts_cmd.fetch_accounts(cfg, include_people=True, include_archived=True, **kw)
-    )
-    cats = items_of(categories_cmd.fetch_categories(cfg, **kw))
-    tags = items_of(hashtags_cmd.fetch_hashtags(cfg, **kw))
-    return QuickAddRefs(
-        accounts=account_choices([a for a in accts if not a.get("is_archived")]),
-        categories=[
-            (c["id"], c.get("name") or "(unnamed)")
-            for c in cats
-            if c.get("id") and not c.get("is_system")
-        ],
-        hashtags=[(t["id"], t.get("name") or "(unnamed)") for t in tags if t.get("id")],
-        account_names=_id_name_map(accts),
-        category_names=_id_name_map(cats),
-        hashtag_names=_id_name_map(tags),
-        pending=_pending_of(cats),
-    )
-
-
-def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Split person rows into `(outstanding, settled)`. Shared by every People panel.
-
-    "Settled" is **exactly zero in the person's own currency**
-    (`current_balance_cents == 0`). Three parts of that are load-bearing:
-
-    * **Native, not home.** Every People table shows `current_balance_cents`, and
-      a person whose currency has no rate today has a `null`
-      `current_balance_home_cents` — treating that as settled would mark someone
-      as square because an exchange rate was missing.
-    * **Only an `int` counts.** A missing or non-numeric balance is *unknown*, not
-      zero, so it stays in `outstanding` where it is visible.
-    * **Settled is folded, never dropped.** The engine returns every person and
-      explicitly refuses to filter on a computed balance: a
-      settled person and a never-recorded loan must not look alike, and a
-      coincidental net zero (lent 200, borrowed 200) is two live debts. Callers
-      must always render the count — `▸ 3 settled` — never silently omit the rows.
-      Deliberately *not* `has_aggregate`, which drops zero rows outright; that is
-      the flow-report rule and it is the opposite of this one.
-
-    Consumers: `expense dashboard` (`dashboard_cmd._render_people`) and the TUI
-    Home screen's PEOPLE section (`home.home_rows`).
-    """
-    outstanding: list[dict] = []
-    settled: list[dict] = []
-    for person in people:
-        balance = person.get("current_balance_cents")
-        is_settled = isinstance(balance, int) and not isinstance(balance, bool) and balance == 0
-        (settled if is_settled else outstanding).append(person)
-    return outstanding, settled
-
-
-def settled_label(count: int) -> str:
-    """The fold line both People panels use: `▸ 3 settled` / `▸ 1 settled`.
-
-    One copy so the CLI's printed line and the TUI's collapsed caret row cannot
-    drift apart in wording. The TUI swaps the leading `▸` for `▶`/`▼` (its own
-    fold carets) and keeps the rest.
-    """
-    return f"▸ {count} settled"
 
 
 def parse_hashtag_ids(raw: str) -> list[str]:
@@ -556,26 +166,6 @@ def parse_hashtag_ids(raw: str) -> list[str]:
     Consumers: `transactions update`, `log`.
     """
     return [piece.strip() for piece in raw.split(",") if piece.strip()]
-
-
-def format_hashtag_cell(
-    ids: object, name_map: dict[str, str], *, max_width: int | None = None, prefix: str = ""
-) -> str:
-    """Joined hashtag names for one table cell; unresolved ids show `xxxxxxxx…`.
-
-    Empty / non-list → `—`. Shared by the CLI transactions table (width 24),
-    the LOG bar's account peek (width 18) and the TUI Transactions screen, which
-    passes no width: its table cuts the cell at the column edge itself.
-    Widths stay per-surface, and so does `prefix`: the peek asks
-    for `#` so its rows read like the staged list directly above them.
-    """
-    if not isinstance(ids, list) or not ids:
-        return "—"
-    names = [
-        prefix + (name_map.get(hid, hid[:8] + "…")) if isinstance(hid, str) else "?" for hid in ids
-    ]
-    joined = ", ".join(names)
-    return joined if max_width is None else truncate(joined, max_width)
 
 
 def render_table(
@@ -618,44 +208,6 @@ def render_table(
     if footer is not None:
         rule()
         typer.echo(sep.join(fmt(footer.get(key, ""), key) for key in headers))
-
-
-def query_params(**values: Any) -> dict[str, Any]:
-    """The query string for one engine read: drop what was not asked for,
-    encode what was, one way.
-
-    - `None` means "not asked for" and is left out entirely. `0` is not None,
-      so a zero still goes.
-    - A bool is a flag. `True` becomes the string `"true"` the engine reads;
-      `False` is left out, because its absence IS the default.
-    - Everything else passes through unchanged.
-
-    Ints stay ints: one spelling per value, so a real difference cannot hide.
-
-    Keyword names are the **wire** names, not the Python ones, so the mapping
-    (`account` -> `account_id`) stays visible at the call site.
-    """
-    out: dict[str, Any] = {}
-    for key, value in values.items():
-        if value is None or value is False:
-            continue
-        out[key] = "true" if value is True else value
-    return out
-
-
-def fetch_body(
-    cfg: Config,
-    *,
-    path: str,
-    params: dict | None,
-    verbose: bool,
-) -> Any:
-    """One live resource read — the skeleton behind every `fetch_*`/`get`.
-
-    A plain GET against the engine; param building stays with the caller.
-    """
-    with ExpenseClient(cfg, verbose=verbose) as client:
-        return client.get(path, params=params or None)
 
 
 def require_yes(yes: bool, prompt_text: str, *, aborted_text: str = "Aborted.") -> None:

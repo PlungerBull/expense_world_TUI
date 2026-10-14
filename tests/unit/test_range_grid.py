@@ -1,9 +1,10 @@
-"""`reports_cmd.build_range_grid` — the month grid shared by the flat
+"""`formatting.build_range_grid` — the month grid shared by the flat
 `expense reports monthly --from --to` table and the TUI Home screen.
 """
 
 import expense.commands.reports_cmd as reports_cmd
-from expense.commands.reports_cmd import build_range_grid
+from expense import formatting
+from expense.formatting import build_range_grid
 
 # Two months with overlapping-but-different categories: Rent only in Nov,
 # Salary only in Dec, Food in both (its #bbbb combo appears only in Dec).
@@ -98,7 +99,7 @@ def test_build_range_grid_merges_first_appearance_order():
     assert _cents(grid["totals"]["net"]) == {"2025-11": -210000, "2025-12": 888000}
     assert all(cell["unconverted"] == 0 for cell in grid["totals"]["net"].values())
     # inflow/outflow ride alongside net off the same month payload
-    assert set(grid["totals"]) == set(reports_cmd.TOTALS_KEYS)
+    assert set(grid["totals"]) == set(formatting.TOTALS_KEYS)
 
 
 def test_build_range_grid_carries_the_unconverted_count_and_drops_empty_rows():
@@ -152,13 +153,13 @@ def test_build_range_grid_carries_the_unconverted_count_and_drops_empty_rows():
 
     feb = grid["rows"][0]["cells"]["2026-02"]
     assert feb == {"cents": None, "unconverted": 3}
-    assert not reports_cmd.cell_is_empty(feb)  # unpriceable is NOT empty
+    assert not formatting.cell_is_empty(feb)  # unpriceable is NOT empty
     assert reports_cmd.format_grid_cell(feb) == "3 unrated"
 
     # ...and a genuinely empty cell reads as the no-activity mark, not as 0.00.
-    assert reports_cmd.format_grid_cell(None) == reports_cmd.NO_ACTIVITY_MARK
+    assert reports_cmd.format_grid_cell(None) == formatting.NO_ACTIVITY_MARK
     assert reports_cmd.format_grid_cell({"cents": 0, "unconverted": 0}) == (
-        reports_cmd.NO_ACTIVITY_MARK
+        formatting.NO_ACTIVITY_MARK
     )
     assert grid["totals"]["net"]["2026-02"] == {"cents": None, "unconverted": 3}
     # all three totals share the month's one count, so they fail together

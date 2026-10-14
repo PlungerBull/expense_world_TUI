@@ -26,8 +26,8 @@ from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
-from expense.commands._resource import DEFAULT_PAGE_ROWS
 from expense.errors import format_error
+from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.widgets.header import Breadcrumb
 
@@ -461,7 +461,7 @@ class ResourceListScreen(SectionScreen):
     # ---- scaffold ----------------------------------------------------------
     def fetch(self) -> list:
         from expense import config as config_module
-        from expense.commands._resource import items_of
+        from expense.reads import items_of
 
         cfg = config_module.ensure_loaded()
         return items_of(self.fetch_items(cfg, **screen_fetch_kwargs(self.app)))

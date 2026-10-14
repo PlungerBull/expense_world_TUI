@@ -55,8 +55,8 @@ expense/tui/
                     #   re-sends only the rest.
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
-                    #   Reads, previews and applies through the typed `expense
-                    #   import bank`'s own code (bank_import_cmd.py, bank_import/)
+                    #   Reads, previews and applies through expense/bank_import/
+                    #   (flow.py), the code the typed `expense import bank` runs too
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people
@@ -66,8 +66,12 @@ expense/tui/
 
 **The fetch/print split is the anti-duplication guardrail.** Every command that
 fetched *and* printed has a pure `fetch_*(cfg, …) -> dict`; the typer command and
-the TUI both call it. The TUI imports `fetch_*` — it never reimplements one. Shared
-read/format helpers live in [_resource.py](../expense/commands/_resource.py), write
+the TUI both call it. The TUI imports `fetch_*` — it never reimplements one. The
+engine reads live in [reads.py](../expense/reads.py), the formatters in
+[formatting.py](../expense/formatting.py), the bank-import steps in
+[bank_import/flow.py](../expense/bank_import/flow.py) — none of them under
+`expense/commands/`, which holds only what the typed commands alone use
+(guard: [test_shared_code_home.py](../tests/unit/test_shared_code_home.py)). Write
 plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 [_form.py](../expense/tui/screens/_form.py).
 
@@ -99,7 +103,7 @@ the engine's fetch job has run.
 
 - **No dedicated engine surface.** `GET /exchange-rates` returns the day you asked about
   (`date`) and the day it actually used (`rate_date`); the whole signal is
-  `rate_date < date`, which covers every failure mode. `rates_cmd.rate_is_stale`
+  `rate_date < date`, which covers every failure mode. `reads.rate_is_stale`
   applies it; `fetch_rate_staleness` adds the `404` case (no rate at all → stale).
   There is no TUI screen behind the mark; `expense rates list` shows what is stored.
 - **App-owned, fetched once per launch.** `ExpenseApp.rate_stale` holds `True` /
@@ -173,7 +177,7 @@ month".
 
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
 rather than a partial total. Opening balances are excluded engine-side. The grid builder
-Home shares with the flat `expense reports monthly`, `reports_cmd.build_range_grid`, is
+Home shares with the flat `expense reports monthly`, `formatting.build_range_grid`, is
 covered by [test_range_grid.py](../tests/unit/test_range_grid.py).
 
 **`u` on the Reconciliations browse — the account's rows in no batch**.
@@ -208,7 +212,7 @@ three full screens that replace one another above the LOG bar:
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — the typed import's `account_groups`, archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
+| **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — `account_groups` in [flow.py](../expense/bank_import/flow.py), shared with the typed import, archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
 | **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the typed import's verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `under @Pendiente` dim; when the engine's `excess` names any day, `! 1 day where the ledger may now hold the same movement twice — check it and delete the extra one` (`2 days … check them and delete the extra ones`) with one `date · amount` line per day under it | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
@@ -574,7 +578,7 @@ make rows fit that do not. Width has **no** floor of any kind.
   `test_tui_reconcile_detail.py`, keyed on the whole source line so editing it re-opens
   the question).
 - **Patch `load_*_name_map` at the screen module** (`expense.tui.screens.X.load_…`),
-  not at `_resource` — when the test's point is name display. Use the short-id fallback
+  not at `expense.reads` — when the test's point is name display. Use the short-id fallback
   when it isn't.
 - **`fake_client` (conftest) patches the lazy-import seams only** —
   `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on

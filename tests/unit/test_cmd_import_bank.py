@@ -14,7 +14,8 @@ import respx
 from typer.testing import CliRunner
 
 from expense import config as config_module
-from expense.commands import _resource, bank_import_cmd
+from expense.bank_import import flow
+from expense.commands import _resource
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
 from tests.unit.helpers import error_body, real_cli_app, whole
@@ -48,7 +49,7 @@ def _sheet(headers, rows) -> SheetData:
 
 
 def _feed(monkeypatch, headers, rows) -> None:
-    monkeypatch.setattr(bank_import_cmd, "read_workbook", lambda path, **k: _sheet(headers, rows))
+    monkeypatch.setattr(flow, "read_workbook", lambda path, **k: _sheet(headers, rows))
 
 
 def _engine(decide=None, *, excess=None, periods=None):

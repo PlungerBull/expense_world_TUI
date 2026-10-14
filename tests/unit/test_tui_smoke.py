@@ -7,7 +7,7 @@ touched: the nav test stubs `fetch_dashboard`.
 
 from textual.widgets import OptionList, Static
 
-from expense.commands import dashboard_cmd
+from expense import reads
 from expense.tui.screens.home import HomeScreen
 from tests.unit.helpers import run_app, stub_home_month, wait_for
 
@@ -114,7 +114,7 @@ def test_home_says_so_when_the_month_cannot_load(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("Connection refused")
 
-    monkeypatch.setattr(dashboard_cmd, "fetch_dashboard", boom)
+    monkeypatch.setattr(reads, "fetch_dashboard", boom)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):

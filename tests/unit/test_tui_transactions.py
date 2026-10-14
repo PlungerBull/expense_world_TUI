@@ -60,11 +60,9 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     # the edit screen loads entities on mount — stub those too
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole([]))
-    monkeypatch.setattr(
-        "expense.commands.categories_cmd.fetch_categories", lambda *a, **k: whole([])
-    )
-    monkeypatch.setattr("expense.commands.hashtags_cmd.fetch_hashtags", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):

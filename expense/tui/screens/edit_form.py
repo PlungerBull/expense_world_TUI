@@ -31,15 +31,12 @@ from rich.text import Text
 from textual import work
 from textual.widgets import Input
 
-from expense.commands._resource import (
-    format_cents,
-    load_quickadd_refs,
-    resolve_name,
-)
 from expense.dates import to_canonical_aware
 from expense.errors import format_error
+from expense.formatting import format_cents, resolve_name
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
+from expense.reads import load_quickadd_refs
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.widgets.picker import suggestion_list

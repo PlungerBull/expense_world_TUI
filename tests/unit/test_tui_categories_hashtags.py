@@ -27,7 +27,7 @@ def test_category_rows_swatch_and_system():
 
 def test_categories_legend_is_the_cli_delete_hint():
     """One copy of the system-category rule: the TUI legend is the CLI hint."""
-    from expense.commands.categories_cmd import SYSTEM_HINT
+    from expense.formatting import SYSTEM_HINT
 
     assert CategoriesScreen.LEGEND is SYSTEM_HINT
     assert SYSTEM_HINT == "System categories can be renamed but not deleted."
@@ -53,7 +53,7 @@ def _run_list_screen(monkeypatch, screen_cls, fetch_mod, fetch_name, items, edit
 
 
 def test_categories_screen_lists_and_edits(monkeypatch):
-    import expense.commands.categories_cmd as cc
+    import expense.reads as cc
 
     _run_list_screen(
         monkeypatch, CategoriesScreen, cc, "fetch_categories", CATS, EditCategoryScreen
@@ -61,6 +61,6 @@ def test_categories_screen_lists_and_edits(monkeypatch):
 
 
 def test_hashtags_screen_lists_and_edits(monkeypatch):
-    import expense.commands.hashtags_cmd as hc
+    import expense.reads as hc
 
     _run_list_screen(monkeypatch, HashtagsScreen, hc, "fetch_hashtags", TAGS, EditHashtagScreen)

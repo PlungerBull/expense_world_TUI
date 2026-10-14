@@ -1,28 +1,23 @@
 import typer
 
 from expense import config as config_module
-from expense.commands._resource import (
-    JSON_OPT,
-    fetch_body,
-    format_aggregate,
-    format_month,
-    has_aggregate,
-    query_params,
-    render_category_table,
-    render_table,
-    render_totals,
-    unconverted_of,
-)
+from expense import reads
+from expense.commands._resource import JSON_OPT, render_category_table, render_table, render_totals
 from expense.context import get_verbose
 from expense.dates import parse_year_month
 from expense.errors import handle_errors
+from expense.formatting import (
+    NO_ACTIVITY_MARK,
+    TOTALS_KEYS,
+    build_range_grid,
+    cell_is_empty,
+    format_aggregate,
+    format_month,
+)
 from expense.jsonout import emit_json
+from expense.reads import fetch_body, query_params
 
 app = typer.Typer(help="Historical reports.", no_args_is_help=True)
-
-#: A month in which a row had no activity at all. Distinct from `3 unrated`,
-#: which means there *was* activity the engine could not price.
-NO_ACTIVITY_MARK = "—"
 
 
 def _render_single_month(body: dict, *, json_mode: bool) -> None:
@@ -36,132 +31,8 @@ def _render_single_month(body: dict, *, json_mode: bool) -> None:
     render_totals(body.get("totals"))
 
 
-def _grid_cell_value(payload: dict) -> dict:
-    """One grid cell: the home figure plus the count that explains a missing one.
-
-    Kept as a dict rather than a bare int because `None` alone cannot carry the
-    difference between "nothing happened" and "the engine refused to price
-    this" — the conflation this dict exists to prevent.
-    """
-    return {
-        "cents": payload.get("spent_home_cents"),
-        "unconverted": unconverted_of(payload),
-    }
-
-
-#: The month-totals rows the grid carries under the categories, in draw order.
-#:
-#: `inflow`/`outflow` come back from the engine **positive** — outflow is not a
-#: negative number — so only `net` is signed. Renderers must colour accordingly
-#: or a month's spending reads as income.
-TOTALS_KEYS = ("inflow", "outflow", "net")
-
-
-def _totals_cell(totals: dict, key: str) -> dict:
-    """One totals cell, same shape as `_grid_cell_value`.
-
-    All three figures share the month's single `unconverted_count`, so they fail
-    together: an unpriceable month reports `3 unrated` on every row rather than a
-    partial total on some.
-    """
-    return {
-        "cents": totals.get(f"{key}_home_cents"),
-        "unconverted": unconverted_of(totals),
-    }
-
-
-def cell_is_empty(cell: object) -> bool:
-    """True for a cell with no activity — nothing spent, and nothing unpriced."""
-    if not isinstance(cell, dict):
-        return True
-    return not has_aggregate(cell.get("cents"), cell.get("unconverted"))
-
-
-def build_range_grid(months: list[dict]) -> dict:
-    """Merge a range payload into grid rows. Pure data; shared by flat + TUI.
-
-    Categories (and each category's hashtag combos) keep first-appearance order
-    across the window. All amount cells are home-currency (`spent_home_cents` /
-    `net_home_cents`) — the only figures that exist, the native aggregates
-    having been deleted engine-side.
-
-    A cell carries its `unconverted_count` alongside the figure, because three
-    states have to stay distinguishable: a number, *no activity that month*, and
-    *the engine could not price this* (`cents: None` with a non-zero count). A
-    month a row is absent from has no cell at all, which reads as no activity.
-
-    Rows (and combos) with nothing spent in **any** month of the window are
-    dropped entirely — the engine returns every non-deleted category for every
-    month, so keeping them would fill the grid with blank lines. Returns::
-
-        {
-          "labels": ["2026-04", ...],
-          "rows": [{"id", "name",
-                    "cells": {label: {"cents": int|None, "unconverted": int}},
-                    "breakdown": [{"hashtag_ids": [...], "cells": {...}}]}],
-          "totals": {"inflow":  {label: {"cents": int|None, "unconverted": int}},
-                     "outflow": {label: ...},
-                     "net":     {label: ...}},
-        }
-
-    `totals` carries all three `TOTALS_KEYS` — the flat range table draws only
-    `net`, but Home's grid needs inflow and outflow, and computing them twice
-    would be two places to get the `unconverted_count` rule wrong.
-    """
-    labels = [format_month(m.get("month")) for m in months]
-
-    order: list[str] = []
-    rows_by_id: dict[str, dict] = {}
-    combo_index: dict[tuple[str, tuple[str, ...]], dict] = {}
-    for label, month_payload in zip(labels, months, strict=True):
-        for cat in month_payload.get("categories") or []:
-            cat_id = cat.get("id")
-            if not isinstance(cat_id, str):
-                continue
-            row = rows_by_id.get(cat_id)
-            if row is None:
-                row = {
-                    "id": cat_id,
-                    "name": cat.get("name") or "(unnamed)",
-                    "cells": {},
-                    "breakdown": [],
-                }
-                rows_by_id[cat_id] = row
-                order.append(cat_id)
-            row["cells"][label] = _grid_cell_value(cat)
-            for sub in cat.get("hashtag_breakdown") or []:
-                ids = sub.get("hashtag_ids") or []
-                combo_key = (cat_id, tuple(ids))
-                combo = combo_index.get(combo_key)
-                if combo is None:
-                    combo = {"hashtag_ids": ids, "cells": {}}
-                    combo_index[combo_key] = combo
-                    row["breakdown"].append(combo)
-                combo["cells"][label] = _grid_cell_value(sub)
-
-    totals_rows: dict[str, dict[str, dict]] = {key: {} for key in TOTALS_KEYS}
-    for label, month_payload in zip(labels, months, strict=True):
-        totals = month_payload.get("totals") or {}
-        for key in TOTALS_KEYS:
-            totals_rows[key][label] = _totals_cell(totals, key)
-
-    rows = []
-    for cid in order:
-        row = rows_by_id[cid]
-        if all(cell_is_empty(c) for c in row["cells"].values()):
-            continue
-        row["breakdown"] = [
-            combo
-            for combo in row["breakdown"]
-            if not all(cell_is_empty(c) for c in combo["cells"].values())
-        ]
-        rows.append(row)
-
-    return {"labels": labels, "rows": rows, "totals": totals_rows}
-
-
 def format_grid_cell(cell: object) -> str:
-    """A grid cell as text — shared by the flat table and the TUI grid.
+    """A grid cell as text, for the flat range table.
 
     A dim `—` means nothing happened that month; `3 unrated` means there was
     activity the engine could not price. Keeping the two apart is the point of
@@ -213,27 +84,6 @@ def fetch_single_month(
     return fetch_body(cfg, path="/reports/monthly", params=params, verbose=verbose)
 
 
-def fetch_range(
-    cfg,
-    *,
-    from_ym: tuple[int, int],
-    to_ym: tuple[int, int],
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/reports/monthly for a month range → the raw engine body. No rendering.
-
-    Range rules (inverted range, max span) are the engine's — invalid ranges
-    are sent as-is so its 422 surfaces.
-    """
-    params = query_params(
-        from_year=from_ym[0],
-        from_month=from_ym[1],
-        to_year=to_ym[0],
-        to_month=to_ym[1],
-    )
-    return fetch_body(cfg, path="/reports/monthly", params=params, verbose=verbose)
-
-
 def run_single_month(
     cfg,
     *,
@@ -261,7 +111,7 @@ def run_range(
     json_mode: bool = False,
 ) -> None:
     """Fetch + render for a month range — the flat command's whole body."""
-    body = fetch_range(cfg, from_ym=from_ym, to_ym=to_ym, verbose=verbose)
+    body = reads.fetch_range(cfg, from_ym=from_ym, to_ym=to_ym, verbose=verbose)
     _render_range_table(body, json_mode=json_mode)
 
 

@@ -22,7 +22,7 @@ def test_fetch_error_renders_banner(fake_client, monkeypatch):
     def boom(*a, **k):
         raise EngineError("INTERNAL", "engine exploded", None, 500, {})
 
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", boom)
+    monkeypatch.setattr("expense.reads.fetch_accounts", boom)
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())
@@ -44,7 +44,7 @@ def test_action_reload_recovers_after_error(fake_client, monkeypatch):
             raise EngineError("INTERNAL", "first call fails", None, 500, {})
         return whole(ACCOUNTS)
 
-    monkeypatch.setattr("expense.commands.accounts_cmd.fetch_accounts", flaky)
+    monkeypatch.setattr("expense.reads.fetch_accounts", flaky)
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())
@@ -68,9 +68,7 @@ def test_run_write_failure_notifies_and_skips_after_write(fake_client, monkeypat
     monkeypatch.setattr(
         AccountsScreen, "notify", lambda self, message, **kw: seen.append((message, kw))
     )
-    monkeypatch.setattr(
-        "expense.commands.accounts_cmd.fetch_accounts", lambda *a, **k: whole(ACCOUNTS)
-    )
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
 
     async def scenario(pilot, app):
         await app.push_screen(AccountsScreen())

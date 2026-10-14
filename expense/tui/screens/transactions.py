@@ -37,18 +37,16 @@ from textual.binding import Binding
 from textual.widget import Widget
 from textual.widgets import Static
 
-from expense.commands import transactions_cmd
-from expense.commands._resource import (
+from expense import reads
+from expense.errors import format_error, refuses_every_write
+from expense.formatting import format_hashtag_cell, format_short_date, resolve_name
+from expense.reads import (
     ENGINE_PAGE_CAP,
-    format_hashtag_cell,
-    format_short_date,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
     load_quickadd_refs,
-    resolve_name,
 )
-from expense.errors import format_error, refuses_every_write
 from expense.tui.screens._base import (
     LogTransactionMixin,
     SectionScreen,
@@ -261,7 +259,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
-        return transactions_cmd.fetch_transactions(
+        return reads.fetch_transactions(
             cfg, **self._scope(), after=after, limit=limit, **screen_fetch_kwargs(self.app)
         )
 
@@ -269,9 +267,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         from expense import config as config_module
 
         cfg = config_module.ensure_loaded()
-        return transactions_cmd.count_transactions(
-            cfg, **self._scope(), **screen_fetch_kwargs(self.app)
-        )
+        return reads.count_transactions(cfg, **self._scope(), **screen_fetch_kwargs(self.app))
 
     def fetch(self) -> dict:
         items, next_cursor, total = read_first(self._read_page, self._count)

@@ -3,12 +3,11 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     JSON_OPT,
     YES_OPT,
     build_update_payload,
-    fetch_body,
-    items_of,
     render_record,
     render_table,
     run_delete,
@@ -17,6 +16,7 @@ from expense.context import get_verbose
 from expense.errors import handle_errors
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import fetch_body, items_of
 
 app = typer.Typer(help="Hashtags.", no_args_is_help=True)
 
@@ -46,20 +46,6 @@ def _render_hashtag_list(body: dict, *, json_mode: bool) -> None:
     )
 
 
-def fetch_hashtags(
-    cfg,
-    *,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/hashtags → the raw engine body. Pure data, no render.
-
-    Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
-    The engine returns every row as `{items}` and refuses `limit`/`offset`
-    — there is no page to ask for.
-    """
-    return fetch_body(cfg, path=f"/{_RESOURCE}", params=None, verbose=verbose)
-
-
 @app.command("list")
 @handle_errors
 def list_(
@@ -71,7 +57,7 @@ def list_(
     Example: expense hashtags list
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_hashtags(cfg, verbose=get_verbose(ctx))
+    body = reads.fetch_hashtags(cfg, verbose=get_verbose(ctx))
     _render_hashtag_list(body, json_mode=json_output)
 
 

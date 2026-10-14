@@ -1,20 +1,11 @@
 import typer
 
 from expense import config as config_module
-from expense.commands._resource import (
-    JSON_OPT,
-    fetch_body,
-    format_cents,
-    format_month,
-    query_params,
-    render_category_table,
-    render_table,
-    render_totals,
-    settled_label,
-    split_settled,
-)
+from expense import reads
+from expense.commands._resource import JSON_OPT, render_category_table, render_table, render_totals
 from expense.context import get_verbose
 from expense.errors import handle_errors
+from expense.formatting import format_cents, format_month, settled_label, split_settled
 from expense.jsonout import emit_json
 
 
@@ -101,21 +92,6 @@ def _render_dashboard(body: dict, *, json_mode: bool) -> None:
         _render_account_table(archived_people, empty_message="  (no archived people)")
 
 
-def fetch_dashboard(
-    cfg,
-    *,
-    include_archived: bool = False,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/dashboard → the raw engine body. Pure data, no rendering.
-
-    Split from the rendering so the flat command and the TUI share one fetch.
-    """
-    params = query_params(include_archived=include_archived)
-
-    return fetch_body(cfg, path="/dashboard", params=params, verbose=verbose)
-
-
 @handle_errors
 def dashboard(
     ctx: typer.Context,
@@ -131,7 +107,7 @@ def dashboard(
     Example: expense dashboard --include-archived
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_dashboard(
+    body = reads.fetch_dashboard(
         cfg,
         include_archived=include_archived,
         verbose=get_verbose(ctx),

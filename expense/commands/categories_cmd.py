@@ -3,28 +3,28 @@ from uuid import uuid4
 import typer
 
 from expense import config as config_module
+from expense import reads
 from expense.commands._resource import (
     JSON_OPT,
     YES_OPT,
     build_update_payload,
     color_supported,
     color_swatch,
-    fetch_body,
     format_bool,
-    items_of,
     render_record,
     render_table,
     run_delete,
 )
 from expense.context import get_verbose
 from expense.errors import handle_errors
+from expense.formatting import SYSTEM_HINT
 from expense.http import ExpenseClient
 from expense.jsonout import emit_json
+from expense.reads import fetch_body, items_of
 
 app = typer.Typer(help="Categories.", no_args_is_help=True)
 
 _RESOURCE = "categories"
-SYSTEM_HINT = "System categories can be renamed but not deleted."
 
 
 def _render_category_list(body: dict, *, json_mode: bool) -> None:
@@ -55,20 +55,6 @@ def _render_category_list(body: dict, *, json_mode: bool) -> None:
     )
 
 
-def fetch_categories(
-    cfg,
-    *,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/categories → the raw engine body. Pure data, no render.
-
-    Shared by the flat `categories list` command and the TUI's Categories screen.
-    The engine returns every row as `{items}` and refuses `limit`/`offset`
-    — there is no page to ask for.
-    """
-    return fetch_body(cfg, path=f"/{_RESOURCE}", params=None, verbose=verbose)
-
-
 @app.command("list")
 @handle_errors
 def list_(
@@ -80,7 +66,7 @@ def list_(
     Example: expense categories list
     """
     cfg = config_module.ensure_loaded()
-    body = fetch_categories(cfg, verbose=get_verbose(ctx))
+    body = reads.fetch_categories(cfg, verbose=get_verbose(ctx))
     _render_category_list(body, json_mode=json_output)
 
 
