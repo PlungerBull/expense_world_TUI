@@ -135,4 +135,3 @@ with a mockup the owner picks.
 2. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-3. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
