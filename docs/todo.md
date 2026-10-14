@@ -74,6 +74,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   every time; the guard accepts either one alone and leans on the engine refusing to start
   ([guard.py](../.claude/hooks/guard.py)). Require both, with a test.
 
+- **The guard blocks the practice user's reseed.** On 2026-10-14 the tester's
+  run of the engine's seed script with `--force`, its output sent to `/dev/null`, was refused as a read or write in the engine
+  checkout ([guard.py](../.claude/hooks/guard.py)), so a full acceptance check cannot get its key.
+  Allow the reseed form [cli-runtime.md](cli-runtime.md) "Working against the live engine" gives,
+  with a test in [test_claude_hooks.py](../tests/unit/test_claude_hooks.py).
+
 - **A test docstring tells history.** `test_tui_reconciliations.py` line 157 says "`date_start`
   orders the batch now"; state it in the present tense
   ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
