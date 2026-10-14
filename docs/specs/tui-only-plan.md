@@ -128,7 +128,9 @@ with a mockup the owner picks.
    existing opening balance shows on the form, and saving changes it). No title line. The two
    lines are hidden on people. Emptying the amount of an existing one deletes it, after asking.
    The form says which half failed when the account saves and the opening balance is refused.
-   The mockup is redrawn to these picks for the owner to confirm. **Waits on the engine:**
+   The redrawn mockup is confirmed (2026-10-14): the lines are named "opening" and "as of",
+   `esc` after a half-refused save just leaves, and screen 6's note stays as drawn. **Waits on
+   the engine:**
    [account-opening-balance.md](../engine-asks/account-opening-balance.md).
 2. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
    with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
