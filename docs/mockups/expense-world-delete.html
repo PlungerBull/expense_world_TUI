@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>TUI delete</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:980px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Delete, from the app</h1>
+  <p>Today the app can only <b>archive</b> an account, and deletes a transaction only from a reconciliation's &ldquo;no batch&rdquo; list. Deleting an account, a category, a hashtag or any other transaction needs a typed command. These screens put all four in the app, each behind the same question.</p>
+  <p>Screens 3 and 4 each have a choice to make, with both options drawn and the recommended one marked. Screens 1, 2 and 5 reuse what the app already does and have no choice. Nothing is built until you pick. The rows are invented.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">1 · The key is d, on four screens <span>— one drawing, no choice to make</span></div>
+<p class="blurb"><code>d</code> already means Delete in the two places the app deletes today (a row in a reconciliation's &ldquo;no batch&rdquo; list, and a reconciliation itself), and it is free on all four screens here. So: <b>Manage ▸ Accounts</b>, <b>Manage ▸ Categories</b>, <b>Manage ▸ Hashtags</b> and the <b>ledger</b> (whole, or filtered from Home) each gain <code>d Delete</code> at the end of the footer. It always acts on the row under the cursor, and always asks first (screen 2). <code>a Archive</code> on Accounts stays exactly as it is: archive puts an account away and can be undone, delete is for something made by mistake and cannot.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Color        Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    Sueldo Soles                bank      PEN    <span class="s1">██</span>         <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>         <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —               0.00   active
+    <span class="rev">Prueba                      bank      PEN    ██              0.00   active  </span>
+    Eliana                      person    PEN    —          <span class="n">  -150.00</span>   active
+    <span class="d">Ahorro viejo                bank      PEN    ██              0.00   archived</span>
+
+
+  <span class="d">balances are native currency</span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">Accounts, with the cursor on an account made by mistake. Categories and Hashtags get the same last footer entry; the ledger is drawn on screen 3.</p>
+</div>
+<div class="pane">
+<div class="lbl">2 · It asks first <span>— the confirm the app already has, one drawing each</span></div>
+<p class="blurb">The same question the &ldquo;no batch&rdquo; list asks today, laid over the list so you still see the row. It names the row, then says the one thing that matters: a delete is final. Only <code>y</code> deletes; <code>⏎</code>, <code>n</code> and <code>esc</code> all cancel, so a reflex keypress never deletes anything.</p>
+<div class="var"><div class="oh"><span>an account</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   ──────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">                </span><span class="a">────────────────────────────────────────────────────</span>
+<span class="d">    Name        </span>                                                    <span class="d">e   Status</span>
+<span class="d">    ────────────</span>  <span class="ab">Delete this account?</span>                              <span class="d">────────────</span>
+<span class="d">    Sueldo Soles</span>                                                    <span class="d">0   active</span>
+<span class="d">    Cuenta Digit</span>  Prueba · bank · PEN · 0.00                        <span class="d">5   active</span>
+<span class="d">    Efectivo    </span>  It is for an account made by mistake: no screen   <span class="d">0   active</span>
+<span class="d">    Prueba      </span>  or command can bring it back.                     <span class="d">0   active</span>
+<span class="d">    Eliana      </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>           <span class="d">0   active</span>
+<span class="d">    Ahorro viejo</span>                                                    <span class="d">0   archived</span>
+<span class="d">                </span><span class="a">────────────────────────────────────────────────────</span>
+
+<span class="d">  balances are native currency</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">Over the Accounts list, which dims behind it.</p></div>
+<div class="opt">
+<div class="var"><div class="oh"><span>a category</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+  <span class="a">────────────────────────────────────────────────────</span>
+  
+    <span class="ab">Delete this category?</span>
+  
+    PRUEBA
+    It is for a category made by mistake: no screen
+    or command can bring it back.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+  
+  <span class="a">────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">Same question, on Manage ▸ Categories.</p></div>
+<div class="var"><div class="oh"><span>a hashtag</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+  <span class="a">────────────────────────────────────────────────────</span>
+  
+    <span class="ab">Delete this hashtag?</span>
+  
+    #viaje-cusco
+    It comes off every transaction that carries it;
+    the transactions stay. And no screen or command
+    can bring it back.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+  
+  <span class="a">────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">Deleting a hashtag is never refused for being in use, so the question says what happens to the transactions that carry it.</p></div>
+</div>
+<div class="opt">
+<div class="var"><div class="oh"><span>a transaction, on the ledger</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+  <span class="a">────────────────────────────────────────────────────</span>
+  
+    <span class="ab">Delete this transaction?</span>
+  
+    Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles
+    It leaves every balance and report, and no
+    screen or command can bring it back.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+  
+  <span class="a">────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">Word for word the question the &ldquo;no batch&rdquo; list asks today.</p></div>
+<div></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">3 · On the ledger, when rows are selected <span>— one row at a time, or the whole selection</span></div>
+<p class="blurb">On the ledger you can select several rows (<code>space</code>, <code>a</code>) and the keys <code>c</code> <code>b</code> <code>h</code> then change all of them at once. The question is whether <code>d</code> follows them. With nothing selected the two options are identical: <code>d</code> asks about the row under the cursor (screen 2).</p>
+<div class="var"><div class="oh">A · <span>d deletes one row, never a selection</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                     Description           Amount   Date         Account         Cat           Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                               <span class="n">    -18.50</span>   2026-10-12   Sueldo Soles    COMIDA        almuerzo
+      Uber                    al aeropuerto     <span class="n">    -42.00</span>   2026-10-11   Sueldo Soles    @Pendiente    —
+    <span class="rev">● Cine Plaza                                    -28.00   2026-10-10   Sueldo Soles    @Pendiente    —           </span>
+    <span class="a">● Cine Plaza                                    -28.00   2026-10-10   Sueldo Soles    @Pendiente    —</span>
+    <span class="a">● Mercado                                       -61.30   2026-10-09   Sueldo Soles    COMIDA        —</span>
+      Pago planilla                             <span class="p">  6,519.00</span>   2026-10-05   Sueldo Soles    @Pendiente    trabajo
+
+     <span class="d">no filter · 6 of 57 loaded · 3 selected</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">pgdn</span> 10 more</pre></div></div>
+<p class="cap">While rows are selected, <code>d</code> is switched off and leaves the footer; <code>esc</code> clears the selection and it is back. <b>Recommended:</b> it is the rule the app has today (&ldquo;cursor row only, never a selection&rdquo;), and because a delete cannot be undone, <code>a</code> then <code>d</code> then <code>y</code> can never wipe every loaded row.</p></div>
+<div class="var"><div class="oh">B · <span>d deletes everything selected, after one question</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Transactions</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">                                  </span><span class="a">────────────────────────────────────────────────────</span>
+<span class="d">    Title                     Desc</span>                                                    <span class="d">    Cat           Hashtags</span>
+<span class="d">    ──────────────────────────────</span>  <span class="ab">Delete these 3 transactions?</span>                      <span class="d">──────────────────────────────</span>
+<span class="d">      Cafe Andino                 </span>                                                    <span class="d">    COMIDA        almuerzo</span>
+<span class="d">      Uber                    al a</span>  Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles   <span class="d">    @Pendiente    —</span>
+<span class="d">    ● Cine Plaza                  </span>  Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles   <span class="d">    @Pendiente    —</span>
+<span class="d">    ● Cine Plaza                  </span>  Mercado · -61.30 · 2026-10-09 · Sueldo Soles      <span class="d">    @Pendiente    —</span>
+<span class="d">    ● Mercado                     </span>  They leave every balance and report, and no       <span class="d">    COMIDA        —</span>
+<span class="d">      Pago planilla               </span>  screen or command can bring them back.            <span class="d">    @Pendiente    trabajo</span>
+<span class="d">                                  </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>           
+<span class="d">     no filter · 6 of 57 loaded · </span>                                                    
+<span class="d">                                  </span><span class="a">────────────────────────────────────────────────────</span>
+
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">One question lists the rows (the first few, then &ldquo;… and 9 more&rdquo;) and <code>y</code> deletes them all. Faster for clearing duplicates after an import; a row the engine refuses is named by its number and the others still go, as with <code>c</code> <code>b</code> <code>h</code> today.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">4 · When the engine says no <span>— its words alone, or its words plus what to do next</span></div>
+<p class="blurb">The engine refuses some deletes: an <b>account</b> or a <b>category</b> that still has transactions, the two built-in <b>system categories</b>, and a <b>transaction</b> sealed inside a completed reconciliation. Nothing is deleted, the list stays as it was, and the refusal shows as a note in the bottom-right corner, as every failed save does today. The first line under <b>Failed</b> is always the engine's own answer. (The engine's exact words are stand-ins in these drawings until they are read from the engine.)</p>
+<div class="var"><div class="oh">A · <span>the engine's words, nothing added</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Color        Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Sueldo Soles                bank      PEN    ██         12,450.00   active  </span>
+    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>         <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —               0.00   active
+    Prueba                      bank      PEN    <span class="s4">██</span>              0.00   active
+    Eliana                      person    PEN    —          <span class="n">  -150.00</span>   active
+    <span class="d">Ahorro viejo                bank      PEN    ██              0.00   archived</span>
+
+
+  <span class="d">balances are native currency</span>
+                                            <span class="n">▌</span> <span class="b">Failed</span>
+                                            <span class="n">▌</span> CONFLICT — Account has transactions.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">Exactly what the &ldquo;no batch&rdquo; delete shows today when it is refused.</p></div>
+<div class="var"><div class="oh">B · <span>the engine's words, then one line saying what to do</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Color        Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Sueldo Soles                bank      PEN    ██         12,450.00   active  </span>
+    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>         <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —               0.00   active
+    Prueba                      bank      PEN    <span class="s4">██</span>              0.00   active
+    Eliana                      person    PEN    —          <span class="n">  -150.00</span>   active
+    <span class="d">Ahorro viejo                bank      PEN    ██              0.00   archived</span>
+
+
+  <span class="d">balances are native currency</span>
+                                      <span class="n">▌</span> <span class="b">Failed</span>
+                                      <span class="n">▌</span> CONFLICT — Account has transactions.
+                                      <span class="n">▌</span> 
+                                      <span class="n">▌</span> To retire it instead, archive it: press a.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The same note with one line of the app's own under it, the advice the typed commands give today. <b>Recommended:</b> the engine says why not; the extra line says how to get what you wanted.</p></div>
+<p class="blurb" style="margin-top:22px">The other refusals, drawn as B. Under A each would be its first two lines only.</p>
+<div class="opt">
+<div class="var"><div class="oh"><span>d on @Pendiente or @Opening</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+                <span class="n">▌</span> <span class="b">Failed</span>
+                <span class="n">▌</span> FORBIDDEN — Operation not allowed.
+                <span class="n">▌</span> 
+                <span class="n">▌</span> System categories can be renamed but not
+                <span class="n">▌</span> deleted.
+</pre></div></div>
+<p class="cap">A system category.</p></div>
+<div class="var"><div class="oh"><span>d on a category that is in use</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+               <span class="n">▌</span> <span class="b">Failed</span>
+               <span class="n">▌</span> CONFLICT — Category has transactions.
+               <span class="n">▌</span> 
+               <span class="n">▌</span> Move its transactions to another category
+               <span class="n">▌</span> first.
+</pre></div></div>
+<p class="cap">A category with transactions.</p></div>
+</div>
+<div class="opt">
+<div class="var"><div class="oh"><span>d on a sealed transaction</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>
+               <span class="n">▌</span> <span class="b">Failed</span>
+               <span class="n">▌</span> CONFLICT — Cannot delete a transaction
+               <span class="n">▌</span> assigned to a completed reconciliation.
+               <span class="n">▌</span> Revert the reconciliation to draft first.
+</pre></div></div>
+<p class="cap">Here the engine already says what to do, so B adds nothing.</p></div>
+<div></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">5 · After a delete <span>— one drawing, no choice to make</span></div>
+<p class="blurb">The list is read again from the engine and starts over: first page, cursor on the first row, the deleted row gone, and a short note in the corner (<code>Account deleted.</code>, <code>Category deleted.</code>, <code>Hashtag deleted.</code>, <code>Transaction deleted.</code>). On the ledger that means the newest ten rows again, as after any other change. There is no undo and no &ldquo;recently deleted&rdquo; list.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Color        Balance   Status
+    <span class="d">────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Sueldo Soles                bank      PEN    ██         12,450.00   active  </span>
+    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>         <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —               0.00   active
+    Eliana                      person    PEN    —          <span class="n">  -150.00</span>   active
+    <span class="d">Ahorro viejo                bank      PEN    ██              0.00   archived</span>
+
+
+  <span class="d">balances are native currency</span>
+                                                                <span class="a">▌</span> Account deleted.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+</div>
+
+<div class="pick">
+<b>To answer:</b> one letter for each of screen 3 (A or B) and screen 4 (A or B).<br><b>Recommended:</b> 3 A · 4 B.
+</div>
+
+</body>
+</html>
