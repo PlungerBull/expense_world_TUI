@@ -122,15 +122,7 @@ over as is. It says:
 Approved by the owner on 2026-10-13. **[UI]** tasks start
 with a mockup the owner picks.
 
-1. **First-time setup [UI].** Picked 2026-10-14 in
-   [expense-world-first-time-setup.html](../mockups/expense-world-first-time-setup.html): 1A (a
-   setup screen of its own), 2A (the address box starts with the local engine's address), 7A (ask
-   for the time zone when the Mac's cannot be read). Nothing is saved until the engine accepts the
-   address and key. A settings file that exists but cannot be read opens the setup screen too. A
-   refused key shows the engine's words plus "nothing was saved · type the key again". The
-   not-an-address message's example is the local engine's address, not the old cloud one. Every
-   message that tells the owner to type a command is reworded for the app.
-2. **Delete [UI].** Picked 2026-10-14 in [expense-world-delete.html](../mockups/expense-world-delete.html):
+1. **Delete [UI].** Picked 2026-10-14 in [expense-world-delete.html](../mockups/expense-world-delete.html):
    3A (`d` deletes the row under the cursor only, and is off while rows are selected), 4B (the
    engine's words plus one line saying what to do instead, chosen by the refusal's status and
    route until [delete-refusal-reasons.md](../engine-asks/delete-refusal-reasons.md) lands).
@@ -138,7 +130,7 @@ with a mockup the owner picks.
    categories; the engine refuses. A hashtag's question says it is also taken off every
    transaction that carries it. The decisions.md entry "Rows in no batch live in the
    reconciliation view" loses its rejected "delete key on the ledger" in the same commit.
-3. **Opening balance [UI].** Picked 2026-10-14 in
+2. **Opening balance [UI].** Picked 2026-10-14 in
    [expense-world-opening-balance.html](../mockups/expense-world-opening-balance.html): 1B (two
    lines, amount and date, on the account's Edit form), 3A (the date starts empty), 6B (an
    existing opening balance shows on the form, and saving changes it). No title line. The two
@@ -146,15 +138,15 @@ with a mockup the owner picks.
    The form says which half failed when the account saves and the opening balance is refused.
    The mockup is redrawn to these picks for the owner to confirm. **Waits on the engine:**
    [account-opening-balance.md](../engine-asks/account-opening-balance.md).
-4. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
+3. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
    with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
    the code and in every doc that names it. The contract tests that walk through commands call the
    engine directly. The rules listed in "Consequences" are rewritten in the same task. The unit
    suite stays green at every commit.
-5. **Clean todo.md.** Delete the items listed in "Consequences".
-6. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
+4. **Clean todo.md.** Delete the items listed in "Consequences".
+5. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
    every mention of the old name in this repo.
-7. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+6. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-8. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
+7. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).

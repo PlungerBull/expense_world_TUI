@@ -12,6 +12,7 @@ httpx==0.28.1
 pydantic==2.13.3
 tzlocal==5.3.1
 textual==8.2.7
+openpyxl==3.1.5
 
 # dev
 pytest==9.0.3
@@ -19,5 +20,4 @@ pytest-cov==7.1.0
 respx==0.23.1
 ruff==0.15.11
 pre-commit==4.5.1
-openpyxl==3.1.5
 mypy==2.1.0

@@ -18,7 +18,7 @@ from expense.http import ExpenseClient
 from expense.import_ import apply as apply_mod
 from expense.import_ import plan as plan_mod
 from expense.import_.parse import ImportFormatError, parse_sheet
-from expense.import_.reader import ImportDependencyError, ImportFileError, read_workbook
+from expense.import_.reader import ImportFileError, read_workbook
 from expense.jsonout import emit_json
 
 
@@ -271,7 +271,7 @@ def run_import(
     try:
         sheet = read_workbook(file)
         parsed, openings, skipped = parse_sheet(sheet)
-    except (ImportDependencyError, ImportFileError, ImportFormatError) as exc:
+    except (ImportFileError, ImportFormatError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 

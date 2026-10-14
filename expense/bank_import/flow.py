@@ -25,7 +25,7 @@ from expense.bank_import.parse import SHEET_NAME, BadRow, BankFormatError, BankR
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.formatting import format_cents
-from expense.import_.reader import ImportDependencyError, ImportFileError, read_workbook
+from expense.import_.reader import ImportFileError, read_workbook
 from expense.reads import items_of
 
 
@@ -116,7 +116,7 @@ def read_bank_file(file: str) -> tuple[list[BankRow], list[BadRow]]:
     try:
         sheet = read_workbook(file, sheet_name=SHEET_NAME)
         rows, bad = parse_bank_sheet(sheet)
-    except (ImportDependencyError, ImportFileError, BankFormatError) as exc:
+    except (ImportFileError, BankFormatError) as exc:
         raise ImportRefused(str(exc)) from exc
     if not rows and not bad:
         raise ImportRefused("the sheet has no rows.")

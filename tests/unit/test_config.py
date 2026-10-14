@@ -60,7 +60,7 @@ def test_load_corrupt_json_raises_config_invalid(tmp_config):
     tmp_config.write_text("{not valid json")
     with pytest.raises(ConfigInvalidError, match="not valid JSON") as exc:
         config.load()
-    assert "config set" in str(exc.value)
+    assert "setup screen" in str(exc.value)
 
 
 def test_load_schema_invalid_raises_config_invalid(tmp_config):
@@ -68,7 +68,7 @@ def test_load_schema_invalid_raises_config_invalid(tmp_config):
     tmp_config.write_text(json.dumps({"token": "ewe_pat_abc"}))
     with pytest.raises(ConfigInvalidError, match="invalid") as exc:
         config.load()
-    assert "config set" in str(exc.value)
+    assert "setup screen" in str(exc.value)
 
 
 def test_clear_removes_file(tmp_config):
@@ -87,7 +87,7 @@ def test_clear_no_file_is_noop(tmp_config):
 def test_ensure_loaded_raises_if_missing(tmp_config):
     with pytest.raises(ConfigMissingError) as exc:
         config.ensure_loaded()
-    assert "config set" in str(exc.value)
+    assert "setup screen" in str(exc.value)
 
 
 def test_ensure_loaded_returns_loaded_config(tmp_config):
@@ -161,7 +161,7 @@ def test_corrupt_config_renders_clean_cli_error(tmp_config):
     result = runner.invoke(cli_app, ["accounts", "list"])
     assert result.exit_code == 3
     assert "not valid JSON" in result.output
-    assert "config set" in result.output
+    assert "setup screen" in result.output
     assert "Traceback" not in result.output
 
     result = runner.invoke(cli_app, ["accounts", "list", "--json"])

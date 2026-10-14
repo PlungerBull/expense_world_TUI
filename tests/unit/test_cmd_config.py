@@ -156,7 +156,7 @@ def test_get_json_mode(tmp_config):
 def test_get_errors_cleanly_when_no_config(tmp_config):
     result = runner.invoke(app, ["get"])
     assert result.exit_code == 3
-    assert "config set" in result.output
+    assert "setup screen" in result.output
 
 
 def test_set_with_corrupt_config_renders_clean_error(tmp_config):

@@ -373,11 +373,11 @@ def test_dashboard_connection_error(configured):
 
 
 @respx.mock
-def test_dashboard_401_surfaces_config_set_hint(configured):
+def test_dashboard_401_surfaces_the_key_hint(configured):
     respx.get(f"{BASE}/v1/dashboard").mock(
         return_value=error_response(401, "UNAUTHORIZED", "bad token", None)
     )
     result = runner.invoke(cli_app, ["dashboard"])
     assert result.exit_code == 1
     assert "UNAUTHORIZED" in result.output
-    assert "expense config set --token" in result.output
+    assert "System ▸ Config (press t)" in result.output

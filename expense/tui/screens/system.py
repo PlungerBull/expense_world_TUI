@@ -198,8 +198,8 @@ class AuthScreen(SectionScreen):
             timezone = dates.detect_timezone()
         except dates.TimezoneDetectionError:
             self.notify(
-                "Could not detect your timezone. Set the TZ environment variable and "
-                "relaunch, or run 'expense auth bootstrap --timezone <zone>' from the CLI.",
+                "Could not read this Mac's time zone. Set it in System Settings, "
+                "then press b again.",
                 title="Bootstrap failed",
                 severity="error",
             )

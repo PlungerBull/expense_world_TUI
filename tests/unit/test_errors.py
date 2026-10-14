@@ -96,7 +96,7 @@ def test_render_engine_error_human_with_fields():
     assert "  amount_cents: Must not be zero" in output
 
 
-def test_render_engine_error_human_401_surfaces_config_set_hint():
+def test_render_engine_error_human_401_points_at_the_config_screen():
     err = EngineError(
         code="UNAUTHORIZED",
         message="Missing or invalid token",
@@ -108,8 +108,8 @@ def test_render_engine_error_human_401_surfaces_config_set_hint():
     assert exit_code == 1
     assert use_stderr is True
     assert output.startswith("Error: UNAUTHORIZED — Missing or invalid token")
-    assert "expense config set --token" in output
-    assert "expense auth bootstrap" in output
+    assert "System ▸ Config (press t)" in output
+    assert "expense " not in output  # no typed command
 
 
 def test_render_engine_error_human_non_401_no_hint():
@@ -166,12 +166,12 @@ def test_render_connection_error_json_envelope():
 
 
 def test_render_config_missing_human():
-    err = ConfigMissingError("No config found. Run: expense config set ...")
+    err = ConfigMissingError("No config found. Open the app.")
     output, exit_code, use_stderr = render(err, json_mode=False)
     assert exit_code == 3
     assert use_stderr is True
     assert "Error:" in output
-    assert "config set" in output
+    assert "Open the app" in output
 
 
 def test_render_config_invalid_json_envelope():
@@ -257,14 +257,11 @@ def test_format_error_401_includes_hint():
         raw_body={},
     )
     output = format_error(err)
-    assert "\n\nHint: token is missing or invalid" in output
-    assert "expense config set --token" in output
+    assert "\n\nHint: the key is missing or not valid" in output
+    assert "System ▸ Config (press t)" in output
 
 
-SETTINGS_HINT = (
-    "Hint: First-time setup is not done yet. "
-    "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'."
-)
+SETTINGS_HINT = "Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b."
 
 
 def _settings_missing(message, fields, reasons=None, raw_body=None):
@@ -317,7 +314,7 @@ def test_format_error_other_422_has_no_setup_hint():
         reasons={"user_settings": "NOT_PROVISIONED"},
     )
     assert "Hint:" not in format_error(err)
-    assert "expense auth bootstrap" not in format_error(err)
+    assert "press b" not in format_error(err)
 
 
 def test_render_settings_missing_json_is_the_raw_body_without_the_hint():
@@ -361,7 +358,7 @@ def test_format_error_falls_back_to_str():
             raw_body={},
         ),
         EngineConnectionError(url="https://x.invalid", original=TimeoutError("timeout")),
-        ConfigMissingError("No config found. Run: expense config set ..."),
+        ConfigMissingError("No config found. Open the app."),
     ],
 )
 def test_render_human_is_prefix_plus_format_error(err):

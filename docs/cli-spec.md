@@ -128,7 +128,7 @@ Two forms, one command, never mixed — passing a line **and** a content flag is
 
 ### `expense import`
 
-Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, matched against the ledger). Both read `.xlsx` via the `openpyxl` extra (`pip install -e ".[import]"`) and are dry runs unless `--apply` is passed.
+Two doors: `sheet` (the personal spreadsheet) and `bank` (a bank download, matched against the ledger). Both read `.xlsx` via `openpyxl`, one of the app's core dependencies, and are dry runs unless `--apply` is passed.
 
 #### `expense import bank`
 - `import bank <file.xlsx> [--account <name>] [--apply] [--all] [--json]` — a BCP download (sheet `data`: Fecha, Descripcion, Moneda, Monto, optional Numero de Operacion) → the ledger under `@Pendiente`. The engine does the duplicate matching in one `POST /transactions/import` ([expense/bank_import/engine.py](../expense/bank_import/engine.py)); the rules and their why: [decisions.md](decisions.md) "Bank downloads are matched against the ledger".

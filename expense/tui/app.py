@@ -8,6 +8,7 @@ from textual.app import App
 
 from expense.context import get_verbose
 from expense.tui.screens.home import HomeScreen
+from expense.tui.screens.setup import SetupScreen
 from expense.tui.theme import EXPENSE_ANSI
 from expense.tui.widgets.header import Breadcrumb
 
@@ -45,7 +46,7 @@ class ExpenseApp(App):
     # an alert — "don't know" must look like silence, not like a warning.
     rate_stale: bool | None = None
 
-    def __init__(self, *, verbose: bool = False) -> None:
+    def __init__(self, *, verbose: bool = False, setup: bool = False) -> None:
         # ansi_color=True makes Textual paint the terminal's OWN default
         # background (SGR 49) instead of a fixed hex, so the app fill and the
         # terminal's window padding are one continuous surface — no seam — on
@@ -57,6 +58,12 @@ class ExpenseApp(App):
         # palette".
         super().__init__(ansi_color=True)
         self._verbose = verbose
+        # True opens SetupScreen over Home: `run_world` passes it when there is
+        # no settings file the app can use (`config.load_usable`). Setup is
+        # pushed rather than made the default screen so that, once the engine
+        # has accepted the settings, dismissing it lands on Home, which reads
+        # afresh on resume.
+        self._setup = setup
 
     def get_default_screen(self) -> HomeScreen:
         return HomeScreen()
@@ -64,6 +71,9 @@ class ExpenseApp(App):
     def on_mount(self) -> None:
         self.register_theme(EXPENSE_ANSI)
         self.theme = EXPENSE_ANSI.name
+        if self._setup:
+            self.push_screen(SetupScreen())
+            return  # no settings yet: the rate check runs once setup is done
         self.refresh_rate_status()
 
     @work(thread=True, exclusive=True, group="rate-status")
@@ -119,9 +129,13 @@ def run_world(ctx: typer.Context) -> None:
     # Why: docs/decisions.md "`expense world` clears the terminal scrollback at launch".
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
+    from expense import config as config_module
+
+    # No settings file, or one that cannot be read → the app opens on Setup.
+    setup = config_module.load_usable() is None
     # mouse=False: the TUI is keyboard-only. Textual otherwise enables terminal
     # mouse tracking on launch (clicks/scroll act on widgets AND the terminal's
     # native text-selection/copy is suppressed). Disabling it makes the app
     # ignore the mouse and restores native select-to-copy.
     # Why: docs/decisions.md "TUI is keyboard-only".
-    ExpenseApp(verbose=get_verbose(ctx)).run(mouse=False)
+    ExpenseApp(verbose=get_verbose(ctx), setup=setup).run(mouse=False)

@@ -50,7 +50,7 @@ Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone t
 ## Tech stack
 
 - **Language:** Python 3.11+ · **CLI:** Typer · **TUI:** Textual · **HTTP:** httpx
-- **Importers:** `expense import sheet` ([expense/import_/](expense/import_/)) and `expense import bank` ([expense/bank_import/](expense/bank_import/)); `.xlsx` via `openpyxl`, optional extra `[import]`
+- **Importers:** `expense import sheet` ([expense/import_/](expense/import_/)) and `expense import bank` ([expense/bank_import/](expense/bank_import/)); `.xlsx` via `openpyxl` (a core dependency)
 - **Config storage:** `~/.expense-config` (chmod 600) — the CLI's only local state
 - **No local cache, no offline write queue.** Every read and write is a live call against the engine: one source of truth means no conflict resolution and no staleness, and every client inherits the same `request → wait → done` contract.
 

@@ -301,7 +301,7 @@ SETTINGS_MISSING_HUMAN = (
     "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
     "\n"
     "Hint: First-time setup is not done yet. "
-    "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.\n"
+    "Open System ▸ Auth & profile and press b.\n"
 )
 
 

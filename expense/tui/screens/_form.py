@@ -5,7 +5,8 @@ offers picks; a summary table mirrors progress; `ctrl+s` (or enter on the
 last field) submits via `run_write`. Subclasses supply the field sequence,
 labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
-locked fields, edit mode), NewReconciliationScreen (dynamic sequence).
+locked fields, edit mode), NewReconciliationScreen (dynamic sequence),
+SetupScreen (first-time setup: the engine address and key, then a profile).
 """
 
 from rich.console import Group, RenderableType
@@ -21,11 +22,14 @@ from expense.tui.screens._base import EngineWriteMixin
 from expense.tui.widgets.header import Breadcrumb
 
 
-def form_bindings(submit_desc: str) -> list[Binding | tuple[str, str, str]]:
-    """The shared bar-form keymap; only the ctrl+s description varies.
+def form_bindings(
+    submit_desc: str, *, cancel_desc: str = "Cancel"
+) -> list[Binding | tuple[str, str, str]]:
+    """The shared bar-form keymap; only the esc and ctrl+s descriptions vary.
 
     The footer reads `esc Cancel  ^s Save  ⇥ Field` — `⇥ Field` is the form's
-    one navigation slot:
+    one navigation slot. The setup screen, which has no screen under it to go
+    back to, reads `esc Quit`:
 
     · `tab` moves to the next field and `shift+tab` to the previous, on every
       field, list open or not. FormScreen does not inherit Textual's Screen
@@ -43,7 +47,7 @@ def form_bindings(submit_desc: str) -> list[Binding | tuple[str, str, str]]:
     Guarded by `test_form_navigation_keys_are_not_advertised`.
     """
     return [
-        ("escape", "cancel", "Cancel"),
+        ("escape", "cancel", cancel_desc),
         ("ctrl+s", "submit", submit_desc),
         Binding("tab", "field(1)", "Field", key_display="⇥"),
         Binding("shift+tab", "field(-1)", "Prev field", show=False),

@@ -44,6 +44,8 @@ expense/tui/
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth screens
+    setup.py        # SetupScreen — first-time setup: engine address + key, then a
+                    #   profile; what the app opens on with no usable settings file
     edit_form.py    # the transaction EDIT form (`⏎` on a row); `record` is required
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
                     #   the named account's ledger below it (AccountPeek), one save.
@@ -118,6 +120,46 @@ the engine's fetch job has run.
 ---
 
 ## 2. Screens
+
+**Setup comes first when there is nothing to connect with.** With no settings file, or
+one that cannot be read (damaged, half-written, not a config — `config.load_usable`),
+`run_world` opens the app with `SetupScreen`
+([setup.py](../expense/tui/screens/setup.py)) pushed over Home, crumb `Setup`, drawn like
+the bar forms (screens in
+[expense-world-first-time-setup.html](mockups/expense-world-first-time-setup.html)):
+
+| Question | Starts as | `⏎` |
+|---|---|---|
+| **ENGINE ADDRESS** | the local engine's address (`config.LOCAL_ENGINE_URL`), listed with `*` until accepted | accepts it, or refuses an answer that is not a full http(s) URL in place — red, with the local address as the example — before anything is sent |
+| **KEY** | empty, hidden as typed; listed masked (`ewe_pat_****wxyz`) once given | asks the engine (below) |
+| **YOUR NAME** | asked only when the engine accepts the key and has no profile for it | the next question, or creates the profile |
+| **TIME ZONE** | read from this Mac and listed `read-only`; asked as one more question only when it cannot be read | creates the profile |
+
+The key's `⏎` (or `^s Connect` from either field) shows `asking the engine…` and asks two
+things with the address and key as typed: `GET /health`, which needs no key, then
+`GET /auth/me` (contract: "Base Conventions", "Authentication") (contract: GET /v1/auth/me).
+A failure goes red where the hint was, with the cursor on the answer to fix:
+
+- **No engine answers** (`/health` fails) — the client's `could not reach engine at …` and
+  `nothing was saved · start the engine or fix the address, then enter`; back on the
+  address, the key kept.
+- **`401 UNAUTHORIZED`** — the engine's own `CODE — message`, no hint, and `nothing was
+  saved · type the key again, then enter`; back on an empty key line. Branched on the code.
+- **`404 NOT_FOUND`** — not a failure: the key is fine and has no profile, so YOUR NAME (and
+  TIME ZONE) appear and `^s` reads `Create`. Creating is `POST /auth/bootstrap` with the
+  name exactly as typed and the zone; the engine's refusal (an empty name, an unknown zone)
+  shows in its own words and the cursor stays (contract: POST /v1/auth/bootstrap).
+- Any other refusal shows in the shared error text with `nothing was saved · enter to try
+  again`.
+
+**Nothing is written to the settings file until setup is done** — the engine has answered
+`/auth/me` with 200, or the profile was created. Then the file is saved through
+`config.save` (chmod 600) with the home currency the engine named, Setup closes onto Home
+with `Connected.`, and the launch-time rate check runs. `esc Quit` leaves the app with
+nothing saved; while the engine is being asked no key does anything (the bar is disabled).
+A refused profile shows the engine's words without the shared text's hints, which point at
+System screens Setup cannot reach. The next launch with
+a usable file opens on Home; changing the address or key later is System ▸ Config.
 
 **Home is four months of the ledger.** One worker reads `/dashboard` and `/reports/monthly` and draws:
 
@@ -445,7 +487,7 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
-one copy for the edit form, the create/edit forms and the new-reconciliation form):
+one copy for the edit form, the create/edit forms, the new-reconciliation form and Setup):
 `⏎` saves the field and moves on (saving the form on the last field), `ctrl+s` saves the
 form, `esc` cancels. `tab` moves to the next field and `shift+tab` to the previous, on
 every field, whether or not a suggestion list is open. `FormScreen` is declared
@@ -458,6 +500,10 @@ terminal sees them. Every field move skips read-only fields and stops at either 
 The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
 **`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
 that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.
+**Setup's footer** reads `esc Quit  ^s Connect  ⇥ Field`: there is no screen of its own
+under it to go back to, so `esc` leaves the app, and `^s` reads `Create` once the engine
+asks for a profile (two `ctrl+s` bindings, `check_action` showing one). Its address and key
+are read-only once the engine has accepted them.
 
 **The footer never advertises the arrow keys.** `Navigate` is declared `show=False` on
 `CursorList` and `CheckList`. The keys work unchanged and the `?` card still lists them.

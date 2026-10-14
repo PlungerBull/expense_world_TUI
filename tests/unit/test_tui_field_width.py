@@ -1,6 +1,6 @@
 """Backlog 4.4 — the #field label column must fit every form label.
 
-The three bar-cycle forms (edit form, create forms, new reconciliation) share
+The bar-cycle forms (edit form, create forms, new reconciliation, setup) share
 app.tcss's `#field { width: N; padding: 0 1 0 0 }`. Textual's box model puts
 the padding INSIDE the width and Static hard-crops with no ellipsis, so a
 label longer than (width − right padding) silently loses its tail
@@ -20,6 +20,7 @@ from expense.tui.screens.create_forms import (
 )
 from expense.tui.screens.edit_form import _LABELS
 from expense.tui.screens.reconciliations import _R_LABELS
+from expense.tui.screens.setup import LABELS as SETUP_LABELS
 
 
 def _field_rule() -> tuple[int, int]:
@@ -36,6 +37,7 @@ def _all_form_labels() -> dict[str, str]:
     """Every string that can appear in the #field label, keyed by origin."""
     labels = {f"edit_form:{key}": text for key, text in _LABELS.items()}
     labels |= {f"reconciliations:{key}": text for key, text in _R_LABELS.items()}
+    labels |= {f"setup:{key}": text for key, text in SETUP_LABELS.items()}
     for screen in (NewHashtagScreen, NewCategoryScreen, NewAccountScreen):
         labels |= {f"{screen.__name__}:{f.key}": f.label for f in screen.FIELDS}
     return labels

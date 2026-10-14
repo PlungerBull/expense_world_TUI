@@ -81,6 +81,19 @@ def refuses_every_write(err: Exception) -> bool:
     return isinstance(err, EngineError) and err.code == SETTINGS_MISSING
 
 
+def engine_words(err: EngineError) -> str:
+    """The engine's own answer: `CODE — message`, then one line per refused field.
+
+    `format_error` adds its hints under this; the setup screen shows a refused
+    key in these words alone, its own line under them saying what to do.
+    """
+    lines = [f"{err.code} — {err.message}"]
+    if err.fields:
+        for field, message in err.fields.items():
+            lines.append(f"  {field}: {message}")
+    return "\n".join(lines)
+
+
 def format_error(err: Exception) -> str:
     """Human-readable error text, without the leading 'Error: ' prefix.
 
@@ -89,22 +102,17 @@ def format_error(err: Exception) -> str:
     error code, never on `message` or the `fields` texts.
     """
     if isinstance(err, EngineError):
-        lines = [f"{err.code} — {err.message}"]
-        if err.fields:
-            for field, message in err.fields.items():
-                lines.append(f"  {field}: {message}")
+        lines = [engine_words(err)]
         if err.status == 401:
             lines.append("")
             lines.append(
-                "Hint: token is missing or invalid. Run "
-                "'expense config set --token <pat>' to install a fresh PAT, "
-                "or 'expense auth bootstrap' if your account is not yet provisioned."
+                "Hint: the key is missing or not valid. Set a fresh one on "
+                "System ▸ Config (press t)."
             )
         if err.code == SETTINGS_MISSING:
             lines.append("")
             lines.append(
-                "Hint: First-time setup is not done yet. "
-                "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'."
+                "Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b."
             )
         return "\n".join(lines)
     if isinstance(err, EngineConnectionError):

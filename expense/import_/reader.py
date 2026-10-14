@@ -1,4 +1,4 @@
-"""Read the spreadsheet into plain rows (openpyxl, lazy optional dependency).
+"""Read the spreadsheet into plain rows (openpyxl, a core dependency).
 
 The reader returns reader-agnostic ``RawRow``s so the parse layer never touches
 openpyxl and stays unit-testable without a real .xlsx file.
@@ -23,22 +23,14 @@ class SheetData:
     rows: list[RawRow]
 
 
-class ImportDependencyError(Exception):
-    """openpyxl is not installed."""
-
-
 class ImportFileError(Exception):
     """The file is missing, unreadable, or lacks the expected sheet."""
 
 
 def read_workbook(path: str, *, sheet_name: str = mapping.SHEET_NAME) -> SheetData:
     """Load ``sheet_name`` from an .xlsx into header + data rows."""
-    try:
-        from openpyxl import load_workbook
-    except ImportError as exc:
-        raise ImportDependencyError(
-            "openpyxl is required for `expense import`. Install it with:\n    pip install openpyxl"
-        ) from exc
+    # Imported here, not at module scope: only a read pays openpyxl's import cost.
+    from openpyxl import load_workbook
 
     try:
         wb = load_workbook(path, read_only=True, data_only=True)

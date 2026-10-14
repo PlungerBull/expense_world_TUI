@@ -14,6 +14,7 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from rich.console import Group
 from rich.text import Text
@@ -31,6 +32,9 @@ from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.widgets.header import Breadcrumb
 
+if TYPE_CHECKING:
+    from expense.config import Config
+
 
 def screen_fetch_kwargs(app) -> dict:
     """The standard TUI read kwargs: verbosity off the app."""
@@ -46,6 +50,8 @@ class _QueuedWrite:
     on_success: Callable[[], None] | None
     on_error: Callable[[str], None] | None
     on_response: Callable[[dict], None] | None = None
+    config: "Config | None" = None
+    error_text: Callable[[Exception], str] = format_error
 
 
 class EngineWriteMixin:
@@ -79,16 +85,34 @@ class EngineWriteMixin:
         on_success: Callable[[], None] | None = None,
         on_error: Callable[[str], None] | None = None,
         on_response: Callable[[dict], None] | None = None,
+        config: "Config | None" = None,
+        error_text: Callable[[Exception], str] = format_error,
     ) -> None:
         """Queue one engine write. `on_response` receives the engine's own body
-        (before `on_success`) for the one caller that needs it: a `complete`
+        (before `on_success`) for the callers that need it: a `complete`
         carries a `warnings` envelope nothing else can reconstruct. Opt-in, so
         the callbackless callsites are untouched — decisions.md "The TUI sees
-        the response body only where it asks for it"."""
+        the response body only where it asks for it".
+
+        `config` sends the write with that engine address and key instead of the
+        saved settings file — the setup screen's, whose settings are not saved
+        until the engine has accepted them. `error_text` turns a failure into
+        the words `on_error` (or the toast) gets; the shared `format_error`
+        unless a screen needs the engine's words without its hints."""
         if self._write_queue is None:
             self._write_queue = deque()
         self._write_queue.append(
-            _QueuedWrite(method, path, json_body, success, on_success, on_error, on_response)
+            _QueuedWrite(
+                method,
+                path,
+                json_body,
+                success,
+                on_success,
+                on_error,
+                on_response,
+                config,
+                error_text,
+            )
         )
         self._pump_writes()
 
@@ -108,7 +132,7 @@ class EngineWriteMixin:
         error: str | None = None
         body: dict | None = None
         try:
-            cfg = config_module.ensure_loaded()
+            cfg = item.config or config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 if item.method == "POST":
                     body = client.post(item.path, json_body=item.json_body)
@@ -119,7 +143,7 @@ class EngineWriteMixin:
                 else:
                     raise ValueError(f"unsupported write method: {item.method}")
         except Exception as exc:
-            error = format_error(exc)
+            error = item.error_text(exc)
         self.app.call_from_thread(self._write_finished, item, error, body)
 
     def _write_finished(

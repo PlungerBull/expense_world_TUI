@@ -287,7 +287,7 @@ def test_bootstrap_undetectable_timezone_notifies_not_crash(fake_client, monkeyp
         app.screen.query_one("#prompt").value = "Alex"
         await pilot.press("enter")  # submit display name → detection fails
         await wait_for(pilot, lambda: notices)
-        assert any("TZ environment variable" in m for m in notices)
+        assert any("System Settings" in m for m in notices)
         assert app.is_running
         assert not fake_client.posts  # nothing was sent to the engine
 

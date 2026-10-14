@@ -289,7 +289,7 @@ class FakeClient:
         return [path for method, path, _ in self.calls if method == "DELETE"]
 
 
-def run_app(body: Callable, *, size: tuple[int, int] | None = None):
+def run_app(body: Callable, *, size: tuple[int, int] | None = None, setup: bool = False):
     """Run `body(pilot, app)` inside a live ExpenseApp and return its result.
 
     Every TUI test needs the same four lines — an app, `run_test`, a pilot, and
@@ -302,6 +302,10 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None):
     Textual's rather than a number this helper invented. A screen that depends
     on a viewport says so at its own call site.
 
+    `setup=True` opens the app on its setup screen, as `run_world` does when
+    there is no settings file it can use. The default is Home, whatever the
+    (hermetic, missing) config file says, so a screen test never has to write one.
+
     The ExpenseApp import is function-local: this module stays free of Textual
     at import time so the CLI command tests do not pay for it (see the module
     docstring).
@@ -309,7 +313,7 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None):
     from expense.tui.app import ExpenseApp
 
     async def scenario():
-        app = ExpenseApp()
+        app = ExpenseApp(setup=setup)
         async with app.run_test(**(dict(size=size) if size else {})) as pilot:
             return await body(pilot, app)
 

@@ -2,15 +2,11 @@
 the rest of the import suite mocks read_workbook.
 """
 
-import sys
-
+import openpyxl
 import pytest
 
-openpyxl = pytest.importorskip("openpyxl")
-
-from expense.import_.parse import parse_sheet  # noqa: E402
-from expense.import_.reader import (  # noqa: E402
-    ImportDependencyError,
+from expense.import_.parse import parse_sheet
+from expense.import_.reader import (
     ImportFileError,
     read_workbook,
 )
@@ -101,9 +97,3 @@ def test_unreadable_file(tmp_path):
     path.write_text("this is not a zip archive")
     with pytest.raises(ImportFileError, match="Could not open"):
         read_workbook(str(path))
-
-
-def test_openpyxl_missing_raises_dependency_error(tmp_path, monkeypatch):
-    monkeypatch.setitem(sys.modules, "openpyxl", None)  # import → ImportError
-    with pytest.raises(ImportDependencyError, match="pip install openpyxl"):
-        read_workbook(str(tmp_path / "any.xlsx"))

@@ -49,8 +49,8 @@ def detect_timezone(localtime: Path = Path("/etc/localtime")) -> str:
     """Best-effort IANA zone detection: $TZ if valid, else /etc/localtime.
 
     Neutral error on failure so each surface picks its own remedy: the CLI
-    wraps it into BadParameter ("pass --timezone"), the TUI notifies with the
-    TZ-env hint instead of crashing the app.
+    wraps it into BadParameter ("pass --timezone"), the TUI's setup screen asks
+    for the zone, and Auth & profile notifies instead of crashing the app.
     """
     tz_env = os.environ.get("TZ")
     if tz_env:

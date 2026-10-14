@@ -59,4 +59,4 @@ def test_ping_without_config_errors_cleanly(tmp_path, monkeypatch):
     monkeypatch.setenv("EXPENSE_CONFIG", str(config_path))
     result = runner.invoke(cli_app, ["ping"])
     assert result.exit_code == 3
-    assert "config set" in result.output
+    assert "setup screen" in result.output

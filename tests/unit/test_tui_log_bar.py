@@ -818,7 +818,7 @@ def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
                 "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
                 "\n"
                 "Hint: First-time setup is not done yet. "
-                "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.",
+                "Open System ▸ Auth & profile and press b.",
             ),
             ("Failed", "Some rows were not written."),
         ]

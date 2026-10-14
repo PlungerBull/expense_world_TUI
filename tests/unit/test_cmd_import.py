@@ -904,18 +904,6 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
     assert "pre-flight" in result.output  # the dependent row was skipped
 
 
-def test_missing_openpyxl_friendly_error(configured, monkeypatch):
-    def boom(path, **k):
-        from expense.import_.reader import ImportDependencyError
-
-        raise ImportDependencyError("openpyxl is required for `expense import`.")
-
-    monkeypatch.setattr(import_cmd, "read_workbook", boom)
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
-    assert result.exit_code == 1
-    assert "openpyxl" in result.output
-
-
 # ---------------------------------------------------------------------------
 # Before first-time setup
 # ---------------------------------------------------------------------------
@@ -934,7 +922,7 @@ _SETTINGS_MISSING_HUMAN = (
     "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
     "\n"
     "Hint: First-time setup is not done yet. "
-    "Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.\n"
+    "Open System ▸ Auth & profile and press b.\n"
 )
 
 

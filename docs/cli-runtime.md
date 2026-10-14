@@ -8,6 +8,12 @@ The CLI holds no business logic and **no local state beyond `~/.expense-config`*
 
 Everything here applies equally to the TUI (`expense world`) and the importers (`expense import`): they are clients of the same HTTP client and `fetch_*` functions, not separate runtimes.
 
+## The settings file and a fresh start
+
+The engine address and key live in the settings file, `~/.expense-config` (or the path `EXPENSE_CONFIG` names; its fields are in [cli-spec.md](cli-spec.md)). [expense/config.py](../expense/config.py) is its one reader and writer: `save` writes a temp file beside it, sets it to chmod 600 and moves it into place.
+
+**A fresh start needs no command.** When the app opens and there is no settings file it can use — none at all, or one that cannot be read (damaged or half-written JSON, a body that is not a config, bytes that are not text, a path it may not read: `config.load_usable`) — it opens on its setup screen, which asks for the engine address (offered as the local engine's, `http://127.0.0.1:8000`) and the key, and for a name when the engine has no profile for that key ([tui.md](tui.md) §2 "Setup comes first"). Nothing is written until the engine has accepted the address and key and the profile exists; then the file is saved, replacing a damaged one. A command that finds no usable file stops with a message pointing at the app's setup screen.
+
 ## Read semantics
 
 Every read command is a direct `GET`. What a command prints is what the engine computed at that moment, including home-currency figures (converted engine-side at read time).
@@ -44,8 +50,10 @@ The engine's `{ error: { code, message, fields, reasons } }` envelope is rendere
 
 Two hints belong to no single command and live in the shared error text, `format_error` in [expense/errors.py](../expense/errors.py), which the CLI's human output and the TUI's toasts and banners print. Every command, and every screen that reports an engine error through that text, shows them after a blank line under the engine's code, message and fields; the TUI bank import shows them in its toast, its on-screen refusal being the code, the message and the refused rows:
 
-- **A `401`** — the token is missing or invalid: `expense config set --token <pat>`, or `expense auth bootstrap` for an account not yet provisioned.
-- **`SETTINGS_MISSING`** — the user's settings do not exist yet (contract: "Error codes"). Both rate reads list it among the codes they can return (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history). Matched on the error code alone: `Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b, or run 'expense auth bootstrap'.`
+- **A `401`** — the key is missing or not valid: `Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t).`
+- **`SETTINGS_MISSING`** — the user's settings do not exist yet (contract: "Error codes"). Both rate reads list it among the codes they can return (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history). Matched on the error code alone: `Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.`
+
+Every remedy the shared text gives points at a screen of the app, never at a typed command (guard: `test_no_message_in_the_app_tells_the_owner_to_type_a_command` in [tests/unit/test_tui_setup.py](../tests/unit/test_tui_setup.py)).
 
 Neither reaches `--json`, which stays the engine's body. The TUI's launch-time rate check shows nothing on any engine error, this one included.
 
