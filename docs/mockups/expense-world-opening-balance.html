@@ -29,6 +29,8 @@
   .pane{margin-top:42px}
   .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
   .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .lbl .new{color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:1px 6px;margin-left:8px;
+            font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
   .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
   .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
   .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
@@ -42,13 +44,9 @@
   .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
   .rev{background:var(--text);color:var(--pad)}
   .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
-  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media (max-width:980px){.opt{grid-template-columns:1fr}}
   .var{margin-top:18px}
   .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
   .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
-  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
-           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
   .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
   .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
         color:var(--muted);font-size:13px;line-height:1.8}
@@ -59,36 +57,38 @@
 
 <div class="head">
   <h1>Set an account's opening balance, from the app</h1>
-  <p>Today an account's starting balance can only be set with a typed command (or by the spreadsheet import). These screens put it in the app, on the account's own screen.</p>
-  <p>Screens 1, 3 and 6 each have a choice to make, with both options drawn and the recommended one marked. Screens 2, 4 and 5 have no choice. Nothing is built until you pick. The accounts and amounts are invented.</p>
+  <p>An opening balance is what an account already held on the day you started tracking it. It lives on the account's own Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) as two more lines after the colour: the amount and its date.</p>
+  <p>This page is your picks drawn out, for you to confirm before anything is built. Screen 6 is new: you have not seen it before. The accounts and amounts are invented.</p>
 </div>
 
 <div class="pane">
-<div class="lbl">1 · Where it lives <span>— its own key, or two more lines on the Edit form</span></div>
-<p class="blurb">An opening balance is what an account already held on the day you started tracking it. The app has no screen for one account alone, so the account's screen is the <b>Manage ▸ Accounts</b> list, with the cursor on the account.</p>
-<div class="var"><div class="oh">A · <span>its own key, o, on the Accounts list</span><span class="rec">recommended</span></div>
+<div class="lbl">1 · An account with no opening balance <span>— e on the Accounts list</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
-
-    Name                        Type      Cur    Color        Balance   Status
-    <span class="d">────────────────────────────────────────────────────────────────────────────</span>
-    Sueldo Soles                bank      PEN    <span class="s1">██</span>         <span class="p">12,450.00</span>   active
-    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>         <span class="p">   820.15</span>   active
-    <span class="rev">Efectivo                    bank      PEN    —               0.00   active  </span>
-    Prueba                      bank      PEN    <span class="s4">██</span>              0.00   active
-    Eliana                      person    PEN    —          <span class="n">  -150.00</span>   active
-    <span class="d">Ahorro viejo                bank      PEN    ██              0.00   archived</span>
+   <span class="b">NAME            </span>Efectivo<span class="a">▍</span>
 
 
-  <span class="d">balances are native currency</span>
+   <span class="d">enter to save</span>
 
- <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">o</span> Opening</pre></div></div>
-<p class="cap"><code>o Opening</code> joins the footer and opens a small form for the account under the cursor (screen 2). <code>o</code> means nothing else on this screen. <b>Recommended:</b> one job, one key, one save. If the engine refuses, nothing else was touched. (<code>d Delete</code> from the delete drawings would sit beside it; it is left out here so this page stands on its own.)</p></div>
-<div class="var"><div class="oh">B · <span>two more lines on the account's Edit form (e)</span></div>
+
+
+   <span class="d">type      bank  read-only</span>
+   <span class="b">name      </span>Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   opening   <span class="d">—  (optional)</span>
+   as of     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The Edit form you know, with <b>opening</b> and <b>as of</b> added at the bottom, both empty. Leave them empty and the form saves the account exactly as it does now.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">2 · Typing the amount, then the date</div>
+<div class="var"><div class="oh"><span>the amount</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
 
@@ -97,137 +97,224 @@
    <span class="b">OPENING         </span>350.00<span class="a">▍</span>
 
 
-   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · optional</span>
+   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional</span>
 
 
 
-   <span class="d">type      </span><span class="d">bank  read-only</span>
-   <span class="d">name      </span>Efectivo
-   <span class="d">currency  </span><span class="d">PEN  read-only</span>
-   <span class="d">color     </span>—<span class="d">  (optional)</span>
-   <span class="d">opening   </span>—<span class="d">  (optional)</span>
-   <span class="d">as of     </span>—<span class="d">  (optional)</span>
+   <span class="d">type      bank  read-only</span>
+   name      Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   <span class="b">opening   </span><span class="d">—  (optional)</span>
+   as of     <span class="d">—  (optional)</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><code>e</code> as today, with <b>opening</b> and its date as two more questions after the colour. Everything about the account is in one place, but one <code>^s</code> then makes two saves: the name can go through while the opening balance is refused, and the form has to explain which half failed.</p></div>
-</div>
-<div class="pane">
-<div class="lbl">2 · The form <span>— drawn for 1 A; the amount</span></div>
-<p class="blurb">The house form: one question at a time, the answers listed under it, <code>⏎</code> to move on, <code>^s</code> to save, <code>esc</code> to leave without saving. <b>The amount is taken exactly as typed.</b> The app never adds or flips a sign: <code>350.00</code> is 350.00 you have, <code>-350.00</code> is 350.00 you owe (a card's starting debt). The account's currency is shown so there is no doubt what the number is in.</p>
+<p class="cap">The amount is taken exactly as typed, in the account's currency: the app never adds or flips a sign.</p></div>
+<div class="var"><div class="oh"><span>the date</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Opening balance</span>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">AMOUNT          </span>350.00<span class="a">▍</span>
-
-
-   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · in PEN</span>
-
-
-
-   <span class="d">account  </span><span class="d">Efectivo · PEN  read-only</span>
-   <span class="d">amount   </span>—<span class="d">  *</span>
-   <span class="d">date     </span>—<span class="d">  *</span>
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-</div>
-<div class="pane">
-<div class="lbl">3 · The date question <span>— empty, or already filled with today</span></div>
-<p class="blurb">The second question is the day the balance was true. Every later row on the account is counted on top of it.</p>
-<div class="opt">
-<div class="var"><div class="oh">A · <span>empty: you type the day</span><span class="rec">recommended</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Efectivo  ▸  <span class="b">Opening balance</span>
-
-<span class="d">────────────────────────────────────────────────────────</span>
-
-   <span class="b">DATE            </span><span class="a">▍</span>
+   <span class="b">AS OF           </span><span class="a">▍</span>
 
 
    <span class="d">YYYY-MM-DD · the day the account held this</span>
 
 
 
-   <span class="d">account  </span><span class="d">Efectivo · PEN  read-only</span>
-   <span class="d">amount   </span>350.00
-   <span class="d">date     </span>—<span class="d">  *</span>
+   <span class="d">type      bank  read-only</span>
+   name      Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   opening   350.00
+   <span class="b">as of     </span><span class="d">—  *</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">Nothing is assumed. <b>Recommended:</b> an opening balance is almost never dated today (it is the day your records start), and a wrong day you did not choose is easy to miss.</p></div>
-<div class="var"><div class="oh">B · <span>filled with today</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Efectivo  ▸  <span class="b">Opening balance</span>
-
-<span class="d">────────────────────────────────────────────────────────</span>
-
-   <span class="b">DATE            </span>2026-10-13<span class="a">▍</span>
-
-
-   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
-
-
-
-   <span class="d">account  </span><span class="d">Efectivo · PEN  read-only</span>
-   <span class="d">amount   </span>350.00
-   <span class="d">date     </span>2026-10-13
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><code>⏎</code> accepts today, as the transaction edit form does with a row's own date. One keystroke less when today is right.</p></div>
+<p class="cap">The date starts empty; you type the day. Once there is an amount, its date is needed (the star).</p></div>
 </div>
-<p class="cap">The path at the top of these two is shortened to fit side by side; on screen it reads as on screen 2.</p>
-</div>
+
 <div class="pane">
-<div class="lbl">4 · When the engine says no <span>— one drawing each, no choice to make</span></div>
-<p class="blurb">A refusal shows the way every failed save in the app does: a note in the bottom-right corner whose first lines are the engine's own answer. Nothing is saved, and the form stays open with what you typed so you can correct it. (The engine's exact words are stand-ins in these drawings until they are read from the engine.)</p>
-<div class="var"><div class="oh"><span>a day the engine will not accept</span></div>
+<div class="lbl">3 · An account that already has one</div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  <span class="b">Opening balance</span>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">DATE            </span>2026-03-20<span class="a">▍</span>
+   <span class="b">NAME            </span>Sueldo Soles<span class="a">▍</span>
+
+
+   <span class="d">enter to save</span>
+
+
+
+   <span class="d">type      bank  read-only</span>
+   <span class="b">name      </span>Sueldo Soles
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="s1">██</span> blue
+   opening   3,200.00
+   as of     2026-01-01
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The form opens with the amount and date already set. Change either and save, and the opening balance changes.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">4 · Emptying the amount and saving</div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   AS OF           2026-01-01</span>
+<span class="d">                </span><span class="a">────────────────────────────────────────────────────</span>
+<span class="d">                </span>
+<span class="d">   YYYY-MM-DD ·</span>   <span class="ab">Delete this opening balance?</span>
+<span class="d">                </span>
+<span class="d">                </span>  Sueldo Soles · 3,200.00 · 2026-01-01
+<span class="d">                </span>  It leaves the account's balance, and no screen
+<span class="d">   type      ba</span>   can bring it back.
+<span class="d">   name      Su</span>   <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+<span class="d">   currency  PE</span>
+<span class="d">   color     ██</span> <span class="a">────────────────────────────────────────────────────</span>
+<span class="d">   opening   —  (optional)</span>
+<span class="d">   as of     2026-01-01</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">Empty the amount and save, and the app asks first, over the form. Only <code>y</code> deletes it (and saves any other change on the form); <code>enter</code>, <code>n</code> and <code>esc</code> go back to the form with nothing saved.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">5 · A person's Edit form</div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
+
+
+   <span class="d">enter to save</span>
+
+
+
+   <span class="d">type      person  read-only</span>
+   <span class="b">name      </span>Eliana
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">A person has no opening balance (what you owe each other comes only from the rows you record), so the two lines are not there.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">6 · The account saves, the opening balance is refused <span class="new">new · not seen before</span></div>
+<p class="blurb">One save can do two things: save the account's own changes, and set the opening balance. Here the colour was changed to green and an opening balance was typed with a date the engine will not take.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">AS OF           </span>2026-11-01<span class="a">▍</span>
 
 
    <span class="d">YYYY-MM-DD · the day the account held this</span>
 
 
 
-   <span class="d">account  </span><span class="d">Sueldo Soles · PEN  read-only</span>
-   <span class="d">amount   </span>12450.00
-   <span class="d">date     </span>2026-03-20
-
-                                 <span class="n">▌</span> <span class="b">Failed</span>
-                                 <span class="n">▌</span> VALIDATION_ERROR — Invalid input.
-                                 <span class="n">▌</span>   date: falls inside a completed reconciliation
+   <span class="d">type      bank  read-only</span>
+   name      Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="s2">██</span> green
+   opening   350.00
+   <span class="b">as of     </span>2026-11-01
+                         <span class="n">▌</span> <span class="b">Failed</span>
+                         <span class="n">▌</span> The account's changes are saved. The opening
+                         <span class="n">▌</span> balance is not:
+                         <span class="n">▌</span> FUTURE_DATE — Date cannot be in the future.
+                         <span class="n">▌</span>
+                         <span class="n">▌</span> It is still in the form: fix it and save again.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">Here the day falls inside a reconciliation that is already completed, which locks its period. Change the day and save again.</p></div>
-<div class="var"><div class="oh"><span>o on a person</span></div>
+<p class="cap">The note says which half went through (the green colour is saved) and which was refused, in the engine's words. The form stays open on the refused line with what you typed, so you fix the date and save again; that second save sends only the opening balance. <code>esc</code> leaves with the account saved and no opening balance. (The engine's words are stand-ins until read from the engine.)</p>
+</div>
+
+<div class="pane">
+<div class="lbl">7 · When the engine says no</div>
+<p class="blurb">The way every failed save in the app shows: a note in the bottom-right corner in the engine's own words. Nothing is saved and the form stays open with what you typed. The words below are stand-ins until they are read from the engine.</p>
+<div class="var"><div class="oh"><span>a date in the future</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Opening balance</span>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">DATE            </span>2026-01-01<span class="a">▍</span>
+   <span class="b">AS OF           </span>2026-11-01<span class="a">▍</span>
 
 
    <span class="d">YYYY-MM-DD · the day the account held this</span>
 
 
 
-   <span class="d">account  </span><span class="d">Eliana · PEN  read-only</span>
-   <span class="d">amount   </span>-150.00
-   <span class="d">date     </span>2026-01-01
-
-                              <span class="n">▌</span> <span class="b">Failed</span>
-                              <span class="n">▌</span> VALIDATION_ERROR — Invalid input.
-                              <span class="n">▌</span>   account: a person cannot have an opening balance
+   <span class="d">type      bank  read-only</span>
+   name      Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   opening   350.00
+   <span class="b">as of     </span>2026-11-01
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> FUTURE_DATE — Date cannot be in the future.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">A person's balance is a debt, built only from the rows you record, so the engine refuses to give one a starting figure. <code>o</code> opens the form on any row and the engine answers on save; the app does not decide for it.</p></div>
+<p class="cap">The day has not happened yet. Type a past day and save again.</p></div>
+<div class="var"><div class="oh"><span>a zero amount</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">AS OF           </span>2026-01-01<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · the day the account held this</span>
+
+
+
+   <span class="d">type      bank  read-only</span>
+   name      Efectivo
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   opening   0.00
+   <span class="b">as of     </span>2026-01-01
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> ZERO_AMOUNT — Amount cannot be zero.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">An opening balance of nothing is refused. To have none, leave the amount empty instead.</p></div>
+<div class="var"><div class="oh"><span>a date inside a sealed period</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">AS OF           </span>2026-03-20<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · the day the account held this</span>
+
+
+
+   <span class="d">type      bank  read-only</span>
+   name      Sueldo Soles
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="s1">██</span> blue
+   opening   3,200.00
+   <span class="b">as of     </span>2026-03-20
+                       <span class="n">▌</span> <span class="b">Failed</span>
+                       <span class="n">▌</span> SEALED_PERIOD — Date falls in a sealed period:
+                       <span class="n">▌</span> Marzo 2026 (2026-03-01 to 2026-03-31).
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The day falls in a period that is already closed, and the engine names which one. Pick a day outside it and save again.</p></div>
 </div>
+
 <div class="pane">
-<div class="lbl">5 · After it is set <span>— one drawing, no choice to make</span></div>
-<p class="blurb">The form closes and the Accounts list is read again from the engine: first page, cursor on the first row, and the account's balance now includes the opening figure (Efectivo, 0.00 → 350.00). The opening balance is kept as one row in the ledger under the built-in category <code>@Opening</code>: it counts in the account's balance and is left out of the monthly income and spending on Home, because it is not money that moved. No column is added to this list.</p>
+<div class="lbl">8 · After a successful save</div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
 
@@ -246,60 +333,13 @@
 
 
   <span class="d">balances are native currency</span>
-                                                            <span class="a">▌</span> Opening balance set.
- <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">o</span> Opening</pre></div></div>
-</div>
-<div class="pane">
-<div class="lbl">6 · If the account already has one <span>— the engine keeps one per account</span></div>
-<p class="blurb">An account has at most one opening balance. Pressing <code>o</code> on an account that already has one can go two ways.</p>
-<div class="var"><div class="oh">A · <span>the empty form opens, and the engine refuses the save</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Opening balance</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">DATE            </span>2026-01-01<span class="a">▍</span>
-
-
-   <span class="d">YYYY-MM-DD · the day the account held this</span>
-
-
-
-   <span class="d">account  </span><span class="d">Efectivo · PEN  read-only</span>
-   <span class="d">amount   </span>500.00
-   <span class="d">date     </span>2026-01-01
-
-                         <span class="n">▌</span> <span class="b">Failed</span>
-                         <span class="n">▌</span> CONFLICT — This account already has an opening balance.
-                         <span class="n">▌</span> 
-                         <span class="n">▌</span> It is a row in the ledger under @Opening.
-                         <span class="n">▌</span> Change or delete it there.
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><code>o</code> always opens the empty form of screen 2. Saving a second one is refused in the engine's words, with one line of the app's own saying where the existing one is: a row in the ledger you change or delete like any other. It works with the engine as it is today, but you find out only after filling the form in.</p></div>
-<div class="var"><div class="oh">B · <span>the form opens with the one you set, to change it</span><span class="rec">recommended</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Efectivo  ▸  <span class="b">Opening balance</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">AMOUNT          </span>350.00<span class="a">▍</span>
-
-
-   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · in PEN</span>
-   <span class="d">already set · saving changes it</span>
-
-
-
-   <span class="d">account  </span><span class="d">Efectivo · PEN  read-only</span>
-   <span class="d">amount   </span>350.00
-   <span class="d">date     </span>2026-01-01
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><code>o</code> opens the same form already holding the amount and day you set, with a grey line saying so; saving changes it. Set and change are one key and you never meet a refusal. <b>Recommended.</b> For this the app has to learn from the engine which ledger row is the account's opening balance; if the engine cannot say so today, that is asked of the engine coders first and A is what can be built in the meantime.</p></div>
+                                                                       <span class="a">▌</span> Saved.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The form closes and the list is read fresh: first page, cursor on the first row, and Efectivo's balance now includes its opening figure (0.00 → 350.00). No column is added to the list.</p>
 </div>
 
 <div class="pick">
-<b>To answer:</b> one letter for each of screen 1 (A or B), screen 3 (A or B) and screen 6 (A or B).<br><b>Recommended:</b> 1 A · 3 A · 6 B.
+<b>To answer:</b> does this match what you picked? Yes, or say which screen to change. Screen 6 is the one you have not seen before.
 </div>
 
 </body>
