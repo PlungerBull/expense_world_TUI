@@ -5,14 +5,16 @@ accounts (archived rows dimmed); the Color column renders the account's hex
 color as a swatch. Balances are native currency — no surface converts an
 account balance to the home currency (see `dashboard_cmd._render_account_table`
 for why). `n` creates; `e` edits the cursor row (prefilled
-EditAccountScreen); `a` toggles archive immediately — a second `a` undoes.
-`enter` does nothing.
+EditAccountScreen); `a` toggles archive immediately — a second `a` undoes;
+`d` deletes the cursor row after a question (`a` puts an account away, `d` is
+for one made by mistake). `enter` does nothing.
 """
 
 from textual.binding import Binding
 
 from expense import reads
-from expense.tui.screens._base import ResourceListScreen
+from expense.formatting import format_cents
+from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, swatch
 
@@ -50,10 +52,27 @@ class AccountsScreen(ResourceListScreen):
     BINDINGS = [
         *ResourceListScreen.BINDINGS,
         Binding("a", "archive", "Archive", tooltip="Archive / unarchive"),
+        DELETE_KEY,
     ]
 
     def fetch_items(self, cfg, **kw):
         return reads.fetch_accounts(cfg, include_archived=True, include_people=True, **kw)
+
+    def delete_question(self, item: dict) -> tuple[str, str, str]:
+        kind = "person" if item.get("is_person") else "bank"
+        row = " · ".join(
+            [
+                item.get("name") or "(unnamed)",
+                kind,
+                item.get("currency_code") or "?",
+                format_cents(item.get("current_balance_cents")),
+            ]
+        )
+        return (
+            "Delete this account?",
+            f"{row}\nIt is for an account made by mistake: no screen can bring it back.",
+            "Account deleted.",
+        )
 
     def action_archive(self) -> None:
         if self._toggle_busy:

@@ -35,7 +35,7 @@ expense/tui/
     picker.py       # suggestion_list() — the scrolling name list both quick-add
                     #   surfaces drop under their input
   screens/
-    _base.py        # EngineWriteMixin.run_write + SectionScreen (fetch workers, confirm, keymap)
+    _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
     _growing.py     # GrowingRead — a list that grows by cursor (ledger, "no batch" pane)
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
@@ -228,9 +228,9 @@ are replaced by its transactions belonging to no reconciliation
 (`GET /transactions?account_id=&unreconciled=true`). `u` works only while an account's
 panel is open — on the plain account list it does nothing and is not in the footer.
 `esc` swaps it back to the panel, `⏎ Edit` opens the ledger's edit form (date and account
-are the two remedies for a row in no batch), and `d` deletes the cursor row after a
-confirm. It is deliberately not a filtered ledger: reconciliation work stays in the
-reconciliation view.
+are the two remedies for a row in no batch), and `d` deletes the cursor row after the
+ledger's own question ("`d` is the TUI's one destructive key" below). It is deliberately
+not a filtered ledger: reconciliation work stays in the reconciliation view.
 
 The pane **lands on the oldest rows** — old orphans are the problem — so it reads with
 `sort=date_asc`, ten rows at a time, growing like the ledger (§5). The caption's
@@ -280,8 +280,53 @@ unchanged when the drop is imported.
 and unwritten, and Home reads afresh: this month's window, every category folded, the
 cursor on the first category (`HomeScreen.start_fresh`).
 
-**`d` is the TUI's one destructive key.** Cursor row only, never a selection, and the
-confirm says the part that matters: **no screen or command can bring the row back.**
+**`d` is the TUI's one destructive key** (screens in
+[expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
+the cursor on Manage ▸ Accounts, Categories and Hashtags, on the ledger (whole or filtered
+from Home) and in the reconciliation's "no batch" pane, always as the last entry of the
+screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
+of the footer, while rows are selected (`esc` clears the selection and it is back) and
+while a bulk write runs. On an
+empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
+away and can be undone, delete is for something made by mistake.
+
+Every delete asks first with `ConfirmModal` (only `y` deletes; `⏎`, `n` and `esc` cancel
+and send nothing). The question names the row, then says the part that matters: **no
+screen can bring it back.**
+
+| Screen | Question | Body | Note after |
+|---|---|---|---|
+| Accounts | `Delete this account?` | `Prueba · bank · PEN · 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
+| Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
+| Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it. No screen can bring it back.` | `Hashtag deleted.` |
+| Ledger, "no batch" pane | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
+
+`y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
+key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
+Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
+page, the ledger's newest ten, the pane's oldest ten. The hashtag question names the
+cascade because the engine never refuses that delete for being in use; it takes the tag
+off every transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}).
+
+**A refused delete** leaves the row and the list as they were and shows the "Failed" note:
+the engine's own `CODE — message`, then a blank line and one line saying what to do
+instead. `d` stays live on the system categories so the engine's refusal is what you see.
+
+| Refusal | The line under it |
+|---|---|
+| an account with transactions, `409` (contract: DELETE /v1/accounts/{account_id}) | `To retire it instead, archive it: press a.` |
+| a category in use, `409` (contract: DELETE /v1/categories/{category_id}) | `Move its transactions to another category first.` |
+| a system category, `403` (contract: DELETE /v1/categories/{category_id}) | `System categories can be renamed but not deleted.` |
+| a transaction in a completed reconciliation, `409` (contract: DELETE /v1/transactions/{transaction_id}) | none: the engine's message already says to revert the reconciliation to draft first |
+
+None of these refusals carries a `reasons` value, so the line is chosen by the route and
+the HTTP status, never by the engine's wording —
+[decisions.md](decisions.md) "Hints are chosen by the engine's reasons, never its wording".
+The choice lives in one table,
+`DELETE_REFUSAL_HINTS` in [_base.py](../expense/tui/screens/_base.py), which switches to
+reasons once [delete-refusal-reasons.md](engine-asks/delete-refusal-reasons.md) lands.
+Any other failure reads as every failed write does (`format_error`).
 
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").
@@ -403,10 +448,11 @@ them — they are hand-written into the `?` card
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
 rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` open the
 picker for category / account / hashtags, `esc` clears the selection if there is one,
-else goes back to the screen that opened the ledger. `space` is declared on `CursorList`
-but is live — key and footer both — only on a screen that handles `CursorList.Toggled`,
-the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open` goes through on the `?` card, so the Manage
-lists neither react to it nor advertise it.
+else goes back to the screen that opened the ledger. `d` never follows the selection: it
+is off while one exists, and while a bulk write runs (§2 "`d` is the TUI's one destructive
+key"). `space` is declared on `CursorList` but is live — key and footer both — only on a
+screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open`
+goes through on the `?` card, so the Manage lists neither react to it nor advertise it.
 
 **`pgdn` means "more of this list", in three ways.** In the two growing lists, the ledger
 and the "no batch" pane, it appends the next 10 rows by cursor and puts the cursor on the

@@ -659,6 +659,11 @@ def test_confirm_modal_enter_cancels(fake_client, monkeypatch):
         await _wait_list(screen, pilot)
         await pilot.press("d")  # delete → confirm modal
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete reconciliation?"
+        assert app.screen._message == (
+            "Detaches its transactions and removes the batch. Its transactions stay. "
+            "No screen can bring it back."
+        )
         await pilot.press("enter")
         await wait_for(pilot, lambda: app.screen is screen)  # modal gone
         await pilot.pause()  # let the cancel settle, then assert a non-event

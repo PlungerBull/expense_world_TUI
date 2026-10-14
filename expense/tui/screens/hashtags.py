@@ -3,11 +3,13 @@
 A plain name list, consistent with the other list screens, rather than
 chips with usage counts — those would need engine support the list endpoint
 doesn't provide. `n` creates; `e` renames the cursor row (prefilled
-EditHashtagScreen). `enter` does nothing. Only accounts archive.
+EditHashtagScreen); `d` deletes the cursor row after a question that says
+it is also taken off every transaction carrying it. `enter` does nothing. Only
+accounts archive.
 """
 
 from expense import reads
-from expense.tui.screens._base import ResourceListScreen
+from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
 
 _HEADERS = ["Name"]
 
@@ -28,6 +30,7 @@ class HashtagsScreen(ResourceListScreen):
     HEADERS = _HEADERS
     EMPTY = "(no hashtags)"
     RESOURCE = "hashtags"
+    BINDINGS = [DELETE_KEY]
 
     def fetch_items(self, cfg, **kw):
         # The engine returns every row; the 20-row window pages
@@ -36,6 +39,18 @@ class HashtagsScreen(ResourceListScreen):
 
     def rows(self, items: list) -> list:
         return hashtag_rows(items)
+
+    def delete_question(self, item: dict) -> tuple[str, str, str]:
+        # The engine never refuses this delete for being in use: it takes the
+        # tag off every transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}),
+        # so the question says so.
+        name = "#" + (item.get("name") or "(unnamed)").lstrip("#")
+        return (
+            "Delete this hashtag?",
+            f"{name}\nIt is also taken off every transaction that carries it. "
+            "No screen can bring it back.",
+            "Hashtag deleted.",
+        )
 
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditHashtagScreen

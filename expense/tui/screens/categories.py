@@ -1,14 +1,16 @@
 """Categories screen — spending buckets.
 
 Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
-(prefilled EditCategoryScreen). `enter` does nothing. System categories
-can be renamed/recolored (the engine keys them by `system_key`, not name)
-but cannot be deleted; the legend is the CLI's delete hint,
-`formatting.SYSTEM_HINT`. Only accounts archive.
+(prefilled EditCategoryScreen); `d` deletes the cursor row after a question.
+`enter` does nothing. System categories can be renamed/recolored (the engine
+keys them by `system_key`, not name) but cannot be deleted; the legend is the
+delete hint, `formatting.SYSTEM_HINT`. `d` stays live on them: the engine
+refuses, and its refusal shows (`_base.DELETE_REFUSAL_HINTS`). Only accounts
+archive.
 """
 
 from expense import formatting, reads
-from expense.tui.screens._base import ResourceListScreen
+from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
 from expense.tui.widgets.cells import swatch
 
 _HEADERS = ["Color", "Name", "System"]
@@ -35,6 +37,7 @@ class CategoriesScreen(ResourceListScreen):
     EMPTY = "(no categories)"
     LEGEND = formatting.SYSTEM_HINT
     RESOURCE = "categories"
+    BINDINGS = [DELETE_KEY]
 
     def fetch_items(self, cfg, **kw):
         # The engine returns every row; the 20-row window pages
@@ -43,6 +46,14 @@ class CategoriesScreen(ResourceListScreen):
 
     def rows(self, items: list) -> list:
         return category_rows(items)
+
+    def delete_question(self, item: dict) -> tuple[str, str, str]:
+        return (
+            "Delete this category?",
+            f"{item.get('name') or '(unnamed)'}\n"
+            "It is for a category made by mistake: no screen can bring it back.",
+            "Category deleted.",
+        )
 
     def edit_screen(self, item: dict):
         from expense.tui.screens.create_forms import EditCategoryScreen

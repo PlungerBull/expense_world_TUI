@@ -224,6 +224,7 @@ def test_accounts_card_matches_the_approved_layout(monkeypatch):
             "New",
             "Edit",
             "Archive / unarchive",
+            "Delete",
             "Refresh",
             "Back",
         ]

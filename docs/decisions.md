@@ -329,7 +329,7 @@ the bar is where the right file gets dropped next.
 
 **Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's rows in no reconciliation, oldest first; `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals collapse to one line per distinct engine message** (`rows 1, 2, 3: <message>`).
 
-**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *A delete key on the ledger* — the pane scopes it to rows being triaged. *Parsing the period name out of refusals to group them* — the whole message groups them without reading prose.
+**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *Parsing the period name out of refusals to group them* — the whole message groups them without reading prose.
 
 ## The transaction list pages by cursor (2026-09-23)
 

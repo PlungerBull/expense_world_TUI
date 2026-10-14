@@ -794,6 +794,11 @@ def test_d_deletes_the_cursor_row_after_a_confirm(monkeypatch, fake_client):
         await _open_unfiled(pilot, app)
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this transaction?"
+        # the ledger's question, word for word (`transaction_delete_message`)
+        assert app.screen._message.endswith(
+            "\nIt leaves every balance and report, and no screen can bring it back."
+        )
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.deletes)
         assert fake_client.deletes == ["/transactions/t1"]  # the cursor row, oldest first

@@ -27,9 +27,11 @@ from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
-from expense.errors import format_error
+from expense.errors import EngineError, engine_words, format_error
+from expense.formatting import SYSTEM_HINT, format_cents
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.header import Breadcrumb
 
 if TYPE_CHECKING:
@@ -172,6 +174,98 @@ class EngineWriteMixin:
 
     def _after_write(self, message: str) -> None:
         self.notify(message)
+
+    def confirm_delete(
+        self,
+        resource: str,
+        record_id: object,
+        title: str,
+        message: str,
+        *,
+        done: str,
+        after: Callable[[], None] | None = None,
+    ) -> None:
+        """`d` on a row: ask with `ConfirmModal` (only `y` deletes), then send
+        `DELETE /{resource}/{id}` through `run_write` — the client's idempotency
+        key and error envelope with it. Any other answer sends nothing.
+
+        Deleted, the screen notifies `done` and reloads: through `_after_write`
+        by default, or `after` for a list that reloads its own way. Refused, the
+        "Failed" note carries the engine's words and, for the refusals that have
+        one, the line saying what to do instead (`delete_refusal_text`)."""
+
+        def answered(ok: bool | None) -> None:
+            if not ok:
+                return
+            on_success = None
+            if after is not None:
+
+                def on_success() -> None:
+                    self.notify(done)
+                    after()
+
+            self.run_write(
+                "DELETE",
+                f"/{resource}/{record_id}",
+                success=done,
+                on_success=on_success,
+                error_text=delete_refusal_text(resource),
+            )
+
+        self.app.push_screen(ConfirmModal(title, message), answered)
+
+
+#: The one line under a refused delete saying what to do instead, keyed by the
+#: route's collection and the HTTP status. None of these refusals carries a
+#: `reasons` value, so the status and the route choose the line, never the
+#: engine's wording — docs/decisions.md
+#: "Hints are chosen by the engine's reasons, never its wording".
+#: Once the engine ask "Give every business refusal of a delete or an opening
+#: balance a machine-readable reason" (docs/engine-asks/delete-refusal-reasons.md)
+#: lands, this table is keyed on the reason instead. This client mints a fresh
+#: idempotency key per delete, so its 409s are never a key reused with another
+#: request (contract: "Error codes").
+#:
+#: - An account with transactions is refused 409 (contract: DELETE /v1/accounts/{account_id}).
+#: - A category a transaction uses is refused 409, a system category 403
+#:   (contract: DELETE /v1/categories/{category_id}).
+#: - A transaction in a completed reconciliation is refused 409 with a message
+#:   that already says to revert it to draft first, so it has no entry
+#:   (contract: DELETE /v1/transactions/{transaction_id}).
+#: - A hashtag is never refused for being in use: the delete takes it off every
+#:   transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}).
+DELETE_REFUSAL_HINTS: dict[tuple[str, int], str] = {
+    ("accounts", 409): "To retire it instead, archive it: press a.",
+    ("categories", 409): "Move its transactions to another category first.",
+    ("categories", 403): SYSTEM_HINT,
+}
+
+
+def delete_refusal_text(resource: str) -> Callable[[Exception], str]:
+    """The `error_text` for a delete on `resource`: the engine's own words, a
+    blank line and the hint when `DELETE_REFUSAL_HINTS` has one; otherwise the
+    shared `format_error`, as every other failed write reads."""
+
+    def text(exc: Exception) -> str:
+        if isinstance(exc, EngineError):
+            hint = DELETE_REFUSAL_HINTS.get((resource, exc.status))
+            if hint is not None:
+                return f"{engine_words(exc)}\n\n{hint}"
+        return format_error(exc)
+
+    return text
+
+
+def transaction_delete_message(record: dict, account_name: str) -> str:
+    """The body of "Delete this transaction?" — the ledger's and the "no batch"
+    pane's, word for word: the row, then why a delete is final."""
+    title = record.get("title") or "—"
+    amount = format_cents(record.get("amount_cents"))
+    day = (record.get("date") or "")[:10]
+    return (
+        f"{title} · {amount} · {day} · {account_name}\n"
+        "It leaves every balance and report, and no screen can bring it back."
+    )
 
 
 class ContentSwapLockMixin:
@@ -415,14 +509,23 @@ class SectionScreen(
         raise NotImplementedError
 
 
+#: `d Delete` — the last key in a list screen's footer. Each screen splats it at
+#: the end of its own BINDINGS: Textual merges a base class's keys ahead of a
+#: subclass's, so declared on `ResourceListScreen` it would sit before Accounts'
+#: `a Archive`.
+DELETE_KEY = Binding("d", "delete", "Delete")
+
+
 class ResourceListScreen(SectionScreen):
     """Scaffold for the simple manage lists (Accounts / Categories / Hashtags):
     quiet fetch → title + CursorList of rows (+ optional legend). `n` pushes
-    the new-record form; `e` the prefilled edit form for the cursor row.
-    `enter` is a no-op here. The `a` archive toggle lives on AccountsScreen
-    only (docs/decisions.md "Archive is a prompt-free toggle").
+    the new-record form; `e` the prefilled edit form for the cursor row; `d`
+    deletes the cursor row after `confirm_delete`'s question, and the list
+    reloads from its first row. `enter` is a no-op here. The `a` archive toggle
+    lives on AccountsScreen only (docs/decisions.md "Archive is a prompt-free
+    toggle").
 
-    Subclasses set the class attrs and four hooks. Row builders stay pure
+    Subclasses set the class attrs and five hooks. Row builders stay pure
     module functions (they have direct unit tests).
     """
 
@@ -460,9 +563,13 @@ class ResourceListScreen(SectionScreen):
         """The create-form screen for `n`."""
         raise NotImplementedError
 
+    def delete_question(self, item: dict) -> tuple[str, str, str]:
+        """`(title, message, done note)` for `d` on `item`."""
+        raise NotImplementedError
+
     # ---- binding availability ----------------------------------------------
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action in ("edit", "archive") and self.selected_record() is None:
+        if action in ("edit", "archive", "delete") and self.selected_record() is None:
             return None  # empty list → nothing to act on
         return True
 
@@ -523,3 +630,19 @@ class ResourceListScreen(SectionScreen):
             return
         self._restore_key = item.get("id")
         self.app.push_screen(self.edit_screen(item), lambda _result: self._load())
+
+    def action_delete(self) -> None:
+        item = self.selected_record()
+        if not item:
+            return
+        title, message, done = self.delete_question(item)
+        self.confirm_delete(
+            self.RESOURCE, item.get("id"), title, message, done=done, after=self._deleted
+        )
+
+    def _deleted(self) -> None:
+        """A delete starts the list over, first page and cursor on row 1: no row
+        is re-selected by the reload. Cleared here, not on `d`, so a cancelled
+        question leaves an archive toggle's re-selection in place."""
+        self._restore_key = None
+        self._load()

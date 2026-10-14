@@ -58,6 +58,7 @@ from expense.tui.screens._base import (
     EngineWriteMixin,
     SectionScreen,
     screen_fetch_kwargs,
+    transaction_delete_message,
 )
 from expense.tui.screens._form import FormScreen
 from expense.tui.screens._growing import GrowingRead, read_first
@@ -612,44 +613,15 @@ class ReconciliationsScreen(SectionScreen):
         record = self._unfiled_record()
         if record is None:
             return
-        title = record.get("title") or "—"
-        amount = format_cents(record.get("amount_cents"))
-        day = (record.get("date") or "")[:10]
         acct = self._open_account()
-        self._confirm_delete(
-            record,
-            f"{title} · {amount} · {day} · {acct[1] if acct else '—'}\n"
-            "It leaves every balance and report, and no screen or command can bring "
-            "it back.",
+        self.confirm_delete(
+            "transactions",
+            record.get("id"),
+            "Delete this transaction?",
+            transaction_delete_message(record, acct[1] if acct else "—"),
+            done="Transaction deleted.",
+            after=self._reload_unfiled,
         )
-
-    def _confirm_delete(self, record: dict, message: str) -> None:
-        def cb(ok: bool) -> None:
-            if ok:
-                self._delete_row(record)
-
-        self.app.push_screen(ConfirmModal("Delete this transaction?", message), cb)
-
-    @work(thread=True, group="engine-write")
-    def _delete_row(self, record: dict) -> None:
-        from expense import config as config_module
-        from expense.http import ExpenseClient
-
-        error = None
-        try:
-            cfg = config_module.ensure_loaded()
-            with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                client.delete(f"/transactions/{record.get('id')}")
-        except Exception as exc:
-            error = format_error(exc)
-        self.app.call_from_thread(self._delete_finished, error)
-
-    def _delete_finished(self, error: str | None) -> None:
-        if error is not None:
-            self.notify(error, title="Failed", severity="error")
-            return
-        self.notify("Transaction deleted.")
-        self._reload_unfiled()
 
     def action_new(self) -> None:
         """`n` — a reconciliation for the open account, or, with no panel open,
@@ -1153,7 +1125,8 @@ class ReconciliationDetailScreen(
         # message (thin wrapper).
         self._confirm(
             "Delete reconciliation?",
-            "Detaches its transactions (they are not deleted) and removes the batch.",
+            "Detaches its transactions and removes the batch. Its transactions stay. "
+            "No screen can bring it back.",
             lambda: self._status_action("DELETE", f"/reconciliations/{self._id}", None, "deleted"),
         )
 

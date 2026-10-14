@@ -22,6 +22,10 @@ rows leave at once. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
+`d` deletes the cursor row after the question and reads the list fresh from
+the newest 10. It never acts on a selection: while rows are selected it is
+off and out of the footer.
+
 `esc` clears the selection when there is one; otherwise it goes back to where
 you came from — Home, for a filter Home opened (esc on a
 filtered ledger is back to Home, never to the unfiltered ledger).
@@ -48,9 +52,11 @@ from expense.reads import (
     load_quickadd_refs,
 )
 from expense.tui.screens._base import (
+    DELETE_KEY,
     LogTransactionMixin,
     SectionScreen,
     screen_fetch_kwargs,
+    transaction_delete_message,
 )
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.edit_form import EditFormScreen, unassign_on_move
@@ -218,6 +224,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             "Back",
             tooltip="Clear the selection, else go back",
         ),
+        DELETE_KEY,
     ]
     crumb = ("Capture & ledger", "Transactions")
     # None = the card fills the terminal width, and PAGE_ROWS_CAP lets the list
@@ -365,7 +372,31 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             return False  # empty list → nothing to act on; the keys leave the footer
         if action == "pick" and self._bulk_busy:
             return None  # greyed, not gone: one bulk write at a time until its reload lands
+        if action == "delete" and (self._selected or not self._rows or self._bulk_busy):
+            # the cursor row only, never a selection: while rows are selected
+            # `d` is off and leaves the footer, and `esc` brings it back. Off
+            # too while a bulk write runs, so a delete never overlaps its PUTs
+            return False
         return True
+
+    def action_delete(self) -> None:
+        """`d` — delete the row under the cursor, after the question. Never a
+        selection (`check_action` switches the key off while there is one)."""
+        if self._selected or self._bulk_busy:
+            return
+        targets = self._targets()
+        if not targets:
+            return
+        record = self._by_id[targets[0]]
+        account = resolve_name(record.get("account_id"), self._maps[0])
+        self.confirm_delete(
+            "transactions",
+            targets[0],
+            "Delete this transaction?",
+            transaction_delete_message(record, account),
+            done="Transaction deleted.",
+            after=self._reload_fresh,
+        )
 
     def on_cursor_list_toggled(self, event: CursorList.Toggled) -> None:
         event.stop()
