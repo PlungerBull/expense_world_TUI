@@ -19,7 +19,6 @@ import threading
 import pytest
 from textual.containers import VerticalScroll
 
-from expense.commands._resource import effective_limit
 from expense.reads import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, items_of
 from expense.tui.screens._base import AdaptiveRowsMixin
 from expense.tui.screens._growing import read_first
@@ -53,7 +52,7 @@ def _list(n: int = 45, **kwargs) -> CursorList:
     return lst
 
 
-# ---- page_indicator / effective_limit (shared helpers) ---------------------
+# ---- page_indicator (shared helper) -----------------------------------------
 
 
 def test_page_indicator_none_when_single_page():
@@ -67,13 +66,6 @@ def test_page_indicator_counts_rows_and_pages():
     assert page_indicator(20, 20, 133, 20) == "rows 21-40 of 133 · page 2 of 7"
     assert page_indicator(120, 13, 133, 20) == "rows 121-133 of 133 · page 7 of 7"
     assert page_indicator(20, 5, 25, 20, unit="items") == "items 21-25 of 25 · page 2 of 2"
-
-
-def test_effective_limit_human_default_json_untouched():
-    assert effective_limit(None, json_mode=False) == DEFAULT_PAGE_ROWS
-    assert effective_limit(None, json_mode=True) is None  # --json: raw request
-    assert effective_limit(5, json_mode=False) == 5  # explicit --limit wins
-    assert effective_limit(5, json_mode=True) == 5
 
 
 # ---- CursorList window mode (full data in memory) ---------------------------

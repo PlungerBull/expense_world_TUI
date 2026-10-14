@@ -11,8 +11,6 @@ from expense.errors import (
     EngineError,
     format_error,
     handle_errors,
-    has_reason,
-    reason_on,
     refuses_every_write,
     render,
 )
@@ -28,40 +26,6 @@ def _engine_error(message, fields=None, reasons=None):
         raw_body={},
         reasons=reasons,
     )
-
-
-def test_reason_on_reads_the_fields_reason():
-    err = _engine_error(
-        "Request validation failed.",
-        fields={"date_end": "Must not be before date_start."},
-        reasons={"date_end": "RANGE_INVERTED"},
-    )
-    assert reason_on(err, "date_end") == "RANGE_INVERTED"
-    assert reason_on(err, "date_start") is None
-
-
-def test_reason_on_is_none_without_reasons():
-    gone = EngineError(code="NOT_FOUND", message="gone", fields=None, status=404, raw_body={})
-    assert reason_on(gone, "date_end") is None
-
-
-def test_has_reason_matches_any_field():
-    err = _engine_error(
-        "Request validation failed.",
-        fields={"title": "Locked.", "amount_cents": "Locked."},
-        reasons={"title": "LOCKED", "amount_cents": "LOCKED"},
-    )
-    assert has_reason(err, "SEALED_PERIOD", "LOCKED")
-    assert not has_reason(err, "SEALED_PERIOD")
-
-
-def test_has_reason_ignores_wording():
-    """The words alone decide nothing (contract: "Error reasons")."""
-    err = _engine_error(
-        "Locked while reconciliation is completed.",
-        fields={"amount_cents": "Locked while reconciliation is completed."},
-    )
-    assert not has_reason(err, "LOCKED")
 
 
 def test_engine_error_attributes():

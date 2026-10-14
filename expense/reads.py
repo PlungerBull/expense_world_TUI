@@ -1,10 +1,10 @@
 """Every engine read, one copy each: the `fetch_*` functions and what they share.
 
 Typer-free and render-free: a `fetch_*` takes a `Config`, makes live GETs and
-returns the engine's body (or a value read off it). The TUI screens and the
-typed commands both call these, as `reads.fetch_x(...)`, so a test patches one
-name for every caller. The quick-add reference lists (`load_quickadd_refs`) and
-the id → name maps live here too.
+returns the engine's body (or a value read off it). The TUI screens call
+these as `reads.fetch_x(...)`, so a test patches one name for every caller.
+The quick-add reference lists (`load_quickadd_refs`) and the id → name maps
+live here too.
 
 Nothing here writes to the engine. One function writes locally:
 `cache_main_currency` saves the home currency a read returned into the config
@@ -23,8 +23,8 @@ from expense.http import ExpenseClient
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
 
 
-# Rows per table page, everywhere a human reads one: CLI list output and TUI
-# lists share this single copy (20-row standard).
+# Rows per table page, everywhere a human reads one: every TUI list shares
+# this single copy (20-row standard).
 DEFAULT_PAGE_ROWS = 20
 
 
@@ -110,7 +110,7 @@ def fetch_accounts(
 ):
     """GET /v1/accounts → the raw engine body. Pure data.
 
-    Shared by the flat `accounts list` command and the TUI's Accounts screen.
+    Read by the TUI's Accounts screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
     — there is no page to ask for.
     """
@@ -130,7 +130,7 @@ def fetch_categories(
 ) -> dict:
     """GET /v1/categories → the raw engine body. Pure data, no render.
 
-    Shared by the flat `categories list` command and the TUI's Categories screen.
+    Read by the TUI's Categories screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
     — there is no page to ask for.
     """
@@ -144,7 +144,7 @@ def fetch_hashtags(
 ) -> dict:
     """GET /v1/hashtags → the raw engine body. Pure data, no render.
 
-    Shared by the flat `hashtags list` command and the TUI's Hashtags screen.
+    Read by the TUI's Hashtags screen.
     The engine returns every row as `{items}` and refuses `limit`/`offset`
     — there is no page to ask for.
     """
@@ -160,7 +160,6 @@ def _filter_params(
     unreconciled: bool,
     date_from: str | None,
     date_to: str | None,
-    search: str | None,
 ) -> dict:
     """The filters `GET /transactions` and `/transactions/count` share — one copy.
 
@@ -177,7 +176,6 @@ def _filter_params(
         unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,
-        search=search,
     )
 
 
@@ -191,7 +189,6 @@ def fetch_transactions(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
-    search: str | None = None,
     sort: str | None = None,
     after: str | None = None,
     limit: int | None = None,
@@ -203,8 +200,6 @@ def fetch_transactions(
     means the last page. There is no `offset` and no `total` — the count is
     `count_transactions`. A cursor belongs to one filter + sort, so a caller
     that changes either starts again from `after=None`.
-
-    Shared by the flat `transactions list` command and the TUI screens.
     """
     params = {
         **_filter_params(
@@ -215,13 +210,12 @@ def fetch_transactions(
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
-            search=search,
         ),
         **query_params(
             sort=sort,
             after=after,
             limit=limit,
-            # Always signed: every CLI/TUI surface renders debits negative, so the
+            # Always signed: every TUI surface renders debits negative, so the
             # request pins the flag rather than depending on the engine default.
             debit_as_negative=True,
         ),
@@ -244,7 +238,6 @@ def count_transactions(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
-    search: str | None = None,
     verbose: bool = False,
 ) -> int:
     """GET /v1/transactions/count → how many rows the same filters match.
@@ -264,7 +257,6 @@ def count_transactions(
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
-            search=search,
         ),
         verbose=verbose,
     )
@@ -277,8 +269,8 @@ def count_transactions(
 def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:
     """GET /v1/reconciliations?account_id= → the raw engine body. Pure data.
 
-    Shared by the flat `reconcile list` command and the TUI's Reconciliations
-    screens. The engine lists one account at a time: the
+    Read by the TUI's Reconciliations screens. The engine lists one account at
+    a time: the
     account is required, the list comes back whole as `{items}` — no `limit`,
     no `offset`, no `total` — sorted `date_start` ascending, then creation time,
     oldest first (contract: "Reconciliations", "Ordering"). There is no read
@@ -292,19 +284,9 @@ def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dic
     )
 
 
-def fetch_dashboard(
-    cfg,
-    *,
-    include_archived: bool = False,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/dashboard → the raw engine body. Pure data, no rendering.
-
-    Split from the rendering so the flat command and the TUI share one fetch.
-    """
-    params = query_params(include_archived=include_archived)
-
-    return fetch_body(cfg, path="/dashboard", params=params, verbose=verbose)
+def fetch_dashboard(cfg, *, verbose: bool = False) -> dict:
+    """GET /v1/dashboard → the raw engine body. Pure data, no rendering."""
+    return fetch_body(cfg, path="/dashboard", params=None, verbose=verbose)
 
 
 def fetch_range(
@@ -328,20 +310,12 @@ def fetch_range(
     return fetch_body(cfg, path="/reports/monthly", params=params, verbose=verbose)
 
 
-def fetch_rate(
-    cfg,
-    *,
-    target: str,
-    base: str | None = None,
-    date: str | None = None,
-    verbose: bool = False,
-) -> dict:
-    """GET /v1/exchange-rates (engine-direct). Returns the raw response body.
+def fetch_rate(cfg, *, target: str, verbose: bool = False) -> dict:
+    """GET /v1/exchange-rates for `target` (engine-direct). Returns the raw response body.
 
-    `base` / `date` are omitted when None so the engine defaults (USD, today)
-    apply.
+    `base` and `date` are not sent, so the engine defaults (USD, today) apply.
     """
-    params = query_params(target=target, base=base, date=date)
+    params = query_params(target=target)
 
     return fetch_body(cfg, path="/exchange-rates", params=params, verbose=verbose)
 
@@ -403,13 +377,13 @@ def cache_main_currency(cfg: Config, settings: dict) -> None:
 def fetch_me(cfg: Config, *, verbose: bool = False, client: "ExpenseClient | None" = None) -> dict:
     """GET /v1/auth/me, mirroring the home currency into ~/.expense-config.
 
-    **The one auth-me path**, shared by `expense auth me` and the TUI's Auth &
-    profile screen. The caching is not incidental to the read: the header's
+    **The one auth-me path**, shared by the TUI's setup and Auth & profile
+    screens. The caching is not incidental to the read: the header's
     stale-rate indicator targets the cached `main_currency`
     (`tui/app.refresh_rate_status`) and skips the check entirely when there is
-    none. With the TUI reading `/auth/me` on its own, a user who never ran the
-    flat `auth me` had no cached currency and so could never see the warning —
-    the one thing that surface is for.
+    none. A read of `/auth/me` that skipped the caching would leave the user
+    with no cached currency, and so unable ever to see the warning — the one
+    thing that surface is for.
 
     Pass `client` to reuse one that is already open; the TUI does, because its
     screens build clients through a lazily-imported seam. Without it, one is
@@ -477,7 +451,7 @@ def load_hashtag_name_map() -> dict[str, str]:
 PENDING_SYSTEM_KEY = "pending"
 
 
-# What the CLI says when it has no reference list to read the real name from.
+# What the app says when it has no reference list to read the real name from.
 PENDING_FALLBACK_NAME = "pendiente"
 
 
@@ -545,9 +519,9 @@ def currency_of(refs: "QuickAddRefs", account_id: object) -> str:
     """The account's currency code, or `''` when no account is named.
 
     The currency was only ever going to come from the account — a typed line
-    never says which (`$` in `-$1800` is decoration). Shared by the flat
-    `expense log "…"` echo and the TUI staged list, which needs it per row to
-    total a batch **per currency**: soles are never added to dollars.
+    never says which (`$` in `-$1800` is decoration). The TUI staged list
+    needs it per row to total a batch **per currency**: soles are never added
+    to dollars.
     """
     if not isinstance(account_id, str):
         return ""
@@ -568,8 +542,8 @@ def _id_name_map(rows: list) -> dict[str, str]:
 def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     """Fetch and shape the three reference lists a typed line resolves against.
 
-    One copy for every caller: the flat `expense log "…"`, and in the TUI the
-    edit form, the LOG bar and the transactions screen. What the shaping
+    One copy for every caller: in the TUI, the edit form, the LOG bar and the
+    transactions screen. What the shaping
     decides, and why:
 
     * **One superset accounts fetch** (`include_archived`, `include_people`)

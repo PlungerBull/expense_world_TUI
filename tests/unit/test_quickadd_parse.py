@@ -185,7 +185,7 @@ def test_note_at_the_start_of_the_line():
         ("HOY", "2026-08-20"),  # case-insensitive
         ("18/08/2026", "2026-08-18"),  # dd/mm/yyyy
         ("2026/08/18", "2026-08-18"),  # yyyy/mm/dd — 4-digit-first disambiguates
-        ("2026-08-18", "2026-08-18"),  # the dashed form --date takes
+        ("2026-08-18", "2026-08-18"),  # the dashed ISO form
         ("18/08/26", "2026-08-18"),  # yy -> 20yy
         ("28Aug", "2026-08-28"),  # day + month name, this year
         ("28/Aug", "2026-08-28"),  # the separator is optional

@@ -47,24 +47,6 @@ class ConfigInvalidError(Exception):
     pass
 
 
-def reason_on(err: EngineError, field: str) -> str | None:
-    """The engine's reason code for `field`, or None when it names no reason there.
-
-    Hints switch on this, never on `message` or the `fields` texts, which are for
-    people and may be reworded (contract: "Error reasons").
-    """
-    if not isinstance(err.reasons, dict):
-        return None
-    return err.reasons.get(field)
-
-
-def has_reason(err: EngineError, *codes: str) -> bool:
-    """True when any field of `err` carries one of `codes` (contract: "Error reasons")."""
-    if not isinstance(err.reasons, dict):
-        return False
-    return any(code in codes for code in err.reasons.values())
-
-
 # The engine's code for a user whose settings do not exist yet (contract: "Error codes").
 # Both rate reads list it among the codes they can return
 # (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history).
@@ -97,9 +79,10 @@ def engine_words(err: EngineError) -> str:
 def format_error(err: Exception) -> str:
     """Human-readable error text, without the leading 'Error: ' prefix.
 
-    Shared by render()'s human branch (CLI) and the TUI toasts/banners, so a hint
-    added here reaches every command and screen. Hints switch on the status or the
-    error code, never on `message` or the `fields` texts.
+    Shared by render()'s human branch (the sheet import) and the TUI toasts and
+    banners, so a hint added here reaches the import and every screen. Hints
+    switch on the status or the error code, never on `message` or the `fields`
+    texts.
     """
     if isinstance(err, EngineError):
         lines = [engine_words(err)]

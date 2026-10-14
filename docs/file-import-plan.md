@@ -20,11 +20,9 @@ bulk `space` + `c`/`b`/`h`. The LOG bar stays for what has no bank row (cash, pe
 no operation number, ISO dates, mixed PEN/USD; current account: operation number, `dd/mm/yyyy`)
 already parse ([bank_import/parse.py](../expense/bank_import/parse.py)).
 
-**Reuse, don't rebuild:** `expense import bank` ([cli-spec.md](cli-spec.md)) does parse →
-account pick → one `POST /transactions/import` (dry run by default) → preview → `--apply`. The
-request and the response → rows live once, in
-[bank_import/engine.py](../expense/bank_import/engine.py), and the TUI import door calls the
-same code. Recovery from a wrong account pick: select the rows in Home, `b`.
+**Reuse, don't rebuild:** the TUI import door does parse → account pick → one
+`POST /transactions/import` as a dry run → preview → the apply. The request and the
+response → rows live once, in [bank_import/engine.py](../expense/bank_import/engine.py). Recovery from a wrong account pick: select the rows in Home, `b`.
 
 ---
 
@@ -74,8 +72,7 @@ bank import.
 | Bulk "assign everything shown" on the reconciliation screen | Revisit if monthly closing proves tedious — the draft screen already lists exactly the rows it would assign. |
 | Other banks, CSV, PDF | BCP only. |
 
-`expense import bank` is deleted with the other typed commands, now that the TUI door exists
-(owner, 2026-09-30; [tui-only-plan.md](specs/tui-only-plan.md)).
+The TUI door is the only way a bank file comes in ([tui-only-plan.md](specs/tui-only-plan.md)).
 
 ---
 

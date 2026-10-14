@@ -4,7 +4,7 @@ view per row. Pure: no HTTP, no typer, no config.
 The engine does the matching (contract: POST /v1/transactions/import): by
 operation code, then same day + title, then the adjacent day + title, each
 ledger row claimed once. This module only decides what is sent and how the
-answer reads, so the flat command and the TUI import door show the same thing.
+answer reads, so the TUI import door shows the engine's word.
 """
 
 from dataclasses import dataclass
@@ -96,7 +96,7 @@ def split_floor(rows: list[BankRow]) -> tuple[list[BankRow], list[BankRow]]:
 
 def sent_rows(rows: list[BankRow], legs: dict[str, tuple[str, str]]) -> list[SentRow]:
     """Each row on its currency's leg, under a fresh id. Every currency has a
-    leg by now — the command refuses the file before this otherwise."""
+    leg by now — the door refuses the file before this otherwise."""
     return [
         SentRow(
             row=r, id=str(uuid4()), account_id=legs[r.currency][0], account_name=legs[r.currency][1]

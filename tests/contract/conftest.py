@@ -14,6 +14,7 @@ import pytest
 
 from expense import config as config_module
 from expense.config import Config
+from expense.errors import EngineError
 from expense.http import ExpenseClient
 
 # The default is the one real engine, the local deployment. A practice run sets
@@ -25,6 +26,14 @@ PAT = os.environ.get("EXPENSE_PAT")
 ALLOW_REAL_LEDGER = os.environ.get("EXPENSE_ALLOW_REAL_LEDGER") == "1"
 
 LIVE = os.environ.get("PYTEST_LIVE") == "1"
+
+
+def reason_on(err: EngineError, field: str) -> str | None:
+    """The engine's reason code for `field`, or None when it names no reason there
+    (contract: "Error reasons")."""
+    if not isinstance(err.reasons, dict):
+        return None
+    return err.reasons.get(field)
 
 
 def pytest_collection_modifyitems(config, items):

@@ -2,8 +2,8 @@
 test infrastructure (fixtures live in conftest.py).
 
 Import style: `from tests.unit.helpers import FakeClient, wait_for, ...`.
-Keep this module free of Textual imports at module level so CLI command test
-files pay no TUI import cost.
+Keep this module free of Textual imports at module level so the sheet-import
+test files pay no TUI import cost.
 """
 
 import asyncio
@@ -18,7 +18,6 @@ import pytest
 import typer
 from rich.console import Console
 
-from expense.context import AppContext
 from expense.errors import EngineError
 
 ENGINE_URL = "https://api.example.com"
@@ -32,47 +31,17 @@ ENGINE_URL = "https://api.example.com"
 def real_cli_app() -> typer.Typer:
     """The app `expense` actually runs — `expense.__main__.app`.
 
-    Prefer this to `make_cli_app` whenever the *path* to the command is part of
-    what the test is asserting: a group name, a subcommand name, or a command
-    that moved. A hand-wired root proves the callback does its job with whatever
-    name the test chose, which is exactly no coverage of the name the user types.
-
-    The import is function-local because `__main__` pulls in the TUI, and the
-    CLI command test files should not pay Textual's import cost just to exist.
+    Tests drive the real tree, so a rename of `import` or `sheet` fails them.
+    The import is function-local so a test file pays for the entry point only
+    when it uses it.
     """
     from expense.__main__ import app
 
     return app
 
 
-def make_cli_app(
-    sub_app: typer.Typer | None = None,
-    name: str | None = None,
-    *,
-    commands: dict[str, Callable] | None = None,
-) -> typer.Typer:
-    """Root Typer app wired like expense/__main__.py (minus --verbose).
-
-    Two mount styles:
-
-        make_cli_app(accounts_app, "accounts")            # add_typer group
-        make_cli_app(commands={"dashboard": dashboard})   # bare command(s)
-    """
-    cli_app = typer.Typer()
-
-    @cli_app.callback()
-    def _root(ctx: typer.Context) -> None:
-        ctx.obj = AppContext()
-
-    if sub_app is not None:
-        cli_app.add_typer(sub_app, name=name)
-    for command_name, callback in (commands or {}).items():
-        cli_app.command(command_name)(callback)
-    return cli_app
-
-
 # ---------------------------------------------------------------------------
-# CLI output normalisation
+# Typer output normalisation
 # ---------------------------------------------------------------------------
 
 
@@ -197,23 +166,6 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
     return calls, counts
 
 
-def window_page(
-    items: list,
-    *,
-    date_from: str,
-    date_to: str,
-    next_cursor: str | None = None,
-    limit: int = 50,
-) -> dict:
-    """The `GET /activity` and `/exchange-rates/history` envelope — cursor-paged
-    inside a date window the engine echoes back (contract: "Date windows")."""
-    return {
-        **cursor_page(items, next_cursor=next_cursor, limit=limit),
-        "date_from": date_from,
-        "date_to": date_to,
-    }
-
-
 # ---------------------------------------------------------------------------
 # TUI fakes and waits
 # ---------------------------------------------------------------------------
@@ -223,8 +175,8 @@ class FakeClient:
     """Instance-level recorder standing in for expense.http.ExpenseClient.
 
     Only intercepts LAZY imports (`from expense.http import ExpenseClient`
-    inside a function) — all TUI write/read sites qualify. CLI command modules
-    bind ExpenseClient at module top; keep respx for those.
+    inside a function) — all TUI write/read sites qualify. The sheet import
+    binds ExpenseClient at module top; keep respx for it.
 
     Every request is recorded as (METHOD, path, body) in `calls`; the
     `requests`/`posts`/`puts`/`deletes` properties are filtered views. GETs
@@ -302,12 +254,12 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None, setup: bool 
     Textual's rather than a number this helper invented. A screen that depends
     on a viewport says so at its own call site.
 
-    `setup=True` opens the app on its setup screen, as `run_world` does when
+    `setup=True` opens the app on its setup screen, as `expense.tui.app.launch` does when
     there is no settings file it can use. The default is Home, whatever the
     (hermetic, missing) config file says, so a screen test never has to write one.
 
     The ExpenseApp import is function-local: this module stays free of Textual
-    at import time so the CLI command tests do not pay for it (see the module
+    at import time so the sheet-import tests do not pay for it (see the module
     docstring).
     """
     from expense.tui.app import ExpenseApp

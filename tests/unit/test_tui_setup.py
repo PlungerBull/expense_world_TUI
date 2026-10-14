@@ -100,11 +100,11 @@ def _launch(monkeypatch) -> dict:
     monkeypatch.setattr(
         tui_app.ExpenseApp, "run", lambda self, **kw: seen.update(setup=self._setup)
     )
-    tui_app.run_world(ctx=None)
+    tui_app.launch(ctx=None)
     return seen
 
 
-def test_world_opens_setup_with_no_settings_file(monkeypatch, capsys):
+def test_launch_opens_setup_with_no_settings_file(monkeypatch, capsys):
     assert not _settings_file().exists()  # the autouse fixture's missing file
     assert _launch(monkeypatch) == {"setup": True}
 
@@ -114,12 +114,12 @@ def test_world_opens_setup_with_no_settings_file(monkeypatch, capsys):
     [b'{"engine_url": "https://x', b"[]", b'{"token": "t"}', b"\xff\xfe\x00garbage"],
     ids=["half-written", "not-an-object", "no-address", "not-text"],
 )
-def test_world_opens_setup_when_the_settings_file_cannot_be_read(monkeypatch, capsys, content):
+def test_launch_opens_setup_when_the_settings_file_cannot_be_read(monkeypatch, capsys, content):
     _settings_file().write_bytes(content)
     assert _launch(monkeypatch) == {"setup": True}
 
 
-def test_world_opens_home_with_a_usable_settings_file(configured, monkeypatch, capsys):
+def test_launch_opens_home_with_a_usable_settings_file(configured, monkeypatch, capsys):
     assert _launch(monkeypatch) == {"setup": False}
 
 
@@ -617,7 +617,7 @@ def test_the_guard_catches_every_kind_of_typed_command(text):
 
 
 def test_the_guard_leaves_plain_wording_alone():
-    assert not _TELLS_TO_TYPE.search("Error: expense world requires an interactive terminal.")
+    assert not _TELLS_TO_TYPE.search("Error: the expense app needs an interactive terminal.")
 
 
 def test_no_message_in_the_app_tells_the_owner_to_type_a_command():

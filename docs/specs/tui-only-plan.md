@@ -132,15 +132,10 @@ with a mockup the owner picks.
    `esc` after a half-refused save just leaves, and screen 6's note stays as drawn. **Waits on
    the engine:**
    [account-opening-balance.md](../engine-asks/account-opening-balance.md).
-2. **Delete the typed commands** that "What stays typed" does not keep, `import bank` included,
-   with their tests, guards and docs. `expense` alone opens the TUI and `expense world` goes, in
-   the code and in every doc that names it. The contract tests that walk through commands call the
-   engine directly. The rules listed in "Consequences" are rewritten in the same task. The unit
-   suite stays green at every commit.
-3. **Clean todo.md.** Delete the items listed in "Consequences".
-4. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
+2. **Clean todo.md.** Delete the items listed in "Consequences".
+3. **Rename the repo on GitHub** to `expense_world_TUI`, point the local remote at it, and update
    every mention of the old name in this repo.
-5. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+4. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
-6. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).
+5. **Write the brief** to the engine coders in [engine-asks/](../engine-asks/).

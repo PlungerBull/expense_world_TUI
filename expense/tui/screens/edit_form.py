@@ -155,8 +155,8 @@ class EditFormScreen(FormScreen):
 
         try:
             cfg = config_module.ensure_loaded()
-            # the fetch + shaping is shared with the flat `expense log "…"`,
-            # so both quick-add surfaces suggest from exactly the same pool
+            # the fetch + shaping is shared with the LOG bar, so both
+            # quick-add surfaces suggest from exactly the same pool
             refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             self.app.call_from_thread(self.notify, format_error(exc), severity="error")

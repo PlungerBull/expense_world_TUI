@@ -20,7 +20,8 @@ from uuid import uuid4
 
 import pytest
 
-from expense.errors import EngineError, reason_on
+from expense.errors import EngineError
+from tests.contract.conftest import reason_on
 
 
 def _safe_delete(client, path):

@@ -70,8 +70,8 @@ from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
 
-# Status labels + period formatting are owned by the commands layer
-# (formatting.format_status / format_period) — one copy, per the §5 rule.
+# Status labels + period formatting are owned by expense/formatting.py
+# (format_status / format_period) — one copy, per the §5 rule.
 _period = formatting.format_period
 
 _BATCH_HEADERS = ["Name", "Period", "Begin", "End", "Diff", "Status"]
@@ -1162,8 +1162,8 @@ class ReconciliationDetailScreen(
 
         The text is the engine's own sentence, verbatim — the dates in it are
         prose, not fields, so this side neither parses them nor goes looking for
-        the rows they name. The review surface for that is
-        `transactions list --unreconciled`.
+        the rows they name. The review surface for that is the "no batch"
+        pane (`u`).
         """
         warnings = body.get("warnings")
         self._show_warnings(warnings if isinstance(warnings, list) else [])

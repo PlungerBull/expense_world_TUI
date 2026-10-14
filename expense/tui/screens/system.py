@@ -5,7 +5,7 @@ the engine URL, `t` sets the token (both write ~/.expense-config). Auth &
 profile: identity + settings from GET /auth/me; `b` bootstraps (provisions the
 user record). The main currency is display-only — it is locked engine-side.
 
-Activity and Rates are flat commands only (docs/decisions.md "Activity and
+Activity and Rates have no screen (docs/decisions.md "Activity and
 Rates leave the TUI").
 """
 
@@ -102,7 +102,7 @@ class ConfigScreen(SectionScreen):
             self.notify("No config loaded.", severity="error")
             return
         if "engine_url" in updates:
-            # same save-time validation as the CLI's `config set`: a
+            # the save-time validation first-time setup uses too: a
             # scheme-less URL would save fine and fail every later call with
             # a generic connection error
             try:
@@ -134,10 +134,9 @@ class AuthScreen(SectionScreen):
 
         cfg = config_module.ensure_loaded()
         try:
-            # Shared with `expense auth me` — and the shared path is what
-            # caches `main_currency`, which the header's stale-rate check
-            # targets. Reading /auth/me here directly left a TUI-only user
-            # with no cached currency and so no warning, ever.
+            # The shared path is what caches `main_currency`, which the
+            # header's stale-rate check targets. Reading /auth/me here
+            # directly would leave no cached currency and so no warning, ever.
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 body = reads.fetch_me(cfg, client=client)
         except EngineError as exc:

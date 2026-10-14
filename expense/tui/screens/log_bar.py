@@ -11,7 +11,7 @@ correcting one is a PUT of what changed, not a line retyped from scratch.
 
 **The save** is `ctrl+s`: every staged row goes to `POST /transactions/batch`,
 one chunk per request, through `expense/batch_write.py` — the same chunk-then-row-by-row pattern
-`expense import` uses, because a refused batch writes none of its rows
+`expense import sheet` uses, because a refused batch writes none of its rows
 (contract: POST /v1/transactions/batch, "No partial success"). What that means
 when only some of it lands is four
 calls, recorded in docs/decisions.md "What a half-written batch means": the
@@ -26,9 +26,8 @@ always the **bar's**, never a staged row's, and it is sticky: `↵` clears the b
 but the panel stays on the last account named, so a run of lines against one
 account keeps its window open.
 
-The grammar is not here. Every line goes through `expense/quickadd/` — the same
-module the flat `expense log "…"` calls — so the two surfaces read a line
-identically and neither owns a second copy:
+The grammar is not here. Every line goes through `expense/quickadd/`, so every
+screen that reads a typed line reads it identically and none owns a second copy:
 
     parse()  what the line says, with a Span per token for colouring
     route()  staged or refused, and the phrases that say why
@@ -179,8 +178,7 @@ def bank_files_hint(files: list[Path]) -> Text:
 def wire_date(parsed: ParsedLine) -> str:
     """The `date` a payload builder wants: canonical RFC 3339 with an offset.
 
-    Same rule the flat `expense log` applies (`log_cmd._log_from_line`) — a line
-    that named no date is written as *now*, not as local midnight, so a row
+    A line that named no date is written as *now*, not as local midnight, so a row
     logged this afternoon sorts after one logged this morning.
     """
     if not parsed.date_given:

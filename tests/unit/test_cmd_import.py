@@ -1,4 +1,4 @@
-"""respx-mocked apply tests + CLI dry-run for `expense import`."""
+"""respx-mocked apply tests + the dry run for `expense import sheet`."""
 
 import json
 

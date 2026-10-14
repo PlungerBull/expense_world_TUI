@@ -1,4 +1,4 @@
-"""The Textual app shell + the `expense world` entry point."""
+"""The Textual app shell + the launch that `expense`, run alone, makes."""
 
 import sys
 
@@ -17,8 +17,8 @@ class ExpenseApp(App):
     """Root app: registers the theme and hosts the screen stack.
 
     `verbose` is read off the typer context and handed to engine fetches
-    (run in worker threads by each screen) so the TUI honors `--verbose`
-    just like the flat commands.
+    (run in worker threads by each screen) so `expense --verbose` reaches
+    every engine call the app makes.
 
     It also owns `rate_stale`, the one piece of app-wide state: whether today
     has an exchange rate of its own. It lives here rather than on a screen
@@ -58,7 +58,7 @@ class ExpenseApp(App):
         # palette".
         super().__init__(ansi_color=True)
         self._verbose = verbose
-        # True opens SetupScreen over Home: `run_world` passes it when there is
+        # True opens SetupScreen over Home: `launch` passes it when there is
         # no settings file the app can use (`config.load_usable`). Setup is
         # pushed rather than made the default screen so that, once the engine
         # has accepted the settings, dismissing it lands on Home, which reads
@@ -116,17 +116,17 @@ class ExpenseApp(App):
             repaint()
 
 
-def run_world(ctx: typer.Context) -> None:
-    """TTY guard + launch. `expense world` is interactive-only."""
+def launch(ctx: typer.Context) -> None:
+    """TTY guard + launch. The app is interactive-only."""
     if not sys.stdin.isatty() or not sys.stdout.isatty():
-        typer.echo("Error: expense world requires an interactive terminal.", err=True)
+        typer.echo("Error: the app needs an interactive terminal.", err=True)
         raise typer.Exit(code=1)
     # Wipe the screen AND the terminal's scrollback before Textual enters the
     # alt screen: with mouse tracking off, wheel/scrollbar gestures go to the
     # terminal itself, and Terminal.app reveals scrollback ABOVE the running
     # app — pre-launch prompt text floating over the TUI. CSI 3J leaves
     # nothing to reveal; terminals without it ignore it harmlessly.
-    # Why: docs/decisions.md "`expense world` clears the terminal scrollback at launch".
+    # Why: docs/decisions.md "The app clears the terminal scrollback at launch".
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
     from expense import config as config_module

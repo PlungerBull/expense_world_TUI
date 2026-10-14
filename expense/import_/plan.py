@@ -57,9 +57,9 @@ def stable_row_key(row: ParsedRow | OpeningRow) -> str:
     imported row.** Insert, delete or sort a row mid-sheet and every row below
     it hashes to a new id, which imports as a second copy rather than skipping.
     The duplicate is unassigned by construction and cannot disturb a completed
-    reconciliation, so it is invisible until looked for — check with
-    ``expense transactions list --account-id <id> --from <start> --to <end>
-    --unreconciled`` over the period you last reconciled. Full rationale and
+    reconciliation, so it is invisible until looked for — check the account's
+    "no batch" list in the app's reconciliation view over the period you
+    last reconciled. Full rationale and
     the rejected alternatives: docs/decisions.md, "Importer ids are positional".
     """
     return "|".join(

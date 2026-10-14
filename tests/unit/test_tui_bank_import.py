@@ -1,8 +1,8 @@
 """The import door — a bank file dropped on the LOG bar → account → preview → result.
 
 Pure builders first, then pilot tests through the LOG bar the way a drop
-arrives. The sheet reaches the typed command's reader through its
-`read_workbook` seam (as test_cmd_import_bank.py feeds it); the one engine call,
+arrives. The sheet reaches flow.py's reader through its `read_workbook` seam;
+the one engine call,
 `POST /transactions/import`, is answered by a fake on the shared FakeClient
 that echoes each row's id and decides its outcome.
 """

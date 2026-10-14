@@ -1,4 +1,4 @@
-"""Smoke tests for the `expense world` TUI.
+"""Smoke tests for the TUI, the app a bare `expense` opens.
 
 Drives Textual headlessly through `helpers.run_app` — one shared harness for
 the whole suite, and still no pytest-asyncio dependency. Network is never

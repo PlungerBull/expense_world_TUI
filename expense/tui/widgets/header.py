@@ -9,7 +9,7 @@ from expense.tui.theme import PALETTE, Palette
 #: The whole indicator. Deliberately one character: it reports that a number
 #: elsewhere may be slightly off, which does not deserve a sentence in a header
 #: that is otherwise navigation. A heads-up with no screen behind it
-#: (Rates is not in the TUI); `expense rates list` shows what is stored.
+#: (Rates is not in the TUI).
 RATE_ALERT_MARK = "!"
 
 #: Gap between the header's own content and the mark. Both hosts use it so the

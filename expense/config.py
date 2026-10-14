@@ -25,9 +25,9 @@ def config_path() -> Path:
 def validate_engine_url(url: str) -> None:
     """Reject a URL without an http(s) scheme + host. Raises ConfigInvalidError.
 
-    httpx raises UnsupportedProtocol only at request time; both config entry
-    points (`config set --engine-url`, the TUI ConfigScreen and SetupScreen) call this so
-    the mistake surfaces at save time, not on the next command.
+    httpx raises UnsupportedProtocol only at request time; both entry points
+    (first-time setup, SetupScreen, and System ▸ Config, ConfigScreen) call this
+    so the mistake surfaces at save time, not on the next engine call.
     Deliberately not inside save(): saves that don't touch engine_url (e.g.
     mirroring main_currency) must not brick on a legacy-invalid URL.
     """
@@ -94,12 +94,6 @@ def save(cfg: Config) -> None:
     if os.name != "nt":
         os.chmod(tmp_path, 0o600)
     os.replace(tmp_path, path)
-
-
-def clear() -> None:
-    path = config_path()
-    if path.exists():
-        path.unlink()
 
 
 def ensure_loaded() -> Config:

@@ -1,8 +1,5 @@
-"""`formatting.build_range_grid` — the month grid shared by the flat
-`expense reports monthly --from --to` table and the TUI Home screen.
-"""
+"""`formatting.build_range_grid` — the month grid the TUI Home screen draws."""
 
-import expense.commands.reports_cmd as reports_cmd
 from expense import formatting
 from expense.formatting import build_range_grid
 
@@ -154,13 +151,11 @@ def test_build_range_grid_carries_the_unconverted_count_and_drops_empty_rows():
     feb = grid["rows"][0]["cells"]["2026-02"]
     assert feb == {"cents": None, "unconverted": 3}
     assert not formatting.cell_is_empty(feb)  # unpriceable is NOT empty
-    assert reports_cmd.format_grid_cell(feb) == "3 unrated"
+    assert formatting.format_aggregate(feb["cents"], feb["unconverted"]) == "3 unrated"
 
-    # ...and a genuinely empty cell reads as the no-activity mark, not as 0.00.
-    assert reports_cmd.format_grid_cell(None) == formatting.NO_ACTIVITY_MARK
-    assert reports_cmd.format_grid_cell({"cents": 0, "unconverted": 0}) == (
-        formatting.NO_ACTIVITY_MARK
-    )
+    # ...and a genuinely empty cell is empty (Home draws the no-activity mark), not 0.00.
+    assert formatting.cell_is_empty(None)
+    assert formatting.cell_is_empty({"cents": 0, "unconverted": 0})
     assert grid["totals"]["net"]["2026-02"] == {"cents": None, "unconverted": 3}
     # all three totals share the month's one count, so they fail together
     assert grid["totals"]["inflow"]["2026-02"]["unconverted"] == 3

@@ -1,4 +1,4 @@
-"""`expense import <file>` — bulk-import transactions from an .xlsx.
+"""`expense import sheet <file>` — bulk-import transactions from an .xlsx.
 
 Dry-run by default: parses the sheet and prints what it would do, writing
 nothing. With --apply, resolves-or-creates accounts/categories/hashtags by name

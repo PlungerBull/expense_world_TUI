@@ -27,7 +27,7 @@ def test_validate_engine_url_accepts_http_https_with_host(url):
     "url", ["example.com", "ftp://example.com", "https://", "", "expense-world.onrender.com/v1"]
 )
 def test_validate_engine_url_rejects_scheme_or_host_less(url):
-    """Shared save-time guard for both `config set` and the TUI ConfigScreen
+    """Shared save-time guard for the TUI SetupScreen and ConfigScreen
     — httpx would only fail at request time."""
     with pytest.raises(ConfigInvalidError, match="scheme and host"):
         config.validate_engine_url(url)
@@ -69,19 +69,6 @@ def test_load_schema_invalid_raises_config_invalid(tmp_config):
     with pytest.raises(ConfigInvalidError, match="invalid") as exc:
         config.load()
     assert "setup screen" in str(exc.value)
-
-
-def test_clear_removes_file(tmp_config):
-    cfg = config.Config(engine_url="https://example.com")
-    config.save(cfg)
-    assert tmp_config.exists()
-
-    config.clear()
-    assert not tmp_config.exists()
-
-
-def test_clear_no_file_is_noop(tmp_config):
-    config.clear()
 
 
 def test_ensure_loaded_raises_if_missing(tmp_config):
@@ -147,24 +134,29 @@ def test_extra_fields_ignored(tmp_config):
     assert not hasattr(loaded, "future_field")
 
 
-def test_corrupt_config_renders_clean_cli_error(tmp_config):
+def test_corrupt_config_renders_clean_cli_error(tmp_config, monkeypatch):
     """A corrupt config exits 3 with the recovery hint — no traceback."""
     from typer.testing import CliRunner
 
-    from expense.commands.accounts_cmd import app as accounts_app
-    from tests.unit.helpers import make_cli_app
+    from expense.commands import import_cmd
+    from expense.import_.reader import SheetData
+    from tests.unit.helpers import real_cli_app
 
-    cli_app = make_cli_app(accounts_app, "accounts")
+    monkeypatch.setattr(
+        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=[], rows=[])
+    )
+    monkeypatch.setattr(import_cmd, "parse_sheet", lambda sheet: ([], [], []))
+    cli_app = real_cli_app()
 
     tmp_config.write_text("{not valid json")
     runner = CliRunner()
-    result = runner.invoke(cli_app, ["accounts", "list"])
+    result = runner.invoke(cli_app, ["import", "sheet", "s.xlsx", "--apply"])
     assert result.exit_code == 3
     assert "not valid JSON" in result.output
     assert "setup screen" in result.output
     assert "Traceback" not in result.output
 
-    result = runner.invoke(cli_app, ["accounts", "list", "--json"])
+    result = runner.invoke(cli_app, ["import", "sheet", "s.xlsx", "--apply", "--json"])
     assert result.exit_code == 3
     envelope = json.loads(result.output)
     assert envelope["error"]["code"] == "CONFIG_INVALID"

@@ -277,7 +277,7 @@ def home_rows(
             rows.append(_balance_row(person, "  ", palette))
         if settled:
             caret = "▼ " if state.settled_open else "▶ "
-            label = settled_label(len(settled)).removeprefix("▸ ")
+            label = settled_label(len(settled))
             rows.append(HomeRow(SETTLED_ID, "  " + caret + label, dim=True))
             if state.settled_open:
                 for person in settled:

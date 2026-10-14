@@ -11,7 +11,7 @@ SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
 
 # The minor-unit scale: how many minor units make one major unit. Consumed by
 # quickadd/money.py (both directions), formatting.format_cents and
-# commands/import_cmd.
+# commands/import_cmd (`expense import sheet`).
 #
 # ⚠️ One constant for every currency is correct ONLY because the tuple above is
 # locked to {USD, PEN}, which are both exponent 2. Centralizing makes the
@@ -26,11 +26,3 @@ SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
 # converts to major units at all. This scale is a presentation concern and lives
 # entirely on this side.
 MINOR_UNIT_SCALE = 100
-
-# The scale stored exchange rates are expressed at — client mirror of the
-# contract's `rate_e8`, "the rate × 10^8" (contract: GET /v1/exchange-rates).
-# The engine's wire format is `rate_e8: int` (the rate x this), so
-# commands/rates_cmd divides by it for display and never does arithmetic on the
-# quotient. Same provenance rule as SUPPORTED_CURRENCIES above: if the engine
-# changes the scale, this changes in the same commit.
-RATE_SCALE = 100_000_000

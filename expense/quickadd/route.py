@@ -1,8 +1,7 @@
 """Whether a parsed line can be staged: the ledger, or refused.
 
-One copy of the rule for both surfaces — the flat `expense log "…"` asks it
-once per line, the TUI LOG bar asks it on `↵` and either stages the row or
-leaves the line in the bar with the reason under it.
+One copy of the rule — the TUI LOG bar asks it on `↵` and either stages the
+row or leaves the line in the bar with the reason under it.
 
 The rule (docs/decisions.md "A sparse line is a ledger row"): a
 row reaches the ledger when it has an **amount** and an **account**, every
@@ -35,8 +34,7 @@ class Routing:
     """Where the row goes, and the phrases that say why it is not the ledger.
 
     `reasons` is empty for a ledger row. Each reason is a finished sentence
-    fragment a caller can print as-is — the flat command puts them under the
-    echo, the LOG bar puts them under the bar.
+    fragment a caller can show as-is — the LOG bar puts them under the bar.
     """
 
     target: str

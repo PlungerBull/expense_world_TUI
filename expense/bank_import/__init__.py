@@ -1,4 +1,4 @@
-"""Bank downloads → the ledger: `expense import bank <file.xlsx>`.
+"""Bank downloads → the ledger, through the TUI import door.
 
 Three modules, none of which prints or imports typer:
 
@@ -13,9 +13,8 @@ Three modules, none of which prints or imports typer:
                call, count the answer
 
 parse.py and engine.py are pure (no HTTP, no config). The matching itself is
-the engine's (contract: POST /v1/transactions/import). The typed door is
-expense/commands/bank_import_cmd.py, the TUI's is
-expense/tui/screens/bank_import.py; both run flow.py. The account is
+the engine's (contract: POST /v1/transactions/import). The door is
+expense/tui/screens/bank_import.py, and it runs flow.py. The account is
 asked every run, never remembered by file name, and the ledger holding more
 than the file is a loud warning.
 """

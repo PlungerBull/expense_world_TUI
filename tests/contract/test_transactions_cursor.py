@@ -1,6 +1,6 @@
 """Contract: the engine's three list shapes.
 
-The CLI's ledger, the "no batch" list and every flat list command are built on
+The app's ledger, the "no batch" list and the reference lists are built on
 these facts, and the unit suite can only mock them:
 
   · `GET /transactions` pages by cursor to a null `next_cursor`, with no row
@@ -147,7 +147,7 @@ def test_a_cursor_is_bound_to_its_sort(client, seeded):
 
 
 def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
-    """`transactions list --to <day>` sends the bare day; the engine
+    """`GET /transactions?date_to=<day>` with a bare day: the engine
     reads it as the whole day in `display_timezone` (contract: GET /v1/transactions)."""
     zone = _zone(client)
     account_id = _make_account(client)
@@ -164,8 +164,8 @@ def test_a_bare_to_day_includes_a_row_late_on_that_day(client):
 
 
 def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
-    """Every request datetime needs an offset (contract: "Datetime inputs"). The CLI
-    renders the envelope, so the refusal must arrive as one: code, message and
+    """Every request datetime needs an offset (contract: "Datetime inputs"). The app
+    shows the envelope, so the refusal must arrive as one: code, message and
     the offending key."""
     with pytest.raises(EngineError) as excinfo:
         client.get("/transactions", params={"date_from": "2026-02-20T10:00:00"})
@@ -176,8 +176,8 @@ def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
 
 
 def test_activity_walks_a_window_then_steps_to_the_older_one(client):
-    """`expense activity list` pages inside a window and offers the older
-    window from the echoed `date_from`. A create and a rename guarantee two
+    """`GET /activity` pages inside a window, and the older window starts
+    from the echoed `date_from`. A create and a rename guarantee two
     entries in the current window; a page of 1 walks them to a null cursor."""
     account_id = _make_account(client)
     try:
@@ -210,8 +210,8 @@ def test_activity_walks_a_window_then_steps_to_the_older_one(client):
 
 @pytest.mark.parametrize("path", ["/accounts", "/categories", "/hashtags"])
 def test_a_small_list_is_whole(client, path):
-    """No `limit`, `next_cursor` or `total`: the list commands print every row
-    and no paging line on the strength of this, and a stale `limit` is a 422."""
+    """No `limit`, `next_cursor` or `total`: the app reads every row in one call
+    on the strength of this, and a stale `limit` is a 422."""
     body = client.get(path)
     assert set(body) == {"items"}
     with pytest.raises(EngineError) as excinfo:

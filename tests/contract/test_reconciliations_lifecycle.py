@@ -2,17 +2,17 @@
 
 The one resource with a *state machine* — draft → complete → reverted — and the
 only one whose completion reaches across and locks rows in another table. None of
-that is checkable against a mock: the unit suite asserts the CLI sends the right
-call and renders the right hint, which is a statement about the CLI, not about
+that is checkable against a mock: the unit suite asserts the app sends the right
+call and shows the right hint, which is a statement about the app, not about
 what completing a batch actually does to a transaction.
 
-What this pins, and why each is a contract claim rather than a CLI one:
+What this pins, and why each is a contract claim rather than a client one:
 
   · `beginning_balance_cents` is required and typed, not derived. The engine
     has no chained beginning balances; a re-introduction would
     show up here as a create that suddenly succeeds without it.
-  · `complete` on an empty batch is a 422. The CLI prints a hint on exactly that
-    shape, and the hint is only correct while the engine keeps refusing.
+  · `complete` on an empty batch is a 422, and stays one: a client's hint on
+    that shape is only correct while the engine keeps refusing.
   · completion locks the assigned transaction's amount/account/title/date, and
     revert unlocks them. This is the field-locking semantic docs/cli-runtime.md
     promises, and the only place it is exercised end to end.
@@ -30,7 +30,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from expense.errors import EngineError, reason_on
+from expense.errors import EngineError
+from tests.contract.conftest import reason_on
 
 
 def _safe_delete(client, path):
@@ -141,11 +142,11 @@ def test_reconciliations_lifecycle(client):
 
 
 def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
-    """The two reads the CLI does not make. Without an
+    """The two reads the app does not make. Without an
     account the list is a 422 naming `account_id`; one account's list comes
     back as `{items}` alone, with no paging keys; a GET on one reconciliation
-    is a 405. The browse screen, `reconcile list --account-id` and the working
-    screen's refresh are all built on these three facts."""
+    is a 405. The browse screen and the working screen's refresh are both
+    built on these three facts."""
     account_id = _make_account(client)
     recon_id = _make_reconciliation(client, account_id)
     try:
@@ -195,7 +196,7 @@ def test_a_period_refuses_any_datetime(client):
 def test_a_period_always_has_both_days(client):
     """Both days required on create (contract: POST /v1/reconciliations), and
     `null` refused for either on update
-    (contract: PUT /v1/reconciliations/{reconciliation_id}). The CLI has no
+    (contract: PUT /v1/reconciliations/{reconciliation_id}). The app has no
     missing-date hint on `complete`, no half-dated display and no undated guard
     in the "no batch" list because of this; if it relaxes, they are needed."""
     account_id = _make_account(client)
@@ -270,9 +271,9 @@ def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
 def test_beginning_balance_is_required_not_derived(client):
     """No chained beginning balance, pinned from the outside.
 
-    While this 422s, `expense reconcile create --beginning-balance` is right to
-    be a required flag. If the engine ever derives it again, this is the test
-    that says the flag can relax — nothing in the unit suite can know.
+    While this 422s, the app's reconciliation form is right to require a
+    beginning balance. If the engine ever derives it again, this is the test
+    that says the form can relax — nothing in the unit suite can know.
     """
     account_id = _make_account(client)
     recon_id = str(uuid4())
@@ -295,11 +296,12 @@ def test_beginning_balance_is_required_not_derived(client):
 
 
 def test_completing_an_empty_batch_is_refused(client):
-    """`reconcile complete` prints a hint on this exact 422.
+    """Completing a batch with nothing assigned is this exact 422.
 
-    The hint is text the CLI owns; that it is ever shown is the engine's call.
-    A batch with nothing assigned must stay a refusal, or the hint becomes a
-    sentence nobody ever reads and the command silently changes meaning.
+    A client's hint on it is text the client owns; that it is ever shown is the
+    engine's call. A batch with nothing assigned must stay a refusal, or the
+    hint becomes a sentence nobody ever reads and completing silently changes
+    meaning.
     """
     account_id = _make_account(client)
     recon_id = _make_reconciliation(client, account_id)
@@ -315,9 +317,9 @@ def test_completing_an_empty_batch_is_refused(client):
 def test_complete_locks_the_assigned_transaction_and_revert_unlocks_it(client):
     """The cross-table half of the state machine.
 
-    `expense transactions update` renders a "locked" hint off a 422 here; this
-    is the only place the CLI finds out that completing a batch really does make
-    the amount unwritable, and that reverting really does give it back.
+    The app's edit form shows a refusal off a 422 here; this is the only place
+    the client finds out that completing a batch really does make the amount
+    unwritable, and that reverting really does give it back.
     """
     account_id = _make_account(client)
     tx_id = _make_transaction(client, account_id)
@@ -336,7 +338,7 @@ def test_complete_locks_the_assigned_transaction_and_revert_unlocks_it(client):
         client.post(f"/reconciliations/{recon_id}/revert")
         client.put(f"/transactions/{tx_id}", json_body={"amount_cents": -9999})
 
-        # Read it back the way the CLI does. The engine stores the magnitude and
+        # Read it back the way the app does. The engine stores the magnitude and
         # signs it only when asked — see test_a_write_is_signed_but_a_bare_read
         # _is_not in test_reports_and_dashboard.py, which pins that on its own.
         after = client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
@@ -348,7 +350,7 @@ def test_complete_locks_the_assigned_transaction_and_revert_unlocks_it(client):
 
 
 def test_deleting_a_batch_unassigns_its_transactions_and_keeps_them(client):
-    """Cascade-unassign, which the delete command's docstring promises.
+    """Cascade-unassign: deleting a batch takes its rows out of it.
 
     The row is the user's data and the batch is bookkeeping over it — deleting
     the bookkeeping must never take the row with it.

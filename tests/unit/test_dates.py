@@ -94,7 +94,7 @@ def test_detect_timezone_from_localtime_symlink(monkeypatch, tmp_path):
 
 def test_detect_timezone_failure_raises_neutral_error(monkeypatch, tmp_path):
     """No $TZ and no symlink → TimezoneDetectionError (not typer/click), so the
-    TUI can catch it without importing the CLI layer."""
+    TUI can catch it without importing typer."""
     monkeypatch.delenv("TZ", raising=False)
     with pytest.raises(TimezoneDetectionError):
         detect_timezone(localtime=tmp_path / "missing")

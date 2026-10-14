@@ -90,14 +90,12 @@ KNOWN_LOCAL = frozenset(
         "cents",
         "unconverted",
         # sample ids used as dict keys in name-map fixtures
-        "jan",
         "acc1",
         "acc2",
         "acc3",  # third account in the LOG bar's name-map fixture (quick-add)
         "cat1",
         "cat2",
-        "amt",
-        # `expense import --json` plan keys: the plan is client-composed (it
+        # `expense import sheet --json` plan keys: the plan is client-composed (it
         # aggregates many engine calls), so its shape is ours, not the engine's.
         # `source_name` is the raw sheet CUENTA behind a derived account name.
         "source_name",
@@ -117,25 +115,15 @@ KNOWN_LOCAL = frozenset(
         "verbose",
         # query-param / flag assertions, not response bodies
         "debit_as_negative",
-        "hashtag_id",
         "date_from",
-        "date_to",
-        "to_month",
-        "search",
         "currency",
         # 422 `fields` payload keys and respx route names
         "user_settings",
         "count",
-        "flag",
-        "text",
         "dashboard",
-        "whoami",
-        "ping",
-        "log",
         "delete",
         "unexpected",
         "mouse",
-        "actor_type",
         # the Python keyword names a fake's call log records for
         # fetch_transactions / count_transactions (the wire names are
         # account_id, category_id, hashtag_id)

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "expense-cli-menu"
 version = "0.0.1"
-description = "The Hands — expense_world_engine CLI."
+description = "The Hands — the terminal app for expense_world_engine."
 readme = "README.md"
 license = "LicenseRef-Proprietary"
 license-files = ["LICENSE"]

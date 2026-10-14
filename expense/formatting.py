@@ -1,8 +1,8 @@
 """How engine values read on screen, one copy each: cells, labels and shared wording.
 
 Pure: no HTTP, no typer, no config. A function here takes engine data and
-returns text, or the shaped rows a table draws. The TUI and the typed commands
-both render through these, so a figure reads the same wherever it appears.
+returns text, or the shaped rows a table draws. Every TUI screen renders
+through these, so a figure reads the same wherever it appears.
 """
 
 import re
@@ -111,8 +111,7 @@ def has_aggregate(value: object, unconverted_count: object = 0) -> bool:
 
     A category or hashtag combination with nothing spent this period is not
     rendered — the engine returns every non-deleted category whether or not it
-    has activity, so the full-list view is `expense categories list`, not a
-    report.
+    has activity, so the full list is the Categories screen, not a report.
 
     A row the engine *could not price* is emphatically not empty: it keeps its
     line and says `3 unrated`, so it is never mistaken for one with no spending.
@@ -125,7 +124,7 @@ def has_aggregate(value: object, unconverted_count: object = 0) -> bool:
 def redact_token(token: str) -> str:
     """8-prefix + 4-suffix mask for PATs; `****` when too short to mask safely.
 
-    Callers own the empty/None policy (CLI shows None, TUI shows `(none)`).
+    Callers own the empty/None policy (Config shows `(none)`).
     """
     if len(token) <= 8:
         return "****"
@@ -149,8 +148,8 @@ def format_hashtag_cell(
 ) -> str:
     """Joined hashtag names for one table cell; unresolved ids show `xxxxxxxx…`.
 
-    Empty / non-list → `—`. Shared by the CLI transactions table (width 24),
-    the LOG bar's account peek (width 18) and the TUI Transactions screen, which
+    Empty / non-list → `—`. Shared by the LOG bar's account peek (width 18) and
+    the TUI Transactions screen, which
     passes no width: its table cuts the cell at the column edge itself.
     Widths stay per-surface, and so does `prefix`: the peek asks
     for `#` so its rows read like the staged list directly above them.
@@ -184,8 +183,7 @@ def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
       Deliberately *not* `has_aggregate`, which drops zero rows outright; that is
       the flow-report rule and it is the opposite of this one.
 
-    Consumers: `expense dashboard` (`dashboard_cmd._render_people`) and the TUI
-    Home screen's PEOPLE section (`home.home_rows`).
+    Consumer: the TUI Home screen's PEOPLE section (`home.home_rows`).
     """
     outstanding: list[dict] = []
     settled: list[dict] = []
@@ -197,13 +195,11 @@ def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
 
 
 def settled_label(count: int) -> str:
-    """The fold line both People panels use: `▸ 3 settled` / `▸ 1 settled`.
+    """The words of Home's People fold line: `3 settled` / `1 settled`.
 
-    One copy so the CLI's printed line and the TUI's collapsed caret row cannot
-    drift apart in wording. The TUI swaps the leading `▸` for `▶`/`▼` (its own
-    fold carets) and keeps the rest.
+    Home puts its own fold caret (`▶`/`▼`) in front.
     """
-    return f"▸ {count} settled"
+    return f"{count} settled"
 
 
 SYSTEM_HINT = "System categories can be renamed but not deleted."
@@ -213,14 +209,14 @@ STATUS_LABELS = {1: "draft", 2: "completed"}
 
 
 def format_status(value: object) -> str:
-    """Human label for the engine's integer status. Shared by flat table + TUI."""
+    """Human label for the engine's integer status."""
     if value is None:
         return "—"
     return STATUS_LABELS.get(value, str(value))
 
 
 def format_period(item: dict) -> str:
-    """`date_start → date_end`. Shared by flat table + TUI. Both are calendar
+    """`date_start → date_end`. Both are calendar
     days on the wire (contract: "Date inputs"), and every period has both
     (contract: POST /v1/reconciliations)."""
     return f"{item['date_start']} → {item['date_end']}"
@@ -273,7 +269,7 @@ def cell_is_empty(cell: object) -> bool:
 
 
 def build_range_grid(months: list[dict]) -> dict:
-    """Merge a range payload into grid rows. Pure data; shared by flat + TUI.
+    """Merge a range payload into Home's grid rows. Pure data.
 
     Categories (and each category's hashtag combos) keep first-appearance order
     across the window. All amount cells are home-currency (`spent_home_cents` /
@@ -299,9 +295,8 @@ def build_range_grid(months: list[dict]) -> dict:
                      "net":     {label: ...}},
         }
 
-    `totals` carries all three `TOTALS_KEYS` — the flat range table draws only
-    `net`, but Home's grid needs inflow and outflow, and computing them twice
-    would be two places to get the `unconverted_count` rule wrong.
+    `totals` carries all three `TOTALS_KEYS`, built by one rule, so there is
+    one place to get the `unconverted_count` rule right.
     """
     labels = [format_month(m.get("month")) for m in months]
 

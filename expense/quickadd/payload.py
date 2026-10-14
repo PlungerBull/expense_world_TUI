@@ -1,15 +1,15 @@
 """A parsed line as a `POST /transactions` body.
 
-Shared so the flat `expense log "…"` and the TUI's `ctrl+s` batch build the
-same body from the same row. Pure: `date` arrives already canonicalised
-(RFC 3339 with an offset), because `expense.dates.to_canonical_aware` raises
-`typer.BadParameter` and this package stays free of typer.
+The TUI's `ctrl+s` batch builds each body from its row here. Pure: `date`
+arrives already canonicalised (RFC 3339 with an offset), because
+`expense.dates.to_canonical_aware` raises `typer.BadParameter` and this package
+stays free of typer.
 
 **Sparse by omission, never by null.** A line with no title sends no `title`;
 a line with no category sends no `category_id`, and the engine files the row
 under `@Pendiente` (docs/decisions.md "A sparse line is a ledger row"). An
 explicit null would be a 422 on `category_id` and a *clear* on `title`, so
-the CLI never sends one on a create.
+the app never sends one on a create.
 """
 
 from expense.quickadd.parse import ParsedLine
@@ -19,7 +19,7 @@ def transaction_payload(parsed: ParsedLine, *, row_id: str, date: str) -> dict:
     """`POST /transactions` body. Only valid for a line routing did not refuse.
 
     `row_id` is client-minted so a replayed write cannot double-apply — the
-    same contract `expense import` and every other create already use.
+    same contract `expense import sheet` and every other create already use.
     """
     payload: dict = {
         "id": row_id,

@@ -1,10 +1,12 @@
-# The TUI — `expense world`
+# The TUI — `expense`
 
-What the Textual app **is**, in present tense. The interactive front door over the
-same fetch/write layer the flat commands use; it implements **zero** business logic
+What the Textual app **is**, in present tense. `expense`, run alone, opens it: the
+one surface of this client ([decisions.md](decisions.md) "The TUI is the only
+surface"), over the shared fetch/write layer; it implements **zero** business logic
 (repo thin-wrapper rule).
 
-Companions: [cli-spec.md](cli-spec.md) (command surface) ·
+Companions: [cli-spec.md](cli-spec.md) (the typed surface: the launch, the sheet
+import and the settings file) ·
 [cli-runtime.md](cli-runtime.md) (read/write semantics, which apply to the TUI
 unchanged) · [decisions.md](decisions.md) (why the calls below went the way they did) ·
 [mockups/](mockups/) (the approval gate for every screen).
@@ -58,7 +60,7 @@ expense/tui/
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
-                    #   (flow.py), the code the typed `expense import bank` runs too
+                    #   (flow.py)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people
@@ -66,13 +68,12 @@ expense/tui/
                     #   (the LOG bar's one confirmation)
 ```
 
-**The fetch/print split is the anti-duplication guardrail.** Every command that
-fetched *and* printed has a pure `fetch_*(cfg, …) -> dict`; the typer command and
-the TUI both call it. The TUI imports `fetch_*` — it never reimplements one. The
+**The fetch/draw split is the anti-duplication guardrail.** Every engine read is a
+pure `fetch_*(cfg, …) -> dict` the screens call; a screen never reimplements one. The
 engine reads live in [reads.py](../expense/reads.py), the formatters in
 [formatting.py](../expense/formatting.py), the bank-import steps in
 [bank_import/flow.py](../expense/bank_import/flow.py) — none of them under
-`expense/commands/`, which holds only what the typed commands alone use
+`expense/commands/`, which holds only what `expense import sheet` alone uses
 (guard: [test_shared_code_home.py](../tests/unit/test_shared_code_home.py)). Write
 plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 [_form.py](../expense/tui/screens/_form.py).
@@ -107,7 +108,7 @@ the engine's fetch job has run.
   (`date`) and the day it actually used (`rate_date`); the whole signal is
   `rate_date < date`, which covers every failure mode. `reads.rate_is_stale`
   applies it; `fetch_rate_staleness` adds the `404` case (no rate at all → stale).
-  There is no TUI screen behind the mark; `expense rates list` shows what is stored.
+  There is no screen behind the mark.
 - **App-owned, fetched once per launch.** `ExpenseApp.rate_stale` holds `True` /
   `False` / `None`, filled by one worker on mount. A screen pushed after the fetch
   reads the value itself; one already mounted is repainted (breadcrumbs by query, home
@@ -218,9 +219,9 @@ No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "
 month".
 
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
-rather than a partial total. Opening balances are excluded engine-side. The grid builder
-Home shares with the flat `expense reports monthly`, `formatting.build_range_grid`, is
-covered by [test_range_grid.py](../tests/unit/test_range_grid.py).
+rather than a partial total. Opening balances are excluded engine-side. Home's grid
+builder, `formatting.build_range_grid`, is covered by
+[test_range_grid.py](../tests/unit/test_range_grid.py).
 
 **`u` on the Reconciliations browse — the account's rows in no batch**.
 The **panel swaps**: same screen, same place, and the open account's reconciliations
@@ -244,8 +245,9 @@ request; the engine stays the authority at close time.
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
 [expense-world-import-door.html](mockups/expense-world-import-door.html)). `↵` on the LOG
 bar's dropped files (§4 "A dropped bank file") reads every file at once, before any screen
-opens, through the same reader as `expense import bank`
-([cli-spec.md](cli-spec.md)). A file that is not a BCP export, or cannot be read, keeps the
+opens, through `read_bank_file` in [flow.py](../expense/bank_import/flow.py)
+(a BCP download: sheet `data`, columns Fecha, Descripcion, Moneda, Monto and an
+optional Numero de Operacion). A file that is not a BCP export, or cannot be read, keeps the
 bar where it is: the hint reads `not a BCP bank file · missing the columns Fecha, Monto`
 with `it has: <its headers>` dim under it, the footer is `esc Cancel` alone, nothing is
 sent, and the next keystroke clears it. With several files dropped, the hint names the
@@ -254,8 +256,8 @@ three full screens that replace one another above the LOG bar:
 
 | Screen | Shows | Keys |
 |---|---|---|
-| **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — `account_groups` in [flow.py](../expense/bank_import/flow.py), shared with the typed import, archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
-| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the typed import's verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
+| **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — `account_groups` in [flow.py](../expense/bank_import/flow.py), archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
+| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the verdicts (`new`, `in ledger · same day`, `in ledger · ± 1 day`, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), `! N ledger rows no file row matched — check` with one `date · amount · N unmatched` line per day, the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `under @Pendiente` dim; when the engine's `excess` names any day, `! 1 day where the ledger may now hold the same movement twice — check it and delete the extra one` (`2 days … check them and delete the extra ones`) with one `date · amount` line per day under it | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
 A preview with nothing new keeps the table and the summary and adds dim `nothing to import`.
@@ -266,7 +268,7 @@ sends the same rows, under the same ids, as the apply — one `POST /transaction
 with `dry_run: false` through the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
 stays on the preview, the rows it names by file line, and nothing else is sent. A file the
 picked account cannot hold (a currency with no leg, more than 500 rows, nothing on or after
-2026-01-01) is refused on the account list in the typed import's words.
+2026-01-01) is refused on the account list in flow.py's words.
 
 **Several files** carry `Import ▸ file 1 of 2` in the crumb and the file's name under the
 question. `esc` before a file is written cancels it and every file after it, and its word
@@ -371,8 +373,7 @@ unambiguous without this?" — not "is this a title?".
 
 The tokens themselves are **ANSI slots**, not hexes (`ansi_green` is slot 2 — the
 terminal fills it in), so the app reads on dark, light, Solarized and Gruvbox with **no
-detection at startup**, no light/dark pair and no `NO_COLOR` mode (the flat CLI honours
-that variable on its own). A hex in `theme.py` would pin the app back to one terminal —
+detection at startup**, no light/dark pair and no `NO_COLOR` mode. A hex in `theme.py` would pin the app back to one terminal —
 guarded by `test_theme_is_ansi_slots_not_hexes`. Why: [decisions.md](decisions.md) "The
 terminal supplies the palette".
 
@@ -463,8 +464,8 @@ window one month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** opens on
 the **account list alone**, full height, and reads no reconciliations: the engine lists
-them one account at a time (`GET /reconciliations?account_id=`, whole, in the order [cli-spec.md](cli-spec.md) gives
-under `reconcile list`),
+them one account at a time (`GET /reconciliations?account_id=`, whole, `date_start`
+ascending, then creation time, oldest first (contract: "Reconciliations", "Ordering")),
 so moving the account cursor costs nothing. `⏎ Its reconciliations` reads that account's
 list and opens the **panel** under the accounts, halving the height, with the cursor in
 it; the open account keeps an accent `▸`, and the breadcrumb grows to
@@ -600,7 +601,7 @@ Every `CursorList` / `CheckList` renders one window of **min(`PAGE_ROWS_CAP`, wh
 the terminal)** rows — the page IS the screenful, so the page status and footer never
 clip and no dead scrollbar appears. A resize re-measures
 (`SectionScreen.measure_list_rows`, floor 5) and keeps the first visible row.
-`DEFAULT_PAGE_ROWS` (20, one copy shared with the CLI) is the app-wide cap and the
+`DEFAULT_PAGE_ROWS` (20, one copy in [reads.py](../expense/reads.py)) is the app-wide cap and the
 pre-layout fallback everywhere except **Transactions, which fills the window**: it sets
 `PAGE_ROWS_CAP = ENGINE_PAGE_CAP` (200, the engine's own `limit` ceiling) and
 `CARD_WIDTH = None`, so its card spans the full width too. Every other screen keeps its
@@ -675,9 +676,8 @@ make rows fit that do not. Width has **no** floor of any kind.
 - **`fake_client` (conftest) patches the lazy-import seams only** —
   `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on
   `client.calls` / `.posts` / `.puts` ordering.
-- **`test_command_surface.py` gives no signal when a command disappears.** The Typer
-  walker only checks commands it finds. The backstops are the total-count floor and the
-  destructive count — adjust them deliberately when adding or removing commands.
+- **`test_command_surface.py` pins the typed surface.** `expense` alone opens the app
+  and `import sheet` is the only command; a command added or removed fails it.
 
 **Known, accepted:** a screen load may open several short-lived clients (Transactions:
 the page and three name maps; the bulk pickers' reference lists load once, on the first

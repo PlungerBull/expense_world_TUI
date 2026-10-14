@@ -13,7 +13,7 @@ Decisions whose why lives elsewhere:
 
 | Decision | The why lives in |
 |---|---|
-| CLI is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
+| The app is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
 | Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [cli-runtime.md](cli-runtime.md) "Write semantics" |
 | PAT auth (`ewe_pat_` prefix) | [cli-spec.md](cli-spec.md) "Auth model" |
 | Public GitHub repo → secrets never enter the repo | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
@@ -30,19 +30,19 @@ Decisions whose why lives elsewhere:
 
 ## Four calls for the LOG bar (2026-08-25)
 
-**Decision.** (1) **A staged row comes back as the raw line you typed** (`↑↓` pick, `↵` lifts it into the bar) — nothing is re-rendered, so line and row can never disagree. (2) **The staged table keeps its `tags` column.** (3) **The batch totals per currency** — never adds PEN to USD: `3 to the ledger · -45.20 PEN · -96.00 USD`. (4) **A refused line's reason reuses [route.py](../expense/quickadd/route.py)'s own phrases**; the flat `expense log` prints the same strings — one wording, one place. The date cell shows the year whenever it is not the current one, because the staged list is the echo that makes two-digit years safe.
+**Decision.** (1) **A staged row comes back as the raw line you typed** (`↑↓` pick, `↵` lifts it into the bar) — nothing is re-rendered, so line and row can never disagree. (2) **The staged table keeps its `tags` column.** (3) **The batch totals per currency** — never adds PEN to USD: `3 to the ledger · -45.20 PEN · -96.00 USD`. (4) **A refused line's reason reuses [route.py](../expense/quickadd/route.py)'s own phrases**; one wording, one place. The date cell shows the year whenever it is not the current one, because the staged list is the echo that makes two-digit years safe.
 
 **Rejected.** *Rebuild the line from the row* (names spelled out) — a second formatter that drifts from the parser and loses typed text. *Drop the tags column for width* — tags are half of why a line is typed. *A second, shorter wording for the reasons* — a phrase table that drifts from route.py.
 
-## Two calls for the one-line `expense log` (2026-08-25)
+## The quick-add line: one rule, shown before it is written (2026-08-25)
 
-**Decision.** (1) **One rule on both surfaces**: [quickadd/route.py](../expense/quickadd/route.py) decides whether a line is accepted or refused (see "A sparse line is a ledger row"); the flat command exits 1 on a refused line. An ambiguous name counts as no name, and the candidates are printed. (2) **The command always echoes the parsed row and asks before writing**; `--yes` skips. The grammar is forgiving (`18/8/26`, `hoy`, `$sig`) *because* the resolved row is always shown before it is committed — in the TUI the staged list is that echo; in the flat command the prompt is. The prompt lives in [log_cmd.py](../expense/commands/log_cmd.py), never in `expense/quickadd/`, so the TUI does not confirm twice.
+**Decision.** (1) **One rule**: [quickadd/route.py](../expense/quickadd/route.py) decides whether a line is accepted or refused (see "A sparse line is a ledger row"). An ambiguous name counts as no name, and the candidates are shown. (2) **The parsed row is always shown before it is written.** The grammar is forgiving (`18/8/26`, `hoy`, `$sig`) *because* the resolved row is always shown before it is committed: the LOG bar's staged list is that echo, and nothing in `expense/quickadd/` asks a second time.
 
 **Rejected.** *Write, then echo, with `--dry-run` to look first* — the check is skipped exactly when typing fast. *Prompt only when something was inferred* — an unpredictable prompt trains you to dismiss it.
 
 ## Three quick-add grammar rules (2026-08-25)
 
-**Decision.** (1) **Names match on "contains, anywhere"**, accent- and case-blind ([quickadd/names.py](../expense/quickadd/names.py) `fold()`, shared by every picker). An exact name wins outright, longer phrases are tried first (`#caja chica` before `#caja`); zero or several hits leave the token unresolved with its candidates for a picker. (2) **Dashed ISO dates are accepted** (`2026-08-18`) because `--date` takes that shape everywhere; dashes stay ISO-only, so `18-08-2026` is not a date. (3) **An unmatched `#tag` is refused, never created.**
+**Decision.** (1) **Names match on "contains, anywhere"**, accent- and case-blind ([quickadd/names.py](../expense/quickadd/names.py) `fold()`, shared by every picker). An exact name wins outright, longer phrases are tried first (`#caja chica` before `#caja`); zero or several hits leave the token unresolved with its candidates for a picker. (2) **Dashed ISO dates are accepted** (`2026-08-18`) because every date field in the app takes that shape; dashes stay ISO-only, so `18-08-2026` is not a date. (3) **An unmatched `#tag` is refused, never created.**
 
 **Rejected.** *Whole-name or starts-with matching* — fails the common case of typing the distinctive middle word. *Slash dates only* — a user who types dashes everywhere else would silently get title text. *Create unknown tags on save* — a typo becomes a permanent tag. *Swallow an unknown tag as title text* — loses it silently.
 
@@ -54,7 +54,7 @@ Decisions whose why lives elsewhere:
 
 ## The TUI is the only surface (2026-10-13, owner)
 
-**Context.** The owner uses only the TUI and never types a flat command. The TUI never runs a command: it calls the same Python reads, formatters and write plumbing the commands call, so a typed command is a second face on a feature, built and approved a second time for a surface nobody reads. Web and iOS call the engine's HTTPS API, never this repo.
+**Context.** The owner uses only the TUI. A typed command calling the same Python reads, formatters and write plumbing as a screen is a second face on the same feature, built and approved a second time for a surface nobody reads. Web and iOS call the engine's HTTPS API, never this repo.
 
 **Decision.** Every feature is built once, in the TUI. Two things are typed: `expense`, which opens the TUI, and `expense import sheet`, the door for the owner's spreadsheet. Every engine endpoint is exercised by the owner's real use of the TUI and by the live contract suite, which calls the engine directly; an engine feature with no TUI screen is exercised by the contract suite alone. Agents get no typed commands: what is done to the ledger is done by the owner, in the app. The quick-add grammar is one implementation, used by the LOG bar. The work that gets the repo there is [specs/tui-only-plan.md](specs/tui-only-plan.md).
 
@@ -98,13 +98,13 @@ Decisions whose why lives elsewhere:
 
 ## Archive is a prompt-free toggle; Manage lists have no record detail (2026-07-11)
 
-**Decision.** (1) **The Manage lists are the whole surface** — no record-detail screen: `e` opens the prefilled edit form, `a` archives/unarchives the cursor row (accounts only), `enter` is a no-op. (2) **Archive is a reversible toggle, not a destructive operation**: no confirm modal in the TUI, no prompt and no `--yes` on the flat `archive`. Only delete/revert/clear are confirm-gated ([test_command_surface.py](../tests/unit/test_command_surface.py)).
+**Decision.** (1) **The Manage lists are the whole surface** — no record-detail screen: `e` opens the prefilled edit form, `a` archives/unarchives the cursor row (accounts only), `enter` is a no-op. (2) **Archive is a reversible toggle, not a destructive operation**: no confirm question. Only delete and revert ask first.
 
 **Rejected.** *A record-detail screen* — repeats the list's columns. *Inline cell editing* — a second edit idiom for three screens. *A confirm on archive* — pure friction on something one keypress undoes. *`enter` as an edit alias* — declined; `enter` stays non-mutating.
 
 ## Every data table pages at 20 rows (2026-07-11)
 
-**Decision.** `DEFAULT_PAGE_ROWS = 20` in [reads.py](../expense/reads.py), one copy for CLI and TUI. **CLI:** human mode sends `limit=20` on cursor-paged lists via `effective_limit`; explicit flags win; `--json` sends no default and stays byte-verbatim. **TUI:** full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
+**Decision.** `DEFAULT_PAGE_ROWS = 20` in [reads.py](../expense/reads.py), one copy. Full-data lists (Manage lists, Reconciliations panes, the tick-list) are display-windowed — the window follows the cursor — at the size set by "TUI rows-per-page adapt to the terminal". The ledger and the "no batch" pane grow instead ("Long lists grow, they do not page").
 
 **Rejected.** *Client-side slicing of engine-paged reads* — the next client must inherit real pagination. *Auto-fetching when `↓` reaches the edge* — holding a key would fire a read per keystroke.
 
@@ -116,7 +116,7 @@ Decisions whose why lives elsewhere:
 
 ## TUI rows-per-page adapt to the terminal — min(20, what fits) (2026-07-13)
 
-**Decision.** The page is the screenful, capped at `PAGE_ROWS_CAP` (default 20). `SectionScreen.measure_list_rows` ([_base.py](../expense/tui/screens/_base.py)) measures `#content`'s real height (screens declare their extra lines; `LIST_FRAME_LINES = 6` is the panel frame), floor `PAGE_ROWS_FLOOR = 5`; the first load waits for the first layout pass. The panel always fits, so `#content` never grows a scrollbar nothing could operate. CLI human mode is untouched (stdout has no viewport).
+**Decision.** The page is the screenful, capped at `PAGE_ROWS_CAP` (default 20). `SectionScreen.measure_list_rows` ([_base.py](../expense/tui/screens/_base.py)) measures `#content`'s real height (screens declare their extra lines; `LIST_FRAME_LINES = 6` is the panel frame), floor `PAGE_ROWS_FLOOR = 5`; the first load waits for the first layout pass. The panel always fits, so `#content` never grows a scrollbar nothing could operate.
 
 **Rejected.** *A fixed 20 with a scrolling container* — the title and headers scroll away and the scrollbar is undraggable. *Grow-to-fit on every screen* — short lists read worse spread out; only the ledger lifts the cap ("The ledger fills the window").
 
@@ -132,9 +132,9 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *Natural width* — data-dependent layout, and on a narrow terminal Rich trims every column evenly until the amount is a bare `…`. *Bigger fixed caps* — the same bug on a bigger terminal.
 
-## `expense world` clears the terminal scrollback at launch — `CSI 2J 3J H` (2026-07-13)
+## The app clears the terminal scrollback at launch — `CSI 2J 3J H` (2026-07-13)
 
-**Decision.** `run_world` emits `\x1b[2J\x1b[3J\x1b[H` before Textual starts ([app.py](../expense/tui/app.py)), so Terminal.app cannot scroll pre-launch text in above the running app. **Accepted cost (owner-confirmed):** the tab's whole scrollback is wiped on every launch. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
+**Decision.** `launch` emits `\x1b[2J\x1b[3J\x1b[H` before Textual starts ([app.py](../expense/tui/app.py)), so Terminal.app cannot scroll pre-launch text in above the running app. **Accepted cost (owner-confirmed):** the tab's whole scrollback is wiped on every launch. Locked by [test_tui_mouse.py](../tests/unit/test_tui_mouse.py).
 
 **Rejected.** *Clear only the screen (`2J`)* — the scrollback still slides in. *Re-enable the mouse to swallow wheel events* — reverts keyboard-only.
 
@@ -144,15 +144,15 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *A coloured cursor bar* — names fixed colours and gives the menu a different gesture from the lists. *Bold* — already means "pending".
 
-## Opening balances are an engine concept (`@Opening` system category), not a CLI convention (2026-07-20)
+## Opening balances are an engine concept (`@Opening` system category), not a client convention (2026-07-20)
 
-**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, renameable); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). `expense accounts opening-balance` wraps it; the sheet importer routes rows marked `SALDO INICIAL` in the **title or the category** column to it (deduped per account and currency).
+**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, renameable); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). The sheet importer routes rows marked `SALDO INICIAL` in the **title or the category** column to it (deduped per account and currency).
 
 **Rejected.** *A user category plus a naming convention* — invisible to the engine, so reports can never exclude it, and every client invents its own name. *An opening-balance param on `POST /accounts` only* — never fires for accounts that already exist. *Keep the `@Opening` row visible in panels* — visible rows would no longer sum to the total.
 
 ## Local-first deployment — the one engine moves to the user's Mac; cloud mothballed until iOS (2026-07-30)
 
-**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. The CLI's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: the engine's local- and cloud-deployment guides.
+**Decision.** The same engine runs on the owner's Mac (launchd, local Postgres), the daily FX fetch runs as a launchd task, and a nightly `pg_dump` to iCloud Drive is the durability layer. Every architectural invariant holds: one engine, zero client logic, server-first writes. This app's only change is `engine_url`. Reactivating the cloud for iOS is a relocation (restore the dump, redeploy, repoint). Ops: the engine's local- and cloud-deployment guides.
 
 **Rejected.** *Keep the cloud warm on a paid tier* — needs internet for every command and still leaves FX unwired. *Local-first writes with an LWW queue in the client* — the engine's writes have computed side effects, so optimistic acceptance means duplicating the engine or "saved" rows bouncing later. *Port the engine to SQLite* — rewrites the money layer and forks local from cloud.
 
@@ -176,7 +176,7 @@ Decisions whose why lives elsewhere:
 
 ## Home aggregates are nullable — `3 unrated` is a state, not a number (2026-08-16)
 
-**Decision.** The engine returns `null` for a home-currency aggregate when any row in the group has no resolvable rate, with an `unconverted_count`. The client renders that as **`3 unrated`** in the cell — never `0.00` and never a native-currency fallback (which would read USD cents as PEN cents). One shared pair, `format_aggregate` / `has_aggregate` in [formatting.py](../expense/formatting.py), backs CLI and TUI. Month cells carry the count, so *no activity* (dim `—`) and *unpriceable* stay distinct. A category with nothing in the report is not drawn; `categories list` and `--json` still show every one.
+**Decision.** The engine returns `null` for a home-currency aggregate when any row in the group has no resolvable rate, with an `unconverted_count`. The client renders that as **`3 unrated`** in the cell — never `0.00` and never a native-currency fallback (which would read USD cents as PEN cents). One shared pair, `format_aggregate` / `has_aggregate` in [formatting.py](../expense/formatting.py), backs every screen. Month cells carry the count, so *no activity* (dim `—`) and *unpriceable* stay distinct. A category with nothing in the report is not drawn; the Categories screen still lists every one.
 
 **Rejected.** *A partial total with a marker* — a half-true number on screen. *`n/a (3)`* — an abbreviation to learn. *A footnote with the count* — loses which row it belongs to.
 
@@ -188,13 +188,11 @@ Decisions whose why lives elsewhere:
 
 ## A settled person is folded, never hidden — and creating one is a TYPE field, not a `people` group (2026-08-16)
 
-**Decision — creation.** `expense accounts create-person`, and in the TUI a **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; `person` posts to `POST /people`. `is_person` is never sent — the endpoint is the flag — and TYPE is read-only on the edit form.
+**Decision — creation.** A **TYPE field** (`bank` / `person`, prefilled `bank`) first on the New Account form; `person` posts to `POST /people`. `is_person` is never sent — the endpoint is the flag — and TYPE is read-only on the edit form.
 
-**Decision — settled people.** Folded behind a count (`▸ 3 settled`), never dropped — on the flat dashboard and on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
+**Decision — settled people.** Folded behind a count (`▶ 3 settled`), never dropped — on Home. "Settled" is exactly zero in the person's own currency. `split_settled` / `settled_label` in [formatting.py](../expense/formatting.py) are the single copy. The engine refuses to hide settled people (a repaid loan and an unrecorded one would look identical; a coincidental net zero is two live debts), so the count line keeps the client from silently omitting anyone.
 
-**Decision — archived people.** On the flat dashboard, `--include-archived` adds `archived_people` as its own panel right after archived accounts — two lists, as on every other surface — and it is not folded: the panel is what the flag was passed to see.
-
-**Rejected.** *An `expense people` group* — promises a set of commands when there is exactly one. *`accounts create --person`* — one command posting to two endpoints. *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
+**Rejected.** *Printing every settled person* — buries the ones you owe. *Naming them on the fold line* — grows until it needs truncating.
 
 ## One word for hashtags — the engine's, everywhere (2026-08-16)
 
@@ -250,21 +248,21 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** *A bare numeric `28/08`* — `1/2` in a title would silently become a date; the month must be letters. *A four-row key block* — costs the peek four rows. *A live checklist legend* — declined for a row that is the same every time you look.
 
-## Importer ids are positional — the sheet is append-only, and `--unreconciled` is the check (2026-09-12)
+## Importer ids are positional — the sheet is append-only, and the rows in no batch are the check (2026-09-12)
 
-**Decision.** `expense import sheet` derives each id as `uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and the key includes the row number — without it, two identical purchases on one day would collapse into one and the second would be lost. So **the sheet is append-only below the last imported row**: insert, delete or re-sort above it and every row below gets a new id and imports twice. The check is `expense transactions list --unreconciled` over the last reconciled period after every import: a duplicate lands outside any closed period, so it cannot hide in `difference_cents`. `--unreconciled` with `--reconciliation-id` is a `422`, not an empty result, because empty here asserts safety.
+**Decision.** `expense import sheet` derives each id as `uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and the key includes the row number — without it, two identical purchases on one day would collapse into one and the second would be lost. So **the sheet is append-only below the last imported row**: insert, delete or re-sort above it and every row below gets a new id and imports twice. The check is the account's rows in no batch (`u` on the Reconciliations browse) after every import: a duplicate lands outside any closed period, so it cannot hide in `difference_cents`.
 
-**Rejected.** *A duplicate-group counter instead of the line* — better in isolation and the fix if the sheet ever must be edited in place; not worth changing every existing id. *An importer guard storing the last row count* — state the CLI does not keep, and a sheet can legitimately shrink.
+**Rejected.** *A duplicate-group counter instead of the line* — better in isolation and the fix if the sheet ever must be edited in place; not worth changing every existing id. *An importer guard storing the last row count* — state the app does not keep, and a sheet can legitimately shrink.
 
 ## A sparse line is a ledger row under `@Pendiente` (2026-09-12)
 
-**Decision.** (1) **A ledger row needs an account, an amount and a date**; title, category, tags and note are optional. (2) **An empty category files the row under the `@Pendiente` system category** (`system_key = 'pending'`, renameable, delete refused), which **counts** in every total, grid and balance. Naming `@pendiente` explicitly is allowed, so a row can be sent back to pending. (3) **A date ahead of today is refused**; **an unknown `#tag` is refused**; **a titleless row shows a dash** everywhere. (4) **A line is accepted or refused**: the LOG bar's `↵` stages it or shows the reason under the bar ([route.py](../expense/quickadd/route.py)), and `expense log` exits 1 on the same lines. (5) **The category cell alone carries the pending state** — no marker column.
+**Decision.** (1) **A ledger row needs an account, an amount and a date**; title, category, tags and note are optional. (2) **An empty category files the row under the `@Pendiente` system category** (`system_key = 'pending'`, renameable, delete refused), which **counts** in every total, grid and balance. Naming `@pendiente` explicitly is allowed, so a row can be sent back to pending. (3) **A date ahead of today is refused**; **an unknown `#tag` is refused**; **a titleless row shows a dash** everywhere. (4) **A line is accepted or refused**: the LOG bar's `↵` stages it or shows the reason under the bar ([route.py](../expense/quickadd/route.py)). (5) **The category cell alone carries the pending state** — no marker column.
 
 **Rejected.** *A draft table that does not count toward totals* — the money is missing from every figure until promoted; this is what made capture heavier than a spreadsheet. *A `pending` flag on the row* — a second axis every client must know, and it allows a real category plus the flag. *Accepting future dates* — a balance holding next week's rent reads wrong today. *Defaulting a missing title to the category or account name* — invented text indistinguishable from typed text. *An `UNTITLED` placeholder* — a lie the ledger carries.
 
 ## Bank downloads are matched against the ledger, not hashed (2026-09-12)
 
-**Decision.** `expense import bank` ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. A card's two currencies are one pick. (2) **The engine matches** — the whole file in one `POST /transactions/import`, dry run by default, `--apply` the same call with `dry_run: false`, `--json` the engine's body. The engine matches by operation code, then same day + amount + title, then ± 1 day + amount + title, claiming each ledger row once; a content match onto a code-less ledger row writes the code onto it. The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day where the ledger holds more unmatched rows than the file is a loud warning, never an action.** (4) **The title is the bank's text**, whitespace collapsed, and no description is written (description is the owner's notes field). (5) **New rows land under `@Pendiente`.** (6) Nothing dated before **2026-01-01** is sent; a file over **500** rows (the engine's cap) is refused; a row inside a completed reconciliation comes back `sealed` and is shown in its own block. The preview's `#` is the row's line in the file. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). Mockup: [mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html).
+**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. A card's two currencies are one pick. (2) **The engine matches** — the whole file in one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches by operation code, then same day + amount + title, then ± 1 day + amount + title, claiming each ledger row once; a content match onto a code-less ledger row writes the code onto it. The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day where the ledger holds more unmatched rows than the file is a loud warning, never an action.** (4) **The title is the bank's text**, whitespace collapsed, and no description is written (description is the owner's notes field). (5) **New rows land under `@Pendiente`.** (6) Nothing dated before **2026-01-01** is sent; a file over **500** rows (the engine's cap) is refused; a row inside a completed reconciliation comes back `sealed` and is shown in its own block. The preview's `#` is the row's line in the file. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). Mockup: [mockups/expense-world-bank-import-10b.html](mockups/expense-world-bank-import-10b.html).
 
 **Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar, and to a card row that moves a day between downloads. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor* — one forgotten flag from duplicates. *A cleaned merchant name as the title* — the title is what the bank sent.
 
@@ -303,13 +301,13 @@ the bar is where the right file gets dropped next.
 
 ## Home draws four months — three filters, empty categories hidden (2026-09-13)
 
-**Decision.** (1) **Home draws categories × four months** (home currency), with unfoldable hashtag rows and inflow/outflow/net, from the same `build_range_grid` as the flat `reports monthly --from/--to`; `pgdn`/`pgup` walk the window a month at a time, never past this month. Balances are today's, and the header says so. (2) **`⏎` is three filters**: a category row → that category; a hashtag row → that category *and* that hashtag; an account or person row → that account. (3) **A category with nothing in the window is hidden.** (4) **A combo of several hashtags, or of none, is drawn but not filterable** — `?hashtag_id=` takes one id and there is no untagged filter, so a looser filter would show rows the cell does not count; `@Pendiente` draws no caret.
+**Decision.** (1) **Home draws categories × four months** (home currency), with unfoldable hashtag rows and inflow/outflow/net, from `build_range_grid` ([formatting.py](../expense/formatting.py)); `pgdn`/`pgup` walk the window a month at a time, never past this month. Balances are today's, and the header says so. (2) **`⏎` is three filters**: a category row → that category; a hashtag row → that category *and* that hashtag; an account or person row → that account. (3) **A category with nothing in the window is hidden.** (4) **A combo of several hashtags, or of none, is drawn but not filterable** — `?hashtag_id=` takes one id and there is no untagged filter, so a looser filter would show rows the cell does not count; `@Pendiente` draws no caret.
 
-**Rejected.** *This month beside last month* — drops the long view. *A cell cursor scoping `⏎` to one month* — a second cursor axis. *Keeping zero-activity categories* — the Categories screen and the pickers list every one. *A separate Overview screen or tab* — the same numbers twice. *Twelve months* — ~160 columns; the flat range table is the long view. *Balances as of the window's month* — no endpoint, rarely acted on. *Filtering a multi-tag combo by its first hashtag* — a superset presented as the cell's rows.
+**Rejected.** *This month beside last month* — drops the long view. *A cell cursor scoping `⏎` to one month* — a second cursor axis. *Keeping zero-activity categories* — the Categories screen and the pickers list every one. *A separate Overview screen or tab* — the same numbers twice. *Twelve months* — ~160 columns. *Balances as of the window's month* — no endpoint, rarely acted on. *Filtering a multi-tag combo by its first hashtag* — a superset presented as the cell's rows.
 
 ## A null difference is blank, a zero difference is the em-dash (2026-09-14)
 
-**Decision.** A reconciliation's `ending_balance_cents` and `difference_cents` are nullable (not entered yet). In the TUI ([cells.py](../expense/tui/widgets/cells.py)): `0` difference is the dim em-dash ("balances, move on"); `None` or junk is a **blank** cell — never the em-dash, which would assert the batch balances; a null amount renders `—`, not `(null)`. The flat CLI uses `format_cents_or_dash` for those two fields and always prints a zero difference as a number (it gets piped); `format_cents` keeps `(null)` everywhere else, deliberately ugly.
+**Decision.** A reconciliation's `ending_balance_cents` and `difference_cents` are nullable (not entered yet). In the TUI ([cells.py](../expense/tui/widgets/cells.py)): `0` difference is the dim em-dash ("balances, move on"); `None` or junk is a **blank** cell — never the em-dash, which would assert the batch balances; a null amount renders `—`, not `(null)`.
 
 **Rejected.** *Null and zero both `—`* — tells you an unfinished batch balances. *A `?` glyph for null* — a blank already reads correctly. *Changing `format_cents` globally* — blunts a signal meant to be noticed.
 
@@ -321,7 +319,7 @@ the bar is where the right file gets dropped next.
 
 ## The gap report is a line under the header, not a toast and not the rows (2026-09-22)
 
-**Decision.** A completed period's coverage-gap warnings render as a line under the header (`#rwarn`, `PALETTE.warning`), hidden when there are none; it survives `r` and clears on the next status change. The engine's sentence is shown **verbatim** and never parsed; `reconcile complete` prints the structured `coverage_gap` once. The "completed" toast still fires — a gap is not a failure. Reviewing unfiled rows is the `u` pane's job ("Rows in no batch live in the reconciliation view").
+**Decision.** A completed period's coverage-gap warnings render as a line under the header (`#rwarn`, `PALETTE.warning`), hidden when there are none; it survives `r` and clears on the next status change. The engine's sentence is shown **verbatim** and never parsed. The "completed" toast still fires — a gap is not a failure. Reviewing unfiled rows is the `u` pane's job ("Rows in no batch live in the reconciliation view").
 
 **Rejected.** *A toast* — fades in five seconds, and this message exists not to be missed. *A full screen* — interrupts every close, including deliberate gaps. *Working the gap's dates out client-side* — a copy of an engine rule.
 
@@ -339,15 +337,15 @@ the bar is where the right file gets dropped next.
 
 ## Deleted is deleted (2026-09-23)
 
-**Decision.** A delete is final from every client: there are no restore commands and no `--include-deleted`. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (contract: "Base Conventions", "There is no restore"). Delete prompts are unchanged.
+**Decision.** A delete is final from every client: there is no restore and no way to list deleted rows. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (contract: "Base Conventions", "There is no restore"). Delete prompts are unchanged.
 
-**Rejected.** *A flat-only restore* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
+**Rejected.** *A restore in this client only* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
 
 ## Activity and Rates leave the TUI (2026-09-23, owner)
 
-**Decision.** Activity and Rates have no TUI screens; the flat `expense activity list` and `expense rates list` stay, with `--from` / `--to` / `--after` and a line naming the window read ([cli-spec.md](cli-spec.md) "Pagination"). A bare `--from`/`--to` day is sent as typed; the engine reads it as a whole day in `display_timezone`. No TUI screen reads a date window.
+**Decision.** Activity and Rates have no screens; the live contract suite exercises them ("The TUI is the only surface"). Adding a screen for either is new work of its own.
 
-**Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens. *Converting a typed day to an instant client-side* — the engine's date rule copied into the client.
+**Rejected.** *Porting both screens to date windows* — a second paging model for two unused screens.
 
 ## Long lists grow, they do not page (2026-09-25, owner)
 
@@ -359,19 +357,19 @@ the bar is where the right file gets dropped next.
 
 ## Reconciliations opens on the accounts (2026-09-25, owner)
 
-**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its reconciliations (`GET /reconciliations?account_id=`, whole, in the engine's order: [cli-spec.md](cli-spec.md) `reconcile list`) and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its reconciliations (`GET /reconciliations?account_id=`, whole, in the engine's order: [tui.md](tui.md) "The Reconciliations browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
 
 **Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
 ## Reconciliation periods are days (2026-09-26, owner's pick)
 
-**Decision.** A period's `date_start` / `date_end` are **bare `YYYY-MM-DD`**, both required; the engine refuses anything else. The flat commands send the typed text unconverted. The TUI form checks the date **at the field** with `is_calendar_day` ([dates.py](../expense/dates.py)) — zero-padded, a real day — and sends it unchanged. The tick-list passes the period's days straight into `date_from` / `date_to`.
+**Decision.** A period's `date_start` / `date_end` are **bare `YYYY-MM-DD`**, both required; the engine refuses anything else. The TUI form checks the date **at the field** with `is_calendar_day` ([dates.py](../expense/dates.py)) — zero-padded, a real day — and sends it unchanged. The tick-list passes the period's days straight into `date_from` / `date_to`.
 
 **Rejected.** *The LOG bar's forgiving dates* — a statement's dates are copied off paper. *`date.fromisoformat` alone* — accepts `20260831`, which the engine refuses.
 
 ## Delete anything that no longer points anywhere (2026-09-25, owner)
 
-**Decision.** A removed flag, command or code path is deleted outright — **no stub, no friendlier message**: a stale `--limit` on a whole list gets Typer's own "No such option". Test fakes use the engine's real shapes (`whole()`, `cursor_page()` in [tests/unit/helpers.py](../tests/unit/helpers.py)) and refuse what the engine refuses. Guard: `test_command_surface.py::test_whole_lists_take_no_paging_flags`.
+**Decision.** A removed flag, command or code path is deleted outright — **no stub, no friendlier message**: a removed command gets Typer's own "No such command". Test fakes use the engine's real shapes (`whole()`, `cursor_page()` in [tests/unit/helpers.py](../tests/unit/helpers.py)) and refuse what the engine refuses. Guard: `test_command_surface.py` pins the typed surface.
 
 **Rejected.** *A stub that explains the removal* — a second copy of the engine's change that lives forever. *Keeping a dead branch "in case"* — unreachable code is untested; git history keeps old behaviour.
 
@@ -379,7 +377,6 @@ the bar is where the right file gets dropped next.
 
 **Decision.**
 - **The engine is the only guard.** No client checks a seal before a write or caches completed windows (they change under `revert`). The `!` flag and the bank import's `sealed` rows only report.
-- **Every refusal says what to do next** ([reconcile_cmd.py](../expense/commands/reconcile_cmd.py)): an inverted range names the flags; an overlap points at `reconcile list --account-id <id>`; on `complete`, an empty batch and unassigned rows each get their own hint. Both `complete` refusals share `fields["transactions"]`; **the hint is chosen by the reason on that field** `NO_TRANSACTIONS_ASSIGNED` or `UNASSIGNED_IN_PERIOD` (contract: "Error reasons"), never by wording, and a test holds each hint to its reason.
 - **Only a date or account change can hit a seal**: of the bulk keys only `b` can be refused by a seal; `c` and `h` stay legal inside a sealed period. The LOG bar and the bank import name the sealing period on the refused row and still save the rest.
 - **`revert` shows nothing extra.**
 
@@ -419,11 +416,11 @@ the bar is where the right file gets dropped next.
 
 ## Hints are chosen by the engine's reasons, never its wording (2026-09-28, owner)
 
-**Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The CLI and TUI choose every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `--json` passes the engine's envelope through verbatim, codes included ([cli-spec.md](cli-spec.md) "Output conventions").
+**Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The app chooses every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `expense import sheet --json` passes the engine's envelope through verbatim, codes included ([cli-spec.md](cli-spec.md) "Output conventions").
 
 **Why.** The engine publishes its message wording for people and changes it without notice; a hint keyed to words breaks silently on a rewording, and web and iOS would copy the same fragile match. Reason codes are part of the published contract, listed per operation, so a change to them moves the contract version and reaches the owner.
 
-**Rejected.** *Showing the codes on screen* — the owner kept errors as they read today (2026-09-28); the codes are for code, and `--json` has them. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
+**Rejected.** *Showing the codes on screen* — the owner kept errors as they read today (2026-09-28); the codes are for code. *Keeping the wording matches as a fallback* — two ways to decide the same thing, one of them unreliable.
 
 ## A move to another account takes the row out of its reconciliation (2026-09-30, owner)
 
@@ -438,9 +435,9 @@ the bar is where the right file gets dropped next.
 
 **Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that lists that code (contract: "Error codes"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([cli-runtime.md](cli-runtime.md) "Bulk writes").
 
-**Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home. `expense transactions batch` stays a single atomic request and shows whatever the engine answers, including the refusal of a file over the batch limit.
+**Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home.
 
-**Rejected.** *Retry row by row like any other `422`* — one extra request per row, and the same four-line error under every row. *Split an oversized `transactions batch` file into several requests* — the command promises all-or-nothing.
+**Rejected.** *Retry row by row like any other `422`* — one extra request per row, and the same four-line error under every row.
 
 ## The practice engine starts with its own Python only (2026-10-12)
 
@@ -454,7 +451,7 @@ the bar is where the right file gets dropped next.
 
 **Context.** The contract states each list's order with its direction: accounts come by `sort_order` ascending, then creation time, oldest first (contract: GET /v1/accounts, "Ordering"). Every client shows a list as the engine returns it.
 
-**Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([cli-spec.md](cli-spec.md) `reconcile list` for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen or command sorts a list the engine orders.
+**Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([tui.md](tui.md) "The Reconciliations browse" for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen sorts a list the engine orders.
 
 **Rejected.** *SQL-style shorthand* (a column name followed by a sort keyword) — it names columns the contract does not publish and reads as knowledge of the engine's insides. *Stating the order wherever the list appears* — the copies drift.
 

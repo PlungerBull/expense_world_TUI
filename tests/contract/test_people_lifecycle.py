@@ -65,7 +65,7 @@ def test_people_lifecycle(client):
         assert created["is_person"] is True
         assert created["current_balance_cents"] == 0
 
-        # 2 — `is_person` is forbidden on both routes, so the CLI sends it on
+        # 2 — `is_person` is forbidden on both routes, so the app sends it on
         # neither. Sending it fails closed: the whole write is rejected.
         _expect_status(
             lambda: client.post(
@@ -149,7 +149,7 @@ def test_people_lifecycle(client):
         assert f"{name}-renamed" in _names(archived.get("archived_people"))
         assert f"{name}-renamed" not in _names(archived.get("archived_accounts"))
 
-        # `archived_people` is null-not-omitted without the flag (the CLI's
+        # `archived_people` is null-not-omitted without the flag (a client's
         # `is not None` panel gate depends on exactly this).
         default_view = client.get("/dashboard")
         assert default_view["archived_people"] is None

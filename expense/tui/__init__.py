@@ -1,22 +1,19 @@
-"""Interactive TUI — `expense world`.
+"""The interactive app — what `expense` opens when run alone.
 
-A retained-mode Textual app over the same engine/command layer the flat CLI
-uses (zero business logic here). The entry point is kept light: `world_command`
-imports Textual lazily so plain `expense <cmd>` invocations don't pay the cost.
+A retained-mode Textual app over the engine reads and write plumbing (zero
+business logic here). The entry point is kept light: `open_app` imports Textual
+lazily so `expense import sheet` doesn't pay the cost.
 See [docs/tui.md](../../docs/tui.md).
 """
 
 import typer
 
 
-def world_command(ctx: typer.Context) -> None:
-    """Open the interactive TUI.
+def open_app(ctx: typer.Context) -> None:
+    """Open the interactive app."""
+    from expense.tui.app import launch
 
-    Example: expense world
-    """
-    from expense.tui.app import run_world
-
-    run_world(ctx)
+    launch(ctx)
 
 
-__all__ = ["world_command"]
+__all__ = ["open_app"]

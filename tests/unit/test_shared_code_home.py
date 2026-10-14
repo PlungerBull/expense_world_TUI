@@ -1,10 +1,10 @@
-"""Guard: nothing outside `expense/commands/` leans on a typed command.
+"""Guard: nothing outside `expense/commands/` leans on the typed command.
 
-`expense/commands/` holds what the typed commands alone use, so a command file
-can go without touching the TUI or the imports. What both surfaces share lives
-outside it: the engine reads in `expense/reads.py`, the formatters in
+`expense/commands/` holds what `expense import sheet` alone uses, so it can
+change without touching the TUI. What the app is drawn from lives outside it:
+the engine reads in `expense/reads.py`, the formatters in
 `expense/formatting.py`, the bank-import steps in `expense/bank_import/flow.py`.
-`expense/__main__.py` registers the Typer groups and is the one module allowed
+`expense/__main__.py` registers the Typer command and is the one module allowed
 to import the package.
 """
 
@@ -58,13 +58,13 @@ def test_the_import_reader_resolves_every_spelling(tmp_path, monkeypatch):
     screens = tmp_path / "expense" / "tui" / "screens"
     screens.mkdir(parents=True)
     spellings = {
-        "import expense.commands.rates_cmd": True,
-        "from expense.commands import rates_cmd": True,
+        "import expense.commands.import_cmd": True,
+        "from expense.commands import import_cmd": True,
         "from expense.commands._resource import items_of": True,
         "from expense import commands": True,
-        "from ...commands import rates_cmd": True,
+        "from ...commands import import_cmd": True,
         "from ... import commands": True,
-        "def f():\n    from expense.commands import rates_cmd": True,
+        "def f():\n    from expense.commands import import_cmd": True,
         "from expense import reads": False,
         "from expense.tui.screens import commands_help": False,
         "from . import commands": False,  # expense.tui.screens.commands

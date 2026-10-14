@@ -10,7 +10,7 @@ Accepted (docs/decisions.md "Three quick-add grammar rules"):
   dd/mm/yyyy                 · dd/mm/yy, where yy → 20yy
   yyyy/mm/dd                 · 4-digit-first disambiguates, so it cannot
                                collide with dd/mm/yyyy
-  yyyy-mm-dd                 · the form `--date` takes everywhere else
+  yyyy-mm-dd                 · the ISO form, as the edit form's date takes it
   28Aug / 28/Aug / 28-Aug    · day + month name, this year. Both
                                languages, any prefix of the month from three
                                letters up (`ago`, `agosto`, `sept`, `set`), and
@@ -108,8 +108,8 @@ def parse_date(word: str, today: date) -> tuple[str | None, bool]:
         day, month, year = match.groups()
         # Two-digit years resolve to this century. Accepted because the screen
         # echoes the resolved date in words before a row is staged, so a
-        # misread is visible rather than silent (docs/decisions.md "Two calls
-        # for the one-line `expense log`").
+        # misread is visible rather than silent (docs/decisions.md "The
+        # quick-add line: one rule, shown before it is written").
         return _build(2000 + int(year) if len(year) == 2 else int(year), int(month), int(day))
 
     return None, False
@@ -144,8 +144,8 @@ def format_date_words(iso: str) -> str:
 
     The echo the grammar leans on: two-digit years are accepted *because* the
     resolved date is always spelled out before the row is committed, so a
-    misread is visible rather than silent (docs/decisions.md "Two calls for
-    the one-line `expense log`"). English and
+    misread is visible rather than silent (docs/decisions.md "The quick-add
+    line: one rule, shown before it is written"). English and
     fixed on purpose — `strftime` would follow the machine locale, and a date
     that changes shape between machines is the opposite of a check.
     """

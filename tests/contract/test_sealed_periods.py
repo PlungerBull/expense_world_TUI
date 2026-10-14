@@ -1,6 +1,6 @@
 """Contract: sealed periods.
 
-A completed reconciliation seals its account's days, and the CLI reports every
+A completed reconciliation seals its account's days, and the app reports every
 refusal that follows by reading the engine's `fields` key and message. The unit
 suite fakes those 422s; this file is the only place they are checked against the
 engine, and the check the sealed-periods work closed on:
@@ -11,7 +11,7 @@ engine, and the check the sealed-periods work closed on:
   · a draft seals nothing, and revert opens the wall again;
   · `complete` refuses while a row in the period is filed nowhere. It shares
     `fields["transactions"]` with the empty-batch refusal, so only the message
-    tells them apart (the hint the CLI prints depends on reading it);
+    tells them apart (the hint the app shows depends on reading it);
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
     when there is none; revert carries neither;
   · periods on one account may not share a day, and may not run backwards.
@@ -223,7 +223,7 @@ def test_a_draft_seals_nothing(client, ledger):
 
 
 def test_complete_refuses_while_a_row_in_the_period_is_filed_nowhere(client, ledger):
-    """Same key as the empty-batch refusal, different message: the CLI's hint
+    """Same key as the empty-batch refusal, different message: the app's hint
     reads the message, so the message is the contract."""
     account = ledger.account()
     filed = ledger.row(account, ledger.at(2026, 3, 10))

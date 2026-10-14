@@ -3,8 +3,9 @@
 Built on SectionScreen + the shared CursorList. Includes people and archived
 accounts (archived rows dimmed); the Color column renders the account's hex
 color as a swatch. Balances are native currency — no surface converts an
-account balance to the home currency (see `dashboard_cmd._render_account_table`
-for why). `n` creates; `e` edits the cursor row (prefilled
+account balance to the home currency: a single-currency user sees one
+meaningful number, and a multi-currency user gets the value in the unit they
+think in for that account. `n` creates; `e` edits the cursor row (prefilled
 EditAccountScreen); `a` toggles archive immediately — a second `a` undoes;
 `d` deletes the cursor row after a question (`a` puts an account away, `d` is
 for one made by mistake). `enter` does nothing.

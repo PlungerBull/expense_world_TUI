@@ -1,4 +1,4 @@
-"""Pure parse/plan unit tests for `expense import` — no network, no xlsx file."""
+"""Pure parse/plan unit tests for `expense import sheet` — no network, no xlsx file."""
 
 import pytest
 

@@ -3,7 +3,7 @@
 `POST /transactions/batch` is all-or-nothing: one bad row in a chunk and none
 of the chunk is written
 (contract: POST /v1/transactions/batch, "No partial success"). The singleton
-retry — shared by `expense import` and the TUI's LOG bar rather than kept in
+retry — shared by `expense import sheet` and the TUI's LOG bar rather than kept in
 two copies — re-posts the refused chunk one row per batch, so the good rows
 land and the bad one is named on its own.
 

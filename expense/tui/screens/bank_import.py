@@ -10,10 +10,9 @@ the other in drop order, through three full screens:
     ImportPreviewScreen   the engine's dry run, nothing written yet
     ImportResultScreen    what the apply wrote, and the days to check
 
-Every step is the code the typed `expense import bank` runs too
-(expense/bank_import/flow.py): the same read, the same account
-folding, the same `Prepared` rows, the same one `POST /transactions/import`
-(contract: POST /v1/transactions/import) and the same verdicts. What is here is
+Every step is the shared code in expense/bank_import/flow.py: the read,
+the account folding, the `Prepared` rows, the one `POST /transactions/import`
+(contract: POST /v1/transactions/import) and the verdicts. What is here is
 only what the screens draw, from docs/mockups/expense-world-import-door.html.
 
 The screens replace one another (`switch_screen`), so the stack is always
@@ -584,7 +583,7 @@ class ImportPreviewScreen(_ImportScreen):
     @work(thread=True, exclusive=True, group="engine-write")
     def _ask(self, dry_run: bool) -> None:
         """One `POST /transactions/import` — the dry run, or the apply. Both go
-        through the typed command's own call; the client mints the
+        through flow.py's one call; the client mints the
         idempotency key."""
         from expense import config as config_module
         from expense.http import ExpenseClient

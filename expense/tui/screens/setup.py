@@ -2,7 +2,7 @@
 
 The app opens on this screen, pushed over Home, when there is no settings file
 it can use: none at all, or one that cannot be read (`config.load_usable`,
-decided in `run_world`). Drawn like every other bar form (FormScreen): one question on the
+decided in `launch`). Drawn like every other bar form (FormScreen): one question on the
 bar, the answers listed under it. Screens in
 docs/mockups/expense-world-first-time-setup.html.
 

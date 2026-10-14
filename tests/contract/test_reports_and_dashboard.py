@@ -1,6 +1,6 @@
 """Contract coverage for the two aggregate reads: /dashboard and /reports/monthly.
 
-These are the only endpoints the CLI does not merely relay — Home and the range
+These are the only endpoints the app does not merely relay — Home and the range
 grid do arithmetic *on top of* their shape (four months side by side, a hashtag
 breakdown folded under each category, balances in each account's own currency).
 Every fixture behind that arithmetic is one we wrote, so the unit suite proves
@@ -44,10 +44,10 @@ def _now_iso() -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_has_the_sections_home_and_the_flat_command_index_by(client):
-    """`fetch_dashboard` is shared by `expense dashboard` and Home's header.
+def test_dashboard_has_the_sections_home_indexes_by(client):
+    """`fetch_dashboard` feeds Home.
 
-    Both index these sections by name and both would render an empty panel, not
+    Home indexes these sections by name and would render an empty panel, not
     an error, if one were renamed — the silent failure this test exists to make
     loud.
     """
@@ -62,7 +62,7 @@ def test_dashboard_has_the_sections_home_and_the_flat_command_index_by(client):
         "categories",
         "totals",
     ):
-        assert key in body, f"/dashboard lost `{key}` — dashboard_cmd indexes it by name"
+        assert key in body, f"/dashboard lost `{key}` — Home indexes it by name"
 
     # Null-over-omission: the two archived sections are present and null rather
     # than absent, which is what lets the renderer tell "not asked for" from
@@ -100,9 +100,8 @@ def test_dashboard_accounts_carry_their_own_currency_and_balance(client):
 
 
 def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
-    """`--include-archived` is a flag on the command *because* it is a parameter
-    here. An archived account is real (docs/decisions.md "Archive is a
-    prompt-free toggle"), so the row still
+    """`include_archived` is a parameter here. An archived account is real
+    (docs/decisions.md "Archive is a prompt-free toggle"), so the row still
     exists when asked for — but it does **not** rejoin `bank_accounts`.
 
     The engine answers with a separate `archived_accounts` list — **null** until
@@ -112,7 +111,7 @@ def test_dashboard_keeps_archived_accounts_in_their_own_section(client):
         ones; a client that merged the lists would overstate every balance.
       · null rather than `[]`, because that is how a reader tells "you did not
         ask" from "you asked and there are none" — which is exactly the
-        difference `dashboard_cmd` uses to decide whether to draw the panel at
+        difference a client uses to decide whether to draw the panel at
         all (`if archived_accounts is not None`).
 
     Assuming the merge, or an empty list, and iterating the null is precisely
@@ -296,7 +295,7 @@ def test_a_write_is_signed_but_a_bare_read_is_not(client):
     """`debit_as_negative` is a *read* preference; the write is always signed.
 
     CLAUDE.md calls the sign convention shared infrastructure — "input and
-    output are both signed" is the contract the CLI presents, and it is the CLI
+    output are both signed" is the contract the app presents, and it is the app
     that makes the output half true by asking for it. The engine stores the
     magnitude and signs on request.
 

@@ -1,29 +1,18 @@
+"""The `expense` command: alone it opens the app; `expense import sheet` reads the sheet.
+
+Those are the only two typed entry points (docs/decisions.md "The TUI is the only
+surface"); everything else is done in the app.
+"""
+
 import typer
 
-from expense import __version__
-from expense.commands import (
-    accounts_cmd,
-    activity_cmd,
-    auth_cmd,
-    bank_import_cmd,
-    categories_cmd,
-    config_cmd,
-    dashboard_cmd,
-    hashtags_cmd,
-    import_cmd,
-    log_cmd,
-    ping_cmd,
-    rates_cmd,
-    reconcile_cmd,
-    reports_cmd,
-    transactions_cmd,
-)
+from expense.commands import import_cmd
 from expense.context import AppContext
-from expense.tui import world_command
+from expense.tui import open_app
 
 app = typer.Typer(
-    help="The Hands — expense_world_engine CLI.",
-    no_args_is_help=True,
+    help="Run `expense` alone to open the app.",
+    invoke_without_command=True,
     add_completion=False,
 )
 
@@ -38,40 +27,15 @@ def main(
         help="Print HTTP request/response to stderr (Authorization redacted).",
     ),
 ) -> None:
-    """The Hands — expense_world_engine CLI."""
+    """Run `expense` alone to open the app."""
     ctx.obj = AppContext(verbose=verbose)
+    if ctx.invoked_subcommand is None:
+        open_app(ctx)
 
 
-@app.command()
-def version() -> None:
-    """Print the CLI version.
-
-    Example: expense version
-    """
-    typer.echo(__version__)
-
-
-app.add_typer(config_cmd.app, name="config")
-app.add_typer(auth_cmd.app, name="auth")
-app.add_typer(accounts_cmd.app, name="accounts")
-app.add_typer(categories_cmd.app, name="categories")
-app.add_typer(hashtags_cmd.app, name="hashtags")
-app.add_typer(transactions_cmd.app, name="transactions")
-app.add_typer(reconcile_cmd.app, name="reconcile")
-app.add_typer(reports_cmd.app, name="reports")
-app.add_typer(activity_cmd.app, name="activity")
-app.add_typer(rates_cmd.app, name="rates")
-app.command("ping")(ping_cmd.ping)
-app.command("whoami")(auth_cmd.whoami)
-app.command("log")(log_cmd.log)
-app.command("dashboard")(dashboard_cmd.dashboard)
-# `import` has two doors: `sheet` reads the personal sheet, `bank` reads a bank
-# download and matches it against the ledger (expense/bank_import/).
 import_app = typer.Typer(help="Bring rows in from a spreadsheet.", no_args_is_help=True)
 import_app.command("sheet")(import_cmd.run_import)
-import_app.command("bank")(bank_import_cmd.bank)
 app.add_typer(import_app, name="import")
-app.command("world")(world_command)
 
 
 if __name__ == "__main__":

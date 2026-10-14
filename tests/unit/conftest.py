@@ -94,7 +94,7 @@ def _pinned_terminal_size(monkeypatch):
 
 @pytest.fixture
 def configured(tmp_path, monkeypatch):
-    """Config saved under tmp_path — every command runs engine-direct."""
+    """Config saved under tmp_path — every engine call goes to the mocked engine."""
     monkeypatch.setenv("EXPENSE_CONFIG", str(tmp_path / ".expense-config"))
     config_module.save(
         config_module.Config(
@@ -111,8 +111,8 @@ def fake_client(monkeypatch):
 
     Patches expense.http.ExpenseClient (factory returning this one instance)
     and expense.config.ensure_loaded (opaque stub — re-monkeypatch after
-    taking this fixture if a test needs a real Config). CLI command modules
-    import ExpenseClient at module top — keep respx for those.
+    taking this fixture if a test needs a real Config). The sheet import
+    imports ExpenseClient at module top — keep respx for it.
     """
     client = helpers.FakeClient()
 
@@ -128,10 +128,8 @@ def _no_retry_backoff(monkeypatch):
     `expense.http` sleeps `_RETRY_BACKOFF_SECONDS` (1s then 2s) between the
     attempts of a same-key write retry. That is right in production and pure
     dead time here: any test that mocks a 5xx or a timeout on a write pays it
-    for real. test_http.py had a local `no_backoff` fixture and every test that
-    knew to ask for it was fast — the ones that did not know were not, and the
-    slowest test in the suite (3.01s, `test_run_toggle_no_hint_for_unmapped_status`
-    in test_resource.py) was one POST → 500 waiting out the full table.
+    for real, and a test that forgot to opt out of the waits would be the
+    slowest in the suite for no reason.
 
     The replacement keeps the table's *length*, so
     `test_every_retry_has_a_backoff_to_index` still measures the real retry
@@ -149,13 +147,11 @@ def _no_retry_backoff(monkeypatch):
 # test_command_surface.py::test_every_command_has_an_error_shape_test reads this)
 # ---------------------------------------------------------------------------
 #
-# Recorded at runtime, not scanned out of the source. A static scan was the
-# obvious first idea and it cannot work: the shared CRUD contract invokes
-# `[spec.name, "get", "missing"]`, so the command being tested is a variable and
-# a reader of the text sees nothing. Watching the invocations happen is immune
-# to how the argv was spelled.
+# Recorded at runtime, not scanned out of the source: a parametrized test builds
+# its argv from a variable, which a reader of the text cannot see. Watching the
+# invocations happen is immune to how the argv was spelled.
 
-#: Command paths some test drove to a non-zero exit — ("accounts", "get"), …
+#: Command paths some test drove to a non-zero exit — ("import", "sheet"), …
 ERROR_TESTED: set[tuple[str, ...]] = set()
 
 #: True when this run cannot see the whole suite (-k, -m, --lf, or a nodeid),
@@ -197,8 +193,8 @@ def pytest_configure(config):
         result = original(self, cli, args, **kwargs)
         if result.exit_code != 0 and args:
             tokens = tuple(a for a in args if isinstance(a, str) and not a.startswith("-"))
-            # longest leaf path that prefixes the argv — `accounts get missing`
-            # records ("accounts", "get"), never ("accounts", "get", "missing")
+            # longest leaf path that prefixes the argv — `import sheet x.xlsx`
+            # records ("import", "sheet"), never ("import", "sheet", "x.xlsx")
             for size in (3, 2, 1):
                 if tokens[:size] in _LEAF_PATHS:
                     ERROR_TESTED.add(tokens[:size])

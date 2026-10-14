@@ -1,16 +1,13 @@
-"""The one place the CLI turns a value into JSON.
+"""The one place a value becomes JSON for the terminal.
 
-`--json` is the promise this tool makes to anything that isn't a person, so
-the bytes on the other end should not depend on which command produced them.
-Every `--json` goes through here, so no command can pass `ensure_ascii=False`
-while another does not — which would write `Café` from one command and
-`Caf\\u00e9` from another, for the same account, on a ledger whose names are
-mostly Spanish.
+`expense import sheet --json` and the error envelope both go through here, so
+the bytes do not depend on which path produced them.
 
 `ensure_ascii=False` is the choice: the escaped form is valid JSON that no
 parser minds and no human can read, and every consumer here is UTF-8. The
 error envelope goes through `json_text` too — an error is machine-readable
-output like any other, and it carries engine messages with the same accents.
+output like any other, and it carries engine messages with the same accents
+on a ledger whose names are mostly Spanish.
 """
 
 import json
@@ -19,17 +16,11 @@ from typing import Any
 import typer
 
 
-def json_text(value: Any, *, sort_keys: bool = False) -> str:
-    """Serialise for `--json`: two-space indent, real UTF-8, no key sorting.
-
-    Keys stay in insertion order by default, because for most commands that is
-    the engine's own order and re-sorting it would hide the shape the engine
-    sent. `expense config show` sorts, since its keys are a settings list with
-    no meaningful order of its own.
-    """
-    return json.dumps(value, indent=2, ensure_ascii=False, sort_keys=sort_keys)
+def json_text(value: Any) -> str:
+    """Serialise for `--json`: two-space indent, real UTF-8, keys in insertion order."""
+    return json.dumps(value, indent=2, ensure_ascii=False)
 
 
-def emit_json(value: Any, *, sort_keys: bool = False) -> None:
+def emit_json(value: Any) -> None:
     """Write one JSON document to stdout."""
-    typer.echo(json_text(value, sort_keys=sort_keys))
+    typer.echo(json_text(value))

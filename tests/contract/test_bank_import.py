@@ -1,6 +1,6 @@
 """Contract: `POST /transactions/import`.
 
-`expense import bank` makes exactly this one call and prints what comes back,
+The TUI import door makes exactly this one call and draws what comes back,
 so what the preview and the apply say is the engine's word. Pinned here:
 
   · a dry run answers `new` and writes nothing;

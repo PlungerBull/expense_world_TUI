@@ -1,4 +1,4 @@
-"""Spreadsheet import for the `expense import` command.
+"""Spreadsheet import for the `expense import sheet` command.
 
 CLI-specific input handling (like dates.py): parses an .xlsx
 client-side and feeds the existing engine write endpoints. No business logic
