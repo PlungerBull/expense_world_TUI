@@ -138,6 +138,10 @@ Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's a
    words plus one line saying what to do, as the delete refusals do. The lines are drawn for the
    owner to approve the wording, then chosen by reason; the status-and-route choice for deletes
    is deleted, and so is [engine-asks/delete-refusal-reasons.md](../engine-asks/delete-refusal-reasons.md).
+   The same task makes the LOG bar and the sheet import read the reason too: today they take every
+   `409` on a create as "already saved", which puts a ✓ on a row the engine refused for another
+   reason (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`); only the app's own id already sent counts
+   as saved. The sheet import prints the engine's words alone, with no app keys in them.
 3. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
    category. On such a row the ledger's edit form does not offer those two fields, and the bulk
    `c`/`b` keys show the engine's refusal for it. Drawn for the owner first.
