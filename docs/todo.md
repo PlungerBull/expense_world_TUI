@@ -27,16 +27,14 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Three files to hand to the engine coders
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 1
-Give the engine coders, as they are: [engine-asks/account-opening-balance.md](engine-asks/account-opening-balance.md)
-(the opening-balance screen waits on it), [engine-asks/delete-refusal-reasons.md](engine-asks/delete-refusal-reasons.md)
-and [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md).
-Read the last one first; it is the brief on the rename and the six features with no screen.
-**Recommended:** hand over all three together, after the folder rename below.
+### The brief to hand to the engine coders
+Asked 2026-10-14 · Blocks: nothing in this repo
+Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
+as it is: the brief on the rename and the six features with no screen.
+**Recommended:** hand it over right after the folder rename below.
 
 ### When does the local folder get renamed?
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 2
+Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 5
 Renaming `expense_world_CLI` to `expense_world_TUI` moves the folder, rebuilds its Python
 environment, and moves Claude's memory for this project to the new path. It is done from a
 fresh session, opened outside the folder.
