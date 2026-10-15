@@ -18,7 +18,15 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import EditFormScreen
-from tests.unit.helpers import render_text, run_app, wait_for, whole
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_NAMES,
+    in_order,
+    render_text,
+    run_app,
+    wait_for,
+    whole,
+)
 
 ACCOUNTS = [
     {
@@ -120,6 +128,27 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
         assert sorted(calls) == [("accounts", True), ("categories", False), ("hashtags", False)]
         assert "accX" not in [a[0] for a in screen._accounts]  # archived out of the pool
         assert screen._acc_names.get("accX") == "Old bank"  # but resolvable in the map
+
+    run_app(scenario)
+
+
+def test_the_account_field_suggests_in_the_engines_order(fake_client, monkeypatch):
+    """The account picker lists accounts exactly as `GET /accounts` returned
+    them — not alphabetical, not by `sort_order`, the person after every bank."""
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("account")
+        screen._recompute("")
+        assert [ent[1] for ent in screen._suggestions] == ENGINE_ORDER_NAMES
+        shown = render_text(screen._suggest_renderable(), width=120)
+        assert in_order(shown, ENGINE_ORDER_NAMES)
 
     run_app(scenario)
 

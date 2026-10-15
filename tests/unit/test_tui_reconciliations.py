@@ -7,7 +7,17 @@ from expense.tui.screens.reconciliations import (
     ReconciliationsScreen,
 )
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import cursor_page, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_BANK_NAMES,
+    cursor_page,
+    in_order,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
 ITEMS = [
     {
@@ -181,6 +191,46 @@ def test_new_reconciliation_date_start_is_required(fake_client, monkeypatch):
         assert screen._key == "date_end"
         await pilot.pause()
         assert not fake_client.posts
+
+    run_app(scenario)
+
+
+def test_the_new_form_account_picker_shows_the_engines_order(fake_client, monkeypatch):
+    """The account field lists the accounts exactly as `GET /accounts` returned
+    them — not alphabetical, not by `sort_order`; people have no statements, so
+    the person is left out and nothing else moves."""
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen()
+        await app.push_screen(screen)
+        await _wait_accounts(screen, pilot)
+        _enter(screen, "April 2026")  # name → the account field
+        assert screen._key == "account"
+        assert [ent[1] for ent in screen._suggestions] == ENGINE_ORDER_BANK_NAMES
+        shown = render_text(screen._suggest_renderable(), width=120)
+        assert in_order(shown, ENGINE_ORDER_BANK_NAMES)
+
+    run_app(scenario)
+
+
+def test_the_browse_lists_accounts_in_the_engines_order(monkeypatch):
+    """The browse's account list stands as `GET /accounts` returned it, the
+    person left out and nothing else moved."""
+    _patch_browse(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        assert [a[1] for a in screen._accounts] == ENGINE_ORDER_BANK_NAMES
+        shown = render_text(screen._accts_list._build(), width=120)
+        assert in_order(shown, ENGINE_ORDER_BANK_NAMES)
 
     run_app(scenario)
 

@@ -451,7 +451,7 @@ the bar is where the right file gets dropped next.
 
 ## A list's order is written in the contract's words, in one home (2026-10-12)
 
-**Context.** The contract states each list's order with its direction: accounts come by `sort_order` ascending, then creation time, oldest first (contract: GET /v1/accounts, "Ordering"). Every client shows a list as the engine returns it.
+**Context.** The contract states each list's order with its direction: accounts come every real account first, then every person, each group by `sort_order` ascending, then creation time, oldest first (contract: GET /v1/accounts, "Ordering"). Every client shows a list as the engine returns it.
 
 **Decision.** A doc or comment that states a list's order uses the contract's wording, including the direction, and cites it; each order has one home and other places link there ([tui.md](tui.md) "The Reconciliations browse" for an account's reconciliations). `test_list_orders_state_their_direction` in [test_docs_links.py](../tests/unit/test_docs_links.py) fails on an SQL-style order and on a cited order without its direction. No screen sorts a list the engine orders.
 

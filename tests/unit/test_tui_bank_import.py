@@ -26,7 +26,15 @@ from expense.tui.screens.bank_import import (
 )
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
-from tests.unit.helpers import render_text, run_app, stub_home_month, wait_for, whole
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_BANK_NAMES,
+    render_text,
+    run_app,
+    stub_home_month,
+    wait_for,
+    whole,
+)
 
 ACCOUNTS = [
     {
@@ -316,6 +324,29 @@ def test_the_account_list_folds_a_card_and_names_the_file(fake_client, monkeypat
         assert account._cursor == 1
         await pilot.press("up")
         assert account._cursor == 0
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_account_list_shows_the_engines_order(fake_client, monkeypatch, tmp_path):
+    """The "Which account is this file?" list shows the accounts exactly as
+    `GET /accounts` returned them — not alphabetical, not by `sort_order`; the
+    person is left out and nothing else moves."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        account = await _preview(pilot, app)
+        assert [group.base for group in account._groups] == ENGINE_ORDER_BANK_NAMES
+        listed = [line.strip() for line in _body(account).split("\n")[2:] if line.strip()]
+        assert [line.split("  ")[0] for line in listed] == ENGINE_ORDER_BANK_NAMES
 
     run_app(scenario, size=(120, 40))
 

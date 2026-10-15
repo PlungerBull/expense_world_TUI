@@ -296,6 +296,14 @@ unchanged when the drop is imported.
 and unwritten, and Home reads afresh: this month's window, every category folded, the
 cursor on the first category (`HomeScreen.start_fresh`).
 
+**Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
+picker, the edit form's account field, the ledger's `b` picker, the Reconciliations
+browse, the new-reconciliation form and the bank import's "Which account is this file?"
+show accounts as `GET /accounts` lists them, every real account first, then every person
+(contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
+leaves them out and moves nothing else, and the bank import's card line stands where its
+first currency leg does.
+
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags, on the ledger (whole or filtered

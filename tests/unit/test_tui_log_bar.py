@@ -35,7 +35,16 @@ from expense.tui.screens.log_bar import (
 )
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, PALETTE
-from tests.unit.helpers import cursor_page, render_text, run_app, wait_for, whole
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_NAMES,
+    cursor_page,
+    in_order,
+    render_text,
+    run_app,
+    wait_for,
+    whole,
+)
 
 ACCOUNTS = [
     {
@@ -374,6 +383,23 @@ def test_state2_an_ambiguous_account_opens_the_picker(fake_client, monkeypatch):
         assert screen._suggest_idx == 0
         screen.action_move(1)
         assert screen._suggest_idx == 1
+
+    run_app(scenario)
+
+
+def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
+    """A bare `$` lists the accounts exactly as `GET /accounts` returned them —
+    not alphabetical, not by `sort_order`, the person after every bank."""
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _type(screen, "almuerzo -20 $")
+        assert [name for _, name in screen._picker.candidates] == ENGINE_ORDER_NAMES
+        assert in_order(_text(screen._suggest_renderable()), ENGINE_ORDER_NAMES)
 
     run_app(scenario)
 

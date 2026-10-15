@@ -60,8 +60,6 @@ Drafted by the orchestrator; waiting on the owner's approval.
    the mockup; `ENDING_BALANCE_REQUIRED` gets its what-to-do line in the hint table.
 2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
    shows, and a skipped colour is not sent.
-4. **Account order pinned.** A unit test that the accounts list and the account pickers show
-   accounts in the order the engine returns them.
 5. **Live tests follow the engine.** Every reconciliation the suite completes has an ending
    balance; completing one without it is refused with `ENDING_BALANCE_REQUIRED`; a category and
    an account created without a colour come back with the engine's default; the account list

@@ -5,7 +5,16 @@ from rich.text import Text
 from expense.tui.screens.accounts import AccountsScreen, account_rows
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_NAMES,
+    in_order,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
 ITEMS = [
     {
@@ -68,5 +77,24 @@ def test_accounts_screen_lists_and_edits(monkeypatch):
         assert cl is not None
         await pilot.press("e")  # edit the cursor row — no detail hop
         await wait_for(pilot, lambda: isinstance(app.screen, EditAccountScreen))
+
+    run_app(scenario)
+
+
+def test_accounts_screen_shows_the_engines_order(monkeypatch):
+    """Rows stand exactly as `GET /accounts?include_people=true` lists them —
+    not alphabetical, not by `sort_order`, the person after every bank."""
+    import expense.reads as ac
+
+    monkeypatch.setattr(ac, "fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS))
+    monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
+
+    async def scenario(pilot, app):
+        await app.push_screen(AccountsScreen())
+        await wait_for_list(pilot, app)
+        cl = app.screen.query(CursorList).first()
+        assert [row.key for row in cl._rows] == [a["id"] for a in ENGINE_ORDER_ACCOUNTS]
+        shown = render_text(cl._build(), width=120)
+        assert in_order(shown, ENGINE_ORDER_NAMES)
 
     run_app(scenario)

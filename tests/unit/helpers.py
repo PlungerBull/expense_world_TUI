@@ -132,6 +132,67 @@ def whole(items: list) -> dict:
     return {"items": items}
 
 
+#: `GET /accounts?include_people=true` in an order no client could derive:
+#: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
+#: the way the engine lists people after every real account (contract: GET
+#: /v1/accounts). Every account list and picker must show exactly this order.
+ENGINE_ORDER_ACCOUNTS = [
+    {
+        "id": "acc-zeta",
+        "name": "Zeta Ahorros",
+        "currency_code": "PEN",
+        "is_person": False,
+        "is_archived": False,
+        "sort_order": 3,
+        "color": "#3b82f6",
+        "current_balance_cents": 500,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc-alfa",
+        "name": "Alfa Corriente",
+        "currency_code": "USD",
+        "is_person": False,
+        "is_archived": False,
+        "sort_order": 1,
+        "color": "#3b82f6",
+        "current_balance_cents": 700,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc-medio",
+        "name": "Medio Visa",
+        "currency_code": "PEN",
+        "is_person": False,
+        "is_archived": False,
+        "sort_order": 2,
+        "color": "#3b82f6",
+        "current_balance_cents": -300,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "per-ana",
+        "name": "Ana",
+        "currency_code": "PEN",
+        "is_person": True,
+        "is_archived": False,
+        "sort_order": 0,
+        "color": "#3b82f6",
+        "current_balance_cents": 100,
+        "opening_balance_transaction_id": None,
+    },
+]
+#: The names as the engine orders them, people included and without them.
+ENGINE_ORDER_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS]
+ENGINE_ORDER_BANK_NAMES = [a["name"] for a in ENGINE_ORDER_ACCOUNTS if not a["is_person"]]
+
+
+def in_order(text: str, names: list[str]) -> bool:
+    """Every name appears in the rendered `text`, each after the one before it."""
+    at = [text.find(name) for name in names]
+    return -1 not in at and at == sorted(at)
+
+
 def cursor_page(items: list, *, next_cursor: str | None = None, limit: int = 50) -> dict:
     """The `GET /transactions` envelope — cursor-paged, so no `total` and no
     `offset`. `next_cursor=None` (the default) is the last page."""

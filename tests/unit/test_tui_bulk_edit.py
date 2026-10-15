@@ -11,7 +11,7 @@ from rich.text import Text
 
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
-from expense.reads import QuickAddRefs
+from expense.reads import QuickAddRefs, load_quickadd_refs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
@@ -24,7 +24,18 @@ from expense.tui.screens.transactions import (
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import fake_ledger, run_app, wait_for, wait_for_list, wait_for_loaded
+from tests.unit.helpers import (
+    ENGINE_ORDER_ACCOUNTS,
+    ENGINE_ORDER_NAMES,
+    fake_ledger,
+    in_order,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    wait_for_loaded,
+    whole,
+)
 
 ITEMS = [
     {
@@ -222,6 +233,31 @@ def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monke
         ]
 
     run_app(scenario, size=(120, 30))
+
+
+def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
+    """`b` lists the accounts exactly as `GET /accounts` returned them, through
+    the shared reference read — not alphabetical, not by `sort_order`, the
+    person after every bank."""
+    _stub_ledger(monkeypatch)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", load_quickadd_refs)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        modal = app.screen
+        assert [name for _, name in modal._pool] == ENGINE_ORDER_NAMES
+        shown = render_text(modal.query_one("#candidates").render(), width=160)
+        assert in_order(shown, ENGINE_ORDER_NAMES)
+
+    run_app(scenario, size=(160, 30))
 
 
 def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
