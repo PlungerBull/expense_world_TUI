@@ -1,4 +1,4 @@
-# Expense CLI — Spec
+# The typed surface — Spec
 
 > What is still typed: `expense` alone opens the TUI, and `expense import sheet` brings the owner's spreadsheet in. Everything else is done in the app ([decisions.md](decisions.md) "The TUI is the only surface"). This file holds the sheet import and the settings file; the app itself is [tui.md](tui.md).
 >

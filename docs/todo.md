@@ -31,7 +31,7 @@ Asked <date> · Blocks: <task or spec>
 Asked 2026-10-14 · Blocks: nothing in this repo
 Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
 as it is: the brief on the rename and the six features with no screen.
-**Recommended:** hand it over right after the folder rename below.
+**Recommended:** hand it over now; the folder rename it describes is done.
 
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
@@ -114,9 +114,6 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
-- **The TUI is the only surface** (flat commands deleted except the sheet import, three new TUI
-  features, the repo rename and the brief to the engine coders). Spec:
-  [specs/tui-only-plan.md](specs/tui-only-plan.md), the current spec.
 - **Catch up with contract 42d70a629215928d** (completing a reconciliation asks for its ending
   balance, the live tests follow the engine). Spec (draft, deferred):
   [specs/engine-catch-up-42d70a6.md](specs/engine-catch-up-42d70a6.md).

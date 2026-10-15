@@ -51,7 +51,7 @@ bank import.
 2. Pair each bank row with ledger rows of the same account and signed amount on the same or
    adjacent day. Identical titles need nothing. Exactly one candidate becomes a proposal
    `ledger title → bank title`. Several or none are listed with what there is.
-3. The list is a **local file outside the repo** (the repo is public; this is financial data).
+3. The list is a **local file outside the repo** (this is financial data, which never enters the repo).
    The owner answers with the exceptions and the picks for the unclear rows.
 4. Apply exactly what was approved: one `PUT /transactions/{id}` with `title` only. **The old
    title is dropped**; `description` is untouched.
@@ -72,7 +72,7 @@ bank import.
 | Bulk "assign everything shown" on the reconciliation screen | Revisit if monthly closing proves tedious — the draft screen already lists exactly the rows it would assign. |
 | Other banks, CSV, PDF | BCP only. |
 
-The TUI door is the only way a bank file comes in ([tui-only-plan.md](specs/tui-only-plan.md)).
+The TUI door is the only way a bank file comes in ([decisions.md](decisions.md) "The TUI is the only surface").
 
 ---
 
@@ -96,7 +96,7 @@ backstop.
 3. First real bank import.
 
 `expense import sheet` stays for good: it is the door for the owner's spreadsheet (owner,
-2026-09-30; [tui-only-plan.md](specs/tui-only-plan.md)).
+2026-09-30; [decisions.md](decisions.md) "The TUI is the only surface").
 
 ---
 

@@ -125,7 +125,7 @@ the engine's fetch job has run.
 
 **Setup comes first when there is nothing to connect with.** With no settings file, or
 one that cannot be read (damaged, half-written, not a config — `config.load_usable`),
-`run_world` opens the app with `SetupScreen`
+`launch` in [app.py](../expense/tui/app.py) opens the app with `SetupScreen`
 ([setup.py](../expense/tui/screens/setup.py)) pushed over Home, crumb `Setup`, drawn like
 the bar forms (screens in
 [expense-world-first-time-setup.html](mockups/expense-world-first-time-setup.html)):
@@ -679,7 +679,7 @@ one discoverability surface.
 **Mouse is off** (`run(mouse=False)`) — the TUI is keyboard-only. Corollary:
 terminal-level scrolling reaches the terminal itself, and Terminal.app will scroll into
 scrollback *above* the running app. Launch therefore wipes screen and scrollback
-(`CSI 2J 3J H` in `run_world`) so there is nothing to reveal.
+(`CSI 2J 3J H` in `launch`) so there is nothing to reveal.
 
 ---
 
