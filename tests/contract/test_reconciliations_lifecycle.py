@@ -14,7 +14,7 @@ What this pins, and why each is a contract claim rather than a client one:
   · `complete` on an empty batch is a 422, and stays one: a client's hint on
     that shape is only correct while the engine keeps refusing.
   · completion locks the assigned transaction's amount/account/title/date, and
-    revert unlocks them. This is the field-locking semantic docs/cli-runtime.md
+    revert unlocks them. This is the field-locking semantic docs/runtime.md
     promises, and the only place it is exercised end to end.
   · delete cascade-unassigns; the transaction survives.
   · moving an assigned row to another account must say what happens to its

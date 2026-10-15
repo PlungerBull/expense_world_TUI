@@ -16,7 +16,7 @@ Nothing typed into the app before the wipe is kept.
 
 - The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`,
   `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's
-  `--account-name`, [cli-spec.md](../cli-spec.md) "Renaming an account leg").
+  `--account-name`, [commands.md](../commands.md) "Renaming an account leg").
 - No `PENDIENTE` or `PENDIENTES` category or hashtag appears. The import sends every row whose
   category or hashtag carries that name to the built-in `@Pendiente` and writes no such hashtag,
   so the sheet stays as it is and a re-run never brings it back.

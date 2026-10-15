@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check the engine's contract version and report fixtures the engine no longer serves.
 
-Why this exists: `pytest tests/unit` is respx-mocked, so it validates the CLI
+Why this exists: `pytest tests/unit` is respx-mocked, so it validates the app
 against fixtures *we* wrote, not against the engine. It can stay green while
-pinning deleted fields — green means "the CLI agrees with itself". This closes
+pinning deleted fields — green means "the app agrees with itself". This closes
 that gap mechanically: the engine publishes its whole contract at
 `/openapi.json`, so a fixture key that appears in no engine schema is either
 drift or a test-local key.
@@ -19,7 +19,7 @@ makes the target explicit.
 
 CONTRACT VERSION. Every run also compares the engine's `info.version` with the one
 saved in `scripts/engine-contract-version`, fails when they differ and prints what
-moved; the rules live in docs/cli-runtime.md "Contract version". Saving a new
+moved; the rules live in docs/runtime.md "Contract version". Saving a new
 version is its own step:
 
     python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
@@ -58,7 +58,7 @@ SAVED_VERSION_FILE = Path(__file__).resolve().parent / "engine-contract-version"
 
 # Envelope keys the engine returns that are not schema properties: the list
 # envelopes (whole `{items}`, cursor `{items, limit, next_cursor}`), the error envelope
-# (docs/cli-runtime.md "Engine errors surface cleanly"), and the auth/bootstrap
+# (docs/runtime.md "Engine errors surface cleanly"), and the auth/bootstrap
 # wrapper.
 ENVELOPE_KEYS = frozenset(
     {
@@ -79,7 +79,7 @@ ENVELOPE_KEYS = frozenset(
 
 # Keys that are test-local bookkeeping, not engine fields.
 # Each is a dict key a fixture invents for itself: TUI header stat names, sample
-# ids used as dict keys, CLI-side config fields, query-param assertions.
+# ids used as dict keys, client-side config fields, query-param assertions.
 #
 # An entry here only earns its place while some fixture still writes that key:
 # a dead one silently widens the exemption for whatever key is next to reuse the
@@ -112,7 +112,7 @@ KNOWN_LOCAL = frozenset(
         # a keyword of Textual's `notify` call the TUI tests record and check
         # (`{"title": "Failed", "severity": "error"}`), not an engine field
         "severity",
-        # CLI-side config file fields — never sent to the engine
+        # client-side config file fields — never sent to the engine
         "engine_url",
         # the renames `expense import sheet` remembers per sheet account
         "sheet_account_names",
@@ -169,7 +169,7 @@ def fetch_contract(engine_url: str) -> dict:
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         sys.exit(
             f"could not read {url}: {exc}\n"
-            'Is the engine running? See docs/cli-runtime.md "Working against the live engine"'
+            'Is the engine running? See docs/runtime.md "Working against the live engine"'
         )
     if not isinstance(doc, dict):
         sys.exit(f"{url} did not return a JSON object — wrong host?")

@@ -1,6 +1,6 @@
 # Runtime Behavior
 
-How the app (`expense`, the TUI) and the sheet import (`expense import sheet`) behave at runtime — read/write semantics, error handling, working against the live engine. Companions: [tui.md](tui.md) (the app) and [cli-spec.md](cli-spec.md) (the sheet import and the settings file).
+How the app (`expense`, the TUI) and the sheet import (`expense import sheet`) behave at runtime — read/write semantics, error handling, working against the live engine. Companions: [tui.md](tui.md) (the app) and [commands.md](commands.md) (the sheet import and the settings file).
 
 ## Overview
 
@@ -10,7 +10,7 @@ Everything here applies equally to the TUI (`expense`) and the sheet import (`ex
 
 ## The settings file and a fresh start
 
-The engine address and key live in the settings file, `~/.expense-config` (or the path `EXPENSE_CONFIG` names; its fields are in [cli-spec.md](cli-spec.md)). [expense/config.py](../expense/config.py) is its one reader and writer: `save` writes a temp file beside it, sets it to chmod 600 and moves it into place.
+The engine address and key live in the settings file, `~/.expense-config` (or the path `EXPENSE_CONFIG` names; its fields are in [commands.md](commands.md)). [expense/config.py](../expense/config.py) is its one reader and writer: `save` writes a temp file beside it, sets it to chmod 600 and moves it into place.
 
 **A fresh start needs no command.** When the app opens and there is no settings file it can use — none at all, or one that cannot be read (damaged or half-written JSON, a body that is not a config, bytes that are not text, a path it may not read: `config.load_usable`) — it opens on its setup screen, which asks for the engine address (offered as the local engine's, `http://127.0.0.1:8000`) and the key, and for a name when the engine has no profile for that key ([tui.md](tui.md) §2 "Setup comes first"). Nothing is written until the engine has accepted the address and key and the profile exists; then the file is saved, replacing a damaged one. `expense import sheet --apply`, finding no usable file, stops with a message pointing at the app's setup screen.
 
@@ -46,7 +46,7 @@ Writes go straight to the engine the moment you press enter. There is **no offli
 
 ## Engine errors surface cleanly
 
-The engine's `{ error: { code, message, fields, reasons } }` envelope is rendered intact (format in cli-spec "Output conventions"); `expense import sheet --json` prints it verbatim. `EngineError` ([expense/errors.py](../expense/errors.py)) keeps `reasons` — each refused field's reason code (contract: "Error reasons"), `None` when the engine sends it null or leaves it out — for code to decide on. The app may add a line for a known refusal without replacing the engine's message; it is chosen by the error code and the reason code, never by the route or the wording of `message` or `fields` ([decisions.md](decisions.md) "Hints are chosen by the engine's reasons, never its wording"). The lines for `CONFLICT`, `FORBIDDEN` and `LIMIT_REACHED` refusals, and for the two `VALIDATION_ERROR` reasons an opening balance draws, are listed in [tui.md](tui.md) "When the engine says no". The sheet import prints the engine's words alone, with none of the app's lines (`engine_text` in [expense/errors.py](../expense/errors.py)). The `--json` envelope the sheet import composes itself (`CONNECTION_ERROR`, `CONFIG_*`) has the same four keys, with `fields` and `reasons` null.
+The engine's `{ error: { code, message, fields, reasons } }` envelope is rendered intact (format in [commands.md](commands.md) "Output conventions"); `expense import sheet --json` prints it verbatim. `EngineError` ([expense/errors.py](../expense/errors.py)) keeps `reasons` — each refused field's reason code (contract: "Error reasons"), `None` when the engine sends it null or leaves it out — for code to decide on. The app may add a line for a known refusal without replacing the engine's message; it is chosen by the error code and the reason code, never by the route or the wording of `message` or `fields` ([decisions.md](decisions.md) "Hints are chosen by the engine's reasons, never its wording"). The lines for `CONFLICT`, `FORBIDDEN` and `LIMIT_REACHED` refusals, and for the two `VALIDATION_ERROR` reasons an opening balance draws, are listed in [tui.md](tui.md) "When the engine says no". The sheet import prints the engine's words alone, with none of the app's lines (`engine_text` in [expense/errors.py](../expense/errors.py)). The `--json` envelope the sheet import composes itself (`CONNECTION_ERROR`, `CONFIG_*`) has the same four keys, with `fields` and `reasons` null.
 
 Two hints belong to no single screen and live in the shared error text, `format_error` in [expense/errors.py](../expense/errors.py), which the TUI's toasts and banners print. Every screen that reports an engine error through that text shows them after a blank line under the engine's code, message and fields; the TUI bank import shows them in its toast, its on-screen refusal of a `422` being the code, the message and the refused rows:
 
@@ -66,7 +66,7 @@ There is exactly **one engine: the local deployment** (`http://127.0.0.1:8000`, 
 **Isolation levers, weakest to strongest:**
 
 - `EXPENSE_CONFIG` redirects the config file. This isolates *local config only* — the same PAT still writes to the same ledger.
-- A **separate PAT for a separate user** is data isolation within the same database (PATs: cli-spec "Auth model").
+- A **separate PAT for a separate user** is data isolation within the same database (PATs: [commands.md](commands.md) "Auth model").
 - **A second engine over the `expense_world_test` database** — how the contract suite runs. Nothing it writes can reach the real ledger, and the engine's test-database script, run with `--force`, wipes it. In the engine repo, `deploy/local/seed-test-user.sh` seeds a practice user, a PAT and a copy of `exchange_rates` (`--force` reseeds: it drops the practice user's rows, revokes its old PATs and prints a fresh one), then
 
       SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world_test \

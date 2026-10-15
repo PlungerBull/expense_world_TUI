@@ -109,7 +109,7 @@ def error_body(
     code: str, message: str = "boom", fields: object = None, reasons: object = None
 ) -> dict:
     """The engine's standard error envelope — see CLAUDE.md "Engine errors
-    surface cleanly" and docs/cli-runtime.md.
+    surface cleanly" and docs/runtime.md.
 
     `fields` defaults to None (the shape a non-validation refusal has); pass a
     dict for a 422, whose keys the engine names per row. `reasons` carries the

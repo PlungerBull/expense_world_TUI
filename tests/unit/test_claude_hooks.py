@@ -227,13 +227,13 @@ ALLOWED_BASH = [
     "git diff tests/contract/conftest.py",
     "echo 'engine on :8000'",
     "printf ':8000\\n'",
-    "awk '/:8000/' docs/cli-runtime.md",
+    "awk '/:8000/' docs/runtime.md",
     "python -c 'print(\"12:30:8000\")'",
     "python -c 'print(8000000)'",
     "git push -u origin main",
     "git push -o ci.skip origin main",
     "git commit -m 'note: SKIP=ruff is banned here'",
-    "grep -n :8000 docs/cli-runtime.md",
+    "grep -n :8000 docs/runtime.md",
     "curl http://127.0.0.1:8002/health",
     "python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002",
     "python scripts/check_fixture_drift.py --engine-url=http://127.0.0.1:8002",
@@ -467,7 +467,7 @@ OTHER_START_PYTHONS = [
     "/usr/bin/python3",
     "/private/tmp/x/python",
     "{engine}/.venv/bin/python",
-    "{repo}/.venv/bin/python",  # the CLI's own venv
+    "{repo}/.venv/bin/python",  # the app's own venv
     "../expense_world_TUI/.venv/bin/python",
 ]
 
@@ -587,7 +587,7 @@ def test_guard_blocks_every_agent_reading_the_engine(box, agent, tool, tool_inpu
 ALLOWED_TOOLS = [
     ("Read", {"file_path": "{repo}/expense/http.py"}),
     ("Write", {"file_path": "{repo}/expense/new.py"}),
-    ("Edit", {"file_path": "{repo}/docs/cli-spec.md"}),
+    ("Edit", {"file_path": "{repo}/docs/commands.md"}),
     ("Write", {"file_path": "{home}/.claude/projects/p/memory/note.md"}),
     ("Read", {"file_path": "{home}/.claude/agents/builder.md"}),
     ("Glob", {"pattern": "**/*.py"}),
@@ -744,8 +744,8 @@ def test_tests_gate_blocks_when_pytest_is_missing(box):
 
 
 def _ops_guide_start_command() -> str:
-    """The test-engine start block from docs/cli-runtime.md, lines joined by `\\`."""
-    doc = (Path(__file__).resolve().parents[2] / "docs" / "cli-runtime.md").read_text()
+    """The test-engine start block from docs/runtime.md, lines joined by `\\`."""
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "runtime.md").read_text()
     lines = doc.splitlines()
     first = next(i for i, line in enumerate(lines) if line.strip().startswith("SUPABASE_DB_URL="))
     block = []
@@ -773,7 +773,7 @@ def test_guard_lets_the_tester_run_the_documented_reseed(box):
     root = Path(__file__).resolve().parents[2]
     seed = "deploy/local/seed-test-user.sh --force"
     assert f"`{seed}`" in (root / "CLAUDE.md").read_text()
-    assert "`deploy/local/seed-test-user.sh`" in (root / "docs" / "cli-runtime.md").read_text()
+    assert "`deploy/local/seed-test-user.sh`" in (root / "docs" / "runtime.md").read_text()
     _allowed(
         box.guard("Bash", {"command": "cd ../expense_world_engine && " + seed}, agent="tester")
     )

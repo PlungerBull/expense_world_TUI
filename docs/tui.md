@@ -5,9 +5,9 @@ one surface of this client ([decisions.md](decisions.md) "The TUI is the only
 surface"), over the shared fetch/write layer; it implements **zero** business logic
 (repo thin-wrapper rule).
 
-Companions: [cli-spec.md](cli-spec.md) (the typed surface: the launch, the sheet
+Companions: [commands.md](commands.md) (the typed surface: the launch, the sheet
 import and the settings file) ·
-[cli-runtime.md](cli-runtime.md) (read/write semantics, which apply to the TUI
+[runtime.md](runtime.md) (read/write semantics, which apply to the TUI
 unchanged) · [decisions.md](decisions.md) (why the calls below went the way they did) ·
 [mockups/](mockups/) (the approval gate for every screen).
 
@@ -54,7 +54,7 @@ expense/tui/
                     #   Parses through expense/quickadd/; `↵` stages a line or refuses
                     #   it in place; ctrl+s writes every row through POST
                     #   /transactions/batch (via expense/batch_write.py; chunking in
-                    #   cli-runtime.md "Bulk writes"). Saved rows
+                    #   runtime.md "Bulk writes"). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
@@ -201,7 +201,7 @@ from the newest 10 with the cursor on row 1: on a filtered list the changed rows
 at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
 move a completed reconciliation locks) is named by number and does not stop the others.
 The one refusal that does stop them is `SETTINGS_MISSING`
-([cli-runtime.md](cli-runtime.md) "Bulk writes"): the rows after it are never sent, and stay
+([runtime.md](runtime.md) "Bulk writes"): the rows after it are never sent, and stay
 selected with the refused one.
 A row stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
@@ -374,7 +374,7 @@ creates one.
 created it, or refused it only because the row's own id is taken (`ID_EXISTS` on
 `transactions.0.id` of its one-row batch): a replay of a save whose answer was lost. Every
 other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on the row, which
-keeps no `✓` (`errors.is_own_id_replay`; [cli-runtime.md](cli-runtime.md) "Bulk writes").
+keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank

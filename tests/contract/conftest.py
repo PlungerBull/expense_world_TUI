@@ -5,7 +5,7 @@ the real ledger **refuses to start**. Point it at the disposable practice databa
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
 How to seed the practice user, start the test engine on :8002 and run this suite:
-docs/cli-runtime.md "Working against the live engine".
+docs/runtime.md "Working against the live engine".
 """
 
 import os

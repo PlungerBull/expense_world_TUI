@@ -14,10 +14,10 @@ Decisions whose why lives elsewhere:
 | Decision | The why lives in |
 |---|---|
 | The app is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
-| Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [cli-runtime.md](cli-runtime.md) "Write semantics" |
-| PAT auth (`ewe_pat_` prefix) | [cli-spec.md](cli-spec.md) "Auth model" |
+| Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [runtime.md](runtime.md) "Write semantics" |
+| PAT auth (`ewe_pat_` prefix) | [commands.md](commands.md) "Auth model" |
 | Private GitHub repo, and secrets still never enter it | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
-| Sanctioned deviations from the principles | [cli-spec.md](cli-spec.md) "Sanctioned exceptions" |
+| Sanctioned deviations from the principles | [commands.md](commands.md) "Sanctioned exceptions" |
 | Rates cross the wire as integers (`rate_e8`, the rate × 10^8), so every client does exact integer maths with no float drift | (contract: GET /v1/exchange-rates) |
 
 ## What a half-written batch means (2026-08-25)
@@ -184,7 +184,7 @@ Decisions whose why lives elsewhere:
 
 ## Contract tests verify against a disposable database, and refuse the real ledger (2026-08-16)
 
-**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [cli-runtime.md](cli-runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
+**Decision.** `tests/contract` runs against `expense_world_test` through a second engine on **`:8002`** (setup: [runtime.md](runtime.md) "Working against the live engine"). The suite **refuses to start** when it would write to the real ledger (`EXPENSE_ALLOW_REAL_LEDGER=1` overrides) — a `pytest_sessionstart` hook, with the `PYTEST_LIVE` gate as a `pytest_collection_modifyitems` hook, because a `pytestmark` in a conftest does not apply to other modules. Fixture drift is checked separately by [scripts/check_fixture_drift.py](../scripts/check_fixture_drift.py).
 
 **Rejected.** *A warning banner instead of refusing* — useless when nobody is watching, which is when it matters. *A separate user in the real database* — the junk still accumulates in production. *The drift check inside `pytest tests/unit`* — the unit suite blocks sockets on purpose.
 
@@ -333,7 +333,7 @@ the bar is where the right file gets dropped next.
 
 ## The transaction list pages by cursor (2026-09-23)
 
-**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([cli-runtime.md](cli-runtime.md) "Three list shapes"). The engine owns paging and the count, which is the case behind CLAUDE.md's "Ask the engine to change" rule.
+**Decision.** `GET /transactions` pages by bookmark (`next_cursor` → `?after=`, `null` is the end), `?sort=date_asc` starts from the oldest, and the count is its own read, `GET /transactions/count`, asked once when a list opens or after a write. The client treats the cursor as opaque, drops it whenever the filter or sort changes, and walks forward only. Every list is one of three shapes ([runtime.md](runtime.md) "Three list shapes"). The engine owns paging and the count, which is the case behind CLAUDE.md's "Ask the engine to change" rule.
 
 **Rejected.** *Offset paging* — a list that shrinks while you file rows silently skips rows. *A probe-then-offset-then-reverse read for oldest-first* — two reads, a race at the page edge, and a pattern every client would copy.
 
@@ -418,7 +418,7 @@ the bar is where the right file gets dropped next.
 
 ## Hints are chosen by the engine's reasons, never its wording (2026-09-28, owner)
 
-**Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The app chooses every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `expense import sheet --json` passes the engine's envelope through verbatim, codes included ([cli-spec.md](cli-spec.md) "Output conventions").
+**Decision.** Every engine error carries `error.reasons`, one code per field in `fields` (contract: "Error reasons"). The app chooses every hint from those codes, and from the status and error code, never from `message` or `fields` text; `EngineError` keeps them next to `fields` ([errors.py](../expense/errors.py)). What people see does not change: the engine's message, each field's message and the hint, with no codes on screen; `expense import sheet --json` passes the engine's envelope through verbatim, codes included ([commands.md](commands.md) "Output conventions").
 
 **Why.** The engine publishes its message wording for people and changes it without notice; a hint keyed to words breaks silently on a rewording, and web and iOS would copy the same fragile match. Reason codes are part of the published contract, listed per operation, so a change to them moves the contract version and reaches the owner.
 
@@ -435,7 +435,7 @@ the bar is where the right file gets dropped next.
 
 ## Missing settings stop a multi-write run (2026-10-11)
 
-**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that lists that code (contract: "Error codes"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([cli-runtime.md](cli-runtime.md) "Bulk writes").
+**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that lists that code (contract: "Error codes"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([runtime.md](runtime.md) "Bulk writes").
 
 **Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home.
 
@@ -443,7 +443,7 @@ the bar is where the right file gets dropped next.
 
 ## The practice engine starts with its own Python only (2026-10-12)
 
-**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The tester starts the practice engine from this repo's sessions, behind the session guard ([cli-runtime.md](cli-runtime.md) "Working against the live engine").
+**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The tester starts the practice engine from this repo's sessions, behind the session guard ([runtime.md](runtime.md) "Working against the live engine").
 
 **Decision.** The guard allows one start command, word for word, with the engine checkout's `.venv/bin/python` as its interpreter, and refuses every other spelling. The ops guide gives the same command, so the command a person copies and the command the guard accepts are one text.
 
@@ -461,7 +461,7 @@ the bar is where the right file gets dropped next.
 
 **Context.** Typer prints a usage error in a box as wide as the terminal, and the width comes from the shell's `COLUMNS` or the window. The commit gate runs the unit suite in whatever session commits.
 
-**Decision.** An autouse fixture in [tests/unit/conftest.py](../tests/unit/conftest.py) sets every test's terminal to 80×24, so the suite's result does not depend on the shell or the window ([cli-runtime.md](cli-runtime.md) "Unit tests never touch the network").
+**Decision.** An autouse fixture in [tests/unit/conftest.py](../tests/unit/conftest.py) sets every test's terminal to 80×24, so the suite's result does not depend on the shell or the window ([runtime.md](runtime.md) "Unit tests never touch the network").
 
 **Rejected.** *Loosening each assertion to survive wrapping* — every new test would have to remember it.
 

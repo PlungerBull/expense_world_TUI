@@ -987,7 +987,7 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
     assert [i["id"] for i in sent] == [plan.tx_ids[3]]
 
 
-# --- CLI surface -----------------------------------------------------------
+# --- Typed surface ---------------------------------------------------------
 
 _HEADERS = [
     "Descripcion",
@@ -1078,7 +1078,7 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
 
 @respx.mock
 def test_apply_reads_the_settings_file_once(configured, monkeypatch):
-    """The settings file may be a pipe (docs/cli-runtime.md "Working against the
+    """The settings file may be a pipe (docs/runtime.md "Working against the
     live engine"), which gives its contents to the first read only, so
     `import sheet --apply` reads it once and reuses what it read."""
     monkeypatch.setattr(

@@ -4,7 +4,7 @@ Every relative link in the docs must resolve to a file inside this repo. The
 engine is learned only from its live contract (`GET /openapi.json`, CLAUDE.md
 "Key documentation"), so no doc links to or cites a path in the engine's
 folder; the one exception is the tester's start/reseed commands for the
-practice engine (docs/cli-runtime.md "Working against the live engine").
+practice engine (docs/runtime.md "Working against the live engine").
 """
 
 import re
@@ -45,7 +45,7 @@ def test_expected_doc_set_present():
         "CLAUDE.md",
         "README.md",
         "docs/decisions.md",
-        "docs/cli-spec.md",
+        "docs/commands.md",
         "docs/specs/README.md",
         "docs/engine-asks/README.md",
     } <= names
@@ -79,13 +79,13 @@ _ENGINE_PATHS = [
 ]
 
 # The tester's start/reseed commands for the practice engine (CLAUDE.md "Stay
-# inside this repo", docs/cli-runtime.md "Working against the live engine").
+# inside this repo", docs/runtime.md "Working against the live engine").
 # Each entry is (doc, exact text): a match wholly inside that text in that doc
 # passes; the same text anywhere else is still caught.
 _ALLOWED = [
     ("CLAUDE.md", "It starts the engine on `:8002` from `../expense_world_engine`"),
     ("CLAUDE.md", "`deploy/local/seed-test-user.sh --force`"),
-    ("docs/cli-runtime.md", "In the engine repo, `deploy/local/seed-test-user.sh` seeds"),
+    ("docs/runtime.md", "In the engine repo, `deploy/local/seed-test-user.sh` seeds"),
 ]
 
 

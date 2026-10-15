@@ -22,7 +22,7 @@ from expense.import_.reader import ImportFileError, read_workbook
 from expense.jsonout import emit_json
 
 
-# sanctioned exception — see cli-spec.md "Sanctioned exceptions": import's
+# sanctioned exception — see commands.md "Sanctioned exceptions": import's
 # --json (plan and result below) is client-composed; the pipeline aggregates
 # many engine calls, so there is no single engine response to pass through.
 def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:

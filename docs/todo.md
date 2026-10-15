@@ -30,8 +30,10 @@ Asked <date> · Blocks: <task or spec>
 ### The brief to hand to the engine coders
 Asked 2026-10-14 · Blocks: nothing in this repo
 Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
-as it is: the brief on the rename and the six features with no screen.
-**Recommended:** hand it over now; the folder rename it describes is done.
+as it is: the brief on the rename, the six features with no screen, and their drop box moving
+to `docs/engine-answers/`. Tell the orchestrator once they have read it: it then renames
+[cli-answers/](cli-answers/) to `engine-answers/`, and you tell them it has moved.
+**Recommended:** hand it over now; the repo and checkout-folder rename it describes is done.
 
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
@@ -83,14 +85,14 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The guard blocks the practice user's reseed.** On 2026-10-14 the tester's
   run of the engine's seed script with `--force`, its output sent to `/dev/null`, was refused as a read or write in the engine
   checkout ([guard.py](../.claude/hooks/guard.py)), so a full acceptance check cannot get its key.
-  Allow the reseed form [cli-runtime.md](cli-runtime.md) "Working against the live engine" gives,
+  Allow the reseed form [runtime.md](runtime.md) "Working against the live engine" gives,
   with a test in [test_claude_hooks.py](../tests/unit/test_claude_hooks.py).
 
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
   the practice engine without the key reaching a file. Load the settings once at launch and hand
-  them to every screen; then the pipe form in [cli-runtime.md](cli-runtime.md) works for the app.
+  them to every screen; then the pipe form in [runtime.md](runtime.md) works for the app.
 
 - **The bank import works out a sign from `transaction_type`.** `excess_groups` flips the sign of
   the import response's `excess` rows from their `transaction_type`

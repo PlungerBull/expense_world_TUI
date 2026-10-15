@@ -2,7 +2,7 @@
 
 > What is still typed: `expense` alone opens the TUI, and `expense import sheet` brings the owner's spreadsheet in. Everything else is done in the app ([decisions.md](decisions.md) "The TUI is the only surface"). This file holds the sheet import and the settings file; the app itself is [tui.md](tui.md).
 >
-> Engine contract (error shape, null-over-omission, idempotency, sign): (contract: "Base Conventions"), read live ([CLAUDE.md](../CLAUDE.md) "Key documentation") · Runtime behaviour: [cli-runtime.md](cli-runtime.md) · Open work: [todo.md](todo.md)
+> Engine contract (error shape, null-over-omission, idempotency, sign): (contract: "Base Conventions"), read live ([CLAUDE.md](../CLAUDE.md) "Key documentation") · Runtime behaviour: [runtime.md](runtime.md) · Open work: [todo.md](todo.md)
 
 ---
 
@@ -26,7 +26,7 @@ A PAT is obtained out-of-band: the first one is minted by the operator, outside 
 
 All engine endpoints except `GET /health` are mounted under `/v1/`. The HTTP client's base path is `<engine_url>/v1`, with `/health` the one unauthenticated, un-prefixed exception.
 
-The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFIG` names. The TUI's setup screen creates it and System ▸ Config changes it ([cli-runtime.md](cli-runtime.md) "The settings file and a fresh start"):
+The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFIG` names. The TUI's setup screen creates it and System ▸ Config changes it ([runtime.md](runtime.md) "The settings file and a fresh start"):
 
 | Field | Purpose |
 |---|---|
@@ -39,7 +39,7 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
 
 ## `expense import sheet`
 
-- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--account-name SHEET_NAME:CUR=LEDGER_NAME ...] [--json]` — the personal sheet → engine. Reads `.xlsx` via `openpyxl`, one of the app's core dependencies. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch` ([cli-runtime.md](cli-runtime.md) "Write semantics"). A dry run unless `--apply` is passed. Package: [expense/import_/](../expense/import_/).
+- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--account-name SHEET_NAME:CUR=LEDGER_NAME ...] [--json]` — the personal sheet → engine. Reads `.xlsx` via `openpyxl`, one of the app's core dependencies. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch` ([runtime.md](runtime.md) "Write semantics"). A dry run unless `--apply` is passed. Package: [expense/import_/](../expense/import_/).
 - **Opening balances:** rows marked `SALDO INICIAL` (case/whitespace-insensitive) in the title or category column go to `POST /v1/accounts/{id}/opening-balance` instead of the batch; their category/hashtag cells are discarded. One per (account, currency): extra rows are skipped as `duplicate-opening` (first line wins) and listed in the dry run. At apply time a refused opening balance counts as already present when it is a seed an earlier run wrote: refused because its own `transaction_id` is taken (`ID_EXISTS`), or because the account already has one (`OPENING_BALANCE_EXISTS`, what a re-sent seed draws) and the account's `opening_balance_transaction_id`, read with `GET /v1/accounts/{id}`, is that same id (contract: "Bank Accounts", "Opening balance"). Any other refusal, a different opening balance on the account, or a read that fails is a failure, printed in the engine's words.
 - **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches ignoring case and leading or trailing spaces. Columns match by header name, each field accepting several spellings — the alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
 - **Multi-currency account names split.** A `CUENTA` name used under two currencies becomes two accounts, each renamed with its currency (`BCP Oro` → `BCP Oro PEN` + `BCP Oro USD`). A name used under one currency passes through verbatim; a name already ending in its currency is not doubled. Rows resolve by the raw sheet name, so re-runs stay idempotent.
