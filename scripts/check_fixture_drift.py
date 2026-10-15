@@ -95,6 +95,12 @@ KNOWN_LOCAL = frozenset(
         "acc3",  # third account in the LOG bar's name-map fixture (quick-add)
         "cat1",
         "cat2",
+        "pend",  # the pending category's sample id in the ledger-filter name map
+        # the delete tests' table of management screens, keyed by screen name
+        "accounts",
+        "hashtags",
+        # the launch tests' record of whether the app opened on the setup screen
+        "setup",
         # `expense import sheet --json` plan keys: the plan is client-composed (it
         # aggregates many engine calls), so its shape is ours, not the engine's.
         # `source_name` is the raw sheet CUENTA behind a derived account name.

@@ -119,15 +119,10 @@ over as is. It says:
 
 ## Tasks
 
-Approved by the owner on 2026-10-13; tasks 1, 3 and 4 added from the owner's answers on
+Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's answers on
 2026-10-14. **[UI]** tasks start with a mockup the owner picks.
 
-1. **Catch up with the contract's bookkeeping.** The owner chose on 2026-10-14 to catch up with
-   contract `409e74aa98fce38a` in this spec ([cli-answers/refusal-reasons.md](../cli-answers/refusal-reasons.md),
-   [cli-answers/account-opening-balance.md](../cli-answers/account-opening-balance.md)). The
-   drift check's four test-local keys (`accounts`, `hashtags`, `pend`, `setup`) go into
-   `KNOWN_LOCAL`, and the new version is recorded.
-2. **Opening balance [UI].** Picked 2026-10-14 in
+1. **Opening balance [UI].** Picked 2026-10-14 in
    [expense-world-opening-balance.html](../mockups/expense-world-opening-balance.html): 1B (two
    lines, amount and date, on the account's Edit form), 3A (the date starts empty), 6B (an
    existing opening balance shows on the form, and saving changes it). No title line. The two
@@ -138,14 +133,14 @@ Approved by the owner on 2026-10-13; tasks 1, 3 and 4 added from the owner's ans
    `opening_balance_transaction_id` names the row; the form reads it signed, never from
    `transaction_type`. [engine-asks/account-opening-balance.md](../engine-asks/account-opening-balance.md)
    is deleted in the same commit.
-3. **Every refusal says what to do next [UI].** The owner chose on 2026-10-14 that every refusal
+2. **Every refusal says what to do next [UI].** The owner chose on 2026-10-14 that every refusal
    the engine gives a reason for (`CONFLICT`, `FORBIDDEN`, `LIMIT_REACHED`) shows the engine's
    words plus one line saying what to do, as the delete refusals do. The lines are drawn for the
    owner to approve the wording, then chosen by reason; the status-and-route choice for deletes
    is deleted, and so is [engine-asks/delete-refusal-reasons.md](../engine-asks/delete-refusal-reasons.md).
-4. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
+3. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
    category. On such a row the ledger's edit form does not offer those two fields, and the bulk
    `c`/`b` keys show the engine's refusal for it. Drawn for the owner first.
-5. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+4. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
