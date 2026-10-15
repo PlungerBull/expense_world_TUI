@@ -8,7 +8,7 @@ See [CLAUDE.md](CLAUDE.md) for conventions, [docs/cli-spec.md](docs/cli-spec.md)
 >
 > ```
 > <anything>/
-> ├── expense_world_CLI/      ← this repo
+> ├── expense_world_TUI/      ← this repo
 > └── expense_world_engine/   ← engine (the practice engine runs from here)
 > ```
 

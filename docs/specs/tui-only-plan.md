@@ -122,19 +122,7 @@ over as is. It says:
 Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's answers on
 2026-10-14. **[UI]** tasks start with a mockup the owner picks.
 
-1. **Rename the local folder** to `expense_world_TUI`. The owner said "now" on 2026-10-15. It
-   reaches outside the repo, so it runs in a session the owner opens in `productivity_world`,
-   with these steps:
-   1. `mv expense_world_CLI expense_world_TUI` (inside `productivity_world`).
-   2. Move Claude's memory and session history for the project:
-      `mv ~/.claude/projects/-Users-ternero-Documents-productivity-world-expense-world-CLI ~/.claude/projects/-Users-ternero-Documents-productivity-world-expense-world-TUI`.
-   3. Rebuild the environment in the new folder, since it stores the old path:
-      `rm -rf .venv && python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]" -c constraints.txt && .venv/bin/pre-commit install`.
-   4. Update the folder's mentions in this repo: README.md's checkout tree, and
-      tests/unit/test_claude_hooks.py (the test home's repo path and the start-command example).
-      The brief in engine-asks/ keeps the old name on purpose: it tells the engine coders what changed.
-   5. `pytest tests/unit`, then commit and push from the new folder.
-   6. The owner hands [engine-asks/terminal-client-renamed-tui-only.md](../engine-asks/terminal-client-renamed-tui-only.md)
-      to the engine coders.
-
-   After it, a session opened in the new folder runs the librarian's sweep and retires this spec.
+None left. The local folder was renamed on 2026-10-15. What remains is outside the loop: the
+owner hands [engine-asks/terminal-client-renamed-tui-only.md](../engine-asks/terminal-client-renamed-tui-only.md)
+to the engine coders, and a session opened in this folder runs the librarian's sweep and retires
+this spec.

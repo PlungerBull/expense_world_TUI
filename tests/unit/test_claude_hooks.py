@@ -34,7 +34,7 @@ class Sandbox:
 
     def __init__(self, tmp_path: Path) -> None:
         self.home = (tmp_path / "home").resolve()
-        self.repo = self.home / "Documents" / "expense_world_CLI"
+        self.repo = self.home / "Documents" / "expense_world_TUI"
         self.engine = self.home / "Documents" / "expense_world_engine"
         self.repo.mkdir(parents=True)
         self.engine.mkdir(parents=True)
@@ -468,7 +468,7 @@ OTHER_START_PYTHONS = [
     "/private/tmp/x/python",
     "{engine}/.venv/bin/python",
     "{repo}/.venv/bin/python",  # the CLI's own venv
-    "../expense_world_CLI/.venv/bin/python",
+    "../expense_world_TUI/.venv/bin/python",
 ]
 
 
