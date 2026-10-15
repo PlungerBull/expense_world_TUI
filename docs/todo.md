@@ -27,6 +27,23 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Are the engine coders mid-change?
+Asked 2026-10-15 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) acceptance check
+The practice engine refuses to start: its contract version `fc8e2c253a607bed` has no change-log
+entry yet, which usually means the engine coders are partway through a change. The final check
+of the TUI-only work needs it running.
+- **A.** They are mid-change: tell me when it is finished, and I run the check then.
+- **B.** They are not: tell them the engine no longer starts.
+**Recommended:** none; only you or the engine coders know.
+
+### Is the repo meant to be private now?
+Asked 2026-10-15 · Blocks: nothing
+GitHub shows `PlungerBull/expense_world_TUI` (and the engine) as private. CLAUDE.md "Config
+isolation" says the repo is public by deliberate choice.
+- **A.** Private on purpose: I update CLAUDE.md to say so.
+- **B.** It should be public again: you switch it back on GitHub.
+**Recommended:** none; it is your call.
+
 ### The brief to hand to the engine coders
 Asked 2026-10-14 · Blocks: nothing in this repo
 Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
