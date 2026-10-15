@@ -27,7 +27,9 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 - **A new category does not need a colour.** The New Category form makes colour optional, the
   way the New Account form already is, and the engine gives one when none is sent. The sheet
   import sends no colour for the categories it creates, so they take the engine's default blue
-  (owner, 2026-10-15).
+  (owner, 2026-10-15). The form is drawn in
+  [mockups/expense-world-ending-balance-and-category-colour.html](../mockups/expense-world-ending-balance-and-category-colour.html),
+  Part 2 (owner approved, 2026-10-15).
 - **The account list keeps the engine's order**, real accounts first, then people.
 - **The live contract tests follow the engine:**
   - a reconciliation they complete has an ending balance, and completing one without it is
@@ -46,12 +48,27 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 2. A new category saved without a colour comes back with the engine's default colour, and so
    does a new account.
 3. Every automated check passes, the live contract tests included.
-4. [docs/engine-answers/](../engine-answers/) holds no note this client has caught up with.
 
-## Open questions for the owner
+## Tasks
 
-Each is answered before its task starts.
+Drafted by the orchestrator; waiting on the owner's approval.
 
-- The New Category form with an optional colour:
-  [mockups/expense-world-ending-balance-and-category-colour.html](../mockups/expense-world-ending-balance-and-category-colour.html), Part 2.
-- The owner tells the engine coders the client has caught up with the refusal reasons.
+1. **Ask for the ending balance at complete (pick A).** On the reconciliation screen, `c` on a
+   draft with no ending balance opens a box for it; `enter` saves it with
+   `PUT /reconciliations/{id}`, the header shows the saved end and diff, then the usual "Complete
+   reconciliation?" question follows. A refused save or complete shows as Part 1 screens 2–4 of
+   the mockup; `ENDING_BALANCE_REQUIRED` gets its what-to-do line in the hint table.
+2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
+   shows, and a skipped colour is not sent.
+3. **The sheet import sends no category colour.** Categories it creates take the engine's
+   default.
+4. **Account order pinned.** A unit test that the accounts list and the account pickers show
+   accounts in the order the engine returns them.
+5. **Live tests follow the engine.** Every reconciliation the suite completes has an ending
+   balance; completing one without it is refused with `ENDING_BALANCE_REQUIRED`; a category and
+   an account created without a colour come back with the engine's default; the account list
+   with people lists accounts before people; activity history pages back with
+   `previous_date_to` and reads no row twice.
+6. **Live test for exchange-rate history.** Pages back with `previous_date_to` and reads no row
+   twice; a window wider than 366 days is refused with `RANGE_TOO_WIDE`; a date the calendar
+   cannot hold is refused with `OUT_OF_RANGE`.
