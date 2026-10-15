@@ -17,7 +17,11 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 - **Completing a reconciliation needs its ending balance.** The engine now refuses to complete a
   reconciliation whose ending balance is empty (contract: POST /v1/reconciliations/{reconciliation_id}/complete).
   The owner chose (2026-10-15): when the owner completes a reconciliation that has no ending
-  balance, the app **asks for it first**, saves it, then completes. A refusal that comes back
+  balance, the app **asks for it first**, saves it, then completes. It asks in two steps
+  (owner's pick A, 2026-10-15): a box takes the balance and saves it, then the usual "Complete
+  reconciliation?" question follows and only `y` completes. Drawn in
+  [mockups/expense-world-ending-balance-and-category-colour.html](../mockups/expense-world-ending-balance-and-category-colour.html),
+  Part 1, screens 1, A, 2–5. A refusal that comes back
   anyway shows the engine's words plus a line saying what to do. No reconciliation is already
   completed without an ending balance, so the app offers no fix for that case.
 - **A new category does not need a colour.** The New Category form makes colour optional, the
@@ -48,8 +52,6 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 
 Each is answered before its task starts.
 
-- How the app asks for the ending balance at complete: A (ask for the balance, then the usual
-  complete question) or B (one box that saves the balance and completes). Drawn in
-  [mockups/expense-world-ending-balance-and-category-colour.html](../mockups/expense-world-ending-balance-and-category-colour.html), Part 1.
-- The New Category form with an optional colour: same mockup, Part 2.
+- The New Category form with an optional colour:
+  [mockups/expense-world-ending-balance-and-category-colour.html](../mockups/expense-world-ending-balance-and-category-colour.html), Part 2.
 - The owner tells the engine coders the client has caught up with the refusal reasons.
