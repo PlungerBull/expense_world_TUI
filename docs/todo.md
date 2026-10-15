@@ -27,28 +27,11 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Is the repo meant to be private now?
-Asked 2026-10-15 · Blocks: nothing
-GitHub shows `PlungerBull/expense_world_TUI` (and the engine) as private. CLAUDE.md "Config
-isolation" says the repo is public by deliberate choice.
-- **A.** Private on purpose: I update CLAUDE.md to say so.
-- **B.** It should be public again: you switch it back on GitHub.
-**Recommended:** none; it is your call.
-
 ### The brief to hand to the engine coders
 Asked 2026-10-14 · Blocks: nothing in this repo
 Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
 as it is: the brief on the rename and the six features with no screen.
 **Recommended:** hand it over right after the folder rename below.
-
-### When does the local folder get renamed?
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 1
-Renaming `expense_world_CLI` to `expense_world_TUI` moves the folder, rebuilds its Python
-environment, and moves Claude's memory for this project to the new path. It is done from a
-fresh session, opened outside the folder.
-- **A.** Now, in a session started from `productivity_world`.
-- **B.** Later, when you say.
-**Recommended:** A, so the brief to the engine coders matches the folder they will see.
 
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
