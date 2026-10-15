@@ -52,7 +52,7 @@ reaches the client's folder works with the renamed folder, the engine's own test
 six features, and, once the drop box has moved, new notes for the client go to
 `docs/engine-answers/`.
 
-## What this client deletes once it lands
+## What this client removes once it lands
 
 Nothing in its code. Once the engine coders confirm they have read this brief, the client renames
 `docs/cli-answers/` to `docs/engine-answers/`; this file is deleted once they confirm every point.
