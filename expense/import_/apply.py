@@ -35,7 +35,6 @@ from expense.errors import (
     refuses_every_write,
 )
 from expense.http import ExpenseClient
-from expense.import_ import mapping
 from expense.import_.parse import OpeningRow, ParsedRow
 from expense.import_.plan import ImportPlan
 from expense.reads import items_of, query_params
@@ -101,7 +100,7 @@ def _resolve_each(
     Returns (key → id, created, reused, failures). The one copy of the
     resolve-or-POST loop the three resource blocks below share. `existing`
     is mutated so a duplicate spec reuses the row created for the first one;
-    `payload_of(spec, i)` gets the enumerate index (categories' palette).
+    `payload_of(spec)` is the create body beyond the minted `id`.
 
     `key_of` identifies the spec *engine-side* — it must match how `existing`
     was keyed, or a row that already exists would be created again. `index_of`
@@ -122,7 +121,7 @@ def _resolve_each(
     ids: dict = {}
     created = reused = 0
     failures: list[str] = []
-    for i, spec in enumerate(wanted):
+    for spec in wanted:
         key = key_of(spec)
         if key in existing:
             ids[index_of(spec)] = existing[key]
@@ -130,7 +129,7 @@ def _resolve_each(
         else:
             nid = str(uuid4())
             try:
-                client.post(f"/{resource}", json_body={"id": nid, **payload_of(spec, i)})
+                client.post(f"/{resource}", json_body={"id": nid, **payload_of(spec)})
             except EngineError as err:
                 if refuses_every_write(err):
                     raise
@@ -158,12 +157,13 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         existing=amap,
         key_of=lambda s: (s.name.strip().casefold(), s.currency),
         index_of=lambda s: (s.source_name.strip().casefold(), s.currency),
-        payload_of=lambda s, _i: {"name": s.name, "currency_code": s.currency},
+        payload_of=lambda s: {"name": s.name, "currency_code": s.currency},
         describe=lambda s: f"{s.name!r} ({s.currency})",
     )
     res.resolve_failures.extend(af)
 
-    # --- categories: case-insensitive, require a color ---
+    # --- categories: case-insensitive; no color is sent, so a created one takes
+    # the engine's default (contract: POST /v1/categories) ---
     cmap: dict[str, str] = {}
     for cat in _list_all(client, "categories"):
         name, cid = cat.get("name"), cat.get("id")
@@ -175,10 +175,7 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         plan.categories,
         existing=cmap,
         key_of=lambda n: n.strip().casefold(),
-        payload_of=lambda n, i: {
-            "name": n,
-            "color": mapping.CATEGORY_PALETTE[i % len(mapping.CATEGORY_PALETTE)],
-        },
+        payload_of=lambda n: {"name": n},
         describe=repr,
     )
     res.resolve_failures.extend(cf)
@@ -195,7 +192,7 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         plan.hashtags,
         existing=hmap,
         key_of=lambda n: n.strip().casefold(),
-        payload_of=lambda n, _i: {"name": n},
+        payload_of=lambda n: {"name": n},
         describe=repr,
     )
     res.resolve_failures.extend(hf)

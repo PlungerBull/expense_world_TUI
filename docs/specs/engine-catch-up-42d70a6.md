@@ -60,8 +60,6 @@ Drafted by the orchestrator; waiting on the owner's approval.
    the mockup; `ENDING_BALANCE_REQUIRED` gets its what-to-do line in the hint table.
 2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
    shows, and a skipped colour is not sent.
-3. **The sheet import sends no category colour.** Categories it creates take the engine's
-   default.
 4. **Account order pinned.** A unit test that the accounts list and the account pickers show
    accounts in the order the engine returns them.
 5. **Live tests follow the engine.** Every reconciliation the suite completes has an ending

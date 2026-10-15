@@ -115,7 +115,9 @@ def test_apply_reuses_existing_and_creates_rest(configured):
     acc_route = respx.post(f"{BASE}/v1/accounts").mock(
         return_value=httpx.Response(201, json={"id": "new-acc"})
     )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    cat_route = respx.post(f"{BASE}/v1/categories").mock(
+        return_value=httpx.Response(201, json={"id": "c"})
+    )
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
         return_value=httpx.Response(201, json={"created": []})
@@ -129,6 +131,10 @@ def test_apply_reuses_existing_and_creates_rest(configured):
     assert (res.accounts_reused, res.accounts_created) == (2, 0)
     assert not acc_route.called
     assert res.categories_created == 2  # WANTS, PERROS
+    # a created category carries no color key at all: the engine gives its default
+    cat_bodies = [json.loads(c.request.content) for c in cat_route.calls]
+    assert sorted(b["name"] for b in cat_bodies) == ["PERROS", "WANTS"]
+    assert all(set(b) == {"id", "name"} for b in cat_bodies)
     assert res.hashtags_created == 2  # Salidas, Viajes
 
     body = json.loads(batch_route.calls.last.request.content)
@@ -958,9 +964,9 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
             return error_response(
                 422,
                 "VALIDATION_ERROR",
-                "bad color",
-                {"color": "Must be a 6-digit hex color, e.g. '#3b82f6'."},
-                {"color": "INVALID_FORMAT"},
+                "bad name",
+                {"name": "Must not be blank."},
+                {"name": "INVALID_FORMAT"},
             )
         return httpx.Response(201, json={"id": "cat-ok"})
 
@@ -977,7 +983,7 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
 
     assert res.categories_created == 1  # NEEDS still created after WANTS failed
     assert len(res.resolve_failures) == 1
-    assert "WANTS" in res.resolve_failures[0] and "bad color" in res.resolve_failures[0]
+    assert "WANTS" in res.resolve_failures[0] and "bad name" in res.resolve_failures[0]
     # the WANTS row (line 2) is skipped pre-flight; the NEEDS row (line 3) lands
     assert result.tx_created == 1
     assert result.tx_failed == 1
@@ -1235,8 +1241,8 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
                 422,
                 "VALIDATION_ERROR",
                 "bad",
-                {"color": "Must be a 6-digit hex color, e.g. '#3b82f6'."},
-                {"color": "INVALID_FORMAT"},
+                {"name": "Must not be blank."},
+                {"name": "INVALID_FORMAT"},
             )
         return httpx.Response(201, json={"id": "cat-ok"})
 
