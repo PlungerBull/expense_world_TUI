@@ -27,15 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Are the engine coders mid-change?
-Asked 2026-10-15 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) acceptance check
-The practice engine refuses to start: its contract version `fc8e2c253a607bed` has no change-log
-entry yet, which usually means the engine coders are partway through a change. The final check
-of the TUI-only work needs it running.
-- **A.** They are mid-change: tell me when it is finished, and I run the check then.
-- **B.** They are not: tell them the engine no longer starts.
-**Recommended:** none; only you or the engine coders know.
-
 ### Is the repo meant to be private now?
 Asked 2026-10-15 · Blocks: nothing
 GitHub shows `PlungerBull/expense_world_TUI` (and the engine) as private. CLAUDE.md "Config
@@ -51,7 +42,7 @@ as it is: the brief on the rename and the six features with no screen.
 **Recommended:** hand it over right after the folder rename below.
 
 ### When does the local folder get renamed?
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 1
+Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 2
 Renaming `expense_world_CLI` to `expense_world_TUI` moves the folder, rebuilds its Python
 environment, and moves Claude's memory for this project to the new path. It is done from a
 fresh session, opened outside the folder.
@@ -137,6 +128,9 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The TUI is the only surface** (flat commands deleted except the sheet import, three new TUI
   features, the repo rename and the brief to the engine coders). Spec:
   [specs/tui-only-plan.md](specs/tui-only-plan.md), the current spec.
+- **Catch up with contract 42d70a629215928d** (completing a reconciliation asks for its ending
+  balance, the live tests follow the engine). Spec (draft, deferred):
+  [specs/engine-catch-up-42d70a6.md](specs/engine-catch-up-42d70a6.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
