@@ -141,10 +141,15 @@ Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's a
    The same task makes the LOG bar and the sheet import read the reason too: today they take every
    `409` on a create as "already saved", which puts a ✓ on a row the engine refused for another
    reason (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`); only the app's own id already sent counts
-   as saved. The sheet import prints the engine's words alone, with no app keys in them.
+   as saved. The sheet import prints the engine's words alone, with no app keys in them. Picked
+   2026-10-14 in [expense-world-refusal-hints.html](../mockups/expense-world-refusal-hints.html):
+   screens 2, 4 and 7 as drawn, 3A, 5A, 6B, 8B, 9A; the approved delete lines stay as they are.
 3. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
    category. On such a row the ledger's edit form does not offer those two fields, and the bulk
-   `c`/`b` keys show the engine's refusal for it. Drawn for the owner first.
+   `c`/`b` keys show the engine's refusal for it. Picked 2026-10-14 in
+   [expense-world-opening-balance-rows.html](../mockups/expense-world-opening-balance-rows.html):
+   1A (account and category shown read-only), 2B (the engine's words plus where the opening
+   balance is changed). Hashtags stay editable; the tester confirms the engine allows it.
 4. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.
