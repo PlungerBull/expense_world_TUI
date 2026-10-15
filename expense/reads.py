@@ -471,6 +471,20 @@ PENDING_SYSTEM_KEY = "pending"
 PENDING_FALLBACK_NAME = "pendiente"
 
 
+# The engine's stable key for `@Opening`, the system category an account's
+# opening balance is filed under. Such a row stays on its account and in that
+# category (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
+OPENING_SYSTEM_KEY = "opening_balance"
+
+
+def _opening_of(categories: list[dict]) -> str | None:
+    """The id of the @Opening row among category rows, or None."""
+    for c in categories:
+        if c.get("system_key") == OPENING_SYSTEM_KEY and isinstance(c.get("id"), str):
+            return str(c["id"])
+    return None
+
+
 def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
     """`(id, name)` of the @Pendiente row among category rows, or None."""
     for c in categories:
@@ -523,6 +537,11 @@ class QuickAddRefs:
     # seeded it. Not in the matching pool (a typed line never names it; an
     # empty category IS it), but the echo and the staged list render its name.
     pending: tuple[str, str] | None = None
+    # The id of the @Opening system row, or None when there is none. A row
+    # filed under it is an account's opening balance, whose account and
+    # category the engine never lets change; the edit form reads it to show
+    # those two fields read-only.
+    opening: str | None = None
 
 
 def pending_label(refs: "QuickAddRefs") -> str:
@@ -588,4 +607,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         category_names=_id_name_map(cats),
         hashtag_names=_id_name_map(tags),
         pending=_pending_of(cats),
+        opening=_opening_of(cats),
     )

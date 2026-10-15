@@ -369,6 +369,131 @@ def test_a_move_onto_an_account_holding_its_operation_code_says_what_to_do(
     assert seen["on_top"]
 
 
+# ---- an opening balance stays put (1A) -----------------------------------------
+# (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put")
+
+OPENING = {
+    **TXN,
+    "id": "txO",
+    "title": "Saldo inicial",
+    "amount_cents": 320000,
+    "category_id": "catO",
+    "hashtag_ids": [],
+    "description": None,
+}
+
+
+def test_an_opening_balance_shows_account_and_category_read_only(fake_client, monkeypatch):
+    """The two lines show dimmed and marked read-only; a field move skips
+    them, from amount straight to hashtags and back."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=OPENING, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._locked == {"account", "category"}
+        summary = render_text(screen._summary_renderable(), width=60)
+        assert "account   BCP PEN  read-only" in summary
+        assert "category  @Opening  read-only" in summary
+        assert summary.count("read-only") == 2
+        screen._current = screen._sequence().index("amount")
+        screen.action_field(1)
+        assert screen._key == "hashtags"
+        screen.action_field(-1)
+        assert screen._key == "amount"
+
+    run_app(scenario)
+
+
+def test_an_opening_balance_saves_its_other_fields_and_never_its_account(fake_client, monkeypatch):
+    """Amount, date, title, note and hashtags save as on any row; the PUT
+    carries no account and no category, even if a value was set under them."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=OPENING, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("amount")
+        _enter(screen, "3500")
+        assert screen._key == "hashtags"  # account and category skipped
+        _enter(screen, "dog")
+        _enter(screen, "")  # done with hashtags → note
+        # whatever lands under the locked keys is never sent
+        screen._values.update(account="acc2", category="cat1")
+        screen._current = screen._sequence().index("note")
+        _enter(screen, "apertura")  # enter on note saves
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [
+            (
+                "/transactions/txO",
+                {"amount_cents": 350000, "hashtag_ids": ["h1"], "description": "apertura"},
+            )
+        ]
+
+    run_app(scenario)
+
+
+def test_an_ordinary_row_keeps_account_and_category_editable(fake_client, monkeypatch):
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._locked == set()
+        assert "read-only" not in render_text(screen._summary_renderable(), width=60)
+        screen._current = screen._sequence().index("amount")
+        screen.action_field(1)
+        assert screen._key == "account"
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize(
+    ("field", "reason", "line"),
+    [
+        (
+            "account_id",
+            "OPENING_BALANCE_ACCOUNT_FIXED",
+            "To move an opening balance, set it on the other account's Edit form.",
+        ),
+        (
+            "category_id",
+            "OPENING_BALANCE_CATEGORY_FIXED",
+            "An opening balance always stays in @Opening.",
+        ),
+    ],
+)
+def test_an_opening_balance_refusal_on_the_form_shows_the_same_line(
+    fake_client, monkeypatch, field, reason, line
+):
+    """If the refusal reaches the form anyway (here, a row the form could not
+    tell apart), its note is the engine's words, then the same line as on the
+    ledger, and the form stays."""
+    fake_client.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR",
+        "Validation failed.",
+        {field: "stand-in field words"},
+        422,
+        {},
+        reasons={field: reason},
+    )
+    notices, seen = _move_and_save(
+        {**TXN, "reconciliation_id": None},
+        "BCP USD",
+        fake_client,
+        monkeypatch,
+        settle=lambda s, n: n and not s._submitting,
+    )
+    assert notices[0] == (
+        "Failed",
+        f"VALIDATION_ERROR — Validation failed.\n  {field}: stand-in field words\n\n{line}",
+    )
+    assert seen["on_top"]
+
+
 def test_no_form_offers_cleared():
     """`cleared` is gone from the ledger — no form may offer it.
 

@@ -17,6 +17,11 @@ Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+
 only the changed fields; a changed account also sends `reconciliation_id: null`,
 so the move takes the row out of its reconciliation (`unassign_on_move`).
 
+On an opening balance (a row filed under @Opening) account and category show
+read-only and are never sent: the engine keeps such a row on its account and in
+@Opening (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
+The form knows the row once the reference lists load (`QuickAddRefs.opening`).
+
 `enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the
@@ -139,8 +144,9 @@ class EditFormScreen(FormScreen):
         # deep: _commit_hashtag appends to _values["hashtags"] in place — a shallow
         # copy would alias the list and the edit diff would never see the change.
         self._original = copy.deepcopy(self._values)
-        # no client-side field locks: reconciliation locks rely on the
-        # engine's 422 (not reliably detectable from the row).
+        # no client-side reconciliation locks: they rely on the engine's 422
+        # (not reliably detectable from the row). The one client lock is an
+        # opening balance's account and category, set in `_set_entities`.
 
     # ---- field sequence --------------------------------------------------
     def _sequence(self) -> list[str]:
@@ -163,12 +169,24 @@ class EditFormScreen(FormScreen):
             return
         maps = (refs.account_names, refs.category_names, refs.hashtag_names)
         self.app.call_from_thread(
-            self._set_entities, refs.accounts, refs.categories, refs.hashtags, maps
+            self._set_entities,
+            refs.accounts,
+            refs.categories,
+            refs.hashtags,
+            maps,
+            refs.opening,
         )
 
-    def _set_entities(self, accounts, categories, hashtags, maps) -> None:
+    def _set_entities(self, accounts, categories, hashtags, maps, opening=None) -> None:
         self._accounts, self._categories, self._hashtags = accounts, categories, hashtags
         self._acc_names, self._cat_names, self._tag_names_map = maps
+        if opening is not None and self._record.get("category_id") == opening:
+            # an opening balance: the two fields it can never change show
+            # read-only, and `_edit_payload` skips locked fields
+            self._locked |= {"account", "category"}
+            if self._key in self._locked:
+                self._current = self._first_editable()
+                self._refresh_bar()
         # resolve pre-filled ids → names.
         # resolve_name (shared) renders a null reference as "—" instead of
         # crashing on None[:8]

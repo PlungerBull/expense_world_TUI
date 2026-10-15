@@ -406,7 +406,9 @@ def test_refuses_every_write_follows_the_code_alone():
 # ---------------------------------------------------------------------------
 # Every refusal with code CONFLICT, FORBIDDEN or LIMIT_REACHED names the rule
 # that fired in `reasons`, keyed by the thing refused
-# (contract: "Base Conventions", "`fields` and `reasons` semantics"). The words
+# (contract: "Base Conventions", "`fields` and `reasons` semantics"); so does the
+# VALIDATION_ERROR an opening balance draws when asked to move
+# (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"). The words
 # in these tests are stand-ins: the line follows the reason, never them.
 
 
@@ -520,13 +522,31 @@ APP_FAULT = (
         ("CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED", False, APP_FAULT),
         # never met by the app: not wired
         ("CONFLICT", "X-Idempotency-Key", "SECRET_NOT_REPLAYABLE", False, None),
+        # opening-balance rows 2B, on a list (bulk b / c) and on the Edit form
+        (
+            "VALIDATION_ERROR",
+            "account_id",
+            "OPENING_BALANCE_ACCOUNT_FIXED",
+            False,
+            "To move an opening balance, set it on the other account's Edit form.",
+        ),
+        (
+            "VALIDATION_ERROR",
+            "category_id",
+            "OPENING_BALANCE_CATEGORY_FIXED",
+            False,
+            "An opening balance always stays in @Opening.",
+        ),
+        # the field lock answers first in a completed reconciliation: no line
+        ("VALIDATION_ERROR", "account_id", "LOCKED", False, None),
     ],
 )
 def test_each_reason_gets_exactly_its_picked_line(code, key, reason, on_list, line):
     """The engine's words, a blank line, then the line drawn for that reason."""
     from expense.errors import next_step
 
-    err = _refusal(code, key, reason, status=403 if code == "FORBIDDEN" else 409)
+    status = {"FORBIDDEN": 403, "VALIDATION_ERROR": 422}.get(code, 409)
+    err = _refusal(code, key, reason, status=status)
     assert next_step(err, on_list=on_list) == line
     words = f"{code} — stand-in\n  {key}: stand-in field words"
     expected = words if line is None else f"{words}\n\n{line}"
@@ -547,24 +567,32 @@ def test_the_line_follows_the_reason_never_the_status_or_the_words():
     bare = EngineError("CONFLICT", "Account has active transactions.", None, 409, {})
     assert next_step(bare) is None
     assert format_error(bare) == "CONFLICT — Account has active transactions."
-    # another code carrying a refusal's reason gets no line
+    # another code carrying a refusal's reason gets no line, either way round
     assert next_step(_refusal("VALIDATION_ERROR", "name", "NAME_EXISTS", status=422)) is None
+    assert next_step(_refusal("CONFLICT", "account_id", "OPENING_BALANCE_ACCOUNT_FIXED")) is None
+    # a validation error with null reasons has no line
+    assert next_step(EngineError("VALIDATION_ERROR", "bad", {"x": "y"}, 422, {})) is None
     assert next_step(RuntimeError("boom")) is None
 
 
 def test_the_table_is_keyed_by_code_and_reason_only():
     """Guard: the one table of next steps holds (code, reason) pairs, with codes
     the engine sends a reason on every key for, and reasons in the engine's
-    SHOUTY_SNAKE form — never a route, a status or a sentence."""
+    SHOUTY_SNAKE form — never a route, a status or a sentence. The one other
+    code is `VALIDATION_ERROR`, for the two opening-balance reasons alone."""
     import re
 
     from expense.errors import NEXT_STEPS, REFUSAL_CODES, NextStep
 
     assert REFUSAL_CODES == {"CONFLICT", "FORBIDDEN", "LIMIT_REACHED"}
+    opening_reasons = {"OPENING_BALANCE_ACCOUNT_FIXED", "OPENING_BALANCE_CATEGORY_FIXED"}
     for key, step in NEXT_STEPS.items():
         assert isinstance(key, tuple) and len(key) == 2
         code, reason = key
-        assert code in REFUSAL_CODES
+        if code == "VALIDATION_ERROR":
+            assert reason in opening_reasons, reason
+        else:
+            assert code in REFUSAL_CODES
         assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
         assert isinstance(step, NextStep)
         for field_key in step.by_key:
@@ -581,6 +609,8 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "RECONCILIATION_NOT_DRAFT",
         "ID_EXISTS",
         "IDEMPOTENCY_KEY_REUSED",
+        "OPENING_BALANCE_ACCOUNT_FIXED",
+        "OPENING_BALANCE_CATEGORY_FIXED",
     }
 
 

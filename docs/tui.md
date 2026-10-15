@@ -214,6 +214,19 @@ that left one — `3 rows → BCP USD · 2 left their reconciliation` (`· 1 lef
 reconciliation` for one). The `⏎` edit form does the same when its account changes and
 says `Saved. It left its reconciliation.` instead of `Saved.`; both share
 `unassign_on_move` in [edit_form.py](../expense/tui/screens/edit_form.py).
+**An opening balance stays on its account and in @Opening.** The engine refuses to move
+such a row to another account or category, `@Pendiente` included, and accepts every other
+field (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"); screens in
+[expense-world-opening-balance-rows.html](mockups/expense-world-opening-balance-rows.html).
+The app knows the row by its category: the @Opening system row, found by its `system_key`
+in the categories list the form already reads (`QuickAddRefs.opening` in
+[reads.py](../expense/reads.py)). On such a row the `⏎` edit form shows `account` and
+`category` dimmed and marked `read-only`, every field move skips them, and the save never
+sends them; date, title, amount, hashtags and note save as on any row. `b` and `c` send
+such a row like any other, and the engine refuses it: its "Refused" note is the engine's
+words, then the line saying what to do ("When the engine says no" below), and the other
+rows still go. The LOG bar is untouched: it only creates rows, and a typed line cannot
+name @Opening.
 `esc` clears the selection if there is one, and otherwise goes back to the screen that
 opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
@@ -318,7 +331,8 @@ below). `d` stays live on the system categories so the engine's refusal is what 
 
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
-(contract: "Base Conventions", "`fields` and `reasons` semantics"). The note it draws (a
+(contract: "Base Conventions", "`fields` and `reasons` semantics"); so does the
+`VALIDATION_ERROR` an opening balance draws when asked to move. The note it draws (a
 toast, a LOG bar row, the bank import's preview) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field), and for the reasons below a blank
 line and one line of the app's saying what to do. Screens in
@@ -338,6 +352,8 @@ line and one line of the app's saying what to do. Screens in
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
+| `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
+| `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
 
 The line is chosen by the error's `code` and reason alone, never by the HTTP status, the
@@ -347,7 +363,10 @@ engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEP
 screen that reports a failure through it shows the line. A write sent from a list (every
 `d`) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
-resources share; its key (`account_id` or `category_id`) picks the line.
+resources share; its key (`account_id` or `category_id`) picks the line. The two
+opening-balance reasons are the table's only `VALIDATION_ERROR` rows; any other validation
+error, `LOCKED` included (the field lock answers first in a completed reconciliation), has
+no line.
 `SECRET_NOT_REPLAYABLE` has no line: only creating a sign-in key draws it, and the app never
 creates one.
 

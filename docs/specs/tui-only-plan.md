@@ -122,12 +122,6 @@ over as is. It says:
 Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's answers on
 2026-10-14. **[UI]** tasks start with a mockup the owner picks.
 
-1. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
-   category. On such a row the ledger's edit form does not offer those two fields, and the bulk
-   `c`/`b` keys show the engine's refusal for it. Picked 2026-10-14 in
-   [expense-world-opening-balance-rows.html](../mockups/expense-world-opening-balance-rows.html):
-   1A (account and category shown read-only), 2B (the engine's words plus where the opening
-   balance is changed). Hashtags stay editable; the tester confirms the engine allows it.
-2. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+1. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.

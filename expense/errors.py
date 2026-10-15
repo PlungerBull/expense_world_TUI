@@ -82,6 +82,9 @@ def engine_words(err: EngineError) -> str:
 #: The codes whose refusals always name the rule that fired: `fields` and
 #: `reasons` are never null on them, keyed by the thing refused
 #: (contract: "Base Conventions", "`fields` and `reasons` semantics").
+#: Not read by `next_step` (the table's (code, reason) key already picks the
+#: line); it is the source the table guard in tests/unit/test_errors.py checks
+#: every `NEXT_STEPS` row against, the two opening-balance ones aside.
 REFUSAL_CODES = frozenset({"CONFLICT", "FORBIDDEN", "LIMIT_REACHED"})
 
 
@@ -151,16 +154,26 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep("Press u to revert it, then d again."),
     ("CONFLICT", "ID_EXISTS"): NextStep(_APP_FAULT),
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),
+    # An opening balance stays on its account and in @Opening; the refusal is a
+    # validation error naming the field (contract: PUT /v1/transactions/{transaction_id},
+    # "Opening balances stay put"). The only `VALIDATION_ERROR` rows.
+    ("VALIDATION_ERROR", "OPENING_BALANCE_ACCOUNT_FIXED"): NextStep(
+        "To move an opening balance, set it on the other account's Edit form."
+    ),
+    ("VALIDATION_ERROR", "OPENING_BALANCE_CATEGORY_FIXED"): NextStep(
+        "An opening balance always stays in @Opening."
+    ),
 }
 
 
 def next_step(err: Exception, *, on_list: bool = False) -> str | None:
     """The line saying what to do after `err`, or None when it has none.
 
-    Chosen by the error's `code` and `reasons` alone; the first refused key
-    with a line wins. `on_list` is for a refusal met on a list screen.
+    Chosen by the error's `code` and `reasons` alone, as a pair: the same
+    reason under another code has no line. The first refused key with a line
+    wins. `on_list` is for a refusal met on a list screen.
     """
-    if not isinstance(err, EngineError) or err.code not in REFUSAL_CODES:
+    if not isinstance(err, EngineError):
         return None
     for key, reason in (err.reasons or {}).items():
         step = NEXT_STEPS.get((err.code, str(reason)))

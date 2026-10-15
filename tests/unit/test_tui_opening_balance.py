@@ -669,16 +669,55 @@ def _string_keys(paths) -> set[str]:
 
 
 def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
-    """The TUI and the shared reads never read `transaction_type` and never look
-    the opening balance up through its system category; the account names it."""
+    """The TUI and the shared reads never read `transaction_type`, and the
+    account Edit form never looks its opening balance up through the @Opening
+    category; the account names it. The category's `system_key` has one home,
+    `reads.OPENING_SYSTEM_KEY`, which only tells the ledger's edit form that a
+    row is an opening balance."""
+    import ast
     from pathlib import Path
 
     import expense
 
     root = Path(expense.__file__).parent
-    keys = _string_keys([root / "tui", root / "reads.py"])
-    assert "transaction_type" not in keys
-    assert "opening_balance" not in keys  # the @Opening category's system_key
+    assert "transaction_type" not in _string_keys([root / "tui", root / "reads.py"])
+    assert "opening_balance" not in _string_keys([root / "tui"])
+    reads_tree = ast.parse((root / "reads.py").read_text())
+    literals = [
+        node
+        for node in ast.walk(reads_tree)
+        if isinstance(node, ast.Constant) and node.value == "opening_balance"
+    ]
+    assert len(literals) == 1  # OPENING_SYSTEM_KEY, nowhere else
+    account_form = (root / "tui" / "screens" / "create_forms.py").read_text()
+    assert _opening_category_reads(account_form) == set()
+
+
+#: What reading the @Opening category through the shared reads looks like.
+_OPENING_CATEGORY_READS = {"OPENING_SYSTEM_KEY", "_opening_of", "load_quickadd_refs"}
+
+
+def _opening_category_reads(source: str) -> set[str]:
+    """The @Opening-category reads `source` makes: one of the names above,
+    bare (`load_quickadd_refs(...)`) or through a module (`reads.load_quickadd_refs`),
+    or `.opening` off a `QuickAddRefs`."""
+    import ast
+
+    tree = ast.parse(source)
+    names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    return (_OPENING_CATEGORY_READS & (names | attrs)) | ({"opening"} & attrs)
+
+
+def test_the_opening_category_guard_sees_reads_through_a_module():
+    """The guard above trips on each way the account form could reach it."""
+    assert _opening_category_reads("from expense import reads\nreads.load_quickadd_refs(cfg)") == {
+        "load_quickadd_refs"
+    }
+    assert _opening_category_reads("x = reads.OPENING_SYSTEM_KEY") == {"OPENING_SYSTEM_KEY"}
+    assert _opening_category_reads("_opening_of(rows)") == {"_opening_of"}
+    assert _opening_category_reads("refs.opening") == {"opening"}
+    assert _opening_category_reads("self._opening_id = 1") == set()
 
 
 # ---- a refusal lands on the line it names ----------------------------------------------

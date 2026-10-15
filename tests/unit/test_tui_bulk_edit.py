@@ -6,6 +6,7 @@ selection, else goes back. A fake client stands in for the engine, so the
 PUTs are asserted, never sent.
 """
 
+import pytest
 from rich.text import Text
 
 import expense.tui.screens.transactions as tx_mod
@@ -327,6 +328,77 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
             "That account already has a row with this operation number: "
             "look there for a duplicate."
         )
+
+    run_app(scenario, size=(120, 30))
+
+
+@pytest.mark.parametrize(
+    ("key", "typed", "field", "reason", "words", "line"),
+    [
+        (
+            "b",
+            "oro",
+            "account_id",
+            "OPENING_BALANCE_ACCOUNT_FIXED",
+            "An opening balance cannot move to another account.",
+            "To move an opening balance, set it on the other account's Edit form.",
+        ),
+        (
+            "c",
+            "kor",
+            "category_id",
+            "OPENING_BALANCE_CATEGORY_FIXED",
+            "An opening balance must stay in @Opening.",
+            "An opening balance always stays in @Opening.",
+        ),
+    ],
+)
+def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
+    fake_client, monkeypatch, key, typed, field, reason, words, line
+):
+    """Opening-balance rows 2B: `b` or `c` over a selection holding an opening
+    balance sends every row as usual; the engine refuses that one
+    (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"),
+    its note is the engine's words and then the line saying where the opening
+    balance is changed, the other rows go, and the refused row stays selected."""
+    items = [*ITEMS[:2], {**ITEMS[2], "title": "Saldo inicial", "category_id": "opn"}]
+    _stub_ledger(monkeypatch, items)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/t3"):
+            raise EngineError(
+                "VALIDATION_ERROR",
+                "Validation failed.",
+                {field: words},
+                422,
+                {},
+                {field: reason},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", key)
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press(*typed, "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t2"]
+        refused = next(m for t, m in toasts if t == "Refused")
+        assert refused == (
+            f"row 3: VALIDATION_ERROR — Validation failed.\n  {field}: {words}\n\n{line}"
+        )
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t3"}
 
     run_app(scenario, size=(120, 30))
 
