@@ -35,6 +35,13 @@ to `docs/engine-answers/`. Tell the orchestrator once they have read it: it then
 [cli-answers/](cli-answers/) to `engine-answers/`, and you tell them it has moved.
 **Recommended:** hand it over now; the repo and checkout-folder rename it describes is done.
 
+### Tell the engine coders two of their notes are caught up
+Asked 2026-10-15 · Blocks: nothing in this repo
+The client has caught up with the engine's notes on the account opening balance and on refusal
+reasons: the app follows both, and the live contract suite now tests both. Tell the engine
+coders, so they delete their copies.
+**Recommended:** tell them along with the brief above.
+
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
 A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`

@@ -35,11 +35,6 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
     a row twice. Exchange-rate history gets its first live test; no screen reads it, so this
     suite is the only client that exercises it. Its 366-day limit and its refusal of a date the
     calendar cannot hold are tested too.
-- **The engine notes this client already caught up with are retired.** The code follows
-  [cli-answers/account-opening-balance.md](../cli-answers/account-opening-balance.md) and
-  [cli-answers/refusal-reasons.md](../cli-answers/refusal-reasons.md), so both files are deleted.
-  Before deleting the refusal-reasons note, the owner tells the engine coders the client has
-  caught up, as the note asks.
 
 ## How the owner knows it is done
 
