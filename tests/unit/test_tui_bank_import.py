@@ -28,15 +28,34 @@ from expense.tui.screens.log_bar import LogBarScreen
 from tests.unit.helpers import render_text, run_app, stub_home_month, wait_for, whole
 
 ACCOUNTS = [
-    {"id": "sig-pen", "name": "BCP Signature PEN", "currency_code": "PEN", "is_person": False},
-    {"id": "sig-usd", "name": "BCP Signature USD", "currency_code": "USD", "is_person": False},
-    {"id": "bcp-pen", "name": "BCP PEN", "currency_code": "PEN", "is_person": False},
+    {
+        "id": "sig-pen",
+        "name": "BCP Signature PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "sig-usd",
+        "name": "BCP Signature USD",
+        "currency_code": "USD",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "bcp-pen",
+        "name": "BCP PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
     {
         "id": "old",
         "name": "Retired PEN",
         "currency_code": "PEN",
         "is_person": False,
         "is_archived": True,
+        "opening_balance_transaction_id": None,
     },
 ]
 HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]

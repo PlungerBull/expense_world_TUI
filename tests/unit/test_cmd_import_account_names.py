@@ -213,8 +213,18 @@ def test_rerun_without_flag_reuses_the_renamed_account(configured, sheet):
     config_module.save(cfg)
     acc_route, opening_route, batch_route = _mock_engine(
         accounts=[
-            {"id": "acc-sueldo", "name": "Sueldo Soles", "currency_code": "PEN"},
-            {"id": "acc-usd", "name": "BCP USD", "currency_code": "USD"},
+            {
+                "id": "acc-sueldo",
+                "name": "Sueldo Soles",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
+            {
+                "id": "acc-usd",
+                "name": "BCP USD",
+                "currency_code": "USD",
+                "opening_balance_transaction_id": None,
+            },
         ]
     )
 

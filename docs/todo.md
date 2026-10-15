@@ -34,7 +34,7 @@ as it is: the brief on the rename and the six features with no screen.
 **Recommended:** hand it over right after the folder rename below.
 
 ### When does the local folder get renamed?
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 4
+Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 3
 Renaming `expense_world_CLI` to `expense_world_TUI` moves the folder, rebuilds its Python
 environment, and moves Claude's memory for this project to the new path. It is done from a
 fresh session, opened outside the folder.
@@ -94,6 +94,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   checkout ([guard.py](../.claude/hooks/guard.py)), so a full acceptance check cannot get its key.
   Allow the reseed form [cli-runtime.md](cli-runtime.md) "Working against the live engine" gives,
   with a test in [test_claude_hooks.py](../tests/unit/test_claude_hooks.py).
+
+- **The bank import works out a sign from `transaction_type`.** `excess_groups` flips the sign of
+  the import response's `excess` rows from their `transaction_type`
+  ([bank_import/engine.py](../expense/bank_import/engine.py)), a client-side copy of the engine's
+  sign rule. Check whether `POST /v1/transactions/import` can answer signed; if it cannot, write
+  an engine ask for a signed `excess`, and delete the flip once it lands.
 
 - **A test docstring tells history.** `test_tui_reconciliations.py` line 157 says "`date_start`
   orders the batch now"; state it in the present tense

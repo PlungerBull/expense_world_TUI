@@ -11,7 +11,16 @@ import threading
 from expense.tui.screens.accounts import AccountsScreen
 from tests.unit.helpers import run_app, wait_for, wait_for_list, whole
 
-ACCOUNTS = [{"id": "a1", "name": "BCP", "is_person": False, "is_archived": False, "color": None}]
+ACCOUNTS = [
+    {
+        "id": "a1",
+        "name": "BCP",
+        "is_person": False,
+        "is_archived": False,
+        "color": None,
+        "opening_balance_transaction_id": None,
+    }
+]
 
 
 def _stub_accounts(monkeypatch):

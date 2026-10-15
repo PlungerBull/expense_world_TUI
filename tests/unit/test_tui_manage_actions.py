@@ -5,6 +5,8 @@ The list is the only surface. `a` toggles archive/unarchive immediately — no C
 `enter` is a no-op. Archive is Accounts-only.
 """
 
+import pytest
+
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.create_forms import EditAccountScreen, EditHashtagScreen
@@ -21,6 +23,7 @@ ACCOUNT = {
     "currency_code": "PEN",
     "color": "#4a90d9",
     "current_balance_cents": -7495,
+    "opening_balance_transaction_id": None,
 }
 ACCOUNT_2 = {**ACCOUNT, "id": "a2", "name": "Interbank", "color": None}
 ARCHIVED_ACCOUNT = {**ACCOUNT, "is_archived": True}
@@ -171,3 +174,53 @@ def test_enter_is_a_noop(fake_client, monkeypatch):
         assert not fake_client.calls  # nothing written
 
     run_app(scenario)
+
+
+# ---- after an edit: a save starts the list over, a cancel keeps the row ---------------
+
+_CATEGORY_ROWS = [
+    {"id": "c1", "name": "COMIDA", "is_system": False, "color": "#4a90d9"},
+    {"id": "c2", "name": "HOGAR", "is_system": False, "color": "#5ab87a"},
+]
+# list screen, its rows (served whole), the reads function it calls
+_EDIT_LISTS = {
+    "accounts": (AccountsScreen, [ACCOUNT, ACCOUNT_2], "fetch_accounts"),
+    "categories": (CategoriesScreen, _CATEGORY_ROWS, "fetch_categories"),
+    "hashtags": (HashtagsScreen, [HASHTAG, {"id": "h2", "name": "viaje"}], "fetch_hashtags"),
+}
+
+
+def _edit_second_row(fake_client, monkeypatch, which, key):
+    make, rows, fetch = _EDIT_LISTS[which]
+    monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole(rows))
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = make()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("down")  # cursor → row 2
+        await pilot.press("e")
+        await wait_for(pilot, lambda: app.screen is not screen)
+        await pilot.press(key)
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for_list(pilot, app)
+        await pilot.pause()
+        seen["cursor"] = screen.query(CursorList).first().cursor_key
+
+    run_app(scenario)
+    return seen["cursor"], rows
+
+
+@pytest.mark.parametrize("which", list(_EDIT_LISTS))
+def test_a_saved_edit_reloads_the_list_from_row_1(fake_client, monkeypatch, which):
+    cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "ctrl+s")
+    assert fake_client.puts  # the save wrote
+    assert cursor == rows[0]["id"]
+
+
+@pytest.mark.parametrize("which", list(_EDIT_LISTS))
+def test_a_cancelled_edit_keeps_the_row(fake_client, monkeypatch, which):
+    cursor, rows = _edit_second_row(fake_client, monkeypatch, which, "escape")
+    assert fake_client.calls == []
+    assert cursor == rows[1]["id"]

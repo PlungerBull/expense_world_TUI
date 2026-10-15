@@ -37,9 +37,27 @@ from expense.tui.theme import ACCENT, PALETTE
 from tests.unit.helpers import cursor_page, render_text, run_app, wait_for, whole
 
 ACCOUNTS = [
-    {"id": "acc1", "name": "BCP Signature PEN", "currency_code": "PEN", "is_person": False},
-    {"id": "acc2", "name": "BCP Signature USD", "currency_code": "USD", "is_person": False},
-    {"id": "acc3", "name": "BCP PEN", "currency_code": "PEN", "is_person": False},
+    {
+        "id": "acc1",
+        "name": "BCP Signature PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc2",
+        "name": "BCP Signature USD",
+        "currency_code": "USD",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc3",
+        "name": "BCP PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
 ]
 CATEGORIES = {
     "items": [

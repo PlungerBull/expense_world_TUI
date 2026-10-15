@@ -147,7 +147,16 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
-        lambda cfg, **k: {"items": [{"id": "a1", "name": "BCP", "is_archived": False}]},
+        lambda cfg, **k: {
+            "items": [
+                {
+                    "id": "a1",
+                    "name": "BCP",
+                    "is_archived": False,
+                    "opening_balance_transaction_id": None,
+                }
+            ]
+        },
     )
 
     async def scenario(pilot, app):

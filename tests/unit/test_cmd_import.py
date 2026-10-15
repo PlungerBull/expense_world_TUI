@@ -95,8 +95,18 @@ def test_apply_reuses_existing_and_creates_rest(configured):
     plan = _plan(rows)
     _mock_existing(
         accounts=[
-            {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"},
-            {"id": "acc-usd", "name": "BCP USD", "currency_code": "USD"},
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
+            {
+                "id": "acc-usd",
+                "name": "BCP USD",
+                "currency_code": "USD",
+                "opening_balance_transaction_id": None,
+            },
         ],
         categories=[{"id": "cat-susc", "name": "Suscripciones"}],
         hashtags=[],
@@ -189,8 +199,18 @@ def test_apply_split_currency_reuses_existing_suffixed_accounts(configured):
     plan = _plan(rows)
     _mock_existing(
         accounts=[
-            {"id": "acc-oro-pen", "name": "BCP Oro PEN", "currency_code": "PEN"},
-            {"id": "acc-oro-usd", "name": "BCP Oro USD", "currency_code": "USD"},
+            {
+                "id": "acc-oro-pen",
+                "name": "BCP Oro PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
+            {
+                "id": "acc-oro-usd",
+                "name": "BCP Oro USD",
+                "currency_code": "USD",
+                "opening_balance_transaction_id": None,
+            },
         ],
         categories=[],
         hashtags=[],
@@ -231,8 +251,18 @@ def test_apply_seeds_opening_balances(configured):
     plan = plan_mod.build_plan(rows, openings, [])
     _mock_existing(
         accounts=[
-            {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"},
-            {"id": "acc-usd", "name": "Interbank USD", "currency_code": "USD"},
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
+            {
+                "id": "acc-usd",
+                "name": "Interbank USD",
+                "currency_code": "USD",
+                "opening_balance_transaction_id": None,
+            },
         ],
         categories=[],
         hashtags=[],
@@ -271,7 +301,14 @@ def test_opening_409_counts_already_present(configured):
     """A 409 (replayed id or account already seeded) is a skip, not a failure."""
     plan = plan_mod.build_plan([], [_orow(2)], [])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -294,7 +331,14 @@ def test_opening_409_counts_already_present(configured):
 def test_opening_engine_error_reports_sheet_line(configured):
     plan = plan_mod.build_plan([], [_orow(7)], [])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -337,7 +381,14 @@ def _zero(index: int = 0) -> httpx.Response:
 def test_batch_409_is_non_fatal(configured):
     plan = _plan([_prow(2)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -363,7 +414,14 @@ def test_chunk_409_falls_back_to_per_row_and_imports_new_rows(configured):
     """Appending rows to an already-imported sheet must import the new rows."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -392,7 +450,14 @@ def test_chunk_409_falls_back_to_per_row_and_imports_new_rows(configured):
 def test_per_row_fallback_reports_non_409_failure(configured):
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -428,7 +493,14 @@ def test_per_row_fallback_reports_non_409_failure(configured):
 def test_per_row_fallback_connection_error_stops_run(configured):
     plan = _plan([_prow(line, amount_cents=-100 * line) for line in (2, 3, 4, 5)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -461,7 +533,14 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
     """One invalid row must not sink its whole chunk, and must name its sheet line."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -492,7 +571,14 @@ def test_row_failure_keeps_engine_fields_detail(configured):
     reformat lossily."""
     plan = _plan([_prow(2), _prow(3, amount_cents=0)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -525,7 +611,14 @@ def test_an_unknown_hashtag_names_its_sheet_line(configured):
     sheet line."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -556,7 +649,14 @@ def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(c
     """A non-409/422 chunk error fails once with the sheet line range."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -581,7 +681,14 @@ def test_chunking_splits_batches(configured):
     rows = [_prow(line) for line in range(2, 452)]  # 450 distinct rows
     plan = _plan(rows)
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -605,7 +712,14 @@ def test_a_chunk_size_above_the_engines_limit_is_refused_before_any_write(config
     """A programming error: nothing goes out, the opening balance included."""
     plan = plan_mod.build_plan([_prow(2)], [_orow(3)], [])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -641,7 +755,14 @@ def test_import_sheet_refuses_a_chunk_size_flag_above_the_engines_limit(configur
 def test_batch_connection_failure_marks_remaining_failed_and_stops(configured):
     plan = _plan([_prow(2), _prow(3), _prow(4)])
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -674,7 +795,14 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
     ]
     plan = _plan(rows)
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -780,7 +908,14 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
         lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
     )
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -808,7 +943,14 @@ def test_apply_json_result_with_failures(configured, monkeypatch):
         ),
     )
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -842,7 +984,14 @@ def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch
         ),
     )
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -875,7 +1024,14 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
         ),
     )
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[],
         hashtags=[],
     )
@@ -960,7 +1116,14 @@ def test_apply_stops_on_settings_missing_at_a_resource_create(configured, monkey
 def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
     _three_row_sheet(monkeypatch)
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
         categories=[{"id": f"c{n}", "name": n} for n in ("WANTS", "NEEDS", "FUN")],
         hashtags=[{"id": "h", "name": "Salidas"}],
     )
@@ -1039,8 +1202,18 @@ def test_settings_missing_at_an_opening_balance_ends_the_run(configured):
     plan = plan_mod.build_plan([_prow(2)], [_orow(7), _orow(8, account="BBVA PEN")], [])
     _mock_existing(
         accounts=[
-            {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"},
-            {"id": "acc-bbva", "name": "BBVA PEN", "currency_code": "PEN"},
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
+            {
+                "id": "acc-bbva",
+                "name": "BBVA PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            },
         ],
         categories=[{"id": "c", "name": "WANTS"}],
         hashtags=[{"id": "h", "name": "Salidas"}],

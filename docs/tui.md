@@ -63,7 +63,8 @@ expense/tui/
                     #   (flow.py)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
-                    #   bank) that picks POST /accounts vs POST /people
+                    #   bank) that picks POST /accounts vs POST /people; the
+                    #   account Edit form carries the opening balance (§2)
     modals.py       # ConfirmModal, PromptModal, PickerModal, DiscardStagedModal
                     #   (the LOG bar's one confirmation)
 ```
@@ -329,6 +330,46 @@ The choice lives in one table,
 `DELETE_REFUSAL_HINTS` in [_base.py](../expense/tui/screens/_base.py), which switches to
 reasons once [delete-refusal-reasons.md](engine-asks/delete-refusal-reasons.md) lands.
 Any other failure reads as every failed write does (`format_error`).
+
+**An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
+in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank
+account's form ends with two optional lines after `color`: **`opening`**, the amount, and
+**`as of`**, its day. There is no title line; the engine names the row. A person's form has
+neither line: what you owe each other comes only from the rows you record.
+
+- **The amount is signed and taken as typed**, in the account's currency. The hint reads
+  `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the
+  app never adds or flips a sign. `as of` takes `YYYY-MM-DD` (hint `YYYY-MM-DD · the day the
+  account held this`), starts empty, and is marked `*` once there is an amount.
+- **An account that has one opens with both lines filled.** The account names its opening
+  balance by id, or `null` when it has none (contract: "Bank Accounts", "Opening balance"),
+  and the form reads that one row with `GET /transactions/{id}?debit_as_negative=true`
+  (`reads.fetch_transaction`), so the amount arrives signed and nothing reads the sign off
+  `transaction_type` (contract: "Base Conventions", "Sign convention — responses"). A save
+  waits for that read; a read that fails shows its "Failed" note and leaves the two lines
+  read-only, so the account itself still saves.
+- **A save can send two writes, in order:** the account's own changes (`PUT
+  /accounts/{id}`), then the opening balance — `POST /accounts/{id}/opening-balance` with a
+  client `transaction_id`, the signed `amount_cents` and the `date` when there is none; a
+  `PUT /transactions/{id}` of only the changed amount or date when there is one. The account
+  write goes when the account changed, or when the opening balance has nothing to send.
+- **Emptying the amount of an existing one and saving deletes it**, after `ConfirmModal`
+  asks `Delete this opening balance?` over the form (`Sueldo Soles · 3,200.00 · 2026-01-01` ·
+  `It leaves the account's balance, and no screen can bring it back.`). Only `y` sends the
+  account's changes and `DELETE /transactions/{id}`; `⏎`, `n` and `esc` go back to the form
+  with nothing saved.
+- **A refusal** shows the "Failed" note in the engine's words (`format_error`) and leaves the
+  form open with what was typed, the cursor on the line the refusal names (an amount on
+  `opening`, a date on `as of`, a name or colour on its own line); a refusal that names
+  none of them leaves the cursor where it was. When the account saved and the opening balance was refused,
+  the note says so: `The account's changes are saved. The opening balance is not:`, the
+  engine's words, then `It is still in the form: fix it and save again.` The next save sends
+  only the opening balance; `esc` just leaves.
+- **Saved,** the form closes with `Saved.` and the account list reads again from its first
+  page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
+  this way: one that wrote dismisses with `True` and the list starts over; one closed with
+  `esc` before any write keeps the edited row selected (`ResourceListScreen._edited` in
+  [_base.py](../expense/tui/screens/_base.py)).
 
 **Every new screen starts with an HTML mockup in [mockups/](mockups/) for review before
 code** — every time, including screens approved before (CLAUDE.md "Mock every screen").

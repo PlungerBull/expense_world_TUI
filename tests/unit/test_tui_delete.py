@@ -43,6 +43,7 @@ def _account(i: int) -> dict:
         "currency_code": "PEN",
         "color": None,
         "current_balance_cents": -15000 if i == 22 else 0,
+        "opening_balance_transaction_id": None,
     }
 
 

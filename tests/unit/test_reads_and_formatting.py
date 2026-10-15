@@ -313,9 +313,27 @@ def test_engine_error_attribute_access():
 # ---------------------------------------------------------------------------
 
 _ACCOUNT_ROWS = [
-    {"id": "a1", "name": "BCP", "currency_code": "PEN", "current_balance_cents": 100},
-    {"id": "a2", "name": None, "currency_code": None, "is_person": False},
-    {"id": "p1", "name": "Mom", "currency_code": "PEN", "is_person": True},
+    {
+        "id": "a1",
+        "name": "BCP",
+        "currency_code": "PEN",
+        "current_balance_cents": 100,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "a2",
+        "name": None,
+        "currency_code": None,
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "p1",
+        "name": "Mom",
+        "currency_code": "PEN",
+        "is_person": True,
+        "opening_balance_transaction_id": None,
+    },
     {"name": "no-id row is skipped"},
 ]
 
@@ -476,8 +494,19 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
     respx.get(f"{BASE}/v1/accounts").mock(
         return_value=_list_body(
             [
-                {"id": "a1", "name": "BCP PEN", "currency_code": "PEN"},
-                {"id": "a2", "name": "Retired", "currency_code": "PEN", "is_archived": True},
+                {
+                    "id": "a1",
+                    "name": "BCP PEN",
+                    "currency_code": "PEN",
+                    "opening_balance_transaction_id": None,
+                },
+                {
+                    "id": "a2",
+                    "name": "Retired",
+                    "currency_code": "PEN",
+                    "is_archived": True,
+                    "opening_balance_transaction_id": None,
+                },
             ]
         )
     )
@@ -502,7 +531,16 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
     """You cannot type your way into an archived account or a system category,
     but a row that already names one still renders its name."""
     respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=_list_body([{"id": "a2", "name": "Retired", "is_archived": True}])
+        return_value=_list_body(
+            [
+                {
+                    "id": "a2",
+                    "name": "Retired",
+                    "is_archived": True,
+                    "opening_balance_transaction_id": None,
+                }
+            ]
+        )
     )
     respx.get(f"{BASE}/v1/categories").mock(
         return_value=_list_body([{"id": "c2", "name": "Opening", "is_system": True}])
@@ -602,6 +640,34 @@ def test_fetch_transactions_sends_sort_and_after_never_offset(configured):
         "limit": "40",
         "debit_as_negative": "true",
     }
+
+
+@respx.mock
+def test_fetch_transaction_reads_one_row_signed(configured):
+    """One row by id, always signed, so the caller never reads the sign off
+    `transaction_type` (contract: "Base Conventions", "Sign convention — responses")."""
+    from expense import config as config_module
+    from expense.reads import fetch_transaction
+
+    row = {**TRANSACTION_RESPONSE, "id": "tx-open", "amount_cents": -320000}
+    route = respx.get(f"{BASE}/v1/transactions/tx-open").mock(
+        return_value=httpx.Response(200, json=row)
+    )
+    assert fetch_transaction(config_module.ensure_loaded(), "tx-open") == row
+    assert dict(route.calls.last.request.url.params) == {"debit_as_negative": "true"}
+
+
+@respx.mock
+def test_fetch_transaction_raises_the_engines_refusal(configured):
+    from expense import config as config_module
+    from expense.reads import fetch_transaction
+
+    respx.get(f"{BASE}/v1/transactions/gone").mock(
+        return_value=error_response(404, "NOT_FOUND", "Transaction not found.")
+    )
+    with pytest.raises(EngineError) as caught:
+        fetch_transaction(config_module.ensure_loaded(), "gone")
+    assert caught.value.code == "NOT_FOUND"
 
 
 @respx.mock

@@ -629,7 +629,15 @@ class ResourceListScreen(SectionScreen):
         if not item:
             return
         self._restore_key = item.get("id")
-        self.app.push_screen(self.edit_screen(item), lambda _result: self._load())
+        self.app.push_screen(self.edit_screen(item), self._edited)
+
+    def _edited(self, saved: object = None) -> None:
+        """An edit form closed. One that dismisses with True wrote to the
+        engine, so the list starts over like after a delete: first page, cursor
+        on row 1. Any other close keeps the edited row selected."""
+        if saved is True:
+            self._restore_key = None
+        self._load()
 
     def action_delete(self) -> None:
         item = self.selected_record()

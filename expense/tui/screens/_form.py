@@ -238,13 +238,20 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def action_cancel(self) -> None:
         self.dismiss()
 
-    def action_submit(self) -> None:
-        if self._submitting:
-            return
+    def _required_met(self) -> bool:
+        """True when every required field has a value; otherwise notes the first
+        missing one. Every form's save goes through this one check."""
         for key in self._required():
             if key not in self._values:
                 self.notify(f"{self._label(key).title()} is required.", severity="error")
-                return
+                return False
+        return True
+
+    def action_submit(self) -> None:
+        if self._submitting:
+            return
+        if not self._required_met():
+            return
         request = self._submit_request()
         if request is None:
             return

@@ -21,9 +21,27 @@ from expense.tui.screens.edit_form import EditFormScreen
 from tests.unit.helpers import render_text, run_app, wait_for, whole
 
 ACCOUNTS = [
-    {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN", "is_person": False},
-    {"id": "acc2", "name": "BCP USD", "currency_code": "USD", "is_person": False},
-    {"id": "acc3", "name": "Ahorros", "currency_code": "PEN", "is_person": False},
+    {
+        "id": "acc1",
+        "name": "BCP PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc2",
+        "name": "BCP USD",
+        "currency_code": "USD",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
+    {
+        "id": "acc3",
+        "name": "Ahorros",
+        "currency_code": "PEN",
+        "is_person": False,
+        "opening_balance_transaction_id": None,
+    },
 ]
 CATEGORIES = {
     "items": [
@@ -73,7 +91,13 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
     accounts fetch is a superset (include_archived); categories/hashtags have
     no archive."""
     calls: list[tuple[str, bool]] = []
-    archived = {"id": "accX", "name": "Old bank", "currency_code": "PEN", "is_archived": True}
+    archived = {
+        "id": "accX",
+        "name": "Old bank",
+        "currency_code": "PEN",
+        "is_archived": True,
+        "opening_balance_transaction_id": None,
+    }
 
     def rec(name, payload):
         def fetch(cfg, *a, **k):

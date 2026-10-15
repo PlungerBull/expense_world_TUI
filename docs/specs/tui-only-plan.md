@@ -122,18 +122,7 @@ over as is. It says:
 Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's answers on
 2026-10-14. **[UI]** tasks start with a mockup the owner picks.
 
-1. **Opening balance [UI].** Picked 2026-10-14 in
-   [expense-world-opening-balance.html](../mockups/expense-world-opening-balance.html): 1B (two
-   lines, amount and date, on the account's Edit form), 3A (the date starts empty), 6B (an
-   existing opening balance shows on the form, and saving changes it). No title line. The two
-   lines are hidden on people. Emptying the amount of an existing one deletes it, after asking.
-   The form says which half failed when the account saves and the opening balance is refused.
-   The redrawn mockup is confirmed (2026-10-14): the lines are named "opening" and "as of",
-   `esc` after a half-refused save just leaves, and screen 6's note stays as drawn. The account's
-   `opening_balance_transaction_id` names the row; the form reads it signed, never from
-   `transaction_type`. [engine-asks/account-opening-balance.md](../engine-asks/account-opening-balance.md)
-   is deleted in the same commit.
-2. **Every refusal says what to do next [UI].** The owner chose on 2026-10-14 that every refusal
+1. **Every refusal says what to do next [UI].** The owner chose on 2026-10-14 that every refusal
    the engine gives a reason for (`CONFLICT`, `FORBIDDEN`, `LIMIT_REACHED`) shows the engine's
    words plus one line saying what to do, as the delete refusals do. The lines are drawn for the
    owner to approve the wording, then chosen by reason; the status-and-route choice for deletes
@@ -144,12 +133,12 @@ Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's a
    as saved. The sheet import prints the engine's words alone, with no app keys in them. Picked
    2026-10-14 in [expense-world-refusal-hints.html](../mockups/expense-world-refusal-hints.html):
    screens 2, 4 and 7 as drawn, 3A, 5A, 6B, 8B, 9A; the approved delete lines stay as they are.
-3. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
+2. **Opening-balance rows stay put [UI].** An opening balance cannot move to another account or
    category. On such a row the ledger's edit form does not offer those two fields, and the bulk
    `c`/`b` keys show the engine's refusal for it. Picked 2026-10-14 in
    [expense-world-opening-balance-rows.html](../mockups/expense-world-opening-balance-rows.html):
    1A (account and category shown read-only), 2B (the engine's words plus where the opening
    balance is changed). Hashtags stay editable; the tester confirms the engine allows it.
-4. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+3. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.

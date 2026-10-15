@@ -82,7 +82,13 @@ def test_new_account_without_color_omits_color_and_sort_order(fake_client, type_
 def test_edit_account_locks_type_and_currency(fake_client):
     """`is_person` is creation-time-only, so editing shows TYPE read-only."""
     screen = EditAccountScreen(
-        {"id": "abc", "name": "Eliana", "currency_code": "PEN", "is_person": True}
+        {
+            "id": "abc",
+            "name": "Eliana",
+            "currency_code": "PEN",
+            "is_person": True,
+            "opening_balance_transaction_id": None,
+        }
     )
     assert screen._locked == {"currency", "type"}
     assert screen._values["type"] == "person"
@@ -198,7 +204,13 @@ def test_a_refused_create_can_be_submitted_again(fake_client, monkeypatch):
 def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
     """The Edit* screens differ only in `_submit_request` — PUT, not POST."""
     screen = EditAccountScreen(
-        {"id": "abc", "name": "Eliana", "currency_code": "PEN", "is_person": True}
+        {
+            "id": "abc",
+            "name": "Eliana",
+            "currency_code": "PEN",
+            "is_person": True,
+            "opening_balance_transaction_id": None,
+        }
     )
 
     async def check(pilot, screen, toasts):
@@ -216,10 +228,17 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
 # ---------------------------------------------------------------------------
 #
 # EditAccountScreen is the form with read-only fields: TYPE and CURRENCY are
-# locked, so the editable sequence is NAME (a plain text field, no list) and
-# COLOR (a palette list). Every bar form takes the same keymap from FormScreen.
+# locked, so the editable sequence is NAME (a plain text field, no list), COLOR
+# (a palette list), then a bank account's OPENING and AS OF (plain text). Every
+# bar form takes the same keymap from FormScreen.
 
-_ACCOUNT = {"id": "abc", "name": "Eliana", "currency_code": "PEN", "is_person": False}
+_ACCOUNT = {
+    "id": "abc",
+    "name": "Eliana",
+    "currency_code": "PEN",
+    "is_person": False,
+    "opening_balance_transaction_id": None,
+}
 
 
 def _navigate(steps):
@@ -246,7 +265,11 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     _navigate(
         [
             ("tab", "color"),  # skips locked CURRENCY
-            ("tab", "color"),  # no editable field further on: stays
+            ("tab", "opening"),
+            ("tab", "as_of"),
+            ("tab", "as_of"),  # no editable field further on: stays
+            ("shift+tab", "opening"),
+            ("shift+tab", "color"),
             ("shift+tab", "name"),
             ("shift+tab", "name"),  # TYPE is locked: stays
         ]

@@ -61,8 +61,18 @@ def _patch(monkeypatch):
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
             [
-                {"id": "acc1", "name": "BCP PEN", "currency_code": "PEN"},
-                {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
+                {
+                    "id": "acc1",
+                    "name": "BCP PEN",
+                    "currency_code": "PEN",
+                    "opening_balance_transaction_id": None,
+                },
+                {
+                    "id": "acc2",
+                    "name": "Interbank USD",
+                    "currency_code": "USD",
+                    "opening_balance_transaction_id": None,
+                },
             ]
         ),
     )
@@ -201,7 +211,12 @@ def _patch_browse(monkeypatch, items=None, fail=False):
                     "currency_code": "PEN",
                     "current_balance_cents": 100,
                 },
-                {"id": "acc2", "name": "Interbank USD", "currency_code": "USD"},
+                {
+                    "id": "acc2",
+                    "name": "Interbank USD",
+                    "currency_code": "USD",
+                    "opening_balance_transaction_id": None,
+                },
             ]
         ),
     )

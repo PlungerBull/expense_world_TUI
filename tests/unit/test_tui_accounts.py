@@ -16,6 +16,7 @@ ITEMS = [
         "currency_code": "PEN",
         "color": "#4a90d9",
         "current_balance_cents": 1245000,
+        "opening_balance_transaction_id": None,
     },
     {
         "id": "a2",
@@ -25,6 +26,7 @@ ITEMS = [
         "currency_code": "PEN",
         "color": None,
         "current_balance_cents": -150000,
+        "opening_balance_transaction_id": None,
     },
     {
         "id": "a3",
@@ -34,6 +36,7 @@ ITEMS = [
         "currency_code": "PEN",
         "color": "#888888",
         "current_balance_cents": 0,
+        "opening_balance_transaction_id": None,
     },
 ]
 

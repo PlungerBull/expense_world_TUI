@@ -228,6 +228,22 @@ def fetch_transactions(
     )
 
 
+def fetch_transaction(cfg, transaction_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/transactions/{id}?debit_as_negative=true → the raw engine body.
+
+    Signed like every TUI read: `amount_cents` comes back negative for money
+    out, so no caller ever reads the sign off `transaction_type`
+    (contract: "Base Conventions", "Sign convention — responses"). Read by the
+    account Edit form for the account's opening balance.
+    """
+    return fetch_body(
+        cfg,
+        path=f"/transactions/{transaction_id}",
+        params=query_params(debit_as_negative=True),
+        verbose=verbose,
+    )
+
+
 def count_transactions(
     cfg,
     *,
