@@ -27,16 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Tell the engine coders three of their notes are caught up
-Asked 2026-10-15 · Blocks: nothing in this repo
-Tell the engine coders, so they delete their copies:
-- **tui-rename:** the drop box is now [engine-answers/](engine-answers/) and the rename brief is
-  deleted. Once you have told them, the orchestrator deletes
-  [engine-answers/tui-rename.md](engine-answers/tui-rename.md).
-- **account-opening-balance** and **refusal-reasons:** the app follows both, and the live
-  contract suite tests both.
-**Recommended:** tell them now, in one message.
-
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
 A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`
