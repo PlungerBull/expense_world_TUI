@@ -1,5 +1,6 @@
 """Reconciliation working-screen tests — checklist + assign/complete."""
 
+import pytest
 from textual.widgets import Static
 
 from expense.errors import EngineError
@@ -407,6 +408,53 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
         await wait_for(pilot, lambda: notices)
         assert fake_client.deletes == ["/reconciliations/r1"]  # request was attempted
         assert any("Revert to draft first" in m for m in notices)
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize(
+    ("reason", "line"),
+    [
+        ("RECONCILIATION_NOT_DRAFT", "Press u to revert it, then d again."),
+        ("CONCURRENT_CHANGE", "It changed at the same moment: press r, then try again."),
+    ],
+    ids=["screen-8B", "screen-5A"],
+)
+def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch, reason, line):
+    """The engine's words, then the line naming this screen's own key: `u`
+    reverts, `r` reads it again."""
+    completed = {**DRAFT, "status": 2}
+    _patch(monkeypatch)
+    words = "Cannot delete a completed reconciliation. Revert to draft first."
+    fake_client.errors["DELETE"] = EngineError(
+        "CONFLICT",
+        words,
+        {"reconciliation_id": "Must be a draft."},
+        409,
+        {},
+        {"reconciliation_id": reason},
+    )
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, message)),
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(completed))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        assert notices == [
+            (
+                "Couldn't delete",
+                f"CONFLICT — {words}\n  reconciliation_id: Must be a draft.\n\n{line}",
+            )
+        ]
 
     run_app(scenario)
 

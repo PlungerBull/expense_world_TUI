@@ -296,9 +296,124 @@ def test_apply_seeds_opening_balances(configured):
     assert "exchange_rate" not in usd_body
 
 
+def _seeded_account() -> None:
+    _mock_existing(
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
+        categories=[],
+        hashtags=[],
+    )
+
+
+def _opening_refusal(key: str, reason: str, message: str = "stand-in") -> httpx.Response:
+    """A refused opening balance, keyed by the thing refused (contract: "Error reasons")."""
+    return error_response(409, "CONFLICT", message, {key: "stand-in field words"}, {key: reason})
+
+
+@pytest.mark.parametrize(
+    ("key", "reason"),
+    [
+        ("category_id", "CONCURRENT_CHANGE"),
+        ("category_id", "RESERVED_NAME_HELD"),
+        ("account_id", "ID_EXISTS"),  # a taken id, but not under its own key
+    ],
+)
 @respx.mock
-def test_opening_409_counts_already_present(configured):
-    """A 409 (replayed id or account already seeded) is a skip, not a failure."""
+def test_opening_any_other_409_is_a_failure(configured, key, reason):
+    """Only its own `transaction_id` already taken means the seed landed; any
+    other refusal is reported in the engine's words alone."""
+    plan = plan_mod.build_plan([], [_orow(2)], [])
+    _seeded_account()
+    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
+        return_value=_opening_refusal(key, reason)
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res)
+
+    assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
+    assert result.failures == [
+        (-1, f"sheet line 2 (opening balance): CONFLICT — stand-in\n  {key}: stand-in field words")
+    ]
+
+
+def _account_holding(opening_id) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "id": "acc-pen",
+            "name": "BCP PEN",
+            "currency_code": "PEN",
+            "opening_balance_transaction_id": opening_id,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("account_read", "landed"),
+    [
+        ("own", True),
+        ("other", False),
+        ("none", False),
+        ("refused", False),
+    ],
+)
+@respx.mock
+def test_opening_balance_exists_counts_only_when_the_account_holds_this_seed(
+    configured, account_read, landed
+):
+    """A re-sent seed draws `OPENING_BALANCE_EXISTS`, the same refusal as a
+    different opening balance, so the account is read: already present only when
+    its `opening_balance_transaction_id` is this seed's own id
+    (contract: "Bank Accounts", "Opening balance"). Another id, none, or a read
+    that fails is a failure, in the words of the refusal."""
+    plan = plan_mod.build_plan([], [_orow(2)], [])
+    own_id = plan.opening_ids[2]
+    _seeded_account()
+    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
+        return_value=_opening_refusal("account_id", "OPENING_BALANCE_EXISTS")
+    )
+    read = respx.get(f"{BASE}/v1/accounts/acc-pen").mock(
+        return_value={
+            "own": _account_holding(own_id),
+            "other": _account_holding("someone-elses-seed"),
+            "none": _account_holding(None),
+            "refused": error_response(404, "NOT_FOUND", "Account not found."),
+        }[account_read]
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res)
+
+    assert read.call_count == 1
+    if landed:
+        assert (result.opening_skipped_existing, result.opening_failed) == (1, 0)
+        assert result.failures == []
+    else:
+        assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
+        assert result.failures == [
+            (
+                -1,
+                "sheet line 2 (opening balance): CONFLICT — stand-in\n"
+                "  account_id: stand-in field words",
+            )
+        ]
+
+
+@respx.mock
+def test_opening_replay_of_its_own_id_counts_already_present(configured):
+    """`ID_EXISTS` on its own `transaction_id` (minted from the row, so the same
+    on every run) is a skip, not a failure."""
     plan = plan_mod.build_plan([], [_orow(2)], [])
     _mock_existing(
         accounts=[
@@ -313,7 +428,7 @@ def test_opening_409_counts_already_present(configured):
         hashtags=[],
     )
     respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=error_response(409, "CONFLICT", "already seeded", None)
+        return_value=_opening_refusal("transaction_id", "ID_EXISTS")
     )
 
     cfg = config_module.ensure_loaded()
@@ -362,8 +477,12 @@ def test_opening_engine_error_reports_sheet_line(configured):
     assert "sheet line 7" in message and "opening balance" in message
 
 
-def _conflict() -> httpx.Response:
-    return error_response(409, "CONFLICT", "id exists", None)
+def _conflict(key: str = "transactions.0.id", reason: str = "ID_EXISTS") -> httpx.Response:
+    """The batch 409, keyed by item index (contract: "Error reasons"). The
+    default is a replay: the first row's own id, already in the ledger."""
+    return error_response(
+        409, "CONFLICT", "id exists", {key: "stand-in field words"}, {key: reason}
+    )
 
 
 def _refused(index: int, field: str, message: str, reason: str) -> httpx.Response:
@@ -407,6 +526,35 @@ def test_batch_409_is_non_fatal(configured):
     assert result.tx_skipped_existing == 1
     assert result.tx_failed == 0
     assert batch_route.call_count == 2  # batch 409 → singleton retry 409
+
+
+@pytest.mark.parametrize(
+    ("key", "reason"),
+    [
+        ("category_id", "CONCURRENT_CHANGE"),
+        ("category_id", "RESERVED_NAME_HELD"),
+        ("transactions.0.operation_code", "OPERATION_CODE_EXISTS"),
+    ],
+)
+@respx.mock
+def test_batch_409_other_than_a_replay_is_a_failure(configured, key, reason):
+    """Never "already present" for a row the engine refused for another reason."""
+    plan = _plan([_prow(2)])
+    _seeded_account()
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=lambda request: _conflict(key, reason)
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res)
+
+    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
+    ((_, message),) = result.failures
+    assert message.endswith(f"CONFLICT — id exists\n  {key}: stand-in field words")
 
 
 @respx.mock
@@ -1073,12 +1221,10 @@ _SETTINGS_MISSING = (
     {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
     {"user_settings": "NOT_PROVISIONED"},
 )
+#: The engine's words alone: the typed import adds no line of the app's.
 _SETTINGS_MISSING_HUMAN = (
     "Error: SETTINGS_MISSING — User settings have not been provisioned.\n"
     "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
-    "\n"
-    "Hint: First-time setup is not done yet. "
-    "Open System ▸ Auth & profile and press b.\n"
 )
 
 
@@ -1108,7 +1254,6 @@ def test_apply_stops_on_settings_missing_at_a_resource_create(configured, monkey
 
     assert result.exit_code == 1
     assert result.output == _SETTINGS_MISSING_HUMAN
-    assert result.output.count("Hint:") == 1
     assert _writes() == ["/v1/accounts"]  # no category, hashtag, opening or batch after it
 
 
@@ -1137,7 +1282,6 @@ def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
 
     assert result.exit_code == 1
     assert result.output == _SETTINGS_MISSING_HUMAN
-    assert result.output.count("Hint:") == 1
     assert _writes() == ["/v1/transactions/batch"]  # no row-by-row retry, no second chunk
 
 
@@ -1230,3 +1374,62 @@ def test_settings_missing_at_an_opening_balance_ends_the_run(configured):
 
     assert raised.value.code == "SETTINGS_MISSING"
     assert _writes() == ["/v1/accounts/acc-pen/opening-balance"]  # no second seed, no batch
+
+
+# ---------------------------------------------------------------------------
+# The printed report is the engine's words alone
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_the_printed_report_carries_no_app_keys_or_hint_lines(configured, monkeypatch):
+    """Every refusal the run meets is printed as the engine wrote it: no line
+    of the app's saying what to do, no key to press, no screen to open."""
+    from expense.errors import NEXT_STEPS
+
+    _three_row_sheet(monkeypatch)
+    _mock_existing(
+        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        categories=[{"id": "c1", "name": "WANTS"}, {"id": "c2", "name": "NEEDS"}],
+        hashtags=[{"id": "h", "name": "Salidas"}],
+    )
+    respx.post(f"{BASE}/v1/categories").mock(
+        return_value=error_response(
+            409,
+            "CONFLICT",
+            "Name already exists.",
+            {"name": "Must be unique."},
+            {"name": "NAME_EXISTS"},
+        )
+    )
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=lambda request: _conflict("category_id", "RESERVED_NAME_HELD")
+    )
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+
+    assert "'FUN': CONFLICT — Name already exists." in result.output
+    assert "  name: Must be unique." in result.output
+    assert "CONFLICT — id exists" in result.output
+    assert "already-present 0, failed 3" in result.output  # FUN's row, plus two refused
+    lines = [line for step in NEXT_STEPS.values() for line in (step.line, step.on_list) if line]
+    lines += [line for step in NEXT_STEPS.values() for line in step.by_key.values()]
+    for line in lines:
+        assert line not in result.output
+    for app_word in ("Hint", "press", "▸", "save again"):
+        assert app_word not in result.output
+
+
+@respx.mock
+def test_a_run_ending_refusal_prints_the_engine_words_alone(configured, monkeypatch):
+    """A refusal that ends the run (here a `401` on the first read) prints the
+    engine's words and nothing of the app's: no key to set on a screen."""
+    _three_row_sheet(monkeypatch)
+    respx.get(f"{BASE}/v1/accounts").mock(
+        return_value=error_response(401, "UNAUTHORIZED", "Missing or invalid token")
+    )
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+
+    assert result.exit_code == 1
+    assert result.output == "Error: UNAUTHORIZED — Missing or invalid token\n"

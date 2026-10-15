@@ -27,8 +27,8 @@ from textual.widget import Widget
 from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
-from expense.errors import EngineError, engine_words, format_error
-from expense.formatting import SYSTEM_HINT, format_cents
+from expense.errors import format_error
+from expense.formatting import format_cents
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
@@ -192,7 +192,7 @@ class EngineWriteMixin:
         Deleted, the screen notifies `done` and reloads: through `_after_write`
         by default, or `after` for a list that reloads its own way. Refused, the
         "Failed" note carries the engine's words and, for the refusals that have
-        one, the line saying what to do instead (`delete_refusal_text`)."""
+        one, the line saying what to do instead (`list_refusal_text`)."""
 
         def answered(ok: bool | None) -> None:
             if not ok:
@@ -209,51 +209,17 @@ class EngineWriteMixin:
                 f"/{resource}/{record_id}",
                 success=done,
                 on_success=on_success,
-                error_text=delete_refusal_text(resource),
+                error_text=list_refusal_text,
             )
 
         self.app.push_screen(ConfirmModal(title, message), answered)
 
 
-#: The one line under a refused delete saying what to do instead, keyed by the
-#: route's collection and the HTTP status. None of these refusals carries a
-#: `reasons` value, so the status and the route choose the line, never the
-#: engine's wording — docs/decisions.md
-#: "Hints are chosen by the engine's reasons, never its wording".
-#: Once the engine ask "Give every business refusal of a delete or an opening
-#: balance a machine-readable reason" (docs/engine-asks/delete-refusal-reasons.md)
-#: lands, this table is keyed on the reason instead. This client mints a fresh
-#: idempotency key per delete, so its 409s are never a key reused with another
-#: request (contract: "Error codes").
-#:
-#: - An account with transactions is refused 409 (contract: DELETE /v1/accounts/{account_id}).
-#: - A category a transaction uses is refused 409, a system category 403
-#:   (contract: DELETE /v1/categories/{category_id}).
-#: - A transaction in a completed reconciliation is refused 409 with a message
-#:   that already says to revert it to draft first, so it has no entry
-#:   (contract: DELETE /v1/transactions/{transaction_id}).
-#: - A hashtag is never refused for being in use: the delete takes it off every
-#:   transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}).
-DELETE_REFUSAL_HINTS: dict[tuple[str, int], str] = {
-    ("accounts", 409): "To retire it instead, archive it: press a.",
-    ("categories", 409): "Move its transactions to another category first.",
-    ("categories", 403): SYSTEM_HINT,
-}
-
-
-def delete_refusal_text(resource: str) -> Callable[[Exception], str]:
-    """The `error_text` for a delete on `resource`: the engine's own words, a
-    blank line and the hint when `DELETE_REFUSAL_HINTS` has one; otherwise the
-    shared `format_error`, as every other failed write reads."""
-
-    def text(exc: Exception) -> str:
-        if isinstance(exc, EngineError):
-            hint = DELETE_REFUSAL_HINTS.get((resource, exc.status))
-            if hint is not None:
-                return f"{engine_words(exc)}\n\n{hint}"
-        return format_error(exc)
-
-    return text
+def list_refusal_text(exc: Exception) -> str:
+    """The `error_text` of a write sent from a list screen (a delete): the
+    shared `format_error`, with the line for a list where a refusal's line
+    depends on the screen (`errors.NextStep.on_list`: `r` reads the list again)."""
+    return format_error(exc, on_list=True)
 
 
 def transaction_delete_message(record: dict, account_name: str) -> str:

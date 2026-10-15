@@ -119,7 +119,7 @@ def test_new_account_required_name_blocks_submit(fake_client):
 # and EditFormScreen — so a regression there is a regression in all of them.
 
 
-def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST"):
+def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST", refusal=None):
     """Drive `screen` through `steps` with the engine refusing the write, then
     run `check(pilot, screen, toasts)` **inside** the pilot.
 
@@ -130,7 +130,9 @@ def _run_refused(fake_client, monkeypatch, screen, steps, check, *, verb="POST")
     The captured toast is what proves `_failed` ran at all — `run_write` hands
     `on_error` back to the UI thread and the callback leaves no other edge.
     """
-    fake_client.errors[verb] = EngineError("CONFLICT", "that name is taken", None, 409, {})
+    fake_client.errors[verb] = refusal or EngineError(
+        "CONFLICT", "that name is taken", None, 409, {}
+    )
     toasts: list = []
     monkeypatch.setattr(
         type(screen), "notify", lambda self, message, **kw: toasts.append((message, kw))
@@ -221,6 +223,70 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
         assert ("PUT", "/accounts/abc") in [(m, p) for m, p, _ in fake_client.calls]
 
     _run_refused(fake_client, monkeypatch, screen, ["Eliana Vega", ""], check, verb="PUT")
+
+
+def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
+    """A refusal keyed by the thing refused (contract: "Error reasons")."""
+    status = 422 if code == "LIMIT_REACHED" else 409
+    return EngineError(code, message, {key: "stand-in field words"}, status, {}, {key: reason})
+
+
+def _eliana() -> EditAccountScreen:
+    return EditAccountScreen(
+        {
+            "id": "abc",
+            "name": "Eliana",
+            "currency_code": "PEN",
+            "is_person": True,
+            "opening_balance_transaction_id": None,
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("make", "steps", "verb", "refusal", "line"),
+    [
+        (
+            _eliana,
+            ["Eliana Vega", ""],
+            "PUT",
+            _keyed("CONFLICT", "name", "NAME_EXISTS", "Name already exists."),
+            "That name is taken: pick another.",
+        ),
+        (
+            NewHashtagScreen,
+            ["viaje-lima"],
+            "POST",
+            _keyed("LIMIT_REACHED", "id", "CAP_REACHED", "Hashtag limit reached."),
+            "Delete one first.",
+        ),
+        (
+            NewHashtagScreen,
+            ["salud"],
+            "POST",
+            _keyed("CONFLICT", "id", "ID_EXISTS", "ID already exists."),
+            "Not your mistake: the app sent it wrong and nothing was saved. "
+            "Try again; if it happens again, report it.",
+        ),
+    ],
+    ids=["screen-2", "screen-3A", "screen-9A"],
+)
+def test_a_refusal_on_a_form_ends_with_its_next_step(
+    fake_client, monkeypatch, make, steps, verb, refusal, line
+):
+    """The "Failed" note is the engine's words, then the line picked for its
+    reason; the form stays open with what was typed."""
+
+    async def check(pilot, screen, toasts):
+        message, kw = toasts[0]
+        key = next(iter(refusal.fields))
+        assert message == (
+            f"{refusal.code} — {refusal.message}\n  {key}: stand-in field words\n\n{line}"
+        )
+        assert kw.get("title") == "Failed"
+        assert screen.is_attached
+
+    _run_refused(fake_client, monkeypatch, make(), steps, check, verb=verb, refusal=refusal)
 
 
 # ---------------------------------------------------------------------------

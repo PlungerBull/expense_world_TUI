@@ -9,6 +9,7 @@ from expense.errors import (
     ConfigMissingError,
     EngineConnectionError,
     EngineError,
+    engine_text,
     format_error,
     handle_errors,
     refuses_every_write,
@@ -60,7 +61,9 @@ def test_render_engine_error_human_with_fields():
     assert "  amount_cents: Must not be zero" in output
 
 
-def test_render_engine_error_human_401_points_at_the_config_screen():
+def test_render_engine_error_human_is_the_engine_words_alone():
+    """The sheet import prints what the engine said and nothing of the app's:
+    no screen to open, no key to press, no typed command."""
     err = EngineError(
         code="UNAUTHORIZED",
         message="Missing or invalid token",
@@ -71,9 +74,7 @@ def test_render_engine_error_human_401_points_at_the_config_screen():
     output, exit_code, use_stderr = render(err, json_mode=False)
     assert exit_code == 1
     assert use_stderr is True
-    assert output.startswith("Error: UNAUTHORIZED — Missing or invalid token")
-    assert "System ▸ Config (press t)" in output
-    assert "expense " not in output  # no typed command
+    assert output == "Error: UNAUTHORIZED — Missing or invalid token"
 
 
 def test_render_engine_error_human_non_401_no_hint():
@@ -325,9 +326,9 @@ def test_format_error_falls_back_to_str():
         ConfigMissingError("No config found. Open the app."),
     ],
 )
-def test_render_human_is_prefix_plus_format_error(err):
+def test_render_human_is_prefix_plus_engine_text(err):
     output, _, _ = render(err, json_mode=False)
-    assert output == "Error: " + format_error(err)
+    assert output == "Error: " + engine_text(err)
 
 
 def test_render_unknown_exception_reraises():
@@ -398,3 +399,235 @@ def test_refuses_every_write_follows_the_code_alone():
     )
     assert not refuses_every_write(EngineError("UNAUTHORIZED", "no", None, 401, {}))
     assert not refuses_every_write(EngineConnectionError("http://x", RuntimeError("down")))
+
+
+# ---------------------------------------------------------------------------
+# What to do next: chosen by the engine's code and reason
+# ---------------------------------------------------------------------------
+# Every refusal with code CONFLICT, FORBIDDEN or LIMIT_REACHED names the rule
+# that fired in `reasons`, keyed by the thing refused
+# (contract: "Base Conventions", "`fields` and `reasons` semantics"). The words
+# in these tests are stand-ins: the line follows the reason, never them.
+
+
+def _refusal(code: str, key: str, reason: str, status: int = 409, message: str = "stand-in"):
+    return EngineError(
+        code=code,
+        message=message,
+        fields={key: "stand-in field words"},
+        status=status,
+        raw_body={},
+        reasons={key: reason},
+    )
+
+
+APP_FAULT = (
+    "Not your mistake: the app sent it wrong and nothing was saved. "
+    "Try again; if it happens again, report it."
+)
+
+
+@pytest.mark.parametrize(
+    ("code", "key", "reason", "on_list", "line"),
+    [
+        # 1 · the approved delete lines, word for word
+        (
+            "CONFLICT",
+            "account_id",
+            "HAS_TRANSACTIONS",
+            True,
+            "To retire it instead, archive it: press a.",
+        ),
+        (
+            "CONFLICT",
+            "category_id",
+            "HAS_TRANSACTIONS",
+            True,
+            "Move its transactions to another category first.",
+        ),
+        (
+            "FORBIDDEN",
+            "category_id",
+            "SYSTEM_CATEGORY",
+            True,
+            "System categories can be renamed but not deleted.",
+        ),
+        ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
+        # 2
+        ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
+        # 3A
+        ("LIMIT_REACHED", "id", "CAP_REACHED", False, "Delete one first."),
+        # 4, on a form and in a batch or an import
+        (
+            "CONFLICT",
+            "operation_code",
+            "OPERATION_CODE_EXISTS",
+            False,
+            "That account already has a row with this operation number: "
+            "look there for a duplicate.",
+        ),
+        (
+            "CONFLICT",
+            "rows.3.operation_code",
+            "OPERATION_CODE_EXISTS",
+            False,
+            "That account already has a row with this operation number: "
+            "look there for a duplicate.",
+        ),
+        # 5A: the key for the screen you are on
+        (
+            "CONFLICT",
+            "hashtag_id",
+            "CONCURRENT_CHANGE",
+            True,
+            "It changed at the same moment: press r, then try again.",
+        ),
+        (
+            "CONFLICT",
+            "category_id",
+            "CONCURRENT_CHANGE",
+            False,
+            "It changed at the same moment: save again.",
+        ),
+        # 6B
+        (
+            "CONFLICT",
+            "category_id",
+            "RESERVED_NAME_HELD",
+            False,
+            "One of your categories has a built-in category's name: "
+            "rename it on Manage ▸ Categories, then save again.",
+        ),
+        # 7
+        (
+            "CONFLICT",
+            "account_id",
+            "OPENING_BALANCE_EXISTS",
+            False,
+            "It got one meanwhile: close the form and open it again to change it.",
+        ),
+        # 8B
+        (
+            "CONFLICT",
+            "reconciliation_id",
+            "RECONCILIATION_NOT_DRAFT",
+            True,
+            "Press u to revert it, then d again.",
+        ),
+        # 9A, both cases
+        ("CONFLICT", "id", "ID_EXISTS", False, APP_FAULT),
+        ("CONFLICT", "transactions.0.id", "ID_EXISTS", False, APP_FAULT),
+        ("CONFLICT", "X-Idempotency-Key", "IDEMPOTENCY_KEY_REUSED", False, APP_FAULT),
+        # never met by the app: not wired
+        ("CONFLICT", "X-Idempotency-Key", "SECRET_NOT_REPLAYABLE", False, None),
+    ],
+)
+def test_each_reason_gets_exactly_its_picked_line(code, key, reason, on_list, line):
+    """The engine's words, a blank line, then the line drawn for that reason."""
+    from expense.errors import next_step
+
+    err = _refusal(code, key, reason, status=403 if code == "FORBIDDEN" else 409)
+    assert next_step(err, on_list=on_list) == line
+    words = f"{code} — stand-in\n  {key}: stand-in field words"
+    expected = words if line is None else f"{words}\n\n{line}"
+    assert format_error(err, on_list=on_list) == expected
+
+
+def test_the_line_follows_the_reason_never_the_status_or_the_words():
+    """The same reason under another status, or the words of one refusal under
+    another reason, change nothing; no reason means no line."""
+    from expense.errors import next_step
+
+    taken = _refusal("CONFLICT", "name", "NAME_EXISTS", status=418, message="whatever")
+    assert next_step(taken) == "That name is taken: pick another."
+    worded = _refusal(
+        "CONFLICT", "account_id", "CONCURRENT_CHANGE", message="Account has active transactions."
+    )
+    assert next_step(worded) == "It changed at the same moment: save again."
+    bare = EngineError("CONFLICT", "Account has active transactions.", None, 409, {})
+    assert next_step(bare) is None
+    assert format_error(bare) == "CONFLICT — Account has active transactions."
+    # another code carrying a refusal's reason gets no line
+    assert next_step(_refusal("VALIDATION_ERROR", "name", "NAME_EXISTS", status=422)) is None
+    assert next_step(RuntimeError("boom")) is None
+
+
+def test_the_table_is_keyed_by_code_and_reason_only():
+    """Guard: the one table of next steps holds (code, reason) pairs, with codes
+    the engine sends a reason on every key for, and reasons in the engine's
+    SHOUTY_SNAKE form — never a route, a status or a sentence."""
+    import re
+
+    from expense.errors import NEXT_STEPS, REFUSAL_CODES, NextStep
+
+    assert REFUSAL_CODES == {"CONFLICT", "FORBIDDEN", "LIMIT_REACHED"}
+    for key, step in NEXT_STEPS.items():
+        assert isinstance(key, tuple) and len(key) == 2
+        code, reason = key
+        assert code in REFUSAL_CODES
+        assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
+        assert isinstance(step, NextStep)
+        for field_key in step.by_key:
+            assert re.fullmatch(r"[a-z_]+", field_key)
+    assert {reason for _code, reason in NEXT_STEPS} == {
+        "HAS_TRANSACTIONS",
+        "SYSTEM_CATEGORY",
+        "NAME_EXISTS",
+        "CAP_REACHED",
+        "OPERATION_CODE_EXISTS",
+        "CONCURRENT_CHANGE",
+        "RESERVED_NAME_HELD",
+        "OPENING_BALANCE_EXISTS",
+        "RECONCILIATION_NOT_DRAFT",
+        "ID_EXISTS",
+        "IDEMPOTENCY_KEY_REUSED",
+    }
+
+
+def test_no_hint_is_chosen_by_status_and_route_anywhere():
+    """Guard: the status-and-route table is gone, and no code keys a hint on a
+    (collection, status) pair."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "expense"
+    pattern = re.compile(r"\(\s*\"[a-z_]+\"\s*,\s*(?:401|403|404|409|422)\s*\)")
+    offenders = [
+        str(path)
+        for path in root.rglob("*.py")
+        if "DELETE_REFUSAL_HINTS" in path.read_text(encoding="utf-8")
+        or pattern.search(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders
+
+
+@pytest.mark.parametrize(
+    ("err", "replay"),
+    [
+        (_refusal("CONFLICT", "transactions.0.id", "ID_EXISTS"), True),
+        (_refusal("CONFLICT", "transactions.1.id", "ID_EXISTS"), False),
+        (_refusal("CONFLICT", "category_id", "CONCURRENT_CHANGE"), False),
+        (_refusal("CONFLICT", "category_id", "RESERVED_NAME_HELD"), False),
+        (_refusal("CONFLICT", "transactions.0.id", "IDEMPOTENCY_KEY_REUSED"), False),
+        (EngineError("CONFLICT", "id exists", None, 409, {}), False),
+        (RuntimeError("boom"), False),
+    ],
+)
+def test_only_its_own_id_taken_is_a_replay(err, replay):
+    from expense.errors import is_own_id_replay
+
+    assert is_own_id_replay(err, "transactions.0.id") is replay
+
+
+def test_a_replay_with_a_second_reason_is_a_refusal():
+    from expense.errors import is_own_id_replay
+
+    err = EngineError(
+        "CONFLICT",
+        "x",
+        {"id": "a", "name": "b"},
+        409,
+        {},
+        reasons={"id": "ID_EXISTS", "name": "NAME_EXISTS"},
+    )
+    assert not is_own_id_replay(err, "id")

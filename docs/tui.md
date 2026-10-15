@@ -313,23 +313,49 @@ cascade because the engine never refuses that delete for being in use; it takes 
 off every transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}).
 
 **A refused delete** leaves the row and the list as they were and shows the "Failed" note:
-the engine's own `CODE — message`, then a blank line and one line saying what to do
-instead. `d` stays live on the system categories so the engine's refusal is what you see.
+the engine's own words, then the line saying what to do instead ("When the engine says no"
+below). `d` stays live on the system categories so the engine's refusal is what you see.
 
-| Refusal | The line under it |
-|---|---|
-| an account with transactions, `409` (contract: DELETE /v1/accounts/{account_id}) | `To retire it instead, archive it: press a.` |
-| a category in use, `409` (contract: DELETE /v1/categories/{category_id}) | `Move its transactions to another category first.` |
-| a system category, `403` (contract: DELETE /v1/categories/{category_id}) | `System categories can be renamed but not deleted.` |
-| a transaction in a completed reconciliation, `409` (contract: DELETE /v1/transactions/{transaction_id}) | none: the engine's message already says to revert the reconciliation to draft first |
+**When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
+`LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
+(contract: "Base Conventions", "`fields` and `reasons` semantics"). The note it draws (a
+toast, a LOG bar row, the bank import's preview) shows the engine's words whole (`CODE —
+message`, then one `key: …` line per refused field), and for the reasons below a blank
+line and one line of the app's saying what to do. Screens in
+[expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
-None of these refusals carries a `reasons` value, so the line is chosen by the route and
-the HTTP status, never by the engine's wording —
-[decisions.md](decisions.md) "Hints are chosen by the engine's reasons, never its wording".
-The choice lives in one table,
-`DELETE_REFUSAL_HINTS` in [_base.py](../expense/tui/screens/_base.py), which switches to
-reasons once [delete-refusal-reasons.md](engine-asks/delete-refusal-reasons.md) lands.
-Any other failure reads as every failed write does (`format_error`).
+| Reason (contract: "Error reasons") | Where you meet it | The line under it |
+|---|---|---|
+| `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
+| `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
+| `SYSTEM_CATEGORY` | `d` on `@Pendiente` or `@Opening` | `System categories can be renamed but not deleted.` |
+| `IN_COMPLETED_RECONCILIATION` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
+| `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
+| `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
+| `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
+| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, a bank file | `It changed at the same moment: save again.` |
+| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
+| `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
+| `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
+| `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
+
+The line is chosen by the error's `code` and reason alone, never by the HTTP status, the
+route or the engine's wording ([decisions.md](decisions.md) "Hints are chosen by the
+engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEPS` in
+[errors.py](../expense/errors.py), read by the shared error text `format_error`, so every
+screen that reports a failure through it shows the line. A write sent from a list (every
+`d`) asks for the list's line (`list_refusal_text` in
+[_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
+resources share; its key (`account_id` or `category_id`) picks the line.
+`SECRET_NOT_REPLAYABLE` has no line: only creating a sign-in key draws it, and the app never
+creates one.
+
+**"Saved" means the engine holds the row.** The LOG bar ticks a row only when the engine
+created it, or refused it only because the row's own id is taken (`ID_EXISTS` on
+`transactions.0.id` of its one-row batch): a replay of a save whose answer was lost. Every
+other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on the row, which
+keeps no `✓` (`errors.is_own_id_replay`; [cli-runtime.md](cli-runtime.md) "Bulk writes").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank
@@ -358,13 +384,15 @@ neither line: what you owe each other comes only from the rows you record.
   `It leaves the account's balance, and no screen can bring it back.`). Only `y` sends the
   account's changes and `DELETE /transactions/{id}`; `⏎`, `n` and `esc` go back to the form
   with nothing saved.
-- **A refusal** shows the "Failed" note in the engine's words (`format_error`) and leaves the
+- **A refusal** shows the "Failed" note in the engine's words, with the line saying what to
+  do when it has one (`format_error`), and leaves the
   form open with what was typed, the cursor on the line the refusal names (an amount on
   `opening`, a date on `as of`, a name or colour on its own line); a refusal that names
   none of them leaves the cursor where it was. When the account saved and the opening balance was refused,
   the note says so: `The account's changes are saved. The opening balance is not:`, the
-  engine's words, then `It is still in the form: fix it and save again.` The next save sends
-  only the opening balance; `esc` just leaves.
+  engine's words, then `It is still in the form: fix it and save again.`, or, for a
+  refusal with a line of its own ("When the engine says no" above), that line instead.
+  The next save sends only the opening balance; `esc` just leaves.
 - **Saved,** the form closes with `Saved.` and the account list reads again from its first
   page, cursor on row 1. Every Manage Edit form (accounts, categories, hashtags) closes
   this way: one that wrote dismisses with `True` and the list starts over; one closed with

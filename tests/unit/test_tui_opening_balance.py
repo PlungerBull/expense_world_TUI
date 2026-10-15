@@ -428,6 +428,48 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
     assert fake_client.requests[2:] == [("POST", "/accounts/acc-efe/opening-balance")]
 
 
+@pytest.mark.parametrize(
+    ("key", "reason", "line"),
+    [
+        (
+            "account_id",
+            "OPENING_BALANCE_EXISTS",
+            "It got one meanwhile: close the form and open it again to change it.",
+        ),
+        (
+            "category_id",
+            "RESERVED_NAME_HELD",
+            "One of your categories has a built-in category's name: "
+            "rename it on Manage ▸ Categories, then save again.",
+        ),
+        ("category_id", "CONCURRENT_CHANGE", "It changed at the same moment: save again."),
+    ],
+    ids=["screen-7", "screen-6B", "screen-5A-form"],
+)
+def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, key, reason, line):
+    """The account saved, the opening balance was refused for a reason that has
+    its own line: the note is the half sentence, the engine's words, then that
+    line, which takes the place of the form's own closing line."""
+    fake_client.errors["POST"] = EngineError(
+        "CONFLICT", "stand-in", {key: "stand-in field words"}, 409, {}, {key: reason}
+    )
+
+    async def body(pilot, app, screen):
+        _type(screen, "color", "green")
+        _type(screen, "opening", "350.00")
+        _type(screen, "as_of", "2026-01-01")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+
+    _form(EFECTIVO, body)
+    message, kw = notes[0]
+    assert kw == {"title": "Failed", "severity": "error"}
+    assert message == (
+        "The account's changes are saved. The opening balance is not:\n"
+        f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
+    )
+
+
 def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
     fake_client.errors["POST"] = FUTURE
     result: list = []

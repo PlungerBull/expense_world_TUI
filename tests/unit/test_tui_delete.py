@@ -3,8 +3,8 @@
 Screens: docs/mockups/expense-world-delete.html (1, 2, 3A, 4B, 5). The DELETE
 goes through the real HTTP client against a respx-mocked engine, so the
 idempotency key and the error envelope are the client's own; the lists' reads
-are stubbed. Every refusal's words here are stand-ins: the hint line is chosen
-by status and route, never by them.
+are stubbed. Every refusal's words here are stand-ins: the line under them is
+chosen by the engine's code and reason, never by its words.
 """
 
 import httpx
@@ -12,8 +12,6 @@ import pytest
 import respx
 
 import expense.tui.screens.transactions as tx_mod
-from expense.errors import EngineError
-from expense.tui.screens._base import DELETE_REFUSAL_HINTS, delete_refusal_text
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -351,10 +349,13 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
 
 
 # ---- 4B · the engine says no -------------------------------------------------
+# Each refusal carries `fields` and `reasons` keyed by the thing refused
+# (contract: "Base Conventions", "`fields` and `reasons` semantics"); the line
+# under the engine's words is chosen by the code and the reason alone.
 
 
 @pytest.mark.parametrize(
-    ("make", "fetch", "row", "path", "status", "code", "words", "note"),
+    ("make", "fetch", "row", "path", "status", "code", "words", "key", "reason", "note"),
     [
         (
             AccountsScreen,
@@ -363,8 +364,12 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "accounts/a1",
             409,
             "CONFLICT",
-            "Account has transactions.",
-            "CONFLICT — Account has transactions.\n\nTo retire it instead, archive it: press a.",
+            "Account has active transactions. Archive instead.",
+            "account_id",
+            "HAS_TRANSACTIONS",
+            "CONFLICT — Account has active transactions. Archive instead.\n"
+            "  account_id: stand-in field words\n\n"
+            "To retire it instead, archive it: press a.",
         ),
         (
             CategoriesScreen,
@@ -374,7 +379,10 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             409,
             "CONFLICT",
             "Category has transactions.",
-            "CONFLICT — Category has transactions.\n\n"
+            "category_id",
+            "HAS_TRANSACTIONS",
+            "CONFLICT — Category has transactions.\n"
+            "  category_id: stand-in field words\n\n"
             "Move its transactions to another category first.",
         ),
         (
@@ -385,17 +393,35 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             403,
             "FORBIDDEN",
             "Operation not allowed.",
-            "FORBIDDEN — Operation not allowed.\n\n"
+            "category_id",
+            "SYSTEM_CATEGORY",
+            "FORBIDDEN — Operation not allowed.\n"
+            "  category_id: stand-in field words\n\n"
             "System categories can be renamed but not deleted.",
         ),
+        (
+            HashtagsScreen,
+            "fetch_hashtags",
+            _hashtag(1),
+            "hashtags/h1",
+            409,
+            "CONFLICT",
+            "Changed by another request.",
+            "hashtag_id",
+            "CONCURRENT_CHANGE",
+            "CONFLICT — Changed by another request.\n"
+            "  hashtag_id: stand-in field words\n\n"
+            "It changed at the same moment: press r, then try again.",
+        ),
     ],
-    ids=["account-409", "category-409", "system-category-403"],
+    ids=["account-has-transactions", "category-has-transactions", "system-category", "race"],
 )
 def test_a_refusal_shows_the_engine_words_and_what_to_do(
-    configured, monkeypatch, make, fetch, row, path, status, code, words, note
+    configured, monkeypatch, make, fetch, row, path, status, code, words, key, reason, note
 ):
     """`d` stays live on a system category: the engine refuses it. Nothing is
-    deleted, the list is not read again, and the row stays."""
+    deleted, the list is not read again, and the row stays. A race names the
+    list's own key, `r` (screen 5A)."""
     monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole([row]))
 
     async def scenario(pilot, app):
@@ -412,7 +438,9 @@ def test_a_refusal_shows_the_engine_words_and_what_to_do(
         assert screen.query_one(CursorList).cursor_key == row["id"]
 
     with respx.mock() as engine:
-        engine.delete(f"{ENGINE_URL}/v1/{path}").mock(error_response(status, code, words))
+        engine.delete(f"{ENGINE_URL}/v1/{path}").mock(
+            error_response(status, code, words, {key: "stand-in field words"}, {key: reason})
+        )
         run_app(scenario, size=SIZE)
 
 
@@ -432,41 +460,48 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: notes)
-        assert notes == [("Failed", f"CONFLICT — {words}")]
+        assert notes == [
+            (
+                "Failed",
+                f"CONFLICT — {words}\n  transaction_id: Must not be in a completed reconciliation.",
+            )
+        ]
         assert "t1" in screen._by_id and len(screen._rows) == 3
 
     with respx.mock() as engine:
         engine.delete(f"{ENGINE_URL}/v1/transactions/t1").mock(
-            error_response(409, "CONFLICT", words)
+            error_response(
+                409,
+                "CONFLICT",
+                words,
+                {"transaction_id": "Must not be in a completed reconciliation."},
+                {"transaction_id": "IN_COMPLETED_RECONCILIATION"},
+            )
         )
         run_app(scenario, size=SIZE)
 
 
-def _engine_error(status: int, code: str) -> EngineError:
-    return EngineError(code, "stand-in", None, status, {})
+def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
+    """A `409` on the very route whose refusal has a line, but with no reason,
+    gets none: the line follows the reason, never the status and the route."""
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([_account(1)]))
 
+    async def scenario(pilot, app):
+        screen = AccountsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        assert notes == [("Failed", "CONFLICT — stand-in")]
 
-def test_the_hint_is_chosen_by_route_and_status_only():
-    """Same status on another route, or another status on the same route, gets
-    no hint line: the shared error text, as every failed write reads."""
-    assert set(DELETE_REFUSAL_HINTS) == {
-        ("accounts", 409),
-        ("categories", 409),
-        ("categories", 403),
-    }
-    assert delete_refusal_text("hashtags")(_engine_error(409, "CONFLICT")) == (
-        "CONFLICT — stand-in"
-    )
-    assert delete_refusal_text("transactions")(_engine_error(409, "CONFLICT")) == (
-        "CONFLICT — stand-in"
-    )
-    assert delete_refusal_text("accounts")(_engine_error(404, "NOT_FOUND")) == (
-        "NOT_FOUND — stand-in"
-    )
-    # other errors keep the shared text's own hints
-    unauthorized = delete_refusal_text("accounts")(_engine_error(401, "UNAUTHORIZED"))
-    assert unauthorized.startswith("UNAUTHORIZED — stand-in\n\nHint: the key")
-    assert delete_refusal_text("accounts")(RuntimeError("boom")) == "boom"
+    with respx.mock() as engine:
+        engine.delete(f"{ENGINE_URL}/v1/accounts/a1").mock(
+            error_response(409, "CONFLICT", "stand-in")
+        )
+        run_app(scenario, size=SIZE)
 
 
 def test_no_question_says_or_command():

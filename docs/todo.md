@@ -34,7 +34,7 @@ as it is: the brief on the rename and the six features with no screen.
 **Recommended:** hand it over right after the folder rename below.
 
 ### When does the local folder get renamed?
-Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 3
+Asked 2026-10-14 · Blocks: [specs/tui-only-plan.md](specs/tui-only-plan.md) task 2
 Renaming `expense_world_CLI` to `expense_world_TUI` moves the folder, rebuilds its Python
 environment, and moves Claude's memory for this project to the new path. It is done from a
 fresh session, opened outside the folder.

@@ -4,12 +4,16 @@ Accounts/categories/hashtags are created FIRST (so they have ids); transactions
 then reference those ids. The batch endpoint is atomic: a refused chunk writes
 none of its rows (contract: POST /v1/transactions/batch, "No partial success").
 A 422 keys every refused item `transactions.<index>.<field>`
-(contract: POST /v1/transactions/batch, "Error shape"); a 409 (an id or
-operation code already in the ledger) is not keyed by index
-(contract: POST /v1/transactions/batch). So a chunk refused either way is
-retried row-by-row (singleton batches) — pre-existing rows are skipped, invalid
-rows report their sheet line, and the rest still land. Re-runs after a partial
-run or with appended sheet rows converge instead of silently dropping.
+(contract: POST /v1/transactions/batch, "Error shape"), and a 409 keys it the
+same way (contract: POST /v1/transactions/batch). A chunk refused either way is retried
+row-by-row (singleton batches): a row refused only because its own id is taken
+(`ID_EXISTS`, an earlier run's write) is skipped as already imported, every
+other refused row reports its sheet line, and the rest still land. Re-runs after
+a partial run or with appended sheet rows converge instead of silently dropping.
+
+Everything this module reports is the engine's words alone (`errors.engine_text`):
+the import is typed and printed, so no line of the app's (a key to press, a
+screen to open) is added to them.
 """
 
 from dataclasses import dataclass, field
@@ -26,7 +30,8 @@ from expense.dates import to_canonical_aware
 from expense.errors import (
     EngineConnectionError,
     EngineError,
-    format_error,
+    engine_text,
+    is_own_id_replay,
     refuses_every_write,
 )
 from expense.http import ExpenseClient
@@ -57,10 +62,12 @@ class ResolveResult:
 class ApplyResult:
     resolve: ResolveResult
     tx_created: int = 0
-    tx_skipped_existing: int = 0  # rows whose singleton retry 409'd (id already imported)
+    tx_skipped_existing: int = 0  # rows whose singleton retry drew ID_EXISTS on their own id
     tx_failed: int = 0
     opening_created: int = 0
-    opening_skipped_existing: int = 0  # 409: id replayed, or account already seeded
+    # seeds already written: ID_EXISTS on its own transaction_id, or OPENING_BALANCE_EXISTS
+    # where the account's opening_balance_transaction_id is the import's own id
+    opening_skipped_existing: int = 0
     opening_failed: int = 0
     # (chunk_index, message) — messages carry sheet line numbers so a failed
     # row can be found in the workbook without bisecting.
@@ -127,7 +134,7 @@ def _resolve_each(
             except EngineError as err:
                 if refuses_every_write(err):
                     raise
-                failures.append(f"{resource[:-1]} {describe(spec)}: {format_error(err)}")
+                failures.append(f"{resource[:-1]} {describe(spec)}: {engine_text(err)}")
                 continue
             existing[key] = nid
             ids[index_of(spec)] = nid
@@ -237,12 +244,46 @@ def build_opening_payload(row: OpeningRow, transaction_id: str) -> dict:
     return payload
 
 
+def _seed_landed(
+    client: ExpenseClient, account_id: str, err: EngineError, transaction_id: str
+) -> bool:
+    """True when the refused seed `transaction_id` is already the account's
+    opening balance: refused for its own id (`ID_EXISTS` on `transaction_id`), or
+    for the account already having one (`OPENING_BALANCE_EXISTS` on `account_id`)
+    that `GET /accounts/{id}` names by `opening_balance_transaction_id`
+    (contract: "Bank Accounts", "Opening balance").
+
+    A read that fails, for any reason, is False: the seed is reported as failed,
+    in the words of the refusal it drew.
+    """
+    if is_own_id_replay(err, "transaction_id"):
+        return True
+    if not (
+        err.code == "CONFLICT" and (err.reasons or {}).get("account_id") == "OPENING_BALANCE_EXISTS"
+    ):
+        return False
+    try:
+        account = client.get(f"/accounts/{account_id}")
+    except (EngineError, EngineConnectionError):
+        return False
+    return isinstance(account, dict) and (
+        account.get("opening_balance_transaction_id") == transaction_id
+    )
+
+
 def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyResult) -> bool:
     """POST each opening balance to /accounts/{id}/opening-balance.
 
-    A 409 means the seed already landed (replayed transaction_id, or the
-    account already carries an opening balance) — counted as already-present,
-    mirroring the singleton-batch semantics. Returns False when a connection
+    This seed already landed — counted as already-present, mirroring the
+    singleton-batch semantics — when the engine refuses it only because its own
+    `transaction_id` is taken (`ID_EXISTS`), or because the account already has
+    an opening balance (`OPENING_BALANCE_EXISTS`) and that one is this seed: the
+    account names it by `opening_balance_transaction_id`
+    (contract: POST /v1/accounts/{account_id}/opening-balance)
+    (contract: "Bank Accounts", "Opening balance"). A re-sent seed draws
+    `OPENING_BALANCE_EXISTS`, so the account is read to tell the two apart. Any
+    other refusal is a failure, and so is a read of the account that fails.
+    Returns False when a connection
     error stopped the run (remaining openings are counted failed). An
     account-wide refusal (`errors.refuses_every_write`) propagates, ending the run.
     """
@@ -268,19 +309,19 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
         except EngineError as err:
             if refuses_every_write(err):
                 raise
-            if err.status == 409:
+            if _seed_landed(client, account_id, err, plan.opening_ids[row.line]):
                 result.opening_skipped_existing += 1
             else:
                 result.opening_failed += 1
                 result.failures.append(
-                    (-1, f"sheet line {row.line} (opening balance): {format_error(err)}")
+                    (-1, f"sheet line {row.line} (opening balance): {engine_text(err)}")
                 )
         except EngineConnectionError as err:
             result.opening_failed += len(plan.openings) - pos
             result.failures.append(
                 (
                     -1,
-                    f"CONNECTION_ERROR: {format_error(err)} — opening balances from "
+                    f"CONNECTION_ERROR: {engine_text(err)} — opening balances from "
                     f"sheet line {row.line} on were not sent",
                 )
             )
@@ -375,6 +416,6 @@ def apply_plan(
         tx_id = plan.tx_ids[row.line]
         items.append(build_tx_payload(row, tx_id, res))
         line_by_id[tx_id] = row.line
-    outcome = post_transaction_batch(client, items, chunk_size=chunk_size)
+    outcome = post_transaction_batch(client, items, chunk_size=chunk_size, error_text=engine_text)
     _fold_outcome(outcome, items, line_by_id, result)  # raises an account-wide refusal
     return result

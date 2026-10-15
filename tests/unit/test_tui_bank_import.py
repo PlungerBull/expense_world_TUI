@@ -9,6 +9,7 @@ that echoes each row's id and decides its outcome.
 
 import threading
 
+import pytest
 from textual.widgets import Input, Static
 
 from expense.bank_import import flow
@@ -607,6 +608,60 @@ def test_an_engine_error_on_apply_is_shown_and_nothing_more_is_sent(
         await pilot.pause()
         assert app.screen is preview
         assert len(fake_client.posts) == 2  # the dry run and the refused apply
+
+    run_app(scenario, size=(120, 40))
+
+
+@pytest.mark.parametrize(
+    ("key", "reason", "line"),
+    [
+        (
+            "rows.0.operation_code",
+            "OPERATION_CODE_EXISTS",
+            "That account already has a row with this operation number: "
+            "look there for a duplicate.",
+        ),
+        ("category_id", "CONCURRENT_CHANGE", "It changed at the same moment: save again."),
+        (
+            "category_id",
+            "RESERVED_NAME_HELD",
+            "One of your categories has a built-in category's name: "
+            "rename it on Manage ▸ Categories, then save again.",
+        ),
+        (
+            "rows.0.id",
+            "ID_EXISTS",
+            "Not your mistake: the app sent it wrong and nothing was saved. "
+            "Try again; if it happens again, report it.",
+        ),
+    ],
+    ids=["screen-4", "screen-5A", "screen-6B", "screen-9A"],
+)
+def test_a_refused_import_shows_the_engine_words_and_what_to_do(
+    fake_client, monkeypatch, tmp_path, key, reason, line
+):
+    """`POST /transactions/import` refuses keyed by the row (`rows.<i>.…`) or by
+    the system category (contract: "Error reasons"): the note and the screen show
+    the engine's words, then the line, where `⏎` is how this screen saves again."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client)
+    expected = f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        fake_client.errors["POST"] = EngineError(
+            "CONFLICT", "stand-in", {key: "stand-in field words"}, 409, {}, {key: reason}
+        )
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: bool(preview._failure), message="no failure shown")
+        assert [str(t) for t in preview._failure] == [expected]
+        assert [str(n.message) for n in app._notifications][-1] == expected
 
     run_app(scenario, size=(120, 40))
 

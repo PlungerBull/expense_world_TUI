@@ -15,7 +15,7 @@ from expense.batch_write import (
     RowResult,
     post_transaction_batch,
 )
-from expense.errors import EngineConnectionError, EngineError
+from expense.errors import EngineConnectionError, EngineError, engine_words, format_error
 
 
 class _Client:
@@ -43,8 +43,17 @@ def _items(n: int) -> list[dict]:
     return [{"id": f"id{i}", "title": f"row {i}"} for i in range(n)]
 
 
-def _conflict() -> EngineError:
-    return EngineError("CONFLICT", "id exists", None, 409, {})
+def _conflict(
+    index: int = 0, field: str = "id", reason: str = "ID_EXISTS", message: str = "id exists"
+) -> EngineError:
+    """The engine's batch 409, keyed by item index: `transactions.<i>.id` for a
+    taken id, `transactions.<i>.operation_code` for a taken operation code
+    (contract: "Error reasons"). The system-category refusals the batch can draw
+    are keyed `category_id` (pass `index=None`)."""
+    key = field if index is None else f"transactions.{index}.{field}"
+    return EngineError(
+        "CONFLICT", message, {key: "stand-in field words"}, 409, {}, reasons={key: reason}
+    )
 
 
 def _invalid(
@@ -165,15 +174,61 @@ def test_an_unknown_hashtag_names_its_own_row():
     assert "hashtag" not in outcome.errors[2]
 
 
-def test_a_409_row_counts_as_written_not_failed():
+def test_a_replayed_id_counts_as_written_not_failed():
     """A client-minted id that already exists means the row IS in the ledger.
-    That is what makes a retry after a half-written save safe."""
-    client = _Client([_conflict(), _conflict(), {}])
+    That is what makes a retry after a half-written save safe. The chunk's 409
+    names the row by index; its singleton names it `transactions.0.id`."""
+    client = _Client([_conflict(index=1), _conflict(index=0), {}])
     outcome = post_transaction_batch(client, _items(2))
 
     assert outcome.results == [RowResult.EXISTED, RowResult.CREATED]
     assert outcome.errors == {}
     assert outcome.written == [0, 1]
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        _conflict(index=None, field="category_id", reason="CONCURRENT_CHANGE"),
+        _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD"),
+        _conflict(field="operation_code", reason="OPERATION_CODE_EXISTS"),
+        # the row's own key, but not a taken id
+        _conflict(field="id", reason="IDEMPOTENCY_KEY_REUSED"),
+        # a taken id under another key than the row's own
+        _conflict(index=3, field="id", reason="ID_EXISTS"),
+        # no reason at all
+        EngineError("CONFLICT", "id exists", None, 409, {}),
+    ],
+    ids=[
+        "concurrent-change",
+        "reserved-name-held",
+        "operation-code",
+        "key-reused",
+        "other-key",
+        "no-reason",
+    ],
+)
+def test_any_other_409_is_a_refusal_never_written(refusal):
+    """Only a replay of the row's own id counts as written; every other 409 is
+    refused, in the engine's words alone by default."""
+    client = _Client([refusal, refusal, {}])
+    outcome = post_transaction_batch(client, _items(2))
+
+    assert outcome.results == [RowResult.FAILED, RowResult.CREATED]
+    assert outcome.written == [1]
+    assert outcome.errors == {0: engine_words(refusal)}
+
+
+def test_the_caller_chooses_the_words_of_a_refusal():
+    """The LOG bar passes `format_error`, which adds the app's line under the
+    engine's words; the default, the importer's, is the engine's words alone."""
+    refusal = _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD")
+    outcome = post_transaction_batch(
+        _Client([refusal, refusal]), _items(1), error_text=format_error
+    )
+
+    assert outcome.errors == {0: format_error(refusal)}
+    assert outcome.errors[0].endswith("rename it on Manage ▸ Categories, then save again.")
 
 
 def test_a_chunk_level_refusal_is_not_retried_row_by_row():
@@ -212,7 +267,7 @@ def test_settings_missing_fails_the_chunk_once_and_stops_the_run():
     assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.UNSENT] * 2
     assert len(outcome.failures) == 1
     assert outcome.failures[0].indices == (0, 1, 2)
-    assert outcome.failures[0].message.count("Hint:") == 1
+    assert outcome.failures[0].message == engine_words(refusal)  # the default: no hint
     assert outcome.stopped and outcome.stop_chunk_index == 0
     assert outcome.refusal is refusal
     assert outcome.stop_error is None  # that one is the connection's

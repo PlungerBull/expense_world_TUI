@@ -27,7 +27,7 @@ def test_category_rows_swatch_and_system():
 
 def test_categories_legend_is_the_shared_delete_hint():
     """One copy of the system-category rule: the legend is the shared hint."""
-    from expense.formatting import SYSTEM_HINT
+    from expense.errors import SYSTEM_HINT
 
     assert CategoriesScreen.LEGEND is SYSTEM_HINT
     assert SYSTEM_HINT == "System categories can be renamed but not deleted."

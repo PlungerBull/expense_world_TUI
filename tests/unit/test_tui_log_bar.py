@@ -12,6 +12,7 @@ third answer saves before it leaves.
 
 from datetime import date
 
+import pytest
 from textual.widgets import Input, Label, Static
 
 from expense.errors import EngineConnectionError, EngineError
@@ -905,9 +906,17 @@ def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch)
     run_app(scenario)
 
 
+def _conflict(key: str, reason: str, message: str = "stand-in") -> EngineError:
+    """The batch 409, keyed by the thing refused: `transactions.<i>.id` for a
+    taken id, `category_id` for the system-category refusals (contract: "Error reasons")."""
+    return EngineError(
+        "CONFLICT", message, {key: "stand-in field words"}, 409, {}, reasons={key: reason}
+    )
+
+
 def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkeypatch):
-    """The response was lost, not the write. A 409 on a client-minted id means
-    the row is already there — a tick, never a second copy."""
+    """The response was lost, not the write. `ID_EXISTS` on the row's own
+    client-minted id means it is already there — a tick, never a second copy."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -917,8 +926,8 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
         _script(
             fake_client,
             [
-                EngineError("CONFLICT", "id exists", None, 409, {}),  # the batch
-                EngineError("CONFLICT", "id exists", None, 409, {}),  # its singleton
+                _conflict("transactions.0.id", "ID_EXISTS"),  # the batch
+                _conflict("transactions.0.id", "ID_EXISTS"),  # its singleton
             ],
         )
         await pilot.press("ctrl+s")
@@ -927,6 +936,41 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
         assert screen._staged[0].saved  # ✓, not an error
         assert screen._staged[0].error is None
         assert screen._staged[0].row_id == first_id  # the id never changed
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize(
+    ("reason", "line"),
+    [
+        ("CONCURRENT_CHANGE", "It changed at the same moment: save again."),
+        (
+            "RESERVED_NAME_HELD",
+            "One of your categories has a built-in category's name: "
+            "rename it on Manage ▸ Categories, then save again.",
+        ),
+    ],
+)
+def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reason, line):
+    """Only a replay of the row's own id is a tick. A row refused for another
+    reason keeps no ✓ and shows the engine's words, then the line saying what to
+    do: `ctrl+s` is how this screen saves again (screens 5A and 6B)."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE)
+        refusal = _conflict("category_id", reason)
+        _script(fake_client, [refusal, refusal])  # the batch, then its singleton
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen._saving)
+
+        entry = screen._staged[0]
+        assert not entry.saved  # no ✓
+        assert entry.error == (
+            f"CONFLICT — stand-in\n  category_id: stand-in field words\n\n{line}"
+        )
+        assert app.screen is screen
 
     run_app(scenario)
 

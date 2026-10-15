@@ -22,7 +22,7 @@ from textual.widgets import Input, Static
 from expense import reads
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.dates import is_calendar_day, to_canonical_aware
-from expense.errors import EngineError, format_error
+from expense.errors import EngineError, format_error, next_step
 from expense.formatting import format_cents
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
@@ -392,6 +392,7 @@ class EditAccountScreen(NewAccountScreen):
         self._opening_original: dict = {}  # {"opening": cents, "as_of": day} once read
         self._opening_loading = False
         self._refused_line: str | None = None
+        self._refusal_says_next = False  # the last refusal carried its own next step
         if self._has_opening:
             currency = record.get("currency_code") or "?"
             self.FIELDS = [
@@ -567,6 +568,7 @@ class EditAccountScreen(NewAccountScreen):
         refusal names, for the failure callback to land on, then reads as every
         failed write does."""
         self._refused_line = None
+        self._refusal_says_next = next_step(exc) is not None
         if isinstance(exc, EngineError):
             for field in [*(exc.reasons or {}), *(exc.fields or {})]:
                 line = _REFUSED_LINES.get(field)
@@ -619,12 +621,17 @@ class EditAccountScreen(NewAccountScreen):
             )
 
     def _half_failed(self, message: str) -> None:
-        """The account saved, the opening balance was refused: say which is which."""
+        """The account saved, the opening balance was refused: say which is which.
+
+        A refusal with a line of its own saying what to do (`errors.next_step`)
+        ends the note with that line; any other ends it with the form's own."""
         self._land_on_refused_line()
         self._submitting = False
+        closing = (
+            "" if self._refusal_says_next else "\n\nIt is still in the form: fix it and save again."
+        )
         self.notify(
-            "The account's changes are saved. The opening balance is not:\n"
-            f"{message}\n\nIt is still in the form: fix it and save again.",
+            f"The account's changes are saved. The opening balance is not:\n{message}{closing}",
             title="Failed",
             severity="error",
         )

@@ -4,12 +4,13 @@ Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
 (prefilled EditCategoryScreen); `d` deletes the cursor row after a question.
 `enter` does nothing. System categories can be renamed/recolored (the engine
 keys them by `system_key`, not name) but cannot be deleted; the legend is the
-delete hint, `formatting.SYSTEM_HINT`. `d` stays live on them: the engine
-refuses, and its refusal shows (`_base.DELETE_REFUSAL_HINTS`). Only accounts
-archive.
+delete hint, `errors.SYSTEM_HINT`. `d` stays live on them: the engine
+refuses, and its refusal shows with that line under it (`errors.NEXT_STEPS`).
+Only accounts archive.
 """
 
-from expense import formatting, reads
+from expense import reads
+from expense.errors import SYSTEM_HINT
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
 from expense.tui.widgets.cells import swatch
 
@@ -35,7 +36,7 @@ class CategoriesScreen(ResourceListScreen):
     TITLE = "Categories — buckets for every transaction"
     HEADERS = _HEADERS
     EMPTY = "(no categories)"
-    LEGEND = formatting.SYSTEM_HINT
+    LEGEND = SYSTEM_HINT
     RESOURCE = "categories"
     BINDINGS = [DELETE_KEY]
 

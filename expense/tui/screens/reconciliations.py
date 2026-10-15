@@ -57,6 +57,7 @@ from expense.tui.screens._base import (
     ContentSwapLockMixin,
     EngineWriteMixin,
     SectionScreen,
+    list_refusal_text,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -858,6 +859,10 @@ def _txn_sub(it: dict, cat_names: dict, tag_names: dict) -> str:
     return "  ·  ".join(parts)
 
 
+#: A status action's done word → the verb its failure note names: `Couldn't delete`.
+_UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
+
+
 class ReconciliationDetailScreen(
     HelpBindingMixin,
     EngineWriteMixin,
@@ -1120,14 +1125,21 @@ class ReconciliationDetailScreen(
         )
 
     def action_delete(self) -> None:
-        # No draft-only pre-guard: deleting a completed reconciliation 409s
-        # engine-side ("… Revert to draft first.") and run_write toasts that
-        # message (thin wrapper).
+        # No draft-only pre-guard: the engine refuses to delete a completed
+        # reconciliation (`RECONCILIATION_NOT_DRAFT`), and the note shows its words
+        # with the line naming `u` (thin wrapper). Sent from this screen, where
+        # `r` reads it again, so a refusal's line is the list one.
         self._confirm(
             "Delete reconciliation?",
             "Detaches its transactions and removes the batch. Its transactions stay. "
             "No screen can bring it back.",
-            lambda: self._status_action("DELETE", f"/reconciliations/{self._id}", None, "deleted"),
+            lambda: self._status_action(
+                "DELETE",
+                f"/reconciliations/{self._id}",
+                None,
+                "deleted",
+                error_text=list_refusal_text,
+            ),
         )
 
     def _confirm(self, title: str, message: str, action) -> None:
@@ -1180,7 +1192,8 @@ class ReconciliationDetailScreen(
 
     def _action_failed(self, message: str, verb: str) -> None:
         self._busy = False
-        self.notify(message, title=f"Couldn't {verb.split()[0]}", severity="error")
+        done = verb.split()[0]
+        self.notify(message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False

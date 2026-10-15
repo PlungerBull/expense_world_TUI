@@ -202,9 +202,6 @@ def settled_label(count: int) -> str:
     return f"{count} settled"
 
 
-SYSTEM_HINT = "System categories can be renamed but not deleted."
-
-
 STATUS_LABELS = {1: "draft", 2: "completed"}
 
 

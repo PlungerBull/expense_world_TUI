@@ -202,8 +202,9 @@ class Staged:
 
     **`row_id` and `date` are frozen at stage time too**, for the same reason
     the routing is. The id makes a retry safe: a row whose response was lost
-    replays under the id it already had, so the engine answers 409 and the row
-    ticks instead of landing twice — a fresh id per attempt would double-write.
+    replays under the id it already had, so the engine refuses it as `ID_EXISTS`
+    on that id and the row ticks instead of landing twice — a fresh id per
+    attempt would double-write. Any other refusal is a refusal, never a tick.
     The date is frozen because the `date` column is a promise: a batch typed
     at 23:59 and saved at 00:01 must not silently change day between what you
     read and what you wrote.
@@ -479,7 +480,8 @@ def save_errors(entries: list[Staged], *, palette: Palette | None = None) -> Ren
     """What the engine refused, row by row, under the table.
 
     The engine's own message is passed through `format_error` upstream and
-    printed verbatim — the "engine errors surface cleanly" rule; this only adds
+    printed verbatim, with the app's line saying what to do under a refusal
+    that has one — the "engine errors surface cleanly" rule; this only adds
     the row number, so the sentence can be matched to a line in the list.
     """
     failed = [(n, e) for n, e in enumerate(entries, start=1) if e.error]
@@ -1008,7 +1010,7 @@ class LogBarScreen(Screen):
                     items = [
                         transaction_payload(e.parsed, row_id=e.row_id, date=e.date) for e in rows
                     ]
-                    outcome = post_transaction_batch(client, items)
+                    outcome = post_transaction_batch(client, items, error_text=format_error)
                     self.app.call_from_thread(self._apply_outcome, rows, outcome)
         except EngineConnectionError as err:
             message = format_error(err)
@@ -1024,8 +1026,8 @@ class LogBarScreen(Screen):
         """Fold the shared batch result onto the staged rows it came from.
 
         `CREATED` and `EXISTED` both mean the engine holds the row — the second
-        is a replay of an id we already minted, which is exactly what a retry
-        after a half-written save produces.
+        is a replay of an id we already minted (`ID_EXISTS` on that id alone),
+        which is exactly what a retry after a half-written save produces.
 
         A refusal that stopped the run (`outcome.refusal`) is about the account,
         not about any row: it is said once, as a toast, and no row carries it.

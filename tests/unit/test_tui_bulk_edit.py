@@ -285,6 +285,52 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
     run_app(scenario, size=(120, 30))
 
 
+def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
+    """`b` onto an account that already holds row 2's operation number: the
+    "Refused" note names the row, gives the engine's words, and closes with the
+    line saying what to do (screen 4); the other rows still move."""
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/t2"):
+            raise EngineError(
+                "CONFLICT",
+                "Operation code already exists.",
+                {"operation_code": "Must be unique per account."},
+                409,
+                {},
+                {"operation_code": "OPERATION_CODE_EXISTS"},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
+        refused = next(m for t, m in toasts if t == "Refused")
+        assert refused == (
+            "row 2: CONFLICT — Operation code already exists.\n"
+            "  operation_code: Must be unique per account.\n\n"
+            "That account already has a row with this operation number: "
+            "look there for a duplicate."
+        )
+
+    run_app(scenario, size=(120, 30))
+
+
 def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monkeypatch):
     """A refusal about the account, not the row: every later PUT would draw it
     too, so none goes out and the hint is on screen once."""

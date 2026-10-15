@@ -109,6 +109,9 @@ KNOWN_LOCAL = frozenset(
         # `fit_rows` can be measured without an event loop
         "content_size",
         "height",
+        # a keyword of Textual's `notify` call the TUI tests record and check
+        # (`{"title": "Failed", "severity": "error"}`), not an engine field
+        "severity",
         # CLI-side config file fields — never sent to the engine
         "engine_url",
         # the renames `expense import sheet` remembers per sheet account

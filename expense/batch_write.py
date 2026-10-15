@@ -13,11 +13,10 @@ same grammar a schema-level rejection uses
 (contract: POST /v1/transactions/batch, "Error shape"), for every item field,
 `hashtag_ids` included (contract: POST /v1/transactions/batch)). Better
 diagnostics cannot replace this pass, because its job is not diagnosis — it is
-**partial progress out of an atomic endpoint**. A 409
-("a transaction with id X already exists", which is what a re-run after a
-half-written save looks like) refuses the whole chunk and carries no per-row
-key at all (contract: POST /v1/transactions/batch); and even a fully-named 422
-leaves the good rows unwritten
+**partial progress out of an atomic endpoint**. A 409 names its row too
+(`transactions.<index>.id` for a taken id, `transactions.<index>.operation_code`
+for a taken operation code (contract: POST /v1/transactions/batch)), and still refuses the
+whole chunk; even a fully-named 422 leaves the good rows unwritten
 (contract: POST /v1/transactions/batch, "No partial success"). That is
 the engine behaving as specified — batch is all or nothing by design — so the
 client is the right place to decide that a partly-valid import should still
@@ -26,17 +25,29 @@ make progress.
 **The result is index-aligned with the items handed in**, and carries no
 vocabulary of its own. That is the whole point of the split: the importer maps
 an index to a sheet line, the LOG bar maps it to a staged row, and neither
-phrasing leaks into the other.
+phrasing leaks into the other. The refusals' words are the caller's choice too
+(`error_text`): the engine's alone by default, as the importer prints them; the
+LOG bar adds the app's line saying what to do.
 
-**A 409 is not a failure.** Ids are client-minted, so a replayed row means the
-row is already in the ledger — which is what makes a retry after a half-written
-save safe: nothing can be written twice.
+**A replayed id is not a failure.** Ids are client-minted, so a row refused only
+because its own id is taken (`ID_EXISTS` on `transactions.0.id` of its singleton
+batch, `errors.is_own_id_replay`) is already in the ledger — which is what makes
+a retry after a half-written save safe: nothing can be written twice. Every
+other 409 (a taken operation code, `CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`) is
+a refusal, reported like a 422.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from expense.errors import EngineConnectionError, EngineError, format_error, refuses_every_write
+from expense.errors import (
+    EngineConnectionError,
+    EngineError,
+    engine_text,
+    is_own_id_replay,
+    refuses_every_write,
+)
 from expense.http import ExpenseClient
 
 #: The most transactions the engine takes in one request; a longer list is
@@ -54,8 +65,8 @@ class RowResult(StrEnum):
     """What became of one item, index-aligned with the request list."""
 
     CREATED = "created"  # the engine accepted it
-    EXISTED = "existed"  # 409 — the id was already there, so the row IS in
-    FAILED = "failed"  # 422/4xx that names this row
+    EXISTED = "existed"  # 409 ID_EXISTS on its own id — the row IS in
+    FAILED = "failed"  # any other refusal of this row
     UNSENT = "unsent"  # the run stopped before it went
 
 
@@ -132,8 +143,19 @@ def require_sendable_chunk_size(chunk_size: int) -> None:
         )
 
 
+#: The key a singleton batch's own id is refused under
+#: (contract: "Base Conventions", "Client-supplied UUIDs") (contract: POST /v1/transactions/batch).
+SINGLETON_ID_KEY = "transactions.0.id"
+
+ErrorText = Callable[[Exception], str]
+
+
 def post_transaction_batch(
-    client: ExpenseClient, items: list[dict], *, chunk_size: int = CHUNK_SIZE
+    client: ExpenseClient,
+    items: list[dict],
+    *,
+    chunk_size: int = CHUNK_SIZE,
+    error_text: ErrorText = engine_text,
 ) -> BatchOutcome:
     """POST `items` in atomic chunks, falling back to one row per batch on 409/422.
 
@@ -145,7 +167,8 @@ def post_transaction_batch(
     as one group with no row-by-row fallback, and no later chunk goes out.
 
     A `chunk_size` below 1 or above `ENGINE_BATCH_MAX` is a programming error
-    and raises `ValueError` before anything is sent.
+    and raises `ValueError` before anything is sent. `error_text` turns each
+    refusal into the words a failure carries.
     """
     require_sendable_chunk_size(chunk_size)
     outcome = BatchOutcome(results=[RowResult.UNSENT] * len(items))
@@ -159,19 +182,19 @@ def post_transaction_batch(
             client.post(BATCH_PATH, json_body={"transactions": chunk})
         except EngineError as err:
             if refuses_every_write(err):
-                _fail_and_stop(outcome, span, err, chunk_index)
+                _fail_and_stop(outcome, span, err, chunk_index, error_text)
                 return outcome  # every later chunk stays UNSENT
             if err.status in (409, 422):
-                if not _post_singletons(client, chunk, offset, chunk_index, outcome):
+                if not _post_singletons(client, chunk, offset, chunk_index, outcome, error_text):
                     return outcome  # the fallback stopped the run
                 continue
             # 401/403/5xx would fail identically per row — don't hammer.
             for index in span:
                 outcome.results[index] = RowResult.FAILED
-            outcome.failures.append(BatchFailure(span, format_error(err), chunk_index))
+            outcome.failures.append(BatchFailure(span, error_text(err), chunk_index))
             continue
         except EngineConnectionError as err:
-            outcome.stop_error = format_error(err)
+            outcome.stop_error = error_text(err)
             outcome.stop_chunk_index = chunk_index
             return outcome  # this chunk and every later one stay UNSENT
         for index in span:
@@ -180,12 +203,16 @@ def post_transaction_batch(
 
 
 def _fail_and_stop(
-    outcome: BatchOutcome, indices: tuple[int, ...], err: EngineError, chunk_index: int
+    outcome: BatchOutcome,
+    indices: tuple[int, ...],
+    err: EngineError,
+    chunk_index: int,
+    error_text: ErrorText,
 ) -> None:
     """Fail `indices` as one group on an account-wide refusal, and stop the run."""
     for index in indices:
         outcome.results[index] = RowResult.FAILED
-    outcome.failures.append(BatchFailure(indices, format_error(err), chunk_index))
+    outcome.failures.append(BatchFailure(indices, error_text(err), chunk_index))
     outcome.stop_chunk_index = chunk_index
     outcome.refusal = err
 
@@ -196,6 +223,7 @@ def _post_singletons(
     offset: int,
     chunk_index: int,
     outcome: BatchOutcome,
+    error_text: ErrorText,
 ) -> bool:
     """Re-post a 409'd/422'd chunk one row per batch so the bad row names itself.
 
@@ -208,15 +236,15 @@ def _post_singletons(
             client.post(BATCH_PATH, json_body={"transactions": [item]})
         except EngineError as err:
             if refuses_every_write(err):
-                _fail_and_stop(outcome, (index,), err, chunk_index)
+                _fail_and_stop(outcome, (index,), err, chunk_index, error_text)
                 return False
-            if err.status == 409:
+            if is_own_id_replay(err, SINGLETON_ID_KEY):
                 outcome.results[index] = RowResult.EXISTED
             else:
                 outcome.results[index] = RowResult.FAILED
-                outcome.failures.append(BatchFailure((index,), format_error(err), chunk_index))
+                outcome.failures.append(BatchFailure((index,), error_text(err), chunk_index))
         except EngineConnectionError as err:
-            outcome.stop_error = format_error(err)
+            outcome.stop_error = error_text(err)
             outcome.stop_chunk_index = chunk_index
             return False
         else:

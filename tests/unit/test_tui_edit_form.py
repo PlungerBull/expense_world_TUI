@@ -338,6 +338,37 @@ def test_a_move_on_a_completed_reconciliation_still_shows_the_lock(fake_client, 
     assert seen["on_top"]  # not dismissed: nothing was saved
 
 
+def test_a_move_onto_an_account_holding_its_operation_code_says_what_to_do(
+    fake_client, monkeypatch
+):
+    """Screen 4: the engine refuses the move keyed on `operation_code`, though
+    the body did not send it (contract: PUT /v1/transactions/{transaction_id});
+    the note is its words, then the line, and the form stays."""
+    fake_client.errors["PUT"] = EngineError(
+        "CONFLICT",
+        "Operation code already exists.",
+        {"operation_code": "Must be unique per account."},
+        409,
+        {},
+        reasons={"operation_code": "OPERATION_CODE_EXISTS"},
+    )
+    notices, seen = _move_and_save(
+        {**TXN, "reconciliation_id": None},
+        "BCP USD",
+        fake_client,
+        monkeypatch,
+        settle=lambda s, n: n and not s._submitting,
+    )
+    assert notices[0] == (
+        "Failed",
+        "CONFLICT — Operation code already exists.\n"
+        "  operation_code: Must be unique per account.\n\n"
+        "That account already has a row with this operation number: "
+        "look there for a duplicate.",
+    )
+    assert seen["on_top"]
+
+
 def test_no_form_offers_cleared():
     """`cleared` is gone from the ledger — no form may offer it.
 
