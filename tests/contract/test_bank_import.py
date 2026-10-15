@@ -105,6 +105,7 @@ def test_a_row_inside_a_completed_period_comes_back_sealed(client):
                 "date_start": "2026-02-01",
                 "date_end": "2026-02-28",
                 "beginning_balance_cents": 0,
+                "ending_balance_cents": -100,
             },
         )
         client.put(f"/transactions/{anchor}", json_body={"reconciliation_id": period})

@@ -21,6 +21,7 @@ What it pins, in the order the client meets it:
 6. She is listed by `GET /accounts?include_people=true`, appears in the
    dashboard's `people` panel, and moves to `archived_people` — a panel distinct
    from `archived_accounts` — when archived.
+7. That list has every real account before every person.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -228,3 +229,46 @@ def test_settled_person_is_returned_not_hidden(client):
         _safe_delete(client, f"/transactions/{repay_id}")
         _safe_delete(client, f"/accounts/{person_id}")
         _safe_delete(client, f"/categories/{category_id}")
+
+
+def test_the_list_with_people_has_every_account_before_every_person(client):
+    """`GET /accounts?include_people=true` lists every real account first, then
+    every person, each group by `sort_order` ascending, then oldest first
+    (contract: GET /v1/accounts, "Ordering"); the app shows that order as it
+    comes.
+
+    The person is created first and with `sort_order` 0, the account after it
+    with a high `sort_order`, so a list ordered by either alone would put the
+    person ahead of the account.
+    """
+    person_id = str(uuid4())
+    account_id = str(uuid4())
+    try:
+        client.post(
+            "/people",
+            json_body={
+                "id": person_id,
+                "name": f"contract-order-person-{person_id[:8]}",
+                "currency_code": "PEN",
+                "sort_order": 0,
+            },
+        )
+        client.post(
+            "/accounts",
+            json_body={
+                "id": account_id,
+                "name": f"contract-order-acct-{account_id[:8]}",
+                "currency_code": "PEN",
+                "sort_order": 9999,
+            },
+        )
+        rows = client.get("/accounts", params={"include_people": "true"})["items"]
+        flags = [row["is_person"] for row in rows]
+        assert {row["id"] for row in rows} >= {person_id, account_id}
+        assert True in flags and False in flags
+        last_account = max(i for i, is_person in enumerate(flags) if not is_person)
+        first_person = min(i for i, is_person in enumerate(flags) if is_person)
+        assert last_account < first_person
+    finally:
+        _safe_delete(client, f"/accounts/{person_id}")
+        _safe_delete(client, f"/accounts/{account_id}")

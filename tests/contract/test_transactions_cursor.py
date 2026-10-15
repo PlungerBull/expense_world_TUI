@@ -8,8 +8,10 @@ these facts, and the unit suite can only mock them:
     equals the rows walked; `offset` is a 422.
   · A bare day in `date_to` is the whole calendar day; a naive datetime is a
     422 in the standard error envelope.
-  · `GET /activity` is a cursor inside a date window, and the older window
-    starts from the echoed `date_from`.
+  · `GET /activity` is a cursor inside a date window, and the older window is
+    read by sending the response's `previous_date_to` back unchanged as
+    `date_to`; walking back that way reads no row twice, even one created at
+    the very first instant of a window.
   · The small lists come back whole: `{items}` and nothing else.
 
 Every transaction test writes to its own fresh account, so the reads are scoped
@@ -176,21 +178,23 @@ def test_a_naive_datetime_filter_is_a_422_in_the_envelope(client):
 
 
 def test_activity_walks_a_window_then_steps_to_the_older_one(client):
-    """`GET /activity` pages inside a window, and the older window starts
-    from the echoed `date_from`. A create and a rename guarantee two
-    entries in the current window; a page of 1 walks them to a null cursor."""
+    """`GET /activity` pages inside a window, and the older window ends at the
+    echoed `previous_date_to`. A create and a rename guarantee two entries in
+    the current window; a page of 1 walks them to a null cursor."""
     account_id = _make_account(client)
     try:
         client.put(f"/accounts/{account_id}", json_body={"name": f"contract-act-{account_id[:8]}"})
         seen: list[str] = []
         after = None
         window = None
+        previous = None
         while True:
             params = {"resource_id": account_id, "limit": 1}
             if after:
                 params["after"] = after
             body = client.get("/activity", params=params)
             window = window or (body["date_from"], body["date_to"])
+            previous = previous or body["previous_date_to"]
             assert (body["date_from"], body["date_to"]) == window  # travels in the cursor
             seen += [entry["id"] for entry in body["items"]]
             after = body["next_cursor"]
@@ -200,10 +204,65 @@ def test_activity_walks_a_window_then_steps_to_the_older_one(client):
 
         older = client.get(
             "/activity",
-            params={"resource_id": account_id, "date_to": window[0]},
+            params={"resource_id": account_id, "date_to": previous},
         )
         assert "items" in older and "next_cursor" in older
         assert not set(seen) & {entry["id"] for entry in older["items"]}
+    finally:
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def _activity_window(client, params: dict) -> tuple[dict, list[str]]:
+    """One activity window read to its null cursor: its first page, and every
+    entry id in it, in order."""
+    first = None
+    ids: list[str] = []
+    after = None
+    while True:
+        body = client.get("/activity", params={**params, **({"after": after} if after else {})})
+        first = first or body
+        ids += [entry["id"] for entry in body["items"]]
+        after = body["next_cursor"]
+        if after is None:
+            return first, ids
+
+
+def test_activity_walks_back_by_previous_date_to_and_reads_no_row_twice(client):
+    """Walking back sends each response's `previous_date_to` unchanged as the
+    next `date_to`, with no date arithmetic, and stops on `null` (contract:
+    "Date windows").
+
+    The first window starts at the exact `created_at` of the account's create
+    entry, so that entry sits on the window's first instant: a walk that reused
+    the echoed `date_from` as the next `date_to` would read it twice. Three
+    windows are walked, or fewer if `previous_date_to` comes back `null`.
+    """
+    account_id = _make_account(client)
+    try:
+        client.put(f"/accounts/{account_id}", json_body={"name": f"contract-walk-{account_id[:8]}"})
+        _, current = _activity_window(client, {"resource_id": account_id})
+        # newest first (contract: GET /v1/activity), so the create is the last entry
+        entries = client.get("/activity", params={"resource_id": account_id})["items"]
+        create = entries[-1]
+        assert create["before_snapshot"] is None
+        assert create["id"] in current
+
+        params = {"resource_id": account_id, "date_from": create["created_at"]}
+        seen: list[str] = []
+        windows = 0
+        while windows < 3:
+            first, ids = _activity_window(client, params)
+            if "date_to" in params:
+                assert first["date_to"] == params["date_to"]  # sent back unchanged
+            seen += ids
+            windows += 1
+            previous = first["previous_date_to"]
+            if previous is None:
+                break
+            params = {"resource_id": account_id, "date_to": previous}
+        assert windows >= 2
+        assert len(seen) == len(set(seen))
+        assert seen.count(create["id"]) == 1
     finally:
         _safe_delete(client, f"/accounts/{account_id}")
 

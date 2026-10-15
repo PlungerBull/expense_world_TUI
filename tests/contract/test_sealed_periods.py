@@ -39,7 +39,10 @@ def _safe(call, *args, **kw):
 class Ledger:
     """Creates accounts, rows and periods, and undoes them in reverse order:
     completed periods are reverted first, since a completed period can be
-    neither deleted nor have its rows deleted."""
+    neither deleted nor have its rows deleted. Every period carries its ending
+    balance, so each one can be completed (contract: POST
+    /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be
+    entered")."""
 
     def __init__(self, client):
         self.c = client
@@ -87,6 +90,7 @@ class Ledger:
                 "date_start": start,
                 "date_end": end,
                 "beginning_balance_cents": 0,
+                "ending_balance_cents": -500 * len(rows),
             },
         )
         self.periods.append(new_id)

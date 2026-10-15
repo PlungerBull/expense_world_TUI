@@ -8,6 +8,9 @@ resource.
 Every lifecycle ends on "deleted is deleted": the row leaves
 every list, its get is a 404, and there is no `restore`.
 
+An account or a category created with no `color` comes back with the engine's
+default colour.
+
 Hits a real engine. Gating, target resolution and the real-ledger guard live in
 conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
 """
@@ -137,4 +140,30 @@ def test_hashtags_lifecycle(client):
         try:
             client.delete(f"/hashtags/{new_id}")
         except Exception:
+            pass
+
+
+#: The colour a create gives when `color` is left out (contract: "Colour format").
+DEFAULT_COLOR = "#3b82f6"
+
+
+@pytest.mark.parametrize(
+    ("resource", "extra"),
+    [("accounts", {"currency_code": "PEN"}), ("categories", {})],
+)
+def test_a_create_without_a_colour_gets_the_engine_default(client, resource, extra):
+    """A body with no `color` key comes back with the engine's default, on the
+    create and on a read."""
+    new_id = str(uuid4())
+    try:
+        created = client.post(
+            f"/{resource}",
+            json_body={"id": new_id, "name": f"contract-color-{new_id[:8]}", **extra},
+        )
+        assert created["color"] == DEFAULT_COLOR
+        assert client.get(f"/{resource}/{new_id}")["color"] == DEFAULT_COLOR
+    finally:
+        try:
+            client.delete(f"/{resource}/{new_id}")
+        except EngineError:
             pass

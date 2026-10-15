@@ -13,6 +13,8 @@ What this pins, and why each is a contract claim rather than a client one:
     show up here as a create that suddenly succeeds without it.
   · `complete` on an empty batch is a 422, and stays one: a client's hint on
     that shape is only correct while the engine keeps refusing.
+  · `complete` without an ending balance is a 422 and writes nothing; a draft
+    may still be saved without one.
   · completion locks the assigned transaction's amount/account/title/date, and
     revert unlocks them. This is the field-locking semantic docs/runtime.md
     promises, and the only place it is exercised end to end.
@@ -34,11 +36,15 @@ from expense.errors import EngineError
 from tests.contract.conftest import reason_on
 
 
-def _safe_delete(client, path):
+def _safe(call, *args):
     try:
-        client.delete(path)
+        call(*args)
     except EngineError:
         pass
+
+
+def _safe_delete(client, path):
+    _safe(client.delete, path)
 
 
 def _now_iso() -> str:
@@ -310,6 +316,66 @@ def test_completing_an_empty_batch_is_refused(client):
             client.post(f"/reconciliations/{recon_id}/complete")
         assert excinfo.value.status == 422
     finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_completing_without_an_ending_balance_is_refused_and_writes_nothing(client):
+    """A draft may wait for its statement; completing may not (contract: POST
+    /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be
+    entered").
+
+    The draft has a row assigned, so the ending balance is the only thing
+    missing. Completing it is a 422 `VALIDATION_ERROR` keyed `ending_balance_cents`
+    with reason `ENDING_BALANCE_REQUIRED`; the draft stays a draft at the same
+    version. Entering the balance with `PUT` and completing again succeeds.
+    """
+    account_id = _make_account(client)
+    tx_id = _make_transaction(client, account_id)
+    recon_id = str(uuid4())
+    try:
+        draft = client.post(
+            "/reconciliations",
+            json_body={
+                "id": recon_id,
+                "account_id": account_id,
+                "name": f"contract-recon-{recon_id[:8]}",
+                "date_start": "2026-04-01",
+                "date_end": "2026-04-30",
+                "beginning_balance_cents": 958000,
+            },
+        )
+        assert draft["ending_balance_cents"] is None
+        client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon_id})
+        before = next(
+            r
+            for r in client.get("/reconciliations", params={"account_id": account_id})["items"]
+            if r["id"] == recon_id
+        )
+
+        with pytest.raises(EngineError) as excinfo:
+            client.post(f"/reconciliations/{recon_id}/complete")
+        err = excinfo.value
+        assert err.status == 422
+        assert err.code == "VALIDATION_ERROR"
+        assert err.reasons == {"ending_balance_cents": "ENDING_BALANCE_REQUIRED"}
+        assert set(err.fields or {}) == {"ending_balance_cents"}
+
+        after = next(
+            r
+            for r in client.get("/reconciliations", params={"account_id": account_id})["items"]
+            if r["id"] == recon_id
+        )
+        assert after["status"] == 1  # still a draft
+        assert after["version"] == before["version"]
+        assert after["ending_balance_cents"] is None
+
+        client.put(f"/reconciliations/{recon_id}", json_body={"ending_balance_cents": 956800})
+        completed = client.post(f"/reconciliations/{recon_id}/complete")
+        assert completed["status"] == 2
+    finally:
+        _safe(client.post, f"/reconciliations/{recon_id}/revert")
+        _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/reconciliations/{recon_id}")
         _safe_delete(client, f"/accounts/{account_id}")
 
