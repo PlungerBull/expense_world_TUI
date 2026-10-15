@@ -1,4 +1,4 @@
-# CLI answers
+# Engine answers
 
 The engine coders' drop box: one file per engine change this client has to catch up with. The
 engine coders write the files and the owner drops them here. This repo reads them as input and
@@ -15,7 +15,7 @@ never writes one. The other direction, what this client needs from the engine, i
   Shipped <date> · <⚠️ breaking | ➕ additive> · contract <info.version or x-changelog range>
 
   ## What changed
-  ## What the CLI does
+  ## What the TUI does   (older notes say "What the CLI does"; read it as this client)
   ## Done when
   ```
 

@@ -1,7 +1,7 @@
 # Catch up with contract 42d70a629215928d
 
 **Status: draft, deferred.** The loop does not start on it until the owner says so. The engine's
-change note: [cli-answers/defaults-people-order-history-windows-ending-balance.md](../cli-answers/defaults-people-order-history-windows-ending-balance.md).
+change note: [engine-answers/defaults-people-order-history-windows-ending-balance.md](../engine-answers/defaults-people-order-history-windows-ending-balance.md).
 When done, the why moves to [decisions.md](../decisions.md), the change note is deleted, and this
 file is deleted.
 
@@ -42,7 +42,7 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 2. A new category saved without a colour comes back with the engine's default colour, and so
    does a new account.
 3. Every automated check passes, the live contract tests included.
-4. [docs/cli-answers/](../cli-answers/) holds no note this client has caught up with.
+4. [docs/engine-answers/](../engine-answers/) holds no note this client has caught up with.
 
 ## Open questions for the owner
 

@@ -27,20 +27,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The brief to hand to the engine coders
-Asked 2026-10-14 · Blocks: nothing in this repo
-Give the engine coders [engine-asks/terminal-client-renamed-tui-only.md](engine-asks/terminal-client-renamed-tui-only.md)
-as it is: the brief on the rename, the six features with no screen, and their drop box moving
-to `docs/engine-answers/`. Tell the orchestrator once they have read it: it then renames
-[cli-answers/](cli-answers/) to `engine-answers/`, and you tell them it has moved.
-**Recommended:** hand it over now; the repo and checkout-folder rename it describes is done.
-
-### Tell the engine coders two of their notes are caught up
+### Tell the engine coders three of their notes are caught up
 Asked 2026-10-15 · Blocks: nothing in this repo
-The client has caught up with the engine's notes on the account opening balance and on refusal
-reasons: the app follows both, and the live contract suite now tests both. Tell the engine
-coders, so they delete their copies.
-**Recommended:** tell them along with the brief above.
+Tell the engine coders, so they delete their copies:
+- **tui-rename:** the drop box is now [engine-answers/](engine-answers/) and the rename brief is
+  deleted. Once you have told them, the orchestrator deletes
+  [engine-answers/tui-rename.md](engine-answers/tui-rename.md).
+- **account-opening-balance** and **refusal-reasons:** the app follows both, and the live
+  contract suite tests both.
+**Recommended:** tell them now, in one message.
 
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
