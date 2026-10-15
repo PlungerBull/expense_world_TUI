@@ -72,6 +72,13 @@ an item of a list the engine orders.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **A bank import's 409 names the engine's row key, not the file line.** A refused
+  `POST /v1/transactions/import` maps `rows.<i>.*` keys to file lines only on a 422
+  ([bank_import.py](../expense/tui/screens/bank_import.py), `row_refusals` in
+  [bank_import/engine.py](../expense/bank_import/engine.py)); a 409 keyed
+  `rows.<i>.operation_code` or `rows.<i>.id` shows the raw key, though its next-step line is
+  right. It changes what the screen shows, so it needs a mockup first.
+
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the

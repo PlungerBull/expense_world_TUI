@@ -12,8 +12,8 @@ What it pins, in the order the client meets it:
 1. `POST /people` creates a person: `is_person = true`, balance `0`.
 2. `is_person` in the body is a `422` on **both** routes — the endpoint is the
    flag, and the client never sends the field on either.
-3. The name key is **shared** with bank accounts within a currency (`409`), not
-   scoped per list.
+3. The name key is **shared** with bank accounts within a currency (`409`
+   `NAME_EXISTS` on `name`), not scoped per list.
 4. A person refuses an opening balance (`422`) — a debt is built from recorded
    rows, not seeded.
 5. Everything after creation is an *account* route: `GET`, `PUT`, `/archive`,
@@ -27,7 +27,10 @@ Gating, target resolution and the real-ledger guard live in conftest.py.
 
 from uuid import uuid4
 
+import pytest
+
 from expense.errors import EngineError
+from tests.contract.conftest import reason_on
 
 
 def _safe_delete(client, path):
@@ -97,14 +100,14 @@ def test_people_lifecycle(client):
         # 3 — one name list per currency, spanning people AND bank accounts.
         # This is why `create-person` explains the collision instead of letting
         # a bare CONFLICT through.
-        _expect_status(
-            lambda: client.post(
+        with pytest.raises(EngineError) as excinfo:
+            client.post(
                 "/accounts",
                 json_body={"id": account_id, "name": name, "currency_code": "PEN"},
-            ),
-            409,
-            "bank account colliding with a person's name",
-        )
+            )
+        err = excinfo.value
+        assert (err.status, err.code) == (409, "CONFLICT")
+        assert reason_on(err, "name") == "NAME_EXISTS"
 
         # 4 — a person's balance is built from rows, never seeded.
         _expect_status(
