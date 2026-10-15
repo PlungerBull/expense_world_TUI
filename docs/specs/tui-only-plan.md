@@ -122,15 +122,6 @@ over as is. It says:
 Approved by the owner on 2026-10-13; the catch-up tasks added from the owner's answers on
 2026-10-14. **[UI]** tasks start with a mockup the owner picks.
 
-1. **Fix the acceptance check's small failures** (tester, 2026-10-15). The drift check flags four
-   test-local keys (`own`, `other`, `none`, `refused`, tests/unit/test_cmd_import.py:386-389);
-   they go into `KNOWN_LOCAL`, and the contract version `42d70a629215928d` is recorded, since the
-   owner chose (2026-10-15) to catch up with it in its own spec,
-   [engine-catch-up-42d70a6.md](engine-catch-up-42d70a6.md), which also owns the eight live tests
-   that fail on `ENDING_BALANCE_REQUIRED`. `expense import sheet` reads its settings file twice,
-   so the pipe form [cli-runtime.md](../cli-runtime.md) gives fails; it reads the file once. The
-   brief names exchange-rate history `GET /v1/exchange-rates`; the route is
-   `GET /v1/exchange-rates/history`.
-2. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
+1. **Rename the local folder** to `expense_world_TUI`: rebuild the `.venv`, move Claude's memory
    and session history to the new path, update the mentions of the folder in this repo. It
    reaches outside the repo, so it runs when the owner says so, in a session of its own.

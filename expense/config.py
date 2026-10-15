@@ -97,7 +97,16 @@ def save(cfg: Config) -> None:
 
 
 def ensure_loaded() -> Config:
-    cfg = load()
+    return require(load())
+
+
+def require(cfg: Config | None) -> Config:
+    """A config already read by `load`, or ConfigMissingError when there was none.
+
+    For a command that reads the settings once and needs them again later: the
+    file may be a pipe (docs/cli-runtime.md "Working against the live engine"),
+    which can be read only once.
+    """
     if cfg is None:
         raise ConfigMissingError(f"No config found. {SETUP_REMEDY}")
     return cfg

@@ -1,6 +1,7 @@
 """respx-mocked apply tests + the dry run for `expense import sheet`."""
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -360,10 +361,14 @@ def _account_holding(opening_id) -> httpx.Response:
 @pytest.mark.parametrize(
     ("account_read", "landed"),
     [
-        ("own", True),
-        ("other", False),
-        ("none", False),
-        ("refused", False),
+        pytest.param(lambda own_id: _account_holding(own_id), True, id="own"),
+        pytest.param(lambda own_id: _account_holding("someone-elses-seed"), False, id="other"),
+        pytest.param(lambda own_id: _account_holding(None), False, id="none"),
+        pytest.param(
+            lambda own_id: error_response(404, "NOT_FOUND", "Account not found."),
+            False,
+            id="refused",
+        ),
     ],
 )
 @respx.mock
@@ -381,14 +386,7 @@ def test_opening_balance_exists_counts_only_when_the_account_holds_this_seed(
     respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
         return_value=_opening_refusal("account_id", "OPENING_BALANCE_EXISTS")
     )
-    read = respx.get(f"{BASE}/v1/accounts/acc-pen").mock(
-        return_value={
-            "own": _account_holding(own_id),
-            "other": _account_holding("someone-elses-seed"),
-            "none": _account_holding(None),
-            "refused": error_response(404, "NOT_FOUND", "Account not found."),
-        }[account_read]
-    )
+    read = respx.get(f"{BASE}/v1/accounts/acc-pen").mock(return_value=account_read(own_id))
 
     cfg = config_module.ensure_loaded()
     with ExpenseClient(cfg) as client:
@@ -1076,6 +1074,53 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "Transactions: created 1" in result.output
     assert not [c for c in respx.calls if c.request.url.path == "/v1/sync"]
+
+
+@respx.mock
+def test_apply_reads_the_settings_file_once(configured, monkeypatch):
+    """The settings file may be a pipe (docs/cli-runtime.md "Working against the
+    live engine"), which gives its contents to the first read only, so
+    `import sheet --apply` reads it once and reuses what it read."""
+    monkeypatch.setattr(
+        import_cmd,
+        "read_workbook",
+        lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
+    )
+    settings = config_module.config_path()
+    reads = []
+    real_read_text = Path.read_text
+
+    def read_once(self, *args, **kwargs):
+        if self == settings:
+            reads.append(self)
+            if len(reads) > 1:
+                return ""  # what a drained pipe gives a second reader
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_once)
+    _mock_existing(
+        accounts=[
+            {
+                "id": "acc-pen",
+                "name": "BCP PEN",
+                "currency_code": "PEN",
+                "opening_balance_transaction_id": None,
+            }
+        ],
+        categories=[],
+        hashtags=[],
+    )
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+
+    assert result.exit_code == 0, result.output
+    assert len(reads) == 1
+    assert "Transactions: created 1" in result.output
 
 
 @respx.mock

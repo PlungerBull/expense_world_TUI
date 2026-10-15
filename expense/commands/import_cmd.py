@@ -292,7 +292,8 @@ def run_import(
             typer.echo("\nDry run — nothing written. Re-run with --apply to write.")
         return
 
-    cfg = config_module.ensure_loaded()
+    # The settings read above, not a second read: the file may be a pipe.
+    cfg = config_module.require(saved_cfg)
     verbose = get_verbose(ctx)
     # Batches of up to `chunk_size` rows can take a while on a cold/slow engine;
     # give the read timeout plenty of headroom beyond the 60s default.

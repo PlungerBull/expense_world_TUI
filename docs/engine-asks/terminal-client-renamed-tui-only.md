@@ -21,7 +21,7 @@ Six features now have no screen in any client. Real use no longer exercises them
 client's live contract suite does:
 
 1. Activity history (`GET /v1/activity`).
-2. Exchange-rate history (`GET /v1/exchange-rates`).
+2. Exchange-rate history (`GET /v1/exchange-rates/history`).
 3. Editing a reconciliation's details (name, dates, balances) after it is created.
 4. Updating the profile and the settings.
 5. The single-month report (the app shows a four-month grid).
