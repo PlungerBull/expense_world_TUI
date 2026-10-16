@@ -4,7 +4,7 @@ The Hands — a Textual TUI over the `expense_world_engine` HTTP API (local, `ht
 
 See [CLAUDE.md](CLAUDE.md) for conventions, [docs/commands.md](docs/commands.md) for the typed surface (the launch and the sheet import), [docs/tui.md](docs/tui.md) for the TUI, [docs/todo.md](docs/todo.md) for what is still open, and [docs/decisions.md](docs/decisions.md) for why the big calls went the way they did.
 
-> **Checkout layout:** the engine repo is a sibling checkout; the tester starts and reseeds the practice engine from it ([docs/runtime.md](docs/runtime.md) "Working against the live engine"). No agent reads a file in it and the docs never link into it: the engine contract is read live from `GET /openapi.json` on a running engine ([CLAUDE.md](CLAUDE.md) "Key documentation", "Stay inside this repo").
+> **Checkout layout:** the engine repo is a sibling checkout; `scripts/practice-engine up` starts and reseeds the practice engine from it, and `scripts/practice-engine down` stops it ([docs/runtime.md](docs/runtime.md) "Working against the live engine"). No agent reads a file in it and the docs never link into it: the engine contract is read live from `GET /openapi.json` on a running engine ([CLAUDE.md](CLAUDE.md) "Key documentation", "Stay inside this repo").
 >
 > ```
 > <anything>/

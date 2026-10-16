@@ -394,7 +394,7 @@ the bar is where the right file gets dropped next.
 - **The tester never writes tests.** A criterion with no test proving it goes back to the builder.
 - **The loop runs on its own** once the owner approves a spec's tasks, pushing after every finished task, and stops only for what goes to the owner. A task needing a screen draws its mockup, parks, and the loop moves on.
 - **Workers run on the session's model** (`model: inherit`).
-- **The tester may start the practice engine**, the one exception to staying inside this repo, and recreates the practice user each check with a fresh key it never stores.
+- **The practice engine is the one exception to staying inside this repo.** Any agent starts and stops it with `scripts/practice-engine up|down`, which recreates the practice user with a fresh key that is never stored; the hand-run start and stop stay the tester's.
 
 **Why.** "Done" (tests pass, committed and pushed) only means something inside one repo, and a loop per repo keeps the wall between this client and the engine automatic. Every change is written by one agent and read by another, so nothing is approved by the agent that wrote it; the same holds for a tester that would otherwise write the test it then checks. Pushing after each task runs GitHub's checks on each one. A fresh practice key per check leaves nothing stored and practice data starting clean. A fact written in two docs drifts, which is why the librarian exists.
 
@@ -443,7 +443,7 @@ the bar is where the right file gets dropped next.
 
 ## The practice engine starts with its own Python only (2026-10-12)
 
-**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The tester starts the practice engine from this repo's sessions, behind the session guard ([runtime.md](runtime.md) "Working against the live engine").
+**Context.** The engine needs Python 3.12 and its dependencies live in its own checkout's environment. The practice engine is started from this repo's sessions, behind the session guard ([runtime.md](runtime.md) "Working against the live engine").
 
 **Decision.** The guard allows one start command, word for word, with the engine checkout's `.venv/bin/python` as its interpreter, and refuses every other spelling. The ops guide gives the same command, so the command a person copies and the command the guard accepts are one text.
 
@@ -488,3 +488,27 @@ the bar is where the right file gets dropped next.
 **Decision.** New Category and New Account make colour optional, and a skipped colour is left out of the body. The sheet import sends no colour for the categories it creates, so they take the engine's default. While an optional colour line is empty, no swatch is highlighted, so the screen never shows a pick that `enter` will not make ([tui.md](tui.md) module map, `create_forms.py`). Edit Category keeps its colour required.
 
 **Rejected.** *A palette the client cycles through for imported categories* — a client-side copy of a choice the engine makes. *Highlighting the first swatch on the empty line* — `enter` there skips the colour, so the highlight shows a pick that does not happen.
+
+## The unit suite runs in parallel by default (2026-10-16)
+
+**Context.** The agent loop spent most of its time waiting on `pytest tests/unit`: about 165 s run serially, four or more times per task. With pytest-xdist it takes about 25 s.
+
+**Decision.** `addopts = ["-n", "auto"]` in pyproject.toml, so the tests gate, CI and hand runs all run in parallel; `-n0` forces one process. pytest-xdist is a dev dependency, not optional. It sits in addopts because pytest-cov reads `-n` before any conftest loads, so only addopts or the command line give CI a parallel coverage run.
+
+**Rejected.** *An opt-in `-n` flag:* the gate and CI would not get it. *Setting `-n` from a conftest hook:* pytest-cov does not see it and crashes.
+
+## Live contract runs stay in one process (2026-10-16)
+
+**Context.** The contract tests share one practice user and make real writes, and one of them seals periods that others write into.
+
+**Decision.** tests/contract/conftest.py and tests/conftest.py answer `-n auto` with zero workers for any live run, however it is started; only an explicit `-n N` overrides them.
+
+**Rejected.** *Letting the default parallel run spread them:* they would race on the shared user and the sealed periods.
+
+## The practice engine has one script, run in exact shapes (2026-10-16)
+
+**Context.** Sending a tester just to start or stop the practice engine added an agent round trip to every task that needed the contract live. The start's output carries the practice user's key, which must never reach a file.
+
+**Decision.** `scripts/practice-engine up|down` starts, reseeds and stops the `:8002` engine, and any agent may run it; the orchestrator runs it around tasks. The guard allows only the whole command in a few exact forms, with no chaining, substitution, env prefix or wrapper, so the key stays off disk ([runtime.md](runtime.md) "Working against the live engine"). The script takes no options and runs under `bash -p` with every inherited variable unset and `env -i`, so nothing the caller sets can point it at the live engine or the real ledger.
+
+**Rejected.** *Keeping the start tester-only:* slow. *A script that takes options or inherits the environment:* one variable could reach the real ledger.

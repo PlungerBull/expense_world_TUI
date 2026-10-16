@@ -116,12 +116,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   every time; the guard accepts either one alone and leans on the engine refusing to start
   ([guard.py](../.claude/hooks/guard.py)). Require both, with a test.
 
-- **The guard blocks the practice user's reseed.** On 2026-10-14 the tester's
-  run of the engine's seed script with `--force`, its output sent to `/dev/null`, was refused as a read or write in the engine
-  checkout ([guard.py](../.claude/hooks/guard.py)), so a full acceptance check cannot get its key.
-  Allow the reseed form [runtime.md](runtime.md) "Working against the live engine" gives,
-  with a test in [test_claude_hooks.py](../tests/unit/test_claude_hooks.py).
-
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
