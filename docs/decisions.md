@@ -472,3 +472,19 @@ the bar is where the right file gets dropped next.
 **Decision.** `#` shows every tag in the order the engine lists them, read once from `GET /v1/hashtags`, and typing keeps the tags whose name contains the text, case- and accent-blind, in that same order ([quickadd/names.py](../expense/quickadd/names.py)). The list is the same whichever category the line names; the app sorts and merges nothing. The category-tags endpoint has no screen; the contract suite exercises it ([test_category_hashtags.py](../tests/contract/test_category_hashtags.py)).
 
 **Rejected.** *A category's own tags first, a divider, then the rest* — two groups need a second order, and each client would pick its own. *The engine sending that two-group list* — declined by the engine coders: with one list there is nothing to merge. *Hiding the tags a category has never used* — any tag may go on any category. *A typed command listing a category's tags* — the TUI is the surface in use.
+
+## Completing a reconciliation asks for its ending balance first (2026-10-15, owner)
+
+**Context.** The engine refuses to complete a reconciliation whose ending balance is empty, and drafts still take an empty one for when the statement has not arrived (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
+
+**Decision.** `c` on a draft with no ending balance opens a box for it; `enter` saves it, and then the usual question asks, where only `y` completes ([tui.md](tui.md) "A reconciliation's batch screen"). Saving and completing stay two writes and two answers, so a balance can be saved without completing. A refused write keeps the screen's usual note titles (`Couldn't save`, `Couldn't complete`), and a refused save closes the box, because the note already says what to do. No reconciliation was completed without an ending balance, so the app offers no revert-and-fill path.
+
+**Rejected.** *One box that saves and completes on a single `enter`* — completing is the step that seals rows, and it keeps its own `y`. *Refusing `c` with the engine's words only* — the user then has to find where the balance is typed. *A `Failed` title for this flow* — the screen's other refusals say `Couldn't …`.
+
+## A create leaves an empty colour to the engine (2026-10-15, owner)
+
+**Context.** A create with no colour gets the engine's default, and an update still refuses a null one (contract: "Colour format").
+
+**Decision.** New Category and New Account make colour optional, and a skipped colour is left out of the body. The sheet import sends no colour for the categories it creates, so they take the engine's default. While an optional colour line is empty, no swatch is highlighted, so the screen never shows a pick that `enter` will not make ([tui.md](tui.md) module map, `create_forms.py`). Edit Category keeps its colour required.
+
+**Rejected.** *A palette the client cycles through for imported categories* — a client-side copy of a choice the engine makes. *Highlighting the first swatch on the empty line* — `enter` there skips the colour, so the highlight shows a pick that does not happen.

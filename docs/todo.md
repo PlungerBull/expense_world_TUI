@@ -128,9 +128,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   that" note ([quickadd/money.py](../expense/quickadd/money.py)).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
-- **Catch up with contract 42d70a629215928d** (completing a reconciliation asks for its ending
-  balance, the live tests follow the engine). Spec (draft, deferred):
-  [specs/engine-catch-up-42d70a6.md](specs/engine-catch-up-42d70a6.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),

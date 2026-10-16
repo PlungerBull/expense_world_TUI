@@ -766,7 +766,6 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 
 
 # ---- the ending balance, asked for at complete --------------------------------
-# Mockup: expense-world-ending-balance-and-category-colour.html, Part 1 (pick A).
 # The engine refuses to complete without it (contract: POST
 # /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 

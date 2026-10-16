@@ -72,8 +72,10 @@ expense/tui/
                     #   While an optional line is empty no swatch is highlighted;
                     #   typing or ↑/↓ highlights one, and enter then picks it.
                     #   Edit category keeps it required, so a PUT never sends null
-    modals.py       # ConfirmModal, PromptModal, AmountPromptModal, PickerModal, DiscardStagedModal
-                    #   (the LOG bar's one confirmation)
+    modals.py       # ConfirmModal, PickerModal, DiscardStagedModal (the LOG bar's one
+                    #   confirmation), and PromptBox — one line typed in a box —
+                    #   under PromptModal (text) and AmountPromptModal (a signed
+                    #   amount, read by the shared money parser)
 ```
 
 **The fetch/draw split is the anti-duplication guardrail.** Every engine read is a
@@ -363,7 +365,7 @@ line and one line of the app's saying what to do. Screens in
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
-| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation | `It changed at the same moment: press r, then try again.` |
+| `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, a bank file | `It changed at the same moment: save again.` |
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
@@ -378,7 +380,8 @@ route or the engine's wording ([decisions.md](decisions.md) "Hints are chosen by
 engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEPS` in
 [errors.py](../expense/errors.py), read by the shared error text `format_error`, so every
 screen that reports a failure through it shows the line. A write sent from a list (every
-`d`) asks for the list's line (`list_refusal_text` in
+`d`, and the ending balance saved at `c` on a reconciliation's batch screen, where `r` reads
+it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line. The two
 opening-balance reasons and `ENDING_BALANCE_REQUIRED` are the table's only `VALIDATION_ERROR`
@@ -606,9 +609,7 @@ for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try again
 refused complete shows `Couldn't complete` with the engine's words — after a save in the
 same `c`, under the line `The ending balance is saved. The reconciliation is not
 completed:` — and the screen reads the reconciliation fresh, so the header and the next
-`c` go by what the engine holds. Drawn in
-[expense-world-ending-balance-and-category-colour.html](mockups/expense-world-ending-balance-and-category-colour.html),
-Part 1 (A).
+`c` go by what the engine holds.
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like

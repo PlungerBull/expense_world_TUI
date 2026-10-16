@@ -30,7 +30,7 @@ No list pages by position; every list is one of three shapes, each read its own 
 |---|---|---|
 | **Whole** `{items}` | accounts, categories, hashtags, a category's hashtags, one account's reconciliations | One read, every row; no paging parameters. |
 | **Cursor** `{items, limit, next_cursor}` | transactions | `?after=<next_cursor>` until it is `null`; the count is its own read (`/transactions/count`), once per list. The TUI's growing lists are [tui.md](tui.md) §5. |
-| **Cursor + date window** | activity, exchange-rate history | The cursor inside one window (30 days by default); older rows are a new window. No screen reads these. |
+| **Cursor + date window** | activity, exchange-rate history | The cursor inside one window (30 calendar days counting `date_to`'s own day when `date_from` is left out; at most 366, counting both ends). The window before it is read by sending the response's `previous_date_to` back unchanged as `date_to`, which reads no row twice; `null` means nothing earlier. No screen reads these. |
 
 A stale `limit`, `offset` or unknown parameter is the engine's `422`, never a quietly wrong answer.
 
