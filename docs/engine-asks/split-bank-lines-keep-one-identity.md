@@ -72,4 +72,4 @@ Questions for the engine coders:
 
 Nothing to remove: today this client has no way to split a line, and a split line from the
 spreadsheet is added a second time on re-import. Once it lands the client gains a split action
-and groups the spreadsheet's split rows on import.
+and links the spreadsheet's split rows as the engine coders choose above.
