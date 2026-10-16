@@ -1,6 +1,7 @@
 # The built-in categories and the built-in pending hashtag cannot be renamed
 
-Raised 2026-10-16.
+Raised 2026-10-16. Accepted as asked by the engine coders on 2026-10-16; their spec waits for the
+engine owner's approval, and the change arrives as its own hand-off file.
 
 ## Why
 
@@ -18,20 +19,19 @@ engine.
 ## The ask
 
 1. **`PUT /categories/{id}` on a system category refuses a `name` that differs from its
-   current one**, with a structured `422` on `name` (a reason such as `SYSTEM_NAME_FIXED`), and
-   writes nothing. Its other fields (colour, order) stay editable as today, unless the engine
-   coders see a reason to lock them too.
+   current one**, with a structured `422` on `name` and a new reason, and writes nothing. The
+   comparison is exact after trimming, so a change of letter case alone is refused too. Colour
+   and order stay editable.
 2. **`PUT /hashtags/{id}` on the pending hashtag refuses a `name` change the same way.** Its
    `sort_order` stays editable.
 3. **Rows already renamed get their default name back** in the same change: `@Pendiente`,
-   `@Opening`, and `Pendiente` for the hashtag. If a user row already holds that name, say what
-   the engine does instead (the reserved-name rules already keep new user rows off these names).
+   `@Opening`, and `Pendiente` for the hashtag.
 4. Delete stays refused as today (`SYSTEM_CATEGORY`, `SYSTEM_HASHTAG`).
 
 ## Done when
 
-- Renaming `@Pendiente`, `@Opening` or the pending hashtag is `422` on `name` with the new
-  reason, and nothing is written.
+- Renaming `@Pendiente`, `@Opening` or the pending hashtag, including a change of case only, is
+  `422` on `name` with the new reason, and nothing is written.
 - Sending the current name unchanged, or changing only colour or order, is accepted.
 - After the change, every user's system rows carry their default names.
 

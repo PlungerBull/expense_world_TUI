@@ -79,6 +79,16 @@ Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; t
 the owner's pick. Tasks 1, 2 and 9 are done; the live contract tests cover every new refusal
 reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
 
+Three engine asks the engine coders accepted on 2026-10-16 are not built yet; each task below
+that needs one waits for its hand-off file and its contract version, and is built against the
+live contract, not the ask:
+[engine-asks/read-a-bank-line.md](../engine-asks/read-a-bank-line.md) (tasks 4–6),
+[engine-asks/day-mismatch-lines-carry-what-they-are.md](../engine-asks/day-mismatch-lines-carry-what-they-are.md)
+(task 3's ledger rows the file did not claim; it removes `transaction_ids` from those entries,
+which the upload reads today) and
+[engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
+(task 8's rename part).
+
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of

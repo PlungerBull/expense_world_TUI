@@ -55,6 +55,12 @@ from the bank statements, through the bank upload that
 [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md) makes work on the new
 engine.
 
+The engine groups split rows only when they are written: the parts of one bank charge go in one
+`POST /transactions/batch` with a shared `line_group`. It has no operation to link transactions
+already in the ledger, and none is planned (engine coders, 2026-10-16). So a sheet split left
+ungrouped stays as separate lines: a bank upload adds the charge again, and the day shows as
+disagreeing, to be fixed by hand.
+
 1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
    `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
    creates neither name. The pending hashtag is found by `reads.pending_hashtag_of`, and a row

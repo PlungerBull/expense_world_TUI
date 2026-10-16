@@ -1,6 +1,8 @@
-# A bank import's unclaimed ledger lines carry their title, amount and parts' details
+# A bank import's unclaimed ledger lines carry their total and their parts
 
-Raised 2026-10-16.
+Raised 2026-10-16. Accepted by the engine coders on 2026-10-16, in the shape below; their spec
+waits for the engine owner's approval, and the change arrives as its own hand-off file. It is a
+breaking change: `transaction_ids` leaves these entries.
 
 ## Why
 
@@ -13,15 +15,19 @@ is comparing the bank to the ledger. Every client that shows the report needs th
 
 ## The ask
 
-1. Each entry of `unclaimed_lines` carries the line's `title`, its signed total (`net_cents`,
-   inflow positive, outflow negative, like the day's totals) and its parts, each with
-   `transaction_id`, signed `amount_cents`, `category_id` and `description`.
-2. The figures are those of the ledger after the import, like the day's `ledger_net_cents`.
+1. Each entry of `unclaimed_lines` becomes `{bank_line_id, net_cents, parts}`: `net_cents` is
+   signed (inflow positive, outflow negative, like the day's totals), and `parts` are ordinary
+   transaction responses, so each part's `amount_cents` stays positive with its direction in
+   `transaction_type`.
+2. `transaction_ids` is removed from these entries.
+3. A line whose parts fall on several days appears on each of those days, with that day's parts
+   only.
+4. The figures are those of the ledger after the import, like the day's `ledger_net_cents`.
 
 ## Done when
 
-- A dry run with a ledger line the file does not claim reports that line with its title, signed
-  total and parts, and the line's total plus the matched rows equals the day's
+- A dry run with a ledger line the file does not claim reports that line with its signed total
+  and its parts, and the line's total plus the matched rows equals the day's
   `ledger_net_cents`.
 - A split line reports one entry with both parts listed.
 
@@ -29,4 +35,5 @@ is comparing the bank to the ledger. Every client that shows the report needs th
 
 Nothing yet: the client has not built the days-that-disagree view. Without this ask it would
 read each unclaimed transaction by id to show its title and amount; with it, the view draws from
-the import answer alone.
+the import answer alone. The client's reading of `transaction_ids` in these entries is replaced
+by reading `parts`.
