@@ -46,8 +46,12 @@ hashtag lands).
   a hashtag. The "(no hashtags)" row is gone.
 - **Tagging a pending transaction leaves only the real hashtag.** Every screen that sets
   hashtags sends only the real ones.
-- **The pending hashtag cannot be deleted.** The hashtags screen marks it and offers no delete;
-  a user hashtag cannot be named `Pendiente`. Refusals show as the engine sends them.
+- **The built-in rows keep their names (owner, 2026-10-16).** The pending hashtag, `@Pendiente`
+  and `@Opening` are system values: no screen offers to delete or rename them, and a user
+  hashtag cannot be named `Pendiente`. Refusals show as the engine sends them. Renaming is
+  refused by the engine once
+  [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
+  lands; until then the rename stays offered.
 - **An opening balance carries no hashtag.** Its edit form offers no hashtag change.
 
 No client-side matching, title comparison, neighbouring-day logic or "untagged" computing is
@@ -67,7 +71,7 @@ before it is built.
 5. An upload with a day that disagrees lists that day with both totals.
 6. A transaction logged with no hashtag shows the pending hashtag; tagging it leaves only the
    real one, and Home's pending row lists it until then.
-7. Deleting the pending hashtag is not offered.
+7. Deleting or renaming the pending hashtag, `@Pendiente` or `@Opening` is not offered.
 
 ## Tasks
 
@@ -87,6 +91,10 @@ reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
    transactions still waiting for a hashtag, and no "(no hashtags)" row. The mockup also shows
    the edit form and the LOG bar's staged line when the owner names a real hashtag on a pending
    row: the save sends only the real one, and the screen today still lists both.
-8. **[UI]** The hashtags screen marks the pending hashtag and offers no delete on it, with the
-   `SYSTEM_HASHTAG` and `RESERVED_NAME` refusals; an opening balance's edit form offers no
+8. **[UI]** The hashtags screen marks the pending hashtag and offers no delete or rename on it,
+   and the categories screen offers no rename on `@Pendiente` and `@Opening`, with the
+   `SYSTEM_HASHTAG`, `RESERVED_NAME` and the engine's new rename refusals (the rename part waits
+   on [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)); the
+   categories legend and the `SYSTEM_CATEGORY` hint, which say system categories can be renamed,
+   take the picked wording); an opening balance's edit form offers no
    hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.

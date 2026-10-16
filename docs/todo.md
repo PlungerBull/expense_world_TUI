@@ -48,7 +48,7 @@ with no hashtag), each marked on its page.
 
 **Recommended:** none — these are your screens.
 
-### Hand two engine asks to the engine coders
+### Hand three engine asks to the engine coders
 Asked 2026-10-16 · Blocks: tasks 4–6 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md); task 3's richer variants
 
 The engine gives each transaction its bank line's id but no way to read the line: which
@@ -58,8 +58,10 @@ And the upload's days that disagree name the ledger rows the bank did not claim 
 showing their titles and amounts costs one read per row.
 - **A.** Hand both asks over as written:
   [engine-asks/read-a-bank-line.md](engine-asks/read-a-bank-line.md) and
-  [engine-asks/day-mismatch-lines-carry-what-they-are.md](engine-asks/day-mismatch-lines-carry-what-they-are.md).
-  Tasks 4–6 wait for the first.
+  [engine-asks/day-mismatch-lines-carry-what-they-are.md](engine-asks/day-mismatch-lines-carry-what-they-are.md),
+  plus your rule that the built-in rows keep their names (2026-10-16):
+  [engine-asks/system-rows-keep-their-names.md](engine-asks/system-rows-keep-their-names.md).
+  Tasks 4–6 wait for the first; task 8's rename part waits for the third.
 - **B.** Build tasks 4–6 without it: the app finds and sums the parts itself.
 
 **Recommended:** A, because the sum and the search are engine work every client would otherwise
