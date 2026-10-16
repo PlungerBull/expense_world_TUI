@@ -60,6 +60,3 @@ Drafted by the orchestrator; waiting on the owner's approval.
    the mockup; `ENDING_BALANCE_REQUIRED` gets its what-to-do line in the hint table.
 2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
    shows, and a skipped colour is not sent.
-6. **Live test for exchange-rate history.** Pages back with `previous_date_to` and reads no row
-   twice; a window wider than 366 days is refused with `RANGE_TOO_WIDE`; a date the calendar
-   cannot hold is refused with `OUT_OF_RANGE`.
