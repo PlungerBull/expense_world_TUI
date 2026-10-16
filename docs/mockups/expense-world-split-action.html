@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Split · one purchase into parts</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Split · one purchase into parts</h1>
+  <p>One bank charge, several things: -100.00 at Tottus can be -60.00 of food and -40.00 of cleaning products. Splitting turns the one ledger row into parts, each with its own amount, category, hashtags and note; together they still are the one bank charge, so a later bank upload still finds it. How the ledger shows the parts is in its own mockup.</p><p>The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">1 · How you get there <span>— s on a ledger row</span></div><p class="blurb">On the ledger, <code>s Split</code> opens the split screen for the row under the cursor, whole ledger or filtered from Home. Like <code>d</code>, it works on the cursor row only: while rows are selected it is off and leaves the footer. On a purchase already in parts, <code>s</code> on any of its parts opens the same screen with all its parts (screen 3).</p><div class="var"><div class="oh"><span>the ledger's footer gains s Split, before d Delete</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                             <span class="n">   -18.50</span>  2026-10-12  Sueldo Soles   COMIDA       almuerzo   
+      <span class="rev">Tottus Jockey Plaza                       -100.00  2026-10-11  Sueldo Soles   @Pendiente   Pendiente  </span>
+      Uber                  al aeropuerto     <span class="n">   -42.00</span>  2026-10-11  Sueldo Soles   TRANSPORTE   viaje-cusco
+      Pago planilla                           <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo    
+
+     <span class="d">no filter · 10 of 133 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap"><code>s</code> is free on the ledger today. The ledger is drawn as in its own mockup, A.</p></div></div><div class="pane"><div class="lbl">2 · Splitting a purchase <span>— Tottus Jockey Plaza, -100.00, into two parts</span></div><p class="blurb">A full screen. On top, the purchase as the ledger has it: its title, date and account belong to the whole purchase, so every part keeps them and they are not asked here. Each part has its own amount, category, hashtags and note. A part with no category goes to <code>@Pendiente</code>, and one with no hashtag to <code>#Pendiente</code>, as anywhere else. <code>^s</code> sends every part at once, and the engine checks that they add up to the purchase: the app never stops you from sending. Here part 1 (-60.00, COMIDA, #casa, verduras) is in, and you are typing part 2.</p><div class="opt"><div class="var"><div class="oh">A · <span>a form: one question at a time, part after part</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART 2 · AMOUNT     </span>-40<span class="a">▍</span>
+
+   <span class="d">signed decimal · − expense / + income · in PEN</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   COMIDA      #casa        verduras
+   <span class="a">•</span> <span class="d">2</span>   <span class="b">  -40.00</span>   <span class="d">—           —            —</span>
+
+   <span class="d">2 parts · </span><span class="n">-100.00</span><span class="d"> of </span><span class="n">-100.00</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⇥</span> Field  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Like the Edit form: the bar asks AMOUNT, CATEGORY, HASHTAGS, NOTE for part 1, then part 2, with the picker under each. <code>⏎</code> on the last question of the last part starts a new part; <code>^x</code> drops one. Familiar, but four steps per part.</p></div><div class="var"><div class="oh">B · <span>one typed line per part, like the LOG bar</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @hogar //lejía y papel<span class="a">▍</span>
+   <span class="d">-40.00 · HOGAR · no hashtag</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   COMIDA      #casa        verduras
+
+   <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div><p class="cap">You type each part as one line in the LOG bar's words: <code>-40 @hogar #casa //lejía</code>, and <code>↵</code> adds it to the list. The list keeps the count and how much is still to place. <b>Recommended:</b> the same grammar you already type every day, one line per part.</p></div><div class="var"><div class="oh">C · <span>like B, but part 1 starts as the whole purchase</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @hogar //lejía y papel<span class="a">▍</span>
+   <span class="d">-40.00 · HOGAR · taken from part 1</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n"> -100.00</span>   <span class="d">@Pendiente  </span><span class="d">#Pendiente   </span>
+   <span class="d">the rest of the purchase stays on part 1</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div><p class="cap">Part 1 opens holding -100.00, and every part you add is taken from it, so the total always matches. Fewer refusals, but the app does the subtraction for you, and part 1's amount changes without you typing it.</p></div></div><p class="blurb">In B and C the line takes no <code>$account</code> and no date: typing one is refused in place (“a part keeps the purchase's account and date”), the way the LOG bar refuses a line it cannot stage. A mixed purchase is allowed: -120.00 out and +20.00 in make -100.00.</p></div><div class="pane"><div class="lbl">3 · Splitting it again <span>— s on a part of a split purchase</span></div><p class="blurb"><code>s</code> on either part of Tottus opens the same screen with its current parts already in the list. You change them, drop one or add one, and <code>^s</code> sends the whole new set: say -70.00 and -30.00 instead of -60.00 and -40.00. The same screen splits one part further, by adding parts. Drawn with B; under A it is the same list, with the form on part 1.</p><div class="var"><div class="oh"><span>the current parts, in the list; ↑ picked part 1</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span><span class="d">  ·  2 parts</span>
+
+   <span class="b">PART            </span><span class="a">▍</span>
+   <span class="d">↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="rev">• 1     -60.00   COMIDA      #casa        verduras                            </span>
+   <span class="a">•</span> <span class="d">2</span>   <span class="n">  -40.00</span>   HOGAR       <span class="d">#Pendiente   </span>lejía y papel
+
+   <span class="d">2 parts · </span><span class="n">-100.00</span><span class="d"> of </span><span class="n">-100.00</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div><p class="cap">Part 2 still waits for a hashtag, so it shows <code>#Pendiente</code>, dim.</p></div></div><div class="pane"><div class="lbl">4 · The parts do not add up <span>— SPLIT_TOTAL_MISMATCH</span></div><p class="blurb">You changed part 2 to -30.00 and pressed <code>^s</code>. The parts make -90.00, the purchase is -100.00. The engine refuses and writes nothing; its sentence gives both totals in cents, and it names the parts as well as each part's amount. The engine's sentence is its real one; the first line is a stand-in. The screen stays as it was, so you fix a part and press <code>^s</code> again.</p><div class="opt"><div class="var"><div class="oh">A · <span>the note in the corner, the engine's words whole</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span><span class="d">  ·  2 parts</span>
+
+   <span class="b">PART            </span><span class="a">▍</span>
+   <span class="d">↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   COMIDA      #casa        verduras
+   <span class="a">•</span> <span class="d">2</span>   <span class="n">  -30.00</span>   HOGAR       <span class="d">#Pendiente   </span>lejía y papel
+
+   <span class="d">2 parts · </span><span class="n">-90.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-10.00</span><span class="d"> left</span>
+
+                                  <span class="n">▌</span> <span class="b">Failed</span>
+                                  <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
+                                  <span class="n">▌</span>   parts: Must add up to the line's total: the
+                                  <span class="n">▌</span>   line's total is -10000 cents and the parts
+                                  <span class="n">▌</span>   add up to -9000.
+                                  <span class="n">▌</span>   parts.0.amount_cents: Must add up to the
+                                  <span class="n">▌</span>   line's total: the line's total is -10000
+                                  <span class="n">▌</span>   cents and the parts add up to -9000.
+                                  <span class="n">▌</span>   parts.1.amount_cents: Must add up to the
+                                  <span class="n">▌</span>   line's total: the line's total is -10000
+                                  <span class="n">▌</span>   cents and the parts add up to -9000.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div><p class="cap">Exactly how every other refusal shows. Long: the engine repeats its sentence for each part, and the note goes after a few seconds.</p></div><div class="var"><div class="oh">B · <span>under the parts, the parts named by number</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span><span class="d">  ·  2 parts</span>
+
+   <span class="b">PART            </span><span class="a">▍</span>
+   <span class="d">↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   COMIDA      #casa        verduras
+   <span class="a">•</span> <span class="d">2</span>   <span class="n">  -30.00</span>   HOGAR       <span class="d">#Pendiente   </span>lejía y papel
+
+   <span class="d">2 parts · </span><span class="n">-90.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-10.00</span><span class="d"> left</span>
+
+   <span class="n">VALIDATION_ERROR — Validation failed.</span>
+   <span class="n">! parts: Must add up to the line's total: the line's total is</span>
+   <span class="n">  -10000 cents and the parts add up to -9000.</span>
+   <span class="n">! part 1 (amount): Must add up to the line's total: the line's</span>
+   <span class="n">  total is -10000 cents and the parts add up to -9000.</span>
+   <span class="n">! part 2 (amount): Must add up to the line's total: the line's</span>
+   <span class="n">  total is -10000 cents and the parts add up to -9000.</span>
+   <span class="d">Nothing was split.</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div><p class="cap">The same words, kept on the screen under the list until you change something; each part's key is read as <code>part 1</code>, <code>part 2</code>, the way the bank upload reads a row's key as its file line. The amounts it names turn red. <b>Recommended:</b> you fix it while reading it.</p></div></div><p class="blurb">The split's other refusals (an opening balance, which is never split; parts in different reconciliations; parts on different accounts or days) show the engine's words in the same place.</p></div>
+<div class="pick"><b>To answer:</b> “ok” for screens 1 and 3, and one letter for screen 2 and one for screen 4.<br><b>Recommended:</b> 2 B · 4 B.<br><b>Questions beyond the pick:</b><ul><li>The line <code>-60.00 of -100.00 · -40.00 left</code> is the app adding up what you typed (as the LOG bar's <code>5 staged · -1,944.70 PEN</code> does). The purchase's total, and its current parts for screen 3, come from the engine. Today the engine says which purchase a row belongs to but cannot list one purchase's parts or give its total; the app would have to search the ledger around that date. Should we ask the engine for a way to read one purchase's parts and total (<b>recommended</b>), or should the app search?</li><li>The new words (<code>s Split</code>, <code>↵ adds the part</code>, <code>left</code>, <code>Nothing was split.</code>) are yours to change.</li></ul></div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>The pending hashtag · Home, the Edit form, the LOG bar</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>The pending hashtag · Home, the Edit form, the LOG bar</h1>
+  <p>The engine now has a built-in <b>pending hashtag</b>, <code>#Pendiente</code>, the hashtag twin of <code>@Pendiente</code>: every transaction with no hashtag carries it, and it comes off by itself when a real hashtag goes on. This page is where you meet it day to day: Home's hashtag rows, the ledger they open, and tagging a row on the Edit form and the LOG bar. Its own row on Manage ▸ Hashtags is in its own mockup.</p><p>The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">1 · Home's hashtag rows <span>— COMIDA unfolded with →</span></div><p class="blurb">Every transaction now carries a hashtag: one you have not tagged sits under the built-in <b>#Pendiente</b>, as one with no category sits under <code>@Pendiente</code>. So under a category, the row that read <code>(no hashtags)</code> is now the pending hashtag's own row, under its current name (it can be renamed, and then reads the new name). <code>@Pendiente</code> now unfolds too: its rows wait for a hashtag as well. The cursor is on COMIDA's pending row.</p><div class="var"><div class="oh"><span>today, for reference</span><span class="ref">today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈  EXPENSE WORLD</span>                                      <span class="d">October 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────</span>
+
+  <span class="b">CATEGORIES        </span><span class="d">    Jul 2026</span><span class="d">    Aug 2026</span><span class="d">    Sep 2026</span><span class="a">  ▸ Oct 2026</span>
+    @Pendiente      <span class="n">     -120.00</span><span class="n">     -266.20</span><span class="n">   -1,487.46</span><span class="n">      -88.50</span>
+  ▼ COMIDA          <span class="n">     -940.10</span><span class="n">   -1,608.43</span><span class="n">     -822.40</span><span class="n">     -310.25</span>
+  <span class="d">    #almuerzo     </span><span class="d">     -310.00</span><span class="d">     -402.50</span><span class="d">     -288.10</span><span class="d">      -96.75</span>
+  <span class="d">    #casa         </span><span class="d">     -580.10</span><span class="d">   -1,140.93</span><span class="d">     -484.30</span><span class="d">     -195.00</span>
+  <span class="d">    (no hashtags) </span><span class="d">      -50.00</span><span class="d">      -65.00</span><span class="d">      -50.00</span><span class="d">      -18.50</span>
+  ▶ HOGAR           <span class="n">     -210.00</span><span class="n">      -95.40</span><span class="n">     -160.40</span><span class="n">     -100.40</span>
+  ▶ SUELDO          <span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span>
+  ▶ TRANSPORTE      <span class="n">      -88.00</span><span class="n">      -42.00</span><span class="n">     -120.00</span><span class="n">      -57.00</span>
+                    <span class="d">────────────────────────────────────────────────</span>
+  <span class="d">  inflow          </span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span>
+  <span class="d">  outflow         </span><span class="d">    1,358.10</span><span class="d">    2,012.03</span><span class="d">    2,590.26</span><span class="d">      556.15</span>
+    net             <span class="p">    5,160.90</span><span class="p">    4,506.97</span><span class="p">    3,928.74</span><span class="p">    5,962.85</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">BANK ACCOUNTS</span>                                          <span class="d">balance today</span>
+    Sueldo Soles                                         <span class="p">12,450.00</span><span class="d"> PEN</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LEDGER</span>
+    Transactions
+    Reconciliations
+
+ <span class="a">←</span> Fold  <span class="a">→</span> Tags  <span class="a">pgup</span> Newer  <span class="a">pgdn</span> Older  <span class="a">+</span> Add  <span class="a">r</span> Refresh  <span class="a">q</span> Quit  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>(no hashtags)</code>, and <code>⏎</code> on it says it cannot be filtered.</p></div><div class="opt"><div class="var"><div class="oh">A · <span>a row like any other hashtag</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈  EXPENSE WORLD</span>                                      <span class="d">October 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────</span>
+
+  <span class="b">CATEGORIES        </span><span class="d">    Jul 2026</span><span class="d">    Aug 2026</span><span class="d">    Sep 2026</span><span class="a">  ▸ Oct 2026</span>
+  ▶ @Pendiente      <span class="n">     -120.00</span><span class="n">     -266.20</span><span class="n">   -1,487.46</span><span class="n">      -88.50</span>
+  ▼ COMIDA          <span class="n">     -940.10</span><span class="n">   -1,608.43</span><span class="n">     -822.40</span><span class="n">     -310.25</span>
+  <span class="d">    #almuerzo     </span><span class="d">     -310.00</span><span class="d">     -402.50</span><span class="d">     -288.10</span><span class="d">      -96.75</span>
+  <span class="d">    #casa         </span><span class="d">     -580.10</span><span class="d">   -1,140.93</span><span class="d">     -484.30</span><span class="d">     -195.00</span>
+      <span class="rev">#Pendiente          -50.00      -65.00      -50.00      -18.50  </span>
+  ▶ HOGAR           <span class="n">     -210.00</span><span class="n">      -95.40</span><span class="n">     -160.40</span><span class="n">     -100.40</span>
+  ▶ SUELDO          <span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span>
+  ▶ TRANSPORTE      <span class="n">      -88.00</span><span class="n">      -42.00</span><span class="n">     -120.00</span><span class="n">      -57.00</span>
+                    <span class="d">────────────────────────────────────────────────</span>
+  <span class="d">  inflow          </span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span>
+  <span class="d">  outflow         </span><span class="d">    1,358.10</span><span class="d">    2,012.03</span><span class="d">    2,590.26</span><span class="d">      556.15</span>
+    net             <span class="p">    5,160.90</span><span class="p">    4,506.97</span><span class="p">    3,928.74</span><span class="p">    5,962.85</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">BANK ACCOUNTS</span>                                          <span class="d">balance today</span>
+    Sueldo Soles                                         <span class="p">12,450.00</span><span class="d"> PEN</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LEDGER</span>
+    Transactions
+    Reconciliations
+
+ <span class="a">←</span> Fold  <span class="a">→</span> Tags  <span class="a">pgup</span> Newer  <span class="a">pgdn</span> Older  <span class="a">+</span> Add  <span class="a">r</span> Refresh  <span class="a">q</span> Quit  <span class="a">?</span> Keys</pre></div></div><p class="cap">Same dim row as <code>#almuerzo</code> and <code>#casa</code>. <b>Recommended:</b> it is a hashtag like the others, and the name already says what it is.</p></div><div class="var"><div class="oh">B · <span>the same row, its name in the accent</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈  EXPENSE WORLD</span>                                      <span class="d">October 2026</span>
+<span class="d">──────────────────────────────────────────────────────────────────────</span>
+
+  <span class="b">CATEGORIES        </span><span class="d">    Jul 2026</span><span class="d">    Aug 2026</span><span class="d">    Sep 2026</span><span class="a">  ▸ Oct 2026</span>
+  ▶ @Pendiente      <span class="n">     -120.00</span><span class="n">     -266.20</span><span class="n">   -1,487.46</span><span class="n">      -88.50</span>
+  ▼ COMIDA          <span class="n">     -940.10</span><span class="n">   -1,608.43</span><span class="n">     -822.40</span><span class="n">     -310.25</span>
+  <span class="d">    #almuerzo     </span><span class="d">     -310.00</span><span class="d">     -402.50</span><span class="d">     -288.10</span><span class="d">      -96.75</span>
+  <span class="d">    #casa         </span><span class="d">     -580.10</span><span class="d">   -1,140.93</span><span class="d">     -484.30</span><span class="d">     -195.00</span>
+      <span class="rev">#Pendiente          -50.00      -65.00      -50.00      -18.50  </span>
+  ▶ HOGAR           <span class="n">     -210.00</span><span class="n">      -95.40</span><span class="n">     -160.40</span><span class="n">     -100.40</span>
+  ▶ SUELDO          <span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span><span class="p">    6,519.00</span>
+  ▶ TRANSPORTE      <span class="n">      -88.00</span><span class="n">      -42.00</span><span class="n">     -120.00</span><span class="n">      -57.00</span>
+                    <span class="d">────────────────────────────────────────────────</span>
+  <span class="d">  inflow          </span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span><span class="d">    6,519.00</span>
+  <span class="d">  outflow         </span><span class="d">    1,358.10</span><span class="d">    2,012.03</span><span class="d">    2,590.26</span><span class="d">      556.15</span>
+    net             <span class="p">    5,160.90</span><span class="p">    4,506.97</span><span class="p">    3,928.74</span><span class="p">    5,962.85</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">BANK ACCOUNTS</span>                                          <span class="d">balance today</span>
+    Sueldo Soles                                         <span class="p">12,450.00</span><span class="d"> PEN</span>
+  <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">LEDGER</span>
+    Transactions
+    Reconciliations
+
+ <span class="a">←</span> Fold  <span class="a">→</span> Tags  <span class="a">pgup</span> Newer  <span class="a">pgdn</span> Older  <span class="a">+</span> Add  <span class="a">r</span> Refresh  <span class="a">q</span> Quit  <span class="a">?</span> Keys</pre></div></div><p class="cap">The name stands out, as <code>@Pendiente</code> does in the LOG bar, so the rows still to tag catch the eye.</p></div></div></div><div class="pane"><div class="lbl">2 · ⏎ on the pending row <span>— the transactions still waiting for a hashtag</span></div><p class="blurb">The engine now lists exactly the transactions still waiting for a hashtag, so <code>⏎</code> on the row opens the ledger with them, ready for <code>h</code>. Tagged, a row leaves the list at once, as on any filtered ledger.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>that category's rows waiting for a hashtag</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">COMIDA #Pendiente</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="rev">Cafe Andino                                -18.50  2026-10-12  Sueldo Soles   COMIDA       Pendiente  </span>
+      Cine Plaza            canchita          <span class="n">   -12.00</span>  2026-10-10  Sueldo Soles   COMIDA       Pendiente  
+      Panaderia Sol                           <span class="n">    -9.80</span>  2026-09-07  Sueldo Soles   COMIDA       Pendiente  
+
+     <span class="d">filter: category COMIDA #Pendiente · 3 of 14 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">The same as <code>⏎</code> on <code>#casa</code>: this category and this hashtag. <b>Recommended:</b> every hashtag row on Home works the same way, and its count is what the row adds up.</p></div><div class="var"><div class="oh">B · <span>every row waiting for a hashtag, all categories</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">#Pendiente</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="rev">Cafe Andino                                -18.50  2026-10-12  Sueldo Soles   COMIDA       Pendiente  </span>
+      Uber                                    <span class="n">   -14.30</span>  2026-10-11  Sueldo Soles   TRANSPORTE   Pendiente  
+      Cine Plaza            canchita          <span class="n">   -12.00</span>  2026-10-10  Sueldo Soles   COMIDA       Pendiente  
+      FARMACIA CENTRAL                        <span class="n">   -42.90</span>  2026-10-09  Sueldo Soles   @Pendiente   Pendiente  
+      Sodimac                                 <span class="n">  -100.40</span>  2026-10-03  Sueldo Soles   HOGAR        Pendiente  
+
+     <span class="d">filter: hashtag #Pendiente · 5 of 61 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">One list of everything still to tag, whatever its category. Handy for one tagging pass, but it no longer matches the figures on the row you pressed.</p></div></div></div><div class="pane"><div class="lbl">3 · Tagging a pending row on its Edit form <span>— ⏎ on Cine Plaza, then #viaje-cusco added</span></div><p class="blurb">The row waits under <code>#Pendiente</code>. You add <code>#viaje-cusco</code>. The engine refuses the pending hashtag next to a real one, so the save already sends only <code>#viaje-cusco</code>, and the row ends with only that. What changes is what the form shows before you save: today it still lists both.</p><div class="var"><div class="oh"><span>today, for reference</span><span class="ref">today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">HASHTAGS        </span><span class="a">▍</span>
+
+
+   <span class="d">type a tag · ↑↓ highlight · enter adds &amp; stays · empty enter = done (optional)</span>
+
+   <span class="rev">  almuerzo          </span>
+     casa
+     trabajo
+
+   date      2026-10-10
+   title     Cine Plaza
+   amount    <span class="n">-12.00</span>
+   account   Sueldo Soles
+   category  COMIDA
+   <span class="b">hashtags  </span>#Pendiente #viaje-cusco
+   note      canchita
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Lists both, saves one.</p></div><div class="opt"><div class="var"><div class="oh">A · <span>#Pendiente leaves the list as soon as a real one is in</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">HASHTAGS        </span><span class="a">▍</span>
+
+
+   <span class="d">type a tag · ↑↓ highlight · enter adds &amp; stays · empty enter = done (optional)</span>
+
+   <span class="rev">  almuerzo          </span>
+     casa
+     trabajo
+
+   date      2026-10-10
+   title     Cine Plaza
+   amount    <span class="n">-12.00</span>
+   account   Sueldo Soles
+   category  COMIDA
+   <span class="b">hashtags  </span>#viaje-cusco
+   note      canchita
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The form lists what will be saved. <b>Recommended:</b> what you see is what the row will have.</p></div><div class="var"><div class="oh">B · <span>#Pendiente stays listed, saying it comes off</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">HASHTAGS        </span><span class="a">▍</span>
+
+
+   <span class="d">type a tag · ↑↓ highlight · enter adds &amp; stays · empty enter = done (optional)</span>
+
+   <span class="rev">  almuerzo          </span>
+     casa
+     trabajo
+
+   date      2026-10-10
+   title     Cine Plaza
+   amount    <span class="n">-12.00</span>
+   account   Sueldo Soles
+   category  COMIDA
+   <span class="b">hashtags  </span>#viaje-cusco<span class="d">  #Pendiente comes off on save</span>
+   note      canchita
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">You see both, and what happens to the pending one. One more thing to read.</p></div></div></div><div class="pane"><div class="lbl">4 · The LOG bar, a line naming #Pendiente and a real hashtag <span>— taxi -15 $sueldo @transporte #pendiente #viaje-cusco hoy</span></div><p class="blurb">The same rule on the LOG bar: the save sends only <code>#viaje-cusco</code>. Today the staged row still lists both.</p><div class="var"><div class="oh"><span>today, for reference</span><span class="ref">today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LOG             </span><span class="a">▍</span>
+   <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+   <span class="d">$account · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">         date     title           amount  account        category     tags</span>
+   <span class="a">•</span><span class="d"> 1</span>   <span class="d">16 Oct   </span><span class="b">Taxi          </span><span class="n">  -15.00</span>  Sueldo Soles   TRANSPORTE   <span class="a">#Pendiente #viaje-cusco</span>
+   <span class="a">•</span><span class="d"> 2</span>   <span class="d">16 Oct   </span><span class="b">Cafe Andino   </span><span class="n">  -18.50</span>  Sueldo Soles   <span class="a">@Pendiente   </span><span class="d">—</span>
+
+  <span class="d">2 staged · </span><span class="n">-33.50</span><span class="d"> PEN · </span><span class="a">1 pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save</pre></div></div><p class="cap">Row 1 lists both, saves one.</p></div><div class="opt"><div class="var"><div class="oh">A · <span>the staged row lists only the real hashtag</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LOG             </span><span class="a">▍</span>
+   <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+   <span class="d">$account · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">         date     title           amount  account        category     tags</span>
+   <span class="a">•</span><span class="d"> 1</span>   <span class="d">16 Oct   </span><span class="b">Taxi          </span><span class="n">  -15.00</span>  Sueldo Soles   TRANSPORTE   <span class="a">#viaje-cusco</span>
+   <span class="a">•</span><span class="d"> 2</span>   <span class="d">16 Oct   </span><span class="b">Cafe Andino   </span><span class="n">  -18.50</span>  Sueldo Soles   <span class="a">@Pendiente   </span><span class="d">—</span>
+
+  <span class="d">2 staged · </span><span class="n">-33.50</span><span class="d"> PEN · </span><span class="a">1 pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save</pre></div></div><p class="cap"><b>Recommended:</b> the staged list is the echo of what will be saved, and stays that.</p></div><div class="var"><div class="oh">B · <span>both, saying the pending one comes off</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LOG             </span><span class="a">▍</span>
+   <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+   <span class="d">$account · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">         date     title           amount  account        category     tags</span>
+   <span class="a">•</span><span class="d"> 1</span>   <span class="d">16 Oct   </span><span class="b">Taxi          </span><span class="n">  -15.00</span>  Sueldo Soles   TRANSPORTE   <span class="a">#viaje-cusco</span><span class="d">  #Pendiente comes off</span>
+   <span class="a">•</span><span class="d"> 2</span>   <span class="d">16 Oct   </span><span class="b">Cafe Andino   </span><span class="n">  -18.50</span>  Sueldo Soles   <span class="a">@Pendiente   </span><span class="d">—</span>
+
+  <span class="d">2 staged · </span><span class="n">-33.50</span><span class="d"> PEN · </span><span class="a">1 pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save</pre></div></div><p class="cap">Matches 3 B. The line you typed is unchanged either way: <code>↑</code> on the row still brings back exactly what you typed.</p></div></div></div><div class="pane"><div class="lbl">5 · Also asked: a line with no #tag <span>— row 2, Cafe Andino, typed with no hashtag and no category</span></div><p class="blurb">Not in the spec, but the same question: a line with no <code>@category</code> already shows <code>@Pendiente</code> in the category column, the place it will land. A line with no <code>#tag</code> lands on <code>#Pendiente</code>, but its tags column shows <code>—</code>.</p><div class="opt"><div class="var"><div class="oh">A · <span>as today: —</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LOG             </span><span class="a">▍</span>
+   <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+   <span class="d">$account · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">         date     title           amount  account        category     tags</span>
+   <span class="a">•</span><span class="d"> 1</span>   <span class="d">16 Oct   </span><span class="b">Taxi          </span><span class="n">  -15.00</span>  Sueldo Soles   TRANSPORTE   <span class="a">#viaje-cusco</span>
+   <span class="a">•</span><span class="d"> 2</span>   <span class="d">16 Oct   </span><span class="b">Cafe Andino   </span><span class="n">  -18.50</span>  Sueldo Soles   <span class="a">@Pendiente   </span><span class="d">—</span>
+
+  <span class="d">2 staged · </span><span class="n">-33.50</span><span class="d"> PEN · </span><span class="a">1 pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save</pre></div></div><p class="cap">Nothing changes on the LOG bar beyond screen 4.</p></div><div class="var"><div class="oh">B · <span>#Pendiente, like the category column</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Log</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">LOG             </span><span class="a">▍</span>
+   <span class="d">↵ stages · ctrl+s saves all · ↑↓ picks a staged row when the bar is empty</span>
+   <span class="d">$account · @category · #tag · ±amount · //note · when     ↵ stages the line</span>
+
+<span class="d">         date     title           amount  account        category     tags</span>
+   <span class="a">•</span><span class="d"> 1</span>   <span class="d">16 Oct   </span><span class="b">Taxi          </span><span class="n">  -15.00</span>  Sueldo Soles   TRANSPORTE   <span class="a">#viaje-cusco</span>
+   <span class="a">•</span><span class="d"> 2</span>   <span class="d">16 Oct   </span><span class="b">Cafe Andino   </span><span class="n">  -18.50</span>  Sueldo Soles   <span class="a">@Pendiente   </span><span class="a">#Pendiente</span>
+
+  <span class="d">2 staged · </span><span class="n">-33.50</span><span class="d"> PEN · </span><span class="a">1 pendiente</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save</pre></div></div><p class="cap">Both columns say where the row will land. <b>Recommended:</b> the two pending names work the same way everywhere.</p></div></div></div>
+<div class="pick"><b>To answer:</b> one letter for each of screens 1 to 5.<br><b>Recommended:</b> 1 A · 2 A · 3 A · 4 A · 5 B.<br><b>Note:</b> screen 2 is drawn with the ledger as it is today; the hashtag column shows hashtags without <code>#</code>, as today.</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

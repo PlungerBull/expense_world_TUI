@@ -27,6 +27,44 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Pick the six bank-lines and pending-hashtag screens
+Asked 2026-10-16 · Blocks: [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md) tasks 3–8
+
+Each page draws the screen in lettered variants with one recommended, and ends with a "To
+answer" box. Open each and give a letter per screen (or "recommended for all"):
+- task 3, the bank upload: [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html)
+- task 4, split parts in the ledger: [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html)
+- task 5, the split screen: [mockups/expense-world-split-action.html](mockups/expense-world-split-action.html)
+- task 6, editing a part: [mockups/expense-world-edit-part.html](mockups/expense-world-edit-part.html)
+- task 7, the pending hashtag on Home: [mockups/expense-world-pending-hashtag-home.html](mockups/expense-world-pending-hashtag-home.html)
+- task 8, the pending hashtag on Manage: [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)
+
+Two details beyond the pick: the spec says a part's "description, date and account" reach every
+part, but on the form the shared field is the **title** (the note stays each part's own); and
+two pages add a screen the spec does not ask for (the hashtag delete question, and a LOG bar line
+with no hashtag), each marked on its page.
+- **A.** The recommended variant everywhere, "title" in the spec, both extra screens in.
+- **B.** Your own letters per screen.
+
+**Recommended:** none — these are your screens.
+
+### Hand two engine asks to the engine coders
+Asked 2026-10-16 · Blocks: tasks 4–6 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md); task 3's richer variants
+
+The engine gives each transaction its bank line's id but no way to read the line: which
+transactions are its parts, its total, how many parts it has. Without that, the app would search
+the ledger and add up amounts itself to show a purchase's parts together or to open a re-split.
+And the upload's days that disagree name the ledger rows the bank did not claim by id only, so
+showing their titles and amounts costs one read per row.
+- **A.** Hand both asks over as written:
+  [engine-asks/read-a-bank-line.md](engine-asks/read-a-bank-line.md) and
+  [engine-asks/day-mismatch-lines-carry-what-they-are.md](engine-asks/day-mismatch-lines-carry-what-they-are.md).
+  Tasks 4–6 wait for the first.
+- **B.** Build tasks 4–6 without it: the app finds and sums the parts itself.
+
+**Recommended:** A, because the sum and the search are engine work every client would otherwise
+copy, and the rest of the spec does not wait on them.
+
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
 

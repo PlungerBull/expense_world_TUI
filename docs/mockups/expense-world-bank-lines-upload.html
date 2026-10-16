@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Bank upload · rows the ledger has, and days that disagree</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Bank upload · rows the ledger has, and days that disagree</h1>
+  <p>The bank upload behind the LOG bar (drop a BCP file, pick its account, preview, import) on the new engine. What changes: rows the ledger already has can take the bank's title, the summary reads the engine's counts, the “no file row matched” warning becomes the engine's list of <b>days where the file and the ledger disagree</b>, and a new refusal when something changes a row while the import runs.</p><p>Everything else on these screens is as you approved it in the import door. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">1 · Rows the ledger has, and the ones that take the bank's title <span>— the preview, before anything is written</span></div><p class="blurb">The engine now says, for every row it finds in the ledger, whether that ledger row will take the bank's title. Example: you typed <code>Uber</code> on 09-14, and the bank calls it <code>UBER TRIP</code>. The ledger row is found by its day and amount, and on import its title becomes <code>UBER TRIP</code>, with <code>Uber</code> kept as its note when it has none. Row 6 is a purchase you split in two parts: the engine finds it by the same rule, and both parts take the title. The count at the end of the summary is the engine's own count, like every count on this line.</p><div class="opt"><div class="var"><div class="oh">A · <span>a mark in the match column, like the code</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap"><code>+title</code> sits where <code>+code</code> already sits when the file's operation number gets written onto the row. <b>Recommended:</b> one place to look per row, and it reads the same way as the mark you already know.</p></div><div class="var"><div class="oh">B · <span>a line naming the rows, under the summary</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+  <span class="d">rows 3 and 6 take the bank's title in the ledger</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">The match column stays as today; one dim line under the summary names the file rows. Shorter rows, but you look in two places.</p></div></div></div><div class="pane"><div class="lbl">2 · The days where the file and the ledger disagree <span>— replacing the “no file row matched” warning</span></div><p class="blurb">The engine now checks every day of the file, from its first date to its last, and lists each day where the file's total and the ledger's total (after this import) are not the same. Both totals are signed: money in is positive, money out negative. For each such day it names the file rows it did not find in the ledger and the ledger rows no file row claimed. Three days in this file:<br>· <b>09-12</b>: you typed <code>Farmacia -42.00</code>, the bank says <code>-42.90</code>. Different amounts, so the bank's row is new and the ledger would hold both.<br>· <b>09-10</b>: you typed <code>Cine -28.00</code> a day before the bank posted it on 09-11. A row a day off is new (you accepted this on 2026-10-16), so 09-10 shows your row left over.<br>· <b>09-07</b>: the ledger has two <code>Cafe -3.50</code>, the file one.<br>It is a report only: nothing on it changes what <code>⏎</code> writes.</p><div class="var"><div class="oh"><span>today, for reference: the warning this replaces</span><span class="ref">today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 9 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger
+  <span class="w">! 1 ledger row no file row matched — check</span>
+  <span class="w">    2026-09-10 · -28.00 · 1 unmatched</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">The old warning from the import door you approved. It goes.</p></div><div class="opt"><div class="var"><div class="oh">A · <span>one line per day: both totals and the counts</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+  <span class="w">! 3 days where the file and the ledger disagree</span>
+      2026-09-12   file <span class="n">-42.90</span>   ledger <span class="n">-84.90</span><span class="d">   row 4 not found · 1 ledger row not claimed</span>
+      2026-09-10   file   0.00   ledger <span class="n">-28.00</span><span class="d">   1 ledger row not claimed</span>
+      2026-09-07   file <span class="n"> -3.50</span>   ledger <span class="n"> -7.00</span><span class="d">   1 ledger row not claimed</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">Short. You learn which days to look at, but not which rows; you open the ledger to find them.</p></div><div class="var"><div class="oh">B · <span>each day with its rows, file and ledger</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+  <span class="w">! 3 days where the file and the ledger disagree</span>
+      2026-09-12   file <span class="n">-42.90</span><span class="d"> · ledger after import </span><span class="n">-84.90</span>
+        <span class="a">row 4</span>   FARMACIA CENTRAL    <span class="n">  -42.90</span><span class="d">   in the file, not found</span>
+                Farmacia            <span class="n">  -42.00</span><span class="d">   in the ledger, not claimed</span>
+      2026-09-10   file   0.00<span class="d"> · ledger after import </span><span class="n">-28.00</span>
+                Cine                <span class="n">  -28.00</span><span class="d">   in the ledger, not claimed</span>
+      2026-09-07   file <span class="n"> -3.50</span><span class="d"> · ledger after import </span><span class="n"> -7.00</span>
+                Cafe                <span class="n">   -3.50</span><span class="d">   in the ledger, not claimed</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">Every day names the rows behind it: the file's by its line, the ledger's by its title and amount. <b>Recommended:</b> you see the duplicate straight away, without leaving the import.</p></div><div class="var"><div class="oh">C · <span>the ledger's rows mixed into the table</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+ <span class="w">!</span>  4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+ <span class="w">!</span>     <span class="d">2026-09-12</span>  <span class="d">Farmacia              </span>  <span class="n">   -42.00</span>  <span class="w">ledger only</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+ <span class="w">!</span>     <span class="d">2026-09-10</span>  <span class="d">Cine                  </span>  <span class="n">   -28.00</span>  <span class="w">ledger only</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+  <span class="d">… 8 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+  <span class="w">! 3 days where the file and the ledger disagree, marked !</span>
+      2026-09-12   file <span class="n">-42.90</span>   ledger <span class="n">-84.90</span>
+      2026-09-10   file   0.00   ledger <span class="n">-28.00</span>
+      2026-09-07   file <span class="n"> -3.50</span>   ledger <span class="n"> -7.00</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">Rows on a disagreeing day carry <code>!</code>, and the ledger rows no file row claimed sit in the table among the file's, dim, as <code>ledger only</code>. Everything in one list, but the list is no longer only the file.</p></div></div><p class="blurb">B and C show the ledger rows' titles and amounts. The engine sends only which ledger rows they are, so the app would read each one (one read per row). That is a question at the bottom of this page. On a card file, whose two currencies are two accounts, each day also names its account: <code>2026-09-12 · BCP Signature USD</code>.</p></div><div class="pane"><div class="lbl">3 · After importing <span>— the same days, now as the ledger stands</span></div><p class="blurb">The approved result screen, with two new lines: the new rows now also carry the pending hashtag, and the count of ledger rows that took the bank's title (the engine's count). The days are the engine's answer to the import itself, drawn the way you pick in screen 2 (B here). The warning keeps the wording you approved for after an import.</p><div class="var"><div class="oh"><span>drawn with screen 2 B</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="p">✓ 9 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente and #Pendiente</span>
+    <span class="d">2 rows in the ledger took the bank's title</span>
+
+  <span class="w">! 3 days where the ledger may now hold the same movement twice —</span>
+  <span class="w">  check them and delete the extra one</span>
+      2026-09-12   file <span class="n">-42.90</span><span class="d"> · ledger </span><span class="n">-84.90</span>
+        <span class="a">row 4</span>   FARMACIA CENTRAL    <span class="n">  -42.90</span><span class="d">   in the file, not found</span>
+                Farmacia            <span class="n">  -42.00</span><span class="d">   in the ledger, not claimed</span>
+      2026-09-10   file   0.00<span class="d"> · ledger </span><span class="n">-28.00</span>
+                Cine                <span class="n">  -28.00</span><span class="d">   in the ledger, not claimed</span>
+      2026-09-07   file <span class="n"> -3.50</span><span class="d"> · ledger </span><span class="n"> -7.00</span>
+                Cafe                <span class="n">   -3.50</span><span class="d">   in the ledger, not claimed</span>
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap"><code>under @Pendiente and #Pendiente</code> is new wording; the rest of the head is today's.</p></div></div><div class="pane"><div class="lbl">4 · Something changed a row while the import ran <span>— CONFLICT, CONCURRENT_CHANGE</span></div><p class="blurb">You press <code>⏎ Import 9 rows</code>. Just before the engine writes, it checks every row it found again. If something else split, deleted or changed one of those ledger rows in the meantime (another screen, another device), it writes nothing and says which file row. The engine's two sentences here are stand-ins: its exact words show once it is built.</p><div class="opt"><div class="var"><div class="oh">A · <span>⏎ asks the engine again first: a fresh preview</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+
+  <span class="n">CONFLICT — The ledger changed while the import ran.</span>
+  <span class="n">! row 6: Another request changed this row's ledger line. Send it again.</span>
+  <span class="d">Nothing was written.</span>
+
+  It changed while the import ran: ⏎ checks the file against the ledger again.
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Preview again</pre></div></div><p class="cap"><code>⏎</code> runs the preview again on the ledger as it is now, and the footer goes back to <code>⏎ Import N rows</code>. <b>Recommended:</b> the ledger changed, so what is new may have changed too; you see it before anything is written.</p></div><div class="var"><div class="oh">B · <span>⏎ writes again straight away</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-09-15  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-09-14  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day · +title</span>
+    4  2026-09-12  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-09-11  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-09-11  TOTTUS JOCKEY PLAZA     <span class="n">  -100.00</span>  <span class="d">in ledger · same day · +title</span>
+    7  2026-09-09  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    8  2026-09-07  CAFE ANDINO LIMA PE     <span class="n">    -3.50</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 2 take the bank's title
+
+  <span class="n">CONFLICT — The ledger changed while the import ran.</span>
+  <span class="n">! row 6: Another request changed this row's ledger line. Send it again.</span>
+  <span class="d">Nothing was written.</span>
+
+  It changed while the import ran: ⏎ imports it again.
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import again</pre></div></div><p class="cap">One key fewer. The engine still matches again, so nothing is written twice, but you do not see the new preview first.</p></div></div></div>
+<div class="pick"><b>To answer:</b> one letter for screen 1, screen 2 and screen 4, and “ok” (or new wording) for screen 3.<br><b>Recommended:</b> 1 A · 2 B · 4 A.<br><b>One more question, beyond the pick:</b> 2 B and 2 C show the titles of the ledger rows no file row claimed. The engine sends only which rows they are, so the app would read each one separately. Should we ask the engine to send each row's title and amount with the answer instead (<b>recommended</b>: one answer instead of one read per row, and every future app gets it), or is the extra reading fine?</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Ledger · the parts of one purchase, together</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Ledger · the parts of one purchase, together</h1>
+  <p>A purchase can now be split into parts (the split screen has its own mockup): one bank charge of -100.00 at Tottus can be -60.00 of COMIDA and -40.00 of HOGAR. This page is how the ledger shows those parts: together, under the purchase's title and total.</p><p>The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">1 · The whole ledger <span>— a purchase in parts, a single row, the cursor and a selection</span></div><p class="blurb">Two purchases are split: <b>Tottus Jockey Plaza</b>, -100.00 in two parts, and <b>Plaza Vea</b>, -235.40 in three. Every other row is one purchase in one row and looks exactly as today. A part has its own note (the Description column), amount, category and hashtags; the title, date and account are the purchase's, so they are written once, on the purchase's line. The ledger keeps its newest-first order: the parts of one purchase have the same date and sit together.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>the purchase is a label; the cursor moves over its parts</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                             <span class="n">   -18.50</span>  2026-10-12  Sueldo Soles   COMIDA       almuerzo   
+      Tottus Jockey Plaza                     <span class="n">  -100.00</span>  2026-10-11  Sueldo Soles   <span class="d">2 parts    </span>             
+        <span class="rev">├                   verduras             -60.00                             COMIDA       casa       </span>
+        └                   lejía y papel     <span class="n">   -40.00</span>                             HOGAR        Pendiente  
+      Uber                  al aeropuerto     <span class="n">   -42.00</span>  2026-10-11  Sueldo Soles   TRANSPORTE   viaje-cusco
+      Plaza Vea                               <span class="n">  -235.40</span>  2026-10-08  Sueldo Soles   <span class="d">3 parts    </span>             
+        ├                   mercado semanal   <span class="n">  -150.00</span>                             COMIDA       casa       
+<span class="a">    </span><span class="a">● </span><span class="a">  ├                 </span><span class="a">  </span><span class="a">limpieza        </span><span class="a">  </span><span class="a">   -60.40</span><span class="a">  </span><span class="a">          </span><span class="a">  </span><span class="a">             </span><span class="a">  </span><span class="a">HOGAR      </span><span class="a">  </span><span class="a">casa       </span>
+        └                   flores            <span class="n">   -25.00</span>                             REGALOS      Pendiente  
+      Pago planilla                           <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo    
+      Netflix                                 <span class="n">   -44.90</span>  2026-10-04  BCP Signature  SUSCRIPCION  casa       
+
+     <span class="d">no filter · 10 of 133 loaded · 1 selected</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags</pre></div></div><p class="cap">The purchase's line carries its title, total, date, account and <code>2 parts</code>. The cursor skips it and stops on each part, so every key keeps its meaning: <code>⏎</code> edits the part, <code>space</code> selects it, <code>c b h</code> change it. Here the cursor is on Tottus's first part and one Plaza Vea part is selected. <b>Recommended:</b> every row the cursor stops on is one transaction, as today.</p></div><div class="var"><div class="oh">B · <span>a purchase folds into one line; → shows its parts</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                             <span class="n">   -18.50</span>  2026-10-12  Sueldo Soles   COMIDA       almuerzo   
+      ▼ Tottus Jockey Pl…                     <span class="n">  -100.00</span>  2026-10-11  Sueldo Soles   <span class="d">2 parts    </span>             
+        <span class="rev">├                   verduras             -60.00                             COMIDA       casa       </span>
+        └                   lejía y papel     <span class="n">   -40.00</span>                             HOGAR        Pendiente  
+      Uber                  al aeropuerto     <span class="n">   -42.00</span>  2026-10-11  Sueldo Soles   TRANSPORTE   viaje-cusco
+<span class="a">    </span><span class="a">● </span><span class="a">▶ Plaza Vea         </span><span class="a">  </span><span class="a">                </span><span class="a">  </span><span class="a">  -235.40</span><span class="a">  </span><span class="a">2026-10-08</span><span class="a">  </span><span class="a">Sueldo Soles </span><span class="a">  </span><span class="a">3 parts    </span><span class="a">  </span><span class="a">           </span>
+      Pago planilla                           <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo    
+      Netflix                                 <span class="n">   -44.90</span>  2026-10-04  BCP Signature  SUSCRIPCION  casa       
+
+     <span class="d">no filter · 10 of 133 loaded · 3 selected</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">→</span> Parts  <span class="a">←</span> Fold  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags</pre></div></div><p class="cap">Like Home's categories: <code>▶</code> folded, <code>▼</code> open, <code>→</code>/<code>←</code> to open and fold. Selecting a folded purchase selects all its parts (here Plaza Vea, 3 rows). Shorter list, two more keys, and the parts are hidden until you open them.</p></div><div class="var"><div class="oh">C · <span>the cursor also stops on the purchase's line</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                             <span class="n">   -18.50</span>  2026-10-12  Sueldo Soles   COMIDA       almuerzo   
+      <span class="rev">Tottus Jockey Plaza                       -100.00  2026-10-11  Sueldo Soles   2 parts                 </span>
+        ├                   verduras          <span class="n">   -60.00</span>                             COMIDA       casa       
+        └                   lejía y papel     <span class="n">   -40.00</span>                             HOGAR        Pendiente  
+      Uber                  al aeropuerto     <span class="n">   -42.00</span>  2026-10-11  Sueldo Soles   TRANSPORTE   viaje-cusco
+<span class="a">    </span><span class="a">● </span><span class="a">Plaza Vea           </span><span class="a">  </span><span class="a">                </span><span class="a">  </span><span class="a">  -235.40</span><span class="a">  </span><span class="a">2026-10-08</span><span class="a">  </span><span class="a">Sueldo Soles </span><span class="a">  </span><span class="a">3 parts    </span><span class="a">  </span><span class="a">           </span>
+<span class="a">    </span><span class="a">● </span><span class="a">  ├                 </span><span class="a">  </span><span class="a">mercado semanal </span><span class="a">  </span><span class="a">  -150.00</span><span class="a">  </span><span class="a">          </span><span class="a">  </span><span class="a">             </span><span class="a">  </span><span class="a">COMIDA     </span><span class="a">  </span><span class="a">casa       </span>
+<span class="a">    </span><span class="a">● </span><span class="a">  ├                 </span><span class="a">  </span><span class="a">limpieza        </span><span class="a">  </span><span class="a">   -60.40</span><span class="a">  </span><span class="a">          </span><span class="a">  </span><span class="a">             </span><span class="a">  </span><span class="a">HOGAR      </span><span class="a">  </span><span class="a">casa       </span>
+<span class="a">    </span><span class="a">● </span><span class="a">  └                 </span><span class="a">  </span><span class="a">flores          </span><span class="a">  </span><span class="a">   -25.00</span><span class="a">  </span><span class="a">          </span><span class="a">  </span><span class="a">             </span><span class="a">  </span><span class="a">REGALOS    </span><span class="a">  </span><span class="a">Pendiente  </span>
+      Pago planilla                           <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo    
+      Netflix                                 <span class="n">   -44.90</span>  2026-10-04  BCP Signature  SUSCRIPCION  casa       
+
+     <span class="d">no filter · 10 of 133 loaded · 3 selected</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags</pre></div></div><p class="cap">The purchase's line is a row: <code>space</code> on it selects all its parts (Plaza Vea here), <code>⏎</code> on it opens the split. The cursor is on Tottus's line. One more stop per purchase, and <code>c</code> on that line changes every part at once.</p></div></div><p class="blurb">In A and C, the footer is the one with a selection (no <code>s</code> and <code>d</code>, which act on the cursor row only). <code>s Split</code> is drawn in its own mockup. A purchase's parts all load together: if the newest ten rows would end between two parts, how the total is known is the question at the bottom of the page.</p></div><div class="pane"><div class="lbl">2 · A ledger filtered from Home <span>— Ledger ▸ COMIDA holds only the COMIDA parts</span></div><p class="blurb">From Home, <code>⏎</code> on COMIDA lists the transactions in COMIDA. Of the two split purchases, only one part of each is in COMIDA.</p><div class="opt wide"><div class="var"><div class="oh">A · <span>a part shows as a plain row</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">COMIDA</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="rev">Cafe Andino                                -18.50  2026-10-12  Sueldo Soles   COMIDA       almuerzo   </span>
+      Tottus Jockey Plaza   verduras          <span class="n">   -60.00</span>  2026-10-11  Sueldo Soles   COMIDA       casa       
+      Plaza Vea             mercado semanal   <span class="n">  -150.00</span>  2026-10-08  Sueldo Soles   COMIDA       casa       
+
+     <span class="d">filter: category COMIDA · 3 of 3 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">Each part is one row with the purchase's title and its own amount, like any transaction. <b>Recommended:</b> a filtered list is for sorting rows into categories, and the row you sort is the part; the app also needs nothing more from the engine for it.</p></div><div class="var"><div class="oh">B · <span>the purchase's line stays above its part</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">COMIDA</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      <span class="rev">Cafe Andino                                -18.50  2026-10-12  Sueldo Soles   COMIDA       almuerzo   </span>
+      Tottus Jockey Plaza                     <span class="n">  -100.00</span>  2026-10-11  Sueldo Soles   <span class="d">2 parts    </span>  <span class="d">1 here     </span>
+        └                   verduras          <span class="n">   -60.00</span>                             COMIDA       casa       
+      Plaza Vea                               <span class="n">  -235.40</span>  2026-10-08  Sueldo Soles   <span class="d">3 parts    </span>  <span class="d">1 here     </span>
+        └                   mercado semanal   <span class="n">  -150.00</span>                             COMIDA       casa       
+
+     <span class="d">filter: category COMIDA · 3 of 3 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">You still see that it is part of a bigger purchase, and its total. The total and <code>2 parts · 1 here</code> cover parts this list does not hold, so the engine would have to send them.</p></div></div></div>
+<div class="pick"><b>To answer:</b> one letter for screen 1 and one for screen 2.<br><b>Recommended:</b> 1 A · 2 A.<br><b>One more question, beyond the pick:</b> the purchase's total and its <code>2 parts</code> are the sum and count of the purchase's parts. Today the engine says only which purchase each row belongs to, so the app would add up the parts it has loaded, and when a page ends between two parts it would have to read on until it has them all. Should we ask the engine to send each row's purchase total and number of parts (and to list one purchase's parts on request), <b>recommended</b>, so no app ever adds them up itself? Or should the app add up what it loads?</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

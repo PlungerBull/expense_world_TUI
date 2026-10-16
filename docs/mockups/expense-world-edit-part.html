@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Edit · a part of a split purchase</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Edit · a part of a split purchase</h1>
+  <p>The Edit form (<code>⏎</code> on a ledger row) on one part of a split purchase. What is new: it says which changes reach every part, and a refusal caused by another part says which part. The split and the ledger have their own mockups.</p><p>The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">1 · Editing one part <span>— ⏎ on Tottus's first part: -60.00, COMIDA, verduras</span></div><p class="blurb">A part's amount, category, hashtags and note are its own. Its date, title and account are the purchase's: change one of them here and the engine writes it on every part, in one go. The form says so before you save. On a row that is not split, the form is exactly as today.</p><div class="opt"><div class="var"><div class="oh">A · <span>one line over the fields, always there</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">TITLE           </span>Tottus Jockey Plaza<span class="a">▍</span>
+
+
+   <span class="d">free text · enter to save</span>
+
+   <span class="a">A part of a purchase: date, title and account change every part.</span>
+
+   date      2026-10-11
+   <span class="b">title     </span>Tottus Jockey Plaza
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles
+   category  COMIDA
+   hashtags  #casa
+   note      verduras
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">A sentence above the fields says it once for the three of them. Clear, but it sits away from the values it is about.</p></div><div class="var"><div class="oh">B · <span>in the hint, only on date, title and account</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">TITLE           </span>Tottus Jockey Plaza<span class="a">▍</span>
+
+
+   <span class="d">free text · enter to save · </span><span class="a">changes every part of the purchase</span>
+
+
+
+   date      2026-10-11
+   <span class="b">title     </span>Tottus Jockey Plaza
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles
+   category  COMIDA
+   hashtags  #casa
+   note      verduras
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The hint under the bar adds it while you are on one of the three fields, and says nothing on the others. Quiet, but gone once you move on, and <code>^s</code> saves from any field.</p></div><div class="var"><div class="oh">C · <span>beside each of the three fields</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">TITLE           </span>Tottus Jockey Plaza<span class="a">▍</span>
+
+
+   <span class="d">free text · enter to save</span>
+
+
+
+   date      2026-10-11           <span class="a">every part</span>
+   <span class="b">title     </span>Tottus Jockey Plaza  <span class="a">every part</span>
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles         <span class="a">every part</span>
+   category  COMIDA
+   hashtags  #casa
+   note      verduras
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap"><code>every part</code> stays next to date, title and account the whole time the form is open. <b>Recommended:</b> you see it next to the value, before you change it and before you save.</p></div></div></div><div class="pane"><div class="lbl">2 · A refusal caused by the other part <span>— the engine names the part by its id</span></div><p class="blurb">You move Tottus's first part to 2026-10-10. Its second part (-40.00, HOGAR) is in a completed reconciliation, so its date is locked, and the engine refuses the whole change: nothing is written on either part. Its message names the part that caused it, by the part's id. The sentence is the engine's real wording; the first line is a stand-in. The form stays open with what you typed.</p><div class="opt"><div class="var"><div class="oh">A · <span>the engine's words, as sent</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">DATE            </span>2026-10-10<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   <span class="b">date      </span>2026-10-10           <span class="a">every part</span>
+   title     Tottus Jockey Plaza  <span class="a">every part</span>
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles         <span class="a">every part</span>
+   category  COMIDA
+   hashtags  #casa
+   note      verduras
+
+                                  <span class="n">▌</span> <span class="b">Failed</span>
+                                  <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
+                                  <span class="n">▌</span>   date: Another part of this bank line
+                                  <span class="n">▌</span>   (8c41e2d0-5b7a-4f3e-9d21-6a0c3b9f7e15) is the
+                                  <span class="n">▌</span>   cause: Locked by completed reconciliation.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The note as every refusal shows it. The part is named only by its long id.</p></div><div class="var"><div class="oh">B · <span>the engine's words, then which part that is</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">DATE            </span>2026-10-10<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   <span class="b">date      </span>2026-10-10           <span class="a">every part</span>
+   title     Tottus Jockey Plaza  <span class="a">every part</span>
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles         <span class="a">every part</span>
+   category  COMIDA
+   hashtags  #casa
+   note      verduras
+
+                                  <span class="n">▌</span> <span class="b">Failed</span>
+                                  <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
+                                  <span class="n">▌</span>   date: Another part of this bank line
+                                  <span class="n">▌</span>   (8c41e2d0-5b7a-4f3e-9d21-6a0c3b9f7e15) is the
+                                  <span class="n">▌</span>   cause: Locked by completed reconciliation.
+                                  <span class="n">▌</span>
+                                  <span class="n">▌</span> That part: -40.00 · HOGAR · lejía y papel.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Under the engine's words, one line of the app's names that part the way the ledger shows it. The app only looks the id up among the purchase's parts. <b>Recommended:</b> an id tells you nothing; its amount, category and note do.</p></div></div></div>
+<div class="pick"><b>To answer:</b> one letter for screen 1 and one for screen 2.<br><b>Recommended:</b> 1 C · 2 B.<br><b>Questions beyond the pick:</b><ul><li>The spec says “description, date and account”. On the form the purchase's name is <b>title</b>, and <b>note</b> is the part's own, so this page says title. Is that what you meant?</li><li>To show <code>every part</code> only on parts (and to name the part in 2 B), the form must know the row is one of several parts and which they are. That is the same engine question as in the ledger and split mockups: a way to read one purchase's parts.</li></ul></div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
