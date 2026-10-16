@@ -16,6 +16,10 @@ Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
 only the changed fields; a changed account also sends `reconciliation_id: null`,
 so the move takes the row out of its reconciliation (`unassign_on_move`).
+A hashtag set that names a real hashtag never carries the pending one: tagging a
+pending row sends only the real hashtags (`hashtags_to_send`), and an emptied set
+sends `[]`, which the engine files under the pending hashtag
+(contract: PUT /v1/transactions/{transaction_id}).
 
 On an opening balance (a row filed under @Opening) account and category show
 read-only and are never sent: the engine keeps such a row on its account and in
@@ -41,7 +45,7 @@ from expense.errors import format_error
 from expense.formatting import format_cents, resolve_name
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
-from expense.reads import load_quickadd_refs
+from expense.reads import hashtags_to_send, load_quickadd_refs
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.widgets.picker import suggestion_list
@@ -109,6 +113,7 @@ class EditFormScreen(FormScreen):
         self._accounts: list = []
         self._categories: list = []
         self._hashtags: list = []
+        self._pending_tag: str | None = None
         self._original: dict = {}
         self._leaves_reconciliation = False
 
@@ -175,10 +180,14 @@ class EditFormScreen(FormScreen):
             refs.hashtags,
             maps,
             refs.opening,
+            refs.pending_hashtag_id,
         )
 
-    def _set_entities(self, accounts, categories, hashtags, maps, opening=None) -> None:
+    def _set_entities(
+        self, accounts, categories, hashtags, maps, opening=None, pending_tag=None
+    ) -> None:
         self._accounts, self._categories, self._hashtags = accounts, categories, hashtags
+        self._pending_tag = pending_tag
         self._acc_names, self._cat_names, self._tag_names_map = maps
         if opening is not None and self._record.get("category_id") == opening:
             # an opening balance: the two fields it can never change show
@@ -335,7 +344,9 @@ class EditFormScreen(FormScreen):
             elif key == "note":
                 payload["description"] = new or None
             elif key == "hashtags":
-                payload["hashtag_ids"] = new or []
+                tags = hashtags_to_send(new or [], self._pending_tag)
+                if tags != (self._original.get("hashtags") or []):
+                    payload["hashtag_ids"] = tags
             else:
                 payload[engine_field] = new
         return payload

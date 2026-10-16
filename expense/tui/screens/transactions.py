@@ -16,8 +16,9 @@ account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
 when nothing is selected. Each opens `PickerModal`; the write is one
 `PUT /transactions/{id}` per row, in order — an account move adds
 `reconciliation_id: null` to each row whose account changes, so it leaves its
-reconciliation — and then the list reads fresh
-from the newest 10, so on a filtered list the changed
+reconciliation, and a hashtag pick that names a real hashtag drops the pending
+one (`hashtags_to_send`) (contract: PUT /v1/transactions/{transaction_id}) — and
+then the list reads fresh from the newest 10, so on a filtered list the changed
 rows leave at once. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
@@ -46,6 +47,7 @@ from expense.errors import format_error, refuses_every_write
 from expense.formatting import format_hashtag_cell, format_short_date, resolve_name
 from expense.reads import (
     ENGINE_PAGE_CAP,
+    hashtags_to_send,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
@@ -498,6 +500,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         names = dict(self._picker_options(kind))
         if kind == "hashtags":
             ids = list(picked) if isinstance(picked, list) else [picked]
+            ids = hashtags_to_send(ids, self._refs.pending_hashtag_id if self._refs else None)
             label = " ".join("#" + names.get(i, i) for i in ids) or "(no tags)"
             payload = {"hashtag_ids": ids}
         else:

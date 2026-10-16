@@ -11,7 +11,7 @@ Nothing here writes to the engine. One function writes locally:
 file, and `fetch_me` calls it on every read.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -518,6 +518,26 @@ def fetch_pending_hashtag(cfg, *, verbose: bool = False) -> tuple[str, str] | No
     return pending_hashtag_of(items_of(fetch_hashtags(cfg, verbose=verbose)))
 
 
+def hashtags_to_send(ids: Iterable[str], pending_id: str | None) -> list[str]:
+    """The `hashtag_ids` a write sends: `ids` without the pending hashtag
+    whenever a real hashtag is among them.
+
+    The pending hashtag is only ever a transaction's sole hashtag; naming it
+    beside another is refused (`PENDING_HASHTAG_NOT_ALONE`), and a set of real
+    hashtags replaces it on its own
+    (contract: "Transactions (Ledger)", "The pending hashtag is never combined").
+    So tagging a pending row sends only the real ones, the pending one alone
+    stays as sent, and `[]` stays `[]`, which the engine files under the
+    pending hashtag. `pending_id` is `QuickAddRefs.pending_hashtag_id`, found
+    by its system key; None (the user has none yet) leaves `ids` as they are.
+    One copy for every hashtag write: the edit form, the ledger's bulk `h` and
+    the LOG bar.
+    """
+    ids = list(ids)
+    real = [i for i in ids if i != pending_id]
+    return real if real and pending_id is not None else ids
+
+
 def account_choices(
     items: list, *, include_people: bool = True, with_balance: bool = False
 ) -> list[tuple]:
@@ -567,6 +587,16 @@ class QuickAddRefs:
     # category the engine never lets change; the edit form reads it to show
     # those two fields read-only.
     opening: str | None = None
+    # `(id, name)` of the built-in pending hashtag, or None until the engine
+    # has created it. It stays in `hashtags`, so it can be named; every
+    # hashtag write drops it beside a real one (`hashtags_to_send`).
+    pending_hashtag: tuple[str, str] | None = None
+
+    @property
+    def pending_hashtag_id(self) -> str | None:
+        """The pending hashtag's id, what `hashtags_to_send` takes; None when
+        the user has none yet."""
+        return self.pending_hashtag[0] if self.pending_hashtag else None
 
 
 def pending_label(refs: "QuickAddRefs") -> str:
@@ -633,4 +663,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         hashtag_names=_id_name_map(tags),
         pending=_pending_of(cats),
         opening=_opening_of(cats),
+        pending_hashtag=pending_hashtag_of(tags),
     )

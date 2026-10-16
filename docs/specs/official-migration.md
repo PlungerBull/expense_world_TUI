@@ -57,7 +57,8 @@ engine.
 
 1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
    `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
-   creates neither name. The pending hashtag is found by `reads.pending_hashtag_of`.
+   creates neither name. The pending hashtag is found by `reads.pending_hashtag_of`, and a row
+   tagged both pending and real sends only the real one (`reads.hashtags_to_send`).
 2. A written run sheet for the owner: every command in order, with what to check after each —
    the wipe, the sheet import, then for each 2026 month: upload that month's statement, fix the
    days that disagree (a split, a duplicate), complete that month's reconciliation.

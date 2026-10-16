@@ -1007,8 +1007,15 @@ class LogBarScreen(Screen):
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 if rows:
+                    pending = self._refs.pending_hashtag_id if self._refs else None
                     items = [
-                        transaction_payload(e.parsed, row_id=e.row_id, date=e.date) for e in rows
+                        transaction_payload(
+                            e.parsed,
+                            row_id=e.row_id,
+                            date=e.date,
+                            pending_hashtag_id=pending,
+                        )
+                        for e in rows
                     ]
                     outcome = post_transaction_batch(client, items, error_text=format_error)
                     call_while_attached(self, self._apply_outcome, rows, outcome)

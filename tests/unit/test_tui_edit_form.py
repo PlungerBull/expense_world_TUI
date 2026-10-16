@@ -21,7 +21,10 @@ from expense.tui.screens.edit_form import EditFormScreen
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
+    HASHTAG_REFUSALS,
+    hashtag_refusal,
     in_order,
+    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -666,3 +669,88 @@ def test_form_footer_reads_cancel_submit_field(fake_client, monkeypatch, make, s
         assert app.focused is screen.query_one("#bar", Input)
 
     run_app(scenario)
+
+
+# ---- the pending hashtag never rides beside a real one -------------------------
+# (contract: PUT /v1/transactions/{transaction_id})
+# (contract: "Transactions (Ledger)", "The pending hashtag is never combined")
+
+PENDING_TAG = {"id": "hp", "name": "Pendiente", "system_key": "pending"}
+WITH_PENDING = {"items": [{**t, "system_key": None} for t in HASHTAGS["items"]] + [PENDING_TAG]}
+ON_PENDING = {**TXN, "hashtag_ids": ["hp"]}
+
+
+def _tag_and_save(record, typed, fake_client, monkeypatch, *, tags=WITH_PENDING, settle=None):
+    """Open the form on `record`, add each hashtag `typed` names, save; returns
+    the notices once `settle(notices)` holds (by default: a PUT went out)."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: tags)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("hashtags")
+        for text in typed:
+            _enter(screen, text)
+        screen.action_submit()
+        await wait_for(pilot, lambda: (settle or (lambda n: fake_client.puts))(notices))
+
+    run_app(scenario)
+    return notices
+
+
+def test_tagging_a_pending_row_sends_only_the_real_hashtag(fake_client, monkeypatch):
+    """The row carries the pending hashtag; adding #dog sends `["h1"]` alone,
+    never the pending id beside it."""
+    _tag_and_save(ON_PENDING, ["dog"], fake_client, monkeypatch)
+    assert fake_client.puts == [("/transactions/tx1", {"hashtag_ids": ["h1"]})]
+
+
+def test_naming_the_pending_hashtag_beside_a_real_one_drops_it(fake_client, monkeypatch):
+    """A row on #dog given the pending hashtag too keeps #dog alone: the set
+    is unchanged, so nothing is sent."""
+    notices = _tag_and_save(TXN, ["pend"], fake_client, monkeypatch, settle=bool)
+    assert not fake_client.puts
+    assert notices == [("", "No changes to save.")]
+
+
+def test_an_emptied_set_sends_an_empty_list(fake_client, monkeypatch):
+    """Every hashtag taken off sends `[]`: the engine files the row under the
+    pending hashtag; the client never sends the pending id for it."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: WITH_PENDING)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._values["hashtags"] = []
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"hashtag_ids": []})]
+
+
+def test_with_no_pending_hashtag_yet_the_set_goes_as_picked(fake_client, monkeypatch):
+    """The user has no pending hashtag yet (none carries `system_key`
+    `pending`), so nothing is dropped; a user hashtag named like it is not it."""
+    named_like_it = {"items": [{"id": "hx", "name": "Pendiente", "system_key": None}]}
+    record = {**TXN, "hashtag_ids": ["hx"]}
+    tags = {"items": HASHTAGS["items"] + named_like_it["items"]}
+    _tag_and_save(record, ["dog"], fake_client, monkeypatch, tags=tags)
+    assert fake_client.puts == [("/transactions/tx1", {"hashtag_ids": ["hx", "h1"]})]
+
+
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+def test_a_hashtag_refusal_on_the_form_shows_as_sent(
+    fake_client, monkeypatch, code, status, reason, line
+):
+    """The engine's words whole, then its line if the reason has one; the form
+    stays."""
+    err = hashtag_refusal(code, status, reason)
+    fake_client.errors["PUT"] = err
+    notices = _tag_and_save(ON_PENDING, ["dog"], fake_client, monkeypatch, settle=bool)
+    assert notices == [("Failed", refusal_text(err, line))]

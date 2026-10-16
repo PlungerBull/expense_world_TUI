@@ -413,8 +413,30 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  hashtag_id: stand-in field words\n\n"
             "It changed at the same moment: press r, then try again.",
         ),
+        # a user hashtag holds the pending hashtag's name: the engine's words
+        # name the remedy, and the category line stays off
+        # (contract: "Hashtags", "When the engine creates it")
+        (
+            HashtagsScreen,
+            "fetch_hashtags",
+            _hashtag(1),
+            "hashtags/h1",
+            409,
+            "CONFLICT",
+            "Rename the hashtag named Pendiente, then retry.",
+            "hashtag_id",
+            "RESERVED_NAME_HELD",
+            "CONFLICT — Rename the hashtag named Pendiente, then retry.\n"
+            "  hashtag_id: stand-in field words",
+        ),
     ],
-    ids=["account-has-transactions", "category-has-transactions", "system-category", "race"],
+    ids=[
+        "account-has-transactions",
+        "category-has-transactions",
+        "system-category",
+        "race",
+        "pending-name-held",
+    ],
 )
 def test_a_refusal_shows_the_engine_words_and_what_to_do(
     configured, monkeypatch, make, fetch, row, path, status, code, words, key, reason, note

@@ -72,12 +72,8 @@ before it is built.
 ## Tasks
 
 Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; the build waits for
-the owner's pick. Task 2 changes no screen's look. Task 1 is done.
+the owner's pick. Tasks 1 and 2 are done.
 
-2. Every hashtag write follows the pending rule: the edit form, the bulk hashtag pick and the
-   LOG bar never send the pending hashtag together with a real one, and the engine's hashtag
-   refusals (`PENDING_HASHTAG_NOT_ALONE`, `RESERVED_NAME_HELD`, `CONCURRENT_CHANGE`,
-   `INVALID_REFERENCE`) show as sent.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
@@ -87,7 +83,9 @@ the owner's pick. Task 2 changes no screen's look. Task 1 is done.
 6. **[UI]** The edit form's note that description, date and account reach every part, and its
    refusal naming the part.
 7. **[UI]** The pending hashtag on Home: its row under its current name, `⏎` listing the
-   transactions still waiting for a hashtag, and no "(no hashtags)" row.
+   transactions still waiting for a hashtag, and no "(no hashtags)" row. The mockup also shows
+   the edit form and the LOG bar's staged line when the owner names a real hashtag on a pending
+   row: the save sends only the real one, and the screen today still lists both.
 8. **[UI]** The hashtags screen marks the pending hashtag and offers no delete on it, with the
    `SYSTEM_HASHTAG` and `RESERVED_NAME` refusals; an opening balance's edit form offers no
    hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.

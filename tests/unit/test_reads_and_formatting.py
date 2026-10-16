@@ -26,6 +26,7 @@ from expense.reads import (
     account_choices,
     fetch_all_cursor_pages,
     fetch_body,
+    hashtags_to_send,
     items_of,
     load_account_name_map,
     load_category_name_map,
@@ -594,6 +595,54 @@ def test_load_quickadd_refs_reads_every_hashtag_in_one_call(configured):
     assert route.call_count == 1
     params = route.calls.last.request.url.params
     assert "limit" not in params and "offset" not in params
+
+
+@respx.mock
+def test_load_quickadd_refs_names_the_pending_hashtag_by_its_system_key(configured):
+    """The pending hashtag is found by `system_key`, never by its name, from the
+    same hashtags read, and stays in the pool; none yet means None."""
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=_list_body([]))
+    respx.get(f"{BASE}/v1/categories").mock(return_value=_list_body([]))
+    tags = respx.get(f"{BASE}/v1/hashtags")
+    tags.mock(
+        return_value=_list_body(
+            [
+                {"id": "h1", "name": "Pendiente", "system_key": None},
+                {"id": "hp", "name": "Por etiquetar", "system_key": "pending"},
+            ]
+        )
+    )
+
+    refs = load_quickadd_refs(config_module.ensure_loaded())
+
+    assert refs.pending_hashtag == ("hp", "Por etiquetar")
+    assert refs.pending_hashtag_id == "hp"
+    assert ("hp", "Por etiquetar") in refs.hashtags
+    assert tags.call_count == 1
+    tags.mock(return_value=_list_body([{"id": "h1", "name": "Pendiente", "system_key": None}]))
+    none_yet = load_quickadd_refs(config_module.ensure_loaded())
+    assert none_yet.pending_hashtag is None and none_yet.pending_hashtag_id is None
+
+
+@pytest.mark.parametrize(
+    ("ids", "pending", "sent"),
+    [
+        # tagging a pending row: only the real hashtags go, in their order
+        (["hp", "h1"], "hp", ["h1"]),
+        (["h1", "hp", "h2"], "hp", ["h1", "h2"]),
+        # the pending hashtag alone, or no hashtag, goes as it is
+        (["hp"], "hp", ["hp"]),
+        ([], "hp", []),
+        (["h1", "h2"], "hp", ["h1", "h2"]),
+        # no pending hashtag yet: nothing to drop
+        (["h1", "h2"], None, ["h1", "h2"]),
+        ([], None, []),
+    ],
+)
+def test_hashtags_to_send_drops_the_pending_hashtag_beside_a_real_one(ids, pending, sent):
+    """(contract: "Transactions (Ledger)", "The pending hashtag is never combined")"""
+    assert hashtags_to_send(ids, pending) == sent
+    assert hashtags_to_send(tuple(ids), pending) == sent  # a parsed line's tuple too
 
 
 # ---- query_params -----------------------------------------------------------

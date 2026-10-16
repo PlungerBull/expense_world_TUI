@@ -125,6 +125,42 @@ def error_response(
     return httpx.Response(status, json=error_body(code, message, fields, reasons))
 
 
+#: The engine's four refusals of a transaction's hashtag set, as
+#: `(code, status, reason, the app's line under it or None)`: the pending
+#: hashtag beside another, a user hashtag holding its name, its creation racing
+#: another request, a hashtag deleted at the same moment
+#: (contract: "Transactions (Ledger)", "Hashtags on a transaction")
+#: (contract: "Hashtags", "When the engine creates it").
+HASHTAG_REFUSALS = [
+    ("VALIDATION_ERROR", 422, "PENDING_HASHTAG_NOT_ALONE", None),
+    ("CONFLICT", 409, "RESERVED_NAME_HELD", None),
+    ("CONFLICT", 409, "CONCURRENT_CHANGE", "It changed at the same moment: save again."),
+    ("VALIDATION_ERROR", 422, "INVALID_REFERENCE", None),
+]
+
+
+def hashtag_refusal(code: str, status: int, reason: str, *, item: int | None = None) -> EngineError:
+    """One of `HASHTAG_REFUSALS` as the engine sends it. The two `409`s are keyed
+    `hashtag_ids` on every transaction route, a batch included; a `422` in a
+    batch is keyed by its item, `transactions.<item>.hashtag_ids`."""
+    key = "hashtag_ids" if item is None or status == 409 else f"transactions.{item}.hashtag_ids"
+    return EngineError(
+        code,
+        f"Engine words for {reason}.",
+        {key: "stand-in field words"},
+        status,
+        {},
+        reasons={key: reason},
+    )
+
+
+def refusal_text(err: EngineError, line: str | None) -> str:
+    """What the app shows for `err`: the engine's words whole, then its line, if any."""
+    fields = [f"  {k}: {v}" for k, v in (err.fields or {}).items()]
+    words = "\n".join([f"{err.code} — {err.message}", *fields])
+    return words if line is None else f"{words}\n\n{line}"
+
+
 def whole(items: list) -> dict:
     """The whole-list envelope: accounts, categories, hashtags.
     No `total`, `limit` or `offset` — the engine returns every row and refuses

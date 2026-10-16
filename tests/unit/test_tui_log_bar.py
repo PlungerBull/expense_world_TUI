@@ -38,8 +38,11 @@ from expense.tui.theme import ACCENT, PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
+    HASHTAG_REFUSALS,
     cursor_page,
+    hashtag_refusal,
     in_order,
+    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -1644,3 +1647,70 @@ def test_a_typed_path_goes_through_the_same_recognition(fake_client, monkeypatch
         assert handed == [[path]] and screen._staged == []
 
     run_app(scenario)
+
+
+# ---- the pending hashtag never rides beside a real one ---------------------------
+# (contract: "Transactions (Ledger)", "Hashtags on a transaction")
+
+WITH_PENDING = {
+    "items": [
+        {"id": "h1", "name": "CAJA CHICA", "system_key": None},
+        {"id": "h2", "name": "TAXI", "system_key": None},
+        {"id": "hp", "name": "Pendiente", "system_key": "pending"},
+    ]
+}
+PENDING_AND_REAL_LINE = "tottus -38.60 $BCP Signature PEN @KORAKUEN #Pendiente #TAXI"
+
+
+def _save_line(fake_client, monkeypatch, line, *, script=None, tags=WITH_PENDING):
+    """Stage `line` with the pending hashtag in the lists, save it; returns the
+    staged row once the save has run."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: tags)
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, line)
+        if script is not None:
+            _script(fake_client, script)
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+        seen["entry"] = screen._staged[0]
+
+    run_app(scenario)
+    return seen["entry"]
+
+
+def _sent_tags(fake_client) -> list:
+    return [item.get("hashtag_ids") for item in fake_client.posts[0][1]["transactions"]]
+
+
+def test_a_line_naming_the_pending_hashtag_and_a_real_one_sends_the_real_one(
+    fake_client, monkeypatch
+):
+    _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE)
+    assert _sent_tags(fake_client) == [["h2"]]
+
+
+def test_a_line_naming_only_the_pending_hashtag_sends_it_alone(fake_client, monkeypatch):
+    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature PEN #Pendiente")
+    assert _sent_tags(fake_client) == [["hp"]]
+
+
+def test_a_line_with_no_hashtag_sends_none(fake_client, monkeypatch):
+    """No `hashtag_ids` at all: the engine files the row under the pending hashtag."""
+    _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature PEN")
+    assert _sent_tags(fake_client) == [None]
+
+
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+def test_a_hashtag_refusal_on_the_log_bar_shows_as_sent(
+    fake_client, monkeypatch, code, status, reason, line
+):
+    """The row keeps no tick and carries the engine's words whole, then its
+    line if the reason has one: the batch's, then its singleton's refusal."""
+    err = hashtag_refusal(code, status, reason, item=0)
+    entry = _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE, script=[err, err])
+    assert not entry.saved
+    assert entry.error == refusal_text(err, line)

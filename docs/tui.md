@@ -250,6 +250,21 @@ opened the ledger. Title, description, amount and date stay single-row edits beh
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
 month".
 
+**The pending hashtag never rides beside a real one.** The engine files a transaction with no
+hashtag under its built-in pending hashtag and refuses that hashtag together with another
+(`PENDING_HASHTAG_NOT_ALONE`), while a set of real hashtags replaces it on its own
+(contract: "Transactions (Ledger)", "Hashtags on a transaction").
+So every hashtag write sends a set naming a real hashtag without the pending one: the `⏎`
+edit form, `h` on ledger rows and the LOG bar's `#tag` lines, the pending hashtag named
+beside a real one included. The pending hashtag alone goes as picked, an emptied set on the
+edit form sends `[]`, and a LOG bar line with no `#tag` sends no hashtags; the engine files
+both under the pending hashtag. The rule is one helper, `hashtags_to_send` in
+[reads.py](../expense/reads.py); the pending hashtag is `QuickAddRefs.pending_hashtag`, found
+by its `system_key` in the hashtags list the screens already read, and with none yet nothing
+is dropped. A hashtag refusal (`PENDING_HASHTAG_NOT_ALONE`, `RESERVED_NAME_HELD`,
+`CONCURRENT_CHANGE`, `INVALID_REFERENCE`) shows the engine's words whole on all three, with a
+line under it only for `CONCURRENT_CHANGE` ("When the engine says no" below).
+
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`
 rather than a partial total. Opening balances are excluded engine-side. Home's grid
 builder, `formatting.build_range_grid`, is covered by
@@ -375,8 +390,9 @@ line and one line of the app's saying what to do. Screens in
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
-| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, a bank file | `It changed at the same moment: save again.` |
+| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, a bank file, a transaction's hashtags on its Edit form or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
+| `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
@@ -392,7 +408,8 @@ screen that reports a failure through it shows the line. A write sent from a lis
 `d`, and the ending balance saved at `c` on a reconciliation's batch screen, where `r` reads
 it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
-resources share; its key (`account_id` or `category_id`) picks the line. The two
+resources share; its key (`account_id` or `category_id`) picks the line, and the keys
+`hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The two
 opening-balance reasons and `ENDING_BALANCE_REQUIRED` are the table's only `VALIDATION_ERROR`
 rows; any other validation error, `LOCKED` included (the field lock answers first in a completed reconciliation), has
 no line.

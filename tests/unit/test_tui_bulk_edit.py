@@ -27,8 +27,11 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
+    HASHTAG_REFUSALS,
     fake_ledger,
+    hashtag_refusal,
     in_order,
+    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -800,3 +803,77 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
         assert screen._selected == {"t1", "t2", "t3"}  # all stay selected for the retry
 
     run_app(scenario, size=(120, 30))
+
+
+# ---- `h` and the pending hashtag ----------------------------------------------
+# (contract: PUT /v1/transactions/{transaction_id})
+# (contract: "Transactions (Ledger)", "The pending hashtag is never combined")
+
+PENDING_TAG = ("hp", "Pendiente")
+TAGGED_REFS = QuickAddRefs(
+    accounts=ACCOUNTS,
+    categories=CATEGORIES,
+    hashtags=[*HASHTAGS, PENDING_TAG],
+    account_names={i: n for i, n, _c in ACCOUNTS},
+    category_names=dict(CATEGORIES + [PENDING]),
+    hashtag_names=dict([*HASHTAGS, PENDING_TAG]),
+    pending=PENDING,
+    pending_hashtag=PENDING_TAG,
+)
+ON_PENDING = [{**it, "hashtag_ids": ["hp"]} for it in ITEMS]
+
+
+def _pick_tags(fake_client, monkeypatch, typed, *, settle):
+    """`h` on the cursor row (row 1, on the pending hashtag), each of `typed`
+    picked, then applied; returns the toasts once `settle(toasts)` holds."""
+    _stub_ledger(monkeypatch, ON_PENDING)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TAGGED_REFS)
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("h")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        modal = app.screen
+        for text in typed:
+            before = len(modal._picked)
+            await pilot.press(*text, "enter")
+            await wait_for(pilot, lambda n=before + 1: len(modal._picked) == n)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: settle(toasts))
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+    run_app(scenario, size=(120, 30))
+    return toasts
+
+
+def test_h_on_a_pending_row_sends_only_the_real_hashtag(fake_client, monkeypatch):
+    """The pending hashtag picked beside COMIDA is dropped: the PUT names COMIDA
+    alone, and the receipt says what was written."""
+    toasts = _pick_tags(fake_client, monkeypatch, ["pend", "com"], settle=bool)
+    assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1"]})]
+    assert ("", "1 row → #COMIDA") in toasts
+
+
+def test_h_with_the_pending_hashtag_alone_sends_it_alone(fake_client, monkeypatch):
+    """Alone it is a whole set the engine accepts, so it goes as picked."""
+    _pick_tags(fake_client, monkeypatch, ["pend"], settle=bool)
+    assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["hp"]})]
+
+
+@pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
+def test_a_hashtag_refusal_on_h_shows_as_sent(fake_client, monkeypatch, code, status, reason, line):
+    """The "Refused" note names the row, then the engine's words whole and
+    its line if the reason has one."""
+    err = hashtag_refusal(code, status, reason)
+    fake_client.errors["PUT"] = err
+    toasts = _pick_tags(
+        fake_client, monkeypatch, ["com"], settle=lambda t: any(x == "Refused" for x, _ in t)
+    )
+    assert ("Refused", f"row 1: {refusal_text(err, line)}") in toasts

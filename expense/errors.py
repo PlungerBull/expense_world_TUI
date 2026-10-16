@@ -95,14 +95,18 @@ class NextStep:
     `line` is the line on every screen. `on_list` replaces it on a list, where
     `r` reads the list again; elsewhere (a form, the LOG bar, the bank import)
     saving again is the retry. `by_key` picks the line by the reason's key, for
-    the one reason two resources share (contract: "Error reasons").
+    a reason two resources share (contract: "Error reasons"). A key in
+    `no_line_on` draws no line at all.
     """
 
     line: str | None = None
     on_list: str | None = None
     by_key: Mapping[str, str] = field(default_factory=dict)
+    no_line_on: frozenset[str] = frozenset()
 
     def pick(self, key: str, *, on_list: bool) -> str | None:
+        if key in self.no_line_on:
+            return None
         if key in self.by_key:
             return self.by_key[key]
         if on_list and self.on_list is not None:
@@ -144,9 +148,14 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
         "It changed at the same moment: save again.",
         on_list="It changed at the same moment: press r, then try again.",
     ),
+    # On `hashtag_ids` (a transaction write) and `hashtag_id` (a hashtag
+    # delete) a user hashtag holds the pending hashtag's name, and the engine's
+    # message already names the remedy, so the category line stays off
+    # (contract: "Hashtags", "When the engine creates it").
     ("CONFLICT", "RESERVED_NAME_HELD"): NextStep(
         "One of your categories has a built-in category's name: "
-        "rename it on Manage ▸ Categories, then save again."
+        "rename it on Manage ▸ Categories, then save again.",
+        no_line_on=frozenset({"hashtag_ids", "hashtag_id"}),
     ),
     ("CONFLICT", "OPENING_BALANCE_EXISTS"): NextStep(
         "It got one meanwhile: close the form and open it again to change it."

@@ -500,6 +500,20 @@ APP_FAULT = (
             "One of your categories has a built-in category's name: "
             "rename it on Manage ▸ Categories, then save again.",
         ),
+        # a user hashtag holds the pending hashtag's name: the engine's message
+        # names the remedy, so the category line stays off
+        ("CONFLICT", "hashtag_ids", "RESERVED_NAME_HELD", False, None),
+        ("CONFLICT", "hashtag_id", "RESERVED_NAME_HELD", True, None),
+        (
+            "CONFLICT",
+            "hashtag_ids",
+            "CONCURRENT_CHANGE",
+            False,
+            "It changed at the same moment: save again.",
+        ),
+        # the pending hashtag beside another, a hashtag deleted meanwhile: no line
+        ("VALIDATION_ERROR", "hashtag_ids", "PENDING_HASHTAG_NOT_ALONE", False, None),
+        ("VALIDATION_ERROR", "transactions.0.hashtag_ids", "INVALID_REFERENCE", False, None),
         # 7
         (
             "CONFLICT",
@@ -600,7 +614,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
             assert code in REFUSAL_CODES
         assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
         assert isinstance(step, NextStep)
-        for field_key in step.by_key:
+        for field_key in (*step.by_key, *step.no_line_on):
             assert re.fullmatch(r"[a-z_]+", field_key)
     assert {reason for _code, reason in NEXT_STEPS} == {
         "HAS_TRANSACTIONS",
