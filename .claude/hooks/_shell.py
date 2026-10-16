@@ -10,8 +10,10 @@ The split is a tripwire's reading of a command, not a shell parser:
   newline written against the bar count too: `(a)|b`, `a |(b)`, `a |⏎b`) is marked piped;
   a command after anything else, such as `(a; b) | c`'s `c` after `b`, is not.
   `<`/`>` operators (with any file-descriptor digits written against them, as in `2>&1`)
-  and the word after them are redirects. A `( … )` group is not tracked: its commands are
-  separate, and a redirect after the `)` (`(a) > f`) belongs to no command.
+  and the word after them are redirects; `>&<word>` and `&><word>` write to a file unless
+  the word is a descriptor number or `-` (`2>&1`, `>&-`). A `( … )` group is not tracked:
+  its commands are separate, and a redirect after the `)` (`(a) > f`) belongs to no
+  command.
 - Leading `NAME=value` words are the command's environment; the wrappers `env`, `nohup`,
   `exec`, `command` and `time` are stepped over.
 - A backslash-newline continuation joins its two lines first.
@@ -123,7 +125,9 @@ def _segment(raw: list[str], piped: bool = False) -> Segment:
     while i < len(raw):
         tok = raw[i]
         if _is_redirect(tok):
-            if i + 1 < len(raw) and not tok.endswith("&"):
+            # `>&1` duplicates a descriptor and `>&-` closes one; `>&file` and `&>file` write
+            dup = tok.endswith("&") and i + 1 < len(raw) and re.fullmatch(r"\d+|-", raw[i + 1])
+            if i + 1 < len(raw) and not dup:
                 if ">" in tok:
                     seg.redirects.append(raw[i + 1])
                 elif tok == "<":

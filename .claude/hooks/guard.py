@@ -57,17 +57,38 @@ What it blocks:
   backtick, `<(` or `>(` anywhere, or an `export`/`declare`/`typeset`/`readonly`/`local`/
   `set`/`alias`/`eval`/`source`/`.` command. The engine's test-database wipe script is not
   allowed: the ops guide does not give it to the tester.
-- **The practice user's key stays off disk** (CLAUDE.md "Stay inside this repo": the tester
-  never writes the key to a file), wherever the command runs: the seed's own redirects may
-  only be `/dev/null`, and every command piped straight after it (a pipe as `_shell.py`
-  marks one) must be one of the stdin filters above, redirecting only to `/dev/null` — so
-  `| sed 's/…/…/'` and `> /dev/null` pass, and `| tee f`, `|(tee f)`, `| cat > f` or `> f`
-  are blocked.
+- **The practice-engine script** (`scripts/practice-engine`, "Stay inside this repo"): every agent
+  may run it, but a Bash command that names it (`practice-engine` anywhere in its text, in any
+  case, or a word resolving, symlinks followed, to the script) passes only as one exact
+  shape, the whole command and nothing else: `scripts/practice-engine up` or `… down` (or
+  `./scripts/…`, both from the repo root, or the repo's absolute path from anywhere in
+  the repo), then any of `> /dev/null` and `2>&1`, then at most one `|` into a bare
+  `sed`/`grep`/`head`/`tail` stdin filter as above. No `;`, `&&`, `|`-chain, `&`, `$`,
+  backtick, `{`, `(`, backslash, env prefix, wrapper, `bash`/`sh`, or other redirect.
+  The script's output carries the practice user's key, so that keeps the key off disk. A
+  command that names it without running it passes on to the other rules only when it is
+  the commit-message form of CLAUDE.md "Dev loop" (optionally after `git add … &&`) with
+  no `(` or `)` in its body (macOS bash closes `$(` at the first `)`), or
+  every command in it is a plain read (`cat`, `head`, `tail`, `grep`, `wc`, `ls`, `stat`,
+  `file`, `diff`; `git` `add`/`diff`/`status`/`log`/`show`/`commit` with no git option
+  before the subcommand) with no substitution, no env prefix, no
+  `--output`/`--ext-diff`/`--textconv` and no write but `/dev/null`. Everything else that
+  names it (`ln -s`, `cp`, `xargs`, `timeout`, `script`, `bash -x`, a `{ …; }` group) is
+  blocked. The script fixes its port (`:8002`), database (`expense_world_test`),
+  interpreter and environment itself and takes no options.
+- **The practice user's key stays off disk** (CLAUDE.md "Stay inside this repo": no agent
+  writes the key to a file), wherever the command runs: the seed's own redirects may only
+  be `/dev/null`, and every command piped straight after it (a pipe as `_shell.py` marks
+  one) must be one of the stdin filters above, redirecting only to `/dev/null` — so
+  `| sed 's/…/…/'` and `> /dev/null` pass, and `| tee f`, `|(tee f)`, `| cat > f` or
+  `> f` are blocked.
 - **Stopping processes** ("Stay inside this repo"): `kill`, `pkill`, `killall` and
   `xargs kill` are blocked for everyone except the tester, who may run
   `kill [-SIGNAL] <numeric pid>…` and `lsof -ti :8002 | xargs [-r] kill` (or
   `lsof -t -i :8002`). The guard checks only the command's form, not which process a pid
-  names; stopping only the engine it started is a rule the tester keeps.
+  names; stopping only the engine it started is a rule the tester keeps. Every agent stops
+  the practice engine with `scripts/practice-engine down`, which stops whatever listens on
+  `:8002` when its command line is the practice engine's start, whoever started it.
 - **Git** (single branch, never `--no-verify`): `push` with `--force`/`-f` (alone or in a
   short-flag cluster such as `-uf`)/`--force-with-lease`/`--mirror`/a `+refspec`; `commit --amend`;
   `rebase`, `reset --hard`, `filter-branch`, `filter-repo`, `update-ref`; new branches
@@ -91,7 +112,15 @@ describes. What passes:
   real path);
 - a test-engine start whose `*_DB_URL`s name an `expense_world_test` database on another
   host (only the database name is checked);
-- a WebFetch `file://` URL.
+- a WebFetch `file://` URL;
+- what `scripts/practice-engine` itself does: the guard reads the command line, not the
+  script, so the script's own text (reviewed like any change) is what keeps it on `:8002`
+  and its environment clean (`bash -p`, every inherited variable unset);
+- the script reached under a name the guard cannot see: built at run time (a variable,
+  a substitution, `bash -c` text assembled from parts), a `~` glob, a
+  hard link, or a copy or link made without naming it (`cp -r scripts x`,
+  a link to the `scripts` folder). Quotes and escapes inside the name
+  (`pract''ice-engine`) and a glob that matches it (`scripts/practice-engin?`) are seen.
 
 It errs the other way too: a word written like an engine path is blocked even as a
 `grep` pattern or `echo` text (`grep -rn '../expense_world_engine' docs`); search for the
@@ -107,12 +136,22 @@ the repo root, and every other check still applies.
 
 from __future__ import annotations
 
+import glob
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
-from _shell import Segment, git_args, home_dir, is_within, read_input, repo_root, segments
+from _shell import (
+    Segment,
+    git_args,
+    home_dir,
+    is_within,
+    read_input,
+    repo_root,
+    segments,
+    tokens,
+)
 
 LIVE = 'CLAUDE.md "Careful running live"'
 STAY = 'CLAUDE.md "Stay inside this repo"'
@@ -168,6 +207,23 @@ _SHELL_STATE = frozenset(
 )
 _EXPANSION = re.compile(r"\$[\w{(]")
 _GREP_FLAGS = re.compile(r"-[viEFocqxw]+")
+_PRACTICE_NAME = "practice-engine"
+_PRACTICE_RELATIVE = frozenset({f"scripts/{_PRACTICE_NAME}", f"./scripts/{_PRACTICE_NAME}"})
+# Shell text that never belongs in a practice-engine run: groups, substitutions, lists,
+# expansions, escapes and line breaks.
+_PRACTICE_BANNED = frozenset("`$;{}()\\\n")
+_PUNCTUATION = re.compile(r"[;&|<>()\n]+")
+_PRACTICE_READS = frozenset(
+    {"cat", "head", "tail", "grep", "egrep", "fgrep", "wc", "ls", "stat", "file", "diff"}
+)
+_PRACTICE_GIT_READS = frozenset({"add", "diff", "status", "log", "show", "commit"})
+# The commit-message form CLAUDE.md "Dev loop" gives; the quoted `EOF` keeps the body literal.
+_COMMIT_MESSAGE = re.compile(
+    r"(?:git add [^\n;&|$`()<>]+ && )?"
+    r'(?:PATH="\$PWD/\.venv/bin:\$PATH" )?git commit(?: -[a-z]+)* -m '
+    r"\"\$\(cat <<'EOF'\n(.*)\nEOF\n\)\"",
+    re.S,
+)
 _READ_TOOLS = frozenset({"Read", "NotebookRead", "Glob", "Grep"})
 _WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 
@@ -342,6 +398,87 @@ def _is_seed(ctx: Context, seg: Segment, cwd: Path) -> bool:
     target = ctx.resolve(script[0], cwd) or (cwd / script[0]).resolve()
     seed = (ctx.engine / "deploy" / "local" / "seed-test-user.sh").resolve()
     return is_within(target, seed)  # the same file, compared the way every path is
+
+
+def _practice_path(ctx: Context) -> Path:
+    return ctx.repo / "scripts" / _PRACTICE_NAME
+
+
+def _mentions_practice(ctx: Context, command: str) -> bool:
+    """`command` names the practice-engine script: its name in any case, in the text or in
+    a word once the shell's quotes and escapes are gone (`pract''ice-engine`), or a word
+    that resolves (symlinks followed, globs expanded) to the script itself."""
+    words = tokens(command)
+    if any(_PRACTICE_NAME in text.casefold() for text in [command, *words]):
+        return True
+    script = _practice_path(ctx).resolve()
+    for word in words:
+        if not word or word.startswith("-") or len(word) > 1024 or "\x00" in word:
+            continue
+        try:
+            path = ctx.resolve(word, ctx.cwd) or (ctx.cwd / word).resolve()
+            matches = [path]
+            if any(ch in word for ch in "*?["):  # the shell expands it: so does the check
+                pattern = word if word.startswith("/") else str(ctx.cwd / word)
+                matches += [Path(m).resolve() for m in glob.glob(pattern)[:1000]]
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if any(is_within(m, script) for m in matches):
+            return True
+    return False
+
+
+def _practice_run(ctx: Context, command: str) -> bool:
+    """The whole command is one of the allowed shapes: `scripts/practice-engine up|down`
+    (`./`-prefixed or by the repo's absolute path), then any of `> /dev/null` and `2>&1`,
+    then at most one `|` into a plain stdin filter."""
+    if any(ch in command for ch in _PRACTICE_BANNED) or not is_within(ctx.cwd, ctx.repo):
+        return False
+    words = tokens(command)
+    if len(words) < 2 or words[1] not in {"up", "down"}:
+        return False
+    in_repo = str(ctx.cwd.resolve()) == str(ctx.repo)
+    if not (words[0] == str(_practice_path(ctx)) or (in_repo and words[0] in _PRACTICE_RELATIVE)):
+        return False
+    rest = words[2:]
+    while rest[:2] in ([">", "/dev/null"], [">&", "1"]):
+        rest = rest[2:]
+    if not rest:
+        return True
+    filt = rest[1:]
+    return (
+        rest[0] == "|"
+        and bool(filt)
+        and filt[0] in {"sed", "grep", "head", "tail"}
+        and not any(_PUNCTUATION.fullmatch(w) for w in filt)
+        and _filters_stdin(Segment(words=filt))
+    )
+
+
+def _practice_named_only(ctx: Context, command: str) -> bool:
+    """A command that only names the script without running it: a commit in the message
+    form CLAUDE.md gives, or plain reads (`cat`, `grep`, `git diff`, `git add`, …) with no
+    substitution, no env prefix, no option that writes or runs, and no write but /dev/null."""
+    message = _COMMIT_MESSAGE.fullmatch(command)
+    if message:
+        # bash 3.2 (macOS /bin/bash and /bin/sh) closes `$(` at the first `)`, even inside
+        # the quoted heredoc, so a body naming the script holds no parenthesis at all
+        body = message.group(1)
+        return not re.search(r"^EOF$", body, re.M) and not re.search(r"[()]", body)
+    if any(s in command for s in _SUBSTITUTIONS):
+        return False
+    for seg in segments(command):
+        if seg.env or any(raw != "/dev/null" for raw in seg.redirects):
+            return False
+        if any(w.startswith(("--output", "--ext-diff", "--textconv")) for w in seg.words):
+            return False
+        ga = git_args(seg)
+        if ga is not None:
+            if seg.words[1:2] != [ga[0]] or ga[0] not in _PRACTICE_GIT_READS:
+                return False  # git options before the subcommand (`-c`) can run anything
+        elif seg.words[:1] != [seg.name] or seg.name not in _PRACTICE_READS:
+            return False
+    return True
 
 
 def _tester_op(ctx: Context, seg: Segment, cwd: Path) -> bool:
@@ -557,6 +694,15 @@ def check_bash(ctx: Context, command: str) -> str | None:
         reason = _live_reason(seg, command)
         if reason:
             return reason
+    if _mentions_practice(ctx, command):
+        if _practice_run(ctx, command):
+            return None  # one exact shape, run from the repo: nothing else in the command
+        if not _practice_named_only(ctx, command):
+            return (
+                f"{STAY}: run the practice engine only as the whole command "
+                "`scripts/practice-engine up` or `scripts/practice-engine down` (optionally "
+                "`> /dev/null`, `2>&1` or one `| sed`/`grep`/`head`/`tail` filter)"
+            )
     for index, seg in enumerate(all_segments):
         target = None
         if seg.name == "cd":

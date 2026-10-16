@@ -31,12 +31,4 @@ dropping any check.
 
 Approved by the owner in chat, 2026-10-16.
 
-3. **Practice engine in one command.** A script in `scripts/` that starts the practice engine
-   on `:8002` exactly as [runtime.md](../runtime.md) "Working against the live engine" says
-   (reseed included, key printed to the terminal and never written to a file) and stops the
-   engine it started. The guard lets the orchestrator and every worker run it, and nothing else
-   in the engine checkout changes. CLAUDE.md "How work runs" says the orchestrator runs it
-   instead of sending a tester to start or stop the engine.
-   Passes if: the script's up and down work against the real engine checkout (tester shows it);
-   `tests/unit/test_claude_hooks.py` covers that the guard allows the script and still blocks
-   what it blocked before; runtime.md and CLAUDE.md name the script as the way to start and stop.
+All tasks done; the acceptance check and the doc sweep remain.

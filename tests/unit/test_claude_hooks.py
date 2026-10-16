@@ -488,6 +488,249 @@ def test_guard_keeps_the_test_engine_start_to_the_tester(box, agent):
 
 
 # ---------------------------------------------------------------------------
+# guard.py — scripts/practice-engine, open to every agent
+# ---------------------------------------------------------------------------
+
+EVERY_AGENT = ["tester", "builder", "reviewer", "librarian", None]  # None: the orchestrator
+PRACTICE = "scripts/practice-engine"
+
+PRACTICE_ALLOWED = [
+    f"{PRACTICE} up",
+    f"{PRACTICE} down",
+    f"./{PRACTICE} up",
+    f"{{repo}}/{PRACTICE} down",
+    f"{PRACTICE} up 2>&1 | sed 's/ewe_pat_[A-Za-z0-9_]*/<key>/g'",
+    f"{PRACTICE} up | grep -v ewe_pat_",
+    f"{PRACTICE} up | tail -n 5",
+    f"{PRACTICE} up > /dev/null 2>&1",
+    f"{PRACTICE} up >/dev/null",
+    f"{PRACTICE} down 2>&1",
+]
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("command", PRACTICE_ALLOWED)
+def test_guard_lets_every_agent_run_the_practice_engine_script(box, agent, command):
+    _allowed(box.guard("Bash", {"command": command}, agent=agent))
+
+
+def test_guard_lets_the_absolute_practice_engine_path_run_from_a_repo_subfolder(box):
+    (box.repo / "docs").mkdir()
+    command = f"{{repo}}/{PRACTICE} up"
+    _allowed(box.guard("Bash", {"command": command}, agent="builder", cwd="{repo}/docs"))
+
+
+PRACTICE_NAMED_ONLY = [
+    # naming the script without running it: plain reads and the commit form
+    f"cat {PRACTICE}",
+    f"grep -n PORT {PRACTICE}",
+    "grep -rn practice-engine docs CLAUDE.md",
+    f"git diff {PRACTICE}",
+    f"git add {PRACTICE} .claude/hooks/guard.py",
+    "git log --oneline -3 -- scripts",
+    f'git add {PRACTICE} && PATH="$PWD/.venv/bin:$PATH" git commit -m "$(cat <<\'EOF\'\n'
+    f'Add {PRACTICE} up/down\n\nRun `{PRACTICE} up > key.txt`? No.\nEOF\n)"',
+]
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("command", PRACTICE_NAMED_ONLY)
+def test_guard_lets_agents_read_and_commit_the_practice_engine_script(box, agent, command):
+    _allowed(box.guard("Bash", {"command": command}, agent=agent))
+
+
+PRACTICE_BLOCKED = [
+    # only `up` or `down`, nothing the script could be steered with
+    (f"{PRACTICE}", STAY),
+    (f"{PRACTICE} start", STAY),
+    (f"{PRACTICE} up down", STAY),
+    (f"{PRACTICE} up --port", STAY),
+    (f"{PRACTICE} up --port 8000", STAY),
+    (f"{PRACTICE} up $TARGET", STAY),
+    (f"{PRACTICE} up http://127.0.0.1:8000", LIVE),
+    (f"bash {PRACTICE} up", STAY),
+    (f"sh {{repo}}/{PRACTICE} down", STAY),
+    (f"bash {PRACTICE} down now", STAY),
+    # the whole command is the run: nothing chained, grouped or backgrounded
+    (f"{PRACTICE} down && git status --short", STAY),
+    (f"cd {{repo}} && {PRACTICE} up", STAY),
+    (f"{PRACTICE} up | grep -v ewe_pat_ | tail -n 5", STAY),
+    (f"{PRACTICE} up &", STAY),
+    (f"{PRACTICE} up > /dev/null; cat /tmp/expense-test-engine.log", STAY),
+    (f"{{{{ {PRACTICE} up; }}}} > key.txt", STAY),  # `fill` turns `{{` into `{`
+    (f"K=$({PRACTICE} up | tail -n 1); echo $K > key.txt", STAY),
+    (f"echo `{PRACTICE} up` > key.txt", STAY),
+    (f"bash -x {PRACTICE} up > key.txt", STAY),
+    (f"bash -c '{PRACTICE} up > key.txt'", STAY),
+    (f"timeout 99 {PRACTICE} up > key.txt", STAY),
+    (f"script -q key.txt {PRACTICE} up", STAY),
+    (f"echo up | xargs {PRACTICE} > key.txt", STAY),
+    (f"{PRACTICE} up | /tmp/x/grep ewe_pat_", STAY),
+    # any spelling of its name
+    ("Scripts/Practice-Engine up > key.txt", STAY),
+    ("SCRIPTS/practice-engine up > key.txt", STAY),
+    ("Scripts/Practice-Engine up", STAY),
+    # copies and links of it, and reads that write it somewhere
+    (f"ln -s {PRACTICE} pe && ./pe up > key.txt", STAY),
+    (f"cp {PRACTICE} pe", STAY),
+    (f"cat {PRACTICE} > pe", STAY),
+    (f"git -c core.pager=cat log {PRACTICE}", STAY),
+    (f"git diff --output=pe {PRACTICE}", STAY),
+    (f"cat {PRACTICE} | bash -s up > key.txt", STAY),
+    (
+        f"git commit -m \"$(cat <<'EOF'\nx\nEOF\n)\"; {PRACTICE} up > key.txt "
+        "# \"$(cat <<'EOF'\ny\nEOF\n)\"",
+        STAY,
+    ),
+    # bash 3.2 closes `$(` at the first `)`, even inside the quoted heredoc
+    (
+        f'git commit -m "$(cat <<\'EOF\'\nx)"; {PRACTICE} up > key.txt; echo "(\nEOF\n)"',
+        STAY,
+    ),
+    (
+        f"git add {PRACTICE} && git commit -m \"$(cat <<'EOF'\nx)\"; {PRACTICE} up "
+        '> key.txt; echo "(\nEOF\n)"',
+        STAY,
+    ),
+    (f"git commit -m \"$(cat <<'EOF'\nAdd {PRACTICE} (up and down)\nEOF\n)\"", STAY),
+    (f"git commit -m \"$(cat <<'EOF'\n{PRACTICE}: x) y\nEOF\n)\"", STAY),
+    # the name hidden in quotes, escapes or a glob
+    ("scripts/pract''ice-engine up > key.txt", STAY),
+    ('scripts/"practice"-engine up > key.txt', STAY),
+    ("scripts/practice\\-engine up > key.txt", STAY),
+    # no env prefix: no database URL, PATH or anything else handed to it
+    (
+        f"SUPABASE_DB_URL=postgresql://expense_engine@127.0.0.1:5432/expense_world {PRACTICE} up",
+        STAY,
+    ),
+    (f"PATH=/x:$PATH {PRACTICE} up", STAY),
+    (f"env ADMIN_DB_URL=postgresql://me@127.0.0.1/expense_world {PRACTICE} up", STAY),
+    (f"export SUPABASE_DB_URL=postgresql://x@127.0.0.1/expense_world; {PRACTICE} up", STAY),
+    (f"export PATH=/tmp/evil:$PATH; {PRACTICE} up", STAY),
+    # its output carries the key: off disk
+    (f"{PRACTICE} up > key.txt", STAY),
+    (f"{PRACTICE} up >& key.txt", STAY),
+    (f"{PRACTICE} up >&key.txt", STAY),
+    (f"{PRACTICE} up &> key.txt", STAY),
+    (f"{PRACTICE} up 2>&1 > key.txt", STAY),
+    (f"{PRACTICE} up | sed -n 's/x/y/w key.txt'", STAY),
+    (f"{PRACTICE} up >> {SCRATCH}/key.txt", STAY),
+    (f"{PRACTICE} up 2>&1 | tee key.txt", STAY),
+    (f"{PRACTICE} up | cat > key.txt", STAY),
+    (f"{PRACTICE} up | sed 's/x/y/' > key.txt", STAY),
+    (f"{PRACTICE} up | sed 's/x/y/w key.txt'", STAY),
+    (f"{PRACTICE} up |(tee key.txt)", STAY),
+    (f"{PRACTICE} up | grep ewe_pat_ key.txt", STAY),
+    # run from inside the engine checkout it is still a command there
+    (f"cd ../expense_world_engine && {{repo}}/{PRACTICE} up", STAY),
+    # the live engine stays blocked in the same command
+    (f"{PRACTICE} up && curl http://127.0.0.1:8000/health", LIVE),
+]
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize(("command", "rule"), PRACTICE_BLOCKED)
+def test_guard_keeps_the_practice_engine_script_narrow(box, agent, command, rule):
+    _blocked(box.guard("Bash", {"command": command}, agent=agent), rule)
+
+
+def test_guard_only_trusts_this_repos_practice_engine_script(box):
+    """A script of the same name elsewhere is just another command: no exception for it."""
+    command = "cd ../expense_world_engine && scripts/practice-engine up"
+    _blocked(box.guard("Bash", {"command": command}, agent="builder"), STAY)
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+def test_guard_sees_the_practice_engine_script_through_a_link(box, agent):
+    """A word resolving to the script names it, whatever the link is called."""
+    script = box.repo / PRACTICE
+    script.parent.mkdir()
+    script.write_text("#!/bin/sh\n")
+    (box.repo / "pe").symlink_to(script)
+    _blocked(box.guard("Bash", {"command": "./pe up > key.txt"}, agent=agent), STAY)
+    _blocked(box.guard("Bash", {"command": "./pe up"}, agent=agent), STAY)
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize(
+    "command",
+    [
+        "scripts/practice-engin? up > key.txt",
+        "scripts/pr*ngine up",
+        "scripts/[p]ractice-engine up",
+        "{repo}/scripts/*-engine down > key.txt",
+        "s*/p*e up",
+    ],
+)
+def test_guard_expands_globs_that_match_the_practice_engine_script(box, agent, command):
+    """A glob is expanded as the shell would, so the name it matches is seen."""
+    script = box.repo / PRACTICE
+    script.parent.mkdir()
+    script.write_text("#!/bin/sh\n")
+    _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
+
+
+SEED_KEY_TO_FILE = [
+    SEED + " >& key.txt",
+    SEED + " >&key.txt",
+    SEED + " &> key.txt",
+    SEED + " &>> key.txt",
+]
+
+
+@pytest.mark.parametrize("command", SEED_KEY_TO_FILE)
+def test_guard_reads_fd_redirects_to_a_file_as_writes(box, command):
+    """`>&word` and `&>word` write a file, for the seed's key rule too; `2>&1` does not."""
+    _blocked(box.guard("Bash", {"command": command}, agent="tester"), STAY)
+
+
+HAND_RUN_ENGINE_OPS = [
+    "kill 12345",
+    "lsof -ti :8002 | xargs kill",
+    "lsof -t -i :8002 | xargs -r kill",
+    "cd ../expense_world_engine && deploy/local/seed-test-user.sh --force",
+    "cd ../expense_world_engine && " + START_TEST_ENGINE,
+    SEED,
+]
+
+
+@pytest.mark.parametrize("agent", ["builder", "reviewer", "librarian", None])
+@pytest.mark.parametrize("command", HAND_RUN_ENGINE_OPS)
+def test_guard_keeps_the_hand_run_engine_ops_to_the_tester(box, agent, command):
+    """The script opens no other door: starting, reseeding and stopping by hand stay the
+    tester's alone."""
+    _blocked(box.guard("Bash", {"command": command}, agent=agent), STAY)
+
+
+def test_practice_engine_script_is_pinned_to_the_test_engine():
+    """The script fixes :8002, the test database and the checkout's own interpreter, and
+    never names the live engine's port."""
+    script = Path(__file__).resolve().parents[2] / PRACTICE
+    assert os.access(script, os.X_OK), "scripts/practice-engine must be executable"
+    text = script.read_text()
+    assert "PORT=8002" in text and "DB=expense_world_test" in text
+    assert ".venv/bin/python -m uvicorn app.main:app" in text
+    assert "deploy/local/seed-test-user.sh --force" in text
+    assert "8000" not in text
+    # the caller's environment reaches nothing it runs
+    assert text.startswith("#!/bin/bash -p\n"), "bash -p skips BASH_ENV and inherited functions"
+    assert "for name in $(compgen -e); do unset" in text
+    assert 'clean() { /usr/bin/env -i HOME="${HOME}"' in text
+    assert "PATH=/usr/bin:/bin:/usr/sbin:/sbin" in text
+    for run in ("lsof", "curl", "ps", "SUPABASE_DB_URL=", "deploy/local/seed-test-user.sh"):
+        assert f"clean {run}" in text, run
+    assert "-sTCP:LISTEN" in text, "down stops only the :8002 listener"
+
+
+def test_docs_name_the_practice_engine_script():
+    root = Path(__file__).resolve().parents[2]
+    for doc in (root / "CLAUDE.md", root / "docs" / "runtime.md"):
+        text = doc.read_text()
+        assert f"`{PRACTICE} up`" in text, doc
+        assert f"`{PRACTICE} down`" in text, doc
+
+
+# ---------------------------------------------------------------------------
 # guard.py — file tools and WebFetch
 # ---------------------------------------------------------------------------
 

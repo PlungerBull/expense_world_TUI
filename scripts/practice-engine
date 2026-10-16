@@ -1,0 +1,116 @@
+#!/bin/bash -p
+# Start or stop the practice engine: the engine checkout next to this repo, on :8002, over
+# the disposable `expense_world_test` database (docs/runtime.md "Working against the live
+# engine" is the ops guide this script follows word for word).
+#
+#   scripts/practice-engine up     start it (or reuse the one already on :8002), wait for
+#                                  /health, reseed the practice user and print its fresh key
+#   scripts/practice-engine down   stop the practice engine listening on :8002, whoever
+#                                  started it; anything else on the port is left alone
+#
+# The key is printed to the terminal by the engine's own reseed and is never written to a
+# file here. Everything this script touches is fixed in it: port 8002, the
+# `expense_world_test` database, the engine checkout's own interpreter. It takes no
+# options, and the caller's environment does not reach anything it runs: `bash -p` skips
+# BASH_ENV and inherited functions, every exported variable is unset below, and the engine,
+# the reseed, lsof, curl and ps run under `env -i` with only HOME (from the user database),
+# USER, LOGNAME and PATH=/usr/bin:/bin:/usr/sbin:/sbin. So no argument
+# and no variable can point it at the live engine or the real ledger. The session guard
+# (.claude/hooks/guard.py) lets every agent run it, only as `scripts/practice-engine up` or
+# `scripts/practice-engine down`, its output going nowhere but the terminal, /dev/null or
+# a plain filter.
+set -euo pipefail
+# Nothing from the caller's environment: every exported variable goes, then the few this
+# script needs are set from the system, not from the caller (HOME from the user database).
+ME="$(/usr/bin/id -un)"
+HOME_DIR="$(/usr/bin/dscl . -read "/Users/${ME}" NFSHomeDirectory | /usr/bin/sed 's/^[^:]*: *//')"
+for name in $(compgen -e); do unset "${name}" 2> /dev/null || true; done
+export HOME="${HOME_DIR}" USER="${ME}" LOGNAME="${ME}" PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+# Run a command with exactly that environment.
+clean() { /usr/bin/env -i HOME="${HOME}" USER="${ME}" LOGNAME="${ME}" PATH="${PATH}" "$@"; }
+
+PORT=8002
+DB=expense_world_test
+HEALTH="http://127.0.0.1:${PORT}/health"
+LOG=/tmp/expense-test-engine.log
+START_TIMEOUT=60
+STOP_TIMEOUT=15
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENGINE="$(cd "${REPO}/.." && pwd)/expense_world_engine"
+
+say() { printf 'practice-engine: %s\n' "$*"; }
+die() { printf 'practice-engine: %s\n' "$*" >&2; exit 1; }
+
+# The pid listening on :8002 (only a listener: a client connected to the port is not it).
+listener() { clean lsof -nP -t -iTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null | head -n 1 || true; }
+
+healthy() { clean curl -sf --max-time 2 "${HEALTH}" > /dev/null 2>&1; }
+
+# The process on :8002 is a practice engine: the start command this script uses, whoever
+# ran it (a tester's hand start included), not something else.
+is_practice_engine() {
+    clean ps -o command= -p "$1" 2>/dev/null | grep -q -- "-m uvicorn app.main:app --port ${PORT}"
+}
+
+up() {
+    [ -x "${ENGINE}/.venv/bin/python" ] || die "no engine checkout with a .venv at ${ENGINE}"
+    local pid
+    pid="$(listener)"
+    if [ -n "${pid}" ]; then
+        is_practice_engine "${pid}" || die ":${PORT} is taken by pid ${pid}, not the practice engine"
+        say "reusing the practice engine already on :${PORT} (pid ${pid})"
+    else
+        say "starting the practice engine on :${PORT} over ${DB} (log: ${LOG})"
+        # Detached: it outlives this script and the agent that ran it.
+        pid="$(
+            cd "${ENGINE}"
+            clean SUPABASE_DB_URL="postgresql://expense_engine@127.0.0.1:5432/${DB}" \
+                ADMIN_DB_URL="postgresql://${ME}@127.0.0.1:5432/${DB}" \
+                nohup .venv/bin/python -m uvicorn app.main:app --port "${PORT}" \
+                > "${LOG}" 2>&1 < /dev/null &
+            echo $!
+        )"
+    fi
+    local waited=0
+    until healthy; do
+        if ! kill -0 "${pid}" 2>/dev/null; then
+            tail -n 20 "${LOG}" >&2 || true
+            die "the engine exited before answering ${HEALTH} (log: ${LOG}); a crash at start" \
+                "may be the engine checkout mid-edit (docs/runtime.md)"
+        fi
+        if [ "${waited}" -ge "${START_TIMEOUT}" ]; then
+            tail -n 20 "${LOG}" >&2 || true
+            die "no answer from ${HEALTH} after ${START_TIMEOUT}s (log: ${LOG})"
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    say "healthy at ${HEALTH}; reseeding the practice user (its key follows)"
+    (cd "${ENGINE}" && clean deploy/local/seed-test-user.sh --force)
+}
+
+down() {
+    local pid
+    pid="$(listener)"
+    if [ -z "${pid}" ]; then
+        say "nothing is listening on :${PORT}"
+        return 0
+    fi
+    is_practice_engine "${pid}" || die ":${PORT} is held by pid ${pid}, not the practice engine; left alone"
+    kill "${pid}"
+    local waited=0
+    while kill -0 "${pid}" 2>/dev/null; do
+        [ "${waited}" -lt "${STOP_TIMEOUT}" ] || die "pid ${pid} still running after ${STOP_TIMEOUT}s"
+        sleep 1
+        waited=$((waited + 1))
+    done
+    say "stopped the practice engine (pid ${pid})"
+}
+
+case "${1:-}:$#" in
+    up:1) up ;;
+    down:1) down ;;
+    *) die "usage: scripts/practice-engine up|down" ;;
+esac
