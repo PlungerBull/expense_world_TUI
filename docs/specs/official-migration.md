@@ -43,11 +43,14 @@ Everything that writes to the real ledger is run or approved by the owner.
 
 ## Tasks
 
-Draft, for the owner's approval.
+Draft, for the owner's approval. The sheet import brings every row in as it is, one transaction
+per row; it does not group split rows (owner, 2026-10-16). 2026 is then worked month by month
+from the bank statements, through the bank upload that
+[bank-lines-catch-up.md](bank-lines-catch-up.md) makes work on the new engine.
 
 1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
    `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
    creates neither name. Waits on the pending-hashtag engine ask.
-2. The title-alignment tool: read the bank downloads against the ledger, write the proposal list
-   to a local file outside the repo, apply only the approved changes.
-3. A written run sheet for the owner: every command in order, with what to check after each.
+2. A written run sheet for the owner: every command in order, with what to check after each —
+   the wipe, the sheet import, then for each 2026 month: upload that month's statement, fix the
+   days that disagree (a split, a duplicate), complete that month's reconciliation.

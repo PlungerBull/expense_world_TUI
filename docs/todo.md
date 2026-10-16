@@ -27,20 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### 2026 in the migration: from the sheet or from the bank statements?
-Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
-The sheet is imported as it is; split rows are not grouped, and 2025 and earlier are accepted as
-they stand. 2026 is worked month by month from the bank's statements (EECC). Which rows does
-2026 start from?
-- **A.** The sheet imports everything, 2026 included. Each 2026 month, you upload that month's
-  statement: matching rows take the bank's code and wording, missing ones are added, and the
-  days that disagree show where a split or a duplicate needs fixing by hand. Then you complete
-  that month's reconciliation.
-- **B.** The sheet imports only up to 31-Dec-2025. 2026 comes from the statements alone, month by
-  month, and you categorise and split the rows in the app.
-**Recommended:** A, because your 2026 categories and notes come in with the sheet, and the
-statement only fixes what differs.
-
 ---
 
 ## Backlog
@@ -90,7 +76,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Catch up with bank lines and splits.** Spec (draft, tasks for approval):
   [specs/bank-lines-catch-up.md](specs/bank-lines-catch-up.md).
-- **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
+- **Move the official data into the app** (sheet re-import, `PENDIENTES`, 2026 month by month).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
