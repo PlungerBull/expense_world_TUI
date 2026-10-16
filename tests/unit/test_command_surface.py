@@ -247,16 +247,160 @@ def test_every_command_has_an_error_shape_test():
 
     Reads `conftest.ERROR_TESTED`, which records real invocations rather than
     scanning the source, so a parametrized test counts exactly as much as a
-    hand-written one.
+    hand-written one. Under pytest-xdist a worker holds only its share of the
+    registry, so this test passes there and the controller gives the verdict at
+    session end, failing this nodeid (`conftest.ControllerVerdict`).
     """
     from tests.unit import conftest
 
     if conftest.PARTIAL_RUN:
         pytest.skip("a filtered run cannot see whether the whole suite covers a command")
+    if conftest.ON_XDIST_WORKER:
+        return  # decided on the controller once every worker has reported
 
-    expected = {path for path, _ in _LEAVES}
-    missing = sorted(" ".join(path) for path in expected - conftest.ERROR_TESTED)
-    assert not missing, (
-        "these commands have no test that drives them to a non-zero exit — add "
-        f"one asserting the engine's envelope reaches the user: {missing}"
+    missing = conftest.missing_error_tests(conftest.ERROR_TESTED)
+    assert not missing, conftest.missing_message(missing)
+
+
+# --- the guard's own machinery ------------------------------------------------
+
+
+def test_guard_knows_the_command_tree():
+    from tests.unit import conftest
+
+    assert conftest.missing_error_tests(set()) == _LEAF_IDS
+    assert conftest.missing_error_tests({path for path, _ in _LEAVES}) == []
+
+
+class _Report:
+    def __init__(self, nodeid, when="call"):
+        self.nodeid, self.when, self.location = nodeid, when, ("x.py", 1, nodeid)
+
+
+_GUARD_ID = "tests/unit/test_command_surface.py::test_every_command_has_an_error_shape_test"
+
+
+def _verdict(*worker_records, guard_seen=True):
+    from tests.unit import conftest
+
+    verdict = conftest.ControllerVerdict()
+    for record in worker_records:
+        verdict.add_worker({"error_tested": record}, None)
+    verdict.see_report(_Report("tests/unit/test_x.py::test_other"))
+    if guard_seen:
+        verdict.see_report(_Report(_GUARD_ID))
+    return verdict
+
+
+def test_controller_fails_the_guard_when_no_worker_drove_import_sheet_to_an_error():
+    failure = _verdict([], [["unrelated"]]).failure(partial=False)
+    assert failure is not None
+    assert (failure.nodeid, failure.outcome, failure.when) == (_GUARD_ID, "failed", "teardown")
+    assert "import sheet" in str(failure.longrepr)
+
+
+def test_controller_passes_when_any_one_worker_covered_the_command():
+    assert _verdict([], [["import", "sheet"]]).failure(partial=False) is None
+
+
+def test_controller_concludes_nothing_it_cannot_see():
+    assert _verdict([]).failure(partial=True) is None  # filtered run
+    assert _verdict([], guard_seen=False).failure(partial=False) is None  # guard not run
+    assert _verdict().failure(partial=False) is None  # no workers: in-process run
+
+    crashed = _verdict([])
+    crashed.add_worker(None, "worker crashed")
+    assert crashed.failure(partial=False) is None  # the crash already fails the run
+
+
+@pytest.mark.parametrize(
+    ("argv", "partial"),
+    [
+        (["tests/unit"], False),
+        (["tests"], False),
+        (["."], False),
+        (["tests/unit/"], False),
+        (["tests/unit/test_command_surface.py"], True),
+        (["tests/unit/test_command_surface.py::test_x"], True),
+        (["tests/contract"], True),
+        (["tests/unit", "-k", "sheet"], True),
+        (["tests/unit", "-m", "slow"], True),
+        (["tests/unit", "--lf"], True),
+        (["tests/unit", "--last-failed"], True),
+        (["tests/unit", "--sw"], True),
+        (["tests/unit", "--sw-skip"], True),
+        (["tests/unit", "--deselect", "tests/unit/test_cmd_import.py"], True),
+        (["tests/unit", "--ignore", "tests/unit/test_cmd_import.py"], True),
+        (["tests/unit", "--ignore-glob", "*import*"], True),
+        (["tests/unit", "--ff"], False),
+    ],
+    ids=lambda v: " ".join(v) if isinstance(v, list) else None,
+)
+def test_partial_run_detection(argv, partial, monkeypatch):
+    """Parse real argv with pytest's own parser, so an option renamed or stored
+    under another attribute shows up here rather than as a guard that never skips."""
+    from _pytest.config import _prepareconfig
+
+    from tests.unit import conftest
+
+    repo = conftest._UNIT_DIR.parent.parent
+    monkeypatch.chdir(repo)
+    config = _prepareconfig([*argv, "--noconftest"])
+    try:
+        assert conftest.is_partial_run(config.option, config.args, repo) is partial
+    finally:
+        config._ensure_unconfigure()
+
+
+_XDIST_SUITE_CALL = """
+from typer.testing import CliRunner
+
+from expense.__main__ import app
+
+
+def test_import_sheet_refuses_a_missing_file():
+    assert CliRunner().invoke(app, ["import", "sheet", "no-such.xlsx"]).exit_code != 0
+"""
+
+
+@pytest.mark.parametrize("covered", [True, False], ids=["covered", "uncovered"])
+def test_guard_verdict_under_xdist(covered, tmp_path):
+    """A tiny copy of tests/unit run with `-n 2`: the controller merges the
+    workers' records, and fails the guard's nodeid when no worker covered the
+    command. Skips until pytest-xdist is importable."""
+    pytest.importorskip("xdist")
+    import os
+    import shutil
+    import subprocess
+    import sys
+
+    from tests.unit import conftest
+
+    unit = tmp_path / "tests" / "unit"
+    unit.mkdir(parents=True)
+    (tmp_path / "tests" / "__init__.py").write_text("")
+    (unit / "__init__.py").write_text("")
+    for name in ("conftest.py", "helpers.py"):
+        shutil.copy(conftest._UNIT_DIR / name, unit / name)
+    guard = inspect.getsource(test_every_command_has_an_error_shape_test)
+    (unit / "test_guard.py").write_text("import pytest\n\n\n" + guard)
+    if covered:
+        (unit / "test_sheet.py").write_text(_XDIST_SUITE_CALL)
+    for i in range(4):  # filler, so the run is spread over both workers
+        (unit / f"test_filler_{i}.py").write_text("def test_ok():\n    pass\n")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/unit", "-n", "2", "-p", "no:cacheprovider"],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
+    out = result.stdout + result.stderr
+    if covered:
+        assert result.returncode == 0, out
+    else:
+        assert result.returncode == 1, out
+        assert "ERROR tests/unit/test_guard.py::test_every_command_has_an_error_shape_test" in out
+        assert "import sheet" in out

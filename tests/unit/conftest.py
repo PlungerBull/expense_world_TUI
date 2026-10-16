@@ -6,6 +6,7 @@ fixture named `configured` behind.
 """
 
 import socket
+from pathlib import Path
 
 import pytest
 
@@ -150,15 +151,34 @@ def _no_retry_backoff(monkeypatch):
 # Recorded at runtime, not scanned out of the source: a parametrized test builds
 # its argv from a variable, which a reader of the text cannot see. Watching the
 # invocations happen is immune to how the argv was spelled.
+#
+# Where the verdict is given depends on how the suite runs:
+#   - one process (`-n0`, or no pytest-xdist): the guard test runs last and
+#     asserts on this process's registry, which by then holds the whole suite.
+#   - pytest-xdist: each worker sees only its share of the tests, so a worker's
+#     guard test cannot conclude anything. Workers hand their registry to the
+#     controller (`workeroutput`), and the controller gives the verdict at
+#     session end, as a teardown error on the guard's own nodeid.
+# Every xdist hook below is `optionalhook`, so the suite runs without xdist.
+
+GUARD_NAME = "test_every_command_has_an_error_shape_test"
 
 #: Command paths some test drove to a non-zero exit — ("import", "sheet"), …
 ERROR_TESTED: set[tuple[str, ...]] = set()
 
-#: True when this run cannot see the whole suite (-k, -m, --lf, or a nodeid),
-#: in which case the guard has nothing to conclude and skips.
+#: True when this run cannot see the whole suite (a file or nodeid instead of the
+#: suite's directory, -k, -m, --lf, --sw, --sw-skip, --deselect, --ignore,
+#: --ignore-glob), in which case
+#: the guard has nothing to conclude and skips.
 PARTIAL_RUN = False
 
+#: True inside a pytest-xdist worker, whose guard test leaves the verdict to the
+#: controller.
+ON_XDIST_WORKER = False
+
 _LEAF_PATHS: frozenset[tuple[str, ...]] = frozenset()
+
+_UNIT_DIR = Path(__file__).resolve().parent
 
 
 def _leaf_paths() -> frozenset[tuple[str, ...]]:
@@ -174,18 +194,95 @@ def _leaf_paths() -> frozenset[tuple[str, ...]]:
     return frozenset(walk(app))
 
 
+def missing_error_tests(recorded) -> list[str]:
+    """The commands no recorded invocation drove to a non-zero exit, as typed."""
+    return sorted(" ".join(path) for path in _LEAF_PATHS - set(recorded))
+
+
+def missing_message(missing: list[str]) -> str:
+    return (
+        "these commands have no test that drives them to a non-zero exit — add "
+        f"one asserting the engine's envelope reaches the user: {missing}"
+    )
+
+
+def is_partial_run(option, args, invocation_dir) -> bool:
+    """True unless the run collects all of tests/unit, unfiltered.
+
+    Whole means every path given is tests/unit itself or a directory above it
+    (plain `pytest` passes the `testpaths` entry, `tests`). A file, a nodeid, or
+    any option that drops tests leaves the registry short of the suite.
+    """
+    if (
+        getattr(option, "keyword", "")
+        or getattr(option, "markexpr", "")
+        or getattr(option, "lf", False)
+        or getattr(option, "stepwise", False)
+        or getattr(option, "stepwise_skip", False)
+        or getattr(option, "deselect", None)
+        or getattr(option, "ignore", None)
+        or getattr(option, "ignore_glob", None)
+    ):
+        return True
+    for arg in args:
+        if "::" in arg:
+            return True
+        path = (Path(invocation_dir) / arg).resolve()
+        if path != _UNIT_DIR and path not in _UNIT_DIR.parents:
+            return True
+    return False
+
+
+class ControllerVerdict:
+    """The xdist controller's side of the guard: merge the workers' registries
+    and, at session end, fail the guard's nodeid if a command went untested."""
+
+    def __init__(self) -> None:
+        self.recorded: set[tuple[str, ...]] = set()
+        self.workers = 0
+        self.lost_worker = False
+        self.guard_report = None
+
+    def add_worker(self, workeroutput, error) -> None:
+        if error or "error_tested" not in (workeroutput or {}):
+            self.lost_worker = True
+            return
+        self.workers += 1
+        self.recorded.update(tuple(path) for path in workeroutput["error_tested"])
+
+    def see_report(self, report) -> None:
+        if report.when == "call" and report.nodeid.endswith("::" + GUARD_NAME):
+            self.guard_report = report
+
+    def failure(self, partial: bool):
+        """A failed teardown report for the guard, or None when it passes or
+        cannot be decided (no workers, guard not run, partial run, lost worker)."""
+        if not self.workers or self.guard_report is None or partial or self.lost_worker:
+            return None
+        missing = missing_error_tests(self.recorded)
+        if not missing:
+            return None
+        return pytest.TestReport(
+            nodeid=self.guard_report.nodeid,
+            location=self.guard_report.location,
+            keywords={},
+            outcome="failed",
+            longrepr=missing_message(missing),
+            when="teardown",
+        )
+
+
+_CONTROLLER = ControllerVerdict()
+
+
 def pytest_configure(config):
     """Wrap CliRunner.invoke once, for the whole session."""
-    global _LEAF_PATHS, PARTIAL_RUN
+    global _LEAF_PATHS, PARTIAL_RUN, ON_XDIST_WORKER
     from typer.testing import CliRunner
 
     _LEAF_PATHS = _leaf_paths()
-    PARTIAL_RUN = bool(
-        getattr(config.option, "keyword", "")
-        or getattr(config.option, "markexpr", "")
-        or getattr(config.option, "last_failed", False)
-        or any("::" in arg for arg in config.args)
-    )
+    PARTIAL_RUN = is_partial_run(config.option, config.args, config.invocation_params.dir)
+    ON_XDIST_WORKER = hasattr(config, "workerinput")
 
     original = CliRunner.invoke
 
@@ -214,6 +311,27 @@ def pytest_collection_modifyitems(items):
     run. Same reason tests/contract/conftest.py gates in a hook rather than a
     fixture: a rule about the whole session belongs where the whole session is.
     """
-    last = [i for i in items if i.name == "test_every_command_has_an_error_shape_test"]
+    last = [i for i in items if i.name == GUARD_NAME]
     if last:
         items[:] = [i for i in items if i not in last] + last
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error):
+    """xdist controller: a worker finished — keep what its tests recorded."""
+    _CONTROLLER.add_worker(getattr(node, "workeroutput", None), error)
+
+
+def pytest_runtest_logreport(report):
+    _CONTROLLER.see_report(report)
+
+
+def pytest_sessionfinish(session):
+    config = session.config
+    if hasattr(config, "workeroutput"):  # an xdist worker: hand the registry over
+        config.workeroutput["error_tested"] = [list(path) for path in sorted(ERROR_TESTED)]
+        return
+    failure = _CONTROLLER.failure(PARTIAL_RUN)
+    if failure is not None:
+        config.hook.pytest_runtest_logreport(report=failure)
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
