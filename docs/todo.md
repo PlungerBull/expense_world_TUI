@@ -27,24 +27,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The colour line when you edit a category or an account
-Asked 2026-10-15 · Blocks: nothing
-When you edit a category or an account, the colour line does not start on the colour it already
-has. On a category, pressing enter on it replaces the colour with blue. On an account, the
-summary shows no colour although the account keeps its own.
-- **A.** The colour line starts on the colour it already has, so enter keeps it.
-- **B.** Leave it as it is.
-**Recommended:** A, because enter on an untouched line should never change anything.
-
-### A sheet row that is `PENDIENTES` on one side only
-Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
-A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`
-hashtag. What happens to the row's other label?
-- **A.** Category `COMIDA` + hashtag `PENDIENTES` goes to `@Pendiente` and loses `COMIDA`;
-  category `PENDIENTES` + hashtag `#LUZ` keeps `#LUZ`.
-- **B.** Category `COMIDA` + hashtag `PENDIENTES` keeps `COMIDA` and only loses the hashtag.
-- **C.** Any such row goes to `@Pendiente` with no hashtag at all.
-**Recommended:** none; it is your rule for your sheet.
+### A row with no hashtag: is it "not classified yet"?
+Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
+`PENDIENTE` means "not classified yet" on both the category and the hashtag. The engine already
+has `@Pendiente` for categories, and files every row typed with no category there. It has no
+such hashtag, so it gets asked for one. Should a row typed with no hashtag land on it the same
+way?
+- **A.** Yes, like the category: no hashtag means `#Pendiente`, so every row always has one, and
+  the sheet's `PENDIENTES` lands there on whichever side it sits.
+- **B.** No: `#Pendiente` is only set by hand or by the import; a row may also have no hashtag.
+**Recommended:** A, because it makes both sides work the same and "what is still unclassified"
+one list.
 
 ### How the sheet shows that rows are parts of one bank line
 Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
@@ -56,15 +49,6 @@ The import must also tell which sheet rows belong together. How does the sheet s
 - **B.** Nothing marks them; you would add a marker column before the import.
 - **C.** Something else.
 **Recommended:** none; only you know how the sheet is filled.
-
-### Where "Pendiente" sits when you re-categorise several rows at once
-Asked 2026-10-11 · Blocks: nothing
-In Transactions, `c` on selected rows lists your categories in the engine's order and puts
-`@Pendiente` last. The engine itself lists `@Pendiente` first. It is the one place the app moves
-an item of a list the engine orders.
-- **A.** Keep it last: it is the "undo a wrong pick" choice, out of the way of the real ones.
-- **B.** Put it first, where the engine puts it.
-**Recommended:** A, because it is how the screen works today and the everyday picks stay on top.
 
 ---
 
@@ -126,6 +110,14 @@ ships (its why moves to [decisions.md](decisions.md)).
   `13.853,20` is saved as 13.85 on every amount field. The owner chose (2026-10-15): every amount
   field refuses an amount whose comma comes after its dot, with the field's usual "can't read
   that" note ([quickadd/money.py](../expense/quickadd/money.py)).
+- **The colour line on an edit screen starts on the colour the row already has.** Every other
+  line starts on its current value; the colour line starts on the first swatch (a category) or
+  on nothing (an account), so `enter` there turns a category blue and shows an account's colour
+  as gone ([create_forms.py](../expense/tui/screens/create_forms.py)). Owner's pick
+  (2026-10-15): it starts on the current colour, so `enter` keeps it.
+- **The bulk `c` pick lists categories in the engine's order.** `_picker_options` moves
+  `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
+  owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
