@@ -27,6 +27,27 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine also shipped the pending hashtag: catch it up with bank lines, or after?
+Asked 2026-10-16 · Blocks: [specs/bank-lines-catch-up.md](specs/bank-lines-catch-up.md), every task
+
+The practice engine serves contract `3129bfa2c43a4446`, past the bank-lines version
+(`66d65a86a9cf1c19`). The newer versions build the built-in pending hashtag
+([engine-asks/built-in-pending-hashtag.md](engine-asks/built-in-pending-hashtag.md)): every
+hashtag carries `system_key`, the name `Pendiente` is reserved, the pending hashtag cannot be
+deleted or sit beside another hashtag, an opening balance takes no hashtag, rows with no hashtag
+were moved onto it, and dashboards and reports group it like any hashtag. No answer for it is in
+[engine-answers/](engine-answers/). The app records one contract version, so it cannot say it has
+caught up with bank lines without also handling these.
+- **A.** Widen the bank-lines spec: its first task also reads the pending-hashtag changes (no new
+  screen; the bulk hashtag pick and the hashtag lists keep their look), and records `3129bfa2…`.
+  Anything the pending hashtag changes on screen becomes its own **[UI]** task.
+- **B.** A separate pending-hashtag catch-up spec, done first; the bank-lines spec waits.
+- **C.** Ask the engine coders for a pending-hashtag answer in engine-answers first, then pick A
+  or B.
+
+**Recommended:** C then A — an answer file says what the engine coders expect of this client,
+and one catch-up is less churn than two through the same fixtures and version record.
+
 ---
 
 ## Backlog
