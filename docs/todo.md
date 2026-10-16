@@ -27,15 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Split bank lines: the engine coders' answer
-Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
-You are taking
-[engine-asks/split-bank-lines-keep-one-identity.md](engine-asks/split-bank-lines-keep-one-identity.md)
-to the engine coders, with its three questions on the purchases already split in your sheet.
-Bring back their answer (or have them drop it in [engine-answers/](engine-answers/)); task 2 is
-planned from it.
-**Recommended:** none; it waits on the engine coders.
-
 ### The engine contract moved: catch up now?
 Asked 2026-10-16 · Blocks: every new task (the loop stays stopped until this is answered)
 The faster-loop spec's acceptance check found the engine's contract six versions ahead of
