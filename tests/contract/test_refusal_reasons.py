@@ -27,6 +27,10 @@ What it pins, each refusal's status, code, keyed `fields`/`reasons` and reason:
    `RECONCILIATION_NOT_DRAFT` on `reconciliation_id` (contract: DELETE
    /v1/reconciliations/{reconciliation_id}). Completing needs an ending balance
    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation").
+6. Deleting the built-in pending hashtag (found by `system_key`) is `403`
+   `SYSTEM_HASHTAG` on `hashtag_id`, and it stays (contract: DELETE
+   /v1/hashtags/{hashtag_id}). It is engine-created and can never be deleted, so it
+   stays behind on the practice user.
 
 Not pinned here: `CAP_REACHED` (`LIMIT_REACHED`). The smallest cap is 100 accounts,
 archived ones included (contract: "Create caps"), so provoking it means a hundred
@@ -118,6 +122,25 @@ def test_deletes_of_what_is_in_use_name_the_reason(client):
         _safe_delete(client, f"/transactions/{sparse_id}")
         _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/categories/{category_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_the_pending_hashtag_is_never_deleted(client):
+    account_id = str(uuid4())
+    tx_id = str(uuid4())
+
+    try:
+        _make_account(client, account_id, f"contract-rr-{account_id[:8]}")
+        # 6 — a row with no hashtag makes the pending hashtag exist.
+        _make_transaction(client, tx_id, account_id, None)
+        hashtags = client.get("/hashtags")["items"]
+        pending = next(h for h in hashtags if h["system_key"] == "pending")
+        err = _refused(lambda: client.delete(f"/hashtags/{pending['id']}"))
+        _assert_refusal(err, 403, "FORBIDDEN", "hashtag_id", "SYSTEM_HASHTAG")
+        assert client.get(f"/hashtags/{pending['id']}")["system_key"] == "pending"
+        assert client.get(f"/transactions/{tx_id}")["hashtag_ids"] == [pending["id"]]
+    finally:
+        _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/accounts/{account_id}")
 
 

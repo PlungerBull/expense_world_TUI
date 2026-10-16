@@ -72,7 +72,8 @@ before it is built.
 ## Tasks
 
 Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; the build waits for
-the owner's pick. Tasks 1 and 2 are done.
+the owner's pick. Tasks 1, 2 and 9 are done; the live contract tests cover every new refusal
+reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
 
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
@@ -89,6 +90,3 @@ the owner's pick. Tasks 1 and 2 are done.
 8. **[UI]** The hashtags screen marks the pending hashtag and offers no delete on it, with the
    `SYSTEM_HASHTAG` and `RESERVED_NAME` refusals; an opening balance's edit form offers no
    hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.
-9. Live contract tests: split, re-split, a part edit reaching every part, a split line matched on
-   re-import (a card line with no code included), an untagged write landing on the pending
-   hashtag, a real hashtag replacing it, and every new refusal reason in the answer.
