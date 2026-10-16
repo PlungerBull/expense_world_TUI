@@ -51,7 +51,4 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 
 ## Tasks
 
-Drafted by the orchestrator; waiting on the owner's approval.
-
-2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
-   shows, and a skipped colour is not sent.
+Every task is done; the acceptance check and the doc sweep are next.

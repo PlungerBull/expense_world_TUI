@@ -6,11 +6,12 @@ from textual.widgets import Input, Static
 from expense.errors import EngineError
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
+    EditCategoryScreen,
     NewAccountScreen,
     NewCategoryScreen,
     NewHashtagScreen,
 )
-from tests.unit.helpers import run_app, wait_for
+from tests.unit.helpers import render_text, run_app, wait_for
 
 
 def _enter(screen, text):
@@ -37,11 +38,234 @@ def test_new_hashtag_posts_name(fake_client):
     assert body["name"] == "groceries" and "id" in body  # leading # stripped
 
 
-def test_new_category_requires_color_then_posts(fake_client):
+def test_new_category_with_a_color_posts_it(fake_client):
     # name, then pick a color (type 'green' → matches the palette)
     path, body = _run(fake_client, NewCategoryScreen(), ["Educación", "green"])
     assert path == "/categories"
     assert body["name"] == "Educación" and body["color"] == "#5ab87a"
+
+
+def test_new_category_without_a_color_omits_the_key(fake_client):
+    """Empty enter on COLOR saves with no `color` key, not a null: the engine
+    gives its default (contract: POST /v1/categories)."""
+    path, body = _run(fake_client, NewCategoryScreen(), ["Mascotas", ""])
+    assert path == "/categories"
+    assert body["name"] == "Mascotas" and "id" in body
+    assert "color" not in body
+    assert None not in body.values()
+
+
+def test_new_category_ctrl_s_on_the_name_line_saves_without_a_color(fake_client):
+    async def scenario(pilot, app):
+        screen = NewCategoryScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        _enter(screen, "Mascotas")
+        await pilot.press("shift+tab")  # back on the name line, COLOR never touched
+        await pilot.pause()
+        assert screen._key == "name"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.posts)
+        path, body = fake_client.posts[0]
+        assert path == "/categories" and "color" not in body
+
+    run_app(scenario)
+
+
+def test_new_category_color_line_reads_optional(fake_client):
+    """Mockup Part 2: the hint and the summary tag are the account form's words."""
+
+    async def scenario(pilot, app):
+        screen = NewCategoryScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        assert screen._sequence() == ["name", "color"]
+        _enter(screen, "Mascotas")
+        await pilot.pause()
+        assert screen._key == "color"
+        assert str(screen.query_one("#hint", Static).content) == "optional · empty enter to skip"
+        assert screen._hint_for("color") == NewAccountScreen()._hint_for("color")
+        summary = screen.query_one("#summary", Static).content
+        assert "—  (optional)" in render_text(summary, width=80)
+        assert screen._required() == ("name",)
+
+    run_app(scenario)
+
+
+def test_new_category_unknown_color_is_still_refused(fake_client, monkeypatch):
+    """A word no swatch matches gets the existing "Pick a color." note; nothing is sent."""
+    toasts: list = []
+    monkeypatch.setattr(
+        NewCategoryScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
+    )
+
+    async def scenario(pilot, app):
+        screen = NewCategoryScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        _enter(screen, "Mascotas")
+        _enter(screen, "zzzz")
+        await pilot.pause()
+        assert toasts == [("Pick a color.", {"severity": "error"})]
+        assert screen._key == "color" and "color" not in screen._values
+        assert not fake_client.posts
+
+    run_app(scenario)
+
+
+def _on_color(make):
+    """Push `make()`, fill every line before COLOR, return a scenario helper."""
+
+    async def land(pilot, app):
+        screen = make()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        while screen._key != "color":
+            await pilot.press("tab")
+            await pilot.pause()
+        return screen
+
+    return land
+
+
+def _highlighted(screen) -> list[str]:
+    """The suggestion rows drawn reversed (the highlight)."""
+    rendered = screen._suggest_renderable()
+    return [
+        line.plain.strip()
+        for line in getattr(rendered, "renderables", [rendered])
+        if any(str(span.style) == "reverse" for span in line.spans)
+    ]
+
+
+@pytest.mark.parametrize("make", [NewCategoryScreen, NewAccountScreen], ids=["category", "account"])
+def test_an_empty_optional_color_line_highlights_nothing(fake_client, make):
+    """Empty enter skips an optional colour, so no swatch may look picked."""
+    land = _on_color(make)
+
+    async def scenario(pilot, app):
+        screen = await land(pilot, app)
+        assert screen._suggestions  # the palette is listed
+        assert screen._suggest_idx == -1 and _highlighted(screen) == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("make", [NewCategoryScreen, NewAccountScreen], ids=["category", "account"])
+def test_typing_on_an_optional_color_line_highlights_the_first_match(fake_client, make):
+    land = _on_color(make)
+
+    async def scenario(pilot, app):
+        screen = await land(pilot, app)
+        await pilot.press("g", "r")
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ green"]
+        await pilot.press("backspace", "backspace")  # empty again: nothing highlighted
+        await pilot.pause()
+        assert _highlighted(screen) == []
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("make", [NewCategoryScreen, NewAccountScreen], ids=["category", "account"])
+def test_arrowing_into_an_optional_color_list_highlights_and_enter_picks(fake_client, make):
+    land = _on_color(make)
+
+    async def scenario(pilot, app):
+        screen = await land(pilot, app)
+        if isinstance(screen, NewCategoryScreen):
+            screen._values["name"] = "Mascotas"
+        else:
+            screen._values.update(name="Sueldo", currency="PEN")
+        await pilot.press("down")
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ blue"]
+        await pilot.press("down")
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ green"]
+        await pilot.press("enter")  # the last line: saves with the highlighted swatch
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts[0][1]["color"] == "#5ab87a"
+
+    run_app(scenario)
+
+
+def test_a_required_color_line_still_highlights_when_empty(fake_client):
+    """Edit Category keeps COLOR required, and its first swatch highlighted."""
+
+    async def scenario(pilot, app):
+        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("tab")
+        await pilot.pause()
+        assert screen._key == "color" and _highlighted(screen) == ["██ blue"]
+
+    run_app(scenario)
+
+
+def test_edit_category_keeps_color_required_and_never_sends_null(fake_client):
+    """The engine refuses `color: null` on PUT (contract: PUT /v1/categories/{category_id}):
+    Edit category keeps COLOR required, and its body always carries a colour."""
+
+    async def scenario(pilot, app):
+        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        assert screen._required() == ("name", "color")
+        assert screen._hint_for("color") == "pick a swatch"
+        _enter(screen, "Ocio y viajes")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+        path, body = fake_client.puts[0]
+        assert path == "/categories/c1"
+        assert body == {"name": "Ocio y viajes", "color": "#b07cd9"}
+        assert None not in body.values()
+
+    run_app(scenario)
+
+
+def test_edit_category_without_a_color_is_refused_before_any_put(fake_client, monkeypatch):
+    toasts: list = []
+    monkeypatch.setattr(
+        EditCategoryScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
+    )
+
+    async def scenario(pilot, app):
+        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": None})
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert toasts == [("Color is required.", {"severity": "error"})]
+        assert not fake_client.puts
+
+    run_app(scenario)
+
+
+def test_edit_category_unknown_color_is_refused_and_nothing_is_sent(fake_client, monkeypatch):
+    toasts: list = []
+    monkeypatch.setattr(
+        EditCategoryScreen, "notify", lambda self, message, **kw: toasts.append((message, kw))
+    )
+
+    async def scenario(pilot, app):
+        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: bool(screen.query("#bar")))
+        _enter(screen, "Ocio")
+        _enter(screen, "zzzz")
+        await pilot.pause()
+        assert toasts == [("Pick a color.", {"severity": "error"})]
+        assert not fake_client.puts
+
+    run_app(scenario)
+
+
+def test_edit_category_with_no_color_cannot_save_a_null(fake_client):
+    screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": None})
+    assert "color" not in screen._payload()
+    assert None not in screen._payload().values()
 
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
@@ -254,6 +478,13 @@ def _eliana() -> EditAccountScreen:
             "That name is taken: pick another.",
         ),
         (
+            NewCategoryScreen,
+            ["Mascotas", ""],
+            "POST",
+            _keyed("CONFLICT", "name", "NAME_EXISTS", "Name already exists."),
+            "That name is taken: pick another.",
+        ),
+        (
             NewHashtagScreen,
             ["viaje-lima"],
             "POST",
@@ -269,7 +500,7 @@ def _eliana() -> EditAccountScreen:
             "Try again; if it happens again, report it.",
         ),
     ],
-    ids=["screen-2", "screen-3A", "screen-9A"],
+    ids=["screen-2", "category-no-color", "screen-3A", "screen-9A"],
 )
 def test_a_refusal_on_a_form_ends_with_its_next_step(
     fake_client, monkeypatch, make, steps, verb, refusal, line
@@ -370,7 +601,8 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
         await pilot.press("down")  # NAME: no list → next field
         await pilot.pause()
         assert screen._key == "color" and len(screen._suggestions) > 2
-        await pilot.press("down", "down")
+        assert screen._suggest_idx == -1  # optional and empty: nothing highlighted
+        await pilot.press("down", "down", "down")
         await pilot.pause()
         assert (screen._key, screen._suggest_idx) == ("color", 2)
         await pilot.press("up")

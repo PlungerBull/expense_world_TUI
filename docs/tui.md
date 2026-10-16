@@ -64,7 +64,14 @@ expense/tui/
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people; the
-                    #   account Edit form carries the opening balance (§2)
+                    #   account Edit form carries the opening balance (§2).
+                    #   COLOR is optional on New account and New category
+                    #   (hint `optional · empty enter to skip`): a skipped
+                    #   colour is left out of the body, never sent as null, and
+                    #   the engine gives its default (contract: POST /v1/categories).
+                    #   While an optional line is empty no swatch is highlighted;
+                    #   typing or ↑/↓ highlights one, and enter then picks it.
+                    #   Edit category keeps it required, so a PUT never sends null
     modals.py       # ConfirmModal, PromptModal, AmountPromptModal, PickerModal, DiscardStagedModal
                     #   (the LOG bar's one confirmation)
 ```

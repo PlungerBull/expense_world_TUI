@@ -27,6 +27,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The colour line when you edit a category or an account
+Asked 2026-10-15 · Blocks: nothing
+When you edit a category or an account, the colour line does not start on the colour it already
+has. On a category, pressing enter on it replaces the colour with blue. On an account, the
+summary shows no colour although the account keeps its own.
+- **A.** The colour line starts on the colour it already has, so enter keeps it.
+- **B.** Leave it as it is.
+**Recommended:** A, because enter on an untouched line should never change anything.
+
 ### A sheet row that is `PENDIENTES` on one side only
 Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
 A row whose category or hashtag is `PENDIENTES` goes to `@Pendiente` with no `PENDIENTES`

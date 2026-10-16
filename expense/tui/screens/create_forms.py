@@ -105,7 +105,9 @@ class BarFormScreen(FormScreen):
             ]
         else:
             self._suggestions = []
-        self._suggest_idx = 0
+        # An optional line left empty highlights nothing: its `enter` skips, so no
+        # swatch may look picked. Typing, or `↑`/`↓` into the list, highlights.
+        self._suggest_idx = -1 if (not needle and not self._field_required(f)) else 0
 
     # ---- commit ----------------------------------------------------------
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -122,7 +124,7 @@ class BarFormScreen(FormScreen):
             self._advance()
             return
         # choice / color
-        if not text and not f.required:
+        if self._suggest_idx < 0:  # an optional line, empty and untouched: skip it
             self._values.pop(f.key, None)
             self._advance()
             return
@@ -201,17 +203,18 @@ class NewCategoryScreen(BarFormScreen):
     crumb = ("Manage", "Categories", "New")
     RESOURCE = "categories"
     NOUN = "category"
+    # Colour is optional: a skipped colour is left out of the body, never sent as
+    # null, and the engine gives its default (contract: POST /v1/categories).
     FIELDS = [
         Field("name", "NAME", required=True, hint="enter to save"),
-        Field("color", "COLOR", "color", choices=_PALETTE, required=True, hint="pick a swatch"),
+        Field("color", "COLOR", "color", choices=_PALETTE, hint="optional · empty enter to skip"),
     ]
 
     def _payload(self) -> dict:
-        return {
-            "id": str(uuid.uuid4()),
-            "name": self._values["name"],
-            "color": self._values["color"],
-        }
+        payload = {"id": str(uuid.uuid4()), "name": self._values["name"]}
+        if self._values.get("color"):
+            payload["color"] = self._values["color"]
+        return payload
 
 
 class NewAccountScreen(BarFormScreen):
@@ -305,7 +308,14 @@ class EditHashtagScreen(NewHashtagScreen):
 
 
 class EditCategoryScreen(NewCategoryScreen):
+    """Edit keeps a colour required: the category always has one, and an edit
+    never sends `color: null` (contract: PUT /v1/categories/{category_id})."""
+
     BINDINGS = form_bindings("Save")
+    FIELDS = [
+        NewCategoryScreen.FIELDS[0],
+        Field("color", "COLOR", "color", choices=_PALETTE, required=True, hint="pick a swatch"),
+    ]
 
     def __init__(self, record: dict) -> None:
         super().__init__()
