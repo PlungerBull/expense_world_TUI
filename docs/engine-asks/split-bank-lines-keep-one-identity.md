@@ -25,8 +25,11 @@ only the engine sees every client's rows, so the rule belongs in the engine.
 3. **An import matches a bank line to all its parts.** A line whose identity is already in the
    ledger is reported as already there, whether it is one transaction or several parts, and is
    not added again.
-4. **An import of past rows can say which rows are parts of one line**, so a split made outside
-   the engine (in the owner's spreadsheet) comes in already grouped.
+4. **Rows already split before this lands can be linked to one line afterwards.** The owner's
+   spreadsheet holds purchases split into several rows with nothing linking them. A linking
+   operation takes several existing transactions and gives them one identity, as if they had been
+   split in the engine; it is refused with a structured error when the rows are on different
+   accounts or already belong to another line. See "Rows split before this lands" below.
 5. A part keeps the identity when it is edited; deleting every part frees it.
 
 ## Done when
@@ -36,8 +39,34 @@ only the engine sees every client's rows, so the rule belongs in the engine.
 - The same holds for a card line that came with no operation code.
 - A split whose parts do not sum to the original amount is refused with a structured error that
   names the parts.
-- Past rows sent as one group import as the parts of one line, and a later bank file holding that
-  line matches them.
+- Several existing transactions linked as one line are matched by a later bank file holding that
+  line, and nothing is added.
+
+## Rows split before this lands
+
+The owner's spreadsheet is imported once, onto an empty ledger, and holds purchases already split
+into several rows. Example: a card purchase of `WONG -100` on 3 October is two rows, `WONG -60`
+and `WONG -40`, with no bank code on either.
+
+Only the splits that a bank file can still reach matter. Once the owner completes a period's
+reconciliation, the engine refuses new imported rows in that window, so older splits are safe.
+For the recent, unreconciled weeks, this client proposes the plan below; the engine coders'
+view decides it.
+
+- **Proposed: link after import.** After the spreadsheet import, this client reads the bank
+  download against the ledger and lists the fixes for the owner to approve, one of which is "these
+  rows look like one purchase on the statement: link them?" Each approved link calls the linking
+  operation in point 4 of the ask. The owner changes nothing in the spreadsheet.
+- **Alternative: group at import.** The owner marks the parts in the spreadsheet (the same number
+  on each part), and the import of past rows accepts a group marker per row, so the parts arrive
+  already sharing one identity. This needs no linking operation, but the owner must find every
+  split by hand first.
+
+Questions for the engine coders:
+
+1. Which of the two do you prefer, or is there a better way?
+2. Is the identity one the engine always mints, or the bank's operation code when there is one?
+3. When a split's parts no longer sum to the line (one part edited), what does a re-import do?
 
 ## What this client removes once it lands
 

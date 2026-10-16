@@ -27,16 +27,14 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### How the sheet shows that rows are parts of one bank line
+### Split bank lines: the engine coders' answer
 Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
-You split bank lines, so the engine is asked to keep one identity across a split
-([engine-asks/split-bank-lines-keep-one-identity.md](engine-asks/split-bank-lines-keep-one-identity.md)).
-The import must also tell which sheet rows belong together. How does the sheet show it today?
-- **A.** The parts sit on consecutive rows: the first carries the bank code, the next rows with
-  no code and the same date and account belong to it.
-- **B.** Nothing marks them; you would add a marker column before the import.
-- **C.** Something else.
-**Recommended:** none; only you know how the sheet is filled.
+You are taking
+[engine-asks/split-bank-lines-keep-one-identity.md](engine-asks/split-bank-lines-keep-one-identity.md)
+to the engine coders, with its three questions on the purchases already split in your sheet.
+Bring back their answer (or have them drop it in [engine-answers/](engine-answers/)); task 2 is
+planned from it.
+**Recommended:** none; it waits on the engine coders.
 
 ---
 
