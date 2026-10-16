@@ -9,7 +9,8 @@ When done, the why moves to [decisions.md](../decisions.md) and this file is del
 
 ## What it must do
 
-The updated spreadsheet becomes the ledger of record, ready for bank files to take over.
+The updated spreadsheet becomes the ledger of record, and 2026 is brought in line with the bank,
+ready for bank files to take over.
 
 The owner wipes the live database and imports the updated sheet once, onto an empty ledger.
 Nothing typed into the app before the wipe is kept.
@@ -23,12 +24,17 @@ Nothing typed into the app before the wipe is kept.
   built-in pending hashtag, and the other side keeps its own value. The sheet stays as it is and
   a re-run never brings the names back. The pending hashtag is an engine ask
   ([engine-asks/built-in-pending-hashtag.md](../engine-asks/built-in-pending-hashtag.md)).
-- The hand-typed rows of the last weeks take the bank's wording, so a bank file covering those
-  days matches them instead of adding them twice. The app proposes each change and the owner
-  approves the list before anything is written ([file-import-plan.md](../file-import-plan.md) §6).
-- The order is fixed by the engine: **import → title alignment → complete the 2026
-  reconciliations → first real bank import.** A completed reconciliation locks its rows'
-  titles and seals its window against new rows (contract: POST /v1/transactions/import).
+- The sheet comes in as it is: one transaction per row. Rows split from one bank purchase are
+  not grouped; how to mark them is decided later. Everything up to 31-Dec-2025 is accepted as
+  imported.
+- 2026 is checked month by month against the bank statements (EECC). For each month, in order,
+  the owner uploads that month's statement: rows the ledger already has take the bank's code and
+  wording, missing ones are added, and the days whose totals disagree show where a split or a
+  duplicate needs fixing by hand. Then the owner completes that month's reconciliation, which
+  seals it, and moves to the next month.
+- The month-by-month check needs the bank upload of
+  [bank-lines-catch-up.md](bank-lines-catch-up.md); the engine's database change that comes
+  with it is applied to the live engine only once that spec is done.
 
 Everything that writes to the real ledger is run or approved by the owner.
 
@@ -37,8 +43,9 @@ Everything that writes to the real ledger is run or approved by the owner.
 1. The import's dry run lists the four renamed accounts and no `PENDIENTES`; `--apply` finishes
    with no failures.
 2. The accounts screen shows the four bank names.
-3. The title-alignment list was reviewed and applied.
-4. A dry run of a fresh bank download shows the aligned rows as already in the ledger, none as
+3. Every 2026 month up to the last statement has been uploaded, shows no day that disagrees,
+   and its reconciliation is complete.
+4. Uploading the last month's statement again shows every row as already in the ledger, none as
    new.
 
 ## Tasks
