@@ -17,9 +17,12 @@ Nothing typed into the app before the wipe is kept.
 - The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`,
   `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's
   `--account-name`, [commands.md](../commands.md) "Renaming an account leg").
-- No `PENDIENTE` or `PENDIENTES` category or hashtag appears. The import sends every row whose
-  category or hashtag carries that name to the built-in `@Pendiente` and writes no such hashtag,
-  so the sheet stays as it is and a re-run never brings it back.
+- `PENDIENTE` means "not classified yet", on the category and on the hashtag alike. No
+  `PENDIENTE` or `PENDIENTES` category or hashtag is created: a row whose category carries that
+  name goes to the built-in `@Pendiente` category, a row whose hashtag carries it goes to the
+  built-in pending hashtag, and the other side keeps its own value. The sheet stays as it is and
+  a re-run never brings the names back. The pending hashtag is an engine ask
+  ([engine-asks/built-in-pending-hashtag.md](../engine-asks/built-in-pending-hashtag.md)).
 - The hand-typed rows of the last weeks take the bank's wording, so a bank file covering those
   days matches them instead of adding them twice. The app proposes each change and the owner
   approves the list before anything is written ([file-import-plan.md](../file-import-plan.md) §6).
@@ -42,8 +45,9 @@ Everything that writes to the real ledger is run or approved by the owner.
 
 Draft, for the owner's approval.
 
-1. The import sends every row whose category or hashtag is `PENDIENTE` or `PENDIENTES` to
-   `@Pendiente` and writes no such tag.
+1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
+   `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
+   creates neither name. Waits on the pending-hashtag engine ask.
 2. The title-alignment tool: read the bank downloads against the ledger, write the proposal list
    to a local file outside the repo, apply only the approved changes.
 3. A written run sheet for the owner: every command in order, with what to check after each.

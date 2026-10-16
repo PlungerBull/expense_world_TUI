@@ -27,18 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### A row with no hashtag: is it "not classified yet"?
-Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 1
-`PENDIENTE` means "not classified yet" on both the category and the hashtag. The engine already
-has `@Pendiente` for categories, and files every row typed with no category there. It has no
-such hashtag, so it gets asked for one. Should a row typed with no hashtag land on it the same
-way?
-- **A.** Yes, like the category: no hashtag means `#Pendiente`, so every row always has one, and
-  the sheet's `PENDIENTES` lands there on whichever side it sits.
-- **B.** No: `#Pendiente` is only set by hand or by the import; a row may also have no hashtag.
-**Recommended:** A, because it makes both sides work the same and "what is still unclassified"
-one list.
-
 ### How the sheet shows that rows are parts of one bank line
 Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
 You split bank lines, so the engine is asked to keep one identity across a split
