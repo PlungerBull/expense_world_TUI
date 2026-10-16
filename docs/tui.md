@@ -95,6 +95,15 @@ the worker) + `build(data)`; writes go through `EngineWriteMixin.run_write` in i
 worker group — a FIFO queue, one write in flight, and an error drops the queued
 remainder.
 
+**A thread worker hands back through `call_while_attached`.** A thread worker cannot be
+stopped, so a read still in flight when its screen is popped or the app quits still
+lands, and painting it then queries widgets already taken down (`NoMatches`). Textual
+cancels a node's workers only on its Unmount, after its children are gone, so a check in
+the worker is too early. `call_while_attached(node, callback, …)` in
+[_base.py](../expense/tui/screens/_base.py) makes the check on the UI thread, at the
+moment the callback would run, and drops it once the node has left the app.
+`SectionScreen._load` and every worker of the LOG bar hand back this way.
+
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
 needs resolved names, resolve them in `fetch()` and hand `build()` precomputed cells —
 `TransactionsScreen` is the worked example (`fetch()` reads the page and the three name
@@ -795,7 +804,12 @@ make rows fit that do not. Width has **no** floor of any kind.
 
 - **A pilot test waits on a condition, never on the clock.** Use `wait_for(pilot,
   predicate)` / `wait_for_list` / `wait_for_loaded` in
-  [tests/unit/helpers.py](../tests/unit/helpers.py). A **bare** `pilot.pause()` is the
+  [tests/unit/helpers.py](../tests/unit/helpers.py). A `SectionScreen` has settled when
+  its `section-load` worker has finished (`section_settled`), not when `#card` is in the
+  DOM: the card is queryable before its children are mounted, and before the screen's
+  `_show` has run its tail (focus, mode). Wait for the thing the test is about: a save
+  is over when its request was sent *and* `_saving` is false again, since `_saving` is
+  already false before the key reaches the screen. A **bare** `pilot.pause()` is the
   pump-drain for asserting a *non-event* (an inert key, a confirm that must not fire),
   where no predicate can be written. Timed `pilot.pause(<n>)` is rejected by
   [tests/unit/test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py), which carries

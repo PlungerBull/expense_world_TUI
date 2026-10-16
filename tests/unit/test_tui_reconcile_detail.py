@@ -239,6 +239,8 @@ def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
 
 def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch):
     """A failed toggle clears the queue and resyncs instead of applying stale intents (3.2)."""
+    import threading
+
     from expense.errors import EngineError as _EngineError
 
     _patch(monkeypatch)
@@ -247,6 +249,17 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
     monkeypatch.setattr(
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
     )
+    # Each toggle reaches the screen as its own message, so the first PUT can
+    # fail before the second toggle is even queued — and then there is nothing
+    # queued to drop. Hold the first PUT until the second sits in the queue.
+    release = threading.Event()
+    failing_put = fake_client.put
+
+    def held_put(path, json_body=None):
+        release.wait(timeout=5)
+        return failing_put(path, json_body=json_body)
+
+    fake_client.put = held_put
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -256,6 +269,8 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
         screen._list.action_toggle()
         screen._list._cursor = 1
         screen._list.action_toggle()  # queued behind the failing PUT
+        await wait_for(pilot, lambda: len(screen._write_queue or ()) == 1)
+        release.set()
         await wait_for(pilot, lambda: notices)
         await pilot.pause()  # let the queue drain settle, then assert a non-event
         assert not screen._write_queue  # stale intent dropped, not sent

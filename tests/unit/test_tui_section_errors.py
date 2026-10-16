@@ -7,7 +7,14 @@ from textual.widgets import Static
 
 from expense.errors import EngineError
 from expense.tui.screens.accounts import AccountsScreen
-from tests.unit.helpers import render_text, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    render_text,
+    run_app,
+    section_settled,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
 ACCOUNTS = [
     {
@@ -59,7 +66,7 @@ def test_action_reload_recovers_after_error(fake_client, monkeypatch):
         await app.push_screen(AccountsScreen())
         await wait_for(pilot, lambda: app.screen.query(".error"))
         await pilot.press("r")  # action_reload
-        await wait_for(pilot, lambda: app.screen.query("#card"))
+        await wait_for(pilot, lambda: section_settled(app) and app.screen.query("#card"))
         assert not app.screen.query(".error")
         assert len(attempts) == 2
 
@@ -88,5 +95,53 @@ def test_run_write_failure_notifies_and_skips_after_write(fake_client, monkeypat
         assert "CONFLICT — cannot archive" in message
         assert kw.get("title") == "Failed" and kw.get("severity") == "error"
         assert len(seen) == 1  # no success toast, no reload (_after_write skipped)
+
+    run_app(scenario)
+
+
+def test_a_load_that_lands_as_the_app_closes_builds_nothing(fake_client, monkeypatch):
+    """A section read still in flight when the app begins to close is dropped,
+    not built into a screen whose widgets are being taken down.
+
+    Same order as the log bar's peek test: the app is told to exit, and only
+    then does the read hand its answer back, while the screen is still linked.
+    """
+    import threading
+
+    release = threading.Event()
+    submitted = threading.Event()
+    returned = threading.Event()
+    asked: list = []
+    built: list = []
+
+    def held(*a, **k):
+        asked.append(1)
+        release.wait(timeout=5)
+        return whole(ACCOUNTS)
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", held)
+    real_build = AccountsScreen.build
+    monkeypatch.setattr(
+        AccountsScreen, "build", lambda self, data: built.append(1) or real_build(self, data)
+    )
+
+    async def scenario(pilot, app):
+        real_call = app.call_from_thread
+
+        def spy(callback, *args, **kwargs):
+            submitted.set()
+            try:
+                return real_call(callback, *args, **kwargs)
+            finally:
+                returned.set()
+
+        monkeypatch.setattr(app, "call_from_thread", spy)
+        await app.push_screen(AccountsScreen())
+        await wait_for(pilot, lambda: asked, message="the screen never read")
+        app.exit()
+        release.set()
+        assert submitted.wait(timeout=5), "the load never handed back"
+        await wait_for(pilot, returned.is_set, message="the hand-back never returned")
+        assert built == []  # the answer was dropped, not built
 
     run_app(scenario)

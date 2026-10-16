@@ -91,7 +91,7 @@ from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
 from expense.reads import QuickAddRefs, currency_of, items_of, load_quickadd_refs, pending_label
 from expense.tui.dropped import dropped_bank_files
-from expense.tui.screens._base import screen_fetch_kwargs
+from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
@@ -745,9 +745,9 @@ class LogBarScreen(Screen):
             cfg = config_module.ensure_loaded()
             refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            self.app.call_from_thread(self.notify, format_error(exc), severity="error")
+            call_while_attached(self, self.notify, format_error(exc), severity="error")
             return
-        self.app.call_from_thread(self._set_refs, refs)
+        call_while_attached(self, self._set_refs, refs)
 
     def _set_refs(self, refs: QuickAddRefs) -> None:
         self._refs = refs
@@ -1011,16 +1011,16 @@ class LogBarScreen(Screen):
                         transaction_payload(e.parsed, row_id=e.row_id, date=e.date) for e in rows
                     ]
                     outcome = post_transaction_batch(client, items, error_text=format_error)
-                    self.app.call_from_thread(self._apply_outcome, rows, outcome)
+                    call_while_attached(self, self._apply_outcome, rows, outcome)
         except EngineConnectionError as err:
             message = format_error(err)
-            self.app.call_from_thread(self._stop_save, message)
+            call_while_attached(self, self._stop_save, message)
         except Exception as err:  # noqa: BLE001 - a worker crash must not be silent
-            self.app.call_from_thread(self._stop_save, str(err))
+            call_while_attached(self, self._stop_save, str(err))
         else:
-            self.app.call_from_thread(self._save_finished, leave_after)
+            call_while_attached(self, self._save_finished, leave_after)
             return
-        self.app.call_from_thread(self._save_finished, False)
+        call_while_attached(self, self._save_finished, False)
 
     def _apply_outcome(self, rows: list[Staged], outcome: BatchOutcome) -> None:
         """Fold the shared batch result onto the staged rows it came from.
@@ -1265,9 +1265,9 @@ class LogBarScreen(Screen):
             body = reads.fetch_transactions(cfg, account=account_id, limit=PEEK_LIMIT, **kw)
             total = reads.count_transactions(cfg, account=account_id, **kw)
         except Exception as exc:  # a peek is a courtesy: it reports, never raises
-            self.app.call_from_thread(self._peek_failed, account_id, format_error(exc))
+            call_while_attached(self, self._peek_failed, account_id, format_error(exc))
             return
-        self.app.call_from_thread(self._peek_loaded, account_id, items_of(body), total)
+        call_while_attached(self, self._peek_loaded, account_id, items_of(body), total)
 
     def _peek_loaded(self, account_id: str, items: list, total: int) -> None:
         self._peek_cache[account_id] = (items, total)

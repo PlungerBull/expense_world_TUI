@@ -631,7 +631,12 @@ def test_an_engine_error_on_apply_is_shown_and_nothing_more_is_sent(
             "PERIOD_LOCKED", "The period is completed.", None, 409, {}
         )
         await pilot.press("enter")
-        await wait_for(pilot, lambda: bool(preview._failure), message="no failure shown")
+        # the toast is a message to the app: it lands a moment after the screen shows the failure
+        await wait_for(
+            pilot,
+            lambda: bool(preview._failure) and bool(app._notifications),
+            message="no failure shown, or no toast",
+        )
         assert "PERIOD_LOCKED" in _body(preview)
         assert any("PERIOD_LOCKED" in str(n.message) for n in app._notifications)
         assert _shown(preview) == {"escape": "Cancel"}
@@ -690,7 +695,12 @@ def test_a_refused_import_shows_the_engine_words_and_what_to_do(
             "CONFLICT", "stand-in", {key: "stand-in field words"}, 409, {}, {key: reason}
         )
         await pilot.press("enter")
-        await wait_for(pilot, lambda: bool(preview._failure), message="no failure shown")
+        # the toast is a message to the app: it lands a moment after the screen shows the failure
+        await wait_for(
+            pilot,
+            lambda: bool(preview._failure) and bool(app._notifications),
+            message="no failure shown, or no toast",
+        )
         assert [str(t) for t in preview._failure] == [expected]
         assert [str(n.message) for n in app._notifications][-1] == expected
 

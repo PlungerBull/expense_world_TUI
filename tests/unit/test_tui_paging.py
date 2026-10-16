@@ -353,7 +353,11 @@ def test_a_write_starts_the_list_over(monkeypatch):
         _ledger(screen).set_cursor(15)
         del rows[15]  # the engine applied the write: t15 left the filter
         screen._reload_fresh()
-        await wait_for(pilot, lambda: len(counts) == 2 and _ledger(screen).row_count == 10)
+        # mid-swap the old list is gone and the new one not yet in: wait for the load to settle
+        await wait_for(
+            pilot,
+            lambda: len(counts) == 2 and list_ready(pilot.app) and _ledger(screen).row_count == 10,
+        )
         assert reads[-1] == {"limit": GROW_STEP, "after": None, "verbose": False}
         assert _ledger(screen).cursor_index == 0 and _ledger(screen).cursor_key == "t0"
         assert screen._legend() == "no filter · 10 of 132 loaded"

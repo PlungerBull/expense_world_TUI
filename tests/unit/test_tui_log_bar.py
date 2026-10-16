@@ -333,6 +333,21 @@ async def _open(app, pilot):
     return screen
 
 
+async def _save_settled(pilot, screen, client) -> None:
+    """Until the save `ctrl+s` asked for has been sent and has finished.
+
+    `not screen._saving` alone is already true *before* the save starts: the
+    key, or the discard question's answer, reaches the screen a moment after
+    the press returns. The POST is the proof the save began — `_saving` is
+    set before its worker starts — so both together mean it ran and ended.
+    """
+    await wait_for(
+        pilot,
+        lambda: bool(client.posts) and not screen._saving,
+        message="the save never ran to its end",
+    )
+
+
 def _bar(screen) -> Input:
     return screen.query_one("#bar", Input)
 
@@ -766,7 +781,7 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
             ],
         )
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         ledger, draft = screen._staged
         assert ledger.saved and ledger.error is None
@@ -812,7 +827,7 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
         # the chunk is refused on its second item, row 1 lands alone, row 2 alone is sealed
         _script(fake_client, [sealed(1), {}, sealed(0)])
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         ledger, backdated = screen._staged
         assert ledger.saved and ledger.error is None  # one refused row cancels nothing
@@ -851,7 +866,7 @@ def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
         _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE)
         _script(fake_client, [refusal])
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         assert len(fake_client.posts) == 1  # no row-by-row retry
         assert all(not e.saved and e.error is None for e in screen._staged)
@@ -892,7 +907,7 @@ def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
             ],
         )
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         plain, tagged = screen._staged
         assert plain.saved and plain.error is None
@@ -920,7 +935,7 @@ def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch)
             ],
         )
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
         fake_client.calls.clear()
 
         await pilot.press("ctrl+s")  # the engine is healthy again
@@ -957,7 +972,7 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
             ],
         )
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         assert screen._staged[0].saved  # ✓, not an error
         assert screen._staged[0].error is None
@@ -989,7 +1004,7 @@ def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reaso
         refusal = _conflict("category_id", reason)
         _script(fake_client, [refusal, refusal])  # the batch, then its singleton
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         entry = screen._staged[0]
         assert not entry.saved  # no ✓
@@ -1011,7 +1026,7 @@ def test_a_connection_error_writes_nothing_and_every_row_survives(fake_client, m
             url="http://127.0.0.1:8000", original=ConnectionRefusedError("refused")
         )
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         assert len(screen._staged) == 2
         assert not any(e.saved for e in screen._staged)
@@ -1105,7 +1120,7 @@ def test_a_failed_save_first_keeps_the_screen_so_the_error_is_readable(fake_clie
         screen.action_back()
         await wait_for(pilot, lambda: isinstance(app.screen, DiscardStagedModal))
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: not screen._saving)
+        await _save_settled(pilot, screen, fake_client)
 
         assert app.screen is screen  # still here
         assert "127.0.0.1:8000" in _text(screen._staged_renderable())
@@ -1310,6 +1325,55 @@ def test_a_peek_that_cannot_load_says_so_and_does_not_retry(fake_client, monkeyp
         _type(screen, LEDGER_LINE + " ")
         await pilot.pause()
         assert fetch.accounts == ["acc1"]
+
+    run_app(scenario, size=(110, 30))
+
+
+def test_a_peek_that_lands_as_the_app_closes_touches_nothing(fake_client, monkeypatch):
+    """The read was in flight when the app began to close: its answer has no
+    screen to paint.
+
+    A thread worker cannot be stopped, so the page still arrives — and drawing
+    it while the bar's widgets are being taken down queries widgets that are
+    already gone (`NoMatches '#field'`), which fails the app as it exits. The
+    order is pinned: the app is told to exit, and only then does the read hand
+    its answer back, while the bar is still linked to the app.
+    """
+    import threading
+
+    release = threading.Event()
+    submitted = threading.Event()
+    returned = threading.Event()
+
+    class _HeldPeek(_PeekFetch):
+        def count(self, _cfg, **kw):
+            self.counted.append(kw.get("account"))
+            release.wait(timeout=5)
+            return self.total
+
+    fetch = _patch(monkeypatch, _HeldPeek())
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        real_call = app.call_from_thread
+
+        def spy(callback, *args, **kwargs):
+            submitted.set()
+            try:
+                return real_call(callback, *args, **kwargs)
+            finally:
+                returned.set()
+
+        monkeypatch.setattr(app, "call_from_thread", spy)
+        _type(screen, LEDGER_LINE)
+        await wait_for(pilot, lambda: fetch.counted == ["acc1"], message="the peek never asked")
+        app.exit()
+        release.set()
+        # Block the UI thread until the answer is on its way, so nothing of the
+        # bar is taken down before the worker reaches for the app.
+        assert submitted.wait(timeout=5), "the peek never handed back"
+        await wait_for(pilot, returned.is_set, message="the hand-back never returned")
+        assert screen._peek_cache == {}  # the answer was dropped, not drawn
 
     run_app(scenario, size=(110, 30))
 

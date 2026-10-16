@@ -82,16 +82,14 @@ ships (its why moves to [decisions.md](decisions.md)).
   orders the batch now"; state it in the present tense
   ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
 
-- **Three flaky unit tests.** Each failed in a full `pytest tests/unit` run on 2026-10-02 and
-  passes alone; on 2026-10-14 `test_enter_home_with_unwritten_staged_rows_asks_first` blocked two
-  commits and `test_config_screen_shows_only_the_engine_connection` one; for each, find whether the test asserts too early or the screen has a race.
-  - `test_toggle_error_drops_queued_intents_and_resyncs`
-    ([test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py)): 2 PUTs sent,
-    1 expected — the queued toggle went out before the failing PUT's error dropped it.
-  - `test_config_screen_shows_only_the_engine_connection`
-    ([test_tui_system.py](../tests/unit/test_tui_system.py)).
-  - `test_enter_home_with_unwritten_staged_rows_asks_first`
-    ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
+- **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
+  popped or the app closing still runs its callback, which then queries pruned widgets
+  ([tui.md](tui.md) "Async/workers"). `SectionScreen._load` and the LOG bar use the guard; about
+  20 hand-backs still call `self.app.call_from_thread` directly: `_base.py` (`_execute_write`),
+  `_growing.py`, `reconciliations.py`, `home.py`, `bank_import.py`, `transactions.py`,
+  `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
+  write's `on_success` must still run after a dismiss, and add a guard in
+  `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
 - **An amount typed with a dot for thousands is misread.** `parse_amount` drops every comma, so
   `13.853,20` is saved as 13.85 on every amount field. The owner chose (2026-10-15): every amount
   field refuses an amount whose comma comes after its dot, with the field's usual "can't read

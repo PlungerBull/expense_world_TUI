@@ -43,6 +43,30 @@ def screen_fetch_kwargs(app) -> dict:
     return dict(verbose=app._verbose)
 
 
+def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> None:
+    """From a thread worker of `node`: run `callback(*args, **kwargs)` on the UI thread,
+    unless `node` has left the app by the time it would run.
+
+    A thread worker cannot be interrupted, so a read that was in flight when
+    its screen was popped, or when the app quit, still lands. Textual cancels
+    a node's workers only on its Unmount, which comes *after* its children are
+    pruned, so neither `is_cancelled` nor a check made in the worker thread
+    closes the gap: the callback would query widgets that are already gone
+    (`NoMatches`). The check runs on the UI thread, at the moment the callback
+    would: `is_attached` is False once the app is exiting or the node is
+    unlinked, and `_pruning` is set on a node and all its children the moment
+    their removal starts — the same pair Textual's own `Widget` checks before
+    touching a node it may be removing.
+    """
+
+    def guarded():
+        if node.is_attached and not node._pruning:
+            return callback(*args, **kwargs)
+        return None
+
+    node.app.call_from_thread(guarded)
+
+
 @dataclass
 class _QueuedWrite:
     method: str
@@ -428,11 +452,11 @@ class SectionScreen(
             data = self.fetch()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
-                self.app.call_from_thread(self._error, format_error(exc))
+                call_while_attached(self, self._error, format_error(exc))
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._show, data)
+        call_while_attached(self, self._show, data)
 
     async def _show(self, data: object) -> None:
         content = self.query_one("#content", VerticalScroll)

@@ -10,7 +10,7 @@ from expense.tui.screens.system import (
     ConfigScreen,
     _redact_token,
 )
-from tests.unit.helpers import error_body, render_text, run_app, wait_for
+from tests.unit.helpers import error_body, render_text, run_app, wait_for, wait_for_loaded
 
 CFG = Config(
     engine_url="https://engine.example",
@@ -37,7 +37,7 @@ def test_config_screen_shows_only_the_engine_connection(monkeypatch):
     async def scenario(pilot, app):
         screen = ConfigScreen()
         await app.push_screen(screen)
-        await wait_for(pilot, lambda: bool(app.screen.query("#card")))
+        await wait_for_loaded(pilot, app)
         card = _screen_text(app.screen.query_one("#card"))
         assert "engine url" in card and "token" in card and "main currency" in card
         assert "client id" not in card and "cache" not in card

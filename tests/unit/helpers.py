@@ -353,17 +353,42 @@ async def wait_for(
     pytest.fail(message or f"wait_for: condition still false after {timeout}s")
 
 
+def section_settled(app) -> bool:
+    """The active SectionScreen's load ran to its end: started, and its
+    `section-load` worker finished.
+
+    That worker hands its result to the UI thread with `call_from_thread`,
+    which waits for the screen's `_show` (or `_error`) to return — the
+    subclass's own tail included, such as focusing a list or setting a mode.
+    So a finished worker means the screen settled. Seeing `#card` in the DOM
+    does not: the card is queryable before its children are mounted, and a
+    test that reads it then finds an empty card.
+    """
+    screen = app.screen
+    if not getattr(screen, "_started", False):
+        return False
+    return not any(
+        worker.node is screen and worker.group == "section-load" and not worker.is_finished
+        for worker in app.workers
+    )
+
+
 async def wait_for_loaded(pilot, app) -> None:
-    """Until the active SectionScreen resolved — #card (data) or .error mounted."""
+    """Until the active SectionScreen resolved — its load settled, with #card
+    (data) or .error mounted."""
     await wait_for(
         pilot,
-        lambda: bool(app.screen.query("#card")) or bool(app.screen.query(".error")),
+        lambda: (
+            section_settled(app)
+            and (bool(app.screen.query("#card")) or bool(app.screen.query(".error")))
+        ),
         message="SectionScreen never finished loading (no #card or .error mounted)",
     )
 
 
 def list_ready(app) -> bool:
-    """The active SectionScreen's CursorList is mounted and its loader is gone.
+    """The active SectionScreen's load settled, its CursorList is there and its
+    loader is gone.
 
     Exposed as a plain predicate, not only as the waiter below, so call sites
     that need an *extra* condition (a row count, a filtered legend) can write
@@ -371,7 +396,11 @@ def list_ready(app) -> bool:
     """
     from expense.tui.widgets.cursor_list import CursorList  # local: see module docstring
 
-    return bool(app.screen.query(CursorList)) and not app.screen.query("#content LoadingIndicator")
+    return (
+        section_settled(app)
+        and bool(app.screen.query(CursorList))
+        and not app.screen.query("#content LoadingIndicator")
+    )
 
 
 async def wait_for_list(pilot, app) -> None:
