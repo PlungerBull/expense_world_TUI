@@ -10,9 +10,13 @@ import pytest
 
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
+    AnswerCounts,
+    DayMismatch,
     IncompleteAnswer,
     Placed,
-    excess_groups,
+    UnclaimedLine,
+    answer_counts,
+    day_mismatches,
     match_label,
     placements,
     request_body,
@@ -44,13 +48,16 @@ def _bank(line, date_iso, title, cents, *, currency="PEN", code=None) -> BankRow
     return BankRow(line, date_iso, title, currency, cents, code)
 
 
-def _result(ident, outcome="new", *, rule=None, ledger_id=None, code=None, sealed_by=None) -> dict:
+def _result(
+    ident, outcome="new", *, rule=None, line=None, code=None, retitled=None, sealed_by=None
+) -> dict:
     return {
         "id": ident,
         "outcome": outcome,
         "rule": rule,
-        "ledger_id": ledger_id,
+        "bank_line_id": line,
         "backfill_code": code,
+        "retitled": retitled,
         "sealed_by": sealed_by,
     }
 
@@ -204,7 +211,14 @@ def test_response_rows_join_back_to_the_file_by_id():
         {
             "rows": [
                 _result(sent[0].id),
-                _result(sent[1].id, "matched", rule="same_day", ledger_id="t1", code="00000009"),
+                _result(
+                    sent[1].id,
+                    "matched",
+                    rule="same_day",
+                    line="bl-1",
+                    code="00000009",
+                    retitled=True,
+                ),
                 _result(sent[2].id, "sealed", sealed_by="r1"),
             ]
         },
@@ -215,55 +229,129 @@ def test_response_rows_join_back_to_the_file_by_id():
     assert sealed_accounts(placed) == ["sig-pen"]
 
 
+def test_a_matched_row_carries_its_bank_line_and_whether_it_was_retitled():
+    """A `matched` row names the bank line it is and says whether the bank's
+    title is written onto it; the other outcomes carry neither (null)."""
+    sent = _sent()
+    placed = placements(
+        {
+            "rows": [
+                _result(sent[0].id, "matched", rule="operation_code", line="bl-1", retitled=True),
+                _result(sent[1].id, "matched", rule="same_day", line="bl-2", retitled=False),
+                _result(sent[2].id),
+            ]
+        },
+        sent,
+    )
+    assert [(p.bank_line_id, p.retitled) for p in placed] == [
+        ("bl-1", True),
+        ("bl-2", False),
+        (None, None),
+    ]
+
+
 def test_each_outcome_and_rule_has_its_words():
     sent = _sent()
 
     def label(**kw):
         return match_label(Placed(sent=sent[0], **kw), {"r1": "September 2026"})
 
-    base = {"rule": None, "ledger_id": None, "backfill_code": None, "sealed_by": None}
+    base = {
+        "rule": None,
+        "bank_line_id": None,
+        "backfill_code": None,
+        "retitled": None,
+        "sealed_by": None,
+    }
     assert label(**{**base, "outcome": "new"}) == "new"
-    matched = {**base, "outcome": "matched", "ledger_id": "t1"}
+    matched = {**base, "outcome": "matched", "bank_line_id": "bl-1", "retitled": False}
     assert label(**{**matched, "rule": "operation_code"}) == "in ledger · operation"
     assert label(**{**matched, "rule": "same_day"}) == "in ledger · same day"
-    assert label(**{**matched, "rule": "adjacent_day"}) == "in ledger · ± 1 day"
-    coded = {**matched, "rule": "adjacent_day", "backfill_code": "1"}
-    assert label(**coded) == "in ledger · ± 1 day · +code"
+    coded = {**matched, "rule": "same_day", "backfill_code": "1"}
+    assert label(**coded) == "in ledger · same day · +code"
     sealed = {**base, "outcome": "sealed", "sealed_by": "r1"}
     assert label(**sealed) == "closed · September 2026"
     assert label(**{**sealed, "sealed_by": "gone"}) == "closed · a closed period"
 
 
-def test_excess_is_signed_by_direction_and_named_by_leg():
-    groups = excess_groups(
+def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
+    """Each disagreeing day as the engine sends it: both totals signed (inflow
+    positive, outflow negative), the unmatched file rows by index, and the
+    unclaimed ledger lines with their transactions; the account named by its
+    leg, or by its id when no leg is known."""
+    mismatches = day_mismatches(
         {
-            "excess": [
+            "day_mismatches": [
                 {
                     "account_id": "sig-pen",
                     "date": "2026-09-07",
-                    "amount_cents": 350,
-                    "transaction_type": 1,
-                    "file_count": 1,
-                    "ledger_count": 2,
-                    "unclaimed_ledger_ids": ["t2"],
+                    "file_net_cents": -10000,
+                    "ledger_net_cents": -15000,
+                    "unmatched_rows": [],
+                    "unclaimed_lines": [{"bank_line_id": "bl-3", "transaction_ids": ["t3"]}],
                 },
                 {
                     "account_id": "sig-usd",
                     "date": "2026-09-08",
-                    "amount_cents": 100,
-                    "transaction_type": 2,
-                    "file_count": 1,
-                    "ledger_count": 2,
-                    "unclaimed_ledger_ids": ["t3"],
+                    "file_net_cents": 2500,
+                    "ledger_net_cents": 0,
+                    "unmatched_rows": [1, 3],
+                    "unclaimed_lines": [
+                        {"bank_line_id": "bl-4", "transaction_ids": ["t4a", "t4b"]},
+                    ],
+                },
+                {
+                    "account_id": "elsewhere",
+                    "date": "2026-09-09",
+                    "file_net_cents": 0,
+                    "ledger_net_cents": -700,
+                    "unmatched_rows": [],
+                    "unclaimed_lines": [],
                 },
             ]
         },
         {"sig-pen": "BCP Signature PEN", "sig-usd": "BCP Signature USD"},
     )
-    assert [(g.account_name, g.amount_cents, g.unclaimed) for g in groups] == [
-        ("BCP Signature PEN", -350, 1),
-        ("BCP Signature USD", 100, 1),
+    assert mismatches == [
+        DayMismatch(
+            account_id="sig-pen",
+            account_name="BCP Signature PEN",
+            date_iso="2026-09-07",
+            file_net_cents=-10000,
+            ledger_net_cents=-15000,
+            unmatched_rows=(),
+            unclaimed_lines=(UnclaimedLine("bl-3", ("t3",)),),
+        ),
+        DayMismatch(
+            account_id="sig-usd",
+            account_name="BCP Signature USD",
+            date_iso="2026-09-08",
+            file_net_cents=2500,
+            ledger_net_cents=0,
+            unmatched_rows=(1, 3),
+            unclaimed_lines=(UnclaimedLine("bl-4", ("t4a", "t4b")),),
+        ),
+        DayMismatch(
+            account_id="elsewhere",
+            account_name="elsewhere",
+            date_iso="2026-09-09",
+            file_net_cents=0,
+            ledger_net_cents=-700,
+            unmatched_rows=(),
+            unclaimed_lines=(),
+        ),
     ]
+
+
+def test_no_day_mismatches_is_an_empty_list():
+    assert day_mismatches({"day_mismatches": []}, {}) == []
+
+
+def test_the_engines_counts_include_retitled():
+    counts = answer_counts(
+        {"counts": {"new": 2, "matched": 5, "sealed": 1, "backfilled": 3, "retitled": 4}}
+    )
+    assert counts == AnswerCounts(new=2, matched=5, sealed=1, backfilled=3, retitled=4)
 
 
 def test_a_refusal_names_the_files_line_not_the_engines_index():

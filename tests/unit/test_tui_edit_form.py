@@ -90,6 +90,7 @@ TXN = {
     "category_id": "cat1",
     "hashtag_ids": ["h1"],
     "description": "receta",
+    "bank_line_id": "bl1",
 }
 
 

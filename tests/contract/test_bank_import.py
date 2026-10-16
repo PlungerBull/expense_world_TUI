@@ -5,7 +5,11 @@ so what the preview and the apply say is the engine's word. Pinned here:
 
   · a dry run answers `new` and writes nothing;
   · the apply writes the row, and the same file again is `matched` by
-    `operation_code`, claiming that row;
+    `operation_code`, naming that row's bank line, not retitled (the title is
+    the bank's already), and with no day whose totals disagree;
+  · a day where the ledger holds a line the file does not is a
+    `day_mismatches` entry: both totals signed, the leftover line and its
+    transaction;
   · a row not in the ledger, dated inside a completed period, is `sealed` and
     names the period: never written, never an error.
 
@@ -66,17 +70,56 @@ def test_dry_run_then_apply_then_the_same_file_matches(client):
         assert [r["outcome"] for r in applied["rows"]] == ["new"]
         created.append(row["id"])
         assert _count(client, account) == 1
-        assert client.get(f"/transactions/{row['id']}")["operation_code"] == code
+        written = client.get(f"/transactions/{row['id']}")
+        assert written["operation_code"] == code
 
         again = _row(account, "2026-03-05", code)
         second = client.post("/transactions/import", json_body={"dry_run": False, "rows": [again]})
         (only,) = second["rows"]
         assert only["outcome"] == "matched"
         assert only["rule"] == "operation_code"
-        assert only["ledger_id"] == row["id"]
+        assert only["bank_line_id"] == written["bank_line_id"]
+        assert only["retitled"] is False
+        assert second["counts"]["retitled"] == 0
+        assert second["day_mismatches"] == []
         assert _count(client, account) == 1
     finally:
         for tx_id in created:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_leftover_ledger_line_is_reported_on_its_day(client):
+    zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
+    account = _make_account(client)
+    ledger = [str(uuid4()), str(uuid4())]
+    try:
+        for tx_id in ledger:
+            client.post(
+                "/transactions",
+                json_body={
+                    "id": tx_id,
+                    "amount_cents": -2590,
+                    "account_id": account,
+                    "date": datetime(2026, 3, 9, 12, tzinfo=zone).isoformat(timespec="seconds"),
+                },
+            )
+        row = _row(account, "2026-03-09", "")
+        del row["operation_code"]  # a card line: no code, matched by day and total
+        body = client.post("/transactions/import", json_body={"dry_run": True, "rows": [row]})
+        (only,) = body["rows"]
+        assert only["outcome"] == "matched" and only["rule"] == "same_day"
+        (day,) = body["day_mismatches"]
+        assert day["account_id"] == account and day["date"] == "2026-03-09"
+        assert (day["file_net_cents"], day["ledger_net_cents"]) == (-2590, -5180)
+        assert day["unmatched_rows"] == []
+        (line,) = day["unclaimed_lines"]
+        (left,) = line["transaction_ids"]
+        assert left in ledger
+        assert line["bank_line_id"] == client.get(f"/transactions/{left}")["bank_line_id"]
+        assert only["bank_line_id"] != line["bank_line_id"]
+    finally:
+        for tx_id in ledger:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/accounts/{account}")
 

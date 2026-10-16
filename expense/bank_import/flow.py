@@ -12,7 +12,6 @@ from expense import reads
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
     IMPORT_MAX_ROWS,
-    ExcessGroup,
     IncompleteAnswer,
     Placed,
     SentRow,
@@ -57,7 +56,8 @@ class AccountGroup:
 
     @property
     def leg_names(self) -> dict[str, str]:
-        """leg account id → its name, for naming the engine's `excess` groups."""
+        """leg account id → its name, for naming the accounts of the engine's
+        `day_mismatches`."""
         return {ident: name for ident, name in self.legs.values()}
 
 
@@ -261,13 +261,6 @@ def sealed_lines(placed: list[Placed], names: dict[str, str]) -> list[str]:
             f"{format_cents(row.amount_cents)} · {p.sent.account_name} — {period}"
         )
     return lines
-
-
-def excess_head(excess: list[ExcessGroup]) -> str:
-    """`! 2 ledger rows no file row matched — check` — the preview's warning,
-    in both doors."""
-    n = sum(e.unclaimed for e in excess)
-    return f"! {n} ledger row{'' if n == 1 else 's'} no file row matched — check"
 
 
 def incomplete_sentence(gap: IncompleteAnswer, prepared: Prepared) -> str:

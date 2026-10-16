@@ -27,6 +27,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Is the one-time title alignment still needed?
+Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
+
+Before the migration, the plan has a one-time pass that renames your typed rows to the bank's
+wording ([file-import-plan.md](file-import-plan.md) §6), because the engine used to recognise a
+row only when its title matched. The engine no longer looks at titles: it recognises a row by its
+bank code, or by account, exact day and amount, and it writes the bank's wording onto the row
+itself when it recognises it. Rows typed a day off are the only ones it misses, and those show in
+the days whose totals disagree.
+- **A.** Drop the alignment pass; the month-by-month statement uploads do its job.
+- **B.** Keep it as a one-time tidy-up of wording before the first upload.
+
+**Recommended:** A, because the engine now does the renaming on every match, and a day-off row
+is already caught by the days that disagree.
+
 ---
 
 ## Backlog

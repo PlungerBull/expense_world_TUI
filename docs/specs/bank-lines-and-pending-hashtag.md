@@ -72,21 +72,16 @@ before it is built.
 ## Tasks
 
 Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; the build waits for
-the owner's pick. Tasks 1 and 2 change no screen's look.
+the owner's pick. Task 2 changes no screen's look. Task 1 is done.
 
-1. The app reads contract `3129bfa2c43a4446`. The bank upload reads the new import answer:
-   matched rows by bank line, `retitled` and its count, `day_mismatches`, and no `adjacent_day`,
-   `ledger_id` or `excess`. Transactions read `bank_line_id`; the pending hashtag is found by its
-   system key, allowing for it not existing yet. The live contract tests and the unit fixtures
-   follow, and the new version is recorded. Screens keep their current look where nothing new is
-   shown.
 2. Every hashtag write follows the pending rule: the edit form, the bulk hashtag pick and the
    LOG bar never send the pending hashtag together with a real one, and the engine's hashtag
    refusals (`PENDING_HASHTAG_NOT_ALONE`, `RESERVED_NAME_HELD`, `CONCURRENT_CHANGE`,
    `INVALID_REFERENCE`) show as sent.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
-   running, run it again" refusal.
+   running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
+   counting rows itself.
 4. **[UI]** The ledger shows the parts of one purchase together.
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal.
 6. **[UI]** The edit form's note that description, date and account reach every part, and its

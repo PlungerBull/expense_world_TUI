@@ -30,9 +30,10 @@ response → rows live once, in [bank_import/engine.py](../expense/bank_import/e
 
 The ledger's rows up to the end of the spreadsheet are hand-typed, with no operation codes and
 the owner's wording (`MAR DE COLAS LIMA` vs the bank's `MAR DE COLAS LIMA PE`). The engine
-matches only identical titles, so a bank file overlapping those days would import them twice.
-Giving those rows the bank's wording once removes the overlap at the source. (The only other
-floor is 2026-01-01, `IMPORT_FLOOR` in [bank_import/engine.py](../expense/bank_import/engine.py).)
+matches a bank row to a ledger line by operation code, then by account, exact day and total;
+titles play no part, a row one day off is `new`, and a match writes the bank's title onto the
+line (contract: POST /v1/transactions/import, "Matching"). (The only other floor is 2026-01-01,
+`IMPORT_FLOOR` in [bank_import/engine.py](../expense/bank_import/engine.py).)
 
 **The overlap is small.** BCP's Excel export holds the last 20 movements of a current account
 and the last 80 of a card, so it covers only the few weeks before the spreadsheet ends. The
@@ -56,8 +57,8 @@ bank import.
 4. Apply exactly what was approved: one `PUT /transactions/{id}` with `title` only. **The old
    title is dropped**; `description` is untouched.
 5. Operation codes are not written here. The first real import writes them (the engine's
-   backfill on a `same_day` / `adjacent_day` match), and its dry run is the check: every aligned
-   row must read `in ledger · … · +code`, none `new`.
+   backfill on a `same_day` match), and its dry run is the check: every aligned row must read
+   `in ledger · … · +code`, none `new`.
 
 ---
 
@@ -68,7 +69,7 @@ bank import.
 | Merchant memory / category suggestions | Classification stays manual (Home suggestions were rejected 2026-09-13). |
 | Transfer / card-payment / ITF detection | `TRAN.CTAS.PROP.BM`, `PAG.T.PROP.VISA.BM`, `IMPUESTO ITF` import as ordinary rows, classified by hand. |
 | Import provenance + undo | A wrong-account import is fixed with bulk `b` in Home. |
-| A per-row override in the preview | Every verdict is a fact (matching code, or identical text + amount + date), not a guess. |
+| A per-row override in the preview | Every verdict is a fact (the same operation code, or the same account, exact day and total, titles playing no part), not a guess (contract: POST /v1/transactions/import, "Matching"). |
 | Bulk "assign everything shown" on the reconciliation screen | Revisit if monthly closing proves tedious — the draft screen already lists exactly the rows it would assign. |
 | Other banks, CSV, PDF | BCP only. |
 

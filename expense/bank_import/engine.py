@@ -1,10 +1,10 @@
 """BankRows → the `POST /transactions/import` body, and its response → one
 view per row. Pure: no HTTP, no typer, no config.
 
-The engine does the matching (contract: POST /v1/transactions/import): by
-operation code, then same day + title, then the adjacent day + title, each
-ledger row claimed once. This module only decides what is sent and how the
-answer reads, so the TUI import door shows the engine's word.
+The engine does the matching against its bank lines, and reports the days
+whose totals disagree (contract: POST /v1/transactions/import, "Matching").
+This module only decides what is sent and how the answer reads, so the TUI
+import door shows the engine's word.
 """
 
 from dataclasses import dataclass
@@ -28,11 +28,7 @@ IMPORT_MAX_ROWS = 500
 RULE_LABELS = {
     "operation_code": "operation",
     "same_day": "same day",
-    "adjacent_day": "± 1 day",
 }
-
-#: The engine's `transaction_type` on an `excess` group: 1 outflow, 2 inflow.
-OUTFLOW = 1
 
 
 @dataclass(frozen=True)
@@ -67,23 +63,48 @@ class Placed:
     sent: SentRow
     outcome: str  # new | matched | sealed
     rule: str | None
-    ledger_id: str | None
+    #: The bank line a `matched` row is; None on the other outcomes.
+    bank_line_id: str | None
     backfill_code: str | None
+    #: On a `matched` row, whether the bank's title is (or, on a dry run,
+    #: would be) written onto the line; None on the other outcomes.
+    retitled: bool | None
     sealed_by: str | None
 
 
 @dataclass(frozen=True)
-class ExcessGroup:
-    """A day and amount the file reports where the ledger still holds a row no
-    file row claimed (the engine's `excess`). Equal counts are included: that
-    ledger row and a `new` file row may be one movement in two wordings."""
+class UnclaimedLine:
+    """A ledger line on a disagreeing day that no file row claimed: the line,
+    and its live transactions on that account and day."""
 
+    bank_line_id: str
+    transaction_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DayMismatch:
+    """One account and day whose file total and ledger total (after this
+    import) differ — the engine's `day_mismatches` entry, a report only."""
+
+    account_id: str
     account_name: str
     date_iso: str
-    amount_cents: int  # signed, as everywhere else on screen
-    #: The ledger rows here no file row claimed — the count the warning
-    #: shows.
-    unclaimed: int
+    file_net_cents: int  # signed: inflow positive, outflow negative
+    ledger_net_cents: int  # signed, the ledger's after this import
+    #: The indexes of the sent rows on this day that matched no line.
+    unmatched_rows: tuple[int, ...]
+    unclaimed_lines: tuple[UnclaimedLine, ...]
+
+
+@dataclass(frozen=True)
+class AnswerCounts:
+    """The engine's own `counts` of one answer."""
+
+    new: int
+    matched: int
+    sealed: int
+    backfilled: int
+    retitled: int
 
 
 def split_floor(rows: list[BankRow]) -> tuple[list[BankRow], list[BankRow]]:
@@ -144,30 +165,52 @@ def placements(response: dict, sent: list[SentRow]) -> list[Placed]:
                 sent=s,
                 outcome=str(item.get("outcome")),
                 rule=item.get("rule"),
-                ledger_id=item.get("ledger_id"),
+                bank_line_id=item.get("bank_line_id"),
                 backfill_code=item.get("backfill_code"),
+                retitled=item.get("retitled"),
                 sealed_by=item.get("sealed_by"),
             )
         )
     return out
 
 
-def excess_groups(response: dict, names: dict[str, str]) -> list[ExcessGroup]:
-    out: list[ExcessGroup] = []
-    for e in response.get("excess") or []:
-        cents = int(e.get("amount_cents") or 0)
-        if e.get("transaction_type") == OUTFLOW:
-            cents = -cents
+def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
+    """The response's `day_mismatches`, in the engine's order, each account
+    named by its leg (its id when the leg is unknown). Both totals stay signed
+    as the engine sends them."""
+    out: list[DayMismatch] = []
+    for e in response.get("day_mismatches") or []:
         account_id = str(e.get("account_id"))
         out.append(
-            ExcessGroup(
+            DayMismatch(
+                account_id=account_id,
                 account_name=names.get(account_id, account_id),
                 date_iso=str(e.get("date")),
-                amount_cents=cents,
-                unclaimed=len(e.get("unclaimed_ledger_ids") or []),
+                file_net_cents=int(e.get("file_net_cents") or 0),
+                ledger_net_cents=int(e.get("ledger_net_cents") or 0),
+                unmatched_rows=tuple(int(i) for i in e.get("unmatched_rows") or []),
+                unclaimed_lines=tuple(
+                    UnclaimedLine(
+                        bank_line_id=str(line.get("bank_line_id")),
+                        transaction_ids=tuple(str(t) for t in line.get("transaction_ids") or []),
+                    )
+                    for line in e.get("unclaimed_lines") or []
+                ),
             )
         )
     return out
+
+
+def answer_counts(response: dict) -> AnswerCounts:
+    """The response's `counts`, as the engine counted them."""
+    counts = response.get("counts") or {}
+    return AnswerCounts(
+        new=int(counts.get("new") or 0),
+        matched=int(counts.get("matched") or 0),
+        sealed=int(counts.get("sealed") or 0),
+        backfilled=int(counts.get("backfilled") or 0),
+        retitled=int(counts.get("retitled") or 0),
+    )
 
 
 def match_label(p: Placed, period_names: dict[str, str]) -> str:

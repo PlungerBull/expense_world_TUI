@@ -479,18 +479,43 @@ OPENING_SYSTEM_KEY = "opening_balance"
 
 def _opening_of(categories: list[dict]) -> str | None:
     """The id of the @Opening row among category rows, or None."""
-    for c in categories:
-        if c.get("system_key") == OPENING_SYSTEM_KEY and isinstance(c.get("id"), str):
-            return str(c["id"])
+    row = _system_row(categories, OPENING_SYSTEM_KEY)
+    return str(row["id"]) if row else None
+
+
+def _system_row(rows: list[dict], key: str) -> dict | None:
+    """The first row carrying `system_key == key` and an id, or None. Every
+    built-in row (category or hashtag) is found this way, never by name."""
+    for row in rows:
+        if row.get("system_key") == key and isinstance(row.get("id"), str):
+            return row
     return None
 
 
 def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
     """`(id, name)` of the @Pendiente row among category rows, or None."""
-    for c in categories:
-        if c.get("system_key") == PENDING_SYSTEM_KEY and isinstance(c.get("id"), str):
-            return (c["id"], c.get("name") or PENDING_FALLBACK_NAME)
-    return None
+    row = _system_row(categories, PENDING_SYSTEM_KEY)
+    return (row["id"], row.get("name") or PENDING_FALLBACK_NAME) if row else None
+
+
+# The engine's stable key for the built-in pending hashtag, the hashtag a
+# transaction written with no hashtag carries. The engine creates it the first
+# time it needs it, so a user may have none yet; lookup is by this key, never
+# by its name, which the owner may change (contract: "Hashtags", "The built-in pending hashtag").
+PENDING_HASHTAG_KEY = "pending"
+
+
+def pending_hashtag_of(hashtags: list[dict]) -> tuple[str, str] | None:
+    """`(id, name)` of the pending hashtag among hashtag rows, or None when
+    the user has none yet. A user hashtag that only shares its name is not it."""
+    row = _system_row(hashtags, PENDING_HASHTAG_KEY)
+    return (row["id"], str(row.get("name") or "")) if row else None
+
+
+def fetch_pending_hashtag(cfg, *, verbose: bool = False) -> tuple[str, str] | None:
+    """GET /v1/hashtags → `(id, name)` of the pending hashtag, or None when it
+    does not exist yet. Engine errors propagate."""
+    return pending_hashtag_of(items_of(fetch_hashtags(cfg, verbose=verbose)))
 
 
 def account_choices(

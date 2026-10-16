@@ -629,6 +629,7 @@ TRANSACTION_RESPONSE = {
     "transaction_type": 1,
     "hashtag_ids": [],
     "reconciliation_id": None,
+    "bank_line_id": "66666666-6666-6666-6666-666666666666",
     "created_at": "2026-04-24T10:00:00Z",
     "updated_at": "2026-04-24T10:00:00Z",
     "version": 1,
@@ -680,6 +681,57 @@ def test_fetch_transaction_reads_one_row_signed(configured):
     )
     assert fetch_transaction(config_module.ensure_loaded(), "tx-open") == row
     assert dict(route.calls.last.request.url.params) == {"debit_as_negative": "true"}
+
+
+@respx.mock
+def test_transaction_reads_pass_the_bank_line_through(configured):
+    """`bank_line_id` reaches the caller as the engine sent it, from the list
+    and from the read by id."""
+    from expense import config as config_module
+    from expense.reads import fetch_transaction, fetch_transactions
+
+    line = TRANSACTION_RESPONSE["bank_line_id"]
+    respx.get(f"{BASE}/v1/transactions").mock(
+        return_value=httpx.Response(200, json=cursor_page([TRANSACTION_RESPONSE]))
+    )
+    respx.get(f"{BASE}/v1/transactions/{TRANSACTION_RESPONSE['id']}").mock(
+        return_value=httpx.Response(200, json=TRANSACTION_RESPONSE)
+    )
+    cfg = config_module.ensure_loaded()
+    assert fetch_transactions(cfg)["items"][0]["bank_line_id"] == line
+    assert fetch_transaction(cfg, TRANSACTION_RESPONSE["id"])["bank_line_id"] == line
+
+
+PENDING_HASHTAG = {"id": "h-pend", "name": "Por etiquetar", "system_key": "pending"}
+#: A user's own hashtag that took the default name before the engine reserved it.
+NAMED_PENDIENTE = {"id": "h-user", "name": "Pendiente", "system_key": None}
+
+
+def test_the_pending_hashtag_is_found_by_its_system_key_under_its_current_name():
+    from expense.reads import pending_hashtag_of
+
+    rows = [NAMED_PENDIENTE, {"id": "h1", "name": "Food", "system_key": None}, PENDING_HASHTAG]
+    assert pending_hashtag_of(rows) == ("h-pend", "Por etiquetar")
+
+
+def test_no_pending_hashtag_yet_is_none_and_a_hashtag_named_pendiente_is_not_it():
+    from expense.reads import pending_hashtag_of
+
+    assert pending_hashtag_of([]) is None
+    assert pending_hashtag_of([NAMED_PENDIENTE, {"id": "h1", "name": "Food"}]) is None
+
+
+@respx.mock
+def test_fetch_pending_hashtag_reads_the_hashtag_list(configured):
+    from expense import config as config_module
+    from expense.reads import fetch_pending_hashtag
+
+    route = respx.get(f"{BASE}/v1/hashtags")
+    route.mock(return_value=_list_body([NAMED_PENDIENTE, PENDING_HASHTAG]))
+    cfg = config_module.ensure_loaded()
+    assert fetch_pending_hashtag(cfg) == ("h-pend", "Por etiquetar")
+    route.mock(return_value=_list_body([NAMED_PENDIENTE]))
+    assert fetch_pending_hashtag(cfg) is None
 
 
 @respx.mock

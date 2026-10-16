@@ -13,7 +13,7 @@ import pytest
 from textual.widgets import Input, Static
 
 from expense.bank_import import flow
-from expense.bank_import.engine import ExcessGroup
+from expense.bank_import.engine import AnswerCounts, DayMismatch, UnclaimedLine
 from expense.bank_import.flow import account_groups
 from expense.errors import EngineError
 from expense.import_.reader import RawRow, SheetData
@@ -75,13 +75,24 @@ CARD_ROWS = [
     ("2026-09-07", "APPARKA MALL AVENTURA  AREQU", "S/", -3.5),
 ]
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN"
-EXCESS_0907 = {
+DAY_0907 = {
     "account_id": "sig-pen",
     "date": "2026-09-07",
-    "amount_cents": 350,
-    "transaction_type": 1,
-    "unclaimed_ledger_ids": ["l-1"],
+    "file_net_cents": -350,
+    "ledger_net_cents": -700,
+    "unmatched_rows": [3],
+    "unclaimed_lines": [{"bank_line_id": "bl-1", "transaction_ids": ["t-1"]}],
 }
+#: DAY_0907 as the screens hold it.
+PARSED_0907 = DayMismatch(
+    account_id="sig-pen",
+    account_name="BCP Signature PEN",
+    date_iso="2026-09-07",
+    file_net_cents=-350,
+    ledger_net_cents=-700,
+    unmatched_rows=(3,),
+    unclaimed_lines=(UnclaimedLine("bl-1", ("t-1",)),),
+)
 
 
 # ---- the seams ---------------------------------------------------------------
@@ -110,7 +121,7 @@ def _patch(monkeypatch) -> None:
     monkeypatch.setattr("expense.reads.count_transactions", lambda *a, **k: 0)
 
 
-def _engine(fake_client, decide=None, *, excess=None):
+def _engine(fake_client, decide=None, *, mismatches=None):
     """Answer `POST /transactions/import` like the engine: every sent id back,
     with the outcome `decide(index, row)` gives (default new). Every call is
     still recorded on the fake client."""
@@ -124,13 +135,27 @@ def _engine(fake_client, decide=None, *, excess=None):
                 "id": row["id"],
                 "outcome": "new",
                 "rule": None,
-                "ledger_id": None,
+                "bank_line_id": None,
                 "backfill_code": None,
+                "retitled": None,
                 "sealed_by": None,
             }
             result.update((decide or (lambda i, r: {}))(i, row))
             rows.append(result)
-        return {"dry_run": json_body["dry_run"], "rows": rows, "excess": excess or []}
+        outcomes = [r["outcome"] for r in rows]
+        counts = {
+            "new": outcomes.count("new"),
+            "matched": outcomes.count("matched"),
+            "sealed": outcomes.count("sealed"),
+            "backfilled": sum(1 for r in rows if r["backfill_code"]),
+            "retitled": sum(1 for r in rows if r["retitled"]),
+        }
+        return {
+            "dry_run": json_body["dry_run"],
+            "rows": rows,
+            "day_mismatches": mismatches or [],
+            "counts": counts,
+        }
 
     fake_client.post = post
 
@@ -141,11 +166,11 @@ def _imports(fake_client) -> list[bool]:
 
 
 def _matched(rule):
-    return {"outcome": "matched", "rule": rule, "ledger_id": "l-x"}
+    return {"outcome": "matched", "rule": rule, "bank_line_id": "bl-x", "retitled": False}
 
 
 def _two_new_two_in_ledger(i, _row):
-    return {1: _matched("same_day"), 2: _matched("adjacent_day")}.get(i, {})
+    return {1: _matched("same_day"), 2: {**_matched("operation_code"), "retitled": True}}.get(i, {})
 
 
 def _bank_file(tmp_path, name: str = "Sueldo Soles (1).xlsx"):
@@ -223,21 +248,12 @@ def test_a_cards_two_legs_fold_into_one_line():
     assert lines[1].endswith("PEN")
 
 
-def test_result_lines_say_one_day_and_several_days():
+def test_result_lines_are_the_count_and_where_the_rows_landed():
     group = account_groups(ACCOUNTS)[1]
-    one = [ExcessGroup("BCP PEN", "2026-09-10", -2800, 1)]
-    text = "\n".join(t.plain for t in result_lines(group, [], one))
-    assert (
-        "! 1 day where the ledger may now hold the same movement twice — check it and "
-        "delete the extra one" in text
-    )
-    assert "    2026-09-10 · -28.00" in text
-    two = [*one, ExcessGroup("BCP PEN", "2026-09-12", -1000, 2)]
-    text = "\n".join(t.plain for t in result_lines(group, [], two))
-    assert (
-        "! 2 days where the ledger may now hold the same movement twice — check them and "
-        "delete the extra ones" in text
-    )
+    assert [t.plain for t in result_lines(group, [])] == [
+        "✓ 0 rows imported · BCP PEN",
+        "  under @Pendiente",
+    ]
 
 
 # ---- screen 5 A: not a bank file -----------------------------------------------
@@ -439,7 +455,7 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
-    _engine(fake_client, _two_new_two_in_ledger, excess=[EXCESS_0907])
+    _engine(fake_client, _two_new_two_in_ledger, mismatches=[DAY_0907])
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -455,10 +471,13 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
         assert [r[0] for r in rows] == ["2", "3", "4", "5"]  # the file's own lines
         assert lines[3].endswith("new")
         assert lines[4].endswith("in ledger · same day")
-        assert lines[5].endswith("in ledger · ± 1 day")
+        assert lines[5].endswith("in ledger · operation")
         assert "4 rows · 2 new · 2 in the ledger" in body
-        assert "! 1 ledger row no file row matched — check" in body
-        assert "2026-09-07 · -3.50 · 1 unmatched" in body
+        # the engine's days that disagree are read, not drawn (yet)
+        assert preview._mismatches == [PARSED_0907]
+        assert preview._counts == AnswerCounts(new=2, matched=2, sealed=0, backfilled=0, retitled=1)
+        assert [p.retitled for p in preview._placed] == [None, False, True, None]
+        assert [line for line in lines if line.strip()][-1] == "4 rows · 2 new · 2 in the ledger"
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
         assert _imports(fake_client) == [True]  # the dry run only
 
@@ -550,7 +569,7 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
-    _engine(fake_client, _two_new_two_in_ledger, excess=[EXCESS_0907])
+    _engine(fake_client, _two_new_two_in_ledger, mismatches=[DAY_0907])
 
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
@@ -561,15 +580,11 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
         assert _imports(fake_client) == [True, False]
-        lines = [line.strip() for line in _body(result).split("\n")]
-        assert lines[0] == "✓ 2 rows imported · BCP Signature"
-        assert lines[1] == "under @Pendiente"
-        warning = " ".join(lines[3:])
-        assert (
-            "! 1 day where the ledger may now hold the same movement twice — check it and "
-            "delete the extra one" in warning
-        )
-        assert "2026-09-07 · -3.50" in warning
+        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
+        assert lines == ["✓ 2 rows imported · BCP Signature", "under @Pendiente"]
+        # the apply's days that disagree and counts are read, not drawn (yet)
+        assert result._mismatches == [PARSED_0907]
+        assert result._counts.retitled == 1
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
         # the two calls are one logical write each: the same rows, the same ids
         (_, dry), (_, applied) = fake_client.posts

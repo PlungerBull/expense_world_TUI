@@ -7,8 +7,10 @@ assume:
   · `uses` counts transactions, most-used first, a tie going to the older tag;
   · a deleted transaction stops counting, and a tag left with no use is not
     returned at all;
-  · a category never tagged is an empty list, while an unknown or deleted
+  · a category with no row is an empty list, while an unknown or deleted
     category is a 404;
+  · a row written with no hashtag counts under the built-in pending hashtag,
+    recognised by the id `GET /hashtags` lists with `system_key` `pending`;
   · the route takes no query parameter, so `?limit=` is a 422.
 
 Every test writes to its own fresh account, category and tags, so the counts are
@@ -21,6 +23,7 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
+from expense.reads import pending_hashtag_of
 from tests.contract.conftest import reason_on
 
 
@@ -164,17 +167,22 @@ def test_category_tags_count_rows_most_used_first(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
-def test_category_never_tagged_is_an_empty_list(client):
+def test_an_untagged_row_counts_under_the_pending_hashtag(client):
     account_id = _make_account(client)
     category_id = _make_category(client)
     row_id = None
 
     try:
-        # An empty list is not a 404, with no row in the category and with an
-        # untagged one (contract: GET /v1/categories/{category_id}/hashtags).
+        # An empty list is not a 404 (contract: GET /v1/categories/{category_id}/hashtags);
+        # a row with no hashtag lands on the pending one, counted like any other
+        # (contract: "Hashtags", "The built-in pending hashtag").
         assert _category_tags(client, category_id) == []
         row_id = _post_row(client, account_id, category_id, [])
-        assert _category_tags(client, category_id) == []
+        pending = pending_hashtag_of(client.get("/hashtags")["items"])
+        assert pending is not None
+        assert _category_tags(client, category_id) == [
+            {"id": pending[0], "name": pending[1], "uses": 1}
+        ]
     finally:
         if row_id:
             _safe_delete(client, f"/transactions/{row_id}")

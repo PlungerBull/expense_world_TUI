@@ -8,7 +8,7 @@ the other in drop order, through three full screens:
 
     ImportAccountScreen   which account is this file? — asked every time
     ImportPreviewScreen   the engine's dry run, nothing written yet
-    ImportResultScreen    what the apply wrote, and the days to check
+    ImportResultScreen    what the apply wrote
 
 Every step is the shared code in expense/bank_import/flow.py: the read,
 the account folding, the `Prepared` rows, the one `POST /transactions/import`
@@ -36,10 +36,12 @@ from expense import reads
 from expense.bank_import import flow
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
-    ExcessGroup,
+    AnswerCounts,
+    DayMismatch,
     IncompleteAnswer,
     Placed,
-    excess_groups,
+    answer_counts,
+    day_mismatches,
     match_label,
     placements,
     row_refusals,
@@ -49,7 +51,6 @@ from expense.bank_import.flow import (
     ImportRefused,
     Prepared,
     account_groups,
-    excess_head,
     import_counts,
     incomplete_sentence,
     period_names,
@@ -59,7 +60,6 @@ from expense.bank_import.flow import (
 )
 from expense.bank_import.parse import BadRow, BankFormatError, BankRow
 from expense.errors import EngineError, format_error
-from expense.formatting import format_cents
 from expense.reads import items_of
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.theme import AMOUNT_RULE, PALETTE
@@ -437,34 +437,15 @@ def preview_summary(prepared: Prepared, placed: list[Placed]) -> Text:
     return line
 
 
-def preview_excess_lines(excess: list[ExcessGroup]) -> list[Text]:
-    """The typed preview's warning, one line per day and amount under it:
-    `2026-09-10 · -28.00 · 1 unmatched`."""
-    if not excess:
-        return []
-    lines = [Text(excess_head(excess), style=PALETTE.warning)]
-    for e in excess:
-        lines.append(
-            Text(
-                f"    {e.date_iso} · {format_cents(e.amount_cents)} · {e.unclaimed} unmatched",
-                style=PALETTE.warning,
-            )
-        )
-    return lines
-
-
 def preview_notes(
     prepared: Prepared,
     placed: list[Placed],
-    excess: list[ExcessGroup],
     names: dict[str, str],
     names_error: str | None,
 ) -> list[Text]:
-    """Everything under the summary: the unmatched ledger rows, the closed
-    period's rows, the rows under the floor, the refused lines — the typed
-    preview's own sentences."""
-    lines = preview_excess_lines(excess)
-    lines.extend(Text(line, style=PALETTE.warning) for line in sealed_lines(placed, names))
+    """Everything under the summary: the closed period's rows, the rows under
+    the floor, the refused lines — the typed preview's own sentences."""
+    lines = [Text(line, style=PALETTE.warning) for line in sealed_lines(placed, names)]
     if names_error:
         lines.append(
             Text(f"! could not read the closed periods' names: {names_error}", style="dim")
@@ -528,7 +509,10 @@ class ImportPreviewScreen(_ImportScreen):
         super().__init__(run, owner)
         self._prepared = prepared
         self._placed: list[Placed] | None = None
-        self._excess: list[ExcessGroup] = []
+        #: The engine's days that disagree and its counts, read from the
+        #: answer; not drawn yet.
+        self._mismatches: list[DayMismatch] = []
+        self._counts: AnswerCounts | None = None
         self._names: dict[str, str] = {}
         self._names_error: str | None = None
         self._failure: list[Text] = []
@@ -594,7 +578,8 @@ class ImportPreviewScreen(_ImportScreen):
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
                 response = flow.import_call(client, prepared, dry_run=dry_run)
             placed = placements(response, prepared.sent)
-            excess = excess_groups(response, prepared.group.leg_names)
+            mismatches = day_mismatches(response, prepared.group.leg_names)
+            counts = answer_counts(response)
             names: dict[str, str] = {}
             names_error = None
             if dry_run:
@@ -603,18 +588,21 @@ class ImportPreviewScreen(_ImportScreen):
             self.app.call_from_thread(self._failed, err, not dry_run)
             return
         if dry_run:
-            self.app.call_from_thread(self._previewed, placed, excess, names, names_error)
+            self.app.call_from_thread(
+                self._previewed, placed, mismatches, counts, names, names_error
+            )
         else:
-            self.app.call_from_thread(self._applied, placed, excess)
+            self.app.call_from_thread(self._applied, placed, mismatches, counts)
 
     def _previewed(
         self,
         placed: list[Placed],
-        excess: list[ExcessGroup],
+        mismatches: list[DayMismatch],
+        counts: AnswerCounts,
         names: dict[str, str],
         names_error: str | None,
     ) -> None:
-        self._placed, self._excess = placed, excess
+        self._placed, self._mismatches, self._counts = placed, mismatches, counts
         self._names, self._names_error = names, names_error
         new = self.new_count
         if new:
@@ -629,11 +617,15 @@ class ImportPreviewScreen(_ImportScreen):
         self.refresh_bindings()
         self._repaint()
 
-    def _applied(self, placed: list[Placed], excess: list[ExcessGroup]) -> None:
+    def _applied(
+        self, placed: list[Placed], mismatches: list[DayMismatch], counts: AnswerCounts
+    ) -> None:
         self._writing = False
         self._run.imported += 1
         self.app.switch_screen(
-            ImportResultScreen(self._run, self._owner, self._prepared.group, placed, excess)
+            ImportResultScreen(
+                self._run, self._owner, self._prepared.group, placed, mismatches, counts
+            )
         )
 
     def _failed(self, err: Exception, applied: bool) -> None:
@@ -674,9 +666,7 @@ class ImportPreviewScreen(_ImportScreen):
     def _notes(self) -> list[Text]:
         if self._placed is None:
             return []
-        return preview_notes(
-            self._prepared, self._placed, self._excess, self._names, self._names_error
-        )
+        return preview_notes(self._prepared, self._placed, self._names, self._names_error)
 
     def body(self) -> RenderableType:
         title = Text(f"Preview · {self._prepared.group.name} · ")
@@ -726,37 +716,12 @@ def hanging(line: Text) -> RenderableType:
 # ---------------------------------------------------------------------------
 # screen 4 B — the result
 # ---------------------------------------------------------------------------
-def result_lines(
-    group: AccountGroup, placed: list[Placed], excess: list[ExcessGroup]
-) -> list[Text]:
-    """`✓ 9 rows imported · Sueldo Soles`, `under @Pendiente`, and the days
-    where the ledger may now hold one movement twice (screen 4 B).
-
-    The engine computes `excess` before it writes
-    (contract: POST /v1/transactions/import), so on such a day a row the apply
-    just wrote as `new` may be the same movement the ledger already had under
-    another wording — hence "may now hold".
-    """
+def result_lines(group: AccountGroup, placed: list[Placed]) -> list[Text]:
+    """`✓ 9 rows imported · Sueldo Soles` and `under @Pendiente` (screen 4 B)."""
     new = sum(1 for p in placed if p.outcome == "new")
     head = Text(f"✓ {new} {_plural(new, 'row', 'rows')} imported", style=PALETTE.success)
     head.append(f" · {group.name}", style="")
-    lines = [head, Text(f"  under {PENDING}", style="dim")]
-    if excess:
-        days = len({e.date_iso for e in excess})
-        lines.append(Text(""))
-        lines.append(
-            Text(
-                f"! {days} {_plural(days, 'day', 'days')} where the ledger may now hold the "
-                f"same movement twice — check {_plural(days, 'it', 'them')} and delete the "
-                f"extra {_plural(days, 'one', 'ones')}",
-                style=PALETTE.warning,
-            )
-        )
-        lines.extend(
-            Text(f"    {e.date_iso} · {format_cents(e.amount_cents)}", style=PALETTE.warning)
-            for e in excess
-        )
-    return lines
+    return [head, Text(f"  under {PENDING}", style="dim")]
 
 
 class ImportResultScreen(_ImportScreen):
@@ -774,12 +739,16 @@ class ImportResultScreen(_ImportScreen):
         owner,
         group: AccountGroup,
         placed: list[Placed],
-        excess: list[ExcessGroup],
+        mismatches: list[DayMismatch],
+        counts: AnswerCounts,
     ) -> None:
         super().__init__(run, owner)
         self._group = group
         self._placed = placed
-        self._excess = excess
+        #: The engine's days that disagree after the apply, and its counts;
+        #: not drawn yet.
+        self._mismatches = mismatches
+        self._counts = counts
 
     def on_mount(self) -> None:
         if self._run.has_next:
@@ -787,7 +756,7 @@ class ImportResultScreen(_ImportScreen):
         super().on_mount()
 
     def body(self) -> RenderableType:
-        return Group(*(hanging(t) for t in result_lines(self._group, self._placed, self._excess)))
+        return Group(*(hanging(t) for t in result_lines(self._group, self._placed)))
 
     def action_next(self) -> None:
         if self._run.has_next:
