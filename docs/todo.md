@@ -46,16 +46,16 @@ hashtag. What happens to the row's other label?
 - **C.** Any such row goes to `@Pendiente` with no hashtag at all.
 **Recommended:** none; it is your rule for your sheet.
 
-### Splitting one bank line into several rows
-Asked 2026-10-12 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
-A bank line's code sits on one row only, and card lines carry no code. A line of 100 split into
-60 and 40 is not recognised when that period is uploaded again, and the line is added a second
-time. Do you split bank lines, in the sheet today or in the app later?
-- **A.** Yes. Ask the engine to give every bank line an identity it keeps, shared by the parts
-  of a split, so a re-upload matches the line to its parts.
-- **B.** No. One bank line is always one row; nothing to build.
-**Recommended:** A if you ever split, because every client needs the same rule and only the
-engine can keep it.
+### How the sheet shows that rows are parts of one bank line
+Asked 2026-10-15 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
+You split bank lines, so the engine is asked to keep one identity across a split
+([engine-asks/split-bank-lines-keep-one-identity.md](engine-asks/split-bank-lines-keep-one-identity.md)).
+The import must also tell which sheet rows belong together. How does the sheet show it today?
+- **A.** The parts sit on consecutive rows: the first carries the bank code, the next rows with
+  no code and the same date and account belong to it.
+- **B.** Nothing marks them; you would add a marker column before the import.
+- **C.** Something else.
+**Recommended:** none; only you know how the sheet is filled.
 
 ### Where "Pendiente" sits when you re-categorise several rows at once
 Asked 2026-10-11 · Blocks: nothing
