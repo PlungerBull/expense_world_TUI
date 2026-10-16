@@ -22,8 +22,8 @@ Nothing typed into the app before the wipe is kept.
   `PENDIENTE` or `PENDIENTES` category or hashtag is created: a row whose category carries that
   name goes to the built-in `@Pendiente` category, a row whose hashtag carries it goes to the
   built-in pending hashtag, and the other side keeps its own value. The sheet stays as it is and
-  a re-run never brings the names back. The pending hashtag is an engine ask
-  ([engine-asks/built-in-pending-hashtag.md](../engine-asks/built-in-pending-hashtag.md)).
+  a re-run never brings the names back. The app finds the pending hashtag through
+  [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md).
 - The sheet comes in as it is: one transaction per row. Rows split from one bank purchase are
   not grouped; how to mark them is decided later. Everything up to 31-Dec-2025 is accepted as
   imported.
@@ -33,8 +33,7 @@ Nothing typed into the app before the wipe is kept.
   duplicate needs fixing by hand. Then the owner completes that month's reconciliation, which
   seals it, and moves to the next month.
 - The month-by-month check needs the bank upload of
-  [bank-lines-catch-up.md](bank-lines-catch-up.md); the engine's database change that comes
-  with it is applied to the live engine only once that spec is done.
+  [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md).
 
 Everything that writes to the real ledger is run or approved by the owner.
 
@@ -53,11 +52,14 @@ Everything that writes to the real ledger is run or approved by the owner.
 Draft, for the owner's approval. The sheet import brings every row in as it is, one transaction
 per row; it does not group split rows (owner, 2026-10-16). 2026 is then worked month by month
 from the bank statements, through the bank upload that
-[bank-lines-catch-up.md](bank-lines-catch-up.md) makes work on the new engine.
+[bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md) makes work on the new
+engine.
 
 1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
    `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
-   creates neither name. Waits on the pending-hashtag engine ask.
+   creates neither name. Waits on task 1 of
+   [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md), which finds the
+   pending hashtag.
 2. A written run sheet for the owner: every command in order, with what to check after each —
    the wipe, the sheet import, then for each 2026 month: upload that month's statement, fix the
    days that disagree (a split, a duplicate), complete that month's reconciliation.
