@@ -27,16 +27,19 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### How the sheet import knows which rows are one split purchase
-Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md) task 2
-The engine can now take several sheet rows as the parts of one bank purchase
-([engine-answers/split-bank-lines.md](engine-answers/split-bank-lines.md)), so a later bank
-upload recognises them; parts must share the date, account and description. Nothing in the sheet
-says today which rows were split from one purchase.
-- **A.** The import guesses: rows next to each other with the same date, account and
-  description are one purchase. Two real, separate identical purchases on one day get joined.
-- **B.** You add a column and give the parts of each split the same number; the import follows it.
-**Recommended:** B, because it never guesses wrong.
+### 2026 in the migration: from the sheet or from the bank statements?
+Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
+The sheet is imported as it is; split rows are not grouped, and 2025 and earlier are accepted as
+they stand. 2026 is worked month by month from the bank's statements (EECC). Which rows does
+2026 start from?
+- **A.** The sheet imports everything, 2026 included. Each 2026 month, you upload that month's
+  statement: matching rows take the bank's code and wording, missing ones are added, and the
+  days that disagree show where a split or a duplicate needs fixing by hand. Then you complete
+  that month's reconciliation.
+- **B.** The sheet imports only up to 31-Dec-2025. 2026 comes from the statements alone, month by
+  month, and you categorise and split the rows in the app.
+**Recommended:** A, because your 2026 categories and notes come in with the sheet, and the
+statement only fixes what differs.
 
 ---
 
