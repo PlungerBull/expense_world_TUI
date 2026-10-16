@@ -74,8 +74,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The bulk `c` pick lists categories in the engine's order.** `_picker_options` moves
   `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
-- **Catch up with bank lines, splits and the pending hashtag.** Spec (draft, tasks for
-  approval): [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md).
+- **Catch up with bank lines, splits and the pending hashtag.** Spec (approved,
+  the loop runs on it): [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, 2026 month by month).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something

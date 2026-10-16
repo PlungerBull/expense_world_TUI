@@ -1,6 +1,6 @@
 # Catch up with bank lines, splits and the pending hashtag
 
-**Status: draft.** The loop starts on it when the owner approves the tasks below.
+**Status: approved by the owner (2026-10-16); the loop runs on it.**
 The engine change it catches up with:
 [engine-answers/bank-lines-and-pending-hashtag.md](../engine-answers/bank-lines-and-pending-hashtag.md),
 every contract change from `42d70a629215928d` to `3129bfa2c43a4446`. When done, the why moves to
@@ -71,7 +71,7 @@ before it is built.
 
 ## Tasks
 
-Draft, for the owner's approval. Each **[UI]** task starts with its mockup; the build waits for
+Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; the build waits for
 the owner's pick. Tasks 1 and 2 change no screen's look.
 
 1. The app reads contract `3129bfa2c43a4446`. The bank upload reads the new import answer:
