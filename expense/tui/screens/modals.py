@@ -1,11 +1,14 @@
 """Reusable modal screens."""
 
+from typing import TypeVar
+
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Static
 
+from expense.quickadd.money import parse_amount
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 
@@ -40,29 +43,24 @@ class ConfirmModal(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class PromptModal(ModalScreen[str | None]):
-    """Single-line text prompt. `enter` submits the value, `esc` cancels (None).
-    `password=True` masks input (for the token). Dismisses with the string,
-    trimmed — or exactly as typed with `verbatim=True`, for a value whose
-    whitespace is the engine's to judge."""
+_T = TypeVar("_T")
+
+
+class PromptBox(ModalScreen[_T]):
+    """One line typed in a box: the title, an optional dim message, the input
+    and `[enter] save    [esc] cancel`. `esc` cancels (None). Each subclass
+    says what `enter` dismisses with, and so its result type."""
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
     def __init__(
-        self,
-        title: str,
-        message: str = "",
-        *,
-        value: str = "",
-        password: bool = False,
-        verbatim: bool = False,
+        self, title: str, message: str = "", *, value: str = "", password: bool = False
     ) -> None:
         super().__init__()
         self._title = title
         self._message = message
         self._value = value
         self._password = password
-        self._verbatim = verbatim
 
     def compose(self) -> ComposeResult:
         rows = [Static(Text(self._title), classes="modal-title")]
@@ -76,11 +74,48 @@ class PromptModal(ModalScreen[str | None]):
     def on_mount(self) -> None:
         self.query_one("#prompt", Input).focus()
 
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class PromptModal(PromptBox[str | None]):
+    """Single-line text prompt. `enter` submits the value, `esc` cancels (None).
+    `password=True` masks input (for the token). Dismisses with the string,
+    trimmed — or exactly as typed with `verbatim=True`, for a value whose
+    whitespace is the engine's to judge."""
+
+    def __init__(
+        self,
+        title: str,
+        message: str = "",
+        *,
+        value: str = "",
+        password: bool = False,
+        verbatim: bool = False,
+    ) -> None:
+        super().__init__(title, message, value=value, password=password)
+        self._verbatim = verbatim
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value if self._verbatim else event.value.strip())
 
-    def action_cancel(self) -> None:
-        self.dismiss(None)
+
+class AmountPromptModal(PromptBox[int | None]):
+    """A signed amount typed in a box. `enter` dismisses with its cents, read by
+    the shared money parser exactly as typed — the sign is the one typed, never
+    added or flipped. Text the parser cannot read keeps the box open with what
+    was typed and notes `unreadable`: a well-formedness check only."""
+
+    def __init__(self, title: str, message: str = "", *, unreadable: str) -> None:
+        super().__init__(title, message)
+        self._unreadable = unreadable
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        cents = parse_amount(event.value)
+        if cents is None:
+            self.notify(self._unreadable, severity="error")
+            return
+        self.dismiss(cents)
 
 
 class DiscardStagedModal(ModalScreen[str]):

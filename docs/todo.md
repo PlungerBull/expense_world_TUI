@@ -113,6 +113,10 @@ ships (its why moves to [decisions.md](decisions.md)).
     ([test_tui_system.py](../tests/unit/test_tui_system.py)).
   - `test_enter_home_with_unwritten_staged_rows_asks_first`
     ([test_tui_bank_import.py](../tests/unit/test_tui_bank_import.py)).
+- **An amount typed with a dot for thousands is misread.** `parse_amount` drops every comma, so
+  `13.853,20` is saved as 13.85 on every amount field. The owner chose (2026-10-15): every amount
+  field refuses an amount whose comma comes after its dot, with the field's usual "can't read
+  that" note ([quickadd/money.py](../expense/quickadd/money.py)).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, title alignment).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **Catch up with contract 42d70a629215928d** (completing a reconciliation asks for its ending

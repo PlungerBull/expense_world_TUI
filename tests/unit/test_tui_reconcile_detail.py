@@ -763,3 +763,318 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
         assert app.screen is screen
 
     run_app(scenario)
+
+
+# ---- the ending balance, asked for at complete --------------------------------
+# Mockup: expense-world-ending-balance-and-category-colour.html, Part 1 (pick A).
+# The engine refuses to complete without it (contract: POST
+# /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
+
+NO_END = {**DRAFT, "ending_balance_cents": None, "difference_cents": None}
+SAVED = {**NO_END, "ending_balance_cents": 1385320, "difference_cents": 0}
+PUT_PATH = "/reconciliations/r1"
+COMPLETE_PATH = "/reconciliations/r1/complete"
+
+
+def _notes(monkeypatch) -> list:
+    notices: list = []
+
+    def note(self, message, title="", severity="information", **kw):
+        notices.append((title, message, severity))
+
+    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+    monkeypatch.setattr("expense.tui.screens.modals.AmountPromptModal.notify", note)
+    return notices
+
+
+def _fresh_read(monkeypatch, record: dict) -> None:
+    """What `GET /reconciliations?account_id=` answers when the screen reads it fresh."""
+    monkeypatch.setattr(
+        "expense.reads.fetch_reconciliations", lambda cfg, **k: {"items": [dict(record)]}
+    )
+
+
+async def _open_box(pilot, app, record=NO_END, currency="PEN"):
+    from expense.tui.screens.modals import AmountPromptModal
+
+    screen = ReconciliationDetailScreen(dict(record), currency=currency)
+    await app.push_screen(screen)
+    await _wait_list(screen, pilot)
+    await pilot.press("c")
+    await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+    return screen
+
+
+async def _type(pilot, text: str) -> None:
+    for ch in text:
+        await pilot.press(ch)
+
+
+def test_c_without_an_ending_balance_opens_the_box_as_drawn(fake_client, monkeypatch):
+    """Screen A1: the box's title, its two dim lines naming the account and its
+    currency, and its keys."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await wait_for(pilot, lambda: screen._acct_name == "BCP PEN")
+        box = app.screen
+        texts = [str(s.visual) for s in box.query(Static)]
+        assert texts[0] == "Ending balance first"
+        assert texts[1] == (
+            "The statement's closing figure for BCP PEN,\nin PEN · signed · e.g. 13,853.20"
+        )
+        assert texts[-1] == "[enter] save    [esc] cancel"
+        assert fake_client.calls == []  # nothing sent by opening it
+
+    run_app(scenario)
+
+
+def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_client, monkeypatch):
+    """Screens A1 → A2 → 5: `enter` PUTs the balance as typed, the header shows the
+    engine's saved end and diff, then "Complete reconciliation?" and only `y`
+    completes."""
+    _patch(monkeypatch)
+    fake_client.write_responses[PUT_PATH] = dict(SAVED)
+    fake_client.write_responses[COMPLETE_PATH] = {**SAVED, "status": 2, "warnings": []}
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": 1385320})]
+        assert fake_client.posts == []  # the question comes first
+        head = str(screen.query_one("#rhead", Static).visual)
+        assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
+        texts = [str(s.visual) for s in app.screen.query(Static)]
+        assert texts[0] == "Complete reconciliation?"
+        assert texts[1] == "Locks amount/account/title/date on the 1 assigned transaction(s)."
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.posts == [(COMPLETE_PATH, None)]
+        await wait_for(pilot, lambda: any(m == "Reconciliation completed." for _, m, _ in notices))
+
+    run_app(scenario)
+
+
+def test_the_sign_is_the_one_typed(fake_client, monkeypatch):
+    """The amount is taken exactly as typed: a negative stays negative, a bare
+    figure stays positive — never added or flipped."""
+    _patch(monkeypatch)
+    fake_client.write_responses[PUT_PATH] = {**SAVED, "ending_balance_cents": -12050}
+
+    async def scenario(pilot, app):
+        await _open_box(pilot, app)
+        await _type(pilot, "-120.50")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": -12050})]
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("answer", ["n", "escape", "enter"])
+def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answer):
+    """A2: say no and the reconciliation stays a draft with its balance saved;
+    the next `c` goes straight to the question, no box."""
+    _patch(monkeypatch)
+    fake_client.write_responses[PUT_PATH] = dict(SAVED)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press(answer)
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert fake_client.posts == []
+        assert screen._record["status"] == 1
+        assert screen._record["ending_balance_cents"] == 1385320
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert len(fake_client.puts) == 1  # no second box, no second save
+
+    run_app(scenario)
+
+
+def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
+    """A1: `esc` goes back with nothing saved."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert fake_client.calls == []
+        assert screen._record["ending_balance_cents"] is None
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize("typed", ["13.853.20", "abc", ""])
+def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, typed):
+    """Screen 2: the New Reconciliation form's note for a badly typed balance;
+    the box stays open with what was typed, and nothing is sent."""
+    from textual.widgets import Input
+
+    from expense.tui.screens.modals import AmountPromptModal
+
+    _patch(monkeypatch)
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        await _open_box(pilot, app)
+        await _type(pilot, typed)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: notices)
+        assert notices == [("", "End balance: a signed decimal, e.g. 9460.00", "error")]
+        assert isinstance(app.screen, AmountPromptModal)
+        assert app.screen.query_one(Input).value == typed
+        assert fake_client.calls == []
+
+    run_app(scenario)
+
+
+def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_client, monkeypatch):
+    """The engine refuses the PUT: its words whole, with the line this screen's
+    `r` makes true, and no complete is asked or sent."""
+    _patch(monkeypatch)
+    fake_client.errors["PUT"] = EngineError(
+        "CONFLICT",
+        "The reconciliation changed.",
+        {"reconciliation_id": "Changed meanwhile."},
+        409,
+        {},
+        {"reconciliation_id": "CONCURRENT_CHANGE"},
+    )
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: notices)
+        assert notices == [
+            (
+                "Couldn't save",
+                "CONFLICT — The reconciliation changed.\n"
+                "  reconciliation_id: Changed meanwhile.\n\n"
+                "It changed at the same moment: press r, then try again.",
+                "error",
+            )
+        ]
+        assert app.screen is screen
+        assert fake_client.posts == []
+        assert not screen._busy
+
+    run_app(scenario)
+
+
+def test_saved_then_complete_refused_says_which_half_went_through(fake_client, monkeypatch):
+    """Screen 3: the balance saves, the complete is refused. The note says the
+    balance is saved, then the engine's words; the header keeps the saved end,
+    and the next `c` goes straight to the question."""
+    _patch(monkeypatch)
+    fake_client.write_responses[PUT_PATH] = dict(SAVED)
+    words = "1 transaction in the period is in no batch."
+    fake_client.errors["POST"] = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"date_start": "Unassigned rows."},
+        422,
+        {},
+        {"date_start": "UNASSIGNED_IN_PERIOD"},
+    )
+    _fresh_read(monkeypatch, SAVED)
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        assert notices[0] == (
+            "Couldn't complete",
+            "The ending balance is saved. The reconciliation is not completed:\n"
+            f"VALIDATION_ERROR — {words}\n  date_start: Unassigned rows.",
+            "error",
+        )
+        await pilot.pause()
+        head = str(screen.query_one("#rhead", Static).visual)
+        assert "end 13,853.20" in head and "status draft" in head
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert len(fake_client.puts) == 1
+
+    run_app(scenario)
+
+
+def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
+    fake_client, monkeypatch
+):
+    """Screen 4: the screen read a balance, the engine says it is missing. The
+    engine's words plus the line saying what to do; the screen reads the
+    reconciliation fresh, so the header's end is empty again and `c` starts
+    over from the box."""
+    from expense.tui.screens.modals import AmountPromptModal
+
+    _patch(monkeypatch)
+    words = "A reconciliation needs its ending balance to be completed."
+    fake_client.errors["POST"] = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"ending_balance_cents": "Required to complete."},
+        422,
+        {},
+        {"ending_balance_cents": "ENDING_BALANCE_REQUIRED"},
+    )
+    _fresh_read(monkeypatch, NO_END)
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        assert notices[0] == (
+            "Couldn't complete",
+            f"VALIDATION_ERROR — {words}\n  ending_balance_cents: Required to complete.\n\n"
+            "Press c again: the app asks for it first.",
+            "error",
+        )
+        await wait_for(pilot, lambda: screen._record.get("ending_balance_cents") is None)
+        head = str(screen.query_one("#rhead", Static).visual)
+        # the header as it stands for a missing end (screen 1: "Nothing here changes")
+        assert "end —    diff     status draft" in head
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, AmountPromptModal))
+
+    run_app(scenario)
+
+
+def test_a_draft_with_its_balance_skips_the_box(fake_client, monkeypatch):
+    """Screen 5's caption: a reconciliation that already has its ending balance
+    completes as before — `c` goes straight to the question."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: fake_client.posts)
+        assert fake_client.puts == []
+        assert fake_client.posts == [(COMPLETE_PATH, None)]
+
+    run_app(scenario)

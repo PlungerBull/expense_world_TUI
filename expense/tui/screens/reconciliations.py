@@ -23,7 +23,11 @@ batch's transactions (completed). `space` toggles membership (PUT the
 transaction's reconciliation_id); `c`/`u`/`d` complete/revert/delete; `r`
 refetches the batch + checklist. Complete
 needs ≥1 transaction and locks amount/account/title/date on them; delete is
-draft-only and just detaches the transactions.
+draft-only and just detaches the transactions. Completing also needs the
+ending balance (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
+"The ending balance must be entered"): `c` on a draft that has none first asks
+for it in a box, saves it with PUT /reconciliations/{id}, then asks the usual
+"Complete reconciliation?".
 """
 
 import uuid
@@ -64,7 +68,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens._form import FormScreen
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
-from expense.tui.screens.modals import ConfirmModal
+from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, difference_cell
 from expense.tui.widgets.checklist import CheckList
@@ -389,7 +393,11 @@ class ReconciliationsScreen(SectionScreen):
         item = self._by_id.get(event.key)
         if item:
             self._resume_key = event.key
-            self.app.push_screen(ReconciliationDetailScreen(item), lambda _result: self._load())
+            acct = self._open_account()
+            self.app.push_screen(
+                ReconciliationDetailScreen(item, currency=acct[2] if acct else None),
+                lambda _result: self._load(),
+            )
 
     @work(thread=True, exclusive=True, group="recon-batches")
     def _load_batches(self, account_id: str) -> None:
@@ -665,6 +673,9 @@ _R_HINTS = {
     "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
 _AMOUNTS = {"begin", "end"}
+#: The note for an ending balance the money parser cannot read — the New
+#: Reconciliation form's and the batch screen's ending-balance box.
+_END_UNREADABLE = "End balance: a signed decimal, e.g. 9460.00"
 _DATES = {"date_start", "date_end"}
 
 
@@ -789,7 +800,7 @@ class NewReconciliationScreen(FormScreen):
             if text:
                 cents = parse_amount(text)
                 if cents is None:
-                    self.notify("End balance: a signed decimal, e.g. 9460.00", severity="error")
+                    self.notify(_END_UNREADABLE, severity="error")
                     return
                 self._values["end"] = cents
                 self._display["end"] = format_cents(cents)
@@ -862,6 +873,10 @@ def _txn_sub(it: dict, cat_names: dict, tag_names: dict) -> str:
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
 _UNDONE = {"completed": "complete", "reverted": "revert", "deleted": "delete"}
 
+#: The first line of a refused complete that follows the ending balance's save:
+#: which half went through, above the engine's words.
+_BALANCE_SAVED = "The ending balance is saved. The reconciliation is not completed:"
+
 
 class ReconciliationDetailScreen(
     HelpBindingMixin,
@@ -883,9 +898,10 @@ class ReconciliationDetailScreen(
         *HelpBindingMixin.BINDINGS,
     ]
 
-    def __init__(self, record: dict) -> None:
+    def __init__(self, record: dict, *, currency: str | None = None) -> None:
         super().__init__()
         self._record = record
+        self._currency = currency  # the account's, for the ending-balance box
         self._id = record.get("id")
         self._account_id = record.get("account_id")
         self._busy = False
@@ -1098,6 +1114,17 @@ class ReconciliationDetailScreen(
         if self._completed:
             self.notify("Already completed.")
             return
+        if self._busy:
+            return
+        # The engine refuses to complete without the ending balance (contract:
+        # POST /v1/reconciliations/{reconciliation_id}/complete, "The ending
+        # balance must be entered"), so an empty one is asked for first.
+        if self._record.get("ending_balance_cents") is None:
+            self._ask_ending_balance()
+            return
+        self._confirm_complete()
+
+    def _confirm_complete(self, *, after_save: bool = False) -> None:
         # No ≥1-assigned pre-guard: the engine 422s an empty complete and
         # run_write toasts its message (thin wrapper).
         n = len(self._list.checked) if self._list else 0
@@ -1110,8 +1137,54 @@ class ReconciliationDetailScreen(
                 2,
                 "completed",
                 on_response=self._report_gap,
+                lead=_BALANCE_SAVED if after_save else "",
             ),
         )
+
+    # ---- the ending balance, asked for at complete ----------------------
+    def _ask_ending_balance(self) -> None:
+        """The box: the statement's closing figure, read by the shared money
+        parser exactly as typed — the sign is the one typed, never added or
+        flipped. Unreadable text keeps the box open; `esc` sends nothing."""
+        acct = self._acct_name or resolve_name(self._account_id, {})
+        currency = f"in {self._currency} · " if self._currency else ""
+        self.app.push_screen(
+            AmountPromptModal(
+                "Ending balance first",
+                f"The statement's closing figure for {acct},\n{currency}signed · e.g. 13,853.20",
+                unreadable=_END_UNREADABLE,
+            ),
+            self._save_ending_balance,
+        )
+
+    def _save_ending_balance(self, cents: int | None) -> None:
+        if cents is None or self._busy:
+            return  # esc: nothing saved
+        self._busy = True
+        self.run_write(
+            "PUT",
+            f"/reconciliations/{self._id}",
+            json_body={"ending_balance_cents": cents},
+            on_response=self._balance_saved_record,
+            on_success=self._balance_saved,
+            on_error=self._balance_failed,
+            # `r` on this screen reads the reconciliation again
+            error_text=list_refusal_text,
+        )
+
+    def _balance_saved_record(self, body: dict) -> None:
+        """The engine's own record after the save: the header shows its end and
+        diff before the complete question asks."""
+        if body.get("id") == self._id:
+            self._apply_fresh_record(body)
+
+    def _balance_saved(self) -> None:
+        self._busy = False
+        self._confirm_complete(after_save=True)
+
+    def _balance_failed(self, message: str) -> None:
+        self._busy = False
+        self.notify(message, title="Couldn't save", severity="error")
 
     def action_revert(self) -> None:
         # No completed-only pre-guard: the engine treats revert-on-draft as
@@ -1149,7 +1222,11 @@ class ReconciliationDetailScreen(
 
         self.app.push_screen(ConfirmModal(title, message), cb)
 
-    def _status_action(self, method: str, path: str, new_status, verb: str, **kw) -> None:
+    def _status_action(
+        self, method: str, path: str, new_status, verb: str, *, lead: str = "", **kw
+    ) -> None:
+        """`lead`, when given, is the failure note's first line, above the
+        engine's words."""
         if self._busy:
             return
         self._busy = True
@@ -1160,7 +1237,7 @@ class ReconciliationDetailScreen(
             method,
             path,
             on_success=lambda: self._action_done(new_status, verb),
-            on_error=lambda m: self._action_failed(m, verb),
+            on_error=lambda m: self._action_failed(f"{lead}\n{m}" if lead else m, verb),
             **kw,
         )
 
@@ -1194,6 +1271,11 @@ class ReconciliationDetailScreen(
         self._busy = False
         done = verb.split()[0]
         self.notify(message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
+        if verb == "completed":
+            # Read the reconciliation fresh: a refusal can say what the screen
+            # last read is out of date (an ending balance cleared elsewhere),
+            # and the next `c` decides on the header it shows.
+            self._load_txns(refresh_record=True)
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False

@@ -84,7 +84,7 @@ def engine_words(err: EngineError) -> str:
 #: (contract: "Base Conventions", "`fields` and `reasons` semantics").
 #: Not read by `next_step` (the table's (code, reason) key already picks the
 #: line); it is the source the table guard in tests/unit/test_errors.py checks
-#: every `NEXT_STEPS` row against, the two opening-balance ones aside.
+#: every `NEXT_STEPS` row against, the `VALIDATION_ERROR` ones aside.
 REFUSAL_CODES = frozenset({"CONFLICT", "FORBIDDEN", "LIMIT_REACHED"})
 
 
@@ -156,12 +156,18 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),
     # An opening balance stays on its account and in @Opening; the refusal is a
     # validation error naming the field (contract: PUT /v1/transactions/{transaction_id},
-    # "Opening balances stay put"). The only `VALIDATION_ERROR` rows.
+    # "Opening balances stay put").
     ("VALIDATION_ERROR", "OPENING_BALANCE_ACCOUNT_FIXED"): NextStep(
         "To move an opening balance, set it on the other account's Edit form."
     ),
     ("VALIDATION_ERROR", "OPENING_BALANCE_CATEGORY_FIXED"): NextStep(
         "An opening balance always stays in @Opening."
+    ),
+    # A reconciliation completes only with its ending balance entered (contract:
+    # POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be
+    # entered"); `c` on the batch screen asks for it when the screen reads it as empty.
+    ("VALIDATION_ERROR", "ENDING_BALANCE_REQUIRED"): NextStep(
+        "Press c again: the app asks for it first."
     ),
 }
 

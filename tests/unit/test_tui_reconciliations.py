@@ -508,6 +508,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
         screen._batch_list.action_move(1)
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        assert app.screen._currency == "PEN"  # the ending-balance box names it
         app.screen.dismiss()
         await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "batches")
         await wait_for(pilot, lambda: screen._batch_list is not None)

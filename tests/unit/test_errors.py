@@ -579,18 +579,23 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     """Guard: the one table of next steps holds (code, reason) pairs, with codes
     the engine sends a reason on every key for, and reasons in the engine's
     SHOUTY_SNAKE form — never a route, a status or a sentence. The one other
-    code is `VALIDATION_ERROR`, for the two opening-balance reasons alone."""
+    code is `VALIDATION_ERROR`, for the two opening-balance reasons and the missing
+    ending balance alone."""
     import re
 
     from expense.errors import NEXT_STEPS, REFUSAL_CODES, NextStep
 
     assert REFUSAL_CODES == {"CONFLICT", "FORBIDDEN", "LIMIT_REACHED"}
-    opening_reasons = {"OPENING_BALANCE_ACCOUNT_FIXED", "OPENING_BALANCE_CATEGORY_FIXED"}
+    validation_reasons = {
+        "OPENING_BALANCE_ACCOUNT_FIXED",
+        "OPENING_BALANCE_CATEGORY_FIXED",
+        "ENDING_BALANCE_REQUIRED",
+    }
     for key, step in NEXT_STEPS.items():
         assert isinstance(key, tuple) and len(key) == 2
         code, reason = key
         if code == "VALIDATION_ERROR":
-            assert reason in opening_reasons, reason
+            assert reason in validation_reasons, reason
         else:
             assert code in REFUSAL_CODES
         assert re.fullmatch(r"[A-Z][A-Z_]+", reason), reason
@@ -611,7 +616,28 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "IDEMPOTENCY_KEY_REUSED",
         "OPENING_BALANCE_ACCOUNT_FIXED",
         "OPENING_BALANCE_CATEGORY_FIXED",
+        "ENDING_BALANCE_REQUIRED",
     }
+
+
+def test_a_missing_ending_balance_says_press_c_again():
+    """The refused complete keeps the engine's words whole, then the line saying
+    what to do (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
+    "The ending balance must be entered")."""
+    from expense.errors import next_step
+
+    err = _refusal(
+        "VALIDATION_ERROR",
+        "ending_balance_cents",
+        "ENDING_BALANCE_REQUIRED",
+        status=422,
+        message="A reconciliation needs its ending balance to be completed.",
+    )
+    assert next_step(err) == "Press c again: the app asks for it first."
+    assert format_error(err).endswith("\n\nPress c again: the app asks for it first.")
+    assert format_error(err).startswith(
+        "VALIDATION_ERROR — A reconciliation needs its ending balance to be completed."
+    )
 
 
 def test_no_hint_is_chosen_by_status_and_route_anywhere():

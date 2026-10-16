@@ -53,10 +53,5 @@ The app keeps working with the engine as it is after its changes of 2026-10-14 a
 
 Drafted by the orchestrator; waiting on the owner's approval.
 
-1. **Ask for the ending balance at complete (pick A).** On the reconciliation screen, `c` on a
-   draft with no ending balance opens a box for it; `enter` saves it with
-   `PUT /reconciliations/{id}`, the header shows the saved end and diff, then the usual "Complete
-   reconciliation?" question follows. A refused save or complete shows as Part 1 screens 2–4 of
-   the mockup; `ENDING_BALANCE_REQUIRED` gets its what-to-do line in the hint table.
 2. **New Category: colour optional.** The colour line can be skipped, as Part 2 of the mockup
    shows, and a skipped colour is not sent.
