@@ -31,12 +31,6 @@ dropping any check.
 
 Approved by the owner in chat, 2026-10-16.
 
-1. **Parallel unit suite.** Add `pytest-xdist` to the dev dependencies (and `constraints.txt`)
-   and make plain `pytest tests/unit` run in parallel (`-n auto`), so that the tests gate, CI and
-   hand runs all get it with no extra flag.
-   Passes if: plain `.venv/bin/pytest tests/unit` runs on several workers and passes; CI's
-   workflow runs it the same way; coverage still reports in CI; a run with `-n0` still works;
-   CLAUDE.md "Dev loop" says the suite runs in parallel.
 3. **Practice engine in one command.** A script in `scripts/` that starts the practice engine
    on `:8002` exactly as [runtime.md](../runtime.md) "Working against the live engine" says
    (reseed included, key printed to the terminal and never written to a file) and stops the
@@ -46,10 +40,18 @@ Approved by the owner in chat, 2026-10-16.
    Passes if: the script's up and down work against the real engine checkout (tester shows it);
    `tests/unit/test_claude_hooks.py` covers that the guard allows the script and still blocks
    what it blocked before; runtime.md and CLAUDE.md name the script as the way to start and stop.
-4. **Flaky Config-screen test.** `tests/unit/test_tui_system.py::test_config_screen_shows_only_the_engine_connection`
+4. **Timing races in the TUI tests.** `tests/unit/test_tui_system.py::test_config_screen_shows_only_the_engine_connection`
    failed in CI on Python 3.11 (run of 2026-10-16 05:00 UTC, commit 1e080d4: the card rendered
-   empty, `assert ('engine url' in '')`) while passing locally. Find why the card can be empty
-   when the test reads it and make the test wait for what it checks (fix the test, or the screen
-   if the screen is wrong).
-   Passes if: the cause is named in the report; the test passes 30 runs in a row under
-   `-n auto` and serially (`-n0`); CI is green on the push.
+   empty, `assert ('engine url' in '')`) while passing locally. Under `--cov` (what CI runs) more
+   races show: `test_tui_log_bar.py::test_ctrl_s_writes_every_row_in_one_batch` fails every time
+   with `-n0 --cov -k ctrl_s_writes` (`NoMatches '#field' on LogBarScreen`, from
+   `_peek_loaded` → `_refresh_view` at expense/tui/screens/log_bar.py:1275 after the screen is
+   gone), and intermittently `test_settings_missing_is_said_once_not_per_row`,
+   `test_a_failed_save_first_keeps_the_screen_so_the_error_is_readable`,
+   `test_tui_reconciliations.py::test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it`,
+   `test_tui_bulk_edit.py::test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection`.
+   Find each cause and fix it where it lives (a screen that updates after it is gone is a screen
+   bug; a test that reads before the screen settled is a test bug). Covers todo.md's "Three
+   flaky unit tests" item where it overlaps.
+   Passes if: each cause is named in the report; `pytest tests/unit --cov` passes 10 runs in a
+   row and `pytest tests/unit -n0 --cov` passes 3 in a row; CI is green on the push.

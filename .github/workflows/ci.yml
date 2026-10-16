@@ -32,5 +32,5 @@ jobs:
       - name: Mypy
         run: mypy
 
-      - name: Pytest (unit, with coverage)
+      - name: Pytest (unit, with coverage; parallel via addopts -n auto in pyproject.toml)
         run: pytest tests/unit --cov --cov-report=term-missing

@@ -29,6 +29,7 @@ dev = [
     "pre-commit>=3.7",
     "mypy>=1.14",
     "pytest-cov>=5",
+    "pytest-xdist>=3.6",
 ]
 
 [project.scripts]
@@ -64,6 +65,11 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Parallel by default (pytest-xdist): `-n0` on the command line forces one process.
+# Set here rather than in a conftest because pytest-cov reads `-n` before any
+# conftest loads. tests/contract/conftest.py turns "auto" into zero workers, so a
+# live contract run stays serial.
+addopts = ["-n", "auto"]
 
 [tool.coverage.run]
 source = ["expense"]

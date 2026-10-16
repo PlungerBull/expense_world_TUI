@@ -36,6 +36,19 @@ def reason_on(err: EngineError, field: str) -> str | None:
     return err.reasons.get(field)
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_auto_num_workers(config):
+    """Run this suite in one process when `-n auto` comes from pyproject's addopts.
+
+    Its tests share one practice user and make real writes (one seals periods the
+    others write into), so they run one after another. xdist reads 0 workers as no
+    distribution at all; an explicit `-n 4` still asks for workers. Holds when the
+    run starts in tests/contract, where this conftest is loaded before xdist asks;
+    tests/conftest.py covers a live run started above it.
+    """
+    return 0
+
+
 def pytest_collection_modifyitems(config, items):
     """Gate the whole directory on PYTEST_LIVE=1.
 

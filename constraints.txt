@@ -17,6 +17,7 @@ openpyxl==3.1.5
 # dev
 pytest==9.0.3
 pytest-cov==7.1.0
+pytest-xdist==3.8.0
 respx==0.23.1
 ruff==0.15.11
 pre-commit==4.5.1

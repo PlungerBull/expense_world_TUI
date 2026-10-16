@@ -153,13 +153,16 @@ def _no_retry_backoff(monkeypatch):
 # invocations happen is immune to how the argv was spelled.
 #
 # Where the verdict is given depends on how the suite runs:
-#   - one process (`-n0`, or no pytest-xdist): the guard test runs last and
-#     asserts on this process's registry, which by then holds the whole suite.
-#   - pytest-xdist: each worker sees only its share of the tests, so a worker's
+#   - one process (`-n0`): the guard test runs last and asserts on this
+#     process's registry, which by then holds the whole suite.
+#   - parallel (the default, `-n auto` from pyproject's addopts): each worker
+#     sees only its share of the tests, so a worker's
 #     guard test cannot conclude anything. Workers hand their registry to the
 #     controller (`workeroutput`), and the controller gives the verdict at
 #     session end, as a teardown error on the guard's own nodeid.
-# Every xdist hook below is `optionalhook`, so the suite runs without xdist.
+# Every xdist hook below is `optionalhook`, so pytest does not reject them as
+# unknown hooks if the xdist plugin is absent; the suite itself needs xdist,
+# since pytest rejects addopts' `-n` without it.
 
 GUARD_NAME = "test_every_command_has_an_error_shape_test"
 
