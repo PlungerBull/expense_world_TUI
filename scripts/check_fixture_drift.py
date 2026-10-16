@@ -146,6 +146,9 @@ KNOWN_LOCAL = frozenset(
         # Textual key names the import door's footer-binding asserts look up
         "enter",
         "escape",
+        # the list each xdist worker hands the controller for the error-shape
+        # guard (tests/unit/conftest.py), not an engine field
+        "error_tested",
     }
 )
 

@@ -36,6 +36,62 @@ Bring back their answer (or have them drop it in [engine-answers/](engine-answer
 planned from it.
 **Recommended:** none; it waits on the engine coders.
 
+### The engine contract moved: catch up now?
+Asked 2026-10-16 · Blocks: every new task (the loop stays stopped until this is answered)
+The faster-loop spec's acceptance check found the engine's contract six versions ahead of
+this repo: bank lines, `POST /transactions/{id}/split`, batch `line_group`, and an import
+that compares bank lines. The bank import's `matched` rows now carry `bank_line_id`, not
+`ledger_id`, and `excess` is gone. That breaks one live contract test
+(`test_dry_run_then_apply_then_the_same_file_matches`, `KeyError: 'ledger_id'`) and leaves five
+fixture keys stale. The check printed:
+
+```
+the engine's contract version has changed: saved 42d70a629215928d, engine 66d65a86a9cf1c19.
+what the contract changed since 42d70a629215928d, newest first:
+  66d65a86a9cf1c19  2026-10-16
+    added: `line_group` on each item of `POST /transactions/batch`, optional. Items naming the same `line_group` are created as the parts of one bank line the engine mints, sharing one `bank_line_id`; an item without one gets a line of its own, as before. The name is trimmed, must not be blank (`EMPTY`) and is at most 64 characters (`OUT_OF_RANGE`). It is scoped to the request: never stored, never returned. *POST /transactions/batch* → *Line groups* describes it.
+    added: error reason `LINE_GROUP_FIELDS_DIFFER`. The items of one group must have the same `account_id`, `date` (the same instant), `title` and `operation_code`; otherwise every item of the group is `422` on each field that differs, keyed `transactions.<i>.<field>`, and nothing is written.
+    changed: the in-batch operation code rule is per line. The items of one group may share a code; two lines with one code on one account are still `DUPLICATE_IN_REQUEST`, and a code already on the account is the `409` (`OPERATION_CODE_EXISTS`) keyed by the group's first item.
+    changed: *Transactions (Ledger)* → *Bank lines* names a batch `line_group` beside `POST /transactions/{id}/split` as a way a line comes to hold several transactions.
+  086a35cfb55a35e2  2026-10-16
+    changed: `POST /transactions/import` compares the file's rows with the ledger's bank lines instead of its transactions. A line split into parts is recognised by its code, or by its total on its account and exact day, like a line held by one transaction, so re-importing a split line matches it and adds nothing. *POST /transactions/import* → *Bank lines, not rows* and *Matching* describe it.
+    changed: titles no longer take part in matching: `same_day` claims a line with the same account, exact day and a total of the same direction and amount, whatever its title. An edited title is still recognised.
+    removed: the `adjacent_day` rule and its `rule` value. A row one day off its ledger line is `new`; `day_mismatches` shows the leftover line on its own day when that day is inside the account's range.
+    changed: on a match, the apply writes the bank's title onto every part of the line whose title differs; an old title moves into an empty description, otherwise it is dropped. A row without a title writes none. This and the code backfill now reach lines inside a completed reconciliation; *PUT /transactions/{id}* → *Field locking* names the import as the one exception. Each changed part gets one `updated` activity entry.
+    changed: a `matched` row carries `bank_line_id` (the line it matched) instead of `ledger_id`, and a new key `retitled` (`true` when the bank's title is written onto the line, `false` when not, `null` on other outcomes). `backfill_code` is the code written onto the line.
+    removed: `excess`. Added: `day_mismatches`. For each account, every day from its first to its last file date, inclusive, days with no file row included (file total `0`), whose signed total differs from the ledger's after the import is reported, with `file_net_cents`, `ledger_net_cents`, `unmatched_rows` (file row indexes) and `unclaimed_lines` (`{bank_line_id, transaction_ids}`).
+    added: `counts.retitled`.
+    changed: the apply re-checks every match while holding the matched lines. A line that another request split, deleted or changed so that it no longer qualifies since the import read the ledger makes the apply `409 CONFLICT` keyed `rows.<index>` (`CONCURRENT_CHANGE`), writing nothing; it used to refuse only when a code backfill's target was gone. *Concurrency* says so.
+  5c5ae48b4583046f  2026-10-16
+    changed: `PUT /transactions/{id}` sending `title`, `date`, `account_id` or `operation_code` on a transaction whose bank line holds several parts writes the value onto every live part of the line, in one write. It used to change only `{id}` (and, for `operation_code` and the account, the line). Each other part that changes gets its own `updated` activity entry and a `version` bump; a part that already has the value is untouched. The response is still `{id}`. *PUT /transactions/{id}* → *Line fields* describes it.
+    changed: such a `PUT` checks *Field locking*, *Opening balances stay put*, *Reconciliation assignment* and *Sealed periods* on every part it would change, and writes nothing if one refuses. A refusal caused by another part keeps the key the request sent and the usual reason (`LOCKED`, `ASSIGNED_TO_RECONCILIATION`, `SEALED_PERIOD`, `OPENING_BALANCE_ACCOUNT_FIXED`); its message names that part's id. `reconciliation_id` in the body settles `{id}` alone: moving a line to another account while another part is in a draft reconciliation is `422` `ASSIGNED_TO_RECONCILIATION` until it is unassigned, and `LOCKED` while it is in a completed one.
+    changed: `amount_cents`, `category_id`, `description`, `hashtag_ids` and `reconciliation_id` still change only `{id}`. *Bank lines* says which fields are the line's and which are each part's.
+    changed: `POST /transactions/import` apply is `409 CONFLICT` keyed `rows.<index>` (`CONCURRENT_CHANGE`), writing nothing, when another request deletes or splits a transaction it matched for a code backfill while it runs; send it again. It already declared `CONCURRENT_CHANGE`. *POST /transactions/import* → *Concurrency* says so.
+    changed: wording only. `SPLIT_LINE_PARTS_DIVERGE` says to send the account and date on one part with `PUT /transactions/{id}`. The `@Pendiente` paragraph in *Categories* lists `POST /transactions/{id}/split` among the writes that can send `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`. *Aggregate exceptions* item 9 says a line change logs every part it changes.
+  a55cc4c271a45287  2026-10-16
+    added: `POST /transactions/{id}/split`. It splits the bank line a transaction belongs to into parts: `{"parts": [...]}`, 2 to 500, the complete new set of the line's parts, each with its own `id`, signed `amount_cents`, `category_id`, `description` and `hashtag_ids`. Every live transaction on the line is deleted and the parts are created on the same line, with its account, date and operation code and the title of the transaction named by `{id}`; the same request re-splits a line or splits one of its parts. The parts' signed sum must equal the line's current total. A split is allowed inside a completed reconciliation, a sealed period and on an archived account, and every part joins the line's reconciliation. A line whose transactions are on different accounts or dates, or in different reconciliations, is refused. Returns `201` with `{"parts": [...]}`. *POST /transactions/{id}/split* describes it.
+    added: four error reasons, `SPLIT_TOTAL_MISMATCH`, `SPLIT_RECONCILIATION_MIXED`, `SPLIT_LINE_PARTS_DIVERGE` and `OPENING_BALANCE_NOT_SPLIT`. *Error reasons* describes each.
+    changed: *Bank lines* no longer says every line holds one transaction; a split puts several on one line. *Sealed periods* names the split as the one way to create a transaction inside a sealed window. *Aggregate exceptions* item 9 says a split leaves the line unchanged. *Field locking*, `DELETE /transactions/{id}` and `POST /reconciliations/{id}/complete` name the split as the one structural change allowed on a transaction in a completed reconciliation. *Transactions (Ledger)* says a split adds no fields to a transaction.
+  1a064b29a1a77b01  2026-10-16
+    changed: *Transactions (Ledger)* → *Bank lines*. A bank line stores no figures of its own: its day, direction and total are always those of its transactions, so editing a transaction changes them. It used to keep the day, direction and amount its transaction had when it was created. No request or response changes.
+  d09030c7f3719106  2026-10-16
+    added: `bank_line_id` on every transaction response: `GET /transactions`, `GET /transactions/{id}`, `POST /transactions`, `PUT /transactions/{id}`, `DELETE /transactions/{id}`, `POST /transactions/batch` and `POST /accounts/{id}/opening-balance`, and in transaction entries of the activity log written from now on. It is the id of the transaction's bank line, the engine's record of one bank movement, minted by the engine and never `null`. Every transaction belongs to exactly one line, and today every line holds one transaction; every existing transaction has a line of its own. *Transactions (Ledger)* → *Bank lines* describes it.
+    changed: `operation_code` is stored on the transaction's bank line. What a client sends and reads is unchanged: the same field on the same requests and responses, the same trimming, the same `409` (`OPERATION_CODE_EXISTS`), the same reconciliation lock and the same import backfill.
+    added: *Aggregate exceptions* item 9: a bank line has no activity entries of its own; the transaction's entries carry `bank_line_id` and `operation_code`.
+
+fields the tests still expect, that the engine no longer has:
+  excess, file_count, ledger_count, ledger_id, unclaimed_ledger_ids
+  (test_bank_import.py, test_tui_bank_import.py)
+```
+
+- **A.** Make catching up the next spec now: the bank import's match keys, `day_mismatches`,
+  and recording the new version. The split and `line_group` work feeds the official-migration
+  spec's task 2.
+- **B.** Wait until the engine coders finish the split-line work they are on today, then catch
+  up once.
+**Recommended:** B, because the contract moved six times today and is likely still moving; one
+catch-up at the end avoids redoing it. Until then the bank-import door may misread matches.
+
 ---
 
 ## Backlog

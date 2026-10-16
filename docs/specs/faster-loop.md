@@ -31,4 +31,4 @@ dropping any check.
 
 Approved by the owner in chat, 2026-10-16.
 
-All tasks done; the acceptance check and the doc sweep remain.
+All tasks done; the doc sweep remains.
