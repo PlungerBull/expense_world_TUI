@@ -21,6 +21,9 @@ stand on rules only the engine can confirm. Pinned here:
     signed `net_cents`, `part_count` and `transaction_ids`: an unsplit line is
     one part at its signed amount, a split 60 + 40 reads `-10000` over two
     parts; an unknown id is `404`, a malformed one `422` `INVALID_FORMAT`;
+  · the split screen's own path: its body splits, `fetch_line_parts` and the
+    line's `net_cents` read the parts and the total back, the parts read go out
+    again as a re-split, and a set that misses the total names parts 1 and 2;
   · the split refusals: `SPLIT_TOTAL_MISMATCH` on `parts` and every
     `parts.<i>.amount_cents`, `SPLIT_RECONCILIATION_MIXED` and
     `OPENING_BALANCE_NOT_SPLIT` on `transaction_id`; and a batch `line_group`
@@ -42,6 +45,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from expense.config import Config
 from expense.errors import EngineError
 from tests.contract.conftest import reason_on
 
@@ -476,4 +480,79 @@ def test_a_bank_line_reads_its_figures(client):
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
+    """The split screen's own path, end to end: its body (`split_body`) splits a
+    purchase, `fetch_line_parts` lists the line's parts and `fetch_bank_line`'s
+    `net_cents` gives its total; the parts read back go out again unchanged as a
+    re-split, then as a new set by the id of one part; parts that miss the total
+    come back keyed so the screen names part 1 and part 2."""
+    from expense.reads import fetch_bank_line, fetch_line_parts, load_quickadd_refs
+    from expense.tui.screens.split import Part, flagged_parts, part_from_engine, split_body
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
+    zone = _zone(client)
+    account = _make_account(client)
+    groceries = _make_category(client)
+    written: list[str] = []
+
+    def send(tx_id: str, parts: list[Part]) -> list[str]:
+        refs = load_quickadd_refs(cfg)
+        body = split_body(parts, refs)
+        written.extend(p["id"] for p in body["parts"])
+        client.post(f"/transactions/{tx_id}/split", json_body=body)
+        return [p["id"] for p in body["parts"]]
+
+    try:
+        original = _post_tx(client, account, _noon(zone, 2026, 4, 14), -10000, "TOTTUS")
+        written.append(original["id"])
+        line = original["bank_line_id"]
+        assert [p["id"] for p in fetch_line_parts(cfg, line)] == [original["id"]]
+        assert fetch_bank_line(cfg, line)["net_cents"] == -10000
+
+        first = send(
+            original["id"],
+            [
+                Part("-60", -6000, groceries, (), "verduras"),
+                Part("-40", -4000, None, (), None),
+            ],
+        )
+        parts = fetch_line_parts(cfg, line)
+        assert {p["id"] for p in parts} == set(first)
+        assert sorted(p["amount_cents"] for p in parts) == [-6000, -4000]
+        assert fetch_bank_line(cfg, line)["net_cents"] == -10000
+
+        # Re-split with the parts as read: the same set goes back as it is.
+        refs = load_quickadd_refs(cfg)
+        again = send(parts[0]["id"], [part_from_engine(p, refs) for p in parts])
+        reread = fetch_line_parts(cfg, line)
+        assert {p["id"] for p in reread} == set(again)
+        assert sorted(
+            (p["amount_cents"], p["category_id"] == groceries, p["description"]) for p in reread
+        ) == sorted(
+            (p["amount_cents"], p["category_id"] == groceries, p["description"]) for p in parts
+        )
+
+        # A new set, by the id of one part.
+        last = send(
+            reread[1]["id"],
+            [Part("-70", -7000, None, (), None), Part("-30", -3000, None, (), None)],
+        )
+        assert {p["id"] for p in fetch_line_parts(cfg, line)} == set(last)
+        assert fetch_bank_line(cfg, line)["net_cents"] == -10000
+
+        err = _refused(
+            lambda: send(
+                last[0], [Part("-60", -6000, None, (), None), Part("-30", -3000, None, (), None)]
+            )
+        )
+        assert flagged_parts(err) == frozenset({0, 1})
+        assert {p["id"] for p in fetch_line_parts(cfg, line)} == set(last)
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/categories/{groceries}")
         _safe(client.delete, f"/accounts/{account}")

@@ -78,6 +78,7 @@ class _QueuedWrite:
     on_response: Callable[[dict], None] | None = None
     config: "Config | None" = None
     error_text: Callable[[Exception], str] = format_error
+    on_failure: Callable[[Exception], None] | None = None
 
 
 class EngineWriteMixin:
@@ -113,6 +114,7 @@ class EngineWriteMixin:
         on_response: Callable[[dict], None] | None = None,
         config: "Config | None" = None,
         error_text: Callable[[Exception], str] = format_error,
+        on_failure: Callable[[Exception], None] | None = None,
     ) -> None:
         """Queue one engine write. `on_response` receives the engine's own body
         (before `on_success`) for the callers that need it: a `complete`
@@ -124,7 +126,10 @@ class EngineWriteMixin:
         saved settings file — the setup screen's, whose settings are not saved
         until the engine has accepted them. `error_text` turns a failure into
         the words `on_error` (or the toast) gets; the shared `format_error`
-        unless a screen needs the engine's words without its hints."""
+        unless a screen needs the engine's words without its hints.
+        `on_failure` receives the failure itself instead of `on_error`'s words,
+        for a screen that lays a refusal out by its keys (the split screen
+        names each refused part by its number)."""
         if self._write_queue is None:
             self._write_queue = deque()
         self._write_queue.append(
@@ -138,6 +143,7 @@ class EngineWriteMixin:
                 on_response,
                 config,
                 error_text,
+                on_failure,
             )
         )
         self._pump_writes()
@@ -157,6 +163,7 @@ class EngineWriteMixin:
 
         error: str | None = None
         body: dict | None = None
+        failure: Exception | None = None
         try:
             cfg = item.config or config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
@@ -170,17 +177,24 @@ class EngineWriteMixin:
                     raise ValueError(f"unsupported write method: {item.method}")
         except Exception as exc:
             error = item.error_text(exc)
-        self.app.call_from_thread(self._write_finished, item, error, body)
+            failure = exc
+        self.app.call_from_thread(self._write_finished, item, error, body, failure)
 
     def _write_finished(
-        self, item: _QueuedWrite, error: str | None, body: dict | None = None
+        self,
+        item: _QueuedWrite,
+        error: str | None,
+        body: dict | None = None,
+        failure: Exception | None = None,
     ) -> None:
         # UI thread: report the outcome, then pump the next write.
         self._write_inflight = False
         if error is not None:
             if self._write_queue:
                 self._write_queue.clear()
-            if item.on_error is not None:
+            if item.on_failure is not None and failure is not None:
+                item.on_failure(failure)
+            elif item.on_error is not None:
                 item.on_error(error)
             else:
                 self.notify(error, title="Failed", severity="error")

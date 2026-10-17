@@ -115,6 +115,19 @@ Input {
     padding: 1 3;
     height: auto;
 }
+/* the split screen (split.py): the purchase over the bar, the parts under it */
+#split-head {
+    padding: 1 3 0 3;
+    height: auto;
+}
+#part-refused {
+    padding: 1 3 0 3;
+    height: auto;
+}
+#parts {
+    padding: 1 3;
+    height: auto;
+}
 /* the LOG bar's account peek: the ledger of the account the line names.
    `1fr` is the whole of it — every widget above it is
    `height: auto`, so the panel is handed exactly the rows the staged list is

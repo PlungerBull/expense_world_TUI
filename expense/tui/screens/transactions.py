@@ -23,9 +23,13 @@ rows leave at once. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
+`s` opens the split screen (`split.py`) on the cursor row: one purchase into
+parts, or, on a part of a split purchase, all its parts again. A split reads
+the list fresh from the newest 10.
+
 `d` deletes the cursor row after the question and reads the list fresh from
-the newest 10. It never acts on a selection: while rows are selected it is
-off and out of the footer.
+the newest 10. `s` and `d` never act on a selection: while rows are selected
+they are off and out of the footer.
 
 `esc` clears the selection when there is one; otherwise it goes back to where
 you came from — Home, for a filter Home opened (esc on a
@@ -63,6 +67,7 @@ from expense.tui.screens._base import (
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.edit_form import EditFormScreen, unassign_on_move
 from expense.tui.screens.modals import PickerModal
+from expense.tui.screens.split import SplitScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList
@@ -226,6 +231,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             "Back",
             tooltip="Clear the selection, else go back",
         ),
+        Binding("s", "split", "Split", tooltip="Split the cursor row into parts"),
         DELETE_KEY,
     ]
     crumb = ("Capture & ledger", "Transactions")
@@ -374,12 +380,23 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             return False  # empty list → nothing to act on; the keys leave the footer
         if action == "pick" and self._bulk_busy:
             return None  # greyed, not gone: one bulk write at a time until its reload lands
-        if action == "delete" and (self._selected or not self._rows or self._bulk_busy):
+        if action in ("delete", "split") and (self._selected or not self._rows or self._bulk_busy):
             # the cursor row only, never a selection: while rows are selected
-            # `d` is off and leaves the footer, and `esc` brings it back. Off
-            # too while a bulk write runs, so a delete never overlaps its PUTs
+            # `s` and `d` are off and leave the footer, and `esc` brings them
+            # back. Off too while a bulk write runs, so neither overlaps its PUTs
             return False
         return True
+
+    def action_split(self) -> None:
+        """`s` — the split screen for the row under the cursor; a split reads
+        the list fresh. Never a selection (`check_action`)."""
+        if self._selected or self._bulk_busy:
+            return
+        targets = self._targets()
+        if not targets:
+            return
+        record = self._by_id[targets[0]]
+        self.app.push_screen(SplitScreen(record, crumb=self.crumb), self._after_detail)
 
     def action_delete(self) -> None:
         """`d` — delete the row under the cursor, after the question. Never a

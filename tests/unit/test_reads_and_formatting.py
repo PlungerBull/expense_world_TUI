@@ -786,6 +786,41 @@ def test_fetch_bank_line_reads_one_line_as_the_engine_sends_it(configured):
     assert dict(route.calls.last.request.url.params) == {}
 
 
+@respx.mock
+def test_fetch_line_parts_reads_every_page_of_one_line_signed(configured):
+    """A line's parts: `?bank_line_id=`, signed, every cursor page until the
+    engine's `next_cursor` is null (contract: GET /v1/transactions)."""
+    from expense.reads import fetch_line_parts
+
+    line = BANK_LINE_RESPONSE["id"]
+    one = {**TRANSACTION_RESPONSE, "id": "part-1"}
+    two = {**TRANSACTION_RESPONSE, "id": "part-2"}
+    route = respx.get(f"{BASE}/v1/transactions").mock(
+        side_effect=[
+            httpx.Response(200, json=cursor_page([one], next_cursor="c1", limit=200)),
+            httpx.Response(200, json=cursor_page([two], limit=200)),
+        ]
+    )
+    parts = fetch_line_parts(config_module.ensure_loaded(), line)
+    assert [p["id"] for p in parts] == ["part-1", "part-2"]
+    sent = [dict(call.request.url.params) for call in route.calls]
+    assert sent == [
+        {"bank_line_id": line, "limit": "200", "debit_as_negative": "true"},
+        {"bank_line_id": line, "limit": "200", "after": "c1", "debit_as_negative": "true"},
+    ]
+
+
+@respx.mock
+def test_count_transactions_takes_the_bank_line_filter(configured):
+    from expense.reads import count_transactions
+
+    route = respx.get(f"{BASE}/v1/transactions/count").mock(
+        return_value=httpx.Response(200, json={"count": 2})
+    )
+    assert count_transactions(config_module.ensure_loaded(), bank_line="bl-9") == 2
+    assert dict(route.calls.last.request.url.params) == {"bank_line_id": "bl-9"}
+
+
 PENDING_HASHTAG = {"id": "h-pend", "name": "Por etiquetar", "system_key": "pending"}
 #: A user's own hashtag that took the default name before the engine reserved it.
 NAMED_PENDIENTE = {"id": "h-user", "name": "Pendiente", "system_key": None}

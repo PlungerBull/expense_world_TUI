@@ -40,14 +40,24 @@ start with a mockup (the reconciliation screen listing purchases, and `d` deleti
 **Recommended:** A, because each task follows your picks of 2026-10-17 and the engine's own
 list of what this client does.
 
-### "ok" on the split screens 1 and 3
-Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+### The split screen's undrawn moments
+Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
 
-[mockups/expense-world-split-action.html](mockups/expense-world-split-action.html): screen 1
-(how `s` opens the split screen, redrawn with each part its own ledger row) and screen 3
-(splitting again, opening with the current parts). Your other picks are in.
+The split screen is built as drawn. Three moments the mockup does not draw:
+1. A title typed on a part's line (`-40 @hogar lejía`) is refused in place: "a part keeps the
+   purchase's title". **A.** keep the refusal · **B.** take the words as the part's note.
+2. `esc` with parts typed leaves at once (nothing is written before `^s`). **A.** leave at once
+   · **B.** ask "discard?" first, as the LOG bar does.
+3. The part line has no `@`/`#` suggestion list; a name that matches nothing is refused.
+   **A.** add the LOG bar's suggestion list · **B.** leave it out.
 
-**Recommended:** none — these are your screens.
+The rest is kept as built unless you say otherwise: the refusal reads `! <reason>`, the preview
+says `no category`/`no amount`, a refused field other than the amount shows the engine's key
+(`part 1 (category_id)`), the empty screen reads `0 parts · 0.00 of -100.00 · -100.00 left`, and
+a successful split closes the screen and reloads the ledger with no message.
+
+**Recommended:** 1 A, because a part has no title of its own and nothing typed is lost; 2 A,
+because nothing is lost on the engine; 3 A, because the LOG bar has it and you will expect it.
 
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
@@ -73,6 +83,14 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 - **Catch up with purchases read, reconciled and deleted whole.** Spec (draft, waiting for
   approval): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
+- **The split screen keeps copies of shared code.** `part_index` in
+  [split.py](../expense/tui/screens/split.py) repeats `row_index` of
+  [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is
+  imported from the bank-import screen instead of a shared widget home; `real_tags` wraps
+  `hashtags_to_send` instead of extending it; `refusal_lines` slices `format_error` by the length
+  of `engine_words`; the head counts the listed parts instead of reading the engine's
+  `part_count`, which `fetch_bank_line`'s docstring says the app never does; and
+  `count_transactions(bank_line=...)` has no caller. One shared copy each, with tests.
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the

@@ -129,10 +129,9 @@ hand-off.
 
 ## Tasks
 
-Approved by the owner (2026-10-16; task 10 on 2026-10-17). Each **[UI]** task starts with
-its mockup; the build waits for the owner's pick. Tasks 1, 2 and 9 are done; the live contract
-tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`,
-which no current route can produce.
+Every task is done; the tester's acceptance check runs next. The live contract tests cover every
+new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`, which no current
+route can produce.
 
 The spec ends at contract `890453f80a08cec9` (owner, 2026-10-17). What the engine changed
 after it, and the ledger's keys on a part of a split purchase (the former task 4, which waits on
@@ -141,14 +140,6 @@ the engine deleting a purchase whole), go to the next catch-up,
 for that reason: `test_a_line_in_two_reconciliations_is_split_reconciliation_mixed`, since the
 engine now reconciles a purchase whole.
 
-Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
-in and its engine change has landed.
-
-5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
-   opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
-   Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);
-   `^s` always sends: the count turns red while it is not 0, and the engine's refusal shows under
-   the parts (owner, 2026-10-17).
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.

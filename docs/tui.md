@@ -42,7 +42,8 @@ expense/tui/
     _growing.py     # GrowingRead — a list that grows by cursor (ledger, "no batch" pane)
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
     home.py         # four months × categories, balances today, then every screen
-    transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk edits
+    transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk
+                    #   edits; `s` splits and `d` deletes the cursor row
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth screens
@@ -57,6 +58,9 @@ expense/tui/
                     #   runtime.md "Bulk writes"). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
+    split.py        # the split screen — what `s` on a ledger row opens. One typed
+                    #   line per part (expense/quickadd/), the parts under it, one
+                    #   POST /transactions/{id}/split; a refusal stays under the parts
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
@@ -260,6 +264,56 @@ row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
 `bank_line_id`: the engine's `part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}).
 On a row that is not split, and when that read fails, the form and its hints are as on
 any row; the save is the engine's either way.
+**`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
+screens 1, 2 B, 3 and 4 B in
+[expense-world-split-action.html](mockups/expense-world-split-action.html)). `s Split` sits
+in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
+works on the cursor row only: off, and out of the footer, while rows are selected or a bulk
+write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
+ledger's. On top, the purchase as the ledger has it: `Tottus Jockey Plaza  ·  2026-10-11  ·
+Sueldo Soles  ·  -100.00 PEN`, its title, date and account, which every part keeps, and the
+line's total. The screen reads the row's bank line as it opens: its parts from
+`GET /transactions?bank_line_id=` (`fetch_line_parts` in [reads.py](../expense/reads.py)),
+its total from `GET /bank-lines/{id}`'s signed `net_cents` (contract: GET /v1/bank-lines/{bank_line_id}).
+A purchase never split lists its one transaction, so the list opens empty; on any part of a
+split purchase the list opens with all its current parts, ready to change, drop or add to,
+and the head adds `  ·  2 parts`. A row with no bank line opens at its own amount and reads
+none.
+Each part is one typed line in the LOG bar's grammar, read by the same parser
+(`expense/quickadd/`): `±amount · @category · #tag · //note`, the legend under the bar with
+`↵ adds the part`. While a line is typed, the row under the bar says what it makes of the
+part (`-40.00 · HOGAR · no hashtag`; `no category`, `no amount`, or the grammar's own phrase
+for a name that matches nothing or several). `↵` adds it to the list, or refuses it in
+place, the line kept in the bar and the reason under the legend in the error colour, until
+the next keystroke: a line naming an account or a date reads `! a part keeps the purchase's
+account and date`, one with title words `! a part keeps the purchase's title`, one with no
+amount or an unmatched name the LOG bar's own phrase (`route_part` in
+[route.py](../expense/quickadd/route.py)). The split takes no title, date or account
+(contract: POST /v1/transactions/{transaction_id}/split).
+The list is `amount  category  hashtags  note`, each part numbered (`• 1`); a part with no
+category reads `@Pendiente` dim and one with no real hashtag `#Pendiente` dim. Under it,
+`1 part · -60.00 of -100.00 · -40.00 left`: the parts' amounts as typed, summed, against the
+engine's total, as the LOG bar's staged total sums its rows, and `-40.00` in the error
+colour while it is not 0; at 0 the line ends at the total. It never stops a send.
+`ctrl+s` always sends the whole list in one `POST /transactions/{id}/split` through
+`run_write` (one idempotency key), by the id of the row `s` was pressed on, each part under a
+fresh id, with its signed amount and only what it names: `category_id`, `description`, and
+`hashtag_ids` through `hashtags_to_send`, a part with only the pending hashtag sending none.
+A line still in the bar is not a part and is not sent. The engine decides whether the parts
+add up (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). Split,
+the screen closes and the ledger reads fresh from the newest 10, cursor on row 1.
+**A refused split stays under the parts** (screen 4 B) until the list changes: the engine's
+`CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
+`parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`) and any other
+key as sent, then `Nothing was split.` dim, then a blank line and the app's line when the
+reason has one ("When the engine says no" below). The amounts a `parts.<i>.amount_cents` key
+names turn the error colour in the list. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every
+`parts.<i>.amount_cents`, its words giving both totals in cents), and every other refusal of
+the route, `OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`,
+`SPLIT_RECONCILIATION_MIXED`, `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`,
+`INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
+`ID_EXISTS`, `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way. A failure that is
+not the engine's answer (the engine out of reach) shows the app's error text there instead.
 `esc` clears the selection if there is one, and otherwise goes back to the screen that
 opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
@@ -466,7 +520,7 @@ below).
 reconciliation draws when completed without its ending balance, the one a system category
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
-toast, a LOG bar row, the bank import's preview) shows the engine's words whole (`CODE —
+toast, a LOG bar row, the bank import's preview, the split screen's parts) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field), and for the reasons below a blank
 line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
@@ -482,9 +536,9 @@ line and one line of the app's saying what to do. Screens in
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
-| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, a transaction's hashtags on its Edit form or `h` on ledger rows | `It changed at the same moment: save again.` |
+| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the split screen, a transaction's hashtags on its Edit form or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<index>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
-| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
+| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the split screen, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
@@ -687,9 +741,9 @@ them — they are hand-written into the `?` card
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
 rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` open the
 picker for category / account / hashtags, `esc` clears the selection if there is one,
-else goes back to the screen that opened the ledger. `d` never follows the selection: it
-is off while one exists, and while a bulk write runs (§2 "`d` is the TUI's one destructive
-key"). `space` is declared on `CursorList` but is live — key and footer both — only on a
+else goes back to the screen that opened the ledger. `s` and `d` never follow the
+selection: they are off while one exists, and while a bulk write runs (§2 "`s` splits the
+cursor row into parts", "`d` is the TUI's one destructive key"). `space` is declared on `CursorList` but is live — key and footer both — only on a
 screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open`
 goes through on the `?` card, so the Manage lists neither react to it nor advertise it.
 
@@ -773,6 +827,14 @@ line. The footer reads `esc Cancel  ⏎ Import` (`ctrl+s` is off while files are
 bar). `↵` stages nothing: it hands the paths to `LogBarScreen.import_bank_files`, which
 starts the import door (§2 "The import door"). Editing the line back to anything else
 returns the bar to quick-add on the same keystroke.
+
+**The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): `↵` adds the
+typed line as a part, or puts it back in place of the part it was lifted from; with the bar
+empty, `↑↓` pick a part (`↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it`
+under the bar), `↵` puts the picked part in the bar as its line, `ctrl+x` drops it
+(`priority=True`, below); `ctrl+s` sends the split; `esc` puts back the part being changed,
+then unpicks, then leaves with nothing sent. The footer reads `esc Cancel  ^s Split`. As on the
+LOG bar the bar always holds focus, so no bare letter is a command and there is no `?`.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
