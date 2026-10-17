@@ -33,23 +33,25 @@ Asked 2026-10-17 · Blocks: [specs/bank-lines-and-pending-hashtag.md](specs/bank
 The engine's catch-up file up to contract `890453f80a08cec9` is now part of the spec. It adds
 task 10, which runs first: the bank upload reads the ledger rows the file did not claim in the
 engine's new shape (today it loses them), the "can't rename a system row" refusal shows the
-engine's words, and the live tests cover the new reads. Nothing on screen changes. It also adds
-two cases to task 3's upload screen, to be drawn before it is built: a split purchase the file
-did not claim, and a day listed although its totals agree.
+engine's words, and the live tests cover the new reads. Nothing on screen changes. The two
+cases it adds to task 3's upload screen are drawn: see "Finish picking" below.
 - **A.** Approve task 10 as written.
 - **B.** Change it first (say how).
 
 **Recommended:** A, because without it the upload hides the rows the bank did not have.
 
 ### Finish picking the bank-lines and pending-hashtag screens
-Asked 2026-10-16 · Blocks: tasks 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+Asked 2026-10-16 · Blocks: tasks 3, 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
 Your picks of 2026-10-17 are in the spec. Still open, each on its page's "To answer" box:
 - the ledger, redrawn your way, [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html):
   a letter for the split mark, one for what `⏎` opens, and what `c` and `h` do with a split
   purchase selected;
 - Manage, [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html):
-  "ok" on the Hashtags table.
+  "ok" on the Hashtags table;
+- the bank upload, [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html):
+  a letter for screen 5, how a split purchase the file did not claim shows in the days that
+  disagree (one row with its total, or each part under it), drawn with a day whose totals agree.
 
 **Recommended:** none — these are your screens.
 

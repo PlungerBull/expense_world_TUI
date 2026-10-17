@@ -12,7 +12,9 @@ internals.
 - **Shape:** `# <the ask, as one sentence>`, the date it was raised, then **Why**, **The ask**,
   **Done when**, and last **What this client removes once it lands** (the client workaround the ask
   retires, in words, no paths into this repo).
-- **Deleted when it lands**, in the same commit as the client code it replaces.
+- **Deleted as soon as an engine hand-off covering it arrives**, in the commit that folds that
+  hand-off into a catch-up spec, so an answered ask is never handed over twice. The spec carries
+  what is left to do, and its reply names the ask by title.
 
 **A reply** — this client caught up with an engine change.
 

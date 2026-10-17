@@ -8,8 +8,8 @@ across re-imports, and every transaction now carries at least one hashtag" (up t
 unclaimed line is, and system rows keep their names" (up to `890453f80a08cec9`): what they ask of
 this client is in the tasks, their checks in "The engine's checks", and what the engine declined
 in "What the engine declined". When done, the why moves to [decisions.md](../decisions.md), where
-it replaces "Manage detail: system categories are editable, not immutable", and this file and
-the asks its reply closes are deleted.
+it replaces "Manage detail: system categories are editable, not immutable", and this file is
+deleted.
 
 ---
 
@@ -156,8 +156,8 @@ in and its engine change has landed. Task 10 runs first.
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
    counting rows itself. Each unclaimed purchase is one entry drawn from the engine's parts and
    total, with no read per row. Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
-   2026-10-17: the recommended set). Two cases the mockup does not draw yet are drawn and picked
-   before the build: a split purchase the file did not claim, and a day listed with equal totals.
+   2026-10-17: the recommended set). A split purchase the file did not claim, and a day listed
+   with equal totals, are the mockup's screen 5, still to pick.
 4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
    filtered ledger shows each part as its own row); `d` on a split purchase deletes the whole
    purchase; the mark, what `⏎` opens, and `c`, `h` with a split purchase selected still to pick.

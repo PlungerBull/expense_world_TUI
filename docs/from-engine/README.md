@@ -31,4 +31,5 @@ the engine and its replies, goes out from [to-engine/](../to-engine/).
   should not wait for screens still being picked). The spec takes what the live contract does not
   hold: the engine's "What the TUI does", its "Done when", and what it declined and why. It ends
   with its reply to the engine ([specs/README.md](../specs/README.md)).
-- **Deleted once its specs are written,** in the commit that adds them. Git history keeps it.
+- **Deleted once its specs are written,** in the commit that adds them, together with the asks
+  in [to-engine/](../to-engine/) it answers. Git history keeps them.
