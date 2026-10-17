@@ -134,11 +134,12 @@ its mockup; the build waits for the owner's pick. Tasks 1, 2 and 9 are done; the
 tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`,
 which no current route can produce.
 
-Engine asks this spec still waits on, raised on 2026-10-17 for the owner to hand over:
-[to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's `d`) and
-[to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
-(task 6, and the reconciliation screen ticking a purchase whole). Each task that needs one waits
-for its hand-off and is built against the live contract, not the ask.
+The spec ends at contract `890453f80a08cec9` (owner, 2026-10-17). What the engine changed
+after it, and the ledger's keys on a part of a split purchase (the former task 4, which waits on
+the engine deleting a purchase whole), go to the next catch-up (todo.md "Catch up with the
+engine after `890453f80a08cec9`"). The tester's acceptance check expects one live test to fail
+for that reason: `test_a_line_in_two_reconciliations_is_split_reconciliation_mixed`, since the
+engine now reconciles a purchase whole.
 
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
 in and its engine change has landed.
@@ -150,21 +151,11 @@ in and its engine change has landed.
    parts, each part as its own row as 2 B draws them, with no read per row; nothing is done to
    them (owner, 2026-10-17). Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
    2026-10-17: the recommended set). The mockup's screen 5 is not built.
-4. **[UI]** The ledger's keys on a part of a split purchase. Every part stays an ordinary row,
-   as today, whole ledger or filtered (owner, 2026-10-17). `c` and `h` change only the selected
-   parts; `b` reaches every part, as the engine does. `d` on any part deletes the whole purchase,
-   every part, and its question names how many parts go (owner, 2026-10-17).
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
    opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
    Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);
    `^s` always sends: the count turns red while it is not 0, and the engine's refusal shows under
    the parts (owner, 2026-10-17).
-6. **[UI]** The edit form's note that title, date and account reach every part, shown only on a
-   part of a split purchase (`part_count` above 1 in `GET /bank-lines/{id}`). Picked: 1 B (the
-   note in the hint, only on date, title and account). Screen 2, a refusal caused by another
-   part, is not built: a purchase is reconciled whole (owner, 2026-10-17), which
-   [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
-   asks the engine to enforce.
 8. **[UI]** The hashtags screen as a table with a System column, marking the pending hashtag and
    offering no delete or rename on it; the categories screen offers no edit and no delete on
    `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and
@@ -186,8 +177,9 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
 - **Contract problems found:** found so far: on `890453f80a08cec9`, `PUT /transactions/{id}`
   with `reconciliation_id` on one part of a split line puts every part of the line in that
   reconciliation, while the contract says it "settles `{id}` alone"; so `SPLIT_RECONCILIATION_MIXED`
-  cannot be produced that way, and the live test expecting it fails. Ask which is intended (this
-  client's ask "a bank line is reconciled whole" wants every part). Then what the builds and the
+  cannot be produced that way, and the live test expecting it fails. The engine has since made
+  the whole-line rule its contract (`ce4e5cb642e53fdb`), which the next catch-up covers. Then
+  what the builds and the
   tester's run found, and whether the
   `OPERATION_CODE_EXISTS` message still says "transaction".
 - **Asks this closes:** "A bank line split into several transactions keeps one identity, so a

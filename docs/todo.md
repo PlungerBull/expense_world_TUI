@@ -27,25 +27,24 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine moved its contract again: a purchase is reconciled whole
-Asked 2026-10-17 · Blocks: tasks 6, 8 and 3 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+### Ask the engine coders for one catch-up file from `890453f80a08cec9`
+Asked 2026-10-17 · Blocks: the next catch-up (backlog "Catch up with the engine after `890453f80a08cec9`")
 
-This app has caught up to contract `890453f80a08cec9`. On 2026-10-17 the practice engine served
-`ce4e5cb642e53fdb`. The version check, as a builder reported it (the exact print waits until the
-engine starts again): `reconciliation_id` on `PUT /transactions/{id}` is now a field of the whole
-bank line and reaches every part, marked breaking.
+The current spec ends at contract `890453f80a08cec9`. The engine has moved on (`ce4e5cb642e53fdb`:
+a purchase is reconciled whole, and more in progress). Once the engine coders finish, ask them
+for one hand-off file from `890453f80a08cec9` to their current version
+([from-engine/README.md](from-engine/README.md)); it becomes the next catch-up spec.
 
-It answers the ask "a bank line is reconciled whole" and the contract problem the spec's reply
-notes. The engine coders are still at work: the practice engine does not start right now, on a
-further version `a39658d0123107ad` they have not finished. When they are done, ask them for one
-hand-off file from `890453f80a08cec9` to their current version
-([from-engine/README.md](from-engine/README.md)).
-- **A.** The loop waits until that file arrives and is folded into the spec.
-- **B.** The loop goes on with tasks 6, 8 and 3, which do not touch reconciliation, against the
-  saved contract; the file is folded into this spec when it arrives.
+**Recommended:** none — only you can hand it over.
 
-**Recommended:** B, because none of those three tasks reads or writes a reconciliation, and the
-engine is mid-change, so waiting gains nothing yet.
+### "ok" on the split screens 1 and 3
+Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+
+[mockups/expense-world-split-action.html](mockups/expense-world-split-action.html): screen 1
+(how `s` opens the split screen, redrawn with each part its own ledger row) and screen 3
+(splitting again, opening with the current parts). Your other picks are in.
+
+**Recommended:** none — these are your screens.
 
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
@@ -68,6 +67,15 @@ is already caught by the days that disagree.
 
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
+
+- **Catch up with the engine after `890453f80a08cec9`.** Waits for the engine's hand-off file
+  ("Waiting on you" above), which becomes its spec. Known so far: a purchase is reconciled whole
+  (`ce4e5cb642e53fdb`), so the live test
+  `test_a_line_in_two_reconciliations_is_split_reconciliation_mixed` expects a refusal that no
+  longer happens; and the ledger's keys on a part of a split purchase, owner's picks of
+  2026-10-17: every part stays an ordinary row, `c` and `h` change only the selected parts, `b`
+  reaches every part, and `d` on any part deletes the whole purchase, its question naming how
+  many parts go. `d` waits on [to-engine/delete-a-bank-line.md](to-engine/delete-a-bank-line.md).
 
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root

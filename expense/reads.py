@@ -244,6 +244,17 @@ def fetch_transaction(cfg, transaction_id: str, *, verbose: bool = False) -> dic
     )
 
 
+def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/bank-lines/{bank_line_id} → the raw engine body.
+
+    One bank line as the engine figures it: its `part_count`, signed `net_cents`
+    and `transaction_ids` (contract: GET /v1/bank-lines/{bank_line_id}). Read by
+    the transaction Edit form, whose "changes every part" note shows only when the
+    engine's `part_count` is above 1; the app counts no parts itself.
+    """
+    return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
+
+
 def count_transactions(
     cfg,
     *,

@@ -27,6 +27,14 @@ read-only and are never sent: the engine keeps such a row on its account and in
 @Opening (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 The form knows the row once the reference lists load (`QuickAddRefs.opening`).
 
+On a part of a split purchase, the hint under the bar adds `changes every part
+of the purchase` while the cursor is on date, title or account: the engine
+writes those three onto every part of the bank line, in one go
+(contract: "Transactions (Ledger)", "Bank lines"). The form knows the row is a
+part from one `GET /v1/bank-lines/{bank_line_id}` read as it opens, the engine's
+`part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}). A failed
+read leaves the hints as on any row; the save is the engine's either way.
+
 `enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the
@@ -41,14 +49,16 @@ from rich.text import Text
 from textual import work
 from textual.widgets import Input
 
+from expense import reads
 from expense.dates import to_canonical_aware
 from expense.errors import format_error
 from expense.formatting import format_cents, resolve_name
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import hashtags_to_send, load_quickadd_refs
-from expense.tui.screens._base import screen_fetch_kwargs
+from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.theme import ACCENT
 from expense.tui.widgets.picker import suggestion_list
 
 _LABELS = {
@@ -71,6 +81,10 @@ _HINTS = {
     "hashtags": "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)",
     "note": "optional · enter saves · (ctrl+s anytime)",
 }
+# The fields a part of a split purchase shares with every other part, and what
+# the hint adds on them.
+_EVERY_PART = {"date", "title", "account"}
+EVERY_PART_NOTE = "changes every part of the purchase"
 # engine field name for each form key
 _ENGINE_FIELD = {
     "date": "date",
@@ -117,6 +131,7 @@ class EditFormScreen(FormScreen):
         self._pending_tag: str | None = None
         self._original: dict = {}
         self._leaves_reconciliation = False
+        self._split_part = False  # the engine reads this row's bank line as > 1 part
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
@@ -160,6 +175,30 @@ class EditFormScreen(FormScreen):
 
     def _after_mount(self) -> None:
         self._load_entities()
+        if self._record.get("bank_line_id"):
+            self._load_bank_line()
+
+    @work(thread=True, exclusive=True, group="bank_line")
+    def _load_bank_line(self) -> None:
+        """One read of the row's bank line, for the every-part note. Any failure
+        leaves the form as on an unsplit row: the note is a hint, not a guard."""
+        from expense import config as config_module
+
+        try:
+            cfg = config_module.ensure_loaded()
+            line = reads.fetch_bank_line(
+                cfg, self._record["bank_line_id"], **screen_fetch_kwargs(self.app)
+            )
+        except Exception:
+            return
+        count = line.get("part_count") if isinstance(line, dict) else None
+        if isinstance(count, int) and not isinstance(count, bool) and count > 1:
+            call_while_attached(self, self._set_split_part)
+
+    def _set_split_part(self) -> None:
+        self._split_part = True
+        if not self._submitting:  # a save in flight keeps its busy hint
+            self._refresh_view()
 
     @work(thread=True, exclusive=True)
     def _load_entities(self) -> None:
@@ -217,6 +256,11 @@ class EditFormScreen(FormScreen):
 
     def _hint_for(self, key: str) -> str:
         return _HINTS.get(key, "")
+
+    def _hint_line(self, key: str) -> Text:
+        if not (self._split_part and key in _EVERY_PART):
+            return super()._hint_line(key)
+        return Text.assemble((f"{self._hint_for(key)} · ", "dim"), (EVERY_PART_NOTE, ACCENT))
 
     def _suggests(self, key: str) -> bool:
         return key in _ENTITY

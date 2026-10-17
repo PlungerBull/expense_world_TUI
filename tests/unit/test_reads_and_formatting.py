@@ -751,6 +751,32 @@ def test_transaction_reads_pass_the_bank_line_through(configured):
     assert fetch_transaction(cfg, TRANSACTION_RESPONSE["id"])["bank_line_id"] == line
 
 
+BANK_LINE_RESPONSE = {
+    "id": "66666666-6666-6666-6666-666666666666",
+    "account_id": "acct-id",
+    "operation_code": None,
+    "net_cents": -10000,
+    "part_count": 2,
+    "transaction_ids": ["55555555-5555-5555-5555-555555555555", "tx-two"],
+}
+
+
+@respx.mock
+def test_fetch_bank_line_reads_one_line_as_the_engine_sends_it(configured):
+    """One GET by the line's id, no query, the body untouched: `part_count` is the
+    engine's figure (contract: GET /v1/bank-lines/{bank_line_id})."""
+    from expense import config as config_module
+    from expense.reads import fetch_bank_line
+
+    line = BANK_LINE_RESPONSE["id"]
+    route = respx.get(f"{BASE}/v1/bank-lines/{line}").mock(
+        return_value=httpx.Response(200, json=BANK_LINE_RESPONSE)
+    )
+    assert fetch_bank_line(config_module.ensure_loaded(), line) == BANK_LINE_RESPONSE
+    assert route.call_count == 1
+    assert dict(route.calls.last.request.url.params) == {}
+
+
 PENDING_HASHTAG = {"id": "h-pend", "name": "Por etiquetar", "system_key": "pending"}
 #: A user's own hashtag that took the default name before the engine reserved it.
 NAMED_PENDIENTE = {"id": "h-user", "name": "Pendiente", "system_key": None}

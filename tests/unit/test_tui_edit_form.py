@@ -6,7 +6,8 @@ PUT, and the suggestion pickers.
 """
 
 import pytest
-from textual.widgets import Input
+from rich.text import Text
+from textual.widgets import Input, Static
 
 from expense.errors import EngineConnectionError, EngineError
 from expense.tui.screens.create_forms import (
@@ -18,6 +19,7 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import EditFormScreen
+from expense.tui.theme import ACCENT
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
@@ -800,3 +802,152 @@ def test_a_hashtag_refusal_on_the_form_shows_as_sent(
     fake_client.errors["PUT"] = err
     notices = _tag_and_save(ON_PENDING, ["dog"], fake_client, monkeypatch, settle=bool)
     assert notices == [("Failed", refusal_text(err, line))]
+
+
+# ---- a part of a split purchase: the every-part note (screen 1 B) ----------
+# expense-world-edit-part.html: on a part, the hint under the bar adds the note
+# while the cursor is on date, title or account, and says nothing on the others.
+
+LINE_PATH = "/bank-lines/bl1"
+EVERY_PART = "changes every part of the purchase"
+#: Every field of the form, in its order, with the hint it shows on any row.
+FIELD_HINTS = [
+    ("date", "YYYY-MM-DD · enter to accept, or type a date"),
+    ("title", "free text · enter to save"),
+    ("amount", "signed decimal · − expense / + income · in the account's currency"),
+    ("account", "pick an existing account · ↑↓ highlight · enter select"),
+    ("category", "pick an existing category · ↑↓ highlight · enter select"),
+    ("hashtags", "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)"),
+    ("note", "optional · enter saves · (ctrl+s anytime)"),
+]
+
+
+def _bank_line(part_count: int) -> dict:
+    """A bank line as the engine reads it (contract: GET /v1/bank-lines/{bank_line_id})."""
+    return {
+        "id": "bl1",
+        "account_id": "acc1",
+        "operation_code": None,
+        "net_cents": -10000 if part_count > 1 else -4250,
+        "part_count": part_count,
+        "transaction_ids": ["tx1", "tx2"][:part_count],
+    }
+
+
+@pytest.fixture
+def line_client(fake_client, monkeypatch):
+    """`fake_client`, also answering the shared reads' `fetch_body`, so the bank-line
+    read goes through `reads.fetch_bank_line` to the fake engine. Reference lists stay
+    patched as `_patch` does."""
+    monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
+    _patch(monkeypatch)
+    return fake_client
+
+
+def _line_reads(client) -> list[tuple[str, str]]:
+    return [r for r in client.requests if r[1].startswith("/bank-lines/")]
+
+
+async def _open_and_settle(app, pilot, client, record=TXN) -> EditFormScreen:
+    """Open the form and wait for both of its opening reads to finish."""
+    screen = EditFormScreen(record=record, resource="transactions")
+    await app.push_screen(screen)
+    await _wait_loaded(screen, pilot)
+    await wait_for(pilot, lambda: _line_reads(client))
+    await app.workers.wait_for_complete()
+    await pilot.pause()
+    return screen
+
+
+async def _hints_by_field(screen, pilot) -> dict[str, Text]:
+    """The `#hint` line on each field, reached by `tab` from the first."""
+    seen: dict[str, Text] = {}
+    for key, _ in FIELD_HINTS:
+        assert screen._key == key
+        seen[key] = screen.query_one("#hint", Static).content
+        await pilot.press("tab")
+    return seen
+
+
+def test_a_part_of_a_split_purchase_notes_every_part_on_date_title_and_account(line_client):
+    """`part_count` 2: date, title and account read their hint, then
+    `· changes every part of the purchase` in the accent; amount, category,
+    hashtags and note read their hint alone."""
+    line_client.get_responses[LINE_PATH] = _bank_line(2)
+
+    async def scenario(pilot, app):
+        screen = await _open_and_settle(app, pilot, line_client)
+        assert screen._split_part
+        return await _hints_by_field(screen, pilot)
+
+    hints = run_app(scenario)
+    for key, hint in FIELD_HINTS:
+        shown = hints[key]
+        if key in ("date", "title", "account"):
+            assert shown.plain == f"{hint} · {EVERY_PART}"
+            note = shown.plain.index(EVERY_PART)
+            styles = {str(s.style) for s in shown.spans if s.start <= note < s.end}
+            assert styles == {ACCENT}
+            assert all(str(s.style) == "dim" for s in shown.spans if s.end <= note)
+        else:
+            assert shown.plain == hint
+            assert EVERY_PART not in shown.plain
+    assert _line_reads(line_client) == [("GET", LINE_PATH)]  # one read per opening
+
+
+def test_a_row_that_is_not_split_shows_the_hints_as_on_any_row(line_client):
+    """`part_count` 1: every field's hint is the form's own, dimmed, no note."""
+    line_client.get_responses[LINE_PATH] = _bank_line(1)
+
+    async def scenario(pilot, app):
+        screen = await _open_and_settle(app, pilot, line_client)
+        assert not screen._split_part
+        return await _hints_by_field(screen, pilot)
+
+    hints = run_app(scenario)
+    for key, hint in FIELD_HINTS:
+        assert hints[key].plain == hint
+        assert str(hints[key].style) == "dim" and not hints[key].spans
+    assert _line_reads(line_client) == [("GET", LINE_PATH)]
+
+
+@pytest.mark.parametrize("network", [False, True], ids=["not-found", "network"])
+def test_a_failed_bank_line_read_leaves_the_form_working_with_no_note(line_client, network):
+    """The read fails (the fake engine has no such line: 404; or the connection
+    drops): the form opens, shows no note on any field, and still saves a changed
+    title; the engine decides on save."""
+    if network:
+        line_client.errors["GET"] = EngineConnectionError(
+            url="https://x.invalid", original=Exception("refused")
+        )
+
+    async def scenario(pilot, app):
+        screen = await _open_and_settle(app, pilot, line_client)
+        assert not screen._split_part
+        hints = await _hints_by_field(screen, pilot)
+        screen._current = screen._sequence().index("title")
+        screen._refresh_bar()
+        _enter(screen, "Farmacia Central")
+        screen.action_submit()
+        await wait_for(pilot, lambda: line_client.puts)
+        return hints
+
+    hints = run_app(scenario)
+    assert all(EVERY_PART not in hints[key].plain for key, _ in FIELD_HINTS)
+    assert line_client.puts == [("/transactions/tx1", {"title": "Farmacia Central"})]
+    assert _line_reads(line_client) == [("GET", LINE_PATH)]
+
+
+def test_a_row_with_no_bank_line_reads_none(line_client):
+    """No `bank_line_id` on the row: no bank-line read, the hints as on any row."""
+    record = {k: v for k, v in TXN.items() if k != "bank_line_id"}
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await app.workers.wait_for_complete()
+        return str(screen.query_one("#hint", Static).content)
+
+    assert run_app(scenario) == FIELD_HINTS[0][1]
+    assert _line_reads(line_client) == []

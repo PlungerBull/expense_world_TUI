@@ -245,6 +245,17 @@ such a row like any other, and the engine refuses it: its "Refused" note is the 
 words, then the line saying what to do ("When the engine says no" below), and the other
 rows still go. The LOG bar is untouched: it only creates rows, and a typed line cannot
 name @Opening.
+**A part of a split purchase says what reaches every part.** The engine writes a part's
+date, title and account onto every part of its bank line, in one go, while amount,
+category, hashtags and note stay the part's own
+(contract: "Transactions (Ledger)", "Bank lines"). So on a part, the `⏎` edit form's hint
+under the bar adds `· changes every part of the purchase`, in the accent, while the cursor
+is on date, title or account, and says nothing more on the other fields; screen 1 B in
+[expense-world-edit-part.html](mockups/expense-world-edit-part.html). The form knows the
+row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
+`bank_line_id`: the engine's `part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}).
+On a row that is not split, and when that read fails, the form and its hints are as on
+any row; the save is the engine's either way.
 `esc` clears the selection if there is one, and otherwise goes back to the screen that
 opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the

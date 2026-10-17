@@ -85,6 +85,10 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def _hint_for(self, key: str) -> str:
         return ""
 
+    def _hint_line(self, key: str) -> Text:
+        """The hint line under the bar: `_hint_for`'s words, dimmed."""
+        return Text(self._hint_for(key), style="dim")
+
     def _required(self) -> tuple[str, ...]:
         return ()
 
@@ -193,7 +197,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     # ---- render --------------------------------------------------------------
     def _refresh_view(self) -> None:
-        self.query_one("#hint", Static).update(Text(self._hint_for(self._key), style="dim"))
+        self.query_one("#hint", Static).update(self._hint_line(self._key))
         self.query_one("#suggest", Static).update(self._suggest_renderable())
         self.query_one("#summary", Static).update(self._summary_renderable())
 
