@@ -484,9 +484,11 @@ async def wait_for_list(pilot, app) -> None:
 
 
 # ---- Home's month ---------------------------------------------------------------
-#: Two months as `/reports/monthly` returns them. @Pendiente holds only untagged
-#: rows, WANTS two hashtags, and HOGAR nothing in either month — so Home must not
-#: draw it. Ids carry a hyphen so scripts/check_fixture_drift.py does not read the
+#: Two months as `/reports/monthly` returns them. @Pendiente holds only rows still
+#: waiting for a hashtag, which the engine groups under the built-in pending
+#: hashtag `h-pend` like any other (contract: GET /v1/dashboard); WANTS holds two
+#: hashtags, and HOGAR nothing in either month — so Home must not draw it. Ids
+#: carry a hyphen so scripts/check_fixture_drift.py does not read the
 #: hashtag-name map's keys as engine fields.
 HOME_MONTHS = [
     {
@@ -498,7 +500,7 @@ HOME_MONTHS = [
                 "spent_home_cents": -26620,
                 "unconverted_count": 0,
                 "hashtag_breakdown": [
-                    {"hashtag_ids": [], "spent_home_cents": -26620, "unconverted_count": 0}
+                    {"hashtag_ids": ["h-pend"], "spent_home_cents": -26620, "unconverted_count": 0}
                 ],
             },
             {
@@ -535,7 +537,11 @@ HOME_MONTHS = [
                 "spent_home_cents": -1148746,
                 "unconverted_count": 0,
                 "hashtag_breakdown": [
-                    {"hashtag_ids": [], "spent_home_cents": -1148746, "unconverted_count": 0}
+                    {
+                        "hashtag_ids": ["h-pend"],
+                        "spent_home_cents": -1148746,
+                        "unconverted_count": 0,
+                    }
                 ],
             },
             {
@@ -571,7 +577,7 @@ HOME_DASHBOARD = {
     "categories": [],
     "totals": {"net_home_cents": -1148746, "unconverted_count": 0},
 }
-HOME_TAG_NAMES = dict([("h-sal", "SALIDAS"), ("h-otr", "OTROS")])
+HOME_TAG_NAMES = dict([("h-sal", "SALIDAS"), ("h-otr", "OTROS"), ("h-pend", "Pendiente")])
 
 
 def stub_home_month(monkeypatch, *, months=None, dashboard=None, names=None, calls=None):

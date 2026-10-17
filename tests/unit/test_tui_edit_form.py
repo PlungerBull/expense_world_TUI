@@ -716,6 +716,52 @@ def test_naming_the_pending_hashtag_beside_a_real_one_drops_it(fake_client, monk
     assert notices == [("", "No changes to save.")]
 
 
+def _hashtags_shown(record, typed, monkeypatch, *, tags=WITH_PENDING) -> list[str]:
+    """Open the form on `record` and add each hashtag `typed` names; returns the
+    summary's `hashtags` line after the load, then after each addition."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: tags)
+    shown: list[str] = []
+
+    def line(screen) -> str:
+        summary = render_text(screen._summary_renderable(), width=80)
+        return next(row.strip() for row in summary.splitlines() if "hashtags" in row)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("hashtags")
+        shown.append(line(screen))
+        for text in typed:
+            _enter(screen, text)
+            shown.append(line(screen))
+
+    run_app(scenario)
+    return shown
+
+
+def test_the_pending_hashtag_leaves_the_list_once_a_real_one_is_in(fake_client, monkeypatch):
+    """A row waiting under the pending hashtag lists it; adding #dog leaves
+    #dog alone on the form, what the save sends; #traveling then joins it."""
+    shown = _hashtags_shown(ON_PENDING, ["dog", "traveling"], monkeypatch)
+    assert shown == ["hashtags  #Pendiente", "hashtags  #dog", "hashtags  #dog #traveling"]
+
+
+def test_naming_the_pending_hashtag_beside_a_real_one_does_not_list_it(fake_client, monkeypatch):
+    shown = _hashtags_shown(TXN, ["pend"], monkeypatch)
+    assert shown == ["hashtags  #dog", "hashtags  #dog"]
+
+
+def test_with_no_pending_hashtag_yet_the_list_shows_every_pick(fake_client, monkeypatch):
+    """No hashtag carries `system_key` `pending`; a user hashtag only named like
+    it is an ordinary hashtag and stays listed."""
+    named_like_it = {"id": "hx", "name": "Pendiente", "system_key": None}
+    tags = {"items": HASHTAGS["items"] + [named_like_it]}
+    shown = _hashtags_shown({**TXN, "hashtag_ids": ["hx"]}, ["dog"], monkeypatch, tags=tags)
+    assert shown == ["hashtags  #Pendiente", "hashtags  #Pendiente #dog"]
+
+
 def test_an_emptied_set_sends_an_empty_list(fake_client, monkeypatch):
     """Every hashtag taken off sends `[]`: the engine files the row under the
     pending hashtag; the client never sends the pending id for it."""

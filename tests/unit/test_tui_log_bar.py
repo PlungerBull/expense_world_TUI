@@ -10,9 +10,11 @@ land, `ctrl+s` leaves an unstaged line in the bar alone, and the discard card's
 third answer saves before it leaves.
 """
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
+from rich.text import Text
 from textual.widgets import Input, Label, Static
 
 from expense.errors import EngineConnectionError, EngineError
@@ -30,6 +32,7 @@ from expense.tui.screens.log_bar import (
     save_errors,
     save_receipt,
     span_style,
+    staged_rows,
     staged_summary,
     staged_table,
 )
@@ -1702,6 +1705,99 @@ def test_a_line_with_no_hashtag_sends_none(fake_client, monkeypatch):
     """No `hashtag_ids` at all: the engine files the row under the pending hashtag."""
     _save_line(fake_client, monkeypatch, "tottus -38.60 $BCP Signature PEN")
     assert _sent_tags(fake_client) == [None]
+
+
+# ---- what the staged row's tags cell shows -----------------------------------------
+# The staged list echoes what the save sends, so the pending hashtag named beside
+# a real one is not listed, and a line with no `#tag` reads as the pending
+# hashtag, where the engine files it, as its category cell reads @Pendiente
+# (contract: "Transactions (Ledger)", "Hashtags on a transaction").
+
+REFS_PENDING = replace(
+    REFS,
+    hashtags=[*REFS.hashtags, ("hp", "Pendiente")],
+    hashtag_names={**REFS.hashtag_names, "hp": "Pendiente"},
+    pending_hashtag=("hp", "Pendiente"),
+)
+
+
+def _tags_cell_of(line: str, refs: QuickAddRefs = REFS_PENDING) -> Text:
+    parsed = parse(
+        line,
+        accounts=refs.accounts,
+        categories=refs.categories,
+        hashtags=refs.hashtags,
+        today=TODAY,
+    )
+    entry = Staged(line=line, parsed=parsed, routing=route(parsed, TODAY))
+    return staged_rows([entry], refs, palette=PALETTE, today=TODAY.isoformat())[0][-1]
+
+
+def test_a_staged_line_naming_the_pending_hashtag_and_a_real_one_lists_the_real_one():
+    cell = _tags_cell_of(PENDING_AND_REAL_LINE)
+    assert (cell.plain, cell.style) == ("#TAXI", ACCENT)
+
+
+def test_a_staged_line_naming_only_the_pending_hashtag_lists_it():
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN #Pendiente")
+    assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
+
+
+def test_a_staged_line_with_no_hashtag_reads_as_the_pending_hashtag():
+    """In the accent, like the category cell's @Pendiente beside it."""
+    line = "tottus -38.60 $BCP Signature PEN"
+    cell = _tags_cell_of(line)
+    assert (cell.plain, cell.style) == ("#Pendiente", ACCENT)
+    out = _text(staged_table([_stage(line)], REFS_PENDING, today=TODAY.isoformat()))
+    assert "pendiente" in out and "#Pendiente" in out
+
+
+def test_the_tags_cell_takes_the_pending_hashtags_name_from_the_engine():
+    refs = replace(
+        REFS_PENDING,
+        hashtag_names={**REFS.hashtag_names, "hp": "Pend-from-engine"},
+        pending_hashtag=("hp", "Pend-from-engine"),
+    )
+    assert _tags_cell_of("tottus -38.60 $BCP Signature PEN", refs).plain == "#Pend-from-engine"
+
+
+def test_with_no_pending_hashtag_yet_a_line_with_no_hashtag_shows_a_dash():
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN", REFS)
+    assert (cell.plain, cell.style) == ("—", "dim")
+
+
+def test_with_no_pending_hashtag_yet_a_hashtag_only_named_like_it_is_listed():
+    refs = replace(
+        REFS,
+        hashtags=[*REFS.hashtags, ("hx", "Pendiente")],
+        hashtag_names={**REFS.hashtag_names, "hx": "Pendiente"},
+    )
+    assert _tags_cell_of(PENDING_AND_REAL_LINE, refs).plain == "#Pendiente #TAXI"
+
+
+def test_an_unknown_tag_still_reads_in_red_with_a_pending_hashtag():
+    cell = _tags_cell_of("tottus -38.60 $BCP Signature PEN #nope")
+    assert (cell.plain, cell.style) == ("#nope?", PALETTE.error)
+
+
+def test_the_staged_row_lists_the_real_hashtag_and_up_brings_back_the_typed_line(
+    fake_client, monkeypatch
+):
+    """Staged with the engine's lists: the row lists #TAXI alone, and picking
+    it back up with the arrows lifts the line exactly as typed, #Pendiente in it."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: WITH_PENDING)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, PENDING_AND_REAL_LINE, "tottus -38.60 $BCP Signature PEN")
+        rows = staged_rows(screen._staged, screen._refs, palette=PALETTE)
+        assert [row[-1].plain for row in rows] == ["#TAXI", "#Pendiente"]
+        screen.action_move(1)
+        screen.on_input_submitted()  # lift the first row
+        assert _bar(screen).value == PENDING_AND_REAL_LINE
+
+    run_app(scenario)
 
 
 @pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)

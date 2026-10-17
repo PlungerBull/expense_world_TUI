@@ -4,7 +4,8 @@ from expense import formatting
 from expense.formatting import build_range_grid
 
 # Two months with overlapping-but-different categories: Rent only in Nov,
-# Salary only in Dec, Food in both (its #bbbb combo appears only in Dec).
+# Salary only in Dec, Food in both (its #bbbb combo appears only in Dec; `pend`
+# is the pending hashtag, a row still waiting for one).
 MONTHS = [
     {
         "month": {"year": 2025, "month": 11},
@@ -16,7 +17,7 @@ MONTHS = [
                 "unconverted_count": 0,
                 "hashtag_breakdown": [
                     {"hashtag_ids": ["aaaa"], "spent_home_cents": -6000, "unconverted_count": 0},
-                    {"hashtag_ids": [], "spent_home_cents": -4000, "unconverted_count": 0},
+                    {"hashtag_ids": ["pend"], "spent_home_cents": -4000, "unconverted_count": 0},
                 ],
             },
             {
@@ -87,7 +88,7 @@ def test_build_range_grid_merges_first_appearance_order():
     # combos keep first-appearance order; #aaaa merges across both months
     assert [tuple(sub["hashtag_ids"]) for sub in food["breakdown"]] == [
         ("aaaa",),
-        (),
+        ("pend",),
         ("bbbb",),
     ]
     assert _cents(food["breakdown"][0]["cells"]) == {"2025-11": -6000, "2025-12": -7000}

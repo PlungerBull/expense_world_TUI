@@ -22,11 +22,15 @@ endpoint, which is why the accounts header says `balance today`.
 - on a hashtag row — that category and that hashtag;
 - on an account or a person — that account.
 
-The data has no row with two hashtags and no untagged row outside `@Pendiente`.
-A combo row that is either is still drawn, so the sums
-add up, but `⏎` on it says it cannot be filtered: the engine filters by one
-hashtag and has no untagged filter, and a looser filter would show rows the
-cell does not count.
+Every hashtag row is one row of the engine's `hashtag_breakdown`, whose
+`hashtag_ids` is never empty: a transaction still waiting for a hashtag counts
+under the built-in pending hashtag, which groups like any other
+(contract: GET /v1/dashboard). So the pending hashtag's row is drawn and named
+like every hashtag row, and `⏎` on it lists that category's transactions still
+waiting for a hashtag through `?hashtag_id=` (contract: GET /v1/transactions).
+A combo of several hashtags is drawn so the sums add up, but `⏎` on it says it
+cannot be filtered: the engine filters by one hashtag, and a looser filter
+would show rows the cell does not count.
 """
 
 import calendar
@@ -177,9 +181,7 @@ def _balance_cell(item: dict, palette: Palette | None) -> Text:
 
 
 def tag_label(ids: list[str], names: dict[str, str]) -> str:
-    """`#SALIDAS`, `#A + #B`, or `(no hashtags)`."""
-    if not ids:
-        return "(no hashtags)"
+    """`#SALIDAS` or `#A + #B`, each under the name `GET /hashtags` gives it."""
     return " + ".join("#" + names.get(i, i) for i in ids)
 
 
@@ -202,8 +204,7 @@ def _category_rows(data: dict, state: HomeState, palette: Palette | None) -> lis
         cat_id = row["id"]
         name = row["name"] or "(unnamed)"
         combos = row["breakdown"]
-        # A category whose only combo is "no hashtags" has nothing to unfold.
-        foldable = any(combo["hashtag_ids"] for combo in combos)
+        foldable = bool(combos)
         caret = ("▼ " if cat_id in state.expanded else "▶ ") if foldable else "  "
         cells = [_grid_cell(row["cells"].get(lbl), palette) for lbl in labels]
         rows.append(HomeRow(f"{CATEGORY_PREFIX}{cat_id}", caret + name, cells, name=name))
@@ -568,7 +569,7 @@ class HomeScreen(LogTransactionMixin, HelpBindingMixin, Screen):
         elif row is not None and option_id.startswith(TAG_PREFIX):
             if row.hashtag is None:
                 self.notify(
-                    "This row is several hashtags or none; the ledger filters by one hashtag.",
+                    "This row is several hashtags; the ledger filters by one hashtag.",
                     severity="warning",
                 )
                 return

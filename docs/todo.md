@@ -27,6 +27,26 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine moved its contract again: a purchase is reconciled whole
+Asked 2026-10-17 · Blocks: tasks 6, 8 and 3 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+
+This app has caught up to contract `890453f80a08cec9`. On 2026-10-17 the practice engine served
+`ce4e5cb642e53fdb`. The version check, as a builder reported it (the exact print waits until the
+engine starts again): `reconciliation_id` on `PUT /transactions/{id}` is now a field of the whole
+bank line and reaches every part, marked breaking.
+
+It answers the ask "a bank line is reconciled whole" and the contract problem the spec's reply
+notes. The engine coders are still at work: the practice engine does not start right now, on a
+further version `a39658d0123107ad` they have not finished. When they are done, ask them for one
+hand-off file from `890453f80a08cec9` to their current version
+([from-engine/README.md](from-engine/README.md)).
+- **A.** The loop waits until that file arrives and is folded into the spec.
+- **B.** The loop goes on with tasks 6, 8 and 3, which do not touch reconciliation, against the
+  saved contract; the file is folded into this spec when it arrives.
+
+**Recommended:** B, because none of those three tasks reads or writes a reconciliation, and the
+engine is mid-change, so waiting gains nothing yet.
+
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
 

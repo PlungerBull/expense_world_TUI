@@ -16,10 +16,11 @@ Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
 only the changed fields; a changed account also sends `reconciliation_id: null`,
 so the move takes the row out of its reconciliation (`unassign_on_move`).
-A hashtag set that names a real hashtag never carries the pending one: tagging a
-pending row sends only the real hashtags (`hashtags_to_send`), and an emptied set
-sends `[]`, which the engine files under the pending hashtag
-(contract: PUT /v1/transactions/{transaction_id}).
+A hashtag set that names a real hashtag never carries the pending one: the
+moment a real hashtag is added, the pending one leaves the `hashtags` line, and
+the save sends only the real hashtags (`hashtags_to_send`, the same helper for
+both); an emptied set sends `[]`, which the engine files under the pending
+hashtag (contract: PUT /v1/transactions/{transaction_id}).
 
 On an opening balance (a row filed under @Opening) account and category show
 read-only and are never sent: the engine keeps such a row on its account and in
@@ -146,8 +147,8 @@ class EditFormScreen(FormScreen):
             self._display["hashtags"] = " ".join("#" + resolve_name(t, {}) for t in tags)
         if rec.get("description"):
             self._values["note"] = self._display["note"] = rec["description"]
-        # deep: _commit_hashtag appends to _values["hashtags"] in place — a shallow
-        # copy would alias the list and the edit diff would never see the change.
+        # deep: the baseline never shares a list with `_values`, or a list changed
+        # in place would change both and the edit diff would never see it.
         self._original = copy.deepcopy(self._values)
         # no client-side reconciliation locks: they rely on the engine's 422
         # (not reliably detectable from the row). The one client lock is an
@@ -307,7 +308,10 @@ class EditFormScreen(FormScreen):
         if picked is None:
             self.notify(f"No hashtag matches “{text}”.", severity="error")
             return
-        self._values.setdefault("hashtags", []).append(picked[0])
+        # what the form lists is what the save sends: once a real hashtag is
+        # in, the pending one leaves the list
+        picked_ids = [*self._values.get("hashtags", []), picked[0]]
+        self._values["hashtags"] = hashtags_to_send(picked_ids, self._pending_tag)
         self._display["hashtags"] = " ".join("#" + n for n in self._tag_display_names())
         self.query_one("#bar", Input).value = ""
         self._recompute("")

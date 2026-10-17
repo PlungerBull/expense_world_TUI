@@ -22,6 +22,7 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
+from expense.reads import pending_hashtag_of
 
 
 def _safe_delete(client, path):
@@ -283,6 +284,65 @@ def test_an_uncategorised_row_lands_under_pendiente_and_counts(client):
         assert pendiente["spent_home_cents"] != 0
     finally:
         _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_a_row_waiting_for_a_hashtag_is_its_categorys_pending_hashtag_row(client):
+    """Home's pending row stands on this: a row written with no hashtag counts
+    in its category's breakdown as the `[<pending id>]` row, never as an empty
+    `hashtag_ids` (contract: GET /v1/dashboard), and `⏎` on that row asks for the
+    same category and `hashtag_id=<pending id>`, whose list and count are that
+    row (contract: GET /v1/transactions). The pending hashtag is found by
+    `system_key`, never by name.
+    """
+    now = _now()
+    account_id = str(uuid4())
+    category_id = str(uuid4())
+    tx_id = str(uuid4())
+    client.post(
+        "/accounts",
+        json_body={
+            "id": account_id,
+            "name": f"contract-ph-{account_id[:8]}",
+            "currency_code": "PEN",
+        },
+    )
+    client.post(
+        "/categories",
+        json_body={"id": category_id, "name": f"contract-ph-{category_id[:8]}", "color": "#123456"},
+    )
+    try:
+        client.post(
+            "/transactions",
+            json_body={
+                "id": tx_id,
+                "title": "waits for a hashtag",
+                "amount_cents": -2100,
+                "account_id": account_id,
+                "category_id": category_id,
+                "date": _now_iso(),
+            },
+        )
+        pending = pending_hashtag_of(client.get("/hashtags")["items"])
+        assert pending is not None, "an untagged write did not make the pending hashtag exist"
+
+        body = client.get(
+            "/reports/monthly", params={"year": str(now.year), "month": str(now.month)}
+        )
+        for category in body["categories"]:
+            for slice_ in category["hashtag_breakdown"]:
+                assert slice_["hashtag_ids"], f"an empty hashtag row under {category['name']}"
+        mine = next(c for c in body["categories"] if c["id"] == category_id)
+        assert [s["hashtag_ids"] for s in mine["hashtag_breakdown"]] == [[pending[0]]]
+        assert mine["hashtag_breakdown"][0]["spent_home_cents"] == -2100
+
+        params = {"category_id": category_id, "hashtag_id": pending[0]}
+        listed = client.get("/transactions", params=params)
+        assert [item["id"] for item in listed["items"]] == [tx_id]
+        assert client.get("/transactions/count", params=params)["count"] == 1
+    finally:
+        _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/categories/{category_id}")
         _safe_delete(client, f"/accounts/{account_id}")
 
 

@@ -36,8 +36,11 @@ screen that reads a typed line reads it identically and none owns a second copy:
 no account, an ambiguous name, a tag that does not exist, or a date ahead of
 today stays in the bar with the reason under it, and the staged list is
 untouched. A line with no category stages — its category cell already reads
-`@Pendiente`, which is where the engine files it — and a line with no title
-stages as a dash. Routing is decided at stage time and frozen onto the row.
+`@Pendiente`, which is where the engine files it — a line with no `#tag` reads
+`#Pendiente` in its tags cell for the same reason, and a line with no title
+stages as a dash. The tags cell lists what the save sends, so the pending
+hashtag named beside a real one is not listed; `↑` still brings back the line
+exactly as typed. Routing is decided at stage time and frozen onto the row.
 
 Four calls this screen makes, recorded in
 docs/decisions.md "Four calls for the LOG bar":
@@ -89,7 +92,14 @@ from expense.quickadd.parse import ParsedLine, Span, Unresolved, parse
 from expense.quickadd.payload import transaction_payload
 from expense.quickadd.route import Routing, describe, route
 from expense.quickadd.when import format_date_words
-from expense.reads import QuickAddRefs, currency_of, items_of, load_quickadd_refs, pending_label
+from expense.reads import (
+    QuickAddRefs,
+    currency_of,
+    hashtags_to_send,
+    items_of,
+    load_quickadd_refs,
+    pending_label,
+)
 from expense.tui.dropped import dropped_bank_files
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
@@ -319,12 +329,20 @@ def _title_cell(parsed: ParsedLine) -> Text:
 
 
 def _tags_cell(parsed: ParsedLine, refs: QuickAddRefs, palette: Palette | None) -> Text:
-    names = [f"#{resolve_name(t, refs.hashtag_names)}" for t in parsed.hashtag_ids]
+    """The hashtags the save sends, in the accent: the pending hashtag named
+    beside a real one is not listed (`hashtags_to_send`, as the save). A line
+    with no `#tag` reads as the pending hashtag's own name, where the engine
+    files it, as the category cell reads `@Pendiente`; with no pending hashtag
+    yet it is a dim dash. A tag that matches nothing reads `#name?` in red."""
+    ids = hashtags_to_send(parsed.hashtag_ids, refs.pending_hashtag_id)
+    names = [f"#{resolve_name(t, refs.hashtag_names)}" for t in ids]
     if names:
         return Text(" ".join(names), style=ACCENT if palette else "")
     bad = [f"#{u.text}?" for u in parsed.unresolved if u.kind == "hashtag"]
     if bad:
         return Text(" ".join(bad), style=palette.error if palette else "")
+    if refs.pending_hashtag is not None:
+        return Text(f"#{refs.pending_hashtag[1]}", style=ACCENT if palette else "")
     return Text("—", style="dim")
 
 

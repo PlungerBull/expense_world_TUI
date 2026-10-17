@@ -165,10 +165,6 @@ in and its engine change has landed.
    part, is not built: a purchase is reconciled whole (owner, 2026-10-17), which
    [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
    asks the engine to enforce.
-7. **[UI]** The pending hashtag on Home: its row under its current name, `⏎` listing the
-   transactions still waiting for a hashtag, and no "(no hashtags)" row; the edit form and the
-   LOG bar send only the real hashtag. Picked: 1 A, 2 A, 3 A, 4 A, 5 B (a LOG bar line with no
-   hashtag stages `#Pendiente`, like the category column).
 8. **[UI]** The hashtags screen as a table with a System column, marking the pending hashtag and
    offering no delete or rename on it; the categories screen offers no edit and no delete on
    `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and

@@ -185,8 +185,8 @@ a usable file opens on Home; changing the address or key later is System ▸ Con
 
 | Section | Rows | `⏎` |
 |---|---|---|
-| **CATEGORIES** · four month columns, the newest marked `▸` | every category with activity somewhere in the window, home currency, `—` for a month with none, `3 unrated` when unpriceable — **a category with nothing in the whole window is hidden**. `→` unfolds its hashtag rows, `←` folds them; a category whose only combo is untagged has no caret. Under them: `inflow`, `outflow`, `net` | the ledger filtered to that category, every month |
-| hashtag row (unfolded) | the category's spend on that hashtag, per month | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`). A combo of several hashtags or none is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag and has no untagged filter |
+| **CATEGORIES** · four month columns, the newest marked `▸` | every category with activity somewhere in the window, home currency, `—` for a month with none, `3 unrated` when unpriceable — **a category with nothing in the whole window is hidden**. `→` unfolds its hashtag rows, `←` folds them, `@Pendiente` included. Under them: `inflow`, `outflow`, `net` | the ledger filtered to that category, every month |
+| hashtag row (unfolded) | the category's spend on that hashtag, per month, one row per row of the engine's `hashtag_breakdown`, under the name `GET /hashtags` gives it. The rows still waiting for a hashtag are the **pending hashtag's row** (`#Pendiente`), dim like every hashtag row: the engine groups the pending hashtag like any other, so `hashtag_ids` is never empty (contract: GET /v1/dashboard) | the ledger filtered to **that category and that hashtag** (`?category_id=&hashtag_id=`); on the pending row, that category's transactions still waiting for a hashtag (contract: GET /v1/transactions). A combo of several hashtags is drawn so the sums add up, but `⏎` on it says it cannot be filtered — the engine filters by one hashtag |
 | **BANK ACCOUNTS** · *balance today* | every account with `current_balance_cents` in its own currency, the code beside it | the ledger filtered to that account |
 | **PEOPLE** | outstanding people in their own currency; settled ones folded behind `▶ N settled` (`⏎`/`→` opens it); `none` when there is nobody | the ledger filtered to that person |
 | **LEDGER** | Transactions · Reconciliations, each a row of its own | `⏎` on an entry pushes the screen |
@@ -258,11 +258,19 @@ So every hashtag write sends a set naming a real hashtag without the pending one
 edit form, `h` on ledger rows and the LOG bar's `#tag` lines, the pending hashtag named
 beside a real one included. The pending hashtag alone goes as picked, an emptied set on the
 edit form sends `[]`, and a LOG bar line with no `#tag` sends no hashtags; the engine files
-both under the pending hashtag. The rule is one helper, `hashtags_to_send` in
-[reads.py](../expense/reads.py); the pending hashtag is `QuickAddRefs.pending_hashtag`, found
-by its `system_key` in the hashtags list the screens already read, and with none yet nothing
-is dropped. A hashtag refusal (`PENDING_HASHTAG_NOT_ALONE`, `RESERVED_NAME_HELD`,
-`CONCURRENT_CHANGE`, `INVALID_REFERENCE`) shows the engine's words whole on all three, with a
+both under the pending hashtag. **What the screens list is what the save sends:** on the edit
+form the pending hashtag leaves the `hashtags` line the moment a real hashtag is added; a
+staged LOG bar row lists only the real hashtags when its line names the pending one beside
+them, and a line with no `#tag` reads `#Pendiente` (the pending hashtag's name) in its tags
+column, in the accent, as its category column reads `@Pendiente`; `↑` still lifts the line
+exactly as typed. The rule is one helper, `hashtags_to_send` in
+[reads.py](../expense/reads.py), for the sends and the lists alike; the pending hashtag is
+`QuickAddRefs.pending_hashtag`, found by its `system_key` in the hashtags list the screens
+already read, never by its name. With none yet nothing is dropped, and a LOG bar line with no
+`#tag` reads `—`. Screens:
+[expense-world-pending-hashtag-home.html](mockups/expense-world-pending-hashtag-home.html).
+A hashtag refusal (`PENDING_HASHTAG_NOT_ALONE`, `RESERVED_NAME_HELD`, `CONCURRENT_CHANGE`,
+`INVALID_REFERENCE`) shows the engine's words whole on all three, with a
 line under it only for `CONCURRENT_CHANGE` ("When the engine says no" below).
 
 Aggregates are **nullable** — a group holding an unconvertible row reports `3 unrated`

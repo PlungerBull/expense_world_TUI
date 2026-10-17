@@ -14,7 +14,7 @@ from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
-from tests.unit.helpers import run_app, stub_home_month, wait_for
+from tests.unit.helpers import fake_ledger, run_app, stub_home_month, wait_for
 
 _CASES = [
     ("ledger", "transactions", home.TransactionsScreen),
@@ -139,6 +139,72 @@ def test_enter_on_a_hashtag_filters_by_category_and_hashtag(monkeypatch):
             "category", "c-wants", "WANTS #SALIDAS", hashtag_id="h-sal"
         )
         assert app.screen.crumb == ("Ledger", "WANTS #SALIDAS")
+
+    run_app(scenario, size=(100, 40))
+
+
+def test_enter_on_the_pending_row_lists_what_still_waits_for_a_hashtag(monkeypatch):
+    """⏎ on @Pendiente's pending-hashtag row works like ⏎ on any hashtag row:
+    the ledger asks the engine for that category and `hashtag_id=<pending id>`,
+    the list and its count alike (contract: GET /v1/transactions)."""
+    import expense.tui.screens.transactions as tx_mod
+
+    stub_home_month(monkeypatch)
+    seen, counts = fake_ledger(monkeypatch, [])
+    for loader in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+        monkeypatch.setattr(tx_mod, loader, lambda: {})
+
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        await _highlight(app, "category:c-pend")
+        await pilot.press("right")
+        await wait_for(pilot, lambda: "c-pend" in app.screen._state.expanded)
+        await _select(app, pilot, "tag:c-pend:h-pend")
+        await wait_for(pilot, lambda: isinstance(app.screen, TransactionsScreen))
+        assert app.screen._filter == LedgerFilter(
+            "category", "c-pend", "@Pendiente #Pendiente", hashtag_id="h-pend"
+        )
+        assert app.screen.crumb == ("Ledger", "@Pendiente #Pendiente")
+        await wait_for(pilot, lambda: seen and counts)
+        assert seen[0]["category"] == "c-pend" and seen[0]["hashtag"] == "h-pend"
+        assert counts == [{"category": "c-pend", "hashtag": "h-pend", "verbose": False}]
+
+    run_app(scenario, size=(100, 40))
+
+
+def test_enter_on_a_several_hashtag_row_says_it_cannot_filter(monkeypatch):
+    """A combo of several hashtags is drawn but not filterable: the engine
+    filters by one hashtag."""
+    months = [
+        {
+            "month": {"year": 2026, "month": 9},
+            "categories": [
+                {
+                    "id": "c-x",
+                    "name": "X",
+                    "spent_home_cents": -300,
+                    "unconverted_count": 0,
+                    "hashtag_breakdown": [
+                        {"hashtag_ids": ["h-sal", "h-otr"], "spent_home_cents": -300},
+                    ],
+                }
+            ],
+            "totals": {},
+        }
+    ]
+    stub_home_month(monkeypatch, months=months)
+    notices: list = []
+
+    async def scenario(pilot, app):
+        await _month_loaded(app, pilot)
+        monkeypatch.setattr(app.screen, "notify", lambda msg, **kw: notices.append(msg))
+        await _highlight(app, "category:c-x")
+        await pilot.press("right")
+        await wait_for(pilot, lambda: "c-x" in app.screen._state.expanded)
+        await _select(app, pilot, "tag:c-x:#0")
+        await wait_for(pilot, lambda: notices)
+        assert notices == ["This row is several hashtags; the ledger filters by one hashtag."]
+        assert isinstance(app.screen, HomeScreen)
 
     run_app(scenario, size=(100, 40))
 
