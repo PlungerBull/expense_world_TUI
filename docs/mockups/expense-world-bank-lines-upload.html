@@ -205,7 +205,51 @@
       2026-09-07   file <span class="n"> -3.50</span><span class="d"> · ledger </span><span class="n"> -7.00</span>
                 Cafe                <span class="n">   -3.50</span><span class="d">   in the ledger, not claimed</span>
 
- <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap"><code>under @Pendiente and #Pendiente</code> is new wording; the rest of the head is today's.</p></div></div><div class="pane"><div class="lbl">4 · Something changed a row while the import ran <span>— CONFLICT, CONCURRENT_CHANGE</span></div><p class="blurb">You press <code>⏎ Import 9 rows</code>. Just before the engine writes, it checks every row it found again. If something else split, deleted or changed one of those ledger rows in the meantime (another screen, another device), it writes nothing and says which file row. The engine's two sentences here are stand-ins: its exact words show once it is built.</p><div class="opt"><div class="var"><div class="oh">A · <span>⏎ asks the engine again first: a fresh preview</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap"><code>under @Pendiente and #Pendiente</code> is new wording; the rest of the head is today's.</p></div></div><div class="pane"><div class="lbl">3 · After importing, as a table <span>— your ask, 2026-10-17</span></div><p class="blurb">Screen 3 above, with the days that disagree drawn as a table. Nothing on a flagged row is overwritten or removed: a file row the ledger did not have is <b>added as new</b>, and a ledger row no file row claimed is <b>left as it was</b>. The table says which of the two happened to each row, so you know what to look for when you reconcile the month. On a card file, whose two currencies are two accounts, each row also names its account.</p><div class="opt"><div class="var"><div class="oh">A · <span>one row per day</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="p">✓</span> <span class="b">9 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente and #Pendiente</span>
+    <span class="d">2 rows in the ledger took the bank's title</span>
+  <span class="w">! 3 days where the ledger may now hold the same movement twice —</span>
+  <span class="w">  check them and delete the extra one</span>
+
+    <span class="d">date          bank file    ledger now    rows to check</span>
+    2026-09-12       <span class="n">-42.90</span>        <span class="n">-84.90</span>    1 added · 1 already there
+    2026-09-10        0.00        <span class="n">-28.00</span>    1 already there
+    2026-09-07        <span class="n">-3.50</span>         <span class="n">-7.00</span>    1 already there
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap">The days and their totals only; the rows behind them are counted, not named. You find them in the ledger or at reconciliation.</p></div><div class="var"><div class="oh">B · <span>one row per row, with what the import did</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="p">✓</span> <span class="b">9 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente and #Pendiente</span>
+    <span class="d">2 rows in the ledger took the bank's title</span>
+  <span class="w">! 3 days where the ledger may now hold the same movement twice —</span>
+  <span class="w">  check them and delete the extra one</span>
+
+    <span class="d">date        title                    amount   what the import did</span>
+    2026-09-12  FARMACIA CENTRAL         <span class="n">-42.90</span>   <span class="a">added as new</span> <span class="d">· file row 4</span>
+    2026-09-12  Farmacia                 <span class="n">-42.00</span>   left as it was <span class="d">· no file row for it</span>
+    2026-09-10  Cine                     <span class="n">-28.00</span>   left as it was <span class="d">· no file row for it</span>
+    2026-09-07  Cafe                      <span class="n">-3.50</span>   left as it was <span class="d">· no file row for it</span>
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap">Every flagged row on its own line, the bank's and yours, and what happened to it. The day totals are left out: the rows say it. <b>Recommended:</b> the duplicate is in plain sight (Farmacia -42.00 next to FARMACIA CENTRAL -42.90), and the last column answers “what happened to it”.</p></div><div class="var"><div class="oh">C · <span>rows grouped under each day, with its totals</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="p">✓</span> <span class="b">9 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente and #Pendiente</span>
+    <span class="d">2 rows in the ledger took the bank's title</span>
+  <span class="w">! 3 days where the ledger may now hold the same movement twice —</span>
+  <span class="w">  check them and delete the extra one</span>
+
+    <span class="d">date        title                    amount   what the import did</span>
+    <span class="b">2026-09-12</span>  <span class="d">bank file -42.90 · ledger now -84.90</span>
+                FARMACIA CENTRAL         <span class="n">-42.90</span>   <span class="a">added as new</span> <span class="d">· file row 4</span>
+                Farmacia                 <span class="n">-42.00</span>   left as it was <span class="d">· no file row for it</span>
+    <span class="b">2026-09-10</span>  <span class="d">bank file 0.00 · ledger now -28.00</span>
+                Cine                     <span class="n">-28.00</span>   left as it was <span class="d">· no file row for it</span>
+    <span class="b">2026-09-07</span>  <span class="d">bank file -3.50 · ledger now -7.00</span>
+                Cafe                      <span class="n">-3.50</span>   left as it was <span class="d">· no file row for it</span>
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap">B, with each day's two totals as a header line over its rows. Most complete; the longest.</p></div></div></div><div class="pane"><div class="lbl">4 · Something changed a row while the import ran <span>— CONFLICT, CONCURRENT_CHANGE</span></div><p class="blurb">You press <code>⏎ Import 9 rows</code>. Just before the engine writes, it checks every row it found again. If something else split, deleted or changed one of those ledger rows in the meantime (another screen, another device), it writes nothing and says which file row. The engine's two sentences here are stand-ins: its exact words show once it is built.</p><div class="opt"><div class="var"><div class="oh">A · <span>⏎ asks the engine again first: a fresh preview</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
 
   Preview · Sueldo Soles · <span class="d">nothing written yet</span>
@@ -252,7 +296,7 @@
   It changed while the import ran: ⏎ imports it again.
 
  <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import again</pre></div></div><p class="cap">One key fewer. The engine still matches again, so nothing is written twice, but you do not see the new preview first.</p></div></div></div>
-<div class="pick"><b>To answer:</b> one letter for screen 1, screen 2 and screen 4, and “ok” (or new wording) for screen 3.<br><b>Recommended:</b> 1 A · 2 B · 4 A.<br><b>Settled by the engine:</b> 2 B and 2 C show the titles and amounts of the ledger rows no file row claimed. The engine will send them with the upload's answer, so the app reads nothing extra.</div>
+<div class="pick"><b>To answer:</b> one letter for screen 1, screen 2, screen 3 as a table, and screen 4.<br><b>Recommended:</b> 1 A · 2 B · 3 table B · 4 A.<br><b>Settled by the engine:</b> 2 B and 2 C show the titles and amounts of the ledger rows no file row claimed. The engine will send them with the upload's answer, so the app reads nothing extra.</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
