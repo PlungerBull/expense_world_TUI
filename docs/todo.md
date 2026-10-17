@@ -30,10 +30,13 @@ Asked <date> · Blocks: <task or spec>
 ### Ask the engine coders for one catch-up file from `890453f80a08cec9`
 Asked 2026-10-17 · Blocks: the next catch-up (backlog "Catch up with the engine after `890453f80a08cec9`")
 
-The current spec ends at contract `890453f80a08cec9`. The engine has moved on (`ce4e5cb642e53fdb`:
-a purchase is reconciled whole, and more in progress). Once the engine coders finish, ask them
-for one hand-off file from `890453f80a08cec9` to their current version
-([from-engine/README.md](from-engine/README.md)); it becomes the next catch-up spec.
+The current spec ends at contract `890453f80a08cec9`. On 2026-10-17 the practice engine serves
+`7ff6a09d863d6e44`, five versions on: a purchase is reconciled whole and deleted whole
+(`DELETE /bank-lines/{id}`), `GET /bank-lines/{id}` returns its parts in place of
+`transaction_ids` (breaking), and a list of bank lines (`GET /bank-lines`, `/bank-lines/count`)
+serves reconciliation screens. Ask the engine coders for one hand-off file from
+`890453f80a08cec9` to their current version ([from-engine/README.md](from-engine/README.md)); it
+becomes the next catch-up spec.
 
 **Recommended:** none — only you can hand it over.
 
