@@ -25,8 +25,9 @@ hashtag lands).
   already has, which are new, and which matched rows took the bank's description. The old "rows
   left over" view is replaced by the engine's list of days whose totals disagree between the file
   and the ledger: both totals, the file rows not found, and the ledger rows the file did not
-  claim. A purchase the file did not claim is one entry with its total, a split one with its
-  parts, and a day is listed even when its totals agree if it holds such a purchase. When another
+  claim, each part as its own row; a day is listed even when its totals agree if it holds such a
+  row. The upload removes nothing and asks nothing about them: they stay out of that month's
+  reconciliation, and the owner deletes them there (owner, 2026-10-17). When another
   change lands on a matched row while the upload runs, the screen says so and offers to run it
   again.
 - **A row a day off is new.** Accepted by the owner (2026-10-16): a purchase the bank posts a day
@@ -78,7 +79,7 @@ before it is built.
    real one, and Home's pending row lists it until then.
 7. Deleting or renaming the pending hashtag, `@Pendiente` or `@Opening` is not offered.
 8. An upload with a day whose totals agree but which holds a ledger purchase the file did not
-   claim lists that day and that purchase; a split one shows as one entry with its parts.
+   claim lists that day and that purchase, each part as its own row, and changes nothing.
 
 ## The engine's checks
 
@@ -134,8 +135,7 @@ tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PA
 which no current route can produce.
 
 Engine asks this spec still waits on, raised on 2026-10-17 for the owner to hand over:
-[to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's `d`, if it
-deletes the whole purchase) and
+[to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's `d`) and
 [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
 (task 6, and the reconciliation screen ticking a purchase whole). Each task that needs one waits
 for its hand-off and is built against the live contract, not the ask.
@@ -153,14 +153,14 @@ in and its engine change has landed. Task 10 runs first.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
-   counting rows itself. Each unclaimed purchase is one entry drawn from the engine's parts and
-   total, with no read per row. Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
-   2026-10-17: the recommended set). What the upload does with ledger rows the file did not
-   claim is still to answer (todo.md "Ledger rows the bank file does not have").
+   counting rows itself. The ledger rows the file did not claim are drawn from the engine's
+   parts, each part as its own row as 2 B draws them, with no read per row; nothing is done to
+   them (owner, 2026-10-17). Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
+   2026-10-17: the recommended set). The mockup's screen 5 is not built.
 4. **[UI]** The ledger's keys on a part of a split purchase. Every part stays an ordinary row,
    as today, whole ledger or filtered (owner, 2026-10-17). `c` and `h` change only the selected
-   parts; `b` reaches every part, as the engine does. What `d` on a part deletes, that part or the
-   whole purchase, still to answer.
+   parts; `b` reaches every part, as the engine does. `d` on any part deletes the whole purchase,
+   every part, and its question names how many parts go (owner, 2026-10-17).
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
    opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
    Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);

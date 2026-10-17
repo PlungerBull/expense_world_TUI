@@ -40,41 +40,6 @@ cases it adds to task 3's upload screen are drawn: see "Finish picking" below.
 
 **Recommended:** A, because without it the upload hides the rows the bank did not have.
 
-### Ledger rows the bank file does not have
-Asked 2026-10-17 · Blocks: task 3 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
-
-The ledger follows the bank file strictly, and the upload adds every bank row the ledger lacks.
-The other way round still happens on a day the file covers, when a row was typed by hand and the
-bank has it differently:
-- you typed `Farmacia -42.00`, the bank says `-42.90`: the bank's row is added, and your -42.00
-  stays too;
-- you typed `Cine` on 09-10, the bank posted it on 09-11: the bank's row is added on 09-11, and
-  your 09-10 row stays;
-- the same purchase typed twice: the bank claims one, the other stays.
-
-The engine lists these rows with the upload ("ledger rows the file did not claim") and never
-removes them. What should happen to them?
-- **A.** The upload shows them, and you fix each by hand: delete the extra row, or move your
-  category and hashtags onto the bank's row.
-- **B.** The upload removes them, after asking, so every day the file covers matches the bank
-  exactly. This is an engine ask. Your typed category, hashtags and note on those rows go with
-  them; the bank's row arrives under `@Pendiente`.
-
-**Recommended:** A, because the row you typed holds your category and hashtags and the bank's
-row does not; removing it throws that work away.
-
-### What does `d` delete on a part of a split purchase?
-Asked 2026-10-17 · Blocks: task 4 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
-
-Every part is now its own ledger row. Say Tottus -100.00 is split into -60.00 and -40.00, and you
-press `d` on the -60.00 row.
-- **A.** Only that part goes. Tottus is left at -40.00, no longer the bank's -100.00, so the next
-  upload of that statement adds the -100.00 again (unless it carries a bank code).
-- **B.** The whole purchase goes, both parts; the question names how many parts. The engine needs
-  [to-engine/delete-a-bank-line.md](to-engine/delete-a-bank-line.md) for it.
-
-**Recommended:** B, because a part alone is not a bank movement; to change one part, split again.
-
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
 
