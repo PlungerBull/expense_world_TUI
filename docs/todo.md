@@ -63,29 +63,12 @@ Your picks of 2026-10-17 are in the spec. Still open, each on its page's "To ans
 - the bank upload, [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html):
   confirm 2 A, and a letter for the after-import table;
 - the ledger, redrawn your way, [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html):
-  a letter for the split mark, one for what `⏎` opens, and what `d`, `c` and `h` do on a split
-  purchase;
+  a letter for the split mark, one for what `⏎` opens, and what `c` and `h` do with a split
+  purchase selected;
 - Manage, [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html):
   "ok" on the Hashtags table.
 
 **Recommended:** none — these are your screens.
-
-### Is a purchase reconciled whole, or part by part?
-Asked 2026-10-17 · Blocks: task 6 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
-
-You said a refusal caused by another part can never happen, because reconciliations work on
-the whole purchase. The engine today works part by part: a reconciliation takes one part without
-the others (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). Then moving the
-other part's date is refused because of the reconciled one, and splitting again is refused
-(`SPLIT_RECONCILIATION_MIXED`).
-- **A.** Ask the engine to reconcile a purchase whole: ticking one part ticks every part, and
-  the mixed case can no longer arise. The edit form then needs no screen for it, and the
-  reconciliation screen ticks purchases, which gets its own mockup.
-- **B.** Keep reconciling part by part, and keep the edit-a-part screen 2 (B) that names the
-  other part.
-
-**Recommended:** A, because a bank line is one movement on the statement, so it is reconciled
-once, and every client would otherwise have to explain the mixed case.
 
 ### Does the split screen stop you saving until nothing is left?
 Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)

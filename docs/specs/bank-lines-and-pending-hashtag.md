@@ -34,8 +34,7 @@ hashtag lands).
   one line with its title and total and a mark that it is split; its parts show when it is
   opened. A ledger filtered from Home shows each part as its own row.
 - **Editing a part says what it reaches.** Changing the title, date or account of a part
-  changes every part of the purchase; the form says so before saving. A refusal names the part
-  that caused it, shown as the engine sends it.
+  changes every part of the purchase; the form says so before saving.
 - **The spreadsheet import does not group split rows.** The sheet comes in as it is, one
   transaction per row (owner, 2026-10-16), so the engine's grouped batch (`line_group`) is not
   used yet.
@@ -81,15 +80,20 @@ Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; t
 the owner's pick. Tasks 1, 2 and 9 are done; the live contract tests cover every new refusal
 reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
 
-Three engine asks the engine coders accepted on 2026-10-16 are not built yet; each task below
-that needs one waits for its hand-off file and its contract version, and is built against the
-live contract, not the ask:
-[engine-asks/read-a-bank-line.md](../engine-asks/read-a-bank-line.md) (tasks 4–6),
+Engine asks this spec waits on; each task below that needs one waits for its hand-off file and
+its contract version, and is built against the live contract, not the ask. Accepted by the engine
+coders on 2026-10-16:
+[engine-asks/read-a-bank-line.md](../engine-asks/read-a-bank-line.md) (tasks 4–6; its first half
+is in contract `c572d3a5f4f509d1`),
 [engine-asks/day-mismatch-lines-carry-what-they-are.md](../engine-asks/day-mismatch-lines-carry-what-they-are.md)
 (task 3's ledger rows the file did not claim; it removes `transaction_ids` from those entries,
 which the upload reads today) and
 [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
-(task 8's rename part).
+(task 8's rename part). Raised on 2026-10-17, for the owner to hand over:
+[engine-asks/list-the-ledger-by-bank-line.md](../engine-asks/list-the-ledger-by-bank-line.md)
+(task 4), [engine-asks/delete-a-bank-line.md](../engine-asks/delete-a-bank-line.md) (task 4's
+`d`) and [engine-asks/reconcile-a-bank-line-whole.md](../engine-asks/reconcile-a-bank-line-whole.md)
+(task 6, and the reconciliation screen ticking a purchase whole).
 
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
 in and its engine change has landed.
@@ -99,14 +103,16 @@ in and its engine change has landed.
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
    counting rows itself. Picked: 1 A, 4 A; 2 A to confirm; the after-import table still to pick.
 4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
-   filtered ledger shows each part as its own row); the mark, what `⏎` opens, and `d`, `c`, `h`
-   on a split purchase still to pick.
+   filtered ledger shows each part as its own row); `d` on a split purchase deletes the whole
+   purchase; the mark, what `⏎` opens, and `c`, `h` with a split purchase selected still to pick.
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Picked: 2 B
    (one typed line per part); 3 follows the ledger's pick; whether the screen stops `^s` until
    nothing is left still to answer.
 6. **[UI]** The edit form's note that title, date and account reach every part. Picked: 1 B (the
-   note in the hint, only on date, title and account); whether a refusal can come from another
-   part still to answer.
+   note in the hint, only on date, title and account). Screen 2, a refusal caused by another
+   part, is not built: a purchase is reconciled whole (owner, 2026-10-17), which
+   [engine-asks/reconcile-a-bank-line-whole.md](../engine-asks/reconcile-a-bank-line-whole.md)
+   asks the engine to enforce.
 7. **[UI]** The pending hashtag on Home: its row under its current name, `⏎` listing the
    transactions still waiting for a hashtag, and no "(no hashtags)" row; the edit form and the
    LOG bar send only the real hashtag. Picked: 1 A, 2 A, 3 A, 4 A, 5 B (a LOG bar line with no
