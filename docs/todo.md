@@ -27,34 +27,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine moved its contract: one purchase's parts can now be read
+### Ask the engine coders for one catch-up file from `3129bfa2c43a4446`
 Asked 2026-10-17 · Blocks: every task of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
-The practice engine serves contract `c572d3a5f4f509d1`; this app last caught up with
-`3129bfa2c43a4446`. The version check prints:
-
-```
-c572d3a5f4f509d1  2026-10-17
-  added: `GET /bank-lines/{id}`, one bank line read by id: `id`, `account_id`, `operation_code`
-  (`null` when the line has none), `net_cents` (the signed sum of its live parts, inflow
-  positive, outflow negative), `part_count` (its live parts) and `transaction_ids` (its live
-  parts' ids, in the order `GET /transactions?bank_line_id=` lists them by default). [...]
-  changed: *Transactions (Ledger)* → *Bank lines* points to the new line read. No transaction
-  response field changes.
-3d7205a872889283  2026-10-17
-  added: `GET /transactions` and `GET /transactions/count` take `?bank_line_id=`, the live parts
-  of one bank line. [...] No transaction response field changes.
-```
-
-This is the first half of the "read a bank line" ask: the parts of one purchase and its total,
-one purchase per read. Reading up to 200 purchases at once has not shipped, and no hand-off file
-has arrived yet. Nothing in the app breaks.
-- **A.** Catch up now: one task in the current spec reads the new parts list and the new line
-  read, for the ledger, the split screen and the edit form to use.
-- **B.** Wait for the engine's hand-off file and the 200-at-once read, then catch up in one go.
-
-**Recommended:** A, because it adds without breaking, and tasks 4–6 need it; until the 200-at-once
-read ships, a ledger page reads each split purchase on it separately.
+This app has caught up to contract `3129bfa2c43a4446`. Ask the engine coders for one hand-off
+file covering every contract change after it, up to their current version
+([from-engine/README.md](from-engine/README.md)). It replaces the two files they sent since,
+`bank-line-reads.md` and `system-names-fixed.md`, which leave the step between `a924900619285f56`
+and `aa72f160099133ac` unexplained. When it arrives, the orchestrator folds it into the current
+spec as new tasks and a reply to the engine, and deletes all three files.
 
 ### Finish picking the bank-lines and pending-hashtag screens
 Asked 2026-10-16 · Blocks: tasks 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)

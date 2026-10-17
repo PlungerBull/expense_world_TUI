@@ -26,8 +26,8 @@ Scale, distribution, multi-tenancy, billing, onboarding, localization are not th
 | [docs/tui.md](docs/tui.md) | Textual TUI (`expense`) — architecture, theming, keymap contract, test conventions | Local |
 | [docs/todo.md](docs/todo.md) | The **hub for open work**: work that belongs to no spec, and everything waiting on the owner. Open items only; closed work is deleted, git history is the archive | Local |
 | [docs/specs/](docs/specs/) | The owner's specs, one per piece of work — what the loop builds | Local |
-| [docs/to-engine/](docs/to-engine/) | **Outbox to the engine:** every open engine ask, one standalone file each; the owner copies them into the engine repo's `docs/from-tui/`. Format in its README | Local |
-| [docs/from-engine/](docs/from-engine/) | **Inbox from the engine:** one file per engine change this client must catch up with, written in the engine repo's `docs/to-tui/` and copied here by the owner; read it as input when planning catch-up work | Local |
+| [docs/to-engine/](docs/to-engine/) | **Outbox to the engine:** every open engine ask and every unsent catch-up reply, one standalone file each; the owner copies them into the engine repo's `docs/from-tui/`. Format in its README | Local |
+| [docs/from-engine/](docs/from-engine/) | **Inbox from the engine:** one file per catch-up, covering every contract change since the last one, written in the engine repo's `docs/to-tui/` and copied here by the owner; turned into catch-up specs, then deleted | Local |
 | [docs/decisions.md](docs/decisions.md) | Why the current big calls were made, including rejected alternatives | Local |
 | [docs/mockups/](docs/mockups/) | HTML mockups — the approval gate for every screen and table | Local |
 | The engine contract | Every endpoint, every business rule, every error code — the API contract (sections in `info.description`, rules per tag and per operation) | Live: `GET /openapi.json` on the practice engine (`http://127.0.0.1:8002/openapi.json`) |
@@ -123,9 +123,12 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 **Per spec,** once all its tasks are done:
 1. The tester runs the acceptance check against the practice engine (`:8002`): the drift script (version check and fixture check — "Stay inside this repo" below), the live contract suite (`tests/contract`, with the practice key and target as [docs/runtime.md](docs/runtime.md) "Working against the live engine" gives the command), each check in the spec's "How the owner knows it is done", and the app when the spec changed a screen. Each failure becomes a new task in the spec, added by the orchestrator; the per-task loop runs it, then the tester checks again.
 2. The librarian sweeps every doc.
-3. **Done** = the tester's acceptance check passed + the librarian's sweep done. The spec then retires as [docs/specs/README.md](docs/specs/README.md) says.
+3. A catch-up spec's last step: the orchestrator writes its reply to the engine into [docs/to-engine/](docs/to-engine/) from the spec's "Reply to the engine" section, with the tester's results ([docs/specs/README.md](docs/specs/README.md)).
+4. **Done** = the tester's acceptance check passed + the librarian's sweep done + a catch-up spec's reply written. The spec then retires as [docs/specs/README.md](docs/specs/README.md) says.
 
-**A moved contract version goes to the owner.** When the tester's version check reports a moved version, the orchestrator starts no new task and files a question in todo.md "Waiting on you" listing what changed exactly as the check prints it ([docs/runtime.md](docs/runtime.md) "Contract version"). The owner decides whether catching up becomes the next spec. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer, whatever the answer is; until then the check keeps failing and the loop stays stopped.
+**Engine hand-offs become catch-up specs.** The files in [docs/from-engine/](docs/from-engine/) are planned together into one spec, or several when parts are independent; each spec takes what the live contract does not hold and ends with its reply to the engine, and the hand-off files are then deleted ([docs/from-engine/README.md](docs/from-engine/README.md)).
+
+**A moved contract version goes to the owner.** When the tester's version check reports a moved version, the orchestrator starts no new task and files a question in todo.md "Waiting on you" listing what changed exactly as the check prints it ([docs/runtime.md](docs/runtime.md) "Contract version"), and names the version this client last caught up to, so the owner can ask the engine coders for one hand-off file from that version to their current one. The owner decides whether catching up becomes the next spec. The new version is recorded (`--record-version`) only in the commit that acts on the owner's answer, whatever the answer is; until then the check keeps failing and the loop stays stopped.
 
 A task that needs a screen does not stall the loop: draw the mockup, park the task, add a question asking the owner to pick, and move on.
 

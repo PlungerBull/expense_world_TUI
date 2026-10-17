@@ -510,3 +510,13 @@ the bar is where the right file gets dropped next.
 **Decision.** `scripts/practice-engine up|down` starts, reseeds and stops the `:8002` engine, and any agent may run it; the orchestrator runs it around tasks. The guard allows only the whole command in a few exact forms, with no chaining, substitution, env prefix or wrapper, so the key stays off disk ([runtime.md](runtime.md) "Working against the live engine"). The script takes no options and runs under `bash -p` with every inherited variable unset and `env -i`, so nothing the caller sets can point it at the live engine or the real ledger.
 
 **Rejected.** *Keeping the start tester-only:* slow. *A script that takes options or inherits the environment:* one variable could reach the real ledger.
+
+## Engine changes arrive as one catch-up file and leave as one reply (2026-10-17, owner)
+
+**Context.** The engine sent one hand-off file per change, each with its own contract range, so files overlapped, a version between two files could go unexplained, and a catch-up spec leaned on a file that lived until the spec retired. The engine coders heard nothing back once this client caught up.
+
+**Decision.** The owner asks the engine coders for one hand-off file covering every contract change since the version this client last caught up to ([from-engine/README.md](from-engine/README.md)). The orchestrator turns the waiting files into catch-up specs, grouped as one unless parts are independent; each spec takes the engine's "What the TUI does", "Done when" and declined points, and the hand-off file is deleted. Each catch-up spec ends with a reply, written once the spec is done, that tells the engine the version caught up to, how each of its checks went, and any contract problems found ([to-engine/README.md](to-engine/README.md)). That reply's version is the one quoted for the next catch-up.
+
+**Why.** One range per catch-up leaves no gap and no double work. The spec holding everything makes it stand alone, so the hand-off file adds nothing once the spec exists. The reply closes the loop: this app is the contract's first real user, and the engine coders learn what held up before the web and iOS clients build on it.
+
+**Rejected.** *One file per engine change:* overlapping ranges and gaps. *Keeping the hand-off file until the spec retires:* two homes for the same facts.
