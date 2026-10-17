@@ -30,9 +30,10 @@ hashtag lands).
   amount, category, hashtags and note; the parts must add up to the purchase. The same action
   re-splits a split purchase, opening with its current parts. When the parts do not add up, the
   screen shows both totals as the engine gives them.
-- **Split parts read as one purchase.** In the ledger, the parts of one purchase show together,
-  under the purchase's description and total.
-- **Editing a part says what it reaches.** Changing the description, date or account of a part
+- **Split parts read as one purchase (owner, 2026-10-17).** In the ledger, a split purchase is
+  one line with its title and total and a mark that it is split; its parts show when it is
+  opened. A ledger filtered from Home shows each part as its own row.
+- **Editing a part says what it reaches.** Changing the title, date or account of a part
   changes every part of the purchase; the form says so before saving. A refusal names the part
   that caused it, shown as the engine sends it.
 - **The spreadsheet import does not group split rows.** The sheet comes in as it is, one
@@ -66,7 +67,8 @@ before it is built.
    second time, none new.
 2. A purchase split into two parts, then the same bank file uploaded again: still nothing new,
    including a card purchase with no bank code.
-3. The ledger shows the two parts together as one purchase, and re-splitting opens with them.
+3. The ledger shows the two parts as one purchase line, opening it shows both, and re-splitting
+   opens with them.
 4. Changing a part's description changes both parts, and the form said so first.
 5. An upload with a day that disagrees lists that day with both totals.
 6. A transaction logged with no hashtag shows the pending hashtag; tagging it leaves only the
@@ -89,22 +91,32 @@ which the upload reads today) and
 [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
 (task 8's rename part).
 
+Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
+in and its engine change has landed.
+
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
-   counting rows itself.
-4. **[UI]** The ledger shows the parts of one purchase together.
-5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal.
-6. **[UI]** The edit form's note that description, date and account reach every part, and its
-   refusal naming the part.
+   counting rows itself. Picked: 1 A, 4 A; 2 A to confirm; the after-import table still to pick.
+4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
+   filtered ledger shows each part as its own row); the mark, what `⏎` opens, and `d`, `c`, `h`
+   on a split purchase still to pick.
+5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Picked: 2 B
+   (one typed line per part); 3 follows the ledger's pick; whether the screen stops `^s` until
+   nothing is left still to answer.
+6. **[UI]** The edit form's note that title, date and account reach every part. Picked: 1 B (the
+   note in the hint, only on date, title and account); whether a refusal can come from another
+   part still to answer.
 7. **[UI]** The pending hashtag on Home: its row under its current name, `⏎` listing the
-   transactions still waiting for a hashtag, and no "(no hashtags)" row. The mockup also shows
-   the edit form and the LOG bar's staged line when the owner names a real hashtag on a pending
-   row: the save sends only the real one, and the screen today still lists both.
-8. **[UI]** The hashtags screen marks the pending hashtag and offers no delete or rename on it,
-   and the categories screen offers no rename on `@Pendiente` and `@Opening`, with the
-   `SYSTEM_HASHTAG`, `RESERVED_NAME` and the engine's new rename refusals (the rename part waits
-   on [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)); the
-   categories legend and the `SYSTEM_CATEGORY` hint, which say system categories can be renamed,
-   take the picked wording); an opening balance's edit form offers no
-   hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.
+   transactions still waiting for a hashtag, and no "(no hashtags)" row; the edit form and the
+   LOG bar send only the real hashtag. Picked: 1 A, 2 A, 3 A, 4 A, 5 B (a LOG bar line with no
+   hashtag stages `#Pendiente`, like the category column).
+8. **[UI]** The hashtags screen as a table with a System column, marking the pending hashtag and
+   offering no delete or rename on it; the categories screen offers no edit and no delete on
+   `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and the engine's new
+   rename refusals (the rename part waits on
+   [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md));
+   the categories legend and the `SYSTEM_CATEGORY` hint read "System categories cannot be
+   renamed or deleted."; deleting an ordinary hashtag says where its rows go; an opening
+   balance's edit form offers no hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.
+   Picked: 2 A, 3 B, 4 B and B, 5 B, 6 A, 7 B; the Hashtags table still to approve.

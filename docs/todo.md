@@ -27,26 +27,80 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Pick the six bank-lines and pending-hashtag screens
-Asked 2026-10-16 · Blocks: [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md) tasks 3–8
+### The engine moved its contract: one purchase's parts can now be read
+Asked 2026-10-17 · Blocks: every task of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
-Each page draws the screen in lettered variants with one recommended, and ends with a "To
-answer" box. Open each and give a letter per screen (or "recommended for all"):
-- task 3, the bank upload: [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html)
-- task 4, split parts in the ledger: [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html)
-- task 5, the split screen: [mockups/expense-world-split-action.html](mockups/expense-world-split-action.html)
-- task 6, editing a part: [mockups/expense-world-edit-part.html](mockups/expense-world-edit-part.html)
-- task 7, the pending hashtag on Home: [mockups/expense-world-pending-hashtag-home.html](mockups/expense-world-pending-hashtag-home.html)
-- task 8, the pending hashtag on Manage: [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)
+The practice engine serves contract `c572d3a5f4f509d1`; this app last caught up with
+`3129bfa2c43a4446`. The version check prints:
 
-Two details beyond the pick: the spec says a part's "description, date and account" reach every
-part, but on the form the shared field is the **title** (the note stays each part's own); and
-two pages add a screen the spec does not ask for (the hashtag delete question, and a LOG bar line
-with no hashtag), each marked on its page.
-- **A.** The recommended variant everywhere, "title" in the spec, both extra screens in.
-- **B.** Your own letters per screen.
+```
+c572d3a5f4f509d1  2026-10-17
+  added: `GET /bank-lines/{id}`, one bank line read by id: `id`, `account_id`, `operation_code`
+  (`null` when the line has none), `net_cents` (the signed sum of its live parts, inflow
+  positive, outflow negative), `part_count` (its live parts) and `transaction_ids` (its live
+  parts' ids, in the order `GET /transactions?bank_line_id=` lists them by default). [...]
+  changed: *Transactions (Ledger)* → *Bank lines* points to the new line read. No transaction
+  response field changes.
+3d7205a872889283  2026-10-17
+  added: `GET /transactions` and `GET /transactions/count` take `?bank_line_id=`, the live parts
+  of one bank line. [...] No transaction response field changes.
+```
+
+This is the first half of the "read a bank line" ask: the parts of one purchase and its total,
+one purchase per read. Reading up to 200 purchases at once has not shipped, and no hand-off file
+has arrived yet. Nothing in the app breaks.
+- **A.** Catch up now: one task in the current spec reads the new parts list and the new line
+  read, for the ledger, the split screen and the edit form to use.
+- **B.** Wait for the engine's hand-off file and the 200-at-once read, then catch up in one go.
+
+**Recommended:** A, because it adds without breaking, and tasks 4–6 need it; until the 200-at-once
+read ships, a ledger page reads each split purchase on it separately.
+
+### Finish picking the bank-lines and pending-hashtag screens
+Asked 2026-10-16 · Blocks: tasks 3–5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+
+Your picks of 2026-10-17 are in the spec. Still open, each on its page's "To answer" box:
+- the bank upload, [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html):
+  confirm 2 A, and a letter for the after-import table;
+- the ledger, redrawn your way, [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html):
+  a letter for the split mark, one for what `⏎` opens, and what `d`, `c` and `h` do on a split
+  purchase;
+- Manage, [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html):
+  "ok" on the Hashtags table.
 
 **Recommended:** none — these are your screens.
+
+### Is a purchase reconciled whole, or part by part?
+Asked 2026-10-17 · Blocks: task 6 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+
+You said a refusal caused by another part can never happen, because reconciliations work on
+the whole purchase. The engine today works part by part: a reconciliation takes one part without
+the others (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). Then moving the
+other part's date is refused because of the reconciled one, and splitting again is refused
+(`SPLIT_RECONCILIATION_MIXED`).
+- **A.** Ask the engine to reconcile a purchase whole: ticking one part ticks every part, and
+  the mixed case can no longer arise. The edit form then needs no screen for it, and the
+  reconciliation screen ticks purchases, which gets its own mockup.
+- **B.** Keep reconciling part by part, and keep the edit-a-part screen 2 (B) that names the
+  other part.
+
+**Recommended:** A, because a bank line is one movement on the statement, so it is reconciled
+once, and every client would otherwise have to explain the mixed case.
+
+### Does the split screen stop you saving until nothing is left?
+Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+
+The split screen already counts what is left to place as you type (100 split 50/50 shows
+`0.00 left`; one 50 changed to 40 shows `-10.00 left`). You asked that saving is not allowed
+until it reaches 0. The engine already refuses a split that does not add up, and this repo's
+rule is that the app does not copy an engine rule: if the engine ever changes it, every app
+would have to change too.
+- **A.** `^s` is off until 0 is left; the count turns red while it is not.
+- **B.** The count turns red while it is not 0, and `^s` still sends; the engine refuses and its
+  words show under the parts.
+
+**Recommended:** B, because the red count already tells you before you press, and the rule stays
+in one place; A is fine if you want the key off.
 
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
