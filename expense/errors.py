@@ -115,8 +115,9 @@ class NextStep:
 
 
 #: The line under a refused delete of a system category, and the Categories
-#: list's legend.
-SYSTEM_HINT = "System categories can be renamed but not deleted."
+#: list's legend: a system category keeps its name and stays
+#: (contract: PUT /v1/categories/{category_id}, "A system category keeps its name").
+SYSTEM_HINT = "System categories cannot be renamed or deleted."
 
 _APP_FAULT = (
     "Not your mistake: the app sent it wrong and nothing was saved. "
@@ -139,6 +140,10 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
         }
     ),
     ("FORBIDDEN", "SYSTEM_CATEGORY"): NextStep(SYSTEM_HINT),
+    # The built-in pending hashtag is never deleted (contract: DELETE /v1/hashtags/{hashtag_id})
+    # and keeps its name (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps
+    # its name"); Manage ▸ Hashtags offers neither, so this is met only rarely.
+    ("FORBIDDEN", "SYSTEM_HASHTAG"): NextStep("The pending hashtag cannot be renamed or deleted."),
     ("CONFLICT", "NAME_EXISTS"): NextStep("That name is taken: pick another."),
     ("LIMIT_REACHED", "CAP_REACHED"): NextStep("Delete one first."),
     ("CONFLICT", "OPERATION_CODE_EXISTS"): NextStep(
@@ -177,6 +182,27 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     # entered"); `c` on the batch screen asks for it when the screen reads it as empty.
     ("VALIDATION_ERROR", "ENDING_BALANCE_REQUIRED"): NextStep(
         "Press c again: the app asks for it first."
+    ),
+    # A system row's name is not for a user row: a user category, new or
+    # renamed, cannot be named like `@Opening` or `@Pendiente`
+    # (contract: POST /v1/categories, "Reserved names")
+    # (contract: PUT /v1/categories/{category_id}, "Reserved names on rename"), and a user
+    # hashtag, new or renamed, cannot take the pending hashtag's name, in any
+    # letter case (contract: "Hashtags", "The built-in pending hashtag"). One line
+    # for both.
+    ("VALIDATION_ERROR", "RESERVED_NAME"): NextStep(
+        "That name belongs to a system row: pick another."
+    ),
+    # A system category and the pending hashtag keep their names
+    # (contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
+    # (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name").
+    ("VALIDATION_ERROR", "SYSTEM_NAME_FIXED"): NextStep(
+        "Built-in names never change: press esc to leave it as it is."
+    ),
+    # An opening balance carries no hashtag, not even the pending one
+    # (contract: PUT /v1/transactions/{transaction_id}).
+    ("VALIDATION_ERROR", "OPENING_BALANCE_NOT_TAGGED"): NextStep(
+        "Leave the opening balance out of the selection."
     ),
 }
 

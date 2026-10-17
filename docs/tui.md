@@ -236,15 +236,19 @@ says `Saved. It left its reconciliation.` instead of `Saved.`; both share
 such a row to another account or category, `@Pendiente` included, and accepts every other
 field (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"); screens in
 [expense-world-opening-balance-rows.html](mockups/expense-world-opening-balance-rows.html).
+An opening balance also carries no hashtag, not even the pending one
+(contract: PUT /v1/transactions/{transaction_id}); screen 6 A in
+[expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html).
 The app knows the row by its category: the @Opening system row, found by its `system_key`
 in the categories list the form already reads (`QuickAddRefs.opening` in
-[reads.py](../expense/reads.py)). On such a row the `⏎` edit form shows `account` and
-`category` dimmed and marked `read-only`, every field move skips them, and the save never
-sends them; date, title, amount, hashtags and note save as on any row. `b` and `c` send
-such a row like any other, and the engine refuses it: its "Refused" note is the engine's
-words, then the line saying what to do ("When the engine says no" below), and the other
-rows still go. The LOG bar is untouched: it only creates rows, and a typed line cannot
-name @Opening.
+[reads.py](../expense/reads.py)). On such a row the `⏎` edit form shows `account`,
+`category` and `hashtags` (`—`) dimmed and marked `read-only`, every field move (`tab`,
+`shift+tab` and the arrows) skips them, and the save never sends them; date, title, amount
+and note save as on any row. `b`, `c` and `h` send such a row like any other, and the engine
+refuses it: its "Refused" note is the engine's words, then the line saying what to do
+("When the engine says no" below), the other rows still go, and the refused row stays
+selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
+@Opening.
 **A part of a split purchase says what reaches every part.** The engine writes a part's
 date, title and account onto every part of its bank line, in one go, while amount,
 category, hashtags and note stay the part's own
@@ -366,11 +370,27 @@ show accounts as `GET /accounts` lists them, every real account first, then ever
 leaves them out and moves nothing else, and the bank import's card line stands where its
 first currency leg does.
 
+**Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
+[expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).
+Categories is a table of Color, Name and System; Hashtags one of Name and System, the same
+without the colour, in the order `GET /hashtags` lists them, or `(no hashtags)` when there
+are none. System reads `system 🔒` on a built-in row and `—` on the rest. The built-in rows
+are `@Pendiente` and `@Opening` among the categories and the pending hashtag among the
+hashtags: the rows with a `system_key`, never found by name (`reads.is_system_row`). They
+keep their names and are never deleted
+(contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
+(contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name"), so with the
+cursor on one the footer offers neither `e Edit` nor `d Delete` and both keys do nothing
+(`ResourceListScreen.is_fixed` in [_base.py](../expense/tui/screens/_base.py)); on every
+other row they close the footer as usual. A built-in category's colour is not changed
+from this app either. Under the list a legend says so: `System categories cannot be renamed
+or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
+
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
-the cursor on Manage ▸ Accounts, Categories and Hashtags, on the ledger (whole or filtered
-from Home) and in the reconciliation's "no batch" pane, always as the last entry of the
-screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
+the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
+the ledger (whole or filtered from Home) and in the reconciliation's "no batch" pane, always
+as the last entry of the screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
 of the footer, while rows are selected (`esc` clears the selection and it is back) and
 while a bulk write runs. On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
@@ -384,7 +404,7 @@ screen can bring it back.**
 |---|---|---|---|
 | Accounts | `Delete this account?` | `Prueba · bank · PEN · 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
-| Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it. No screen can bring it back.` | `Hashtag deleted.` |
+| Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
 | Ledger, "no batch" pane | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
 | A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
 
@@ -393,18 +413,23 @@ key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_bas
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
 page, the ledger's newest ten, the pane's oldest ten. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
-off every transaction carrying it (contract: DELETE /v1/hashtags/{hashtag_id}).
+off every transaction carrying it, and one left with no hashtag carries the pending hashtag
+(contract: DELETE /v1/hashtags/{hashtag_id}). The question names the pending hashtag as the
+list gives it (`#Pendiente`), or says `the pending hashtag` while the user has none yet;
+screen 3 B in
+[expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html).
 
 **A refused delete** leaves the row and the list as they were and shows the "Failed" note:
 the engine's own words, then the line saying what to do instead ("When the engine says no"
-below). `d` stays live on the system categories so the engine's refusal is what you see.
+below).
 
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
-`VALIDATION_ERROR` an opening balance draws when asked to move, the one a reconciliation
-draws when completed without its ending balance, and the one a system category or the
-pending hashtag draws when renamed. The note it draws (a
+`VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
+reconciliation draws when completed without its ending balance, the one a system category
+or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
+like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field), and for the reasons below a blank
 line and one line of the app's saying what to do. Screens in
@@ -414,7 +439,8 @@ line and one line of the app's saying what to do. Screens in
 |---|---|---|
 | `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
-| `SYSTEM_CATEGORY` | `d` on `@Pendiente` or `@Opening` | `System categories can be renamed but not deleted.` |
+| `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
+| `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `IN_COMPLETED_RECONCILIATION` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
@@ -428,7 +454,9 @@ line and one line of the app's saying what to do. Screens in
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
-| `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente` or `@Opening` on Manage ▸ Categories' Edit form, or for the pending hashtag on Manage ▸ Hashtags' | none: the engine's message says to keep the current name |
+| `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
+| `RESERVED_NAME` (a `VALIDATION_ERROR`) on `name` | a new category, or a category renamed on its Edit form, named like a system category (`@Opening`, `@Pendiente`); a new hashtag, or a hashtag renamed on its Edit form, named `Pendiente` in any letter case | `That name belongs to a system row: pick another.` |
+| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `Leave the opening balance out of the selection.` |
 | `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
 
 The line is chosen by the error's `code` and reason alone, never by the HTTP status, the
@@ -440,10 +468,15 @@ screen that reports a failure through it shows the line. A write sent from a lis
 it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, and the keys
-`hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The two
-opening-balance reasons and `ENDING_BALANCE_REQUIRED` are the table's only `VALIDATION_ERROR`
-rows; any other validation error, `LOCKED` included (the field lock answers first in a completed reconciliation), has
-no line.
+`hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The three
+opening-balance reasons, `ENDING_BALANCE_REQUIRED`, `SYSTEM_NAME_FIXED` and `RESERVED_NAME`
+are the table's only `VALIDATION_ERROR` rows; any other validation error, `LOCKED` included
+(the field lock answers first in a completed reconciliation), has no line. The lines for
+`SYSTEM_HASHTAG`, `SYSTEM_NAME_FIXED` and `OPENING_BALANCE_NOT_TAGGED` are screens 4 B, 5 B
+and 7 B in
+[expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html);
+`RESERVED_NAME` has one line for a category and a hashtag alike, since both meet it on
+`name` and the line follows the reason alone.
 `SECRET_NOT_REPLAYABLE` has no line: only creating a sign-in key draws it, and the app never
 creates one.
 

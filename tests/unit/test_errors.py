@@ -452,7 +452,37 @@ APP_FAULT = (
             "category_id",
             "SYSTEM_CATEGORY",
             True,
-            "System categories can be renamed but not deleted.",
+            "System categories cannot be renamed or deleted.",
+        ),
+        # pending-hashtag-manage 4 B, both refusals, and 5 B
+        (
+            "FORBIDDEN",
+            "hashtag_id",
+            "SYSTEM_HASHTAG",
+            True,
+            "The pending hashtag cannot be renamed or deleted.",
+        ),
+        (
+            "VALIDATION_ERROR",
+            "name",
+            "RESERVED_NAME",
+            False,
+            "That name belongs to a system row: pick another.",
+        ),
+        (
+            "VALIDATION_ERROR",
+            "name",
+            "SYSTEM_NAME_FIXED",
+            False,
+            "Built-in names never change: press esc to leave it as it is.",
+        ),
+        # pending-hashtag-manage 7 B, on a list (bulk h) and on the Edit form
+        (
+            "VALIDATION_ERROR",
+            "hashtag_ids",
+            "OPENING_BALANCE_NOT_TAGGED",
+            False,
+            "Leave the opening balance out of the selection.",
         ),
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
         # 2
@@ -593,8 +623,8 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     """Guard: the one table of next steps holds (code, reason) pairs, with codes
     the engine sends a reason on every key for, and reasons in the engine's
     SHOUTY_SNAKE form — never a route, a status or a sentence. The one other
-    code is `VALIDATION_ERROR`, for the two opening-balance reasons and the missing
-    ending balance alone."""
+    code is `VALIDATION_ERROR`, for the three opening-balance reasons, the
+    missing ending balance and the two name rules of the built-in rows alone."""
     import re
 
     from expense.errors import NEXT_STEPS, REFUSAL_CODES, NextStep
@@ -603,7 +633,10 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     validation_reasons = {
         "OPENING_BALANCE_ACCOUNT_FIXED",
         "OPENING_BALANCE_CATEGORY_FIXED",
+        "OPENING_BALANCE_NOT_TAGGED",
         "ENDING_BALANCE_REQUIRED",
+        "RESERVED_NAME",
+        "SYSTEM_NAME_FIXED",
     }
     for key, step in NEXT_STEPS.items():
         assert isinstance(key, tuple) and len(key) == 2
@@ -619,6 +652,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
     assert {reason for _code, reason in NEXT_STEPS} == {
         "HAS_TRANSACTIONS",
         "SYSTEM_CATEGORY",
+        "SYSTEM_HASHTAG",
         "NAME_EXISTS",
         "CAP_REACHED",
         "OPERATION_CODE_EXISTS",
@@ -630,7 +664,10 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "IDEMPOTENCY_KEY_REUSED",
         "OPENING_BALANCE_ACCOUNT_FIXED",
         "OPENING_BALANCE_CATEGORY_FIXED",
+        "OPENING_BALANCE_NOT_TAGGED",
         "ENDING_BALANCE_REQUIRED",
+        "RESERVED_NAME",
+        "SYSTEM_NAME_FIXED",
     }
 
 

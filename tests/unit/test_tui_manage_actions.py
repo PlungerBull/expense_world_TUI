@@ -27,7 +27,7 @@ ACCOUNT = {
 }
 ACCOUNT_2 = {**ACCOUNT, "id": "a2", "name": "Interbank", "color": None}
 ARCHIVED_ACCOUNT = {**ACCOUNT, "is_archived": True}
-SYS_CAT = {"id": "c1", "name": "@Opening", "is_system": True, "color": None}
+CATEGORY = {"id": "c1", "name": "COMIDA", "is_system": False, "color": None}
 HASHTAG = {"id": "h1", "name": "trabajo"}
 
 
@@ -127,7 +127,7 @@ def test_edit_prefills_and_puts(fake_client, monkeypatch):
 def test_categories_have_no_archive_action(fake_client, monkeypatch):
     """Categories have no archive: the `a`
     binding lives on AccountsScreen only, so on Categories it is inert."""
-    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([SYS_CAT]))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([CATEGORY]))
 
     async def scenario(pilot, app):
         screen = CategoriesScreen()

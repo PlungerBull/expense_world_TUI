@@ -390,13 +390,24 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
             "An opening balance must stay in @Opening.",
             "An opening balance always stays in @Opening.",
         ),
+        # pending-hashtag-manage 7 B: `com` + ↵ picks #COMIDA, the second ↵ applies
+        (
+            "h",
+            ["c", "o", "m", "enter"],
+            "hashtag_ids",
+            "OPENING_BALANCE_NOT_TAGGED",
+            "Must be empty: an opening balance carries no hashtag.",
+            "Leave the opening balance out of the selection.",
+        ),
     ],
+    ids=["b", "c", "h"],
 )
 def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
     fake_client, monkeypatch, key, typed, field, reason, words, line
 ):
-    """Opening-balance rows 2B: `b` or `c` over a selection holding an opening
-    balance sends every row as usual; the engine refuses that one
+    """Opening-balance rows 2B, and pending-hashtag-manage 7 B: `b`, `c` or `h`
+    over a selection holding an opening balance sends every row as usual; the
+    engine refuses that one
     (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"),
     its note is the engine's words and then the line saying where the opening
     balance is changed, the other rows go, and the refused row stays selected."""

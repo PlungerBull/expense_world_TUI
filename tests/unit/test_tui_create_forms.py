@@ -452,7 +452,7 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
 
 def _keyed(code: str, key: str, reason: str, message: str) -> EngineError:
     """A refusal keyed by the thing refused (contract: "Error reasons")."""
-    status = 422 if code == "LIMIT_REACHED" else 409
+    status = 422 if code in ("LIMIT_REACHED", "VALIDATION_ERROR") else 409
     return EngineError(code, message, {key: "stand-in field words"}, status, {}, {key: reason})
 
 
@@ -500,8 +500,70 @@ def _eliana() -> EditAccountScreen:
             "Not your mistake: the app sent it wrong and nothing was saved. "
             "Try again; if it happens again, report it.",
         ),
+        # a user hashtag, new or renamed, cannot take the pending hashtag's name
+        # (pending-hashtag-manage 4 B, one line for every system row)
+        (
+            NewHashtagScreen,
+            ["pendiente"],
+            "POST",
+            _keyed(
+                "VALIDATION_ERROR",
+                "name",
+                "RESERVED_NAME",
+                "Pendiente is reserved for the pending hashtag.",
+            ),
+            "That name belongs to a system row: pick another.",
+        ),
+        (
+            lambda: EditHashtagScreen({"id": "h1", "name": "viaje"}),
+            ["PENDIENTE"],
+            "PUT",
+            _keyed(
+                "VALIDATION_ERROR",
+                "name",
+                "RESERVED_NAME",
+                "Pendiente is reserved for the pending hashtag.",
+            ),
+            "That name belongs to a system row: pick another.",
+        ),
+        # a user category, new or renamed, cannot take a system category's name
+        (
+            NewCategoryScreen,
+            ["@pendiente", ""],
+            "POST",
+            _keyed(
+                "VALIDATION_ERROR",
+                "name",
+                "RESERVED_NAME",
+                "@Pendiente is reserved for a system category.",
+            ),
+            "That name belongs to a system row: pick another.",
+        ),
+        (
+            lambda: EditCategoryScreen(
+                {"id": "c1", "name": "Mascotas", "color": "#b07cd9", "is_system": False}
+            ),
+            ["@pendiente", ""],
+            "PUT",
+            _keyed(
+                "VALIDATION_ERROR",
+                "name",
+                "RESERVED_NAME",
+                "@Pendiente is reserved for a system category.",
+            ),
+            "That name belongs to a system row: pick another.",
+        ),
     ],
-    ids=["screen-2", "category-no-color", "screen-3A", "screen-9A"],
+    ids=[
+        "screen-2",
+        "category-no-color",
+        "screen-3A",
+        "screen-9A",
+        "reserved-name-new",
+        "reserved-name-rename",
+        "reserved-category-name-new",
+        "reserved-category-name-rename",
+    ],
 )
 def test_a_refusal_on_a_form_ends_with_its_next_step(
     fake_client, monkeypatch, make, steps, verb, refusal, line
@@ -554,9 +616,10 @@ _NAME_FIXED = "Must be the current name: a system record keeps its name."
 )
 def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, make, steps, path):
     """A system category or the pending hashtag keeps its name: the engine
-    refuses a rename with `SYSTEM_NAME_FIXED` on `name`. The note is the
-    engine's words whole, with no line of the app's under them, and the form
-    stays open with what was typed."""
+    refuses a rename with `SYSTEM_NAME_FIXED` on `name`. Manage offers no `e`
+    on these rows, so only a form opened another way meets it. The note is the
+    engine's words whole, then the line of pending-hashtag-manage 5 B, and the
+    form stays open with what was typed."""
     refusal = EngineError(
         "VALIDATION_ERROR",
         "Request validation failed.",
@@ -568,7 +631,10 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
 
     async def check(pilot, screen, toasts):
         message, kw = toasts[0]
-        assert message == f"VALIDATION_ERROR — Request validation failed.\n  name: {_NAME_FIXED}"
+        assert message == (
+            f"VALIDATION_ERROR — Request validation failed.\n  name: {_NAME_FIXED}\n\n"
+            "Built-in names never change: press esc to leave it as it is."
+        )
         assert kw.get("title") == "Failed" and kw.get("severity") == "error"
         assert screen.is_attached
         assert screen._values["name"] == steps[0]

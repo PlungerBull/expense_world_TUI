@@ -418,32 +418,41 @@ OPENING = {
 }
 
 
-def test_an_opening_balance_shows_account_and_category_read_only(fake_client, monkeypatch):
-    """The two lines show dimmed and marked read-only; a field move skips
-    them, from amount straight to hashtags and back."""
+def test_an_opening_balance_shows_account_category_and_hashtags_read_only(fake_client, monkeypatch):
+    """The three lines show dimmed and marked read-only, hashtags as `—`
+    (pending-hashtag-manage 6 A); a field move skips them, from amount
+    straight to note and back, with ⇥ and with the arrows."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
         screen = EditFormScreen(record=OPENING, resource="transactions")
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
-        assert screen._locked == {"account", "category"}
+        assert screen._locked == {"account", "category", "hashtags"}
         summary = render_text(screen._summary_renderable(), width=60)
         assert "account   BCP PEN  read-only" in summary
         assert "category  @Opening  read-only" in summary
-        assert summary.count("read-only") == 2
+        assert "hashtags  —  read-only" in summary
+        assert summary.count("read-only") == 3
         screen._current = screen._sequence().index("amount")
-        screen.action_field(1)
-        assert screen._key == "hashtags"
-        screen.action_field(-1)
+        screen._refresh_bar()
+        await pilot.press("tab")
+        assert screen._key == "note"
+        await pilot.press("shift+tab")
+        assert screen._key == "amount"
+        await pilot.press("down")
+        assert screen._key == "note"
+        await pilot.press("up")
         assert screen._key == "amount"
 
     run_app(scenario)
 
 
-def test_an_opening_balance_saves_its_other_fields_and_never_its_account(fake_client, monkeypatch):
-    """Amount, date, title, note and hashtags save as on any row; the PUT
-    carries no account and no category, even if a value was set under them."""
+def test_an_opening_balance_saves_its_other_fields_and_never_its_locked_ones(
+    fake_client, monkeypatch
+):
+    """Amount, date, title and note save as on any row; the PUT carries no
+    account, no category and no hashtags, even if a value was set under them."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -452,19 +461,13 @@ def test_an_opening_balance_saves_its_other_fields_and_never_its_account(fake_cl
         await _wait_loaded(screen, pilot)
         screen._current = screen._sequence().index("amount")
         _enter(screen, "3500")
-        assert screen._key == "hashtags"  # account and category skipped
-        _enter(screen, "dog")
-        _enter(screen, "")  # done with hashtags → note
+        assert screen._key == "note"  # account, category and hashtags skipped
         # whatever lands under the locked keys is never sent
-        screen._values.update(account="acc2", category="cat1")
-        screen._current = screen._sequence().index("note")
+        screen._values.update(account="acc2", category="cat1", hashtags=["h1"])
         _enter(screen, "apertura")  # enter on note saves
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [
-            (
-                "/transactions/txO",
-                {"amount_cents": 350000, "hashtag_ids": ["h1"], "description": "apertura"},
-            )
+            ("/transactions/txO", {"amount_cents": 350000, "description": "apertura"})
         ]
 
     run_app(scenario)
@@ -498,6 +501,12 @@ def test_an_ordinary_row_keeps_account_and_category_editable(fake_client, monkey
             "category_id",
             "OPENING_BALANCE_CATEGORY_FIXED",
             "An opening balance always stays in @Opening.",
+        ),
+        # pending-hashtag-manage 7 B: the same note as on the ledger's `h`
+        (
+            "hashtag_ids",
+            "OPENING_BALANCE_NOT_TAGGED",
+            "Leave the opening balance out of the selection.",
         ),
     ],
 )

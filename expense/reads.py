@@ -474,7 +474,7 @@ def load_hashtag_name_map() -> dict[str, str]:
 
 # The engine's stable key for `@Pendiente`, the system category an
 # uncategorised row is filed under (contract: POST /v1/categories). Lookup is
-# by this key, never by the display name — the owner may rename it.
+# by this key, never by the display name.
 PENDING_SYSTEM_KEY = "pending"
 
 
@@ -503,6 +503,15 @@ def _system_row(rows: list[dict], key: str) -> dict | None:
     return None
 
 
+def is_system_row(row: dict) -> bool:
+    """True for a built-in row, category or hashtag: one the engine gives a
+    `system_key`. Such a row keeps its name and is never deleted
+    (contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
+    (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name"),
+    so Manage offers neither `e` nor `d` on it. Known by the key, never by name."""
+    return row.get("system_key") is not None
+
+
 def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
     """`(id, name)` of the @Pendiente row among category rows, or None."""
     row = _system_row(categories, PENDING_SYSTEM_KEY)
@@ -512,7 +521,7 @@ def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
 # The engine's stable key for the built-in pending hashtag, the hashtag a
 # transaction written with no hashtag carries. The engine creates it the first
 # time it needs it, so a user may have none yet; lookup is by this key, never
-# by its name, which the owner may change (contract: "Hashtags", "The built-in pending hashtag").
+# by its name (contract: "Hashtags", "The built-in pending hashtag").
 PENDING_HASHTAG_KEY = "pending"
 
 
@@ -595,8 +604,8 @@ class QuickAddRefs:
     pending: tuple[str, str] | None = None
     # The id of the @Opening system row, or None when there is none. A row
     # filed under it is an account's opening balance, whose account and
-    # category the engine never lets change; the edit form reads it to show
-    # those two fields read-only.
+    # category the engine never lets change and which carries no hashtag; the
+    # edit form reads it to show those three fields read-only.
     opening: str | None = None
     # `(id, name)` of the built-in pending hashtag, or None until the engine
     # has created it. It stays in `hashtags`, so it can be named; every
@@ -612,7 +621,7 @@ class QuickAddRefs:
 
 def pending_label(refs: "QuickAddRefs") -> str:
     """What a row with no category reads as — the @Pendiente row's own display
-    name (the owner may have renamed it), or the plain word before it exists."""
+    name, as the engine gives it, or the plain word before it exists."""
     return refs.pending[1] if refs.pending else PENDING_FALLBACK_NAME
 
 

@@ -50,7 +50,11 @@ def _category(i: int) -> dict:
 
 
 def _hashtag(i: int) -> dict:
-    return {"id": f"h{i}", "name": f"tag-{i:02d}"}
+    """Row 24 is the built-in pending hashtag (its `system_key`), where the
+    delete question says a transaction left with no hashtag goes."""
+    if i == 24:
+        return {"id": "h24", "name": "Pendiente", "system_key": "pending"}
+    return {"id": f"h{i}", "name": f"tag-{i:02d}", "system_key": None}
 
 
 # screen, the reads function it calls, row builder, engine collection,
@@ -78,8 +82,8 @@ MANAGE = {
         "fetch_hashtags",
         _hashtag,
         "Delete this hashtag?",
-        "#tag-22\nIt is also taken off every transaction that carries it. "
-        "No screen can bring it back.",
+        "#tag-22\nIt is also taken off every transaction that carries it; "
+        "one with no other hashtag goes to #Pendiente. No screen can bring it back.",
         "Hashtag deleted.",
     ),
 }
@@ -385,10 +389,12 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "  category_id: stand-in field words\n\n"
             "Move its transactions to another category first.",
         ),
+        # `d` is not offered on a system category (pending-hashtag-manage 2 A);
+        # the refusal still shows its line on a row the list read as ordinary
         (
             CategoriesScreen,
             "fetch_categories",
-            {**_category(1), "name": "@Pendiente", "is_system": True},
+            _category(1),
             "categories/c1",
             403,
             "FORBIDDEN",
@@ -397,7 +403,22 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
             "SYSTEM_CATEGORY",
             "FORBIDDEN — Operation not allowed.\n"
             "  category_id: stand-in field words\n\n"
-            "System categories can be renamed but not deleted.",
+            "System categories cannot be renamed or deleted.",
+        ),
+        # the same for the pending hashtag (pending-hashtag-manage 4 B)
+        (
+            HashtagsScreen,
+            "fetch_hashtags",
+            _hashtag(1),
+            "hashtags/h1",
+            403,
+            "FORBIDDEN",
+            "Operation not allowed.",
+            "hashtag_id",
+            "SYSTEM_HASHTAG",
+            "FORBIDDEN — Operation not allowed.\n"
+            "  hashtag_id: stand-in field words\n\n"
+            "The pending hashtag cannot be renamed or deleted.",
         ),
         (
             HashtagsScreen,
@@ -434,6 +455,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
         "account-has-transactions",
         "category-has-transactions",
         "system-category",
+        "system-hashtag",
         "race",
         "pending-name-held",
     ],
@@ -441,9 +463,8 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
 def test_a_refusal_shows_the_engine_words_and_what_to_do(
     configured, monkeypatch, make, fetch, row, path, status, code, words, key, reason, note
 ):
-    """`d` stays live on a system category: the engine refuses it. Nothing is
-    deleted, the list is not read again, and the row stays. A race names the
-    list's own key, `r` (screen 5A)."""
+    """The engine refuses the delete. Nothing is deleted, the list is not read
+    again, and the row stays. A race names the list's own key, `r` (screen 5A)."""
     monkeypatch.setattr(f"expense.reads.{fetch}", lambda *a, **k: whole([row]))
 
     async def scenario(pilot, app):

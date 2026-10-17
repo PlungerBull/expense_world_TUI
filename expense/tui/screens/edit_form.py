@@ -22,10 +22,13 @@ the save sends only the real hashtags (`hashtags_to_send`, the same helper for
 both); an emptied set sends `[]`, which the engine files under the pending
 hashtag (contract: PUT /v1/transactions/{transaction_id}).
 
-On an opening balance (a row filed under @Opening) account and category show
-read-only and are never sent: the engine keeps such a row on its account and in
-@Opening (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
-The form knows the row once the reference lists load (`QuickAddRefs.opening`).
+On an opening balance (a row filed under @Opening) account, category and
+hashtags show read-only and are never sent: the engine keeps such a row on its
+account and in @Opening
+(contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"),
+and it carries no hashtag, not even the pending one
+(contract: PUT /v1/transactions/{transaction_id}). The form knows the row once
+the reference lists load (`QuickAddRefs.opening`).
 
 On a part of a split purchase, the hint under the bar adds `changes every part
 of the purchase` while the cursor is on date, title or account: the engine
@@ -167,7 +170,7 @@ class EditFormScreen(FormScreen):
         self._original = copy.deepcopy(self._values)
         # no client-side reconciliation locks: they rely on the engine's 422
         # (not reliably detectable from the row). The one client lock is an
-        # opening balance's account and category, set in `_set_entities`.
+        # opening balance's account, category and hashtags, set in `_set_entities`.
 
     # ---- field sequence --------------------------------------------------
     def _sequence(self) -> list[str]:
@@ -230,9 +233,9 @@ class EditFormScreen(FormScreen):
         self._pending_tag = pending_tag
         self._acc_names, self._cat_names, self._tag_names_map = maps
         if opening is not None and self._record.get("category_id") == opening:
-            # an opening balance: the two fields it can never change show
+            # an opening balance: the three fields it can never change show
             # read-only, and `_edit_payload` skips locked fields
-            self._locked |= {"account", "category"}
+            self._locked |= {"account", "category", "hashtags"}
             if self._key in self._locked:
                 self._current = self._first_editable()
                 self._refresh_bar()

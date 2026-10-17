@@ -2,15 +2,16 @@
 
 Color swatch + system-lock marker. `n` creates; `e` edits the cursor row
 (prefilled EditCategoryScreen); `d` deletes the cursor row after a question.
-`enter` does nothing. System categories can be renamed/recolored (the engine
-keys them by `system_key`, not name) but cannot be deleted; the legend is the
-delete hint, `errors.SYSTEM_HINT`. `d` stays live on them: the engine
-refuses, and its refusal shows with that line under it (`errors.NEXT_STEPS`).
-Only accounts archive.
+`enter` does nothing. The system categories, `@Pendiente` and `@Opening`, are
+the rows with a `system_key` (`reads.is_system_row`, never their names): they
+keep their names and stay, so neither `e` nor `d` is offered on them, and the
+legend says so (`errors.SYSTEM_HINT`, also the line under the engine's
+`SYSTEM_CATEGORY` refusal). Only accounts archive.
 """
 
 from expense import reads
 from expense.errors import SYSTEM_HINT
+from expense.reads import is_system_row
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen
 from expense.tui.widgets.cells import swatch
 
@@ -24,7 +25,7 @@ def category_rows(items: list[dict]) -> list:
         cells = [
             swatch(it.get("color")),
             it.get("name") or "(unnamed)",
-            "system 🔒" if it.get("is_system") else "—",
+            "system 🔒" if is_system_row(it) else "—",
         ]
         rows.append((it.get("id"), cells, ""))
     return rows
@@ -47,6 +48,9 @@ class CategoriesScreen(ResourceListScreen):
 
     def rows(self, items: list) -> list:
         return category_rows(items)
+
+    def is_fixed(self, item: dict) -> bool:
+        return is_system_row(item)
 
     def delete_question(self, item: dict) -> tuple[str, str, str]:
         return (

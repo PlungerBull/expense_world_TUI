@@ -511,11 +511,13 @@ class ResourceListScreen(SectionScreen):
     quiet fetch → title + CursorList of rows (+ optional legend). `n` pushes
     the new-record form; `e` the prefilled edit form for the cursor row; `d`
     deletes the cursor row after `confirm_delete`'s question, and the list
-    reloads from its first row. `enter` is a no-op here. The `a` archive toggle
+    reloads from its first row. Neither `e` nor `d` is offered on a row
+    `is_fixed` names. `enter` is a no-op here. The `a` archive toggle
     lives on AccountsScreen only (docs/decisions.md "Archive is a prompt-free
     toggle").
 
-    Subclasses set the class attrs and five hooks. Row builders stay pure
+    Subclasses set the class attrs and five hooks, plus `is_fixed` where some
+    rows offer neither `e` nor `d`. Row builders stay pure
     module functions (they have direct unit tests).
     """
 
@@ -557,10 +559,20 @@ class ResourceListScreen(SectionScreen):
         """`(title, message, done note)` for `d` on `item`."""
         raise NotImplementedError
 
+    def is_fixed(self, item: dict) -> bool:
+        """True for a row with nothing to edit or delete (a built-in row):
+        `e` and `d` leave the footer while the cursor is on it."""
+        return False
+
     # ---- binding availability ----------------------------------------------
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action in ("edit", "archive", "delete") and self.selected_record() is None:
+        if action not in ("edit", "archive", "delete"):
+            return True
+        item = self.selected_record()
+        if item is None:
             return None  # empty list → nothing to act on
+        if action in ("edit", "delete") and self.is_fixed(item):
+            return False  # a built-in row: the keys leave the footer
         return True
 
     def on_cursor_list_highlighted(self, event) -> None:
@@ -616,7 +628,7 @@ class ResourceListScreen(SectionScreen):
 
     def action_edit(self) -> None:
         item = self.selected_record()
-        if not item:
+        if not item or self.is_fixed(item):
             return
         self._restore_key = item.get("id")
         self.app.push_screen(self.edit_screen(item), self._edited)
@@ -631,7 +643,7 @@ class ResourceListScreen(SectionScreen):
 
     def action_delete(self) -> None:
         item = self.selected_record()
-        if not item:
+        if not item or self.is_fixed(item):
             return
         title, message, done = self.delete_question(item)
         self.confirm_delete(
