@@ -27,18 +27,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for one catch-up file from `890453f80a08cec9`
-Asked 2026-10-17 · Blocks: the next catch-up (backlog "Catch up with the engine after `890453f80a08cec9`")
+### Approve the tasks of the next catch-up spec
+Asked 2026-10-17 · Blocks: [specs/bank-lines-whole.md](specs/bank-lines-whole.md)
 
-The current spec ends at contract `890453f80a08cec9`. On 2026-10-17 the practice engine serves
-`7ff6a09d863d6e44`, five versions on: a purchase is reconciled whole and deleted whole
-(`DELETE /bank-lines/{id}`), `GET /bank-lines/{id}` returns its parts in place of
-`transaction_ids` (breaking), and a list of bank lines (`GET /bank-lines`, `/bank-lines/count`)
-serves reconciliation screens. Ask the engine coders for one hand-off file from
-`890453f80a08cec9` to their current version ([from-engine/README.md](from-engine/README.md)); it
-becomes the next catch-up spec.
+The engine's file up to contract `7ff6a09d863d6e44` is now the draft spec
+[specs/bank-lines-whole.md](specs/bank-lines-whole.md): a purchase is read, reconciled and
+deleted whole, and the ledger stays one row per part. Its four tasks wait for your approval; two
+start with a mockup (the reconciliation screen listing purchases, and `d` deleting a purchase).
+- **A.** Approve the tasks as written.
+- **B.** Change them first (say how).
 
-**Recommended:** none — only you can hand it over.
+**Recommended:** A, because each task follows your picks of 2026-10-17 and the engine's own
+list of what this client does.
 
 ### "ok" on the split screens 1 and 3
 Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
@@ -71,15 +71,8 @@ is already caught by the days that disagree.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up with the engine after `890453f80a08cec9`.** Waits for the engine's hand-off file
-  ("Waiting on you" above), which becomes its spec. Known so far: a purchase is reconciled whole
-  (`ce4e5cb642e53fdb`), so the live test
-  `test_a_line_in_two_reconciliations_is_split_reconciliation_mixed` expects a refusal that no
-  longer happens; and the ledger's keys on a part of a split purchase, owner's picks of
-  2026-10-17: every part stays an ordinary row, `c` and `h` change only the selected parts, `b`
-  reaches every part, and `d` on any part deletes the whole purchase, its question naming how
-  many parts go. `d` waits on [to-engine/delete-a-bank-line.md](to-engine/delete-a-bank-line.md).
-
+- **Catch up with purchases read, reconciled and deleted whole.** Spec (draft, waiting for
+  approval): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the

@@ -136,8 +136,8 @@ which no current route can produce.
 
 The spec ends at contract `890453f80a08cec9` (owner, 2026-10-17). What the engine changed
 after it, and the ledger's keys on a part of a split purchase (the former task 4, which waits on
-the engine deleting a purchase whole), go to the next catch-up (todo.md "Catch up with the
-engine after `890453f80a08cec9`"). The tester's acceptance check expects one live test to fail
+the engine deleting a purchase whole), go to the next catch-up,
+[bank-lines-whole.md](bank-lines-whole.md). The tester's acceptance check expects one live test to fail
 for that reason: `test_a_line_in_two_reconciliations_is_split_reconciliation_mixed`, since the
 engine now reconciles a purchase whole.
 
