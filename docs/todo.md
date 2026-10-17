@@ -40,35 +40,40 @@ cases it adds to task 3's upload screen are drawn: see "Finish picking" below.
 
 **Recommended:** A, because without it the upload hides the rows the bank did not have.
 
-### Finish picking the bank-lines and pending-hashtag screens
-Asked 2026-10-16 · Blocks: tasks 3, 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+### Ledger rows the bank file does not have
+Asked 2026-10-17 · Blocks: task 3 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
-Your picks of 2026-10-17 are in the spec. Still open, each on its page's "To answer" box:
-- the ledger, redrawn your way, [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html):
-  a letter for the split mark, one for what `⏎` opens, and what `c` and `h` do with a split
-  purchase selected;
-- Manage, [mockups/expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html):
-  "ok" on the Hashtags table;
-- the bank upload, [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html):
-  a letter for screen 5, how a split purchase the file did not claim shows in the days that
-  disagree (one row with its total, or each part under it), drawn with a day whose totals agree.
+The ledger follows the bank file strictly, and the upload adds every bank row the ledger lacks.
+The other way round still happens on a day the file covers, when a row was typed by hand and the
+bank has it differently:
+- you typed `Farmacia -42.00`, the bank says `-42.90`: the bank's row is added, and your -42.00
+  stays too;
+- you typed `Cine` on 09-10, the bank posted it on 09-11: the bank's row is added on 09-11, and
+  your 09-10 row stays;
+- the same purchase typed twice: the bank claims one, the other stays.
 
-**Recommended:** none — these are your screens.
+The engine lists these rows with the upload ("ledger rows the file did not claim") and never
+removes them. What should happen to them?
+- **A.** The upload shows them, and you fix each by hand: delete the extra row, or move your
+  category and hashtags onto the bank's row.
+- **B.** The upload removes them, after asking, so every day the file covers matches the bank
+  exactly. This is an engine ask. Your typed category, hashtags and note on those rows go with
+  them; the bank's row arrives under `@Pendiente`.
 
-### Does the split screen stop you saving until nothing is left?
-Asked 2026-10-17 · Blocks: task 5 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+**Recommended:** A, because the row you typed holds your category and hashtags and the bank's
+row does not; removing it throws that work away.
 
-The split screen already counts what is left to place as you type (100 split 50/50 shows
-`0.00 left`; one 50 changed to 40 shows `-10.00 left`). You asked that saving is not allowed
-until it reaches 0. The engine already refuses a split that does not add up, and this repo's
-rule is that the app does not copy an engine rule: if the engine ever changes it, every app
-would have to change too.
-- **A.** `^s` is off until 0 is left; the count turns red while it is not.
-- **B.** The count turns red while it is not 0, and `^s` still sends; the engine refuses and its
-  words show under the parts.
+### What does `d` delete on a part of a split purchase?
+Asked 2026-10-17 · Blocks: task 4 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
-**Recommended:** B, because the red count already tells you before you press, and the rule stays
-in one place; A is fine if you want the key off.
+Every part is now its own ledger row. Say Tottus -100.00 is split into -60.00 and -40.00, and you
+press `d` on the -60.00 row.
+- **A.** Only that part goes. Tottus is left at -40.00, no longer the bank's -100.00, so the next
+  upload of that statement adds the -100.00 again (unless it carries a bank code).
+- **B.** The whole purchase goes, both parts; the question names how many parts. The engine needs
+  [to-engine/delete-a-bank-line.md](to-engine/delete-a-bank-line.md) for it.
+
+**Recommended:** B, because a part alone is not a bank movement; to change one part, split again.
 
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)

@@ -35,9 +35,10 @@ hashtag lands).
   amount, category, hashtags and note; the parts must add up to the purchase. The same action
   re-splits a split purchase, opening with its current parts. When the parts do not add up, the
   screen shows both totals as the engine gives them.
-- **Split parts read as one purchase (owner, 2026-10-17).** In the ledger, a split purchase is
-  one line with its title and total and a mark that it is split; its parts show when it is
-  opened. A ledger filtered from Home shows each part as its own row.
+- **Each part is its own ledger row (owner, 2026-10-17).** The ledger, whole or filtered from
+  Home, shows every part of a split purchase as an ordinary row: the purchase's title, its own
+  amount, category, hashtags and note. A category or hashtag change reaches only the parts
+  selected; only the bank's fields (title, date, account, bank code) belong to every part.
 - **Editing a part says what it reaches.** Changing the title, date or account of a part of a
   split purchase changes every part of it; the form says so before saving.
 - **The spreadsheet import does not group split rows.** The sheet comes in as it is, one
@@ -69,8 +70,8 @@ before it is built.
    second time, none new.
 2. A purchase split into two parts, then the same bank file uploaded again: still nothing new,
    including a card purchase with no bank code.
-3. The ledger shows the two parts as one purchase line, opening it shows both, and re-splitting
-   opens with them.
+3. The ledger shows the two parts as two rows; `c` on one of them changes only that part, and
+   re-splitting either opens with both.
 4. Changing a part's description changes both parts, and the form said so first.
 5. An upload with a day that disagrees lists that day with both totals.
 6. A transaction logged with no hashtag shows the pending hashtag; tagging it leaves only the
@@ -112,9 +113,7 @@ the reply to the engine reports each result.
 ## What the engine declined
 
 - **Reading up to 200 bank lines in one call.** A line's figures are read when one line is
-  opened (re-split, the "reaches every part" note), not across a ledger page. Drawing a ledger
-  page one row per purchase is the open ask
-  [to-engine/list-the-ledger-by-bank-line.md](../to-engine/list-the-ledger-by-bank-line.md).
+  opened (re-split, the "reaches every part" note), not across a ledger page.
 - **A line's total and part count on every transaction.** A response names other records by id
   only, and a transaction's response would change without its `version` moving. A transaction
   carries `bank_line_id`; the figures come from `GET /bank-lines/{id}`.
@@ -135,9 +134,9 @@ tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PA
 which no current route can produce.
 
 Engine asks this spec still waits on, raised on 2026-10-17 for the owner to hand over:
-[to-engine/list-the-ledger-by-bank-line.md](../to-engine/list-the-ledger-by-bank-line.md)
-(task 4), [to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's
-`d`) and [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
+[to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's `d`, if it
+deletes the whole purchase) and
+[to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
 (task 6, and the reconciliation screen ticking a purchase whole). Each task that needs one waits
 for its hand-off and is built against the live contract, not the ask.
 
@@ -156,15 +155,17 @@ in and its engine change has landed. Task 10 runs first.
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
    counting rows itself. Each unclaimed purchase is one entry drawn from the engine's parts and
    total, with no read per row. Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
-   2026-10-17: the recommended set). A split purchase the file did not claim, and a day listed
-   with equal totals, are the mockup's screen 5, still to pick.
-4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
-   filtered ledger shows each part as its own row); `d` on a split purchase deletes the whole
-   purchase; the mark, what `⏎` opens, and `c`, `h` with a split purchase selected still to pick.
+   2026-10-17: the recommended set). What the upload does with ledger rows the file did not
+   claim is still to answer (todo.md "Ledger rows the bank file does not have").
+4. **[UI]** The ledger's keys on a part of a split purchase. Every part stays an ordinary row,
+   as today, whole ledger or filtered (owner, 2026-10-17). `c` and `h` change only the selected
+   parts; `b` reaches every part, as the engine does. What `d` on a part deletes, that part or the
+   whole purchase, still to answer.
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
    opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
-   Picked: 2 B (one typed line per part); 3 follows the ledger's pick; whether the screen stops
-   `^s` until nothing is left still to answer.
+   Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);
+   `^s` always sends: the count turns red while it is not 0, and the engine's refusal shows under
+   the parts (owner, 2026-10-17).
 6. **[UI]** The edit form's note that title, date and account reach every part, shown only on a
    part of a split purchase (`part_count` above 1 in `GET /bank-lines/{id}`). Picked: 1 B (the
    note in the hint, only on date, title and account). Screen 2, a refusal caused by another
@@ -182,7 +183,7 @@ in and its engine change has landed. Task 10 runs first.
    "System categories cannot be renamed or deleted."; no text says these rows can be renamed;
    deleting an ordinary hashtag says where its rows go; an opening balance's edit form offers no
    hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal. Picked: 2 A, 3 B, 4 B and B,
-   5 B, 6 A, 7 B; the Hashtags table still to approve.
+   5 B, 6 A, 7 B; the Hashtags table as drawn (owner, 2026-10-17).
 
 ## Reply to the engine
 
