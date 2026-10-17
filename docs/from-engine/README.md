@@ -1,9 +1,9 @@
-# Engine answers
+# From the engine (inbox)
 
-The engine coders' drop box: one file per engine change this client has to catch up with. The
-engine coders write the files and the owner drops them here. This repo reads them as input and
-never writes one. The other direction, what this client needs from the engine, is
-[engine-asks/](../engine-asks/).
+What the engine sends this client: one file per engine change this client has to catch up with.
+The engine coders write the files in the engine repo's `docs/to-tui/` and the owner copies them
+here. This repo reads them as input and never writes one. The other direction, what this client
+needs from the engine, goes out from [to-engine/](../to-engine/).
 
 - **One file per change,** named by its slug (`published-contract.md`). Each stands alone: it
   names routes, fields, statuses and contract versions, never engine file paths or internal names.

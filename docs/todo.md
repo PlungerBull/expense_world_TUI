@@ -7,7 +7,7 @@ the work runs: CLAUDE.md "How work runs (the agent loop)".
 Only the orchestrator edits this file; workers put tasks and questions in their reports. Closed
 items get deleted, not ticked ([decisions.md](decisions.md) "The open-work list holds only open
 work"). Cite items by title. **[UI]** means an HTML mockup in [mockups/](mockups/) must be
-picked before any code. Engine asks live in [engine-asks/](engine-asks/), one file each.
+picked before any code. Engine asks live in [to-engine/](to-engine/), one file each.
 
 ---
 

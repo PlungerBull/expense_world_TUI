@@ -17,7 +17,7 @@ DOC_FILES = sorted(
     [REPO_ROOT / "AGENTS.md", REPO_ROOT / "CLAUDE.md", REPO_ROOT / "README.md"]
     + list(DOCS.glob("*.md"))
     + list((DOCS / "specs").glob("*.md"))
-    + list((DOCS / "engine-asks").glob("*.md"))
+    + list((DOCS / "to-engine").glob("*.md"))
 )
 # Scanned for engine-folder paths too: the mockups are HTML, not markdown links.
 ENGINE_SCAN_FILES = DOC_FILES + sorted((DOCS / "mockups").glob("*.html"))
@@ -47,7 +47,7 @@ def test_expected_doc_set_present():
         "docs/decisions.md",
         "docs/commands.md",
         "docs/specs/README.md",
-        "docs/engine-asks/README.md",
+        "docs/to-engine/README.md",
     } <= names
 
 

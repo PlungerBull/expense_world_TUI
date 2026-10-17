@@ -1,7 +1,8 @@
-# Engine asks
+# To the engine (outbox)
 
-One file per thing this client needs the engine to do. The owner hands the file straight to
-the engine coders, so each one stands on its own:
+What this client sends the engine: one file per thing it needs the engine to do. The owner
+copies each file as is into the engine repo's `docs/from-tui/`. The other direction, what the
+engine sends back, lands in [from-engine/](../from-engine/).
 
 - **Written for the engine coders.** No links into this repo and no client internals; it says
   what the engine should do, why every client needs it, and how the engine coders know it is

@@ -2,11 +2,11 @@
 
 **Status: approved by the owner (2026-10-16); the loop runs on it.**
 The engine change it catches up with:
-[engine-answers/bank-lines-and-pending-hashtag.md](../engine-answers/bank-lines-and-pending-hashtag.md),
+[from-engine/bank-lines-and-pending-hashtag.md](../from-engine/bank-lines-and-pending-hashtag.md),
 every contract change from `42d70a629215928d` to `3129bfa2c43a4446`. When done, the why moves to
 [decisions.md](../decisions.md), and this file, that answer and the two asks it answers are
-deleted: [engine-asks/split-bank-lines-keep-one-identity.md](../engine-asks/split-bank-lines-keep-one-identity.md)
-and [engine-asks/built-in-pending-hashtag.md](../engine-asks/built-in-pending-hashtag.md).
+deleted: [to-engine/split-bank-lines-keep-one-identity.md](../to-engine/split-bank-lines-keep-one-identity.md)
+and [to-engine/built-in-pending-hashtag.md](../to-engine/built-in-pending-hashtag.md).
 
 ---
 
@@ -50,7 +50,7 @@ hashtag lands).
   and `@Opening` are system values: no screen offers to delete or rename them, and a user
   hashtag cannot be named `Pendiente`. Refusals show as the engine sends them. Renaming is
   refused by the engine once
-  [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
+  [to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md)
   lands; until then the rename stays offered.
 - **An opening balance carries no hashtag.** Its edit form offers no hashtag change.
 
@@ -83,16 +83,16 @@ reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
 Engine asks this spec waits on; each task below that needs one waits for its hand-off file and
 its contract version, and is built against the live contract, not the ask. Accepted by the engine
 coders on 2026-10-16:
-[engine-asks/read-a-bank-line.md](../engine-asks/read-a-bank-line.md) (tasks 4–6; its first half
+[to-engine/read-a-bank-line.md](../to-engine/read-a-bank-line.md) (tasks 4–6; its first half
 is in contract `c572d3a5f4f509d1`),
-[engine-asks/day-mismatch-lines-carry-what-they-are.md](../engine-asks/day-mismatch-lines-carry-what-they-are.md)
+[to-engine/day-mismatch-lines-carry-what-they-are.md](../to-engine/day-mismatch-lines-carry-what-they-are.md)
 (task 3's ledger rows the file did not claim; it removes `transaction_ids` from those entries,
 which the upload reads today) and
-[engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md)
+[to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md)
 (task 8's rename part). Raised on 2026-10-17, for the owner to hand over:
-[engine-asks/list-the-ledger-by-bank-line.md](../engine-asks/list-the-ledger-by-bank-line.md)
-(task 4), [engine-asks/delete-a-bank-line.md](../engine-asks/delete-a-bank-line.md) (task 4's
-`d`) and [engine-asks/reconcile-a-bank-line-whole.md](../engine-asks/reconcile-a-bank-line-whole.md)
+[to-engine/list-the-ledger-by-bank-line.md](../to-engine/list-the-ledger-by-bank-line.md)
+(task 4), [to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's
+`d`) and [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
 (task 6, and the reconciliation screen ticking a purchase whole).
 
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
@@ -111,7 +111,7 @@ in and its engine change has landed.
 6. **[UI]** The edit form's note that title, date and account reach every part. Picked: 1 B (the
    note in the hint, only on date, title and account). Screen 2, a refusal caused by another
    part, is not built: a purchase is reconciled whole (owner, 2026-10-17), which
-   [engine-asks/reconcile-a-bank-line-whole.md](../engine-asks/reconcile-a-bank-line-whole.md)
+   [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
    asks the engine to enforce.
 7. **[UI]** The pending hashtag on Home: its row under its current name, `⏎` listing the
    transactions still waiting for a hashtag, and no "(no hashtags)" row; the edit form and the
@@ -121,7 +121,7 @@ in and its engine change has landed.
    offering no delete or rename on it; the categories screen offers no edit and no delete on
    `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and the engine's new
    rename refusals (the rename part waits on
-   [engine-asks/system-rows-keep-their-names.md](../engine-asks/system-rows-keep-their-names.md));
+   [to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md));
    the categories legend and the `SYSTEM_CATEGORY` hint read "System categories cannot be
    renamed or deleted."; deleting an ordinary hashtag says where its rows go; an opening
    balance's edit form offers no hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.

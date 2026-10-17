@@ -82,7 +82,7 @@ This answers two TUI asks of 2026-10-15: "split bank lines keep one identity" an
 **The hashtag itself** (`d42b8bb6bf2db3d9`)
 - Every hashtag response carries `system_key`: `"pending"` on the built-in one, `null` on every other. It is never omitted. This covers `GET /hashtags`, `GET /hashtags/{id}`, and the `POST`, `PUT` and `DELETE` responses.
 - `GET /hashtags` lists it like any other hashtag. **Find it by `system_key`, never by its name.**
-- Its default name is `Pendiente`. It can be renamed with `PUT /hashtags/{id}`, and can take its default name back.
+- Its name is `Pendiente` and cannot be changed: `PUT /hashtags/{id}` refuses any other name with `SYSTEM_NAME_FIXED` (contract `890453f80a08cec9`).
 - It is created the first time the engine needs it, so a user may not have one yet.
 - It does not count toward the hashtag cap.
 - `DELETE /hashtags/{id}` on it is `403 FORBIDDEN` on `hashtag_id` with reason `SYSTEM_HASHTAG`, and nothing is written.
