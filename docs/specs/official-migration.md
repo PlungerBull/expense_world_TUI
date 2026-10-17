@@ -21,7 +21,9 @@ Nothing typed into the app before the wipe is kept.
 - `PENDIENTE` means "not classified yet", on the category and on the hashtag alike. No
   `PENDIENTE` or `PENDIENTES` category or hashtag is created: a row whose category carries that
   name goes to the built-in `@Pendiente` category, a row whose hashtag carries it goes to the
-  built-in pending hashtag, and the other side keeps its own value. The sheet stays as it is and
+  built-in pending hashtag, and the other side keeps its own value. An **empty** category cell
+  means the same: the row goes to `@Pendiente`, and an empty hashtag cell to the pending hashtag
+  (owner, 2026-10-17) — such a row is imported, never skipped. The sheet stays as it is and
   a re-run never brings the names back. The app finds the pending hashtag through
   [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md).
 - The sheet comes in as it is: one transaction per row. Rows split from one bank purchase are
@@ -61,10 +63,10 @@ already in the ledger, and none is planned (engine coders, 2026-10-16). So a she
 ungrouped stays as separate lines: a bank upload adds the charge again, and the day shows as
 disagreeing, to be fixed by hand.
 
-1. The import sends a `PENDIENTE`/`PENDIENTES` category to `@Pendiente` and a
-   `PENDIENTE`/`PENDIENTES` hashtag to the built-in pending hashtag, each by its system key, and
-   creates neither name. The pending hashtag is found by `reads.pending_hashtag_of`, and a row
-   tagged both pending and real sends only the real one (`reads.hashtags_to_send`).
+1. The import sends a `PENDIENTE`/`PENDIENTES` or empty category to `@Pendiente` and a
+   `PENDIENTE`/`PENDIENTES` or empty hashtag to the built-in pending hashtag, each by its system
+   key, and creates neither name. The pending hashtag is found by `reads.pending_hashtag_of`, and
+   a row tagged both pending and real sends only the real one (`reads.hashtags_to_send`).
 2. A written run sheet for the owner: every command in order, with what to check after each —
    the wipe, the sheet import, then for each 2026 month: upload that month's statement, fix the
    days that disagree (a split, a duplicate), complete that month's reconciliation.
