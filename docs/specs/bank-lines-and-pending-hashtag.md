@@ -101,7 +101,8 @@ in and its engine change has landed.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
-   counting rows itself. Picked: 1 A, 4 A; 2 A to confirm; the after-import table still to pick.
+   counting rows itself. Picked: 1 A, 2 B, the after-import table B, 4 A (owner, 2026-10-17:
+   the recommended set).
 4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
    filtered ledger shows each part as its own row); `d` on a split purchase deletes the whole
    purchase; the mark, what `⏎` opens, and `c`, `h` with a split purchase selected still to pick.

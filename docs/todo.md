@@ -57,11 +57,9 @@ has arrived yet. Nothing in the app breaks.
 read ships, a ledger page reads each split purchase on it separately.
 
 ### Finish picking the bank-lines and pending-hashtag screens
-Asked 2026-10-16 · Blocks: tasks 3–5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+Asked 2026-10-16 · Blocks: tasks 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
 
 Your picks of 2026-10-17 are in the spec. Still open, each on its page's "To answer" box:
-- the bank upload, [mockups/expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html):
-  confirm 2 A, and a letter for the after-import table;
 - the ledger, redrawn your way, [mockups/expense-world-split-lines-ledger.html](mockups/expense-world-split-lines-ledger.html):
   a letter for the split mark, one for what `⏎` opens, and what `c` and `h` do with a split
   purchase selected;
