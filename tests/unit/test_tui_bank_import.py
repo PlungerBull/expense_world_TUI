@@ -7,6 +7,7 @@ the one engine call,
 that echoes each row's id and decides its outcome.
 """
 
+import re
 import threading
 
 import pytest
@@ -153,10 +154,11 @@ def _patch(monkeypatch) -> None:
     monkeypatch.setattr("expense.reads.count_transactions", lambda *a, **k: 0)
 
 
-def _engine(fake_client, decide=None, *, mismatches=None):
+def _engine(fake_client, decide=None, *, mismatches=None, counts=None):
     """Answer `POST /transactions/import` like the engine: every sent id back,
-    with the outcome `decide(index, row)` gives (default new). Every call is
-    still recorded on the fake client."""
+    with the outcome `decide(index, row)` gives (default new), and `counts`
+    as the engine's (default: the outcomes counted). Every call is still
+    recorded on the fake client."""
     record = fake_client.post
 
     def post(path, json_body=None):
@@ -175,7 +177,7 @@ def _engine(fake_client, decide=None, *, mismatches=None):
             result.update((decide or (lambda i, r: {}))(i, row))
             rows.append(result)
         outcomes = [r["outcome"] for r in rows]
-        counts = {
+        counted = {
             "new": outcomes.count("new"),
             "matched": outcomes.count("matched"),
             "sealed": outcomes.count("sealed"),
@@ -186,7 +188,7 @@ def _engine(fake_client, decide=None, *, mismatches=None):
             "dry_run": json_body["dry_run"],
             "rows": rows,
             "day_mismatches": mismatches or [],
-            "counts": counts,
+            "counts": counts or counted,
         }
 
     fake_client.post = post
@@ -230,6 +232,31 @@ def _body(screen) -> str:
 
 def _crumb(screen) -> str:
     return render_text(screen.query_one("#crumb", Static).render(), width=120)
+
+
+#: What the result table says the import did to a ledger row it left alone,
+#: and to file row 5, added as new.
+LEFT = "left as it was · no file row for it"
+NEW_5 = "added as new · file row 5"
+
+
+def _days_shown(preview) -> list[str]:
+    """The preview's lines from the days' `!` head down, each stripped."""
+    lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+    start = next(i for i, line in enumerate(lines) if line.startswith("! ") and "day" in line)
+    return lines[start:]
+
+
+def _table_shown(result) -> list[list[str]]:
+    """The result table's rows under its header, each cut into its columns."""
+    lines = _body(result).split("\n")
+    head = next(i for i, line in enumerate(lines) if "what the import did" in line)
+    assert lines[head].split() == ["date", "title", "amount", "what", "the", "import", "did"]
+    return [
+        [cell.strip() for cell in re.split(r"\s{2,}", line.strip())]
+        for line in lines[head + 1 :]
+        if line.strip()
+    ]
 
 
 async def _open(app, pilot) -> LogBarScreen:
@@ -280,12 +307,22 @@ def test_a_cards_two_legs_fold_into_one_line():
     assert lines[1].endswith("PEN")
 
 
-def test_result_lines_are_the_count_and_where_the_rows_landed():
+def test_result_lines_are_the_engines_counts_and_where_the_rows_landed():
+    """The head lines of screen 3: the engine's `new`, the pending category and
+    hashtag, and its `retitled` when any row took the bank's title."""
     group = account_groups(ACCOUNTS)[1]
-    assert [t.plain for t in result_lines(group, [])] == [
+    assert [t.plain for t in result_lines(group, AnswerCounts(0, 0, 0, 0, 0))] == [
         "✓ 0 rows imported · BCP PEN",
-        "  under @Pendiente",
+        "  under @Pendiente and #Pendiente",
     ]
+    assert [t.plain for t in result_lines(group, AnswerCounts(9, 5, 0, 0, 2))] == [
+        "✓ 9 rows imported · BCP PEN",
+        "  under @Pendiente and #Pendiente",
+        "  2 rows in the ledger took the bank's title",
+    ]
+    assert result_lines(group, AnswerCounts(1, 1, 0, 0, 1))[2].plain == (
+        "  1 row in the ledger took the bank's title"
+    )
 
 
 # ---- screen 5 A: not a bank file -----------------------------------------------
@@ -503,13 +540,12 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
         assert [r[0] for r in rows] == ["2", "3", "4", "5"]  # the file's own lines
         assert lines[3].endswith("new")
         assert lines[4].endswith("in ledger · same day")
-        assert lines[5].endswith("in ledger · operation")
-        assert "4 rows · 2 new · 2 in the ledger" in body
-        # the engine's days that disagree are read, not drawn (yet)
+        # the engine's `retitled` marks the row where `+code` sits (screen 1 A)
+        assert lines[5].endswith("in ledger · operation · +title")
+        assert lines[8] == "4 rows · 2 new · 2 in the ledger · 1 takes the bank's title"
         assert preview._mismatches == [PARSED_0907]
         assert preview._counts == AnswerCounts(new=2, matched=2, sealed=0, backfilled=0, retitled=1)
         assert [p.retitled for p in preview._placed] == [None, False, True, None]
-        assert [line for line in lines if line.strip()][-1] == "4 rows · 2 new · 2 in the ledger"
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
         assert _imports(fake_client) == [True]  # the dry run only
 
@@ -531,20 +567,47 @@ def _no_reads_per_part(monkeypatch) -> list:
 
 
 @pytest.mark.parametrize(
-    ("day", "lines"),
+    ("day", "lines", "shown", "table"),
     [
-        (DAY_0908_SPLIT, [("bl-2", -10000, ("t-2a", "t-2b"))]),
-        (DAY_0911_EQUAL, [("bl-3", 5000, ("t-3",)), ("bl-4", -5000, ("t-4",))]),
+        (
+            DAY_0908_SPLIT,
+            [("bl-2", -10000, ("t-2a", "t-2b"))],
+            [
+                "! 1 day where the file and the ledger disagree",
+                "2026-09-08 · BCP Signature PEN   file -4.20 · ledger after import -104.20",
+                "TOTTUS PORONGOCHE  -60.00   in the ledger, not claimed",
+                "TOTTUS PORONGOCHE  -40.00   in the ledger, not claimed",
+            ],
+            [
+                ["2026-09-08 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-60.00", LEFT],
+                ["2026-09-08 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-40.00", LEFT],
+            ],
+        ),
+        (
+            DAY_0911_EQUAL,
+            [("bl-3", 5000, ("t-3",)), ("bl-4", -5000, ("t-4",))],
+            [
+                "! 1 day where the file and the ledger disagree",
+                "2026-09-11 · BCP Signature PEN   file -49.00 · ledger after import -49.00",
+                "TOTTUS PORONGOCHE   50.00   in the ledger, not claimed",
+                "TOTTUS PORONGOCHE  -50.00   in the ledger, not claimed",
+            ],
+            [
+                ["2026-09-11 · BCP Signature PEN", "TOTTUS PORONGOCHE", "50.00", LEFT],
+                ["2026-09-11 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-50.00", LEFT],
+            ],
+        ),
     ],
     ids=["split-line-two-parts", "equal-totals-day"],
 )
-def test_reported_days_are_read_from_their_parts_on_both_screens(
-    fake_client, monkeypatch, tmp_path, day, lines
+def test_reported_days_are_drawn_from_their_parts_on_both_screens(
+    fake_client, monkeypatch, tmp_path, day, lines, shown, table
 ):
     """A split line (one entry, two parts) and a day reported with equal totals:
-    the preview and the result open and draw as with any other answer, each
-    holds the day's lines with their signed `net_cents` and their parts, and no
-    transaction is read to fill them."""
+    each part is its own row, its amount signed off the engine's magnitude and
+    type, under the engine's two totals as sent; the result lists the same parts
+    as left as they were. The screens hold each line's signed `net_cents` and its
+    parts, and no transaction is read to fill them."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
@@ -557,11 +620,7 @@ def test_reported_days_are_read_from_their_parts_on_both_screens(
         await _preview(pilot, app)
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
-        body = _body(preview)
-        assert "4 rows · 2 new · 2 in the ledger" in body
-        assert [line for line in body.split("\n") if line.strip()][-1].strip() == (
-            "4 rows · 2 new · 2 in the ledger"
-        )
+        assert _days_shown(preview) == shown
         (held,) = preview._mismatches
         assert (held.file_net_cents, held.ledger_net_cents) == (
             day["file_net_cents"],
@@ -576,11 +635,341 @@ def test_reported_days_are_read_from_their_parts_on_both_screens(
         ]
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        lines_shown = [line.strip() for line in _body(result).split("\n") if line.strip()]
-        assert lines_shown == ["✓ 2 rows imported · BCP Signature", "under @Pendiente"]
+        assert _table_shown(result) == table
         assert result._mismatches == preview._mismatches
         assert reads_made == []
         assert [m for m, _ in fake_client.requests if m == "GET"] == []
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_summary_and_the_footer_read_the_engines_counts(fake_client, monkeypatch, tmp_path):
+    """Screen 1 A: the summary's verdict counts and `⏎ Import N rows` are the
+    engine's `counts`, not the rows counted — here they disagree on purpose."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    counts = {"new": 7, "matched": 5, "sealed": 0, "backfilled": 0, "retitled": 3}
+    _engine(fake_client, _two_new_two_in_ledger, counts=counts)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        assert lines[-1] == "4 rows · 7 new · 5 in the ledger · 3 take the bank's title"
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 7 rows"}
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
+        assert lines == [
+            "✓ 7 rows imported · BCP Signature",
+            "under @Pendiente and #Pendiente",
+            "3 rows in the ledger took the bank's title",
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_reported_day_lists_the_file_rows_not_found_and_the_ledger_rows_not_claimed(
+    fake_client, monkeypatch, tmp_path
+):
+    """Screen 2 B: the old "no file row matched" warning is gone; the day shows
+    its two totals, the file's row by its line and the ledger's by title and
+    signed amount."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client, _two_new_two_in_ledger, mismatches=[DAY_0907])
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        assert _days_shown(preview) == [
+            "! 1 day where the file and the ledger disagree",
+            "2026-09-07 · BCP Signature PEN   file -3.50 · ledger after import -7.00",
+            "row 5   APPARKA MALL AVENTURA AREQU  -3.50   in the file, not found",
+            "TOTTUS PORONGOCHE            -3.50   in the ledger, not claimed",
+        ]
+        body = _body(preview)
+        assert "no file row matched" not in body and "unmatched" not in body
+        # the ledger row sits under the file row's title, not under its tag
+        rows = [line for line in body.split("\n") if "not found" in line or "not claimed" in line]
+        assert rows[0].index("APPARKA") == rows[1].index("TOTTUS")
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}  # a report only
+
+    run_app(scenario, size=(120, 40))
+
+
+#: A card file's two accounts, one reported day each: the PEN leg's row 5 not
+#: found, and on the USD leg a ledger row the file did not claim.
+DAY_0909_USD = {
+    "account_id": "sig-usd",
+    "date": "2026-09-09",
+    "file_net_cents": -2117,
+    "ledger_net_cents": -4234,
+    "unmatched_rows": [],
+    "unclaimed_lines": [
+        {
+            "bank_line_id": "bl-9",
+            "net_cents": -2117,
+            "parts": [
+                import_part(
+                    "t-9", -2117, account_id="sig-usd", line="bl-9", day="2026-09-09", title="Apple"
+                )
+            ],
+        }
+    ],
+}
+
+
+def test_a_card_files_days_name_their_account_on_both_screens(fake_client, monkeypatch, tmp_path):
+    """A card's two currencies are two accounts: every day on the preview, and
+    every row of the result's table, names its account."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client, _two_new_two_in_ledger, mismatches=[DAY_0907, DAY_0909_USD])
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        assert _days_shown(preview) == [
+            "! 2 days where the file and the ledger disagree",
+            "2026-09-07 · BCP Signature PEN   file  -3.50 · ledger after import  -7.00",
+            "row 5   APPARKA MALL AVENTURA AREQU   -3.50   in the file, not found",
+            "TOTTUS PORONGOCHE             -3.50   in the ledger, not claimed",
+            "2026-09-09 · BCP Signature USD   file -21.17 · ledger after import -42.34",
+            "Apple                        -21.17   in the ledger, not claimed",
+        ]
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
+        assert lines[3:5] == [
+            "! 2 days where the ledger may now hold the same movement twice —",
+            "check them and delete the extra one",
+        ]
+        assert _table_shown(result) == [
+            ["2026-09-07 · BCP Signature PEN", "APPARKA MALL AVENTURA AREQU", "-3.50", NEW_5],
+            ["2026-09-07 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-3.50", LEFT],
+            ["2026-09-09 · BCP Signature USD", "Apple", "-21.17", LEFT],
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch, tmp_path):
+    """On a file of one account the days are not named by account; the result
+    table says what the import did to each row."""
+    path = _bank_file(tmp_path)
+    rows = [("2026-09-12", "FARMACIA CENTRAL", "S/", -42.9), ("2026-09-11", "CINE", "S/", -28)]
+    day = {
+        "account_id": "bcp-pen",
+        "date": "2026-09-12",
+        "file_net_cents": -4290,
+        "ledger_net_cents": -8490,
+        "unmatched_rows": [0],
+        "unclaimed_lines": [
+            {
+                "bank_line_id": "bl-f",
+                "net_cents": -4200,
+                "parts": [
+                    import_part(
+                        "t-f",
+                        -4200,
+                        account_id="bcp-pen",
+                        line="bl-f",
+                        day="2026-09-12",
+                        title="Farmacia",
+                    )
+                ],
+            }
+        ],
+    }
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, rows)})
+    _engine(fake_client, mismatches=[day])
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN
+        preview = await _previewed(pilot, app)
+        assert _days_shown(preview) == [
+            "! 1 day where the file and the ledger disagree",
+            "2026-09-12   file -42.90 · ledger after import -84.90",
+            "row 2   FARMACIA CENTRAL  -42.90   in the file, not found",
+            "Farmacia          -42.00   in the ledger, not claimed",
+        ]
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        assert _table_shown(result) == [
+            ["2026-09-12", "FARMACIA CENTRAL", "-42.90", "added as new · file row 2"],
+            ["2026-09-12", "Farmacia", "-42.00", LEFT],
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_closed_period_rows_count_the_engines_number_and_name_their_period_on_both_screens(
+    fake_client, monkeypatch, tmp_path
+):
+    """The closed-period note's number is the engine's `counts.sealed` (here
+    deliberately not the rows answered `sealed`), each sealed row still listed;
+    and the result table names a sealed row's period with the names the preview
+    read, never "a closed period"."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_reconciliations",
+        lambda *a, **k: whole([{"id": "r1", "name": "September 2026"}]),
+    )
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    day = {
+        "account_id": "sig-pen",
+        "date": "2026-09-11",
+        "file_net_cents": -4900,
+        "ledger_net_cents": 0,
+        "unmatched_rows": [0],
+        "unclaimed_lines": [],
+    }
+    counts = {"new": 3, "matched": 0, "sealed": 2, "backfilled": 0, "retitled": 0}
+    _engine(
+        fake_client,
+        lambda i, r: {"outcome": "sealed", "sealed_by": "r1"} if i == 0 else {},
+        mismatches=[day],
+        counts=counts,
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        at = lines.index(
+            "! 2 rows fall inside a closed period and never go in — revert the period to add them"
+        )
+        assert lines[at + 1] == (
+            "row 2 · 2026-09-11 · EDO SUSHI BAR LI · -49.00 · BCP Signature PEN — September 2026"
+        )
+        assert "4 rows · 3 new · 0 in the ledger · 2 in a closed period" in lines
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        assert _table_shown(result) == [
+            [
+                "2026-09-11 · BCP Signature PEN",
+                "EDO SUSHI BAR LI",
+                "-49.00",
+                "closed · September 2026 · file row 2",
+            ],
+        ]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_row_changed_while_the_import_ran_previews_again_before_any_write(
+    fake_client, monkeypatch, tmp_path
+):
+    """Screen 4 A: the apply's `409 CONFLICT` with `CONCURRENT_CHANGE` on
+    `rows.<index>` shows the engine's words with the file's line, and `⏎ Preview
+    again` asks for a fresh dry run; the next apply waits for its own `⏎`."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client, _two_new_two_in_ledger)
+    words = "Another request changed this row's ledger line. Send it again."
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        fake_client.errors["POST"] = EngineError(
+            "CONFLICT",
+            "The ledger changed while the import ran.",
+            {"rows.2": words},
+            409,
+            {},
+            {"rows.2": "CONCURRENT_CHANGE"},
+        )
+        await pilot.press("enter")
+        await wait_for(
+            pilot,
+            lambda: bool(preview._failure) and bool(app._notifications),
+            message="no failure shown, or no toast",
+        )
+        lines = [line.strip() for line in _body(preview).split("\n")]
+        at = lines.index("CONFLICT — The ledger changed while the import ran.")
+        assert lines[at : at + 5] == [
+            "CONFLICT — The ledger changed while the import ran.",
+            f"! row 4: {words}",  # the file's line for the engine's index 2
+            "Nothing was written.",
+            "",
+            "It changed while the import ran: ⏎ checks the file against the ledger again.",
+        ]
+        assert str(list(app._notifications)[-1].message) == (
+            "CONFLICT — The ledger changed while the import ran.\n"
+            f"  rows.2: {words}\n\n"
+            "It changed while the import ran: ⏎ checks the file against the ledger again."
+        )
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Preview again"}
+        assert _imports(fake_client) == [True, False]
+
+        del fake_client.errors["POST"]
+        await pilot.press("enter")  # a fresh dry run, never the apply
+        await wait_for(
+            pilot, lambda: preview._placed is not None, message="the preview did not run again"
+        )
+        assert _imports(fake_client) == [True, False, True]
+        assert preview._failure == []
+        assert "CONFLICT" not in _body(preview)
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
+
+        await pilot.press("enter")  # only now is the file written
+        await _on(pilot, app, ImportResultScreen, "no result screen")
+        assert _imports(fake_client) == [True, False, True, False]
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_row_refusal_naming_no_row_is_not_a_reason_to_preview_again(
+    fake_client, monkeypatch, tmp_path
+):
+    """`CONCURRENT_CHANGE` keyed by anything but a row keeps the other saves'
+    line, and `⏎` sends nothing more."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        fake_client.errors["POST"] = EngineError(
+            "CONFLICT", "stand-in", {"rows": "x"}, 409, {}, {"rows": "CONCURRENT_CHANGE"}
+        )
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: bool(preview._failure), message="no failure shown")
+        assert "It changed at the same moment: save again." in _body(preview)
+        assert _shown(preview) == {"escape": "Cancel"}
+        await pilot.press("enter")
+        await pilot.pause()
+        assert _imports(fake_client) == [True, False]
 
     run_app(scenario, size=(120, 40))
 
@@ -682,10 +1071,18 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
         assert _imports(fake_client) == [True, False]
         lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
-        assert lines == ["✓ 2 rows imported · BCP Signature", "under @Pendiente"]
-        # the apply's days that disagree and counts are read, not drawn (yet)
+        assert lines[:5] == [
+            "✓ 2 rows imported · BCP Signature",
+            "under @Pendiente and #Pendiente",
+            "1 row in the ledger took the bank's title",
+            "! 1 day where the ledger may now hold the same movement twice —",
+            "check it and delete the extra one",
+        ]
+        assert _table_shown(result) == [
+            ["2026-09-07 · BCP Signature PEN", "APPARKA MALL AVENTURA AREQU", "-3.50", NEW_5],
+            ["2026-09-07 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-3.50", LEFT],
+        ]
         assert result._mismatches == [PARSED_0907]
-        assert result._counts.retitled == 1
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
         # the two calls are one logical write each: the same rows, the same ids
         (_, dry), (_, applied) = fake_client.posts

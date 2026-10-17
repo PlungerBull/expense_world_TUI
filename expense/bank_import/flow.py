@@ -1,6 +1,6 @@
 """The steps of a bank import every door shares: read the file, fold the
 accounts into picks, place the rows on the pick's legs, make the one call, and
-count the answer.
+put the engine's counts beside the file's.
 
 No typer and no printing: a refusal is `ImportRefused`, whose message is the
 sentence the door shows.
@@ -12,6 +12,7 @@ from expense import reads
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
     IMPORT_MAX_ROWS,
+    AnswerCounts,
     IncompleteAnswer,
     Placed,
     SentRow,
@@ -213,42 +214,41 @@ def period_names(cfg, placed: list[Placed], *, verbose: bool) -> tuple[dict[str,
 
 @dataclass(frozen=True)
 class ImportCounts:
-    """What one answer adds up to — the figures both doors' summaries print."""
+    """What one answer adds up to — the figures the summary prints. The rows'
+    verdicts are the engine's `counts`; the rest are the file's own lines."""
 
     total: int  # the file's lines: read, refused, and under the floor alike
     new: int
     matched: int
-    by_rule: dict[str, int]
-    codes: int  # matched rows the engine writes an operation code onto
     sealed: int
+    retitled: int  # matched rows that take (or took) the bank's title
     before_floor: int
     refused: int
 
 
-def import_counts(prepared: Prepared, placed: list[Placed]) -> ImportCounts:
-    by_rule: dict[str, int] = {}
-    for p in placed:
-        if p.outcome == "matched":
-            by_rule[p.rule or ""] = by_rule.get(p.rule or "", 0) + 1
+def import_counts(prepared: Prepared, counts: AnswerCounts) -> ImportCounts:
+    """The engine's `counts` beside the file's own: no row of the answer is
+    counted here."""
     return ImportCounts(
         total=len(prepared.rows) + len(prepared.bad),
-        new=sum(1 for p in placed if p.outcome == "new"),
-        matched=sum(by_rule.values()),
-        by_rule=by_rule,
-        codes=sum(1 for p in placed if p.backfill_code),
-        sealed=sum(1 for p in placed if p.outcome == "sealed"),
+        new=counts.new,
+        matched=counts.matched,
+        sealed=counts.sealed,
+        retitled=counts.retitled,
         before_floor=len(prepared.before_floor),
         refused=len(prepared.bad),
     )
 
 
-def sealed_lines(placed: list[Placed], names: dict[str, str]) -> list[str]:
+def sealed_lines(placed: list[Placed], names: dict[str, str], counts: AnswerCounts) -> list[str]:
     """Rows inside a closed period, as their own block: never written, and
-    shown so a bank restating something in a closed month is noticed."""
+    shown so a bank restating something in a closed month is noticed. The
+    head line's number is the engine's `counts.sealed`; the rows under it are
+    the ones it answered `sealed`."""
     sealed = [p for p in placed if p.outcome == "sealed"]
-    if not sealed:
+    n = counts.sealed
+    if not sealed and not n:
         return []
-    n = len(sealed)
     lines = [
         f"! {n} row{'' if n == 1 else 's'} fall{'s' if n == 1 else ''} inside a closed "
         f"period and never go{'es' if n == 1 else ''} in — revert the period to add them"

@@ -233,6 +233,8 @@ def match_label(p: Placed, period_names: dict[str, str]) -> str:
     label = f"in ledger · {RULE_LABELS.get(p.rule or '', p.rule or '?')}"
     if p.backfill_code:
         label += " · +code"
+    if p.retitled:
+        label += " · +title"
     return label
 
 
@@ -245,21 +247,30 @@ def sealed_accounts(placed: list[Placed]) -> list[str]:
     return seen
 
 
-def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, str, str]]:
-    """A `422`'s `rows.<index>.<field>` keys → (the file's line, field, message).
+def row_index(key: object) -> int | None:
+    """The sent row's index a refusal's key names — `rows.<index>` or
+    `rows.<index>.<field>` — or None for any other key."""
+    parts = str(key).split(".", 2)
+    if len(parts) >= 2 and parts[0] == "rows" and parts[1].isdigit():
+        return int(parts[1])
+    return None
+
+
+def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, str | None, str]]:
+    """A refusal's `rows.<index>` and `rows.<index>.<field>` keys → (the file's
+    line, field, message); the field is None when the key names the row alone.
 
     The engine counts the rows it was sent; the user counts the file's lines.
     A key that names no row keeps its line as None and its key as the field.
     """
-    out: list[tuple[int | None, str, str]] = []
+    out: list[tuple[int | None, str | None, str]] = []
     if not isinstance(fields, dict):
         return out
     for key, message in fields.items():
-        parts = str(key).split(".", 2)
-        if len(parts) == 3 and parts[0] == "rows" and parts[1].isdigit():
-            i = int(parts[1])
-            if i < len(sent):
-                out.append((sent[i].row.line, parts[2], str(message)))
-                continue
+        i = row_index(key)
+        if i is not None and i < len(sent):
+            parts = str(key).split(".", 2)
+            out.append((sent[i].row.line, parts[2] if len(parts) == 3 else None, str(message)))
+            continue
         out.append((None, str(key), str(message)))
     return out

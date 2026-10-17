@@ -66,6 +66,25 @@ def format_cents(value: object) -> str:
     return f"-{body}" if negative else body
 
 
+#: The `transaction_type` of money out on an unsigned transaction response;
+#: the other type, 2, is money in
+#: (contract: "Base Conventions", "Sign convention — responses").
+OUTFLOW_TYPE = 1
+
+
+def signed_cents(transaction: dict) -> int:
+    """A transaction response's `amount_cents` signed the app's way: negative
+    for money out, positive for money in.
+
+    The one place the app reads the sign off `transaction_type`. Every read
+    the app makes asks for signed amounts (`debit_as_negative=true`); this is
+    for the responses the engine sends only as a magnitude and a type, the
+    bank upload's unclaimed parts among them (contract: POST /v1/transactions/import).
+    """
+    magnitude = abs(int(transaction.get("amount_cents") or 0))
+    return -magnitude if transaction.get("transaction_type") == OUTFLOW_TYPE else magnitude
+
+
 UNRATED_SUFFIX = "unrated"
 
 

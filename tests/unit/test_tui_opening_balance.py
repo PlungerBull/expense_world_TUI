@@ -669,7 +669,8 @@ def _string_keys(paths) -> set[str]:
 
 
 def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
-    """The TUI and the shared reads never read `transaction_type`, and the
+    """Nothing in the app reads `transaction_type` but `formatting.signed_cents`,
+    the one place a sign is read off the type, and the
     account Edit form never looks its opening balance up through the @Opening
     category; the account names it. The category's `system_key` has one home,
     `reads.OPENING_SYSTEM_KEY`, which only tells the ledger's edit form that a
@@ -680,7 +681,9 @@ def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
     import expense
 
     root = Path(expense.__file__).parent
-    assert "transaction_type" not in _string_keys([root / "tui", root / "reads.py"])
+    elsewhere = [file for file in sorted(root.rglob("*.py")) if file != root / "formatting.py"]
+    assert "transaction_type" not in _string_keys(elsewhere)
+    assert "transaction_type" in _string_keys([root / "formatting.py"])  # signed_cents
     assert "opening_balance" not in _string_keys([root / "tui"])
     reads_tree = ast.parse((root / "reads.py").read_text())
     literals = [

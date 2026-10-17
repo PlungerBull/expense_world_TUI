@@ -20,7 +20,7 @@ Every read is a direct `GET`. What a screen shows is what the engine computed at
 
 - The engine's responses are IDs-only; the screens resolve names through live reference-list reads (`load_*_name_map` in [expense/reads.py](../expense/reads.py)), with a short-id fallback when one fails.
 - **Deleted is deleted.** A deleted row is invisible to every client — no list returns it, its get is a 404 — and nothing in the app restores it. The engine keeps the row in its table; undeleting is an operator task outside the API (contract: "Base Conventions", "There is no restore"). The engine's activity history still holds a deleted row's history; this client has no screen for it.
-- Transaction reads always send `debit_as_negative=true`, so the request pins the sign rather than depending on the engine default.
+- Transaction reads always send `debit_as_negative=true`, so the request pins the sign rather than depending on the engine default. The bank upload's unclaimed parts arrive unsigned, as a magnitude and a `transaction_type` (contract: POST /v1/transactions/import); `signed_cents` in [expense/formatting.py](../expense/formatting.py) signs them, the one place the app reads the sign off the type.
 
 ### Three list shapes
 

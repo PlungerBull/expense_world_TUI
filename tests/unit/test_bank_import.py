@@ -270,6 +270,10 @@ def test_each_outcome_and_rule_has_its_words():
     assert label(**{**matched, "rule": "same_day"}) == "in ledger · same day"
     coded = {**matched, "rule": "same_day", "backfill_code": "1"}
     assert label(**coded) == "in ledger · same day · +code"
+    # the engine's `retitled` sits where `+code` does, after it when both apply
+    retitled = {**matched, "rule": "same_day", "retitled": True}
+    assert label(**retitled) == "in ledger · same day · +title"
+    assert label(**{**coded, "retitled": True}) == "in ledger · same day · +code · +title"
     sealed = {**base, "outcome": "sealed", "sealed_by": "r1"}
     assert label(**sealed) == "closed · September 2026"
     assert label(**{**sealed, "sealed_by": "gone"}) == "closed · a closed period"
@@ -399,8 +403,14 @@ def test_the_engines_counts_include_retitled():
 
 def test_a_refusal_names_the_files_line_not_the_engines_index():
     sent = _sent()
-    refusals = row_refusals({"rows.2.date": "Must not be in the future.", "rows": "odd"}, sent)
-    assert refusals == [(4, "date", "Must not be in the future."), (None, "rows", "odd")]
+    refusals = row_refusals(
+        {"rows.2.date": "Must not be in the future.", "rows.0": "Changed.", "rows": "odd"}, sent
+    )
+    assert refusals == [
+        (4, "date", "Must not be in the future."),
+        (2, None, "Changed."),  # a key naming the row alone
+        (None, "rows", "odd"),
+    ]
 
 
 # ---- an operation code the bank never issued --------------------------------

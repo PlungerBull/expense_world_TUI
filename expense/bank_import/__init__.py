@@ -11,7 +11,7 @@ Three modules, none of which prints or imports typer:
                and ledger totals disagree
     flow.py    the steps every door shares: read the file, fold the accounts
                into picks, place the rows on the pick's legs, make the one
-               call, count the answer
+               call, the engine's counts beside the file's
 
 parse.py and engine.py are pure (no HTTP, no config). The matching itself is
 the engine's (contract: POST /v1/transactions/import). The door is

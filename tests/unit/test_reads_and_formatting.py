@@ -20,6 +20,7 @@ from expense.formatting import (
     has_aggregate,
     redact_token,
     settled_label,
+    signed_cents,
     split_settled,
 )
 from expense.reads import (
@@ -64,6 +65,14 @@ def test_format_cents_non_int_falls_back_to_str():
     # Booleans are an int subclass but are never amounts — keep them literal.
     assert format_cents(True) == "True"
     assert format_cents("n/a") == "n/a"
+
+
+def test_signed_cents_reads_the_sign_off_the_type():
+    """An unsigned transaction response — a magnitude and `transaction_type`,
+    1 out and 2 in (contract: "Base Conventions", "Sign convention — responses")
+    — signed the app's way."""
+    assert signed_cents({"amount_cents": 2590, "transaction_type": 1}) == -2590
+    assert signed_cents({"amount_cents": 5000, "transaction_type": 2}) == 5000
 
 
 # ---------------------------------------------------------------------------

@@ -144,13 +144,6 @@ engine now reconciles a purchase whole.
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
 in and its engine change has landed.
 
-3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
-   matched rows that took the bank's description, and their count; and the "changed while
-   running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
-   counting rows itself. The ledger rows the file did not claim are drawn from the engine's
-   parts, each part as its own row as 2 B draws them, with no read per row; nothing is done to
-   them (owner, 2026-10-17). Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
-   2026-10-17: the recommended set). The mockup's screen 5 is not built.
 5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
    opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
    Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);
