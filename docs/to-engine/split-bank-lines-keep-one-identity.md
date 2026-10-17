@@ -1,6 +1,6 @@
 # A bank line split into several transactions keeps one identity, so a re-import recognises it
 
-Raised 2026-10-15.
+Raised 2026-10-15. Shipped in contract `3129bfa2c43a4446`. This client is catching up with it.
 
 ## Why
 

@@ -1,6 +1,6 @@
 # A built-in `#Pendiente` hashtag that every row with no hashtag lands on, as `@Pendiente` does for categories
 
-Raised 2026-10-15.
+Raised 2026-10-15. Shipped in contract `3129bfa2c43a4446`. This client is catching up with it.
 
 ## Why
 

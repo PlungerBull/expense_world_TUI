@@ -1,7 +1,7 @@
 # The built-in categories and the built-in pending hashtag cannot be renamed
 
-Raised 2026-10-16. Accepted as asked by the engine coders on 2026-10-16; their spec waits for the
-engine owner's approval, and the change arrives as its own hand-off file.
+Raised 2026-10-16. Shipped as asked in contract `890453f80a08cec9`. This client is catching up
+with it.
 
 ## Why
 

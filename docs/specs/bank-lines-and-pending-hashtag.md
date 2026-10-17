@@ -1,12 +1,15 @@
 # Catch up with bank lines, splits and the pending hashtag
 
 **Status: approved by the owner (2026-10-16); the loop runs on it.**
-The engine change it catches up with:
-[from-engine/bank-lines-and-pending-hashtag.md](../from-engine/bank-lines-and-pending-hashtag.md),
-every contract change from `42d70a629215928d` to `3129bfa2c43a4446`. When done, the why moves to
-[decisions.md](../decisions.md), and this file, that answer and the two asks it answers are
-deleted: [to-engine/split-bank-lines-keep-one-identity.md](../to-engine/split-bank-lines-keep-one-identity.md)
-and [to-engine/built-in-pending-hashtag.md](../to-engine/built-in-pending-hashtag.md).
+**Catches up to contract `890453f80a08cec9`:** every contract change after `42d70a629215928d`.
+It holds the engine's two hand-offs for that range, "Bank lines and splits keep one identity
+across re-imports, and every transaction now carries at least one hashtag" (up to
+`3129bfa2c43a4446`) and "A bank line can be read, the import's mismatched days show what each
+unclaimed line is, and system rows keep their names" (up to `890453f80a08cec9`): what they ask of
+this client is in the tasks, their checks in "The engine's checks", and what the engine declined
+in "What the engine declined". When done, the why moves to [decisions.md](../decisions.md), where
+it replaces "Manage detail: system categories are editable, not immutable", and this file and
+the asks its reply closes are deleted.
 
 ---
 
@@ -22,8 +25,10 @@ hashtag lands).
   already has, which are new, and which matched rows took the bank's description. The old "rows
   left over" view is replaced by the engine's list of days whose totals disagree between the file
   and the ledger: both totals, the file rows not found, and the ledger rows the file did not
-  claim. When another change lands on a matched row while the upload runs, the screen says so
-  and offers to run it again.
+  claim. A purchase the file did not claim is one entry with its total, a split one with its
+  parts, and a day is listed even when its totals agree if it holds such a purchase. When another
+  change lands on a matched row while the upload runs, the screen says so and offers to run it
+  again.
 - **A row a day off is new.** Accepted by the owner (2026-10-16): a purchase the bank posts a day
   after it was typed is added again, and shows in the days that disagree.
 - **Split a purchase.** On a transaction, a split action divides it into parts, each with its own
@@ -33,8 +38,8 @@ hashtag lands).
 - **Split parts read as one purchase (owner, 2026-10-17).** In the ledger, a split purchase is
   one line with its title and total and a mark that it is split; its parts show when it is
   opened. A ledger filtered from Home shows each part as its own row.
-- **Editing a part says what it reaches.** Changing the title, date or account of a part
-  changes every part of the purchase; the form says so before saving.
+- **Editing a part says what it reaches.** Changing the title, date or account of a part of a
+  split purchase changes every part of it; the form says so before saving.
 - **The spreadsheet import does not group split rows.** The sheet comes in as it is, one
   transaction per row (owner, 2026-10-16), so the engine's grouped batch (`line_group`) is not
   used yet.
@@ -48,14 +53,12 @@ hashtag lands).
   hashtags sends only the real ones.
 - **The built-in rows keep their names (owner, 2026-10-16).** The pending hashtag, `@Pendiente`
   and `@Opening` are system values: no screen offers to delete or rename them, and a user
-  hashtag cannot be named `Pendiente`. Refusals show as the engine sends them. Renaming is
-  refused by the engine once
-  [to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md)
-  lands; until then the rename stays offered.
+  hashtag cannot be named `Pendiente`. The engine refuses a rename too; refusals show as the
+  engine sends them.
 - **An opening balance carries no hashtag.** Its edit form offers no hashtag change.
 
-No client-side matching, title comparison, neighbouring-day logic or "untagged" computing is
-left in the app; the engine decides.
+No client-side matching, title comparison, neighbouring-day logic, "untagged" computing or
+adding up of a purchase's parts is left in the app; the engine decides.
 
 Every one of these that changes what a screen shows is drawn as a mockup and picked by the owner
 before it is built.
@@ -73,43 +76,97 @@ before it is built.
 6. A transaction logged with no hashtag shows the pending hashtag; tagging it leaves only the
    real one, and Home's pending row lists it until then.
 7. Deleting or renaming the pending hashtag, `@Pendiente` or `@Opening` is not offered.
+8. An upload with a day whose totals agree but which holds a ledger purchase the file did not
+   claim lists that day and that purchase; a split one shows as one entry with its parts.
+
+## The engine's checks
+
+The engine's own "Done when" for this range. The tester's acceptance check runs each one, and
+the reply to the engine reports each result.
+
+1. The app splits a transaction, re-splits a line and edits a part through the split and edit
+   routes.
+2. A statement imported, split, and imported again shows every row as matched and nothing new,
+   including a card line with no operation code.
+3. A grouped batch creates one line, and a later import of the bank's row matches it. The sheet
+   import does not group (owner, 2026-10-16), so the live contract suite is what proves it.
+4. The upload reads `bank_line_id`, `retitled` and `day_mismatches`, and no longer reads
+   `ledger_id`, `excess` or `adjacent_day`.
+5. The upload draws each unclaimed line from `parts` and `net_cents`, with no read of
+   `transaction_ids` and no read per transaction; a day with equal totals but an unclaimed line
+   shows that line.
+6. The pending hashtag is found by `system_key`; "needs a hashtag" lists through `?hashtag_id=`
+   and shows the same count as `/transactions/count`.
+7. A transaction created with no hashtag shows the pending one; tagging it with a real hashtag
+   leaves only the real one. No client code computes or shows an empty hashtag row in reports.
+8. Re-split and the "reaches every part" note read `GET /bank-lines/{id}` and `?bank_line_id=`;
+   the app adds no amounts of its own.
+9. No screen offers a rename on `@Opening`, `@Pendiente` or the pending hashtag. The engine keeps
+   their colour and order editable; Manage offers no edit on the system categories (task 8), so
+   the live contract suite is what proves the engine accepts it.
+10. Each new reason has a handled path: `SPLIT_TOTAL_MISMATCH`, `SPLIT_RECONCILIATION_MIXED`,
+    `SPLIT_LINE_PARTS_DIVERGE`, `OPENING_BALANCE_NOT_SPLIT`, `LINE_GROUP_FIELDS_DIFFER`,
+    `PENDING_HASHTAG_NOT_ALONE`, `OPENING_BALANCE_NOT_TAGGED`, `SYSTEM_HASHTAG`,
+    `SYSTEM_NAME_FIXED`.
+
+## What the engine declined
+
+- **Reading up to 200 bank lines in one call.** A line's figures are read when one line is
+  opened (re-split, the "reaches every part" note), not across a ledger page. Drawing a ledger
+  page one row per purchase is the open ask
+  [to-engine/list-the-ledger-by-bank-line.md](../to-engine/list-the-ledger-by-bank-line.md).
+- **A line's total and part count on every transaction.** A response names other records by id
+  only, and a transaction's response would change without its `version` moving. A transaction
+  carries `bank_line_id`; the figures come from `GET /bank-lines/{id}`.
+- **A signed amount on the upload's unclaimed parts.** The parts are ordinary transaction
+  responses: `amount_cents` positive, the direction in `transaction_type`. Only totals are
+  signed.
+
+The engine also names one leftover: the `OPERATION_CODE_EXISTS` reason now speaks of bank lines,
+but the refusal's message still says "A transaction with operation code … already exists". The
+app chooses hints by reason, so nothing here changes; the engine fixes the wording in a later
+hand-off.
 
 ## Tasks
 
-Approved by the owner (2026-10-16). Each **[UI]** task starts with its mockup; the build waits for
-the owner's pick. Tasks 1, 2 and 9 are done; the live contract tests cover every new refusal
-reason except `SPLIT_LINE_PARTS_DIVERGE`, which no current route can produce.
+Approved by the owner (2026-10-16); task 10 waits for approval. Each **[UI]** task starts with
+its mockup; the build waits for the owner's pick. Tasks 1, 2 and 9 are done; the live contract
+tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`,
+which no current route can produce.
 
-Engine asks this spec waits on; each task below that needs one waits for its hand-off file and
-its contract version, and is built against the live contract, not the ask. Accepted by the engine
-coders on 2026-10-16:
-[to-engine/read-a-bank-line.md](../to-engine/read-a-bank-line.md) (tasks 4–6; its first half
-is in contract `c572d3a5f4f509d1`),
-[to-engine/day-mismatch-lines-carry-what-they-are.md](../to-engine/day-mismatch-lines-carry-what-they-are.md)
-(task 3's ledger rows the file did not claim; it removes `transaction_ids` from those entries,
-which the upload reads today) and
-[to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md)
-(task 8's rename part). Raised on 2026-10-17, for the owner to hand over:
+Engine asks this spec still waits on, raised on 2026-10-17 for the owner to hand over:
 [to-engine/list-the-ledger-by-bank-line.md](../to-engine/list-the-ledger-by-bank-line.md)
 (task 4), [to-engine/delete-a-bank-line.md](../to-engine/delete-a-bank-line.md) (task 4's
 `d`) and [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
-(task 6, and the reconciliation screen ticking a purchase whole).
+(task 6, and the reconciliation screen ticking a purchase whole). Each task that needs one waits
+for its hand-off and is built against the live contract, not the ask.
 
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
-in and its engine change has landed.
+in and its engine change has landed. Task 10 runs first.
 
+10. Read contract `890453f80a08cec9`. The upload reads each unclaimed line as `bank_line_id`,
+    `net_cents` and `parts`, and no longer reads `transaction_ids` (removed by the engine; the
+    upload reads it as empty today, so its unclaimed lines lose their rows). The test fixtures
+    follow the new shape. `SYSTEM_NAME_FIXED` on `name` shows the engine's message. The live
+    contract suite covers `?bank_line_id=` on the list and the count, `GET /bank-lines/{id}`
+    (its `404` and `422` too), the new unclaimed-line shape, a day listed with equal totals, and
+    `SYSTEM_NAME_FIXED`.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
-   counting rows itself. Picked: 1 A, 2 B, the after-import table B, 4 A (owner, 2026-10-17:
-   the recommended set).
+   counting rows itself. Each unclaimed purchase is one entry drawn from the engine's parts and
+   total, with no read per row. Picked: 1 A, 2 B, the after-import table B, 4 A (owner,
+   2026-10-17: the recommended set). Two cases the mockup does not draw yet are drawn and picked
+   before the build: a split purchase the file did not claim, and a day listed with equal totals.
 4. **[UI]** The ledger shows a split purchase as one line, its parts inside. Picked: 2 A (a
    filtered ledger shows each part as its own row); `d` on a split purchase deletes the whole
    purchase; the mark, what `⏎` opens, and `c`, `h` with a split purchase selected still to pick.
-5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Picked: 2 B
-   (one typed line per part); 3 follows the ledger's pick; whether the screen stops `^s` until
-   nothing is left still to answer.
-6. **[UI]** The edit form's note that title, date and account reach every part. Picked: 1 B (the
+5. **[UI]** The split action: split, re-split, and the totals-don't-add-up refusal. Re-split
+   opens with the parts `?bank_line_id=` lists and the total `GET /bank-lines/{id}` reads.
+   Picked: 2 B (one typed line per part); 3 follows the ledger's pick; whether the screen stops
+   `^s` until nothing is left still to answer.
+6. **[UI]** The edit form's note that title, date and account reach every part, shown only on a
+   part of a split purchase (`part_count` above 1 in `GET /bank-lines/{id}`). Picked: 1 B (the
    note in the hint, only on date, title and account). Screen 2, a refusal caused by another
    part, is not built: a purchase is reconciled whole (owner, 2026-10-17), which
    [to-engine/reconcile-a-bank-line-whole.md](../to-engine/reconcile-a-bank-line-whole.md)
@@ -120,10 +177,26 @@ in and its engine change has landed.
    hashtag stages `#Pendiente`, like the category column).
 8. **[UI]** The hashtags screen as a table with a System column, marking the pending hashtag and
    offering no delete or rename on it; the categories screen offers no edit and no delete on
-   `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and the engine's new
-   rename refusals (the rename part waits on
-   [to-engine/system-rows-keep-their-names.md](../to-engine/system-rows-keep-their-names.md));
-   the categories legend and the `SYSTEM_CATEGORY` hint read "System categories cannot be
-   renamed or deleted."; deleting an ordinary hashtag says where its rows go; an opening
-   balance's edit form offers no hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal.
-   Picked: 2 A, 3 B, 4 B and B, 5 B, 6 A, 7 B; the Hashtags table still to approve.
+   `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and
+   `SYSTEM_NAME_FIXED` refusals; the categories legend and the `SYSTEM_CATEGORY` hint read
+   "System categories cannot be renamed or deleted."; no text says these rows can be renamed;
+   deleting an ordinary hashtag says where its rows go; an opening balance's edit form offers no
+   hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal. Picked: 2 A, 3 B, 4 B and B,
+   5 B, 6 A, 7 B; the Hashtags table still to approve.
+
+## Reply to the engine
+
+Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.
+
+- **Covers:** contract `42d70a629215928d` (exclusive) to `890453f80a08cec9` (inclusive),
+  answering the hand-offs "Bank lines and splits keep one identity across re-imports, and every
+  transaction now carries at least one hashtag" and "A bank line can be read, the import's
+  mismatched days show what each unclaimed line is, and system rows keep their names".
+- **Done when, checked:** each of "The engine's checks" above, with the tester's result.
+- **Contract problems found:** what the builds and the tester's run found, and whether the
+  `OPERATION_CODE_EXISTS` message still says "transaction".
+- **Asks this closes:** "A bank line split into several transactions keeps one identity, so a
+  re-import recognises it"; "A built-in `#Pendiente` hashtag that every row with no hashtag lands
+  on, as `@Pendiente` does for categories"; "Let a client read a bank line: its parts, its total
+  and its part count"; "A bank import's unclaimed ledger lines carry their total and their
+  parts"; "The built-in categories and the built-in pending hashtag cannot be renamed".

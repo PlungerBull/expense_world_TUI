@@ -1,8 +1,7 @@
 # A bank import's unclaimed ledger lines carry their total and their parts
 
-Raised 2026-10-16. Accepted by the engine coders on 2026-10-16, in the shape below; their spec
-waits for the engine owner's approval, and the change arrives as its own hand-off file. It is a
-breaking change: `transaction_ids` leaves these entries.
+Raised 2026-10-16. Shipped in contract `a924900619285f56`, in the shape below. This client is
+catching up with it.
 
 ## Why
 

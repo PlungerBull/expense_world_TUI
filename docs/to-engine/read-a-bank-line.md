@@ -1,9 +1,7 @@
 # Let a client read a bank line: its parts, its total and its part count
 
-Raised 2026-10-16. Accepted by the engine coders on 2026-10-16, in the shape below. Point 1 and
-the read of one line by id shipped in contract `c572d3a5f4f509d1`; the read of up to 200 lines per
-call is still to come, and the ask "the ledger can be read one bank line per row" asks whether it
-is still needed.
+Raised 2026-10-16. Shipped in contract `c572d3a5f4f509d1`, except the read of up to 200 lines per
+call, which the engine coders declined. This client is catching up with it.
 
 ## Why
 

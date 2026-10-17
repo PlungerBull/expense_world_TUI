@@ -27,15 +27,19 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for one catch-up file from `3129bfa2c43a4446`
-Asked 2026-10-17 · Blocks: every task of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
+### Approve task 10: read the engine's newest contract
+Asked 2026-10-17 · Blocks: [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md), every task
 
-This app has caught up to contract `3129bfa2c43a4446`. Ask the engine coders for one hand-off
-file covering every contract change after it, up to their current version
-([from-engine/README.md](from-engine/README.md)). It replaces the two files they sent since,
-`bank-line-reads.md` and `system-names-fixed.md`, which leave the step between `a924900619285f56`
-and `aa72f160099133ac` unexplained. When it arrives, the orchestrator folds it into the current
-spec as new tasks and a reply to the engine, and deletes all three files.
+The engine's catch-up file up to contract `890453f80a08cec9` is now part of the spec. It adds
+task 10, which runs first: the bank upload reads the ledger rows the file did not claim in the
+engine's new shape (today it loses them), the "can't rename a system row" refusal shows the
+engine's words, and the live tests cover the new reads. Nothing on screen changes. It also adds
+two cases to task 3's upload screen, to be drawn before it is built: a split purchase the file
+did not claim, and a day listed although its totals agree.
+- **A.** Approve task 10 as written.
+- **B.** Change it first (say how).
+
+**Recommended:** A, because without it the upload hides the rows the bank did not have.
 
 ### Finish picking the bank-lines and pending-hashtag screens
 Asked 2026-10-16 · Blocks: tasks 4, 5 and 8 of [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md)
