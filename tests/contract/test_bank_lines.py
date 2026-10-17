@@ -13,6 +13,8 @@ stand on rules only the engine can confirm. Pinned here:
     and `description` change only the part named;
   · a statement imported, split and imported again is every row `matched`, none
     `new`: by `operation_code`, and by `same_day` for a card row with no code;
+  · a batch whose two items share a `line_group` makes one line of two parts,
+    and a dry-run import of the bank's one row for its total is `matched` on it;
   · `?bank_line_id=` on the list and the count names exactly a line's parts; an
     id naming no line lists nothing and counts 0, a malformed one is `422`
     `INVALID_FORMAT` on `bank_line_id`, and a cursor issued under one line's
@@ -120,17 +122,6 @@ def _signed(client, tx_id: str) -> dict:
 def _live_ids(client, account_id: str) -> set[str]:
     listed = client.get("/transactions", params={"account_id": account_id})
     return {item["id"] for item in listed["items"]}
-
-
-@pytest.fixture
-def statuses(client):
-    """The HTTP status of every response `client` receives, in order. The client
-    returns only the body on success, so the `201` is read off httpx's own hook on
-    the repo client's transport."""
-    seen: list[int] = []
-    hooks = client._client.event_hooks
-    hooks["response"] = [*hooks.get("response", []), lambda r: seen.append(r.status_code)]
-    return seen
 
 
 def test_split_then_re_split_keep_the_line(client, statuses):
@@ -380,6 +371,66 @@ def test_a_line_group_whose_items_differ_is_line_group_fields_differ(client):
         for key in ("transactions.0.title", "transactions.1.title"):
             assert reason_on(err, key) == "LINE_GROUP_FIELDS_DIFFER"
         assert _live_ids(client, account) == set()
+    finally:
+        for tx_id in ids:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_line_group_is_one_line_and_a_re_import_matches_it(client):
+    """Items sharing a `line_group` are the parts of one line, and a later import
+    matches the group by its total on its account and day
+    (contract: POST /v1/transactions/batch, "Line groups")."""
+    zone = _zone(client)
+    account = _make_account(client)
+    ids = [str(uuid4()), str(uuid4())]
+    date = _noon(zone, 2026, 4, 15)
+    try:
+        created = client.post(
+            "/transactions/batch",
+            json_body={
+                "transactions": [
+                    {
+                        "id": tx_id,
+                        "title": "MERCADO GRUPO",
+                        "amount_cents": amount,
+                        "account_id": account,
+                        "date": date,
+                        "line_group": "g1",
+                    }
+                    for tx_id, amount in zip(ids, (-6000, -4000), strict=True)
+                ]
+            },
+        )
+        items = created["created"]
+        assert [t["id"] for t in items] == ids
+        (line,) = {t["bank_line_id"] for t in items}
+        assert line
+
+        read = client.get(f"/bank-lines/{line}")
+        assert (read["net_cents"], read["part_count"]) == (-10000, 2)
+        assert {p["id"] for p in read["parts"]} == set(ids)
+
+        dry = client.post(
+            "/transactions/import",
+            json_body={
+                "dry_run": True,
+                "rows": [
+                    {
+                        "id": str(uuid4()),
+                        "account_id": account,
+                        "date": "2026-04-15",
+                        "amount_cents": -10000,
+                        "title": "MERCADO GRUPO",
+                    }
+                ],
+            },
+        )
+        (only,) = dry["rows"]
+        assert (only["outcome"], only["rule"]) == ("matched", "same_day")
+        assert only["bank_line_id"] == line
+        assert (dry["counts"]["matched"], dry["counts"]["new"]) == (1, 0)
+        assert _live_ids(client, account) == set(ids)
     finally:
         for tx_id in ids:
             _safe(client.delete, f"/transactions/{tx_id}")

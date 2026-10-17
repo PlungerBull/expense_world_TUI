@@ -118,3 +118,14 @@ def client():
     cfg = Config(engine_url=ENGINE_URL, token=PAT) if PAT else config_module.ensure_loaded()
     with ExpenseClient(cfg) as c:
         yield c
+
+
+@pytest.fixture
+def statuses(client):
+    """The HTTP status of every response `client` receives, in order. The client
+    returns only the body on success, so a status such as `201` is read off httpx's
+    own hook on the repo client's transport."""
+    seen: list[int] = []
+    hooks = client._client.event_hooks
+    hooks["response"] = [*hooks.get("response", []), lambda r: seen.append(r.status_code)]
+    return seen

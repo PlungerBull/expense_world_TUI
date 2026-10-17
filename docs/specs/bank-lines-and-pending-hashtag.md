@@ -129,7 +129,7 @@ hand-off.
 
 ## Tasks
 
-Every task is done; the tester's acceptance check runs next. The live contract tests cover every
+Every task is done; the tester's acceptance check runs again. The live contract tests cover every
 new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`, which no current
 route can produce.
 

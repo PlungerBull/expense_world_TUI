@@ -91,6 +91,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   of `engine_words`; the head counts the listed parts instead of reading the engine's
   `part_count`, which `fetch_bank_line`'s docstring says the app never does; and
   `count_transactions(bank_line=...)` has no caller. One shared copy each, with tests.
+- **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
+  [tests/contract/](../tests/contract/) each define their own; one copy belongs in
+  [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.
 - **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
   the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
   ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the
