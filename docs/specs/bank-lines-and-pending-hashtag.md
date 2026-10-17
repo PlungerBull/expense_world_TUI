@@ -129,7 +129,7 @@ hand-off.
 
 ## Tasks
 
-Approved by the owner (2026-10-16); task 10 waits for approval. Each **[UI]** task starts with
+Approved by the owner (2026-10-16; task 10 on 2026-10-17). Each **[UI]** task starts with
 its mockup; the build waits for the owner's pick. Tasks 1, 2 and 9 are done; the live contract
 tests cover every new refusal reason of `3129bfa2c43a4446` except `SPLIT_LINE_PARTS_DIVERGE`,
 which no current route can produce.

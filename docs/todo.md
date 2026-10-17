@@ -27,19 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve task 10: read the engine's newest contract
-Asked 2026-10-17 · Blocks: [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md), every task
-
-The engine's catch-up file up to contract `890453f80a08cec9` is now part of the spec. It adds
-task 10, which runs first: the bank upload reads the ledger rows the file did not claim in the
-engine's new shape (today it loses them), the "can't rename a system row" refusal shows the
-engine's words, and the live tests cover the new reads. Nothing on screen changes. The two
-cases it adds to task 3's upload screen are drawn: see "Finish picking" below.
-- **A.** Approve task 10 as written.
-- **B.** Change it first (say how).
-
-**Recommended:** A, because without it the upload hides the rows the bank did not have.
-
 ### Is the one-time title alignment still needed?
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
 
