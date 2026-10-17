@@ -156,15 +156,6 @@ in and its engine change has landed.
    Picked: 2 B (one typed line per part); 3 as drawn (`s` on any part opens all its parts);
    `^s` always sends: the count turns red while it is not 0, and the engine's refusal shows under
    the parts (owner, 2026-10-17).
-8. **[UI]** The hashtags screen as a table with a System column, marking the pending hashtag and
-   offering no delete or rename on it; the categories screen offers no edit and no delete on
-   `@Pendiente` and `@Opening`, with the `SYSTEM_HASHTAG`, `RESERVED_NAME` and
-   `SYSTEM_NAME_FIXED` refusals; the categories legend and the `SYSTEM_CATEGORY` hint read
-   "System categories cannot be renamed or deleted."; no text says these rows can be renamed;
-   deleting an ordinary hashtag says where its rows go; an opening balance's edit form offers no
-   hashtag change, with the `OPENING_BALANCE_NOT_TAGGED` refusal. Picked: 2 A, 3 B, 4 B and B,
-   5 B, 6 A, 7 B; the Hashtags table as drawn (owner, 2026-10-17).
-
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.
