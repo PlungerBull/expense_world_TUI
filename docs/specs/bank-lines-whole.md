@@ -1,7 +1,6 @@
 # Catch up with purchases read, reconciled and deleted whole
 
-**Status: draft, for the owner's approval (2026-10-17).** It starts once
-[bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md) is done.
+**Status: draft, for the owner's approval (2026-10-17).**
 **Catches up to contract `7ff6a09d863d6e44`:** every contract change after `890453f80a08cec9`.
 It holds the engine's hand-off "A bank line is read, reconciled, deleted and listed whole; the
 import's mismatched days show what each unclaimed line is; system rows keep their names", whose

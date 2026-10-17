@@ -90,7 +90,7 @@
 <div class="head" id="top">
   <h1>Every screen in the app</h1>
   <p>One page with every screen <code>expense</code> has today, grouped by kind, and how each one leads to the next. Use it to follow a whole flow, and to see which screens a change touches before you approve it.</p>
-  <p>This is a <b>reference picture, not a choice</b>: nothing here is waiting on a pick. Each screen is drawn as it works on <b>2026-10-16</b>; the rows are invented. The last group lists the screens that are drawn and waiting on your pick, and which of the screens above each one would change.</p>
+  <p>This is a <b>reference picture, not a choice</b>: nothing here is waiting on a pick. Each screen is drawn as it works on <b>2026-10-17</b>; the rows are invented. The last group lists the screens that are drawn and waiting on your pick, and which of the screens above each one would change.</p>
   <p>How to read a screen: the top line is where you are (<code>Manage ▸ Accounts</code>), the bottom line is the keys that work there. <span class="a">Blue</span> keys lead somewhere; <code>esc</code> always goes one step back.</p>
 </div>
 
@@ -133,6 +133,7 @@
       <ul>
         <li><a href="#ledger-filtered">Ledger, filtered</a> <span class="k">· from a Home row</span></li>
         <li><a href="#tx-edit">Edit a transaction</a></li>
+        <li><a href="#split">Split a purchase</a> <span class="k">· s on a ledger row</span></li>
         <li><a href="#recon-panel">An account's reconciliations</a></li>
         <li><a href="#recon-nobatch">Rows in no batch</a></li>
         <li><a href="#recon-batch">A reconciliation</a> · <a href="#recon-new">New one</a></li>
@@ -155,8 +156,6 @@
       <h3>6 · Coming <span class="tag">waiting on you</span></h3>
       <p>Drawn, not built. Each changes screens above.</p>
       <ul>
-        <li><a href="#soon">Bank upload, split purchases</a></li>
-        <li><a href="#soon">The pending hashtag</a></li>
         <li><a href="#soon">Expense World XP</a> <span class="k">· sketch</span></li>
       </ul>
     </div>
@@ -178,6 +177,7 @@
    │  ├─ <span class="a">⏎</span> <a href="#ledger">Transactions</a>
    │  │     ├─ <span class="a">⏎</span> <a href="#tx-edit">Edit a transaction</a>
    │  │     ├─ <span class="a">c b h</span> <a href="#picker">Pick one</a>              <span class="d">category · account · hashtags, for the selected rows</span>
+   │  │     ├─ <span class="a">s</span> <a href="#split">Split a purchase</a>         <span class="d">the row under the cursor, into parts</span>
    │  │     ├─ <span class="a">d</span> <a href="#confirm">Are you sure?</a>
    │  │     └─ <span class="a">+</span> <a href="#logbar">LOG bar</a>
    │  │
@@ -261,13 +261,13 @@
 
 <div class="pane" id="home">
 <div class="lbl">Home <span>— where the app opens</span></div>
-<p class="blurb">Four months of the ledger side by side: what each category spent, then what each bank account holds today and what people owe, then the list of every other screen. <code>⏎</code> on a category, a hashtag, an account or a person opens the ledger with only those rows. <code>pgdn</code> / <code>pgup</code> walk the four months back and forward; <code>→</code> unfolds a category into its hashtags.</p>
+<p class="blurb">Four months of the ledger side by side: what each category spent, then what each bank account holds today and what people owe, then the list of every other screen. <code>⏎</code> on a category, a hashtag, an account or a person opens the ledger with only those rows. <code>pgdn</code> / <code>pgup</code> walk the four months back and forward; <code>→</code> unfolds a category into its hashtags; the rows still waiting for a hashtag are its <code>#Pendiente</code> row.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈  EXPENSE WORLD</span>                                      <span class="d">October 2026</span>
 <span class="d">──────────────────────────────────────────────────────────────────────</span>
 
   <span class="b">CATEGORIES        </span><span class="d">    Jul 2026</span><span class="d">    Aug 2026</span><span class="d">    Sep 2026</span><span class="a">  ▸ Oct 2026</span>
-    <span class="rev">@Pendiente           -120.00     -266.20   -1,487.46      -88.50  </span>
+  <span class="rev">▶ @Pendiente           -120.00     -266.20   -1,487.46      -88.50  </span>
   ▼ COMIDA          <span class="n">     -940.10</span><span class="n">   -1,608.43</span><span class="n">     -822.40</span><span class="n">     -310.25</span>
   <span class="d">    #almuerzo     </span><span class="d">     -310.00</span><span class="d">     -402.50</span><span class="d">     -288.10</span><span class="d">      -96.75</span>
   <span class="d">    #casa         </span><span class="d">     -630.10</span><span class="d">   -1,205.93</span><span class="d">     -534.30</span><span class="d">     -213.50</span>
@@ -312,7 +312,7 @@
 
 <div class="pane" id="ledger">
 <div class="lbl">Transactions <span>— the ledger, newest first</span></div>
-<p class="blurb">Every transaction, ten at a time; <code>pgdn</code> brings ten more. <code>space</code> selects rows, then <code>c</code> sets their category, <code>b</code> moves them to another account and <code>h</code> replaces their hashtags, all at once. <code>⏎</code> opens one row to edit; <code>d</code> deletes the row under the cursor after asking.</p>
+<p class="blurb">Every transaction, ten at a time; <code>pgdn</code> brings ten more. <code>space</code> selects rows, then <code>c</code> sets their category, <code>b</code> moves them to another account and <code>h</code> replaces their hashtags, all at once. <code>⏎</code> opens one row to edit; <code>s</code> splits the row under the cursor into parts, and <code>d</code> deletes it after asking. A part of a split purchase is a row of its own.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
 
@@ -338,8 +338,8 @@
  <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">pgdn</span> 10 more</pre></div></div>
 <dl class="meta">
   <dt>Opens from</dt><dd><a href="#home">Home</a> ▸ LEDGER ▸ Transactions</dd>
-  <dt>Leads to</dt><dd><code>⏎</code> <a href="#tx-edit">Edit a transaction</a> · <code>c b h</code> <a href="#picker">Pick one</a> · <code>d</code> <a href="#confirm">Are you sure?</a> (only with nothing selected) · <code>+</code> <a href="#logbar">LOG bar</a></dd>
-  <dt>Changes</dt><dd>Category, account and hashtags of the selected rows; deletes one row. After any change the list starts again from the newest ten</dd>
+  <dt>Leads to</dt><dd><code>⏎</code> <a href="#tx-edit">Edit a transaction</a> · <code>c b h</code> <a href="#picker">Pick one</a> · <code>s</code> <a href="#split">Split a purchase</a> and <code>d</code> <a href="#confirm">Are you sure?</a> (only with nothing selected) · <code>+</code> <a href="#logbar">LOG bar</a></dd>
+  <dt>Changes</dt><dd>Category, account and hashtags of the selected rows; splits or deletes one row. After any change the list starts again from the newest ten</dd>
 </dl>
 <a class="top" href="#top">↑ map</a>
 </div>
@@ -404,7 +404,7 @@
 <div class="two">
 <div class="pane" id="categories">
 <div class="lbl">Categories <span>— the buckets</span></div>
-<p class="blurb">Every category with its colour. The two built-in ones (<code>@Pendiente</code>, <code>@Opening</code>) are marked and cannot be deleted.</p>
+<p class="blurb">Every category with its colour. The two built-in ones (<code>@Pendiente</code>, <code>@Opening</code>) are marked and cannot be renamed or deleted: with the cursor on one, <code>e</code> and <code>d</code> leave the footer.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Categories</span>
 
@@ -420,8 +420,8 @@
     <span class="s5">██</span>      @Pendiente    system 🔒
     <span class="s5">██</span>      @Opening      system 🔒
 
-  <span class="d">system categories cannot be renamed</span>
-  <span class="d">or deleted</span>
+  <span class="d">System categories cannot be renamed</span>
+  <span class="d">or deleted.</span>
 
  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys
  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
@@ -433,22 +433,24 @@
 </div>
 <div class="pane" id="hashtags">
 <div class="lbl">Hashtags <span>— tags across categories</span></div>
-<p class="blurb">A plain list of names. Deleting one also takes it off every transaction that carries it, and the question says so.</p>
+<p class="blurb">A table of names, like Categories without the colour. The built-in pending hashtag (<code>#Pendiente</code>) is marked and cannot be renamed or deleted: with the cursor on it, <code>e</code> and <code>d</code> leave the footer. Deleting any other one also takes it off every transaction that carries it, and the question says so, and that a transaction left with no hashtag goes to <code>#Pendiente</code>.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Hashtags</span>
 
 <span class="d">──────────────────────────────────────────────</span>
 
    <span class="d">──────────────────────────────────────────</span>
-    Name
+    Name            System
     <span class="d">──────────────────────────────────────</span>
-    <span class="rev">#almuerzo                      </span>
-    #auto
-    #casa
-    #Pendiente
-    #trabajo
-    #viaje-cusco
+    <span class="rev">#almuerzo       —              </span>
+    #auto           —
+    #casa           —
+    #Pendiente      system 🔒
+    #trabajo        —
+    #viaje-cusco    —
 
+  <span class="d">System hashtags cannot be renamed</span>
+  <span class="d">or deleted.</span>
 
  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys
  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">d</span> Delete</pre></div></div>
@@ -575,7 +577,7 @@
 
 <div class="pane" id="imp-preview">
 <div class="lbl">Import · preview <span>— nothing written yet</span></div>
-<p class="blurb">The engine's dry run of the file: each line, and whether it is new or already in the ledger. Only <code>⏎ Import 9 rows</code> writes; it is the one key on these screens that changes data.</p>
+<p class="blurb">The engine's dry run of the file: each line, and whether it is new or already in the ledger (<code>+title</code> when the ledger's row takes the bank's title). Under the summary, the days where the file and the ledger disagree, with the rows behind each. Only <code>⏎ Import 9 rows</code> writes; it is the one key on these screens that changes data.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 
@@ -596,8 +598,8 @@
  <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div>
 <dl class="meta">
   <dt>Leads to</dt><dd><code>⏎</code> <a href="#imp-result">Done</a> · <code>esc</code> back to the LOG bar (this file and the ones after it cancelled)</dd>
-  <dt>Changes</dt><dd>Writes the new rows, all under <code>@Pendiente</code></dd>
-  <dt>Drawn in full</dt><dd><a href="expense-world-import-door.html">expense-world-import-door.html</a></dd>
+  <dt>Changes</dt><dd>Writes the new rows, all under <code>@Pendiente</code> and <code>#Pendiente</code></dd>
+  <dt>Drawn in full</dt><dd><a href="expense-world-import-door.html">expense-world-import-door.html</a> · the days that disagree: <a href="expense-world-bank-lines-upload.html">expense-world-bank-lines-upload.html</a></dd>
 </dl>
 <a class="top" href="#top">↑ map</a>
 </div>
@@ -609,7 +611,7 @@
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="p">✓</span> 9 rows imported · Sueldo Soles
-  <span class="d">under @Pendiente</span>
+  <span class="d">under @Pendiente and #Pendiente</span>
 
  <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div>
 <dl class="meta">
@@ -653,7 +655,7 @@
 
 <div class="pane" id="tx-edit">
 <div class="lbl">Edit a transaction <span>— one row, every field</span></div>
-<p class="blurb">The form every transaction opens into. The big line at the top is the field you are on; <code>⏎</code> keeps it and moves on, <code>ctrl+s</code> saves. Moving a row to another account takes it out of its reconciliation, and the save says so. On an opening balance, account and category are read-only.</p>
+<p class="blurb">The form every transaction opens into. The big line at the top is the field you are on; <code>⏎</code> keeps it and moves on, <code>ctrl+s</code> saves. Moving a row to another account takes it out of its reconciliation, and the save says so. On an opening balance, account, category and hashtags are read-only. On a part of a split purchase, the hint says when the field (date, title or account) changes every part.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
@@ -678,6 +680,37 @@
   <dt>Opens from</dt><dd><code>⏎</code> on <a href="#ledger">Transactions</a>, <a href="#ledger-filtered">a filtered ledger</a> or <a href="#recon-nobatch">Rows in no batch</a></dd>
   <dt>Leads to</dt><dd>back to the list, with <code>Saved.</code></dd>
   <dt>Changes</dt><dd>Date, title, amount, account, category, hashtags, note</dd>
+  <dt>Drawn in full</dt><dd>a part of a split purchase: <a href="expense-world-edit-part.html">expense-world-edit-part.html</a></dd>
+</dl>
+<a class="top" href="#top">↑ map</a>
+</div>
+
+<div class="pane" id="split">
+<div class="lbl">Split a purchase <span>— s on a ledger row</span></div>
+<p class="blurb">One purchase into parts. On top, the purchase as the ledger has it: its title, date and account, which every part keeps, and its total. Each part is one typed line in the LOG bar's words (<code>-40 @hogar #casa //lejía</code>), and <code>↵</code> adds it to the list. On a part of a purchase already split, the list opens with all its parts, ready to change, drop or add to. <code>^s</code> sends every part at once; the engine checks that they add up, and a refusal stays under the parts.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span><span class="d">  ·  2 parts</span>
+
+   <span class="b">PART            </span><span class="a">▍</span>
+   <span class="d">↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it</span>
+   <span class="d">±amount · @category · #tag · //note</span><span class="d">            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="rev">• 1     -60.00   COMIDA      #casa        verduras                            </span>
+   <span class="a">•</span> <span class="d">2</span>   <span class="n">  -40.00</span>   HOGAR       <span class="d">#Pendiente   </span>lejía y papel
+
+   <span class="d">2 parts · </span><span class="n">-100.00</span><span class="d"> of </span><span class="n">-100.00</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
+<dl class="meta">
+  <dt>Opens from</dt><dd><code>s</code> on <a href="#ledger">Transactions</a> or <a href="#ledger-filtered">a filtered ledger</a>, with nothing selected</dd>
+  <dt>Leads to</dt><dd>back to the ledger, read fresh from the newest ten · <code>esc</code> back with nothing sent</dd>
+  <dt>Changes</dt><dd>The purchase's parts: each one's amount, category, hashtags and note</dd>
+  <dt>Drawn in full</dt><dd><a href="expense-world-split-action.html">expense-world-split-action.html</a></dd>
 </dl>
 <a class="top" href="#top">↑ map</a>
 </div>
@@ -1008,9 +1041,10 @@
     <span class="a">↑ ↓</span>     Up / down                 <span class="a">c</span>      Set the category of the selection
     <span class="a">⏎</span>       Open                      <span class="a">b</span>      Move the selection to an account
     <span class="a">space</span>   Select / unselect         <span class="a">h</span>      Replace the selection's hashtags
-    <span class="a">a</span>       Select every loaded row   <span class="a">d</span>      Delete
-    <span class="a">pgdn</span>    10 more                   <span class="a">+</span>      Add
-    <span class="a">esc</span>     Back                      <span class="a">r</span>      Refresh
+    <span class="a">a</span>       Select every loaded row   <span class="a">s</span>      Split the cursor row into parts
+    <span class="a">pgdn</span>    10 more                   <span class="a">d</span>      Delete
+    <span class="a">esc</span>     Back                      <span class="a">+</span>      Add
+                                      <span class="a">r</span>      Refresh
 
     <span class="d">r always refreshes · y alone confirms · ⏎ never changes data</span>
 
@@ -1025,12 +1059,6 @@
   <h2>6 · Coming — drawn, waiting on your pick</h2>
   <p>Screens drawn for open work and not built. Each page has lettered variants and a "To answer" box; nothing is built until you pick. Here is which of today's screens each one changes, so you see the knock-on before you choose.</p>
   <ul class="soonlist">
-    <li><b><a href="expense-world-bank-lines-upload.html">The bank upload</a></b> — the import's <a href="#imp-preview">preview</a> and <a href="#imp-result">done</a> screens learn about bank lines and the days whose totals disagree.</li>
-    <li><b><a href="expense-world-split-lines-ledger.html">Split parts in the ledger</a></b> — <a href="#ledger">Transactions</a> and <a href="#ledger-filtered">the filtered ledger</a> show a purchase's parts under it, folded or open.</li>
-    <li><b><a href="expense-world-split-action.html">The split screen</a></b> — a new sub screen off the ledger: one row split into parts with their own category and hashtags.</li>
-    <li><b><a href="expense-world-edit-part.html">Editing a part</a></b> — <a href="#tx-edit">Edit a transaction</a> says which fields change every part of the purchase.</li>
-    <li><b><a href="expense-world-pending-hashtag-home.html">The pending hashtag on Home</a></b> — <a href="#home">Home</a>'s unfolded categories name untagged rows <code>#Pendiente</code>, and <code>⏎</code> on them works.</li>
-    <li><b><a href="expense-world-pending-hashtag-manage.html">The pending hashtag on Manage</a></b> — <a href="#hashtags">Hashtags</a> marks the built-in one, and its <a href="#confirm">delete question</a> changes.</li>
     <li><b><a href="expense-world-xp-system.html">Expense World XP</a></b> <span class="d">· a sketch, needs a spec from you</span> — a strip on <a href="#home">Home</a>, toasts when something is earned, a monthly recap and a new Character screen.</li>
   </ul>
   <a class="top" href="#top">↑ map</a>

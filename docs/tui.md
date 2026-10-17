@@ -106,7 +106,8 @@ cancels a node's workers only on its Unmount, after its children are gone, so a 
 the worker is too early. `call_while_attached(node, callback, …)` in
 [_base.py](../expense/tui/screens/_base.py) makes the check on the UI thread, at the
 moment the callback would run, and drops it once the node has left the app.
-`SectionScreen._load` and every worker of the LOG bar hand back this way.
+`SectionScreen._load`, every worker of the LOG bar and the split screen's read hand back
+this way.
 
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
 needs resolved names, resolve them in `fetch()` and hand `build()` precomputed cells —
@@ -472,7 +473,7 @@ keep their names and are never deleted
 (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name"), so with the
 cursor on one the footer offers neither `e Edit` nor `d Delete` and both keys do nothing
 (`ResourceListScreen.is_fixed` in [_base.py](../expense/tui/screens/_base.py)); on every
-other row they close the footer as usual. A built-in category's colour is not changed
+other row they end the footer as usual. A built-in category's colour is not changed
 from this app either. Under the list a legend says so: `System categories cannot be renamed
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
@@ -554,7 +555,10 @@ The line is chosen by the error's `code` and reason alone, never by the HTTP sta
 route or the engine's wording ([decisions.md](decisions.md) "Hints are chosen by the
 engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEPS` in
 [errors.py](../expense/errors.py), read by the shared error text `format_error`, so every
-screen that reports a failure through it shows the line. A write sent from a list (every
+screen that reports a failure through it shows the line. One row is the import door's own:
+`CONCURRENT_CHANGE` on a `rows.<index>` key is picked by `changed_while_running` in
+[bank_import.py](../expense/tui/screens/bank_import.py), which shows its line in place of
+`format_error`'s, since what follows is `⏎ Preview again`. A write sent from a list (every
 `d`, and the ending balance saved at `c` on a reconciliation's batch screen, where `r` reads
 it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
@@ -945,7 +949,7 @@ the newest `GROW_STEP` (10) rows and the count, read together — a count that c
 read fails the screen — and `pgdn` (footer: `pgdn 10 more`) appends the next 10 by the
 engine's cursor, with no recount, the cursor landing on the first new row. `↑`/`↓` scroll
 everything loaded and `pgup` goes up a screenful. The window sizes only what is drawn: a
-resize reads nothing. After a write (a bulk key, the `⏎` edit, `+`) it starts over from
+resize reads nothing. After a write (a bulk key, the `⏎` edit, `+`, `s`, `d`) it starts over from
 the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with `esc` is
 not a write: nothing is read and the list comes back as it was — the rows `pgdn` loaded
 and the cursor on its row; the form dismisses with `True` only on a

@@ -13,8 +13,9 @@ The engine half: (contract: POST /v1/transactions/import).
 ## 1. The change
 
 Rows stop being typed and arrive as BCP `.xlsx` downloads: drop the file on the TUI, pick the
-account, review, apply. Rows land under `@Pendiente`; classification stays manual, in Home's
-bulk `space` + `c`/`b`/`h`. The LOG bar stays for what has no bank row (cash, people).
+account, review, apply. Rows land under `@Pendiente` and `#Pendiente`; classification stays
+manual, in Home's bulk `space` + `c`/`b`/`h`. The LOG bar stays for what has no bank row (cash,
+people).
 
 **BCP only** — no second bank, no CSV, no PDF, no format abstraction. Both export shapes (card:
 no operation number, ISO dates, mixed PEN/USD; current account: operation number, `dd/mm/yyyy`)

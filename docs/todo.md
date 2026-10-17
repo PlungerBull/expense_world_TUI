@@ -63,10 +63,10 @@ because nothing is lost on the engine; 3 A, because the LOG bar has it and you w
 Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
 
 Before the migration, the plan has a one-time pass that renames your typed rows to the bank's
-wording ([file-import-plan.md](file-import-plan.md) §6), because the engine used to recognise a
-row only when its title matched. The engine no longer looks at titles: it recognises a row by its
-bank code, or by account, exact day and amount, and it writes the bank's wording onto the row
-itself when it recognises it. Rows typed a day off are the only ones it misses, and those show in
+wording ([file-import-plan.md](file-import-plan.md) §6), so that the engine would recognise each
+row by its title. Titles play no part in recognising a row: the engine recognises it by its bank
+code, or by account, exact day and amount, and writes the bank's wording onto the row itself
+when it recognises it. Rows typed a day off are the only ones it misses, and those show in
 the days whose totals disagree.
 - **A.** Drop the alignment pass; the month-by-month statement uploads do its job.
 - **B.** Keep it as a one-time tidy-up of wording before the first upload.
@@ -134,8 +134,6 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The bulk `c` pick lists categories in the engine's order.** `_picker_options` moves
   `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
-- **Catch up with bank lines, splits and the pending hashtag.** Spec (approved,
-  the loop runs on it): [specs/bank-lines-and-pending-hashtag.md](specs/bank-lines-and-pending-hashtag.md).
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, 2026 month by month).
   Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something

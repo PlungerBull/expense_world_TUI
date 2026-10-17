@@ -24,8 +24,8 @@ Nothing typed into the app before the wipe is kept.
   built-in pending hashtag, and the other side keeps its own value. An **empty** category cell
   means the same: the row goes to `@Pendiente`, and an empty hashtag cell to the pending hashtag
   (owner, 2026-10-17) — such a row is imported, never skipped. The sheet stays as it is and
-  a re-run never brings the names back. The app finds the pending hashtag through
-  [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md).
+  a re-run never brings the names back. The app finds the pending hashtag by its system key
+  ([decisions.md](../decisions.md) "Split purchases, the pending hashtag and system rows").
 - The sheet comes in as it is: one transaction per row. Rows split from one bank purchase are
   not grouped; how to mark them is decided later. Everything up to 31-Dec-2025 is accepted as
   imported.
@@ -34,8 +34,8 @@ Nothing typed into the app before the wipe is kept.
   wording, missing ones are added, and the days whose totals disagree show where a split or a
   duplicate needs fixing by hand. Then the owner completes that month's reconciliation, which
   seals it, and moves to the next month.
-- The month-by-month check needs the bank upload of
-  [bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md).
+- The month-by-month check needs the bank upload ([decisions.md](../decisions.md) "Bank
+  downloads are matched against the ledger, not hashed").
 
 Everything that writes to the real ledger is run or approved by the owner.
 
@@ -53,9 +53,8 @@ Everything that writes to the real ledger is run or approved by the owner.
 
 Draft, for the owner's approval. The sheet import brings every row in as it is, one transaction
 per row; it does not group split rows (owner, 2026-10-16). 2026 is then worked month by month
-from the bank statements, through the bank upload that
-[bank-lines-and-pending-hashtag.md](bank-lines-and-pending-hashtag.md) makes work on the new
-engine.
+from the bank statements, through the bank upload ([decisions.md](../decisions.md) "Bank
+downloads are matched against the ledger, not hashed").
 
 The engine groups split rows only when they are written: the parts of one bank charge go in one
 `POST /transactions/batch` with a shared `line_group`. It has no operation to link transactions
