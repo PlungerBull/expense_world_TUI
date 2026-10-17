@@ -29,6 +29,7 @@ from expense.tui.screens.log_bar import LogBarScreen
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    import_part,
     render_text,
     run_app,
     stub_home_month,
@@ -75,13 +76,14 @@ CARD_ROWS = [
     ("2026-09-07", "APPARKA MALL AVENTURA  AREQU", "S/", -3.5),
 ]
 LEDGER_LINE = "tottus porongoche -38.60 $BCP Signature PEN"
+PART_1 = import_part("t-1", -350)
 DAY_0907 = {
     "account_id": "sig-pen",
     "date": "2026-09-07",
     "file_net_cents": -350,
     "ledger_net_cents": -700,
     "unmatched_rows": [3],
-    "unclaimed_lines": [{"bank_line_id": "bl-1", "transaction_ids": ["t-1"]}],
+    "unclaimed_lines": [{"bank_line_id": "bl-1", "net_cents": -350, "parts": [PART_1]}],
 }
 #: DAY_0907 as the screens hold it.
 PARSED_0907 = DayMismatch(
@@ -91,8 +93,38 @@ PARSED_0907 = DayMismatch(
     file_net_cents=-350,
     ledger_net_cents=-700,
     unmatched_rows=(3,),
-    unclaimed_lines=(UnclaimedLine("bl-1", ("t-1",)),),
+    unclaimed_lines=(UnclaimedLine("bl-1", -350, (PART_1,)),),
 )
+#: A purchase of 100 split 60 + 40 that no file row claimed: one line, two parts.
+SPLIT_PARTS = [
+    import_part("t-2a", -6000, line="bl-2", day="2026-09-08"),
+    import_part("t-2b", -4000, line="bl-2", day="2026-09-08"),
+]
+DAY_0908_SPLIT = {
+    "account_id": "sig-pen",
+    "date": "2026-09-08",
+    "file_net_cents": -420,
+    "ledger_net_cents": -10420,
+    "unmatched_rows": [],
+    "unclaimed_lines": [{"bank_line_id": "bl-2", "net_cents": -10000, "parts": SPLIT_PARTS}],
+}
+#: A day whose totals agree, reported for the ledger line no file row claimed:
+#: a +50 and a -50 the file does not have.
+EQUAL_PARTS = [
+    import_part("t-3", 5000, line="bl-3", day="2026-09-11"),
+    import_part("t-4", -5000, line="bl-4", day="2026-09-11"),
+]
+DAY_0911_EQUAL = {
+    "account_id": "sig-pen",
+    "date": "2026-09-11",
+    "file_net_cents": -4900,
+    "ledger_net_cents": -4900,
+    "unmatched_rows": [],
+    "unclaimed_lines": [
+        {"bank_line_id": "bl-3", "net_cents": 5000, "parts": EQUAL_PARTS[:1]},
+        {"bank_line_id": "bl-4", "net_cents": -5000, "parts": EQUAL_PARTS[1:]},
+    ],
+}
 
 
 # ---- the seams ---------------------------------------------------------------
@@ -480,6 +512,75 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
         assert [line for line in lines if line.strip()][-1] == "4 rows · 2 new · 2 in the ledger"
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
         assert _imports(fake_client) == [True]  # the dry run only
+
+    run_app(scenario, size=(120, 40))
+
+
+def _no_reads_per_part(monkeypatch) -> list:
+    """Every transaction read the screens make, recorded: the unclaimed lines
+    carry their parts whole, so the upload needs none."""
+    reads_made: list = []
+    monkeypatch.setattr(
+        "expense.reads.fetch_transaction", lambda *a, **k: reads_made.append(("one", a, k))
+    )
+    monkeypatch.setattr(
+        "expense.reads.fetch_transactions",
+        lambda *a, **k: reads_made.append(("list", a, k)) or whole([]),
+    )
+    return reads_made
+
+
+@pytest.mark.parametrize(
+    ("day", "lines"),
+    [
+        (DAY_0908_SPLIT, [("bl-2", -10000, ("t-2a", "t-2b"))]),
+        (DAY_0911_EQUAL, [("bl-3", 5000, ("t-3",)), ("bl-4", -5000, ("t-4",))]),
+    ],
+    ids=["split-line-two-parts", "equal-totals-day"],
+)
+def test_reported_days_are_read_from_their_parts_on_both_screens(
+    fake_client, monkeypatch, tmp_path, day, lines
+):
+    """A split line (one entry, two parts) and a day reported with equal totals:
+    the preview and the result open and draw as with any other answer, each
+    holds the day's lines with their signed `net_cents` and their parts, and no
+    transaction is read to fill them."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(fake_client, _two_new_two_in_ledger, mismatches=[day])
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        reads_made = _no_reads_per_part(monkeypatch)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        body = _body(preview)
+        assert "4 rows · 2 new · 2 in the ledger" in body
+        assert [line for line in body.split("\n") if line.strip()][-1].strip() == (
+            "4 rows · 2 new · 2 in the ledger"
+        )
+        (held,) = preview._mismatches
+        assert (held.file_net_cents, held.ledger_net_cents) == (
+            day["file_net_cents"],
+            day["ledger_net_cents"],
+        )
+        assert [
+            (u.bank_line_id, u.net_cents, tuple(p["id"] for p in u.parts))
+            for u in held.unclaimed_lines
+        ] == lines
+        assert [list(u.parts) for u in held.unclaimed_lines] == [
+            entry["parts"] for entry in day["unclaimed_lines"]
+        ]
+        await pilot.press("enter")
+        result = await _on(pilot, app, ImportResultScreen, "no result screen")
+        lines_shown = [line.strip() for line in _body(result).split("\n") if line.strip()]
+        assert lines_shown == ["✓ 2 rows imported · BCP Signature", "under @Pendiente"]
+        assert result._mismatches == preview._mismatches
+        assert reads_made == []
+        assert [m for m, _ in fake_client.requests if m == "GET"] == []
 
     run_app(scenario, size=(120, 40))
 

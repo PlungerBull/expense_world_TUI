@@ -168,6 +168,41 @@ def whole(items: list) -> dict:
     return {"items": items}
 
 
+def import_part(
+    tx_id: str,
+    amount_cents: int,
+    *,
+    account_id: str = "sig-pen",
+    line: str = "bl-1",
+    day: str = "2026-09-07",
+    title: str = "TOTTUS PORONGOCHE",
+) -> dict:
+    """One part of an unclaimed line in a `POST /transactions/import` answer:
+    the whole transaction response (contract: POST /v1/transactions/import),
+    `amount_cents` a magnitude and the direction in `transaction_type`, 1 out
+    and 2 in (contract: "Base Conventions", "Sign convention — responses").
+    `amount_cents` is given signed here and written as the engine sends it."""
+    return {
+        "id": tx_id,
+        "user_id": "u-1",
+        "title": title,
+        "description": None,
+        "amount_cents": abs(amount_cents),
+        "transaction_type": 1 if amount_cents < 0 else 2,  # 1 outflow, 2 inflow
+        "date": f"{day}T05:00:00Z",
+        "account_id": account_id,
+        "category_id": "pend",
+        "reconciliation_id": None,
+        "bank_line_id": line,
+        "operation_code": None,
+        "created_at": f"{day}T15:00:00Z",
+        "updated_at": f"{day}T15:00:00Z",
+        "version": 1,
+        "deleted_at": None,
+        "hashtag_ids": ["h-pend"],
+    }
+
+
 #: `GET /accounts?include_people=true` in an order no client could derive:
 #: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
 #: the way the engine lists people after every real account (contract: GET

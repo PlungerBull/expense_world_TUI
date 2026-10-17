@@ -141,15 +141,8 @@ Engine asks this spec still waits on, raised on 2026-10-17 for the owner to hand
 for its hand-off and is built against the live contract, not the ask.
 
 Owner's picks of 2026-10-17 are noted on each task; a task builds once every pick it needs is
-in and its engine change has landed. Task 10 runs first.
+in and its engine change has landed.
 
-10. Read contract `890453f80a08cec9`. The upload reads each unclaimed line as `bank_line_id`,
-    `net_cents` and `parts`, and no longer reads `transaction_ids` (removed by the engine; the
-    upload reads it as empty today, so its unclaimed lines lose their rows). The test fixtures
-    follow the new shape. `SYSTEM_NAME_FIXED` on `name` shows the engine's message. The live
-    contract suite covers `?bank_line_id=` on the list and the count, `GET /bank-lines/{id}`
-    (its `404` and `422` too), the new unclaimed-line shape, a day listed with equal totals, and
-    `SYSTEM_NAME_FIXED`.
 3. **[UI]** The bank upload's days-that-disagree view, replacing the rows-left-over view; the
    matched rows that took the bank's description, and their count; and the "changed while
    running, run it again" refusal. The upload's summary reads the engine's `counts` instead of
@@ -194,7 +187,12 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
   transaction now carries at least one hashtag" and "A bank line can be read, the import's
   mismatched days show what each unclaimed line is, and system rows keep their names".
 - **Done when, checked:** each of "The engine's checks" above, with the tester's result.
-- **Contract problems found:** what the builds and the tester's run found, and whether the
+- **Contract problems found:** found so far: on `890453f80a08cec9`, `PUT /transactions/{id}`
+  with `reconciliation_id` on one part of a split line puts every part of the line in that
+  reconciliation, while the contract says it "settles `{id}` alone"; so `SPLIT_RECONCILIATION_MIXED`
+  cannot be produced that way, and the live test expecting it fails. Ask which is intended (this
+  client's ask "a bank line is reconciled whole" wants every part). Then what the builds and the
+  tester's run found, and whether the
   `OPERATION_CODE_EXISTS` message still says "transaction".
 - **Asks this closes:** "A bank line split into several transactions keeps one identity, so a
   re-import recognises it"; "A built-in `#Pendiente` hashtag that every row with no hashtag lands

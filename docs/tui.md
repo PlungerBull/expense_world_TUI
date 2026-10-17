@@ -307,6 +307,16 @@ three full screens that replace one another above the LOG bar:
 | **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the verdicts (`new`, `in ledger · operation`, `in ledger · same day`, either with ` · +code` when the apply writes the file's code onto the line, `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger` (closed, pre-2026 and refused counts when there are any), the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
 | **✓ 9 rows imported · <account>** | `under @Pendiente` dim | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
+Both the preview and the result also read the engine's `counts` and its reported days
+(`day_mismatches`) and draw neither. A day is reported when its file and ledger totals differ
+or when it holds a ledger line no file row claimed, so a day with equal totals can be one;
+each unclaimed line arrives as its `bank_line_id`, its signed `net_cents` and its `parts`,
+the whole transaction responses with `amount_cents` positive and the direction in
+`transaction_type`, a split line being one entry with every part
+(contract: POST /v1/transactions/import). The screens take them as they come, in
+`day_mismatches` in [engine.py](../expense/bank_import/engine.py), and read no transaction
+to fill them.
+
 A preview with nothing new keeps the table and the summary and adds dim `nothing to import`.
 On the last (or only) file `⏎` does nothing and the footer is `esc Back`. With a file still
 to come the footer is `esc Cancel both` / `esc Cancel all` (below) and `⏎ Next file`, and
@@ -373,8 +383,9 @@ below). `d` stays live on the system categories so the engine's refusal is what 
 **When the engine says no.** Every refusal with code `CONFLICT`, `FORBIDDEN` or
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
-`VALIDATION_ERROR` an opening balance draws when asked to move and the one a reconciliation
-draws when completed without its ending balance. The note it draws (a
+`VALIDATION_ERROR` an opening balance draws when asked to move, the one a reconciliation
+draws when completed without its ending balance, and the one a system category or the
+pending hashtag draws when renamed. The note it draws (a
 toast, a LOG bar row, the bank import's preview) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field), and for the reasons below a blank
 line and one line of the app's saying what to do. Screens in
@@ -398,6 +409,7 @@ line and one line of the app's saying what to do. Screens in
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
+| `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente` or `@Opening` on Manage ▸ Categories' Edit form, or for the pending hashtag on Manage ▸ Hashtags' | none: the engine's message says to keep the current name |
 | `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
 
 The line is chosen by the error's `code` and reason alone, never by the HTTP status, the

@@ -74,17 +74,26 @@ class Placed:
 
 @dataclass(frozen=True)
 class UnclaimedLine:
-    """A ledger line on a disagreeing day that no file row claimed: the line,
-    and its live transactions on that account and day."""
+    """A ledger bank line on a reported day that no file row claimed — one
+    entry however many parts it is split into (contract: POST /v1/transactions/import).
+
+    `parts` are its live transactions on that account and day, each the
+    engine's whole transaction response as `GET /transactions/{id}` returns
+    it, in the engine's order: everything a screen shows of them is here, so
+    none is read again. Their `amount_cents` is a magnitude, the direction in
+    `transaction_type`; only `net_cents` is signed."""
 
     bank_line_id: str
-    transaction_ids: tuple[str, ...]
+    net_cents: int  # signed: inflow positive, outflow negative
+    parts: tuple[dict, ...]
 
 
 @dataclass(frozen=True)
 class DayMismatch:
-    """One account and day whose file total and ledger total (after this
-    import) differ — the engine's `day_mismatches` entry, a report only."""
+    """One account and day the engine reports — the `day_mismatches` entry, a
+    report only: its file total and ledger total (after this import) differ,
+    or it holds a ledger line no file row claimed, or both
+    (contract: POST /v1/transactions/import)."""
 
     account_id: str
     account_name: str
@@ -176,8 +185,9 @@ def placements(response: dict, sent: list[SentRow]) -> list[Placed]:
 
 def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
     """The response's `day_mismatches`, in the engine's order, each account
-    named by its leg (its id when the leg is unknown). Both totals stay signed
-    as the engine sends them."""
+    named by its leg (its id when the leg is unknown). The totals and each
+    unclaimed line's `net_cents` stay signed as the engine sends them; a day
+    can be reported with equal totals when it holds an unclaimed line."""
     out: list[DayMismatch] = []
     for e in response.get("day_mismatches") or []:
         account_id = str(e.get("account_id"))
@@ -192,7 +202,8 @@ def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
                 unclaimed_lines=tuple(
                     UnclaimedLine(
                         bank_line_id=str(line.get("bank_line_id")),
-                        transaction_ids=tuple(str(t) for t in line.get("transaction_ids") or []),
+                        net_cents=int(line.get("net_cents") or 0),
+                        parts=tuple(dict(p) for p in line.get("parts") or []),
                     )
                     for line in e.get("unclaimed_lines") or []
                 ),

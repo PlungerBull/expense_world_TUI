@@ -13,6 +13,14 @@ stand on rules only the engine can confirm. Pinned here:
     and `description` change only the part named;
   · a statement imported, split and imported again is every row `matched`, none
     `new`: by `operation_code`, and by `same_day` for a card row with no code;
+  · `?bank_line_id=` on the list and the count names exactly a line's parts; an
+    id naming no line lists nothing and counts 0, a malformed one is `422`
+    `INVALID_FORMAT` on `bank_line_id`, and a cursor issued under one line's
+    filter is `422` `INVALID_CURSOR` on `after` under another;
+  · `GET /bank-lines/{id}` reads `id`, `account_id`, `operation_code`, the
+    signed `net_cents`, `part_count` and `transaction_ids`: an unsplit line is
+    one part at its signed amount, a split 60 + 40 reads `-10000` over two
+    parts; an unknown id is `404`, a malformed one `422` `INVALID_FORMAT`;
   · the split refusals: `SPLIT_TOTAL_MISMATCH` on `parts` and every
     `parts.<i>.amount_cents`, `SPLIT_RECONCILIATION_MIXED` and
     `OPENING_BALANCE_NOT_SPLIT` on `transaction_id`; and a batch `line_group`
@@ -370,5 +378,102 @@ def test_a_line_group_whose_items_differ_is_line_group_fields_differ(client):
         assert _live_ids(client, account) == set()
     finally:
         for tx_id in ids:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def _listed(client, **params) -> list[str]:
+    return [item["id"] for item in client.get("/transactions", params=params)["items"]]
+
+
+def _counted(client, **params) -> int:
+    return client.get("/transactions/count", params=params)["count"]
+
+
+def test_bank_line_id_lists_and_counts_exactly_a_lines_parts(client):
+    zone = _zone(client)
+    account = _make_account(client)
+    written: list[str] = []
+    try:
+        split_me = _post_tx(client, account, _noon(zone, 2026, 4, 12), -10000, "split line")
+        alone = _post_tx(client, account, _noon(zone, 2026, 4, 12), -2500, "lone line")
+        written.extend([split_me["id"], alone["id"]])
+        parts = _split(client, split_me["id"], [-6000, -4000], written)
+        line = parts[0]["bank_line_id"]
+
+        assert set(_listed(client, bank_line_id=line)) == {p["id"] for p in parts}
+        assert _counted(client, bank_line_id=line) == 2
+        assert _listed(client, bank_line_id=alone["bank_line_id"]) == [alone["id"]]
+        assert _counted(client, bank_line_id=alone["bank_line_id"]) == 1
+
+        # An id naming no line lists nothing; it is never a 404.
+        unknown = str(uuid4())
+        assert _listed(client, bank_line_id=unknown) == []
+        assert _counted(client, bank_line_id=unknown) == 0
+
+        for path in ("/transactions", "/transactions/count"):
+            err = _refused(lambda path=path: client.get(path, params={"bank_line_id": "nope"}))
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+            assert reason_on(err, "bank_line_id") == "INVALID_FORMAT"
+
+        # A cursor is bound to the filter it was issued under.
+        page = client.get("/transactions", params={"bank_line_id": line, "limit": 1})
+        assert len(page["items"]) == 1 and page["next_cursor"]
+        err = _refused(
+            lambda: client.get(
+                "/transactions",
+                params={"bank_line_id": alone["bank_line_id"], "after": page["next_cursor"]},
+            )
+        )
+        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+        assert reason_on(err, "after") == "INVALID_CURSOR"
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_bank_line_reads_its_figures(client):
+    zone = _zone(client)
+    account = _make_account(client)
+    written: list[str] = []
+    try:
+        out = _post_tx(client, account, _noon(zone, 2026, 4, 13), -2500, "unsplit out")
+        into = _post_tx(client, account, _noon(zone, 2026, 4, 13), 1800, "unsplit in")
+        split_me = _post_tx(client, account, _noon(zone, 2026, 4, 13), -10000, "to split")
+        written.extend([out["id"], into["id"], split_me["id"]])
+
+        line = client.get(f"/bank-lines/{out['bank_line_id']}")
+        assert set(line) == {
+            "id",
+            "account_id",
+            "operation_code",
+            "net_cents",
+            "part_count",
+            "transaction_ids",
+        }
+        assert line["id"] == out["bank_line_id"]
+        assert line["account_id"] == account
+        assert line["operation_code"] is None
+        assert (line["net_cents"], line["part_count"]) == (-2500, 1)
+        assert line["transaction_ids"] == [out["id"]]
+
+        inflow = client.get(f"/bank-lines/{into['bank_line_id']}")
+        assert (inflow["net_cents"], inflow["part_count"]) == (1800, 1)
+
+        parts = _split(client, split_me["id"], [-6000, -4000], written)
+        split = client.get(f"/bank-lines/{parts[0]['bank_line_id']}")
+        assert (split["net_cents"], split["part_count"]) == (-10000, 2)
+        # In the order `?bank_line_id=` lists them by default.
+        assert split["transaction_ids"] == _listed(client, bank_line_id=split["id"])
+        assert set(split["transaction_ids"]) == {p["id"] for p in parts}
+
+        err = _refused(lambda: client.get(f"/bank-lines/{uuid4()}"))
+        assert (err.status, err.code) == (404, "NOT_FOUND")
+        err = _refused(lambda: client.get("/bank-lines/not-a-uuid"))
+        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+        assert reason_on(err, "bank_line_id") == "INVALID_FORMAT"
+    finally:
+        for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/accounts/{account}")

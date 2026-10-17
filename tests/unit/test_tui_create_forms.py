@@ -7,6 +7,7 @@ from expense.errors import EngineError
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
     EditCategoryScreen,
+    EditHashtagScreen,
     NewAccountScreen,
     NewCategoryScreen,
     NewHashtagScreen,
@@ -518,6 +519,62 @@ def test_a_refusal_on_a_form_ends_with_its_next_step(
         assert screen.is_attached
 
     _run_refused(fake_client, monkeypatch, make(), steps, check, verb=verb, refusal=refusal)
+
+
+#: The engine's words on a renamed system row
+#: (contract: PUT /v1/categories/{category_id}, "A system category keeps its name")
+#: (contract: PUT /v1/hashtags/{hashtag_id}, "The pending hashtag keeps its name").
+_NAME_FIXED = "Must be the current name: a system record keeps its name."
+
+
+@pytest.mark.parametrize(
+    ("make", "steps", "path"),
+    [
+        (
+            lambda: EditCategoryScreen(
+                {"id": "pend", "name": "@Pendiente", "color": "#b07cd9", "is_system": True}
+            ),
+            ["@pendiente", ""],
+            "/categories/pend",
+        ),
+        (
+            lambda: EditCategoryScreen(
+                {"id": "open", "name": "@Opening", "color": "#b07cd9", "is_system": True}
+            ),
+            ["Apertura", ""],
+            "/categories/open",
+        ),
+        (
+            lambda: EditHashtagScreen({"id": "h-pend", "name": "Pendiente"}),
+            ["Por revisar"],
+            "/hashtags/h-pend",
+        ),
+    ],
+    ids=["pendiente-case-only", "opening", "pending-hashtag"],
+)
+def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, make, steps, path):
+    """A system category or the pending hashtag keeps its name: the engine
+    refuses a rename with `SYSTEM_NAME_FIXED` on `name`. The note is the
+    engine's words whole, with no line of the app's under them, and the form
+    stays open with what was typed."""
+    refusal = EngineError(
+        "VALIDATION_ERROR",
+        "Request validation failed.",
+        {"name": _NAME_FIXED},
+        422,
+        {},
+        {"name": "SYSTEM_NAME_FIXED"},
+    )
+
+    async def check(pilot, screen, toasts):
+        message, kw = toasts[0]
+        assert message == f"VALIDATION_ERROR — Request validation failed.\n  name: {_NAME_FIXED}"
+        assert kw.get("title") == "Failed" and kw.get("severity") == "error"
+        assert screen.is_attached
+        assert screen._values["name"] == steps[0]
+        assert ("PUT", path) in fake_client.requests
+
+    _run_refused(fake_client, monkeypatch, make(), steps, check, verb="PUT", refusal=refusal)
 
 
 # ---------------------------------------------------------------------------

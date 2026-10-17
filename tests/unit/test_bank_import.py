@@ -33,6 +33,7 @@ from expense.bank_import.parse import (
     parse_operation,
 )
 from expense.import_.reader import RawRow, SheetData
+from tests.unit.helpers import import_part
 
 CARD_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]
 ACCOUNT_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
@@ -275,10 +276,14 @@ def test_each_outcome_and_rule_has_its_words():
 
 
 def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
-    """Each disagreeing day as the engine sends it: both totals signed (inflow
-    positive, outflow negative), the unmatched file rows by index, and the
-    unclaimed ledger lines with their transactions; the account named by its
-    leg, or by its id when no leg is known."""
+    """Each reported day as the engine sends it: both totals signed (inflow
+    positive, outflow negative), the unmatched file rows by index, and each
+    unclaimed ledger line with its signed `net_cents` and its parts, the
+    engine's whole transaction responses; the account named by its leg, or by
+    its id when no leg is known."""
+    t3 = import_part("t3", -5000, line="bl-3")
+    t4a = import_part("t4a", -6000, account_id="sig-usd", line="bl-4", day="2026-09-08")
+    t4b = import_part("t4b", -4000, account_id="sig-usd", line="bl-4", day="2026-09-08")
     mismatches = day_mismatches(
         {
             "day_mismatches": [
@@ -288,7 +293,9 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
                     "file_net_cents": -10000,
                     "ledger_net_cents": -15000,
                     "unmatched_rows": [],
-                    "unclaimed_lines": [{"bank_line_id": "bl-3", "transaction_ids": ["t3"]}],
+                    "unclaimed_lines": [
+                        {"bank_line_id": "bl-3", "net_cents": -5000, "parts": [t3]}
+                    ],
                 },
                 {
                     "account_id": "sig-usd",
@@ -297,7 +304,7 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
                     "ledger_net_cents": 0,
                     "unmatched_rows": [1, 3],
                     "unclaimed_lines": [
-                        {"bank_line_id": "bl-4", "transaction_ids": ["t4a", "t4b"]},
+                        {"bank_line_id": "bl-4", "net_cents": -10000, "parts": [t4a, t4b]},
                     ],
                 },
                 {
@@ -320,7 +327,7 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
             file_net_cents=-10000,
             ledger_net_cents=-15000,
             unmatched_rows=(),
-            unclaimed_lines=(UnclaimedLine("bl-3", ("t3",)),),
+            unclaimed_lines=(UnclaimedLine("bl-3", -5000, (t3,)),),
         ),
         DayMismatch(
             account_id="sig-usd",
@@ -329,7 +336,7 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
             file_net_cents=2500,
             ledger_net_cents=0,
             unmatched_rows=(1, 3),
-            unclaimed_lines=(UnclaimedLine("bl-4", ("t4a", "t4b")),),
+            unclaimed_lines=(UnclaimedLine("bl-4", -10000, (t4a, t4b)),),
         ),
         DayMismatch(
             account_id="elsewhere",
@@ -340,6 +347,42 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
             unmatched_rows=(),
             unclaimed_lines=(),
         ),
+    ]
+
+
+def test_a_day_with_equal_totals_keeps_its_unclaimed_line():
+    """The engine reports a day whose totals agree when it holds a line no
+    file row claimed (contract: POST /v1/transactions/import): the day is
+    kept with both totals as sent, and its line with every part."""
+    plus = import_part("t5a", 5000, line="bl-5")
+    minus = import_part("t5b", -5000, line="bl-6")
+    (day,) = day_mismatches(
+        {
+            "day_mismatches": [
+                {
+                    "account_id": "sig-pen",
+                    "date": "2026-09-07",
+                    "file_net_cents": -2590,
+                    "ledger_net_cents": -2590,
+                    "unmatched_rows": [],
+                    "unclaimed_lines": [
+                        {"bank_line_id": "bl-5", "net_cents": 5000, "parts": [plus]},
+                        {"bank_line_id": "bl-6", "net_cents": -5000, "parts": [minus]},
+                    ],
+                }
+            ]
+        },
+        {"sig-pen": "BCP Signature PEN"},
+    )
+    assert day.file_net_cents == day.ledger_net_cents == -2590
+    assert day.unclaimed_lines == (
+        UnclaimedLine("bl-5", 5000, (plus,)),
+        UnclaimedLine("bl-6", -5000, (minus,)),
+    )
+    # the parts are the engine's responses, unchanged: a magnitude and a direction
+    assert [(p["amount_cents"], p["transaction_type"]) for p in (plus, minus)] == [
+        (5000, 2),
+        (5000, 1),
     ]
 
 
