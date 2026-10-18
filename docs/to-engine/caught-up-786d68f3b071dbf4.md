@@ -37,8 +37,10 @@ full contract suite passed: 103 tests, two of them new for this range.
 ## Contract problems found
 
 - There is no `GET /v1/reconciliations/{id}`, so naming the reconciliation in
-  `redate_blocked_by` takes a second read of the account's whole list. Sent as its own ask, "The
-  import answer names the reconciliation that stops a move to the bank's day".
+  `redate_blocked_by` takes a second read of the account's whole list. You answered our ask
+  "The import answer names the reconciliation that stops a move to the bank's day" with a
+  `GET /reconciliations/{id}` instead, keeping references id-only; agreed. The TUI moves to it
+  when it lands and keeps its fallback wording.
 - Not a problem, noted to confirm our reading: when a move is stopped, the bank's title and
   operation code still land on the line. The TUI says "not moved" rather than "not modified" for
   that reason.

@@ -541,8 +541,10 @@ wrong. It says "not moved", because the bank's title and operation number still 
 (contract: POST /v1/transactions/import). (5) **The days where the file and the ledger disagree
 stay on the preview only**; after importing, the screen gives the counts alone, since the
 preview already showed every row. (6) The stopping reconciliation is named from its account's
-list, read once in the worker; the contract has no read by id, and the engine is asked to name it
-in the import's answer ([to-engine/import-names-the-blocking-reconciliation.md](to-engine/import-names-the-blocking-reconciliation.md)).
+list, read once in the worker. The contract has no read by id; the engine keeps a reference to
+another record an id alone, so it declined to put the name in the import's answer and adds
+`GET /reconciliations/{id}` instead (2026-10-18). The fallback `a reconciliation` stays for a
+read that fails.
 
 **Why.** The old preview grew a suffix on its `match` column, or a note under the summary, for
 each thing the engine learned to do (`+code`, `+title`, the bank's day), and each brought its own
