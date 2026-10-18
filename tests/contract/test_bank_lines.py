@@ -11,6 +11,11 @@ stand on rules only the engine can confirm. Pinned here:
     line's whole set on the same line;
   · `PUT` of `title` on one part writes it onto every part, while `amount_cents`
     and `description` change only the part named;
+  · the ledger's bulk keys on parts, through the app's own `bulk_writes`:
+    `category_id` and `hashtag_ids` on one part leave the other part unwritten;
+    `account_id` on one part moves every part; and `b` with both parts of a
+    line in a draft reconciliation selected sends the second part a body built
+    before the first `PUT` moved the line, which the engine accepts;
   · a statement imported, split and imported again is every row `matched`, none
     `new`: by `operation_code`, and by `same_day` for a card row with no code;
   · a batch whose two items share a `line_group` makes one line of two parts,
@@ -225,6 +230,116 @@ def test_a_line_field_reaches_every_part_and_the_rest_stay_own(client):
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/accounts/{account}")
+
+
+def _make_hashtag(client) -> str:
+    new_id = str(uuid4())
+    client.post("/hashtags", json_body={"id": new_id, "name": f"contract-lines-{new_id[:8]}"})
+    return new_id
+
+
+def _ledger_bulk(client, parts: list[dict], payload: dict) -> list[dict]:
+    """The ledger's bulk key over `parts`, selected in that order, as the app sends
+    it: `bulk_writes` builds each body from the rows as the ledger last read them,
+    then one `PUT` per row, in order. Returns each response."""
+    from expense.tui.screens.transactions import bulk_writes
+
+    by_id = {p["id"]: p for p in parts}
+    writes = bulk_writes([p["id"] for p in parts], payload, by_id)
+    return [client.put(f"/transactions/{key}", json_body=body) for key, body, _ in writes]
+
+
+def test_a_parts_category_and_hashtags_stay_its_own(client):
+    """`category_id` and `hashtag_ids` are a part's own: sent on one part they
+    change only it, and the other part is not written, its `version` unmoved. The
+    ledger's `c` and `h` with both parts selected send one `PUT` per part, and
+    each is accepted (contract: PUT /v1/transactions/{transaction_id}, "Line fields")."""
+    zone = _zone(client)
+    account = _make_account(client)
+    groceries = _make_category(client)
+    food = _make_hashtag(client)
+    written: list[str] = []
+    try:
+        original = _post_tx(client, account, _noon(zone, 2026, 4, 8), -5000, "TOTTUS")
+        written.append(original["id"])
+        one, two = _split(client, original["id"], [-3000, -2000], written)
+        before = client.get(f"/transactions/{two['id']}")
+
+        mine = client.put(f"/transactions/{one['id']}", json_body={"category_id": groceries})
+        assert mine["category_id"] == groceries
+        mine = client.put(f"/transactions/{one['id']}", json_body={"hashtag_ids": [food]})
+        assert mine["hashtag_ids"] == [food]
+        other = client.get(f"/transactions/{two['id']}")
+        assert other["category_id"] == before["category_id"] != groceries
+        assert other["hashtag_ids"] == before["hashtag_ids"] != [food]
+        assert other["version"] == before["version"]
+
+        # Both parts selected: one PUT each, both accepted, each part its own value.
+        parts = [client.get(f"/transactions/{p['id']}") for p in (one, two)]
+        _ledger_bulk(client, parts, {"category_id": groceries})
+        parts = [client.get(f"/transactions/{p['id']}") for p in (one, two)]
+        _ledger_bulk(client, parts, {"hashtag_ids": [food]})
+        for part in (one, two):
+            read = client.get(f"/transactions/{part['id']}")
+            assert (read["category_id"], read["hashtag_ids"]) == (groceries, [food])
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/hashtags/{food}")
+        _safe(client.delete, f"/categories/{groceries}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_an_account_move_on_one_part_moves_the_whole_line(client):
+    """`account_id` is a line field: sent on one part, every part moves to the
+    account in that one write, the other part's `version` up by one. The ledger's
+    `b` with both parts of a line in a draft reconciliation selected sends each
+    part `account_id` with `reconciliation_id: null`, built from the read before
+    the move: the first `PUT` moves the whole line out of the reconciliation, and
+    the engine accepts the second as it is, writing no other part, the part named
+    taking one more `version`
+    (contract: PUT /v1/transactions/{transaction_id}, "Line fields")
+    (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
+    zone = _zone(client)
+    home = _make_account(client)
+    away = _make_account(client)
+    recon = _make_reconciliation(client, home)
+    written: list[str] = []
+
+    def both() -> list[dict]:
+        return [client.get(f"/transactions/{p['id']}") for p in (one, two)]
+
+    try:
+        original = _post_tx(client, home, _noon(zone, 2026, 4, 9), -5000, "SAGA")
+        written.append(original["id"])
+        one, two = _split(client, original["id"], [-3000, -2000], written)
+
+        # `b` with both parts selected, the line in a draft reconciliation.
+        client.put(f"/transactions/{one['id']}", json_body={"reconciliation_id": recon})
+        loaded = both()
+        assert {p["reconciliation_id"] for p in loaded} == {recon}
+        first, second = _ledger_bulk(client, loaded, {"account_id": away})
+        assert (first["account_id"], second["account_id"]) == (away, away)
+        after = both()
+        assert [(p["account_id"], p["reconciliation_id"]) for p in after] == [(away, None)] * 2
+        assert after[0]["version"] == loaded[0]["version"] + 1
+        assert after[1]["version"] == loaded[1]["version"] + 2
+        assert _live_ids(client, home) == set()
+
+        # `b` on one part: the whole line comes back.
+        loaded = both()
+        (moved,) = _ledger_bulk(client, loaded[:1], {"account_id": home})
+        assert moved["account_id"] == home
+        after = both()
+        assert [(p["account_id"], p["reconciliation_id"]) for p in after] == [(home, None)] * 2
+        assert after[1]["version"] == loaded[1]["version"] + 1
+        assert _live_ids(client, away) == set()
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/accounts/{away}")
+        _safe(client.delete, f"/accounts/{home}")
 
 
 @pytest.mark.parametrize(

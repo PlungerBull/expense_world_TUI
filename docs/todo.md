@@ -61,6 +61,19 @@ assigned transaction(s)." The number now counts the ticked rows, and a split pur
 
 **Recommended:** A, because the number is the rows you see ticked.
 
+### The note after `b` moves one part of a split purchase
+Asked 2026-10-17 · Blocks: nothing (the move works; only its note)
+
+`b` on one part of a split purchase moves every part to the new account (the engine's rule), but
+the note at the bottom counts the rows you selected: `1 row → BCP Oro PEN · 1 left its
+reconciliation`, while both parts moved and both left it.
+- **A.** Keep it: the note counts the rows you selected.
+- **B.** Count what moved: `2 rows → BCP Oro PEN · 2 left their reconciliation`.
+- **C.** Add a phrase: `1 row → BCP Oro PEN · the whole purchase moved`.
+
+**Recommended:** B, because the note then says what happened in the ledger; it costs one engine
+read per selected part, so the engine may be asked to say what moved in its answer instead.
+
 ### The split screen's undrawn moments
 Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
 
@@ -127,6 +140,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Decide between showing the
   day in the user's `display_timezone` and an engine ask for each row's local day.
+- **A whole-file live run of the bank-line tests leaves an empty account.** One
+  `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
+  runs whole, though no test leaves one when run alone; find which pair of tests does it
+  ([test_bank_lines.py](../tests/contract/test_bank_lines.py)).
 - **The split screen keeps copies of shared code.** `part_index` in
   [split.py](../expense/tui/screens/split.py) repeats `row_index` of
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is

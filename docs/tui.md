@@ -267,6 +267,13 @@ row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
 `bank_line_id`: the engine's `part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}).
 On a row that is not split, and when that read fails, the form and its hints are as on
 any row; the save is the engine's either way.
+The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected
+parts, and `b` on one part moves the whole purchase, every part leaving its reconciliation with
+it, in the engine's one write (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
+The app sends one `PUT` per selected row either way and fans nothing out itself. With every part
+of a purchase selected, each part gets its own `PUT`; a later one finds the line already moved
+and the engine accepts it as it is, since the `PUT` carries no `version`. The receipt counts the
+rows sent, so `b` on one part reads `1 row → …` however many parts moved.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
 screens 1, 2 B, 3 and 4 B in
 [expense-world-split-action.html](mockups/expense-world-split-action.html)). `s Split` sits

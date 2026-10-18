@@ -31,6 +31,7 @@ from tests.unit.helpers import (
     fake_ledger,
     hashtag_refusal,
     in_order,
+    list_ready,
     refusal_text,
     render_text,
     run_app,
@@ -888,3 +889,128 @@ def test_a_hashtag_refusal_on_h_shows_as_sent(fake_client, monkeypatch, code, st
         fake_client, monkeypatch, ["com"], settle=lambda t: any(x == "Refused" for x, _ in t)
     )
     assert ("Refused", f"row 1: {refusal_text(err, line)}") in toasts
+
+
+# ---- the bulk keys on parts of a split purchase -----------------------------
+# A part's category and hashtags are its own, while its account belongs to its
+# bank line: a `PUT` of `account_id` on one part moves every part in the engine's
+# one write (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). So
+# `c`, `h` and `b` send one `PUT` per selected row and nothing for the other
+# part: the engine moves the line, the app fans nothing out. No body carries a
+# `version`: the `PUT` takes none (contract: PUT /v1/transactions/{transaction_id}).
+
+
+def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> dict:
+    return {
+        "id": tx_id,
+        "title": title,
+        "description": None,
+        "amount_cents": amount,
+        "date": "2026-10-11T05:00:00Z",
+        "account_id": "acc1",
+        "category_id": "pend",
+        "hashtag_ids": ["hp"],
+        "bank_line_id": line,
+        "reconciliation_id": recon,
+    }
+
+
+#: Row 1 an ordinary row, rows 2 and 3 the two parts of FARMACIA, a purchase in a
+#: draft reconciliation.
+PURCHASE = [
+    _part("t-net", "NETFLIX.COM", -4490, "bl-net", None),
+    _part("p1", "FARMACIA", -6000, "bl-farm", "rec-draft"),
+    _part("p2", "FARMACIA", -4000, "bl-farm", "rec-draft"),
+]
+
+#: What each key picks in its picker, and the body it sends for one row: `h`
+#: picks the pending hashtag beside COMIDA, and only COMIDA goes.
+ON_PARTS = {
+    "c": (["kor"], {"category_id": "kor"}),
+    "h": (["pend", "com", ""], {"hashtag_ids": ["h1"]}),
+    "b": (["oro"], {"account_id": "acc2", "reconciliation_id": None}),
+}
+
+
+def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor: str):
+    """The ledger over PURCHASE, the cursor on `cursor`, `select` selected, then
+    `key` and its pick. Returns (the toasts, the ledger reads before the write, the
+    reads after the fresh reload, the cursor's index and key once it is in)."""
+    calls, counts = fake_ledger(monkeypatch, list(PURCHASE))
+    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+        monkeypatch.setattr(tx_mod, name, lambda: NAMES)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TAGGED_REFS)
+    typed, _body = ON_PARTS[key]
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, **kw: seen.setdefault("toasts", []).append(str(message)),
+        )
+        await _open(app, pilot, screen)
+        listing = screen.query_one(CursorList)
+        for row in select:
+            listing.set_cursor(listing.index_of(row))
+            await pilot.press("space")
+        await wait_for(pilot, lambda: screen._selected == set(select))
+        listing.set_cursor(listing.index_of(cursor))
+        await pilot.pause()
+        await pilot.press(key)
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        title = "row" if len(select) <= 1 else "rows"
+        assert app.screen._title.endswith(f"for {max(len(select), 1)} {title}")
+        reads = len(calls)
+        for text in typed:
+            await pilot.press(*text, "enter")
+        await wait_for(pilot, lambda: not isinstance(app.screen, PickerModal))
+        # the fresh read recounts: the second count, and its list settled
+        await wait_for(pilot, lambda: len(counts) == 2 and not screen._bulk_busy)
+        await wait_for(pilot, lambda: list_ready(app) and len(screen._rows) == len(PURCHASE))
+        listing = screen.query_one(CursorList)
+        seen.update(
+            reads=reads,
+            fresh=calls[reads:],
+            cursor=(listing.cursor_index, listing.cursor_key),
+            selected=set(screen._selected),
+        )
+
+    run_app(scenario, size=(120, 30))
+    return seen
+
+
+@pytest.mark.parametrize("key", ["c", "h", "b"])
+@pytest.mark.parametrize("select", [[], ["p2"]], ids=["cursor", "selected"])
+def test_c_h_b_on_one_part_send_only_that_part_then_read_fresh(
+    fake_client, monkeypatch, key, select
+):
+    """The cursor on FARMACIA's second part, with it selected or not: the key's
+    one `PUT` names that part alone, never the first part or the ordinary row,
+    and `b` sends it `account_id` once — the engine moves the purchase whole.
+    Then the ledger reads fresh: the newest ten, the cursor on row 1."""
+    _typed, body = ON_PARTS[key]
+    seen = _bulk_on_parts(fake_client, monkeypatch, key, select, cursor="p2")
+    assert fake_client.puts == [("/transactions/p2", body)]
+    assert seen["fresh"][0]["after"] is None and seen["fresh"][0]["limit"] == 10
+    assert seen["cursor"] == (0, "t-net")
+    assert seen["selected"] == set()
+
+
+@pytest.mark.parametrize("key", ["c", "h", "b"])
+def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, monkeypatch, key):
+    """Both parts of FARMACIA selected: one `PUT` per part, in list order, each
+    the body one row gets. For `b` the second `PUT` names the part the first one
+    already moved, with the same body built from the read before the move, and
+    no `version`, so no stale-version refusal can come of it; the engine accepts
+    it (tests/contract/test_bank_lines.py
+    `test_an_account_move_on_one_part_moves_the_whole_line`)."""
+    _typed, body = ON_PARTS[key]
+    seen = _bulk_on_parts(fake_client, monkeypatch, key, ["p1", "p2"], cursor="p1")
+    assert fake_client.puts == [("/transactions/p1", body), ("/transactions/p2", body)]
+    assert not any("version" in sent for _path, sent in fake_client.puts)
+    assert seen["fresh"][0]["after"] is None and seen["fresh"][0]["limit"] == 10
+    assert seen["cursor"] == (0, "t-net")
+    if key == "b":
+        assert seen["toasts"][0] == "2 rows → BCP Oro PEN · 2 left their reconciliation"

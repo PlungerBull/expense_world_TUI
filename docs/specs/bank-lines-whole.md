@@ -94,10 +94,6 @@ for the owner's pick.
    question reads "Delete this purchase and its 3 parts? No screen can bring it back." with the
    real part count (owner, 2026-10-17). Picked as drawn in 3a–3e of the same mockup; the note
    after the delete reads `Purchase deleted.`
-4. The ledger's `c`, `h` and `b` on parts: confirm with tests that `c` and `h` change only the
-   selected parts and that `b` on one part moves the whole purchase (the engine's rule), and
-   that the ledger reloads fresh after each.
-
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.

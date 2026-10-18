@@ -152,6 +152,10 @@ KNOWN_LOCAL = frozenset(
         # the list each xdist worker hands the controller for the error-shape
         # guard (tests/unit/conftest.py), not an engine field
         "error_tested",
+        # the ways a line-read test leaves the ledger (`esc`, or another screen
+        # over it), compared as `if how == "left":`, which reads like a dict key
+        "covered",
+        "left",
     }
 )
 
