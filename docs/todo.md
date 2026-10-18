@@ -60,36 +60,20 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
-### Approve the next catch-up and pick the import report
-Asked 2026-10-17 · Blocks: [specs/import-bank-day.md](specs/import-bank-day.md)
-
-The preview becomes one table of the file's rows with a mark and a reason; picked so far: ✓
-means "in the ledger after the import", the reason stands alone, and the screen after importing
-gives the counts alone. Left in
-[mockups/expense-world-import-report.html](mockups/expense-world-import-report.html): the mark
-on a row whose transaction sits in a completed reconciliation on another day (1A ✗ or 1B ✓),
-whether the block of days where the file and the ledger disagree stays under the table (2A or
-2B), the reasons' words, and approving the spec.
-
-**Recommended:** 1A, because that row means a reconciliation was completed wrong and needs
-looking at; 2A, because it is the only place a transaction typed by hand and also in the file
-shows up twice; the reasons as drawn; approve the spec.
-
-### The split screen: a typed line or a form?
+### The split screen's layout
 Asked 2026-10-18 · Blocks: the split screen's changes
 
-Picked in [mockups/expense-world-split-moments.html](mockups/expense-world-split-moments.html):
-`esc` with parts typed leaves at once (2 A, as built), `@`/`#` open the LOG bar's suggestion
-list (3 A), and a title typed on a part's line changes the transaction's title on every part
-(the engine is asked to take a title with the split: [to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)).
-Earlier you also suggested replacing the typed line with the Edit form's fields, one per line.
-- **A.** Keep the typed line, with the picks above.
-- **B.** The Edit form's fields: the title once at the top, then amount, category, hashtags and
-  note per part; the picks above then apply to the form (its category field already has a
-  suggestion list).
+The split screen is redrawn with fields instead of a typed line:
+[mockups/expense-world-split-screen.html](mockups/expense-world-split-screen.html). The title
+is one field on top and changes every part (asked of the engine:
+[to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)); `esc` leaves at once;
+a category or hashtag field shows the suggestion list as you type.
+- **A.** A table you edit in place, a row per part, a cell per field.
+- **B.** The Edit form, part after part: one field per line, `↑↓` through all of them.
+- **C.** The parts listed on the left, the picked part's fields on the right.
 
-**Recommended:** B, because the title is the transaction's, so it reads best as one field above
-the parts, and a field per value leaves nothing to misread.
+**Recommended:** B, because it works exactly like the Edit form you already use, with its keys
+and its suggestion list.
 
 ---
 
@@ -110,8 +94,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
-- **Catch up with the import moving a matched line to the bank's day.** Spec (draft, waiting
-  for the owner): [specs/import-bank-day.md](specs/import-bank-day.md).
+- **Catch up with the import moving a matched line to the bank's day.** Spec (approved, in
+  progress): [specs/import-bank-day.md](specs/import-bank-day.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
@@ -139,7 +123,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not) and `expense-world-screen-map.html` (linked from nowhere). Deleting one means removing
   its links from tui.md and from code and test docstrings in the same change; keep
-  `expense-world-split-action.html` while `expense-world-split-moments.html` links it.
+  `expense-world-split-action.html` until the split screen's redraw is built.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it

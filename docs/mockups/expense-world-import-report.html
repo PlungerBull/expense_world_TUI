@@ -82,23 +82,7 @@
 
 <div class="qs">
   <h2>Picked</h2>
-  <p>1B (✓ = in the ledger after the import) · 2A (the reason alone) · after importing, the counts alone, no table.</p>
-  <h2>Questions for the owner</h2>
-  <ol>
-    <li><b>Pane 1 · a row whose transaction sits in a completed reconciliation on another day.</b> You are right that with a reconciliation done well this cannot happen: the bank's day would agree. It happens only when a reconciliation was completed wrong, so the row should point at it.
-      <ul>
-        <li><b>1A</b> (recommended): <code>✗  Not modified: Septiembre 2026 is reconciled</code> — a ✗, because something needs looking at: that reconciliation.</li>
-        <li><b>1B</b>: a ✓ with the same words, because the row is in the ledger.</li>
-      </ul>
-    </li>
-    <li><b>Pane 2 · the block under the table.</b> My earlier example was wrong — it came from the case above. The block is for this one: you typed <code>Farmacia -42.90</code> on 10 Oct; the bank has <code>FARMACIA CENTRAL -42.90</code> on 11 Oct with no operation number, so the file row comes in as New and the ledger would hold that transaction twice. The block names the typed one so you can delete it. It is the only place a transaction in the ledger that the file does not have shows.
-      <ul>
-        <li><b>2A</b> (recommended): keep the block under the table, on the preview only.</li>
-        <li><b>2B</b>: the table alone.</li>
-      </ul>
-    </li>
-    <li><b>The reasons' words</b> (the box under these questions). Change any of them, or agree.</li>
-  </ol>
+  <p>✓ = in the ledger after the import · the reason alone · 1A: the reconciled row is ✗ · 2A: the block of days stays under the table, on the preview only · after importing, the counts alone · the reasons as listed below.</p>
 </div>
 
 
@@ -107,7 +91,7 @@
   <span class="p">✓</span>  <span class="p">New</span>
   <span class="p">✓</span>  <span class="d">Already in the ledger</span>
   <span class="p">✓</span>  Modified existing transaction      <span class="d">(took the bank's title, got the operation number, or moved to the bank's day)</span>
-  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>   <span class="d">(question 1)</span>
+  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>
   <span class="nb">✗</span>  <span class="w">Closed period</span>
   <span class="nb">✗</span>  <span class="w">Before 2026</span>
   <span class="nb">✗</span>  <span class="w">Couldn't read the row</span>
