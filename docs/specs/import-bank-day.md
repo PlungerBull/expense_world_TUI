@@ -62,8 +62,9 @@ Nothing in this range.
 Drafted 2026-10-17, waiting for the owner's approval. Each **[UI]** task starts with its mockup;
 the build waits for the owner's pick.
 
-1. **[UI] The preview and the "imported" screen show the move to the bank's day.** Mockup:
-   [expense-world-import-bank-day.html](../mockups/expense-world-import-bank-day.html).
+1. **[UI] The preview and the "imported" screen become one table of the file's rows, with a
+   mark (✓/✗) and a reason; the move to the bank's day is one of the reasons.** Mockup:
+   [expense-world-import-report.html](../mockups/expense-world-import-report.html).
    - The import reads `redated`, `redate_blocked_by` and `counts.redated` from the engine's
      answer, through the shared reader in [engine.py](../../expense/bank_import/engine.py).
    - A blocking reconciliation is named by a read of it by id.

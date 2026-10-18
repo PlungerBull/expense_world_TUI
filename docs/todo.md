@@ -60,20 +60,19 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
-### Approve the next catch-up and pick its screens
+### Approve the next catch-up and pick the import report
 Asked 2026-10-17 · Blocks: [specs/import-bank-day.md](specs/import-bank-day.md)
 
 The engine now moves a transaction matched by operation number to the bank's day when you
-import a file; the import's preview has to say which rows move, and which keep their day
-because a completed reconciliation stops them. Read the draft spec, then pick in
-[mockups/expense-world-import-bank-day.html](mockups/expense-world-import-bank-day.html): pane 1
-(1A the move written after the match, or 1B in the date), pane 2 (2A the reason on the row, or
-2B a short mark plus a note under the summary), and the wording questions in its box at the top.
-A kept row also leaves its two days disagreeing in the list of such days; the tester confirms
-that against the engine before the build.
+import a file. Instead of one more note on the preview, the preview and the screen after
+importing become one table of the file's rows with a mark (✓/✗) and a reason from a short list.
+Read the draft spec, then pick in
+[mockups/expense-world-import-report.html](mockups/expense-world-import-report.html): what ✓
+means (1A or 1B), whether the reason says what changed (2A or 2B), what stays under the table
+(3A or 3B), the screen after importing (4), and the reasons' words.
 
-**Recommended:** approve the spec; 1A, 2B, and the box's recommended wordings, because 2A's
-reason is cut off on a normal-width terminal.
+**Recommended:** approve the spec; 1B, 2B, 3A, and pane 4 and the reasons as drawn, because ✗
+then always means "look at this" and each row says what the import did to it.
 
 ### The split screen's three moments
 Asked 2026-10-17 · Blocks: nothing; each pick that changes the screen becomes a task
