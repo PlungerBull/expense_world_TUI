@@ -60,6 +60,18 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
+### A row that moves to the bank's day: its own words, or the spec's?
+Asked 2026-10-18 · Blocks: closing [specs/import-bank-day.md](specs/import-bank-day.md)
+
+The spec says a row that moves "shows the ledger's day and the bank's day" (3 → 4 October). Your
+pick was "the reason alone", so that row reads `✓ Modified existing transaction`, the same words
+as a row that took the bank's title; only the counts line says `1 moves to the bank's day`.
+- **A.** Keep the pick, and the spec's words change to match it.
+- **B.** The row says it moves: `✓ Moved to the bank's day` as a reason of its own (a new task).
+
+**Recommended:** B, because a change of day is the one change worth seeing before you import,
+and it costs one more reason, not a longer cell.
+
 ### The import's reconciled row, when the bank's title still lands
 Asked 2026-10-18 · Blocks: nothing (the row shows; only its words)
 
@@ -142,7 +154,9 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
   most in [mockups/](mockups/) back screens already built, among them
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
-  does not) and `expense-world-screen-map.html` (linked from nowhere). Deleting one means removing
+  does not), `expense-world-screen-map.html` (linked from nowhere), and
+  `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
+  `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview. Deleting one means removing
   its links from tui.md and from code and test docstrings in the same change; keep
   `expense-world-split-action.html` until [specs/split-screen-fields.md](specs/split-screen-fields.md) replaces it.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One

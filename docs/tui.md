@@ -517,7 +517,8 @@ sends the same rows, under the same ids, as the apply — one `POST /transaction
 with `dry_run: false` through the shared HTTP client (its idempotency key covers a retry). A refusal or a short answer
 stays on the preview, the rows it names by file line, and nothing else is sent.
 
-**A ledger line changed while the import ran** (screen 4 A): the apply's `409 CONFLICT`
+**A ledger line changed while the import ran** (screen 4 A in
+[expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html)): the apply's `409 CONFLICT`
 with `CONCURRENT_CHANGE` on a `rows.<index>` key means something else split, deleted or
 changed a ledger line a file row matched, and nothing was written
 (contract: POST /v1/transactions/import). The preview shows the engine's words, each row by
@@ -847,8 +848,9 @@ them — they are hand-written into the `?` card
   `… N more · pgdn` / `… N above · pgup` line under the table says where more rows are; the
   footer keeps to `esc` and `⏎`.
 - **No `r` on the import screens.** Each reads once, when it opens — the account list, the
-  preview's dry run (read again only by `⏎ Preview again`); dropping the file on the LOG bar
-  again reads both afresh.
+  preview's dry run and the names of the reconciliations that stop a move (read again only by
+  `⏎ Preview again`); dropping the file on the LOG bar
+  again reads them all afresh.
 - **No `?` on the import screens.** They do not take `HelpBindingMixin`; the footer is their
   whole key list.
 
