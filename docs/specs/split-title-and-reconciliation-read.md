@@ -64,22 +64,8 @@ reply to the engine reports each result.
 
 ## Tasks
 
-Approved 2026-10-18, with screens 4 to 6 of the mockup. Task 2, the import preview's read by
-id, is done.
-
-1. **The split screen's title is a field, sent with the split.** Screen 4 of the mockup: `⏎`
-   on the title line opens one field below, `⏎` there commits it, `esc` leaves the title as it
-   was. An empty field is refused with `Title is required.`, worded and shown as on the Edit
-   form, and the field stays open. `^s` sends `title` beside `parts` only when it differs from
-   the transaction's title, and leaves the key out otherwise. A `LOCKED` refusal on `title`
-   shows in the refusal lines under the parts, with any part's refusal from the same `422`, and
-   the refusal goes when the title changes, as it does when a part changes (screen 6).
-   Unit tests: a changed title is sent and lands on every part, an untouched one is not sent,
-   an empty one is refused and sends nothing, and `LOCKED` together with a part's refusal shows
-   both and splits nothing. A live contract test: a split with `title` titles every part, one
-   without keeps the title, and a changed title on a line in a completed reconciliation is
-   `422` `LOCKED` with the line unchanged. [tui.md](../tui.md) follows. Passes check 1 of the
-   engine's, and 1 to 4 above.
+Approved 2026-10-18, with screens 4 to 6 of the mockup. Both tasks are done; the acceptance
+check runs next.
 
 ## Reply to the engine
 

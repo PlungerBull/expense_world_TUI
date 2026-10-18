@@ -42,7 +42,6 @@ split screen, as today; what changes is how the parts are typed.
 
 ## Tasks
 
-Approved 2026-10-18. Task 1, the table and the fields below, is done. Task 2, the title sent
-with the split, is task 1 of the catch-up spec
-[split-title-and-reconciliation-read.md](split-title-and-reconciliation-read.md). This spec's
-acceptance check runs once that task is done.
+Approved 2026-10-18. Both tasks are done: task 2, the title sent with the split, was built as
+task 1 of [split-title-and-reconciliation-read.md](split-title-and-reconciliation-read.md). The
+acceptance check runs next.

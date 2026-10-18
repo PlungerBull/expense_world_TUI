@@ -7,8 +7,8 @@ labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
 locked fields, edit mode), NewReconciliationScreen (dynamic sequence),
 SetupScreen (first-time setup: the engine address and key, then a profile),
-SplitScreen (a part's fields under the table of parts, its own layout and
-send).
+SplitScreen (a part's fields, or the title's one field, under the table of
+parts, its own layout and send).
 """
 
 from rich.console import Group, RenderableType
@@ -22,6 +22,9 @@ from textual.widgets import Footer, Input, Label, Static
 
 from expense.tui.screens._base import EngineWriteMixin
 from expense.tui.widgets.header import Breadcrumb
+
+#: What `⏎` on an empty title says, on every form that edits one.
+TITLE_REQUIRED = "Title is required."
 
 
 def form_bindings(
@@ -251,6 +254,14 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     # ---- submit ----------------------------------------------------------------
     def action_cancel(self) -> None:
         self.dismiss()
+
+    def _title_given(self, text: str) -> bool:
+        """False, with `Title is required.` as an error toast, when the title
+        typed (already stripped) is empty: a title is never kept empty."""
+        if not text:
+            self.notify(TITLE_REQUIRED, severity="error")
+            return False
+        return True
 
     def _required_met(self) -> bool:
         """True when every required field has a value; otherwise notes the first

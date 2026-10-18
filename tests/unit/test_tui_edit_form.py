@@ -10,6 +10,7 @@ from rich.text import Text
 from textual.widgets import Input, Static
 
 from expense.errors import EngineConnectionError, EngineError
+from expense.tui.screens._form import TITLE_REQUIRED
 from expense.tui.screens.create_forms import (
     EditAccountScreen,
     EditCategoryScreen,
@@ -574,6 +575,26 @@ def test_edit_form_rejects_zero_and_unknown_account(fake_client, monkeypatch):
         assert screen._key == "account"
 
     run_app(scenario)
+
+
+def test_edit_form_refuses_an_emptied_title_and_stays(fake_client, monkeypatch):
+    """`⏎` on an emptied title says `Title is required.` as an error toast and
+    the cursor stays on TITLE; the split screen's title field says the same
+    (`_title_given` in _form.py)."""
+    _patch(monkeypatch)
+    notes: list[tuple[str, object]] = []
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
+        screen._current = screen._sequence().index("title")
+        _enter(screen, "   ")
+        assert screen._key == "title" and screen._values["title"] == "Farmacia"
+
+    run_app(scenario)
+    assert notes == [(TITLE_REQUIRED, "error")]
 
 
 def test_edit_form_fetch_error_notifies_not_crash(fake_client, monkeypatch):

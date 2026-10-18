@@ -277,14 +277,14 @@ of a split transaction selected, each part gets its own `PUT`; a later one finds
 and the engine accepts it as it is, since the `PUT` carries no `version`. The receipt counts the
 rows sent, so `b` on one part reads `1 row → …` however many parts moved.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
-screens 1 to 3 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
+screens 1 to 6 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
 `s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
 like `d` it works on the cursor row only: off, and out of the footer, while rows are selected
 or a bulk write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
 ledger's. On top, what every part keeps: `2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every
 part keeps this date and account`, the date, the account and the line's total. Under it the
-TITLE line, `TITLE      Tottus Jockey Plaza      same on every part`: the transaction's title,
-shown, not editable, and the cursor never stops on it. The screen opens the row's bank line
+TITLE line, `TITLE      Tottus Jockey Plaza      same on every part`: the title every part
+takes, the transaction's until it is changed (below). The screen opens the row's bank line
 with one `GET /bank-lines/{id}` (`fetch_bank_line` in [reads.py](../expense/reads.py)): its
 `parts`, its `part_count` and its signed `net_cents` total
 (contract: GET /v1/bank-lines/{bank_line_id}). Each part comes as a magnitude and its
@@ -297,8 +297,9 @@ dim, then the line adding the parts up: `2 parts  ·  -100.00 of -100.00  ✓`, 
 success colour, or `2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error
 colour: the parts' amounts summed against the engine's total. It never stops a send. A part
 with no amount, category or real hashtag reads `—` there (no category is `@Pendiente`, the
-pending hashtag alone is no hashtag); no note reads blank. `↑↓` move the cursor through the
-parts and `+ add a part`, the cursor's line in reverse, and stop at either end.
+pending hashtag alone is no hashtag); no note reads blank. `↑↓` move the cursor from the TITLE
+line through the parts to `+ add a part`, the cursor's line in reverse, and stop at either end;
+the screen opens with the cursor on the first part, or on `+ add a part` when there is none.
 **The fields below.** `⏎` on a part opens its fields under the table, under a dim rule and
 `PART 2`: `AMOUNT`, `CATEGORY`, `HASHTAGS`, `NOTE`, one per line, the part marked `▌ 2` in the
 accent in the table. They are the bar form's (`FormScreen` in
@@ -317,28 +318,44 @@ keeping every field already left; only the field being typed goes back to what i
 **`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
 A part left with nothing in it, by `esc` or `⏎` through its fields, drops again, the cursor
 back on `+ add a part`.
+**`⏎` on the TITLE line** opens one field below (screen 4), under the dim rule and
+`TITLE · changes it on every part` (`TITLE` bold, the rest dim): `▌ TITLE` in the accent with
+the input after it, opening on the title as it is. While it is open the TITLE line reads
+`▌TITLE      Tottus Jockey Plaza` in the accent, bold, the `▌` in the column `TITLE` starts in
+otherwise, the title as last kept, and no part is under the cursor. `⏎` keeps the title typed, trimmed, puts it on the TITLE line and goes back
+to the table, the cursor on the TITLE line; `esc` goes back leaving the title as it was. An
+empty title, or spaces only, is refused as on the Edit form (`_title_given` in
+[_form.py](../expense/tui/screens/_form.py), one copy for both): the error toast
+`Title is required.`, the field stays open and the TITLE line keeps its title (screen 5), so
+a split never removes a title. `↑↓` do nothing in this one field, and there is no `⇥ Field`.
 `ctrl+s` always sends every part in one `POST /transactions/{id}/split` through `run_write`
 (one idempotency key), by the id of the row `s` was pressed on, each part under a fresh id,
 with only what it holds: its signed `amount_cents`, `category_id`, `description`, and
 `hashtag_ids` through `hashtags_to_send` with `pending_alone=False`, so a part with only the
-pending hashtag sends none. Pressed in the fields, it keeps the field being typed first and
-the table comes back. The engine decides whether the parts add up
+pending hashtag sends none. Beside `parts` goes `title`, once for the line, only when the title
+kept differs from the transaction's; the engine writes it onto every part, and with the key
+left out every part keeps the title it has
+(contract: POST /v1/transactions/{transaction_id}/split). Pressed in a part's fields or the
+title's, it keeps the field being typed first (an empty title is refused there as on `⏎`)
+and the table comes back. The engine decides whether the parts add up
 (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). Split, the screen
-closes and the ledger reads fresh from the newest 10, cursor on row 1. The title is not sent.
-**A refused split stays under the parts** until a part changes: the engine's
+closes and the ledger reads fresh from the newest 10, cursor on row 1.
+**A refused split stays under the parts** until a part or the title changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
 `parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`, the index read
-by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent, each hanging
-under its own words (`hanging` in [refusal.py](../expense/tui/widgets/refusal.py)), then
-`Nothing was split.` dim, then a blank line and the app's line when the reason has one
-(`app_lines`; "When the engine says no" below). The amounts a `parts.<i>.amount_cents` key
-names turn the error colour in the table. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every
-`parts.<i>.amount_cents`, its words giving both totals in cents), and every other refusal of
-the route, `OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`,
-`PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`,
-`INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
-`ID_EXISTS`, `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way. A failure that is
-not the engine's answer (the engine out of reach) shows the app's error text there instead.
+by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent (`! title: …`),
+each hanging under its own words (`hanging` in
+[refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was split.` dim, then a blank
+line and the app's line when the reason has one (`app_lines`; "When the engine says no"
+below). The amounts a `parts.<i>.amount_cents` key names turn the error colour in the table.
+`SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words giving
+both totals in cents), and every other refusal of the route, `OPENING_BALANCE_NOT_SPLIT`,
+`SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`, `INVALID_REFERENCE`,
+`RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`, `ID_EXISTS`,
+`RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way, and so does `LOCKED` on `title`:
+a transaction in a completed reconciliation may be split, but a changed title is refused, with
+any part's refusal from the same `422`, and nothing is split (screen 6). A failure that is not
+the engine's answer (the engine out of reach) shows the app's error text there instead.
 `esc` clears the selection if there is one, and otherwise goes back to the screen that
 opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
@@ -982,13 +999,17 @@ returns the bar to quick-add on the same keystroke.
 
 **The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): the bar
 form's keymap (`form_bindings`) with the table's keys, each shown only where it works
-(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the part
-under it or adds one, `ctrl+x` drops the part under it, `ctrl+s` sends the split, `esc` leaves
-at once with nothing sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In
-the fields the input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥`
-and `shift+tab` move fields, `ctrl+s` sends, `esc` goes back to the table; the footer reads
-`esc Back to the parts  ^s Split  ⇥ Field`. `esc` is two bindings, `check_action` showing one.
-There is no `?`: in the fields the input would take it, as on every form.
+(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the title's
+field or the part under the cursor, or adds one, `ctrl+x` drops the part under it (nothing on
+the TITLE line or `+ add a part`), `ctrl+s` sends the split, `esc` leaves at once with nothing
+sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In a part's fields the
+input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥` and `shift+tab`
+move fields, `ctrl+s` sends, `esc` goes back to the table; the footer reads
+`esc Back to the parts  ^s Split  ⇥ Field`. In the title's one field, `⏎` keeps it, `ctrl+s`
+sends, `esc` goes back, and the footer reads `esc Back to the parts  ^s Split`. `esc` is two
+bindings, `check_action` showing one. There is no `?`: the split screen is a bar form
+(`FormScreen`), and forms take no `HelpBindingMixin`, so there is no `?` card; in the fields
+the input takes `?` as a character.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

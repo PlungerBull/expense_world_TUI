@@ -324,8 +324,7 @@ class EditFormScreen(FormScreen):
             self._display["date"] = self._values["date"]
             self._advance()
         elif key == "title":
-            if not text:
-                self.notify("Title is required.", severity="error")
+            if not self._title_given(text):
                 return
             self._values["title"] = self._display["title"] = text
             self._advance()

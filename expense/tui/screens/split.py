@@ -1,11 +1,19 @@
 """The split screen — one transaction into parts, `s` on a ledger row.
 
-Screens 1 to 3 of docs/mockups/expense-world-split-screen.html. A full pushed
+Screens 1 to 6 of docs/mockups/expense-world-split-screen.html. A full pushed
 screen, not a modal. On top, the line every part keeps: the date, the account
-and the line's signed total; under it the TITLE line, the transaction's title,
-shown and not yet editable. Then the table of the parts (amount, category,
-hashtags, note), `+ add a part`, and the line adding the parts up against the
-total. `↑↓` move the cursor through the parts and `+ add a part`.
+and the line's signed total; under it the TITLE line, the title every part
+takes. Then the table of the parts (amount, category, hashtags, note),
+`+ add a part`, and the line adding the parts up against the total. `↑↓` move
+the cursor from the TITLE line through the parts to `+ add a part`.
+
+**The title.** `⏎` on the TITLE line opens one field below, `TITLE · changes
+it on every part`; `⏎` there puts the new title on the TITLE line and goes
+back to the table, `esc` goes back leaving the title as it was. An empty
+title is refused as on the Edit form (`_title_given` in _form.py), the field
+staying open. The split sends `title` beside `parts` only when it differs
+from the transaction's, so a title left alone is not sent and every part
+keeps the one it has (contract: POST /v1/transactions/{transaction_id}/split).
 
 **The fields below.** `⏎` on a part opens its fields under the table, one per
 line: AMOUNT, CATEGORY, HASHTAGS, NOTE, the part marked in the table. They are
@@ -30,8 +38,9 @@ engine's total. It never stops a send: `ctrl+s` always sends every part in one
 decides whether the parts add up
 (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept").
 
-**A refusal stays under the parts** until a part changes: the engine's words,
-each `parts.<i>.<field>` key read as `part i+1 (field)`, the amounts a
+**A refusal stays under the parts** until a part or the title changes: the
+engine's words, each `parts.<i>.<field>` key read as `part i+1 (field)` and
+any other key (`title`, `transaction_id`) as sent, the amounts a
 `parts.<i>.amount_cents` key names in the error colour, `Nothing was split.`,
 and the app's line for the refusal's reason, if it has one (`app_lines`).
 """
@@ -71,6 +80,8 @@ from expense.tui.widgets.windowed import CURSOR_STYLE
 
 HEAD_NOTE = "every part keeps this date and account"
 TITLE_NOTE = "same on every part"
+#: The note beside `TITLE` over the title's field below.
+TITLE_FIELD_NOTE = "changes it on every part"
 ADD_PART = "add a part"
 NOTHING_SPLIT = "Nothing was split."
 #: A cell with nothing in it, as drawn.
@@ -78,7 +89,15 @@ EMPTY = "—"
 
 #: The part's fields, in the order the cursor moves through them.
 FIELDS = ("amount", "category", "hashtags", "note")
-LABELS = {"amount": "AMOUNT", "category": "CATEGORY", "hashtags": "HASHTAGS", "note": "NOTE"}
+LABELS = {
+    "amount": "AMOUNT",
+    "category": "CATEGORY",
+    "hashtags": "HASHTAGS",
+    "note": "NOTE",
+    "title": "TITLE",
+}
+#: The cursor on the TITLE line, above the first part.
+TITLE_ROW = -1
 #: The fields that show the suggestion list as you type.
 PICKED = frozenset({"category", "hashtags"})
 
@@ -154,10 +173,15 @@ def part_payload(part: Part, refs: QuickAddRefs | None, *, part_id: str) -> dict
     return body
 
 
-def split_body(parts: list[Part], refs: QuickAddRefs | None) -> dict:
+def split_body(parts: list[Part], refs: QuickAddRefs | None, *, title: str | None = None) -> dict:
     """`POST /transactions/{id}/split`'s body: every part, in table order,
-    each under a fresh id."""
-    return {"parts": [part_payload(p, refs, part_id=str(uuid4())) for p in parts]}
+    each under a fresh id, and `title` beside them when one is given. Left
+    out, every part keeps the transaction's title
+    (contract: POST /v1/transactions/{transaction_id}/split)."""
+    body: dict = {"parts": [part_payload(p, refs, part_id=str(uuid4())) for p in parts]}
+    if title is not None:
+        body["title"] = title
+    return body
 
 
 # ---------------------------------------------------------------------------
@@ -185,13 +209,26 @@ def head_line(
     return head
 
 
-def title_line(record: dict) -> Text:
-    """`TITLE      Tottus Jockey Plaza          same on every part`."""
-    title = record.get("title") or EMPTY
-    line = Text("TITLE".ljust(11), style="dim")
-    line.append(title.ljust(43) + "  ")
-    line.append(TITLE_NOTE, style="dim")
+def title_line(title: str | None, *, cursor: bool = False, editing: bool = False) -> Text:
+    """`TITLE      Tottus Jockey Plaza          same on every part`, in the
+    cursor style while the cursor is on it. While its field is open below it
+    reads `▌TITLE      Tottus Jockey Plaza` in the accent, bold, the `▌` in the
+    column `TITLE` otherwise starts in: the title as last kept, the one being
+    typed showing only in the field."""
+    if editing:
+        line = Text("▌" + "TITLE".ljust(11) + (title or EMPTY), style=f"bold {ACCENT}")
+    else:
+        line = Text("TITLE".ljust(11), style="dim")
+        line.append((title or EMPTY).ljust(43) + "  ")
+        line.append(TITLE_NOTE, style="dim")
+        if cursor:
+            line.stylize(CURSOR_STYLE)
     return line
+
+
+def title_head() -> Text:
+    """`TITLE · changes it on every part`: the head of the title's field below."""
+    return Text.assemble(("TITLE", "bold"), (f" · {TITLE_FIELD_NOTE}", "dim"))
 
 
 def _category_cell(part: Part, refs: QuickAddRefs) -> str:
@@ -401,9 +438,12 @@ class SplitScreen(FormScreen):
         self._refs: QuickAddRefs | None = None
         self._total: int | None = None
         self._parts: list[Part] = []
-        self._cursor = 0  # a part, or len(parts) for `+ add a part`
+        # TITLE_ROW for the TITLE line, a part, or len(parts) for `+ add a part`
+        self._cursor = 0
         self._editing: int | None = None  # the part whose fields are open
-        self._refusal: Exception | None = None  # the engine's, until a part changes
+        self._title: str | None = record.get("title")  # as last kept; sent if it differs
+        self._title_open = False  # the title's field is open below
+        self._refusal: Exception | None = None  # the engine's, until a part or the title changes
         self._sending = False
 
     # ---- layout ------------------------------------------------------------
@@ -458,7 +498,7 @@ class SplitScreen(FormScreen):
 
     # ---- FormScreen hooks --------------------------------------------------
     def _sequence(self) -> list[str]:
-        return list(FIELDS)
+        return ["title"] if self._title_open else list(FIELDS)
 
     def _label(self, key: str) -> str:
         return LABELS[key]
@@ -468,7 +508,10 @@ class SplitScreen(FormScreen):
 
     def _bar_value(self, key: str) -> str:
         """Amount and note open on what the part holds; category and hashtags
-        open empty and are picked afresh, as on the Edit form."""
+        open empty and are picked afresh, as on the Edit form. TITLE opens on
+        the title as last kept."""
+        if key == "title":
+            return self._title or ""
         part = self._part
         if key == "amount" and part.amount_cents is not None:
             return amount_to_text(part.amount_cents)
@@ -539,9 +582,33 @@ class SplitScreen(FormScreen):
                 self._set_part(replace(part, hashtag_ids=tuple(tags)))
         return True
 
+    def _keep_title(self) -> bool:
+        """Keep the title typed, trimmed. False when it is empty: the Edit
+        form's note says a title is required, and the title stays as it was."""
+        text = self.query_one("#bar", Input).value.strip()
+        if not self._title_given(text):
+            return False
+        if text != self._title:
+            self._title = text
+            self._refusal = None  # the title changed
+        return True
+
+    @property
+    def _fields_open(self) -> bool:
+        """A part's fields or the title's field are open below."""
+        return self._editing is not None or self._title_open
+
     def _open_fields(self, index: int) -> None:
         self._editing = index
         self._cursor = index
+        self._show_fields()
+
+    def _open_title(self) -> None:
+        self._title_open = True
+        self._cursor = TITLE_ROW
+        self._show_fields()
+
+    def _show_fields(self) -> None:
         self._current = 0
         self.query_one("#part-fields").display = True
         self._refresh_bar()
@@ -552,15 +619,19 @@ class SplitScreen(FormScreen):
         self._refresh_view()
 
     def _close_fields(self) -> None:
-        """Back to the table, the cursor on the part; a part with nothing in it
-        drops."""
+        """Back to the table, the cursor on the part or the TITLE line; a part
+        with nothing in it drops."""
         index = self._editing
-        if index is None:
+        if self._title_open:
+            self._title_open = False
+            self._cursor = TITLE_ROW
+        elif index is not None:
+            self._editing = None
+            if self._parts[index].empty:
+                del self._parts[index]
+            self._cursor = min(index, len(self._parts))
+        else:
             return
-        self._editing = None
-        if self._parts[index].empty:
-            del self._parts[index]
-        self._cursor = min(index, len(self._parts))
         self._suggestions = []
         self.query_one("#part-fields").display = False
         self.query_one("#bar", Input).disabled = True
@@ -572,7 +643,11 @@ class SplitScreen(FormScreen):
         """`⏎` in the fields: keep the field and move to the next, or back to
         the table from NOTE. On HASHTAGS a typed name adds the hashtag and
         stays for another, as on the Edit form; `⏎` with nothing typed moves
-        on."""
+        on. On TITLE, keep the title and go back to the table."""
+        if self._title_open:
+            if self._keep_title():
+                self._close_fields()
+            return
         if self._editing is None:
             return
         typed = event.value.strip()
@@ -589,23 +664,28 @@ class SplitScreen(FormScreen):
 
     # ---- keys --------------------------------------------------------------
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        """The table's keys on the table, the fields' keys in the fields."""
-        editing = self._editing is not None
+        """The table's keys on the table, the fields' keys in the fields; the
+        title's one field has no `⇥ Field`."""
         if action in ("cancel", "edit", "drop_part"):
-            return not editing
-        if action in ("back", "field"):
-            return editing
+            return not self._fields_open
+        if action == "back":
+            return self._fields_open
+        if action == "field":
+            return self._editing is not None
         return True
 
     def action_arrow(self, delta: int) -> None:
-        """`↑↓`: the cursor on the table; in the fields, the suggestion list
-        while it is open, else the field."""
+        """`↑↓`: the cursor on the table, from the TITLE line to `+ add a
+        part`; in a part's fields, the suggestion list while it is open, else
+        the field; in the title's one field, nothing."""
+        if self._title_open:
+            return
         if self._editing is not None:
             super().action_arrow(delta)
             return
         if self._refs is None:
             return
-        self._cursor = max(0, min(len(self._parts), self._cursor + delta))
+        self._cursor = max(TITLE_ROW, min(len(self._parts), self._cursor + delta))
         self._refresh_view()
 
     def action_field(self, delta: int) -> None:
@@ -615,9 +695,12 @@ class SplitScreen(FormScreen):
         super().action_field(delta)
 
     def action_edit(self) -> None:
-        """`⏎` on the table: open the part's fields, or add an empty part and
-        open it."""
+        """`⏎` on the table: open the title's field, the part's fields, or add
+        an empty part and open it."""
         if self._refs is None or self._sending:
+            return
+        if self._cursor == TITLE_ROW:
+            self._open_title()
             return
         if self._cursor >= len(self._parts):
             self._parts.append(Part())
@@ -626,12 +709,13 @@ class SplitScreen(FormScreen):
 
     def action_back(self) -> None:
         """`esc` in the fields: back to the table, the field being typed as it
-        was."""
+        was — the title as last kept."""
         self._close_fields()
 
     def action_drop_part(self) -> None:
-        """`ctrl+x`: drop the part under the cursor."""
-        if self._sending or self._cursor >= len(self._parts):
+        """`ctrl+x`: drop the part under the cursor; on the TITLE line or
+        `+ add a part`, nothing."""
+        if self._sending or not 0 <= self._cursor < len(self._parts):
             return
         del self._parts[self._cursor]
         if self._cursor == len(self._parts) and self._parts:
@@ -646,21 +730,24 @@ class SplitScreen(FormScreen):
 
     def action_submit(self) -> None:
         """`ctrl+s`: send every part — always; the engine says whether they add
-        up. In the fields, the field being typed is kept first and the table
-        comes back."""
+        up — and the title when it differs from the transaction's. In the
+        fields, the field being typed is kept first and the table comes
+        back."""
         if self._sending or self._refs is None:
             return
-        if self._editing is not None:
-            if not self._keep_field():
+        if self._fields_open:
+            kept = self._keep_title() if self._title_open else self._keep_field()
+            if not kept:
                 return
             self._close_fields()
         self._sending = True
         self._refusal = None
         self._refresh_view()
+        title = self._title if self._title != self._record.get("title") else None
         self.run_write(
             "POST",
             f"/transactions/{self._record.get('id')}/split",
-            json_body=split_body(self._parts, self._refs),
+            json_body=split_body(self._parts, self._refs, title=title),
             on_success=self._split_done,
             on_failure=self._split_refused,
         )
@@ -680,13 +767,24 @@ class SplitScreen(FormScreen):
         self.query_one("#split-head", Static).update(
             head_line(self._record, self._total, refs, palette=PALETTE)
         )
-        self.query_one("#split-title", Static).update(title_line(self._record))
+        self.query_one("#split-title", Static).update(
+            title_line(
+                self._title,
+                cursor=self._cursor == TITLE_ROW and not self._fields_open,
+                editing=self._title_open,
+            )
+        )
         self.query_one("#parts", Static).update(self._parts_renderable())
-        if self._editing is None or refs is None:
+        if not self._fields_open or refs is None:
+            return
+        rule = Text("─" * RULE_WIDTH, style="dim", no_wrap=True, overflow="crop")
+        if self._editing is None:  # the title's one field
+            self.query_one("#part-head", Static).update(Group(rule, title_head()))
+            for widget_id in ("#fields-above", "#part-suggest", "#fields-below"):
+                self.query_one(widget_id, Static).display = False
             return
         part = self._part
         current = self._current
-        rule = Text("─" * RULE_WIDTH, style="dim", no_wrap=True, overflow="crop")
         self.query_one("#part-head", Static).update(
             Group(rule, Text(f"PART {self._editing + 1}", style="bold"))
         )
@@ -709,7 +807,7 @@ class SplitScreen(FormScreen):
             *parts_lines(
                 self._parts,
                 refs,
-                cursor=self._cursor if self._editing is None else None,
+                cursor=None if self._fields_open else self._cursor,
                 editing=self._editing,
                 flagged=flagged_parts(self._refusal),
                 palette=PALETTE,

@@ -117,9 +117,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `#Pendiente` is not empty, so it stays when its fields close, shows `—` in every cell and is
   sent as an id alone, which the engine refuses ([split.py](../expense/tui/screens/split.py)).
   It should drop like an empty part, with a test.
-- **tui.md gives the wrong reason the split screen has no `?`.** It says the input takes the
-  key; on the table nothing is focused, and the reason is that a form screen has no help card
-  ([tui.md](tui.md) "The bar forms' keys").
 - **Three more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around

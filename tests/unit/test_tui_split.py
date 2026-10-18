@@ -1,7 +1,7 @@
 """`s` on the ledger — the split screen: the table of parts, each part's fields
-below, the split, the re-split and the refusals.
+below, the title's field, the split, the re-split and the refusals.
 
-Screens: docs/mockups/expense-world-split-screen.html (1, 2, 3). Every engine
+Screens: docs/mockups/expense-world-split-screen.html (1 to 6). Every engine
 call goes to one fake engine (`LineClient`), the ledger's reads, the split
 screen's and the split itself, so a test can assert exactly what was read and
 sent. One test sends the split through the real HTTP client against a
@@ -22,7 +22,9 @@ from textual.widgets._footer import FooterKey
 
 from expense.errors import EngineConnectionError, EngineError
 from expense.reads import QuickAddRefs
+from expense.tui.screens._form import TITLE_REQUIRED
 from expense.tui.screens.split import (
+    TITLE_ROW,
     Part,
     SplitScreen,
     count_line,
@@ -30,7 +32,7 @@ from expense.tui.screens.split import (
     part_key,
 )
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
-from expense.tui.theme import PALETTE
+from expense.tui.theme import ACCENT, PALETTE
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.refusal import hanging
 from tests.unit.helpers import (
@@ -236,6 +238,11 @@ def _lines(screen, widget_id: str) -> list[str]:
     return [line.rstrip() for line in _text(screen, widget_id).splitlines()]
 
 
+def _part_rows(screen) -> list[Text]:
+    """The table's lines: its header, each part, `+  add a part`."""
+    return [r for r in screen.query_one("#parts", Static).content.renderables if r.plain][:-1]
+
+
 def _styles_of(text: Text, needle: str) -> set[str]:
     start = text.plain.index(needle)
     return {str(s.style) for s in text.spans if s.start <= start < s.end}
@@ -330,10 +337,10 @@ def test_s_opens_the_table_under_the_date_account_total_and_the_title(engine, fl
     assert engine.line_reads() == ["/bank-lines/bl-1"]
 
 
-def test_the_cursor_moves_through_the_parts_and_add_a_part_never_the_title(engine):
-    """`↑↓` move through the parts and `+ add a part` and stop at either end;
-    the cursor never stops on the TITLE line. The cursor's line is in the
-    cursor style."""
+def test_the_cursor_moves_from_the_title_through_the_parts_to_add_a_part(engine):
+    """`↑↓` move from the TITLE line through the parts to `+ add a part` and
+    stop at either end; the screen opens on the first part. The cursor's line
+    is in the cursor style, the TITLE line's too."""
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "p1")
@@ -342,15 +349,26 @@ def test_the_cursor_moves_through_the_parts_and_add_a_part_never_the_title(engin
         assert lines[2].split() == ["2", "-40.00", "HOGAR", "—", "lejía", "y", "papel"]
         assert lines[3].strip() == "+  add a part"
         seen = [screen._cursor]
-        for key in ("up", "down", "down", "down", "up"):
+        for key in ("up", "up"):
             await pilot.press(key)
             seen.append(screen._cursor)
-        assert seen == [0, 0, 1, 2, 2, 1]
+        title = screen.query_one("#split-title", Static).content
+        part_lines = screen.query_one("#parts", Static).content.renderables
+        on_title = [line for line in part_lines[1:4] if "reverse" in str(line.spans)]
+        for key in ("down", "down", "down", "down", "up"):
+            await pilot.press(key)
+            seen.append(screen._cursor)
+        assert seen == [0, TITLE_ROW, TITLE_ROW, 0, 1, 2, 2, 1]
         cursor_line = screen.query_one("#parts", Static).content.renderables[2]
         assert cursor_line.plain.startswith("  2")
         assert "reverse" in {str(s.style) for s in cursor_line.spans}
+        return title, on_title, screen.query_one("#split-title", Static).content
 
-    run_app(scenario, size=SIZE)
+    title, on_title, left = run_app(scenario, size=SIZE)
+    assert title.plain.startswith("TITLE      Tottus Jockey Plaza")
+    assert "reverse" in {str(s.style) for s in title.spans}
+    assert on_title == []  # no part is under the cursor while the title is
+    assert "reverse" not in {str(s.style) for s in left.spans}
 
 
 def test_parts_that_reach_the_total_tick_and_ones_short_of_it_say_what_is_left():
@@ -789,6 +807,240 @@ def test_a_part_read_from_the_line_is_signed_by_its_transaction_type():
     into = part_from_engine(import_part("i", 5000, category_id="c-com"), refs)
     assert (out.amount_cents, out.category_id) == (-6000, None)
     assert (into.amount_cents, into.category_id) == (5000, "c-com")
+
+
+# ---- screens 4 to 6 · the title ---------------------------------------------------
+
+NEW_TITLE = "Tottus — semana"
+
+
+async def _open_title(pilot, screen) -> None:
+    """`↑` to the TITLE line, then `⏎`."""
+    while screen._cursor != TITLE_ROW:
+        await pilot.press("up")
+    await pilot.press("enter")
+    await pilot.pause()
+
+
+async def _retitle(pilot, screen, title: str) -> None:
+    """`⏎` on the TITLE line, `title` typed, `⏎`."""
+    await _open_title(pilot, screen)
+    await _field(pilot, screen, title)
+
+
+def test_enter_on_the_title_opens_one_field_below_and_enter_keeps_it(engine):
+    """Screen 4: `⏎` on the TITLE line opens `TITLE · changes it on every
+    part` below, one field holding the title; the TITLE line reads
+    `▌TITLE …` in the accent while it is open, and the footer is `esc Back to
+    the parts  ^s Split`. `⏎` puts the new title on the TITLE line and goes
+    back to the table, the cursor on the TITLE line."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await _open_title(pilot, screen)
+        assert screen._title_open and screen._editing is None
+        assert screen.query_one("#part-fields").display
+        assert app.focused is screen.query_one("#bar", Input)
+        assert screen.query_one("#bar", Input).value == "Tottus Jockey Plaza"
+        head = _lines(screen, "#part-head")
+        assert head[0].startswith("────") and head[1] == "TITLE · changes it on every part"
+        assert str(screen.query_one("#part-field").content).strip() == "▌ TITLE"
+        for hidden in ("#fields-above", "#part-suggest", "#fields-below"):
+            assert not screen.query_one(hidden).display
+        assert _footer(screen) == [("esc", "Back to the parts"), ("^s", "Split")]
+        open_line = screen.query_one("#split-title", Static).content
+        assert not any("reverse" in str(row.spans) for row in _part_rows(screen))
+        screen.query_one("#bar", Input).value = NEW_TITLE
+        await pilot.pause()
+        typing = _text(screen, "#split-title").strip()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert not screen._title_open and screen._cursor == TITLE_ROW
+        assert not screen.query_one("#part-fields").display
+        assert app.focused is None
+        assert _footer(screen)[0] == ("esc", "Cancel")
+        return open_line, typing, _text(screen, "#split-title").strip()
+
+    open_line, typing, kept = run_app(scenario, size=SIZE)
+    assert open_line.plain == "▌TITLE      Tottus Jockey Plaza"
+    assert str(open_line.style) == f"bold {ACCENT}" and not open_line.spans
+    assert typing == "▌TITLE      Tottus Jockey Plaza"  # the field holds the new one
+    assert kept.startswith(f"TITLE      {NEW_TITLE}") and kept.endswith("same on every part")
+    assert engine.posts == []
+
+
+def test_esc_in_the_title_field_leaves_the_title_as_it_was(engine):
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await _open_title(pilot, screen)
+        screen.query_one("#bar", Input).value = "never kept"
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.screen is screen
+        assert not screen._title_open and screen._cursor == TITLE_ROW
+        assert screen._title == "Tottus Jockey Plaza"
+        assert _text(screen, "#split-title").strip().startswith("TITLE      Tottus Jockey Plaza")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen.query_one("#bar", Input).value == "Tottus Jockey Plaza"
+
+    run_app(scenario, size=SIZE)
+    assert engine.posts == []
+
+
+@pytest.mark.parametrize("typed", ["", "   "], ids=["empty", "spaces"])
+@pytest.mark.parametrize("key", ["enter", "ctrl+s"])
+def test_an_emptied_title_is_refused_as_on_the_edit_form_and_nothing_is_sent(engine, typed, key):
+    """Screen 5: `⏎` (or `^s`) on an emptied title says `Title is required.`
+    as an error toast, the Edit form's note; the field stays open and the
+    TITLE line keeps the title it had. Nothing is sent."""
+    notes: list[tuple[str, object]] = []
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
+        await _open_title(pilot, screen)
+        await _field(pilot, screen, typed, key=key)
+        assert screen._title_open
+        assert screen.query_one("#part-fields").display
+        assert app.focused is screen.query_one("#bar", Input)
+        assert screen._title == "Tottus Jockey Plaza"
+        assert _text(screen, "#split-title").strip() == "▌TITLE      Tottus Jockey Plaza"
+        assert not screen._sending
+
+    run_app(scenario, size=SIZE)
+    assert notes == [(TITLE_REQUIRED, "error")]
+    assert TITLE_REQUIRED == "Title is required."
+    assert engine.posts == []
+
+
+def test_a_changed_title_is_sent_once_beside_the_parts(engine):
+    """Spec check 1: the title changed to `Tottus — semana`, two parts and
+    `^s` send `title` beside `parts`, once for the line; the engine writes it
+    onto every part (contract: POST /v1/transactions/{transaction_id}/split),
+    which the live contract test pins. The screen closes and the ledger reads
+    fresh."""
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "t1")
+        await _retitle(pilot, screen, f"  {NEW_TITLE}  ")
+        await _add_part(pilot, screen, "-60", "comida")
+        await _add_part(pilot, screen, "-40", "hogar")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    ((path, body),) = engine.posts
+    assert path == "/transactions/t1/split"
+    assert set(body) == {"parts", "title"}
+    assert body["title"] == NEW_TITLE  # trimmed, as the Edit form keeps it
+    assert all("title" not in part for part in body["parts"])
+    assert _sent(engine) == [
+        {"amount_cents": -6000, "category_id": "c-com"},
+        {"amount_cents": -4000, "category_id": "c-hog"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "retitles",
+    [[], ["Tottus Jockey Plaza"], [NEW_TITLE, "Tottus Jockey Plaza"]],
+    ids=["untouched", "same-typed-again", "changed-back"],
+)
+def test_a_title_that_matches_the_transactions_is_not_sent(engine, retitles):
+    """Spec check 2: a title left alone — or typed back to what it is — is
+    not sent, so every part keeps the transaction's title."""
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "t1")
+        for title in retitles:
+            await _retitle(pilot, screen, title)
+        await _add_part(pilot, screen, "-60")
+        await _add_part(pilot, screen, "-40")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    ((_path, body),) = engine.posts
+    assert set(body) == {"parts"}
+
+
+def test_ctrl_s_in_the_title_field_keeps_the_title_typed_and_sends_it(engine):
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "p1")
+        await _open_title(pilot, screen)
+        screen.query_one("#bar", Input).value = NEW_TITLE
+        await pilot.pause()
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    ((_path, body),) = engine.posts
+    assert body["title"] == NEW_TITLE and len(body["parts"]) == 2
+
+
+def test_ctrl_x_on_the_title_line_drops_nothing(engine):
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("up", "ctrl+x")
+        await pilot.pause()
+        assert screen._cursor == TITLE_ROW and len(screen._parts) == 2
+
+    run_app(scenario, size=SIZE)
+
+
+def _locked_with_a_part() -> EngineError:
+    """A `422` naming the locked title and a part's amount together, as the
+    route reports every failure in one answer
+    (contract: POST /v1/transactions/{transaction_id}/split, "Validation")."""
+    fields = {
+        "title": "stand-in words: the title is locked by a completed reconciliation",
+        "parts.1.amount_cents": "stand-in words: must not be zero",
+    }
+    return EngineError(
+        "VALIDATION_ERROR",
+        "Validation failed.",
+        fields,
+        422,
+        {},
+        reasons={"title": "LOCKED", "parts.1.amount_cents": "ZERO_AMOUNT"},
+    )
+
+
+def test_a_locked_title_shows_under_the_parts_with_a_parts_refusal_and_nothing_splits(engine):
+    """Screen 6: `^s` with a new title on a transaction in a completed
+    reconciliation: the engine's `title` refusal reads `! title: …` under the
+    parts with the part's own line, then `Nothing was split.`; the screen
+    stays and the title is still the one typed. The title kept again as it is
+    leaves the refusal; changed, the refusal goes."""
+    engine.errors["POST"] = _locked_with_a_part()
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await _retitle(pilot, screen, NEW_TITLE)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: screen._refusal is not None)
+        assert app.screen is screen
+        shown = _text(screen, "#parts")
+        title = _text(screen, "#split-title").strip()
+        await _retitle(pilot, screen, NEW_TITLE)
+        kept_same = screen._refusal is not None
+        await _retitle(pilot, screen, "Tottus Jockey Plaza")
+        return shown, title, kept_same, _text(screen, "#parts")
+
+    shown, title, kept_same, after = run_app(scenario, size=SIZE)
+    lines = [line.strip() for line in shown.splitlines()]
+    tail = lines[lines.index("VALIDATION_ERROR — Validation failed.") :]
+    assert tail[1:] == [
+        "! title: stand-in words: the title is locked by a completed reconciliation",
+        "! part 2 (amount): stand-in words: must not be zero",
+        "Nothing was split.",
+    ]
+    assert title.startswith(f"TITLE      {NEW_TITLE}")
+    assert kept_same
+    assert "VALIDATION_ERROR" not in after and "Nothing was split." not in after
+    ((_path, body),) = engine.posts
+    assert body["title"] == NEW_TITLE
 
 
 # ---- the refusals -------------------------------------------------------------------

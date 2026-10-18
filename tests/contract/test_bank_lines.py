@@ -32,6 +32,10 @@ stand on rules only the engine can confirm. Pinned here:
   · the split screen's own path: its body splits, one `fetch_bank_line` reads
     the parts and the total back, the parts read go out again as a re-split,
     and a set that misses the total names parts 1 and 2;
+  · the split screen's title: its body with `title` beside `parts` gives every
+    part that title, and without it every part keeps the line's; on a line in
+    a completed reconciliation a changed title is `422` `LOCKED` on `title`
+    with nothing split, and the same split without it goes through;
   · a line is reconciled whole: `reconciliation_id` sent on one part puts every
     part in the reconciliation, and `null` on one part takes every part out;
   · `DELETE /bank-lines/{id}` deletes every part in one write, after which the
@@ -949,8 +953,8 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         first = send(
             original["id"],
             [
-                Part("-60", -6000, groceries, (), "verduras"),
-                Part("-40", -4000, None, (), None),
+                Part(-6000, groceries, (), "verduras"),
+                Part(-4000, None, (), None),
             ],
         )
         parts = line_parts(line)
@@ -972,15 +976,13 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         # A new set, by the id of one part.
         last = send(
             reread[1]["id"],
-            [Part("-70", -7000, None, (), None), Part("-30", -3000, None, (), None)],
+            [Part(-7000, None, (), None), Part(-3000, None, (), None)],
         )
         assert {p["id"] for p in line_parts(line)} == set(last)
         assert fetch_bank_line(cfg, line)["net_cents"] == -10000
 
         err = _refused(
-            lambda: send(
-                last[0], [Part("-60", -6000, None, (), None), Part("-30", -3000, None, (), None)]
-            )
+            lambda: send(last[0], [Part(-6000, None, (), None), Part(-3000, None, (), None)])
         )
         assert flagged_parts(err) == frozenset({0, 1})
         assert {p["id"] for p in line_parts(line)} == set(last)
@@ -988,6 +990,82 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/categories/{groceries}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+TOTTUS = "Tottus Jockey Plaza"
+RENAMED = "Tottus — semana"
+
+
+def _split_titled(client, tx_id: str, title: str | None, written: list[str]) -> list[dict]:
+    """The split screen's own body (`split_body`): -60.00 and -40.00, with
+    `title` beside the parts when one is given; the part ids join `written`
+    once the split has made them."""
+    from expense.reads import load_quickadd_refs
+    from expense.tui.screens.split import Part, split_body
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    refs = load_quickadd_refs(Config(engine_url=ENGINE_URL, token=PAT))
+    body = split_body([Part(-6000), Part(-4000)], refs, title=title)
+    parts = client.post(f"/transactions/{tx_id}/split", json_body=body)["parts"]
+    written.extend(p["id"] for p in parts)
+    return parts
+
+
+def test_the_split_screen_sends_the_title_with_the_split(client):
+    """The split screen's title, through its own body (`split_body`): `title`
+    beside `parts` is written onto every part, and left out every part keeps
+    the line's title (contract: POST /v1/transactions/{transaction_id}/split)."""
+    zone = _zone(client)
+    account = _make_account(client)
+    written: list[str] = []
+
+    try:
+        titled = _post_tx(client, account, _noon(zone, 2026, 4, 15), -10000, TOTTUS)
+        kept = _post_tx(client, account, _noon(zone, 2026, 4, 16), -10000, TOTTUS)
+        written.extend([titled["id"], kept["id"]])
+
+        renamed = _split_titled(client, titled["id"], RENAMED, written)
+        assert [client.get(f"/transactions/{p['id']}")["title"] for p in renamed] == [RENAMED] * 2
+        alone = _split_titled(client, kept["id"], None, written)
+        assert [client.get(f"/transactions/{p['id']}")["title"] for p in alone] == [TOTTUS] * 2
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_changed_title_on_a_line_in_a_completed_reconciliation_is_locked(client):
+    """On a line in a completed reconciliation the split is allowed but the
+    title is locked: the split screen's body with a changed `title` is `422`
+    `LOCKED` on `title` and nothing is split, the line still one row under its
+    old title; the same split with the title left out goes through
+    (contract: POST /v1/transactions/{transaction_id}/split)."""
+    zone = _zone(client)
+    account = _make_account(client)
+    recon = _make_reconciliation(client, account, ending=-10000)
+    written: list[str] = []
+
+    try:
+        original = _post_tx(client, account, _noon(zone, 2026, 4, 18), -10000, TOTTUS)
+        written.append(original["id"])
+        client.put(f"/transactions/{original['id']}", json_body={"reconciliation_id": recon})
+        client.post(f"/reconciliations/{recon}/complete")
+
+        err = _refused(lambda: _split_titled(client, original["id"], RENAMED, written))
+        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+        assert reason_on(err, "title") == "LOCKED"
+        assert _live_ids(client, account) == {original["id"]}
+        assert client.get(f"/transactions/{original['id']}")["title"] == TOTTUS
+
+        parts = _split_titled(client, original["id"], None, written)
+        assert _live_ids(client, account) == {p["id"] for p in parts}
+        assert {client.get(f"/transactions/{p['id']}")["title"] for p in parts} == {TOTTUS}
+    finally:
+        _safe(client.post, f"/reconciliations/{recon}/revert")
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
         _safe(client.delete, f"/accounts/{account}")
 
 
