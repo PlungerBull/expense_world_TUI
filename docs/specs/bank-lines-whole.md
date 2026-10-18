@@ -88,7 +88,9 @@ the owner's pick.
    part, unticking sends `null`, and the screen re-reads what it shows after each tick.
 3. **[UI]** `d` on a part of a split purchase, from the ledger and the reconciliation screen:
    one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
-   `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today.
+   `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The
+   question reads "Delete this purchase and its 3 parts? No screen can bring it back." with the
+   real part count (owner, 2026-10-17).
 4. The ledger's `c`, `h` and `b` on parts: confirm with tests that `c` and `h` change only the
    selected parts and that `b` on one part moves the whole purchase (the engine's rule), and
    that the ledger reloads fresh after each.
