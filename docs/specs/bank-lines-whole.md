@@ -75,9 +75,14 @@ rule, and serves `ce4e5cb642e53fdb` until then.
 Approved by the owner (2026-10-17). Each **[UI]** task starts with its mockup; the build waits
 for the owner's pick.
 
-2. **[UI]** What is left: what `⏎` opens on a split purchase in "no batch" (pane 2e of
-   [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html)), off
-   until the owner picks. Everything else of the reconciliation screens and of `d` is built.
+2. **[UI]** What is left: `⏎` in "no batch" opens the Edit form
+   (`… ▸ Reconciliations ▸ Edit`) with the bank's columns on every row, picked as pane 2e C2 of
+   [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html): date,
+   title, operation and account, each reaching every part; a row never split edits its amount
+   there, and a split transaction shows a read-only Parts section (each part's amount, then the
+   total) in its place; no category, hashtags or note (owner, 2026-10-17). The app's words say
+   "transaction", never "purchase": "Delete this transaction and its N parts?", "Transaction
+   deleted.", "changes every part of the transaction" (owner, 2026-10-17).
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.

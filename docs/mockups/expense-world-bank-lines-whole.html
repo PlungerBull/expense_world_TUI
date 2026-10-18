@@ -186,7 +186,7 @@
 <div class="pane"><div class="lbl">2e · ⏎ on a split purchase in “no batch” <span>— the form is about the whole purchase</span></div>
 <p class="blurb">In the “no batch” list, <code>⏎</code> on a row opens a form, so you can fix what keeps the row out of a month. On every reconciliation list a split purchase is the whole purchase, never its parts, so <code>⏎</code> on FARMACIA -100.00 opens a form for the whole purchase. Its parts in the ledger are -60.00 (SALUD, #casa, medicinas) and -40.00 (HOGAR, #casa, limpieza). Each pane opens with the cursor on the date, except the last, drawn after <code>⇥</code> three times to show the amount. The form looks and works like the ledger's Edit form; the heading line, the field <code>Operation</code> and the <code>Parts</code> section are new. On a split purchase the form has two sections: the fields every part shares, all editable, and below them <code>Parts</code>, each part's amount and their total, shown but not editable.</p>
 <div class="opt">
-<div class="var"><div class="oh">C1 · <span>a Purchase form, for a split purchase only</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Purchase</span>
+<div class="var"><div class="oh">C1 · <span>the bank's columns, for a split transaction only</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -236,7 +236,7 @@
 <p class="cap"><b>For you:</b> in “no batch” the form you get depends on whether the row was split: a split purchase opens the short form on the left, any other row opens the full Edit form, with category, hashtags and note.</p></div>
 </div>
 <div class="opt">
-<div class="var"><div class="oh">C2 · <span>the bank's columns for every row: a split purchase</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Purchase</span>
+<div class="var"><div class="oh">C2 · <span>the bank's columns for every row: a split purchase</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -263,7 +263,7 @@
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap"><b>Recommended:</b> every reconciliation screen then works on the bank's columns alone, as you asked.</p></div>
-<div class="var"><div class="oh">C2 · <span>the bank's columns for every row: a row never split</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Purchase</span>
+<div class="var"><div class="oh">C2 · <span>the bank's columns for every row: a row never split</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -302,7 +302,7 @@
 <span class="d">      FARMACIA              limpieza             -40.00  2026-10-11  Sueldo Soles   HOGAR        casa</span>
 <span class="d">      TAXI SATELITAL          </span><span class="a">────────────────────────────────────────────────────────</span><span class="d">ANSPORTE   —</span>
 <span class="d">      HABER PLANILLA          </span>                                                        <span class="d">ELDO       trabajo</span>
-<span class="d">      PLAZA VEA SURCO         </span>  <span class="ab">Delete this purchase and its 2 parts?</span>                 <span class="d">MIDA       casa</span>
+<span class="d">      PLAZA VEA SURCO         </span>  <span class="ab">Delete this transaction and its 2 parts?</span>                 <span class="d">MIDA       casa</span>
 <span class="d">      NETFLIX.COM             </span>                                                        <span class="d">IO         casa</span>
 <span class="d">      FARMACIA              vi</span>  FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles        <span class="d">LUD        casa</span>
 <span class="d">      FARMACIA              ja</span>  No screen can bring it back.                          <span class="d">GAR        casa</span>
@@ -313,14 +313,14 @@
 <p class="cap">The question is your wording; the number is the purchase's real count, so a purchase in three parts reads “its 3 parts” (3b).</p></div>
 
 <div class="pane"><div class="lbl">3b · d on a purchase, in the “no batch” list <span>— the same question</span></div>
-<p class="blurb">Here the purchase is already one row, so <code>d</code> on it asks the same question. TOTTUS JOCKEY has three parts. After <code>y</code> the list starts again from the newest rows, cursor on row 1, as after any delete today, with the note <code>Purchase deleted.</code></p>
+<p class="blurb">Here the purchase is already one row, so <code>d</code> on it asks the same question. TOTTUS JOCKEY has three parts. After <code>y</code> the list starts again from the newest rows, cursor on row 1, as after any delete today, with the note <code>Transaction deleted.</code></p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  Sueldo Soles</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
 <span class="d">  Reconciliations — pi</span><span class="a">────────────────────────────────────────────────────────</span>
 <span class="d">                      </span>                                                        
-<span class="d">   Account            </span>  <span class="ab">Delete this purchase and its 3 parts?</span>                 <span class="d">            Balance</span>
+<span class="d">   Account            </span>  <span class="ab">Delete this transaction and its 3 parts?</span>                 <span class="d">            Balance</span>
 <span class="d">   ───────────────────</span>                                                        <span class="d">───────────────────</span>
 <span class="d">   ▸ Sueldo Soles     </span>  TOTTUS JOCKEY · -150.00 · 2026-08-28 · Sueldo Soles   <span class="d">          12,450.00</span>
 <span class="d">   Cuenta Digital Dóla</span>  No screen can bring it back.                          <span class="d">             820.15</span>
@@ -361,9 +361,9 @@
       PLAZA VEA SURCO                         <span class="n">   -96.10</span>  2026-09-03  Sueldo Soles   COMIDA       casa
 
      <span class="d">no filter · 10 of 131 loaded</span>
-                                                                                    <span class="a">▌</span> Purchase deleted.
+                                                                                    <span class="a">▌</span> Transaction deleted.
  <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
-<p class="cap"><code>Purchase deleted.</code> is new; for a single row it stays <code>Transaction deleted.</code></p></div>
+<p class="cap"><code>Transaction deleted.</code> is the same note; for a single row it stays <code>Transaction deleted.</code></p></div>
 
 <div class="pane"><div class="lbl">3d · A purchase in a completed month <span>— the engine refuses, nothing is deleted</span></div>
 <p class="blurb"><code>d</code> on a part of the September FARMACIA, then <code>y</code>. That purchase is in Septiembre 2026, which is completed, so the engine refuses and deletes nothing. The ledger stays as it was, cursor on the same row, and the refusal shows in the corner the way every refusal does today: the engine's words whole.</p>
@@ -422,7 +422,7 @@
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
 </div>
 
-<div class="pick"><b>Still open:</b> 2e, <code>⏎</code> on a split purchase in “no batch”: C1 or C2 (C2 recommended).<br><b>Picked (owner, 2026-10-17):</b> every other pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Picked 2026-10-17:</b> the “no batch” list is newest first (2d, and behind the question in 3b), the only order the engine's purchase list has.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. On these lists a split purchase is the whole purchase, never its parts, so its form (2e) is about the whole purchase. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code> (also the form's field in 2e), the form's name <code>Purchase</code> and its heading line, the <code>Parts</code> heading and the line under the total in 2e, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
+<div class="pick"><b>Picked (owner, 2026-10-17):</b> 2e C2. The words say <em>transaction</em>, never <em>purchase</em>: “Delete this transaction and its N parts?”, “Transaction deleted.”, “changes every part of the transaction”, and the form is the Edit form (… ▸ Reconciliations ▸ Edit).<br><b>Picked (owner, 2026-10-17):</b> every other pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Picked 2026-10-17:</b> the “no batch” list is newest first (2d, and behind the question in 3b), the only order the engine's purchase list has.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. On these lists a split purchase is the whole purchase, never its parts, so its form (2e) is about the whole purchase. The question reads “Delete this transaction and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code> (also the form's field in 2e), the form's name <code>Purchase</code> and its heading line, the <code>Parts</code> heading and the line under the total in 2e, <code>Transaction deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;

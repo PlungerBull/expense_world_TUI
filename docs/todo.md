@@ -69,19 +69,6 @@ part's line (3), each as built and its alternative. The rest of the split screen
 **Recommended:** 1 A (refused: a part has no title of its own), 2 A (leave at once: nothing is
 sent before `^s`), 3 A (the LOG bar's suggestion list).
 
-### What `⏎` opens on a row in "no batch"
-Asked 2026-10-17 · Blocks: `⏎` on a split purchase in "no batch" (task 2 of [specs/bank-lines-whole.md](specs/bank-lines-whole.md))
-
-The owner's rule: a reconciliation list shows the merged purchase, never its parts, so `⏎` opens
-the purchase, not a part ([mockups/expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)
-pane 2e). Date, title, operation and account are editable and reach every part; a split
-purchase's total is shown, not editable.
-- **C1.** That form on a split purchase only; a row never split keeps today's full Edit form.
-- **C2.** That bank-columns form on every row in "no batch"; a row never split edits its amount
-  too.
-
-**Recommended:** C2, because every reconciliation screen then works on the bank's columns alone.
-
 ---
 
 ## Backlog
