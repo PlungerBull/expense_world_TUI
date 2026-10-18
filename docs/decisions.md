@@ -526,3 +526,31 @@ the bar is where the right file gets dropped next.
 **Why.** One range per catch-up leaves no gap and no double work. The spec holding everything makes it stand alone, so the hand-off file adds nothing once the spec exists, and an answered ask left in the outbox would be handed to the engine again. The reply closes the loop: this app is the contract's first real user, and the engine coders learn what held up before the web and iOS clients build on it.
 
 **Rejected.** *One file per engine change:* overlapping ranges and gaps. *Keeping the hand-off file until the spec retires:* two homes for the same facts.
+
+## The bank import's preview is one table: a mark and a reason per file row (2026-10-18, owner)
+
+**Decision.** (1) The preview lists every line of the file, the unreadable and pre-2026 ones
+included, each with a **mark** and a **reason** from a short fixed list, the reason alone on
+the row ([tui.md](tui.md) "The import door"). (2) **✓ means the row is in the ledger after the
+import** (new, already there, or changed); **✗ means it needs looking at**: left out, or a move
+to the bank's day stopped. (3) **A move to the bank's day is one more "Modified existing
+transaction"**; the counts line says how many move. (4) **A move stopped by a completed
+reconciliation is ✗ `Not moved: <reconciliation> is reconciled`**: with a reconciliation done
+right the bank's day and the ledger's agree, so the row points at a reconciliation completed
+wrong. It says "not moved", because the bank's title and operation number still land on it
+(contract: POST /v1/transactions/import). (5) **The days where the file and the ledger disagree
+stay on the preview only**; after importing, the screen gives the counts alone, since the
+preview already showed every row. (6) The stopping reconciliation is named from its account's
+list, read once in the worker; the contract has no read by id, and the engine is asked to name it
+in the import's answer ([to-engine/import-names-the-blocking-reconciliation.md](to-engine/import-names-the-blocking-reconciliation.md)).
+
+**Why.** The old preview grew a suffix on its `match` column, or a note under the summary, for
+each thing the engine learned to do (`+code`, `+title`, the bank's day), and each brought its own
+wording questions. A reason per row from a fixed list takes a new engine behaviour as one more
+reason.
+
+**Rejected.** *✓ only for a new transaction* — a re-imported file would be mostly ✗ with nothing
+wrong. *The reason followed by what changed* (`· day 03 Oct → 04 Oct`) — the owner keeps the
+rows short. *A reason of its own for a move* — the owner keeps the list short; the count says
+it. *The table again after importing* — the preview already gave it. *A ✓ on a stopped move* —
+it hides a reconciliation to check.

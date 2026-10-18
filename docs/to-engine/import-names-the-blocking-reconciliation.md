@@ -7,7 +7,7 @@
 When a file row matches a ledger line by operation code but a completed reconciliation stops
 its move to the bank's day, the import answer's row carries `redate_blocked_by`, the
 reconciliation's id (contract: POST /v1/transactions/import). The owner sees that row as
-`✗ Not modified: Septiembre 2026 is reconciled`, so the client needs the reconciliation's name.
+`✗ Not moved: Septiembre 2026 is reconciled`, so the client needs the reconciliation's name.
 
 There is no `GET /v1/reconciliations/{id}`; reconciliations are listed one account at a time
 (contract: GET /v1/reconciliations). So the client makes a second call, reads the account's

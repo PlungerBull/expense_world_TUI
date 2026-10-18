@@ -66,10 +66,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   that no longer says what to check; no test draws a row whose amount could not be read; the
   `ImportCounts` docstring says "summary" ([bank_import.py](../expense/tui/screens/bank_import.py),
   [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
-- **Catch up with the import moving a matched line to the bank's day.** Spec (approved, in
-  progress): [specs/import-bank-day.md](specs/import-bank-day.md).
-- **The split screen: a table of the parts, each part's fields below.** Spec (approved, next
-  after import-bank-day): [specs/split-screen-fields.md](specs/split-screen-fields.md).
+- **The split screen: a table of the parts, each part's fields below.** Spec (approved, in
+  progress): [specs/split-screen-fields.md](specs/split-screen-fields.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a

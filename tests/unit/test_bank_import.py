@@ -326,11 +326,11 @@ def _placed(**kw) -> Placed:
         ({"redated": True}, (True, "Modified existing transaction")),
         (
             {"redate_blocked_by": "r1", "retitled": True},
-            (False, "Not modified: Septiembre 2026 is reconciled"),
+            (False, "Not moved: Septiembre 2026 is reconciled"),
         ),
         (
             {"redate_blocked_by": "gone"},
-            (False, "Not modified: a reconciliation is reconciled"),
+            (False, "Not moved: a reconciliation is reconciled"),
         ),
         ({"outcome": "sealed", "sealed_by": "r1", "rule": None}, (False, "Closed period")),
     ],

@@ -237,8 +237,8 @@ CLOSED = "Closed period"
 BEFORE_FLOOR = f"Before {IMPORT_FLOOR.year}"
 UNREADABLE = "Couldn't read the row"
 #: A move a completed reconciliation stops; `{}` is its name.
-NOT_MODIFIED = "Not modified: {} is reconciled"
-#: The name in NOT_MODIFIED when the reconciliations could not be read.
+NOT_MOVED = "Not moved: {} is reconciled"
+#: The name in NOT_MOVED when the reconciliations could not be read.
 UNNAMED_RECONCILIATION = "a reconciliation"
 
 
@@ -254,7 +254,7 @@ def row_reason(p: Placed, names: dict[str, str]) -> tuple[bool, str]:
         return False, CLOSED
     if p.redate_blocked_by:
         name = names.get(p.redate_blocked_by, UNNAMED_RECONCILIATION)
-        return False, NOT_MODIFIED.format(name)
+        return False, NOT_MOVED.format(name)
     if p.backfill_code or p.retitled or p.redated:
         return True, MODIFIED
     return True, IN_LEDGER

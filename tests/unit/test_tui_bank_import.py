@@ -328,7 +328,7 @@ def _line(reason: str, kept: bool) -> FileLine:
         ("New", True, PALETTE.success),
         ("Already in the ledger", True, "dim"),
         ("Modified existing transaction", True, ""),
-        ("Not modified: Septiembre 2026 is reconciled", False, PALETTE.warning),
+        ("Not moved: Septiembre 2026 is reconciled", False, PALETTE.warning),
         ("Closed period", False, PALETTE.warning),
         ("Before 2026", False, PALETTE.warning),
         ("Couldn't read the row", False, PALETTE.warning),
@@ -909,7 +909,7 @@ def test_every_row_of_the_file_shows_its_mark_and_its_reason(fake_client, monkey
                 "TAMBO MIRAFLORES",
                 "-7.50",
                 "✗",
-                "Not modified: Septiembre 2026 is reconciled",
+                "Not moved: Septiembre 2026 is reconciled",
             ],
             ["7", "2026-08-29", "SHELL SAN ISIDRO", "-120.00", "✗", "Closed period"],
             ["8", "2025-12-30", "RAPPI LIMA PE", "-36.90", "✗", "Before 2026"],
@@ -988,7 +988,7 @@ def test_a_reconciliation_that_cannot_be_read_leaves_the_move_unnamed(
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
         lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
-        assert lines[2].endswith("✗  Not modified: a reconciliation is reconciled")
+        assert lines[2].endswith("✗  Not moved: a reconciliation is reconciled")
         assert any(
             line.startswith("! could not read the reconciliations' names:") for line in lines
         )

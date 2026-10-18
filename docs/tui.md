@@ -461,7 +461,7 @@ import, `✗` (error colour, bold) that it is left out. The reason stands alone 
 | ✓ | `New` (success colour) | the engine's `new`: created on `⏎` |
 | ✓ | `Already in the ledger` (dim) | `matched`, and the apply writes nothing onto its line |
 | ✓ | `Modified existing transaction` | `matched`, and the apply writes the file's operation number onto the line (`backfill_code`), the bank's title (`retitled`), or moves the line to the bank's day (`redated`) |
-| ✗ | `Not modified: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
+| ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
 | ✗ | `Closed period` | the engine's `sealed`: inside a closed period, never created |
 | ✗ | `Before 2026` | dated before 2026-01-01: never sent |
 | ✗ | `Couldn't read the row` | a line the parser refused: never sent |
@@ -470,7 +470,7 @@ Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carri
 reconciliation's id only, and the engine lists reconciliations one account at a time with no
 read by id (contract: GET /v1/reconciliations), so the preview's worker reads each such row's
 account's list once (`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)),
-never while drawing. When that read fails, the row reads `Not modified: a reconciliation is
+never while drawing. When that read fails, the row reads `Not moved: a reconciliation is
 reconciled` and a dim `! could not read the reconciliations' names: <why>` sits under the
 counts.
 
