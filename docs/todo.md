@@ -65,11 +65,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   reconciliation`, not the count of rows selected (the owner's pick, 2026-10-18). The count is the
   engine's: if its answer does not say what moved, it becomes an engine ask, never one read per
   part ([transactions.py](../expense/tui/screens/transactions.py)).
-- **The import reads the stopping reconciliation by id once the engine has the read.** The
-  engine adds `GET /reconciliations/{id}` (its answer, 2026-10-18); the import preview then names
-  the reconciliation in `redate_blocked_by` from that read instead of the account's whole list
-  (`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)), keeping the fallback
-  `a reconciliation`. Waits for the engine's hand-off.
 - **A bank file cell reading `nan` or `inf` crashes the import.** `parse_amount` turns the
   amount into cents outside its `try`, so `nan` raises `ValueError` and `inf` or `Infinity`
   raise `OverflowError` instead of refusing the row as not an amount

@@ -42,12 +42,7 @@ split screen, as today; what changes is how the parts are typed.
 
 ## Tasks
 
-Approved 2026-10-18. Task 1, the table and the fields below, is done.
-
-2. **The title line becomes editable and is sent with the split.** Screen 4 of the mockup.
-   Waits for the engine: on 2026-10-18 it took the ask "Splitting a transaction can also
-   change its title, in the same write" as the first task of its next batch, with an optional
-   `title` on the split checked as on `PUT`; on a line in a completed reconciliation a title
-   can be filled in when empty but not changed, refused `LOCKED` on `title` with nothing
-   split. Built from the engine's hand-off once it arrives; the check is 4 above, with a live
-   contract test, and the screen shows the `LOCKED` refusal under the parts.
+Approved 2026-10-18. Task 1, the table and the fields below, is done. Task 2, the title sent
+with the split, is task 1 of the catch-up spec
+[split-title-and-reconciliation-read.md](split-title-and-reconciliation-read.md). This spec's
+acceptance check runs once that task is done.
