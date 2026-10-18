@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>A purchase, whole</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>A purchase, whole · reconciling and deleting a split purchase</h1>
+  <p>A purchase split into parts is still one charge on the bank statement: FARMACIA, -100.00, split into -60.00 of medicines (SALUD) and -40.00 of cleaning things (HOGAR). The ledger keeps one row per part. The reconciliation screens show the purchase once, with its total, and <code>d</code> on any part deletes the whole purchase.</p>
+  <p>Part 2 is the reconciliation screens, part 3 is <code>d</code>. Each drawing uses the app's real words and layout; only the new words are new. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+
+<div class="pane"><div class="lbl">2a · A month still open, with a split purchase <span>— where the part count sits</span></div>
+<p class="blurb">The Octubre 2026 reconciliation, still a draft. FARMACIA is one row with its total, -100.00, and the number of parts it has; its parts are not listed here. The second line under a row is its category, hashtags and note; a purchase's parts each have their own, so that line stays empty for it. The cursor is on FARMACIA, not ticked yet. The only choice is where the part count goes.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>after the title</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
+
+           Title                                            Amount                 Date
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="p">[x]</span>     NETFLIX.COM                                      <span class="n">-44.90</span>           2026-10-14
+           <span class="d">OCIO  ·  #casa</span>
+   <span class="p">[x]</span>     HABER PLANILLA                                 <span class="p">6,519.00</span>           2026-10-05
+           <span class="d">SUELDO  ·  #trabajo</span>
+   <span class="p">[x]</span>     PLAZA VEA SURCO                                  <span class="n">-84.30</span>           2026-10-02
+           <span class="d">COMIDA  ·  #casa</span>
+   <span class="d">[ ]</span>     UBER *TRIP                                       <span class="n">-42.00</span>           2026-10-12
+           <span class="d">@Pendiente  ·  #Pendiente</span>
+  <span class="rev"> [ ]     FARMACIA · 2 parts                              -100.00           2026-10-11 </span>
+  <span class="rev">                                                                                      </span>
+   <span class="d">[ ]</span>     TAXI SATELITAL                                   <span class="n">-25.00</span>           2026-10-08
+           <span class="d">TRANSPORTE</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap"><b>Recommended:</b> the title column is the wide one, so the count fits there without moving the amounts, and it reads as one phrase: “FARMACIA · 2 parts”.</p></div>
+<div class="var"><div class="oh">B · <span>in the amount cell</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
+
+           Title                                               Amount              Date
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="p">[x]</span>     NETFLIX.COM                                         <span class="n">-44.90</span>        2026-10-14
+           <span class="d">OCIO  ·  #casa</span>
+   <span class="p">[x]</span>     HABER PLANILLA                                    <span class="p">6,519.00</span>        2026-10-05
+           <span class="d">SUELDO  ·  #trabajo</span>
+   <span class="p">[x]</span>     PLAZA VEA SURCO                                     <span class="n">-84.30</span>        2026-10-02
+           <span class="d">COMIDA  ·  #casa</span>
+   <span class="d">[ ]</span>     UBER *TRIP                                          <span class="n">-42.00</span>        2026-10-12
+           <span class="d">@Pendiente  ·  #Pendiente</span>
+  <span class="rev"> [ ]     FARMACIA                                 2 parts · -100.00        2026-10-11 </span>
+  <span class="rev">                                                                                      </span>
+   <span class="d">[ ]</span>     TAXI SATELITAL                                      <span class="n">-25.00</span>        2026-10-08
+           <span class="d">TRANSPORTE</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap">The count sits just before the total. The amounts still line up on the right, but the amount column grows wider for every row because of one purchase.</p></div>
+<div class="var"><div class="oh">C · <span>a small column of its own</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
+
+           Title                                  Parts        Amount              Date
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="p">[x]</span>     NETFLIX.COM                                         <span class="n">-44.90</span>        2026-10-14
+           <span class="d">OCIO  ·  #casa</span>
+   <span class="p">[x]</span>     HABER PLANILLA                                    <span class="p">6,519.00</span>        2026-10-05
+           <span class="d">SUELDO  ·  #trabajo</span>
+   <span class="p">[x]</span>     PLAZA VEA SURCO                                     <span class="n">-84.30</span>        2026-10-02
+           <span class="d">COMIDA  ·  #casa</span>
+   <span class="d">[ ]</span>     UBER *TRIP                                          <span class="n">-42.00</span>        2026-10-12
+           <span class="d">@Pendiente  ·  #Pendiente</span>
+  <span class="rev"> [ ]     FARMACIA                                   2       -100.00        2026-10-11 </span>
+  <span class="rev">                                                                                      </span>
+   <span class="d">[ ]</span>     TAXI SATELITAL                                      <span class="n">-25.00</span>        2026-10-08
+           <span class="d">TRANSPORTE</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap">A new column, “Parts”, empty on every ordinary row. Tidy, but it takes room on every list for the few rows that are purchases.</p></div>
+</div></div>
+
+<div class="pane"><div class="lbl">2b · After space <span>— the whole purchase is ticked</span></div>
+<p class="blurb"><code>space</code> on FARMACIA puts the whole purchase in the month, both parts at once; there is never half a purchase ticked. The screen then reads the month again from the engine: <code>diff</code> goes from -167.00 to -67.00. Ticked rows are listed first, as today, so FARMACIA moves up among them and the cursor stays on it. <code>space</code> again takes both parts out. Drawn with A.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-67.00</span><span class="d">    status </span><span class="w">draft</span>
+
+           Title                                            Amount                 Date
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="p">[x]</span>     NETFLIX.COM                                      <span class="n">-44.90</span>           2026-10-14
+           <span class="d">OCIO  ·  #casa</span>
+  <span class="rev"> [x]     FARMACIA · 2 parts                              -100.00           2026-10-11 </span>
+  <span class="rev">                                                                                      </span>
+   <span class="p">[x]</span>     HABER PLANILLA                                 <span class="p">6,519.00</span>           2026-10-05
+           <span class="d">SUELDO  ·  #trabajo</span>
+   <span class="p">[x]</span>     PLAZA VEA SURCO                                  <span class="n">-84.30</span>           2026-10-02
+           <span class="d">COMIDA  ·  #casa</span>
+   <span class="d">[ ]</span>     UBER *TRIP                                       <span class="n">-42.00</span>           2026-10-12
+           <span class="d">@Pendiente  ·  #Pendiente</span>
+   <span class="d">[ ]</span>     TAXI SATELITAL                                   <span class="n">-25.00</span>           2026-10-08
+           <span class="d">TRANSPORTE</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap">The header's figures are the engine's, read again after every tick; the app adds up nothing.</p></div>
+
+<div class="pane"><div class="lbl">2c · A completed month <span>— read-only, a purchase as one row</span></div>
+<p class="blurb">Septiembre 2026, completed. The list is read-only, as today: no tick boxes. The September FARMACIA purchase (-70.00 and -30.00) is one row of -100.00 with its count, like in the open month. Drawn with A.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Septiembre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Septiembre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-09-01 → 2026-09-30</span>
+<span class="d">  begin </span>9,120.40<span class="d">    end </span>15,398.40<span class="d">    diff </span><span class="d">—</span><span class="d">    status </span><span class="p">completed</span>
+
+   Title                                               Amount                      Date
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+  <span class="rev"> NETFLIX.COM                                         -44.90                2026-09-14 </span>
+  <span class="rev"> OCIO  ·  #casa                                                                       </span>
+   FARMACIA<span class="d"> · 2 parts</span>                                 <span class="n">-100.00</span>                2026-09-09
+  
+   HABER PLANILLA                                    <span class="p">6,519.00</span>                2026-09-05
+   <span class="d">SUELDO  ·  #trabajo</span>
+   PLAZA VEA SURCO                                     <span class="n">-96.10</span>                2026-09-03
+   <span class="d">COMIDA  ·  #casa</span>
+
+  <span class="d">read-only while completed · u revert to edit · r refresh · esc back</span>
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
+</div>
+
+<div class="pane"><div class="lbl">2d · The “no batch” list <span>— u on the reconciliations panel</span></div>
+<p class="blurb">The account's rows that are in no month yet, oldest first. A purchase is one row here too: TOTTUS JOCKEY (three parts) and FARMACIA (two). The count <code>5 of 5 loaded</code> counts a purchase once. The Category column shows <code>—</code> for a purchase, since its parts each have their own. <code>!</code> marks rows inside a month's dates, as today. Drawn with A.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+   Account                                                   Cur                          Balance
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="a">▸</span> Sueldo Soles                                            PEN                        <span class="p">12,450.00</span>
+   Cuenta Digital Dólares                                    USD                           <span class="p">820.15</span>
+
+  In no batch · Sueldo Soles   ·   5 of 5 loaded · oldest first   ·   ! blocks a batch's close
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+         Date                Title                                        Amount   Category
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+         2026-08-28          TOTTUS JOCKEY<span class="d"> · 3 parts</span>                     <span class="n">-150.00</span>   <span class="d">—</span>
+         2026-08-30          CINE PLAZA                                   <span class="n">-28.00</span>   OCIO
+   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                               <span class="n">-25.00</span>   TRANSPORTE
+  <span class="rev"> !     2026-10-11          FARMACIA · 2 parts                          -100.00   —              </span>
+   <span class="w">!</span>     2026-10-12          UBER *TRIP                                   <span class="n">-42.00</span>   @Pendiente
+
+
+ <span class="a">⏎</span> Edit  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div>
+</div>
+
+<div class="pane"><div class="lbl">3a · d on one part, on the ledger <span>— the question names how many parts go</span></div>
+<p class="blurb">On the ledger each part is its own row. <code>d</code> on either FARMACIA part asks about the whole purchase. The second line is the purchase's total, its date and its account. Only <code>y</code> deletes; <code>⏎</code>, <code>n</code> and <code>esc</code> cancel and nothing is sent.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   ──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">    Title                   Description          Amount  Date        Account        Cat          Hashtags</span>
+<span class="d">    ────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">      NETFLIX.COM                                -44.90  2026-10-14  Sueldo Soles   OCIO         casa</span>
+<span class="d">      UBER *TRIP            al aeropuerto        -42.00  2026-10-12  Sueldo Soles   @Pendiente   Pendiente</span>
+<span class="d">      FARMACIA              medicinas            -60.00  2026-10-11  Sueldo Soles   SALUD        casa</span>
+<span class="d">      FARMACIA              limpieza             -40.00  2026-10-11  Sueldo Soles   HOGAR        casa</span>
+<span class="d">      TAXI SATELITAL          </span><span class="a">────────────────────────────────────────────────────────</span><span class="d">ANSPORTE   —</span>
+<span class="d">      HABER PLANILLA          </span>                                                        <span class="d">ELDO       trabajo</span>
+<span class="d">      PLAZA VEA SURCO         </span>  <span class="ab">Delete this purchase and its 2 parts?</span>                 <span class="d">MIDA       casa</span>
+<span class="d">      NETFLIX.COM             </span>                                                        <span class="d">IO         casa</span>
+<span class="d">      FARMACIA              vi</span>  FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles        <span class="d">LUD        casa</span>
+<span class="d">      FARMACIA              ja</span>  No screen can bring it back.                          <span class="d">GAR        casa</span>
+<span class="d">                              </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>               
+<span class="d">     no filter · 10 of 133 loa</span>                                                        
+<span class="d">                              </span><span class="a">────────────────────────────────────────────────────────</span>
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">The question is your wording; the number is the purchase's real count, so a purchase in three parts reads “its 3 parts” (3b).</p></div>
+
+<div class="pane"><div class="lbl">3b · d on a purchase, in the “no batch” list <span>— the same question</span></div>
+<p class="blurb">Here the purchase is already one row, so <code>d</code> on it asks the same question. TOTTUS JOCKEY has three parts. After <code>y</code> the list starts again from the oldest rows, cursor on row 1, as after any delete today, with the note <code>Purchase deleted.</code></p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  Sueldo Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">  Reconciliations — pi</span><span class="a">────────────────────────────────────────────────────────</span>
+<span class="d">                      </span>                                                        
+<span class="d">   Account            </span>  <span class="ab">Delete this purchase and its 3 parts?</span>                 <span class="d">            Balance</span>
+<span class="d">   ───────────────────</span>                                                        <span class="d">───────────────────</span>
+<span class="d">   ▸ Sueldo Soles     </span>  TOTTUS JOCKEY · -150.00 · 2026-08-28 · Sueldo Soles   <span class="d">          12,450.00</span>
+<span class="d">   Cuenta Digital Dóla</span>  No screen can bring it back.                          <span class="d">             820.15</span>
+<span class="d">                      </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>               
+<span class="d">  In no batch · Sueldo</span>                                                        <span class="d"> a batch's close</span>
+<span class="d">   ───────────────────</span><span class="a">────────────────────────────────────────────────────────</span><span class="d">─────────────────────</span>
+<span class="d">         Date                Title                                        Amount   Category</span>
+<span class="d">   ──────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">         2026-08-28          TOTTUS JOCKEY · 3 parts                     -150.00   —</span>
+<span class="d">         2026-08-30          CINE PLAZA                                   -28.00   OCIO</span>
+<span class="d">   !     2026-10-08          TAXI SATELITAL                               -25.00   TRANSPORTE</span>
+<span class="d">   !     2026-10-11          FARMACIA · 2 parts                          -100.00   —</span>
+<span class="d">   !     2026-10-12          UBER *TRIP                                   -42.00   @Pendiente</span>
+
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+</div>
+
+<div class="pane"><div class="lbl">3c · The ledger after y <span>— both parts gone</span></div>
+<p class="blurb">Both FARMACIA parts are gone. The ledger reads again from the newest ten rows, cursor on row 1, as after any change, and the count drops by two (133 to 131). The note in the corner says what happened.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+<span class="d">    ────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="rev">      NETFLIX.COM                                -44.90  2026-10-14  Sueldo Soles   OCIO         casa       </span>
+      UBER *TRIP            al aeropuerto     <span class="n">   -42.00</span>  2026-10-12  Sueldo Soles   @Pendiente   Pendiente
+      TAXI SATELITAL                          <span class="n">   -25.00</span>  2026-10-08  Sueldo Soles   TRANSPORTE   —
+      HABER PLANILLA                          <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo
+      PLAZA VEA SURCO                         <span class="n">   -84.30</span>  2026-10-02  Sueldo Soles   COMIDA       casa
+      NETFLIX.COM                             <span class="n">   -44.90</span>  2026-09-14  Sueldo Soles   OCIO         casa
+      FARMACIA              vitaminas         <span class="n">   -70.00</span>  2026-09-09  Sueldo Soles   SALUD        casa
+      FARMACIA              jabón             <span class="n">   -30.00</span>  2026-09-09  Sueldo Soles   HOGAR        casa
+      HABER PLANILLA                          <span class="p"> 6,519.00</span>  2026-09-05  Sueldo Soles   SUELDO       trabajo
+      PLAZA VEA SURCO                         <span class="n">   -96.10</span>  2026-09-03  Sueldo Soles   COMIDA       casa
+
+     <span class="d">no filter · 10 of 131 loaded</span>
+                                                                                    <span class="a">▌</span> Purchase deleted.
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap"><code>Purchase deleted.</code> is new; for a single row it stays <code>Transaction deleted.</code></p></div>
+
+<div class="pane"><div class="lbl">3d · A purchase in a completed month <span>— the engine refuses, nothing is deleted</span></div>
+<p class="blurb"><code>d</code> on a part of the September FARMACIA, then <code>y</code>. That purchase is in Septiembre 2026, which is completed, so the engine refuses and deletes nothing. The ledger stays as it was, cursor on the same row, and the refusal shows in the corner the way every refusal does today: the engine's words whole.</p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+<span class="d">    ────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      NETFLIX.COM                             <span class="n">   -44.90</span>  2026-10-14  Sueldo Soles   OCIO         casa
+      UBER *TRIP            al aeropuerto     <span class="n">   -42.00</span>  2026-10-12  Sueldo Soles   @Pendiente   Pendiente
+      FARMACIA              medicinas         <span class="n">   -60.00</span>  2026-10-11  Sueldo Soles   SALUD        casa
+      FARMACIA              limpieza          <span class="n">   -40.00</span>  2026-10-11  Sueldo Soles   HOGAR        casa
+      TAXI SATELITAL                          <span class="n">   -25.00</span>  2026-10-08  Sueldo Soles   TRANSPORTE   —
+      HABER PLANILLA                          <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo
+      PLAZA VEA SURCO                         <span class="n">   -84.30</span>  2026-10-02  Sueldo Soles   COMIDA       casa
+      NETFLIX.COM                             <span class="n">   -44.90</span>  2026-09-14  Sueldo Soles   OCIO         casa
+      FARMACIA              vitaminas         <span class="n">   -70.00</span>  2026-09-09  Sueldo Soles   SALUD        casa
+<span class="rev">      FARMACIA              jabón                -30.00  2026-09-09  Sueldo Soles   HOGAR        casa       </span>
+
+     <span class="d">no filter · 10 of 133 loaded</span>
+                                                  <span class="n">▌</span> <span class="b">Failed</span>
+                                                  <span class="n">▌</span> CONFLICT — Cannot delete a bank line assigned to a
+                                                  <span class="n">▌</span> completed reconciliation. Revert the reconciliation
+                                                  <span class="n">▌</span> to draft first.
+                                                  <span class="n">▌</span>   bank_line_id: Must not be in a completed
+                                                  <span class="n">▌</span>   reconciliation.
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The engine's sentence here is a stand-in until it is read from the engine. As for a single row today, the app adds no line of its own when the engine already says what to do (revert the month to draft first). If its real words do not say it, the app's line would be: “Open its reconciliation, press u to revert it, then d again.”</p></div>
+
+<div class="pane"><div class="lbl">3e · A row never split <span>— exactly as today, for contrast</span></div>
+<p class="blurb">CINE PLAZA was never split, so <code>d</code> asks today's question, word for word, and only that row goes. After <code>y</code> the note is <code>Transaction deleted.</code></p>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Transactions</span>
+
+<span class="d">──────────────────────────────</span><span class="a">────────────────────────────────────────────────────────</span><span class="d">────────────────────────</span>
+<span class="d">                              </span>                                                        
+<span class="d">   ───────────────────────────</span>  <span class="ab">Delete this transaction?</span>                              <span class="d">───────────────────────</span>
+<span class="d">                              </span>                                                        
+<span class="d">    Title                   De</span>  CINE PLAZA · -28.00 · 2026-10-10 · Sueldo Soles       <span class="d">t          Hashtags</span>
+<span class="d">    ──────────────────────────</span>  It leaves every balance and report, and no screen     <span class="d">──────────────────────</span>
+<span class="d">      NETFLIX.COM             </span>  can bring it back.                                    <span class="d">IO         casa</span>
+<span class="d">      UBER *TRIP            al</span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>               <span class="d">endiente   Pendiente</span>
+<span class="d">      FARMACIA              me</span>                                                        <span class="d">LUD        casa</span>
+<span class="d">      FARMACIA              li</span><span class="a">────────────────────────────────────────────────────────</span><span class="d">GAR        casa</span>
+<span class="d">      CINE PLAZA                                 -28.00  2026-10-10  Sueldo Soles   OCIO         —</span>
+<span class="d">      TAXI SATELITAL                             -25.00  2026-10-08  Sueldo Soles   TRANSPORTE   —</span>
+<span class="d">      HABER PLANILLA                           6,519.00  2026-10-05  Sueldo Soles   SUELDO       trabajo</span>
+<span class="d">      PLAZA VEA SURCO                            -84.30  2026-10-02  Sueldo Soles   COMIDA       casa</span>
+<span class="d">      NETFLIX.COM                                -44.90  2026-09-14  Sueldo Soles   OCIO         casa</span>
+<span class="d">      FARMACIA              vitaminas            -70.00  2026-09-09  Sueldo Soles   SALUD        casa</span>
+
+<span class="d">     no filter · 10 of 134 loaded</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+</div>
+
+<div class="pick"><b>To answer:</b> one letter for 2a (A, B or C), and “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Recommended:</b> 2a A.<br><b>Settled already:</b> a split purchase is one row with its total and part count on every reconciliation list, its parts not listed there; the question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> <code>· 2 parts</code>, <code>Purchase deleted.</code>, the empty second line and the <code>—</code> category for a purchase (2a, 2d), and the cursor staying on a purchase after it moves up (2b).</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
