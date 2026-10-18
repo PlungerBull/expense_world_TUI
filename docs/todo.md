@@ -37,6 +37,17 @@ becomes the next catch-up spec.
 
 **Recommended:** none — only you can hand it over.
 
+### The help card's line for `⏎` in "no batch"
+Asked 2026-10-17 · Blocks: nothing (only words)
+
+The `?` card in "no batch" says `⏎` "Edit the row: its date or its account", but the Edit form
+there also changes the title, the operation number and, on a row never split, the amount.
+- **A.** "Edit the row: its date, title, operation, amount or account".
+- **B.** "Edit the row's bank columns".
+- **C.** Keep it.
+
+**Recommended:** A, because it names what the form changes.
+
 ### "1 ticked rows"
 Asked 2026-10-17 · Blocks: nothing (only words)
 
@@ -106,6 +117,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
   formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no batch"
   rows), and the delete question shows `—` for the same untitled line: one fallback everywhere.
+- **A guard against "purchase" in the app's words.** The owner's word is "transaction"
+  (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
+  fails when a user-visible string in `expense/` says "purchase".
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it

@@ -30,7 +30,7 @@ the list fresh from the newest 10.
 `d` deletes the cursor row after the question and reads the list fresh from
 the newest 10. It first reads the row's bank line once
 (contract: GET /v1/bank-lines/{bank_line_id}): a part of a split purchase
-(`part_count` above 1) asks "Delete this purchase and its N parts?" and goes
+(`part_count` above 1) asks "Delete this transaction and its N parts?" and goes
 whole, every part in one `DELETE /bank-lines/{id}`
 (contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split asks and
 deletes as any row does. `s` and `d` never act on a selection: while rows are
@@ -71,10 +71,10 @@ from expense.tui.screens._base import (
     DELETE_KEY,
     LogTransactionMixin,
     SectionScreen,
+    bank_line_delete_message,
+    bank_line_delete_question,
     call_while_attached,
     list_refusal_text,
-    purchase_delete_message,
-    purchase_delete_question,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -467,9 +467,9 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             self.confirm_delete(
                 "bank-lines",
                 record.get("bank_line_id"),
-                purchase_delete_question(line),
-                purchase_delete_message(line, resolve_name(account_id, self._maps[0])),
-                done="Purchase deleted.",
+                bank_line_delete_question(line),
+                bank_line_delete_message(line, resolve_name(account_id, self._maps[0])),
+                done="Transaction deleted.",
                 after=self._reload_fresh,
             )
             return

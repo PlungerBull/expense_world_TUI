@@ -108,6 +108,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
     def _after_mount(self) -> None:
         """Post-mount hook — e.g. kick off entity loading."""
 
+    def _heading(self) -> RenderableType | None:
+        """A line over the bar naming what the form edits; None (the default)
+        draws none."""
+        return None
+
     def _payload(self) -> dict:
         raise NotImplementedError
 
@@ -127,6 +132,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
+        heading = self._heading()
+        if heading is not None:
+            yield Static(heading, id="form-head")
         yield Horizontal(Label("", id="field"), Input(id="bar"), id="inputbar")
         yield Static("", id="hint")
         yield Static("", id="suggest")

@@ -363,9 +363,9 @@ def test_a_part_with_no_category_or_hashtag_reads_pending_dim_and_sends_only_rea
 @pytest.mark.parametrize(
     ("line", "reason"),
     [
-        ("-40 $sueldo", "a part keeps the purchase's account and date"),
-        ("-40 ayer", "a part keeps the purchase's account and date"),
-        ("-40 lejía", "a part keeps the purchase's title"),
+        ("-40 $sueldo", "a part keeps the transaction's account and date"),
+        ("-40 ayer", "a part keeps the transaction's account and date"),
+        ("-40 lejía", "a part keeps the transaction's title"),
         ("@hogar", "the line has no amount — a number needs a sign to be one"),
     ],
     ids=["account", "date", "title-words", "no-amount"],

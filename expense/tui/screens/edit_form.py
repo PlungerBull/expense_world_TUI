@@ -30,13 +30,21 @@ and it carries no hashtag, not even the pending one
 (contract: PUT /v1/transactions/{transaction_id}). The form knows the row once
 the reference lists load (`QuickAddRefs.opening`).
 
-On a part of a split purchase, the hint under the bar adds `changes every part
-of the purchase` while the cursor is on date, title or account: the engine
-writes those three onto every part of the bank line, in one go
+On a part of a split transaction, the hint under the bar adds `changes every
+part of the transaction` while the cursor is on date, title or account: the
+engine writes those three onto every part of the bank line, in one go
 (contract: "Transactions (Ledger)", "Bank lines"). The form knows the row is a
 part from one `GET /v1/bank-lines/{bank_line_id}` read as it opens, the engine's
 `part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}). A failed
 read leaves the hints as on any row; the save is the engine's either way.
+
+`BankLineEditFormScreen` is this form on a bank line, `⏎` in the
+reconciliations' "no batch" list: the bank's columns only. Date › Title ›
+Operation › Amount › Account on a line never split; on a split line the amount
+gives way to a read-only `Parts` section under the summary, each part's amount
+and the line's total. The save is the same diffed PUT on one part; the engine
+writes date, title, operation and account onto every part
+(contract: PUT /v1/transactions/{transaction_id}, "Line fields").
 
 `enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
@@ -47,7 +55,7 @@ account. The keymap is `form_bindings` in _form.py.
 import copy
 from datetime import date as date_cls
 
-from rich.console import RenderableType
+from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
 from textual.widgets import Input
@@ -55,19 +63,27 @@ from textual.widgets import Input
 from expense import reads
 from expense.dates import to_canonical_aware
 from expense.errors import format_error
-from expense.formatting import bank_line_part_count, format_cents, resolve_name
+from expense.formatting import (
+    bank_line_columns,
+    bank_line_part_count,
+    format_cents,
+    resolve_name,
+    signed_cents,
+)
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import hashtags_to_send, load_quickadd_refs
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
-from expense.tui.theme import ACCENT
+from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
+from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.picker import suggestion_list
 
 _LABELS = {
     "date": "DATE",
     "title": "TITLE",
     "amount": "AMOUNT",
+    "operation": "OPERATION",
     "account": "ACCOUNT",
     "category": "CATEGORY",
     "hashtags": "HASHTAGS",
@@ -79,20 +95,22 @@ _HINTS = {
     "date": "YYYY-MM-DD · enter to accept, or type a date",
     "title": "free text · enter to save",
     "amount": "signed decimal · − expense / + income · in the account's currency",
+    "operation": "optional · the bank's operation number · empty clears it",
     "account": "pick an existing account · ↑↓ highlight · enter select",
     "category": "pick an existing category · ↑↓ highlight · enter select",
     "hashtags": "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)",
     "note": "optional · enter saves · (ctrl+s anytime)",
 }
-# The fields a part of a split purchase shares with every other part, and what
-# the hint adds on them.
+# The fields a part of a split transaction shares with every other part, and
+# what the hint adds on them.
 _EVERY_PART = {"date", "title", "account"}
-EVERY_PART_NOTE = "changes every part of the purchase"
+EVERY_PART_NOTE = "changes every part of the transaction"
 # engine field name for each form key
 _ENGINE_FIELD = {
     "date": "date",
     "title": "title",
     "amount": "amount_cents",
+    "operation": "operation_code",
     "account": "account_id",
     "category": "category_id",
     "hashtags": "hashtag_ids",
@@ -393,6 +411,10 @@ class EditFormScreen(FormScreen):
                 payload["date"] = to_canonical_aware(new) if new else None
             elif key == "note":
                 payload["description"] = new or None
+            elif key == "operation":
+                # `null` clears the line's code
+                # (contract: PUT /v1/transactions/{transaction_id})
+                payload["operation_code"] = new or None
             elif key == "hashtags":
                 tags = hashtags_to_send(new or [], self._pending_tag)
                 if tags != (self._original.get("hashtags") or []):
@@ -405,3 +427,110 @@ class EditFormScreen(FormScreen):
         left = self._leaves_reconciliation
         self.notify("Saved. It left its reconciliation." if left else "Saved.")
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
+
+
+# ---- the Edit form on a bank line: `⏎` in "no batch" ----------------------
+#: The line under a split line's total, as pane 2e C2 draws it.
+PARTS_NOTE = "the parts must add up to the total · s in the ledger splits it again to change them"
+
+
+def parts_section(line: dict) -> Group:
+    """A split line's `Parts`, read-only: each part's amount, signed by
+    `signed_cents`, then a rule and the line's own `net_cents` as the total
+    (`bank_line_columns`); the app adds nothing up. The amounts are
+    right-aligned under one another, the rule as wide as the widest plus one,
+    and `total` sits at the left of the total's line."""
+    parts = [p for p in (line.get("parts") or []) if isinstance(p, dict)]
+    amounts = [format_cents(signed_cents(p)) for p in parts]
+    total = format_cents(bank_line_columns(line)[3])
+    widest = max(len(a) for a in [*amounts, total])
+    width = widest + 12
+    lines = [Text.assemble(("Parts", "bold"), ("  read-only", "dim"))]
+    lines += [Text(a.rjust(width), style="dim") for a in amounts]
+    lines.append(Text(("─" * (widest + 1)).rjust(width), style="dim"))
+    lines.append(Text("total" + total.rjust(width - len("total")), style="dim"))
+    lines.append(Text(PARTS_NOTE, style="dim"))
+    return Group(*lines)
+
+
+class BankLineEditFormScreen(EditFormScreen):
+    """The Edit form on a bank line in the "no batch" list: the bank's columns
+    only (pane 2e C2 of expense-world-bank-lines-whole.html).
+
+    Every value comes from the line the list already holds, so the form reads
+    no line: the day and title off its first part, its `operation_code` and
+    `account_id`, and on a line never split its one part's amount, signed by
+    `signed_cents`. The heading is the line as the list shows it, its title and
+    its `net_cents` with the account's currency. A split line (`part_count`
+    above 1) shows no amount field: its parts' amounts and the total stand
+    read-only under the summary (`parts_section`). No category, hashtags or
+    note: those are the ledger's.
+
+    The save is the Edit form's: one PUT on the line's first part, carrying
+    only the fields changed; date, title, operation and account reach every
+    part (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
+    """
+
+    def __init__(self, *, line: dict, currency: str | None = None) -> None:
+        self._line = line
+        self._currency = currency
+        self._split = bank_line_part_count(line) > 1
+        first = (line.get("parts") or [{}])[0]
+        record = {
+            **first,
+            "amount_cents": signed_cents(first),
+            "account_id": line.get("account_id") or first.get("account_id"),
+            "operation_code": line.get("operation_code"),
+        }
+        super().__init__(record=record)
+        self.crumb = ("Capture & ledger", "Reconciliations", "Edit")
+
+    def _prefill(self, rec: dict) -> None:
+        super()._prefill(rec)
+        shown = set(self._sequence())
+        self._values = {k: v for k, v in self._values.items() if k in shown}
+        self._display = {k: v for k, v in self._display.items() if k in shown}
+        if rec.get("operation_code"):
+            self._values["operation"] = self._display["operation"] = rec["operation_code"]
+        self._original = copy.deepcopy(self._values)
+
+    def _sequence(self) -> list[str]:
+        if self._split:
+            return ["date", "title", "operation", "account"]
+        return ["date", "title", "operation", "amount", "account"]
+
+    def _after_mount(self) -> None:
+        self._load_entities()  # the line is in hand: no bank-line read
+
+    def _heading(self) -> RenderableType:
+        _day, title, _operation, net_cents = bank_line_columns(self._line)
+        head = Text(title or "(untitled)", style="bold")
+        head.append("  ·  ", style="dim")
+        figure = amount_cell(net_cents, PALETTE, AMOUNT_RULE)
+        head.append_text(figure if isinstance(figure, Text) else Text(str(figure)))
+        if self._currency:
+            head.append(f" {self._currency}", style="dim")
+        return head
+
+    def _bar_value(self, key: str) -> str:
+        if key == "operation":
+            return str(self._values.get("operation") or "")
+        return super()._bar_value(key)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if self._key != "operation":
+            super().on_input_submitted(event)
+            return
+        text = self.query_one("#bar", Input).value.strip()
+        self._values["operation"] = text or None
+        if text:
+            self._display["operation"] = text
+        else:
+            self._display.pop("operation", None)
+        self._advance()
+
+    def _summary_renderable(self) -> RenderableType:
+        summary = super()._summary_renderable()
+        if not self._split:
+            return summary
+        return Group(summary, Text(""), parts_section(self._line))

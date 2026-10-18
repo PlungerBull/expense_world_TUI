@@ -260,7 +260,7 @@ selected. The LOG bar is untouched: it only creates rows, and a typed line canno
 date, title and account onto every part of its bank line, in one go, while amount,
 category, hashtags and note stay the part's own
 (contract: "Transactions (Ledger)", "Bank lines"). So on a part, the `⏎` edit form's hint
-under the bar adds `· changes every part of the purchase`, in the accent, while the cursor
+under the bar adds `· changes every part of the transaction`, in the accent, while the cursor
 is on date, title or account, and says nothing more on the other fields; screen 1 B in
 [expense-world-edit-part.html](mockups/expense-world-edit-part.html). The form knows the
 row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
@@ -296,8 +296,9 @@ Each part is one typed line in the LOG bar's grammar, read by the same parser
 part (`-40.00 · HOGAR · no hashtag`; `no category`, `no amount`, or the grammar's own phrase
 for a name that matches nothing or several). `↵` adds it to the list, or refuses it in
 place, the line kept in the bar and the reason under the legend in the error colour, until
-the next keystroke: a line naming an account or a date reads `! a part keeps the purchase's
-account and date`, one with title words `! a part keeps the purchase's title`, one with no
+the next keystroke: a line naming an account or a date reads `! a part keeps the
+transaction's account and date`, one with title words `! a part keeps the transaction's
+title`, one with no
 amount or an unmatched name the LOG bar's own phrase (`route_part` in
 [route.py](../expense/quickadd/route.py)). The split takes no title, date or account
 (contract: POST /v1/transactions/{transaction_id}/split).
@@ -385,17 +386,44 @@ edit and a delete all start again from the newest ten, cursor on row 1. The **`!
 a hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
 already holds, so it costs no request; the engine stays the authority at close time.
 
-**Keys**: `esc` swaps back to the panel. `⏎ Edit` on a line never split opens the ledger's
-edit form on its one transaction (date and account are the two remedies for a row in no
-batch); the part arrives as a magnitude and its `transaction_type`, and `signed_cents` in
-[formatting.py](../expense/formatting.py) signs it, so the form shows what a ledger read
-shows. On a split purchase `⏎` is off: it leaves the footer and the `?` card, and pressing
-it does nothing. `d` deletes the line under the cursor after a question (pane 3b, and "`d`
-is the TUI's one destructive key" below), with the line the list already holds, so nothing
-is read before asking: a split purchase (`part_count` above 1) asks the ledger's purchase
-question and goes whole in one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),
+**Keys**: `esc` swaps back to the panel. `⏎ Edit`, on every row, opens the Edit form on the
+line with the bank's columns only (below). `d` deletes the line under the cursor after a
+question (pane 3b, and "`d` is the TUI's one destructive key" below), with the line the list
+already holds, so nothing is read before asking: a split purchase (`part_count` above 1)
+asks the ledger's question for a split transaction and goes whole in one
+`DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),
 a line never split asks the ledger's transaction question and goes as its one transaction
 in `DELETE /transactions/{id}`.
+
+**`⏎` in "no batch" — the Edit form on the bank's columns** (pane 2e C2 of
+[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html);
+`BankLineEditFormScreen` in [edit_form.py](../expense/tui/screens/edit_form.py)). It is the
+Edit form, a variant on the shared form scaffolding, and its crumb reads
+`Capture & ledger ▸ Reconciliations ▸ Edit`. Over the bar, the line as the list shows it:
+its title, then its signed `net_cents` and the account's currency
+(`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, so
+the form reads no line: the day and title off its first part, its `operation_code` and its
+account. A line never split edits `date › title › operation › amount › account`, all
+editable, its amount the one part's, signed by `signed_cents` in
+[formatting.py](../expense/formatting.py). A split transaction edits
+`date › title › operation › account`, and under the summary stands a read-only `Parts`
+section: each part's amount, signed by `signed_cents`, then a rule, then `total` and the
+line's own `net_cents` (`parts_section`; the app adds nothing up), and the dim line `the
+parts must add up to the total · s in the ledger splits it again to change them`. There is
+no amount field there, and neither form shows category, hashtags or note: those are the
+ledger's. An operation with nothing typed reads `—  (optional)`; its hint is `optional ·
+the bank's operation number · empty clears it`.
+`ctrl+s` saves as the Edit form does: one `PUT /transactions/{id}` on the line's first part,
+through the shared write path with one idempotency key, carrying only the fields changed.
+The engine writes date, title, operation and account onto every part of the line in that
+write, while the amount stays the part's own
+(contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied operation
+sends `operation_code: null`, which clears the line's code
+(contract: PUT /v1/transactions/{transaction_id}); a changed account also sends
+`reconciliation_id: null` (`unassign_on_move`, as on the ledger's form). Saved, the note
+reads `Saved.` and "no batch" reads its newest ten again, cursor on row 1; a row whose date
+or account moved it out of the list is gone. A refusal is the engine's words in the
+"Failed" note, the form still open; `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
@@ -528,7 +556,7 @@ screen can bring it back.**
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
 | Ledger, and a line never split in the "no batch" list | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
-| Ledger, on a part of a split purchase; a split purchase in the "no batch" list | `Delete this purchase and its 2 parts?` (the purchase's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Purchase deleted.` |
+| Ledger, on a part of a split purchase; a split purchase in the "no batch" list | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
 | A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
@@ -552,7 +580,7 @@ body is the purchase's line (its date, title and signed total `net_cents` exactl
 reconciliation lists show them, through the shared `formatting.bank_line_columns`, then its
 account), and `y` sends one `DELETE /bank-lines/{id}`, which deletes every
 part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}), through the same
-`confirm_delete`; the note reads `Purchase deleted.` and the ledger reads its newest ten
+`confirm_delete`; the note reads `Transaction deleted.` and the ledger reads its newest ten
 again, cursor on row 1, every part gone. A line of one part is a row never split: the
 ledger's own question and `DELETE /transactions/{id}`, as above. A line in a completed
 reconciliation is refused, `IN_COMPLETED_RECONCILIATION` on `bank_line_id`, and nothing is
@@ -778,7 +806,7 @@ them — they are hand-written into the `?` card
   advertise `⏎ Open` falsely. A widget whose key is off on some rows names the action in
   its `CARD_FOLLOWS_CHECK`, and the card lists that row only while the widget's
   `check_action` allows it, as the footer does: the Reconciliations panel's `⏎ Open` and
-  `⏎ Edit`, which is off on a split purchase in the "no batch" list.
+  `⏎ Edit`, which is on in the "no batch" list alone, on every row.
 
 **The import door's exceptions** (§2 "The import door",
 [bank_import.py](../expense/tui/screens/bank_import.py)):

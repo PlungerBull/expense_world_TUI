@@ -115,6 +115,11 @@ Input {
     padding: 1 3;
     height: auto;
 }
+/* a form's line over the bar (FormScreen._heading): the Edit form on a bank line */
+#form-head {
+    padding: 1 3 0 3;
+    height: auto;
+}
 /* the split screen (split.py): the purchase over the bar, the parts under it */
 #split-head {
     padding: 1 3 0 3;

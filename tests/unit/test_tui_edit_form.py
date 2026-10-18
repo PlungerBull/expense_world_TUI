@@ -819,7 +819,7 @@ def test_a_hashtag_refusal_on_the_form_shows_as_sent(
 # while the cursor is on date, title or account, and says nothing on the others.
 
 LINE_PATH = "/bank-lines/bl1"
-EVERY_PART = "changes every part of the purchase"
+EVERY_PART = "changes every part of the transaction"
 #: Every field of the form, in its order, with the hint it shows on any row.
 FIELD_HINTS = [
     ("date", "YYYY-MM-DD · enter to accept, or type a date"),

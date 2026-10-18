@@ -68,10 +68,10 @@ from expense.tui.screens._base import (
     ContentSwapLockMixin,
     EngineWriteMixin,
     SectionScreen,
+    bank_line_delete_message,
+    bank_line_delete_question,
     call_while_attached,
     list_refusal_text,
-    purchase_delete_message,
-    purchase_delete_question,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -156,7 +156,7 @@ def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
     return rows
 
 
-def is_split_purchase(line: object) -> bool:
+def is_split_line(line: object) -> bool:
     """A bank line holding more than one part, as the engine counts them."""
     return bank_line_part_count(line) > 1
 
@@ -167,14 +167,21 @@ def lone_transaction(line: dict) -> dict | None:
     arrives as a magnitude and its `transaction_type`
     (contract: GET /v1/bank-lines/{bank_line_id}); `signed_cents` signs it, so
     the edit form and the delete question get the record a ledger read gives.
-    None for a split purchase or a line with no part."""
+    None for a split line or a line with no part."""
+    if is_split_line(line):
+        return None
+    part = first_part(line)
+    return None if part is None else {**part, "amount_cents": signed_cents(part)}
+
+
+def first_part(line: dict) -> dict | None:
+    """The line's first part, the one a write on the line names; None when
+    the read holds no part with an id."""
     parts = line.get("parts")
-    if is_split_purchase(line) or not isinstance(parts, list) or not parts:
+    if not isinstance(parts, list) or not parts:
         return None
     part = parts[0]
-    if not isinstance(part, dict) or not part.get("id"):
-        return None
-    return {**part, "amount_cents": signed_cents(part)}
+    return part if isinstance(part, dict) and part.get("id") else None
 
 
 def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
@@ -205,8 +212,7 @@ class _PanelList(CursorList):
     """The panel under the accounts. It lists two things: a
     reconciliation, which `enter` opens, or a row in no batch, which `enter`
     edits — so the footer says `Edit` there. Two bindings on one key: Textual takes the first whose
-    `check_action` allows it. On a split purchase in no batch neither is: `⏎`
-    is off there, and leaves the footer and the `?` card."""
+    `check_action` allows it."""
 
     BINDINGS = [
         Binding("enter", "edit_row", "Edit", tooltip="Edit the row: its date or its account"),
@@ -221,16 +227,9 @@ class _PanelList(CursorList):
         except Exception:
             return False
 
-    def _on_split_purchase(self) -> bool:
-        try:
-            record = getattr(self.screen, "_unfiled_record", None)
-        except Exception:
-            return False
-        return record is not None and is_split_purchase(record())
-
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "edit_row":
-            return self._listing_unfiled() and not self._on_split_purchase()
+            return self._listing_unfiled()
         if action == "select" and self._listing_unfiled():
             return False
         return super().check_action(action, parameters)
@@ -413,8 +412,6 @@ class ReconciliationsScreen(SectionScreen):
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
         if self._mode == "unfiled" and event.control is self._batch_list:
-            # `⏎ Edit` follows the row: off on a split purchase
-            self._batch_list.refresh_bindings()
             return
         # Source guard: only the account list moves the account
         # cursor, and only while it is the list in use. Moving it reads nothing.
@@ -424,15 +421,15 @@ class ReconciliationsScreen(SectionScreen):
 
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "unfiled":
-            # `⏎` opens the form that already edits date and account — the two
-            # remedies for a row that is in no batch. Off on a split purchase.
+            # `⏎` opens the Edit form on the line, the bank's columns only:
+            # date and account are the two remedies for a row in no batch
             line = self._unfiled_record()
-            record = lone_transaction(line) if line is not None else None
-            if record is not None:
-                from expense.tui.screens.edit_form import EditFormScreen
+            if line is not None and first_part(line) is not None:
+                from expense.tui.screens.edit_form import BankLineEditFormScreen
 
+                acct = self._open_account()
                 self.app.push_screen(
-                    EditFormScreen(record=record),
+                    BankLineEditFormScreen(line=line, currency=acct[2] if acct else None),
                     lambda saved: saved and self._reload_unfiled(),  # `esc` keeps the cursor
                 )
             return
@@ -674,13 +671,13 @@ class ReconciliationsScreen(SectionScreen):
             return
         acct = self._open_account()
         account_name = acct[1] if acct else "—"
-        if is_split_purchase(line):
+        if is_split_line(line):
             self.confirm_delete(
                 "bank-lines",
                 line.get("id"),
-                purchase_delete_question(line),
-                purchase_delete_message(line, account_name),
-                done="Purchase deleted.",
+                bank_line_delete_question(line),
+                bank_line_delete_message(line, account_name),
+                done="Transaction deleted.",
                 after=self._reload_unfiled,
             )
             return

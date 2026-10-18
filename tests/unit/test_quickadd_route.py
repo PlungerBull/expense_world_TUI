@@ -167,12 +167,12 @@ def test_a_part_with_no_amount_is_refused_with_the_bars_own_phrase():
     ids=["account", "unknown-account", "date-word", "date", "not-a-real-date"],
 )
 def test_a_part_naming_an_account_or_a_date_is_refused(line):
-    """Every part keeps the purchase's account and date, so a line naming
+    """Every part keeps the transaction's account and date, so a line naming
     either, even one that matches nothing, says so once."""
     result = _part(line)
     assert result.refused
     assert result.reasons == (PART_KEEPS_LINE,)
-    assert PART_KEEPS_LINE == "a part keeps the purchase's account and date"
+    assert PART_KEEPS_LINE == "a part keeps the transaction's account and date"
 
 
 def test_a_part_with_title_words_is_refused():

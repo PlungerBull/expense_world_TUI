@@ -1147,3 +1147,67 @@ def test_the_no_batch_list_reads_through_its_own_reads(client):
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/reconciliations/{recon}")
         _safe(client.delete, f"/accounts/{account}")
+
+
+def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
+    """The "no batch" Edit form's own path (`BankLineEditFormScreen`): built on
+    the line `GET /bank-lines/{id}` reads, its save is one `PUT` on the first
+    part carrying only the fields changed, and the engine writes date, title
+    and operation onto every part, while each part keeps its own amount
+    (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied
+    operation sends `null`, which clears the line's code, and an account move
+    carries every part with it (contract: PUT /v1/transactions/{transaction_id})."""
+    from expense.reads import fetch_bank_line
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
+    zone = _zone(client)
+    account = _make_account(client)
+    other = _make_account(client)
+    code = f"op-{uuid4().hex[:10]}"
+    written: list[str] = []
+
+    def save(line: dict, **typed) -> dict:
+        form = BankLineEditFormScreen(line=line)
+        form._values.update(typed)
+        request = form._submit_request()
+        assert request is not None
+        method, path, payload, _busy = request
+        assert (method, path) == ("PUT", f"/transactions/{line['parts'][0]['id']}")
+        client.put(path, json_body=payload)
+        return payload
+
+    try:
+        purchase = _post_tx(client, account, _noon(zone, 2026, 5, 6), -10000, "FARMACIA")
+        written.append(purchase["id"])
+        client.put(f"/transactions/{purchase['id']}", json_body={"operation_code": code})
+        _split(client, purchase["id"], [-6000, -4000], written)
+        line_id = purchase["bank_line_id"]
+        line = fetch_bank_line(cfg, line_id)
+        before = {p["id"]: p for p in line["parts"]}
+
+        sent = save(line, date="2026-05-08", title="FARMACIA CENTRAL", operation=f"{code}-b")
+        assert set(sent) == {"date", "title", "operation_code"}
+        moved = fetch_bank_line(cfg, line_id)
+        assert moved["operation_code"] == f"{code}-b"
+        assert {p["title"] for p in moved["parts"]} == {"FARMACIA CENTRAL"}
+        days = {p["date"] for p in moved["parts"]}
+        assert len(days) == 1 and days != {p["date"] for p in before.values()}
+        # each part keeps its own amount; the total is the engine's
+        assert sorted(signed_cents(p) for p in moved["parts"]) == [-6000, -4000]
+        assert moved["net_cents"] == -10000
+        for part in moved["parts"]:
+            assert part["version"] == before[part["id"]]["version"] + 1
+
+        assert save(moved, operation=None) == {"operation_code": None}
+        assert fetch_bank_line(cfg, line_id)["operation_code"] is None
+
+        sent = save(fetch_bank_line(cfg, line_id), account=other)
+        assert sent == {"account_id": other, "reconciliation_id": None}
+        assert {p["account_id"] for p in fetch_bank_line(cfg, line_id)["parts"]} == {other}
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+        _safe(client.delete, f"/accounts/{other}")

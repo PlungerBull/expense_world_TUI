@@ -30,11 +30,11 @@ _MISSING_PHRASE = {
 }
 
 #: Why a part's line may not name an account or a date: every part keeps the
-#: purchase's (contract: POST /v1/transactions/{transaction_id}/split).
-PART_KEEPS_LINE = "a part keeps the purchase's account and date"
+#: transaction's (contract: POST /v1/transactions/{transaction_id}/split).
+PART_KEEPS_LINE = "a part keeps the transaction's account and date"
 #: Why a part's line may not carry title words: every part keeps the
-#: purchase's title too (contract: POST /v1/transactions/{transaction_id}/split).
-PART_KEEPS_TITLE = "a part keeps the purchase's title"
+#: transaction's title too (contract: POST /v1/transactions/{transaction_id}/split).
+PART_KEEPS_TITLE = "a part keeps the transaction's title"
 
 
 @dataclass(frozen=True)

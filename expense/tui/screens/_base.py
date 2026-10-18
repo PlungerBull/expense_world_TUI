@@ -286,7 +286,7 @@ def list_refusal_text(exc: Exception) -> str:
 def delete_row_line(title: object, amount_cents: object, day: str, account_name: str) -> str:
     """The row a delete question names, one line: `TITLE · AMOUNT · DAY · ACCOUNT`.
     Shared by the question for a single transaction and the one for a whole
-    purchase."""
+    split bank line."""
     return f"{title or '—'} · {format_cents(amount_cents)} · {day} · {account_name}"
 
 
@@ -302,14 +302,14 @@ def transaction_delete_message(record: dict, account_name: str) -> str:
     return f"{row}\nIt leaves every balance and report, and no screen can bring it back."
 
 
-def purchase_delete_question(line: dict) -> str:
-    """The title of the question before a split purchase is deleted whole,
+def bank_line_delete_question(line: dict) -> str:
+    """The title of the question before a split bank line is deleted whole,
     naming how many parts go."""
-    return f"Delete this purchase and its {bank_line_part_count(line)} parts?"
+    return f"Delete this transaction and its {bank_line_part_count(line)} parts?"
 
 
-def purchase_delete_message(line: dict, account_name: str) -> str:
-    """The body of "Delete this purchase and its N parts?": the purchase's line,
+def bank_line_delete_message(line: dict, account_name: str) -> str:
+    """The body of "Delete this transaction and its N parts?": the bank line,
     its day, title and signed total exactly as every reconciliation list shows
     them (`bank_line_columns`), then why a delete is final."""
     day, title, _operation, net_cents = bank_line_columns(line)

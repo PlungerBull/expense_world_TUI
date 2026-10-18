@@ -66,12 +66,12 @@
 <button class="theme" type="button">light / dark</button>
 <div class="head">
   <h1>Split · three moments on the split screen</h1>
-  <p>The split screen is built. Its mockup (<code>expense-world-split-action.html</code>) draws splitting a purchase, splitting it again and a refusal. It does not draw these three moments: title words typed on a part's line, <code>esc</code> with parts typed and not sent, and typing part of a category's name. For each one, the variant marked <b>as built</b> is what the app shows today; the other is the change on offer.</p>
+  <p>The split screen is built. Its mockup (<code>expense-world-split-action.html</code>) draws splitting a transaction, splitting it again and a refusal. It does not draw these three moments: title words typed on a part's line, <code>esc</code> with parts typed and not sent, and typing part of a category's name. For each one, the variant marked <b>as built</b> is what the app shows today; the other is the change on offer.</p>
   <p>The purchase is FARMACIA, -100.00 on 2026-10-11 from Sueldo Soles, split into -60.00 <code>@salud</code> and -40.00 <code>@hogar #casa</code>. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
 </div>
 
 <div class="pane"><div class="lbl">1 · A title typed on a part's line <span>— -40 @hogar lejía</span></div>
-<p class="blurb">Part 1 (-60.00, SALUD) is in the list. On part 2's line you type <code>-40 @hogar lejía</code> and press <code>↵</code>. <code>lejía</code> has no <code>//</code> in front, so the grammar reads it as title words, the way the LOG bar reads a line's loose words as its title. A part keeps the purchase's title, FARMACIA.</p>
+<p class="blurb">Part 1 (-60.00, SALUD) is in the list. On part 2's line you type <code>-40 @hogar lejía</code> and press <code>↵</code>. <code>lejía</code> has no <code>//</code> in front, so the grammar reads it as title words, the way the LOG bar reads a line's loose words as its title. A part keeps the transaction's title, FARMACIA.</p>
 <div class="opt">
 <div class="var"><div class="oh">A · <span>the line is refused in place</span><span class="ref">as built</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
 
@@ -83,7 +83,7 @@
    <span class="d">-40.00 · HOGAR · no hashtag</span>
    <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
 
-   <span class="n">! a part keeps the purchase's title</span>
+   <span class="n">! a part keeps the transaction's title</span>
 
 <span class="d">           amount   category    hashtags     note</span>
    <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
@@ -91,7 +91,7 @@
    <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
-<p class="cap">The line stays in the bar and the reason shows under the legend until your next keystroke. You add <code>//</code> before <code>lejía</code> and press <code>↵</code> again. <b>Recommended:</b> a loose word may be a typo or a title meant for the purchase, so the app does not guess. A note is always what you mark with <code>//</code>, here as in the LOG bar.</p></div>
+<p class="cap">The line stays in the bar and the reason shows under the legend until your next keystroke. You add <code>//</code> before <code>lejía</code> and press <code>↵</code> again. <b>Recommended:</b> a loose word may be a typo or a title meant for the transaction, so the app does not guess. A note is always what you mark with <code>//</code>, here as in the LOG bar.</p></div>
 <div class="var"><div class="oh">B · <span>the extra words become the part's note</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>

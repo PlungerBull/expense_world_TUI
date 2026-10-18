@@ -1,5 +1,7 @@
 """Reconciliations tests — list rows + new-batch form (fake client)."""
 
+import json
+
 import pytest
 from textual.widgets import Input
 
@@ -880,37 +882,323 @@ async def _cursor_on(pilot, screen, key: str) -> None:
     await pilot.pause()
 
 
-def test_enter_is_off_on_a_split_purchase_in_the_footer_the_card_and_the_key(monkeypatch):
-    """4: on a split purchase `⏎` is not offered — not in the footer, not on the
-    `?` card — and pressing it opens nothing; on a line never split it is
-    `⏎ Edit` as before."""
-    from expense.tui.screens.edit_form import EditFormScreen
+def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(monkeypatch):
+    """`⏎ Edit` is on for every row in no batch, a split transaction included:
+    in the footer, on the `?` card, and the key opens the bank-line Edit form."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
 
     _patch_browse(monkeypatch)
     _patch_unfiled(monkeypatch)
-    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
+    monkeypatch.setattr(BankLineEditFormScreen, "_load_entities", lambda self: None)
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
-        assert _enter_label(app) == "Edit"
-        assert _card_enter_rows(screen) == ["Edit the row: its date or its account"]
-        await pilot.press("down")  # FARMACIA, in two parts
-        await wait_for(pilot, lambda: screen._batch_list.cursor_key == "bl-farm")
-        await pilot.pause()
-        assert _enter_label(app) is None
-        assert "enter" not in _footer_keys(app)
-        assert _card_enter_rows(screen) == []
+        for key in ("bl-uber", "bl-farm", "bl-net"):
+            await _cursor_on(pilot, screen, key)
+            assert _enter_label(app) == "Edit", key
+            assert "enter" in _footer_keys(app), key
+            assert _card_enter_rows(screen) == ["Edit the row: its date or its account"], key
+        await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("enter")
-        await pilot.pause()
-        assert app.screen is screen  # nothing opened
-        await pilot.press("down")  # NETFLIX, never split: back
-        await wait_for(pilot, lambda: screen._batch_list.cursor_key == "bl-net")
-        await pilot.pause()
-        assert _enter_label(app) == "Edit"
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, BankLineEditFormScreen))
+        assert app.screen._line is UNFILED[1]
 
     run_app(scenario)
+
+
+# ---- `⏎` in no batch: the Edit form on the bank's columns (pane 2e C2) -------
+# (contract: PUT /v1/transactions/{transaction_id}, "Line fields")
+EDIT_CATEGORIES = whole([])
+EDIT_HASHTAGS = whole([])
+
+
+def _summary_lines(form) -> list[str]:
+    text = render_text(form._summary_renderable(), width=120)
+    return [line.rstrip() for line in text.splitlines()]
+
+
+def _heading_text(form) -> str:
+    return render_text(form._heading(), width=120).rstrip()
+
+
+async def _open_form(pilot, app, key: str):
+    """The no batch list, the cursor on `key`, `⏎`; the form with its accounts loaded."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    screen = await _open_unfiled(pilot, app)
+    await _cursor_on(pilot, screen, key)
+    await pilot.press("enter")
+    await wait_for(pilot, lambda: isinstance(app.screen, BankLineEditFormScreen))
+    form = app.screen
+    await wait_for(pilot, lambda: form._accounts)
+    return screen, form
+
+
+def _patch_form(monkeypatch, items=None):
+    _patch_browse(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: EDIT_CATEGORIES)
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: EDIT_HASHTAGS)
+    return _patch_unfiled(monkeypatch, items=items)
+
+
+def test_parts_section_is_each_parts_amount_then_the_total_under_a_rule():
+    """C2's `Parts`: each part's signed amount right-aligned, a rule, the
+    line's own `net_cents` as the total, then the dim line, all read-only."""
+    from expense.tui.screens.edit_form import parts_section
+
+    text = render_text(parts_section(UNFILED[1]), width=120)
+    assert [line.rstrip() for line in text.splitlines()] == [
+        "Parts  read-only",
+        "             -60.00",
+        "             -40.00",
+        "           ────────",
+        "total       -100.00",
+        "the parts must add up to the total · s in the ledger splits it again to change them",
+    ]
+
+
+def test_the_total_is_the_engines_net_cents_never_a_sum_of_the_parts():
+    from expense.tui.screens.edit_form import parts_section
+
+    odd = {**UNFILED[1], "net_cents": -12345}  # not -60.00 + -40.00: the app adds nothing
+    text = render_text(parts_section(odd), width=120)
+    assert "total       -123.45" in text
+
+
+def test_a_row_never_split_opens_the_bank_columns_with_its_amount(monkeypatch, fake_client):
+    """C2, a row never split: date, title, operation, amount and account, all
+    editable, in that order; the heading is the row as listed; no category,
+    hashtags or note and no Parts section; the crumb is `… ▸ Reconciliations ▸ Edit`."""
+    from expense.tui.widgets.header import Breadcrumb
+
+    _patch_form(monkeypatch)
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-uber")
+        assert form._sequence() == ["date", "title", "operation", "amount", "account"]
+        assert not form._locked
+        assert form._key == "date"
+        assert form.query_one("#crumb", Breadcrumb)._trail == (
+            "Capture & ledger",
+            "Reconciliations",
+            "Edit",
+        )
+        assert _heading_text(form) == "UBER *TRIP  ·  -24.50 PEN"
+        assert _summary_lines(form) == [
+            "date       2026-03-20",
+            "title      UBER *TRIP",
+            "operation  —  (optional)",
+            "amount     -24.50",
+            "account    BCP PEN",
+        ]
+        for key in ("title", "operation", "amount", "account"):
+            form.action_field(1)
+            assert form._key == key
+        assert form.query_one("#bar", Input).value == ""  # account re-picks from scratch
+
+    run_app(scenario)
+    assert fake_client.calls == []  # the line was in hand: nothing read, nothing sent
+
+
+def test_a_split_transaction_opens_the_bank_columns_and_its_parts_read_only(
+    monkeypatch, fake_client
+):
+    """C2, a split transaction: date, title, operation and account, editable;
+    under them `Parts`, each part's amount, then the total under a rule; no
+    amount field, no category, hashtags or note."""
+    _patch_form(monkeypatch)
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-farm")
+        assert form._sequence() == ["date", "title", "operation", "account"]
+        assert "amount" not in form._values
+        assert _heading_text(form) == "FARMACIA  ·  -100.00 PEN"
+        assert _summary_lines(form) == [
+            "date       2026-03-10",
+            "title      FARMACIA",
+            "operation  48201764",
+            "account    BCP PEN",
+            "",
+            "Parts  read-only",
+            "             -60.00",
+            "             -40.00",
+            "           ────────",
+            "total       -100.00",
+            "the parts must add up to the total · s in the ledger splits it again to change them",
+        ]
+        form.action_field(1)
+        form.action_field(1)
+        assert form._key == "operation"
+        assert form.query_one("#bar", Input).value == "48201764"
+
+    run_app(scenario)
+    assert fake_client.calls == []
+
+
+def _type_and_enter(form, text: str) -> None:
+    form.query_one("#bar", Input).value = text
+    form._recompute_suggestions(text)
+    form.on_input_submitted(None)
+
+
+@pytest.mark.parametrize(
+    ("row", "field", "typed", "sent"),
+    [
+        ("bl-farm", "date", "2026-03-12", {"date": "2026-03-12"}),
+        ("bl-farm", "title", "FARMACIA CENTRAL", {"title": "FARMACIA CENTRAL"}),
+        ("bl-farm", "operation", "55500011", {"operation_code": "55500011"}),
+        ("bl-farm", "operation", "", {"operation_code": None}),
+        ("bl-farm", "account", "Interbank", {"account_id": "acc2", "reconciliation_id": None}),
+        ("bl-uber", "operation", "11122233", {"operation_code": "11122233"}),
+        ("bl-uber", "amount", "-30.00", {"amount_cents": -3000}),
+    ],
+    ids=[
+        "split-date",
+        "split-title",
+        "split-operation",
+        "split-operation-cleared",
+        "split-account",
+        "lone-operation",
+        "lone-amount",
+    ],
+)
+def test_saving_sends_one_put_on_one_part_with_only_the_field_changed(
+    monkeypatch, fake_client, row, field, typed, sent
+):
+    """One `PUT /transactions/{id}` on the line's first part, carrying only
+    what changed; the engine moves every part (contract: PUT
+    /v1/transactions/{transaction_id}, "Line fields"). An emptied operation
+    sends `null`, which clears it (contract: PUT /v1/transactions/{transaction_id}).
+    An account move also settles the assignment (`unassign_on_move`). Saved,
+    "no batch" reads its newest ten again, the cursor on row 1."""
+    from expense.dates import to_canonical_aware
+
+    calls, counts = _patch_form(monkeypatch)
+    if "date" in sent:
+        sent = {"date": to_canonical_aware(sent["date"])}
+
+    async def scenario(pilot, app):
+        screen, form = await _open_form(pilot, app, row)
+        await _cursor_on(pilot, screen, row)
+        while form._key != field:
+            form.action_field(1)
+        reads = len(calls)
+        _type_and_enter(form, typed)
+        if form.is_attached and app.screen is form:
+            await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
+        assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
+        assert len(counts) == 2  # the count is read again with the rows
+        assert screen._batch_list.cursor_index == 0
+
+    run_app(scenario)
+    assert fake_client.puts == [(f"/transactions/{row}-p1", sent)]
+    assert [m for m, _p in fake_client.requests] == ["PUT"]
+
+
+def test_saving_carries_one_idempotency_key(configured, monkeypatch):
+    """Through the real HTTP client: one `PUT` on the first part, with the
+    client's idempotency key, and no read of the line."""
+    import httpx
+    import respx
+
+    from expense import config as config_module
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+    from tests.unit.helpers import ENGINE_URL
+
+    real_config = config_module.ensure_loaded
+    _patch_form(monkeypatch)
+    monkeypatch.setattr("expense.config.ensure_loaded", real_config)
+
+    async def scenario(pilot, app):
+        screen, form = await _open_form(pilot, app, "bl-farm")
+        form.action_field(1)  # past the date, unchanged
+        _type_and_enter(form, "FARMACIA CENTRAL")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not isinstance(app.screen, BankLineEditFormScreen))
+
+    with respx.mock(assert_all_called=False) as engine:
+        read = engine.get(url__startswith=f"{ENGINE_URL}/v1/bank-lines").mock(
+            httpx.Response(200, json={})
+        )
+        route = engine.put(f"{ENGINE_URL}/v1/transactions/bl-farm-p1").mock(
+            httpx.Response(200, json={})
+        )
+        run_app(scenario)
+    assert route.call_count == 1
+    assert route.calls.last.request.headers["X-Idempotency-Key"]
+    assert json.loads(route.calls.last.request.content) == {"title": "FARMACIA CENTRAL"}
+    assert not read.called
+
+
+def test_a_refused_save_shows_the_engine_words_and_the_form_stays(monkeypatch, fake_client):
+    """The engine refuses: its words whole in the "Failed" note, as the Edit
+    form shows them, the form still open and "no batch" not read again."""
+    from expense.errors import EngineError, format_error
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    calls, _counts = _patch_form(monkeypatch)
+    err = EngineError(
+        "CONFLICT",
+        "Another bank line on this account already has operation code '47391026'.",
+        {"operation_code": "Another bank line on this account already has operation code."},
+        409,
+        {},
+        reasons={"operation_code": "OPERATION_CODE_EXISTS"},
+    )
+    fake_client.errors["PUT"] = err
+    notices: list = []
+    monkeypatch.setattr(
+        BankLineEditFormScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, str(message))),
+    )
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-farm")
+        reads = len(calls)
+        form.action_field(1)
+        form.action_field(1)
+        _type_and_enter(form, "47391026")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notices and not form._submitting)
+        assert notices == [("Failed", format_error(err))]
+        assert app.screen is form
+        assert len(calls) == reads
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/bl-farm-p1", {"operation_code": "47391026"})]
+
+
+def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypatch, fake_client):
+    calls, _counts = _patch_form(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen, form = await _open_form(pilot, app, "bl-farm")
+        reads = len(calls)
+        _type_and_enter(form, "2026-03-12")  # typed, never saved
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert len(calls) == reads
+        assert screen._batch_list.cursor_key == "bl-farm"
+
+    run_app(scenario)
+    assert fake_client.puts == []
+
+
+def test_no_changes_sends_nothing(monkeypatch, fake_client):
+    _patch_form(monkeypatch)
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-farm")
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.screen is form
+
+    run_app(scenario)
+    assert fake_client.puts == []
 
 
 def test_the_card_on_the_reconciliations_offers_open_alone(monkeypatch):
@@ -1004,7 +1292,7 @@ def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeyp
 def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, fake_client, parts):
     """3b: the purchase is one row, so `d` asks the ledger's purchase question
     with its real part count and total, reads nothing first, and `y` sends one
-    `DELETE /bank-lines/{id}`; `Purchase deleted.`, then the newest ten again,
+    `DELETE /bank-lines/{id}`; `Transaction deleted.`, then the newest ten again,
     the cursor on row 1."""
     from expense.tui.screens.modals import ConfirmModal
 
@@ -1019,13 +1307,13 @@ def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, 
         await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == f"Delete this purchase and its {parts} parts?"
+        assert app.screen._title == f"Delete this transaction and its {parts} parts?"
         assert app.screen._message == (
             "FARMACIA · -100.00 · 2026-03-10 · BCP PEN\nNo screen can bring it back."
         )
         reads = len(calls)
         await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
         await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
         assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
         assert screen._batch_list.cursor_index == 0
@@ -1141,7 +1429,7 @@ def test_y_on_a_purchase_sends_one_delete_with_an_idempotency_key(configured, mo
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
 
     with respx.mock(assert_all_called=False) as engine:
         read = engine.get(url__startswith=f"{ENGINE_URL}/v1/bank-lines").mock(

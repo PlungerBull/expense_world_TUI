@@ -745,7 +745,7 @@ def test_d_on_a_part_asks_about_the_whole_purchase_then_deletes_it(
 ):
     """3a, 3c: `d` on the second part reads the line once and asks about the
     purchase, naming its real part count and its signed total; `y` sends one
-    `DELETE /bank-lines/{id}`, the note reads `Purchase deleted.` and the
+    `DELETE /bank-lines/{id}`, the note reads `Transaction deleted.` and the
     ledger reads fresh from the newest ten, cursor on row 1, every part gone."""
     rows, line = _split_ledger(parts)
     calls = _stub_ledger(monkeypatch, rows)
@@ -766,14 +766,14 @@ def test_d_on_a_part_asks_about_the_whole_purchase_then_deletes_it(
         await _cursor_on(pilot, screen, "p2")
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == f"Delete this purchase and its {parts} parts?"
+        assert app.screen._title == f"Delete this transaction and its {parts} parts?"
         assert app.screen._message == (
             f"FARMACIA · {total} · 2026-10-11 · Sueldo Soles\nNo screen can bring it back."
         )
         assert _line_reads(line_engine) == ["/bank-lines/bl-farm"]
         reads = len(calls)
         await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
         await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 2)
         assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
         assert screen.query_one(CursorList).cursor_index == 0
@@ -799,7 +799,7 @@ def test_y_on_a_purchase_sends_one_delete_with_one_idempotency_key(configured, m
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
-        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
 
     with respx.mock(assert_all_called=False) as engine:
         read = engine.get(f"{ENGINE_URL}/v1/bank-lines/bl-farm").mock(
