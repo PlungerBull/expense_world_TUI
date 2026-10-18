@@ -101,6 +101,18 @@ def bank_line_columns(line: dict) -> tuple[str, object, object, object]:
     return day, first.get("title"), line.get("operation_code"), line.get("net_cents")
 
 
+def bank_line_part_count(line: object) -> int:
+    """How many live parts a bank line read holds, as the engine counts them:
+    its `part_count`, `1` for a transaction never split
+    (contract: GET /v1/bank-lines/{bank_line_id}). `0` when the read carries no
+    whole number there; every reader takes anything but a count above 1 as a
+    line never split."""
+    count = line.get("part_count") if isinstance(line, dict) else None
+    if isinstance(count, int) and not isinstance(count, bool):
+        return count
+    return 0
+
+
 UNRATED_SUFFIX = "unrated"
 
 

@@ -28,8 +28,13 @@ parts, or, on a part of a split purchase, all its parts again. A split reads
 the list fresh from the newest 10.
 
 `d` deletes the cursor row after the question and reads the list fresh from
-the newest 10. `s` and `d` never act on a selection: while rows are selected
-they are off and out of the footer.
+the newest 10. It first reads the row's bank line once
+(contract: GET /v1/bank-lines/{bank_line_id}): a part of a split purchase
+(`part_count` above 1) asks "Delete this purchase and its N parts?" and goes
+whole, every part in one `DELETE /bank-lines/{id}`
+(contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split asks and
+deletes as any row does. `s` and `d` never act on a selection: while rows are
+selected they are off and out of the footer.
 
 `esc` clears the selection when there is one; otherwise it goes back to where
 you came from — Home, for a filter Home opened (esc on a
@@ -48,7 +53,12 @@ from textual.widgets import Static
 
 from expense import reads
 from expense.errors import format_error, refuses_every_write
-from expense.formatting import format_hashtag_cell, format_short_date, resolve_name
+from expense.formatting import (
+    bank_line_part_count,
+    format_hashtag_cell,
+    format_short_date,
+    resolve_name,
+)
 from expense.reads import (
     ENGINE_PAGE_CAP,
     hashtags_to_send,
@@ -61,6 +71,10 @@ from expense.tui.screens._base import (
     DELETE_KEY,
     LogTransactionMixin,
     SectionScreen,
+    call_while_attached,
+    list_refusal_text,
+    purchase_delete_message,
+    purchase_delete_question,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -254,6 +268,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self._refs = None  # QuickAddRefs, loaded on the first bulk key
         self._pending_pick: str | None = None
         self._bulk_busy = False
+        self._delete_reading = False  # `d` is reading the cursor row's bank line
         self.crumb = _crumb_for(filter)
 
     def list_extra_lines(self) -> int:
@@ -407,10 +422,61 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if not targets:
             return
         record = self._by_id[targets[0]]
+        if self._delete_reading:
+            return  # one read at a time: the question is on its way
+        self._delete_reading = True
+        self._read_line_then_ask(record)
+
+    @work(thread=True, exclusive=True, group="ledger-delete")
+    def _read_line_then_ask(self, record: dict) -> None:
+        """One `GET /bank-lines/{id}` for the row's bank line, which every
+        transaction names (contract: "Transactions (Ledger)", "Bank lines"): its
+        part count tells a split purchase from a row never split, and its parts
+        and total word the question (contract: GET /v1/bank-lines/{bank_line_id}).
+        The answer comes back only to a ledger still on the app."""
+        from expense import config as config_module
+
+        try:
+            cfg = config_module.ensure_loaded()
+            line = reads.fetch_bank_line(
+                cfg, str(record.get("bank_line_id")), **screen_fetch_kwargs(self.app)
+            )
+        except Exception as exc:
+            call_while_attached(self, self._delete_read_failed, list_refusal_text(exc))
+            return
+        call_while_attached(self, self._ask_delete, record, line)
+
+    def _delete_read_failed(self, message: str) -> None:
+        """The purchase could not be read: no question, nothing sent, the
+        engine's words in the "Failed" note, and `d` again tries again."""
+        self._delete_reading = False
+        self.notify(message, title="Failed", severity="error")
+
+    def _ask_delete(self, record: dict, line: dict) -> None:
+        """The question, then the delete: a split purchase (`part_count` above
+        1) goes whole, in one `DELETE /bank-lines/{id}`
+        (contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split goes
+        alone, in `DELETE /transactions/{id}`. Nothing is asked once another
+        screen is on top of the ledger: the key was pressed on a ledger no
+        longer in front."""
+        self._delete_reading = False
+        if self.app.screen is not self:
+            return
+        if bank_line_part_count(line) > 1:
+            account_id = line.get("account_id") or record.get("account_id")
+            self.confirm_delete(
+                "bank-lines",
+                record.get("bank_line_id"),
+                purchase_delete_question(line),
+                purchase_delete_message(line, resolve_name(account_id, self._maps[0])),
+                done="Purchase deleted.",
+                after=self._reload_fresh,
+            )
+            return
         account = resolve_name(record.get("account_id"), self._maps[0])
         self.confirm_delete(
             "transactions",
-            targets[0],
+            record.get("id"),
             "Delete this transaction?",
             transaction_delete_message(record, account),
             done="Transaction deleted.",

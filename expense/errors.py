@@ -129,7 +129,8 @@ _APP_FAULT = (
 #: docs/decisions.md "Hints are chosen by the engine's reasons, never its wording".
 #: The reasons are the contract's (contract: "Error reasons"). Left out on purpose:
 #: `IN_COMPLETED_RECONCILIATION`, whose message already says to revert the
-#: reconciliation to draft first (contract: DELETE /v1/transactions/{transaction_id}),
+#: reconciliation to draft first (contract: DELETE /v1/transactions/{transaction_id})
+#: (contract: DELETE /v1/bank-lines/{bank_line_id}),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {

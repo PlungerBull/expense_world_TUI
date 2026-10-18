@@ -55,7 +55,7 @@ from textual.widgets import Input
 from expense import reads
 from expense.dates import to_canonical_aware
 from expense.errors import format_error
-from expense.formatting import format_cents, resolve_name
+from expense.formatting import bank_line_part_count, format_cents, resolve_name
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import hashtags_to_send, load_quickadd_refs
@@ -194,8 +194,7 @@ class EditFormScreen(FormScreen):
             )
         except Exception:
             return
-        count = line.get("part_count") if isinstance(line, dict) else None
-        if isinstance(count, int) and not isinstance(count, bool) and count > 1:
+        if bank_line_part_count(line) > 1:
             call_while_attached(self, self._set_split_part)
 
     def _set_split_part(self) -> None:

@@ -87,7 +87,8 @@ for the owner's pick.
    category, hashtags or note (owner, 2026-10-17). Picked as drawn in
    [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html) 2a B–2d:
    the column is named `Operation`, and the date comes first on every list.
-3. **[UI]** `d` on a part of a split purchase, from the ledger and the reconciliation screen:
+3. **[UI]** What is left: `d` in the "no batch" list (pane 3b), built with pane 2d; the ledger
+   side is built. `d` on a part of a split purchase, from the ledger and the reconciliation screen:
    one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
    `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The
    question reads "Delete this purchase and its 3 parts? No screen can bring it back." with the

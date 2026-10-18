@@ -13,6 +13,7 @@ import respx
 from expense import config as config_module
 from expense.errors import EngineError
 from expense.formatting import (
+    bank_line_part_count,
     format_aggregate,
     format_cents,
     format_hashtag_cell,
@@ -886,3 +887,22 @@ def test_list_and_count_take_the_same_filters():
     list_only = {"sort", "after", "limit"}
     list_params = set(inspect.signature(fetch_transactions).parameters) - list_only
     assert list_params == set(inspect.signature(count_transactions).parameters)
+
+
+@pytest.mark.parametrize(
+    ("line", "count"),
+    [
+        ({"part_count": 3}, 3),
+        ({"part_count": 1}, 1),
+        ({"part_count": None}, 0),
+        ({"part_count": True}, 0),
+        ({"part_count": "2"}, 0),
+        ({}, 0),
+        (None, 0),
+    ],
+)
+def test_bank_line_part_count_reads_only_the_engines_whole_number(line, count):
+    """The engine's `part_count`, or 0 for anything that is not a whole number,
+    which every reader takes as a line never split
+    (contract: GET /v1/bank-lines/{bank_line_id})."""
+    assert bank_line_part_count(line) == count

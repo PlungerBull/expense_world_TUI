@@ -28,7 +28,12 @@ from textual.widgets import Footer, LoadingIndicator, Static
 from textual.worker import get_current_worker
 
 from expense.errors import format_error
-from expense.formatting import format_cents
+from expense.formatting import (
+    bank_line_columns,
+    bank_line_part_count,
+    format_cents,
+    format_short_date,
+)
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
@@ -278,16 +283,38 @@ def list_refusal_text(exc: Exception) -> str:
     return format_error(exc, on_list=True)
 
 
+def delete_row_line(title: object, amount_cents: object, day: str, account_name: str) -> str:
+    """The row a delete question names, one line: `TITLE · AMOUNT · DAY · ACCOUNT`.
+    Shared by the question for a single transaction and the one for a whole
+    purchase."""
+    return f"{title or '—'} · {format_cents(amount_cents)} · {day} · {account_name}"
+
+
 def transaction_delete_message(record: dict, account_name: str) -> str:
     """The body of "Delete this transaction?" — the ledger's and the "no batch"
     pane's, word for word: the row, then why a delete is final."""
-    title = record.get("title") or "—"
-    amount = format_cents(record.get("amount_cents"))
-    day = (record.get("date") or "")[:10]
-    return (
-        f"{title} · {amount} · {day} · {account_name}\n"
-        "It leaves every balance and report, and no screen can bring it back."
+    row = delete_row_line(
+        record.get("title"),
+        record.get("amount_cents"),
+        format_short_date(record.get("date")),
+        account_name,
     )
+    return f"{row}\nIt leaves every balance and report, and no screen can bring it back."
+
+
+def purchase_delete_question(line: dict) -> str:
+    """The title of the question before a split purchase is deleted whole,
+    naming how many parts go."""
+    return f"Delete this purchase and its {bank_line_part_count(line)} parts?"
+
+
+def purchase_delete_message(line: dict, account_name: str) -> str:
+    """The body of "Delete this purchase and its N parts?": the purchase's line,
+    its day, title and signed total exactly as every reconciliation list shows
+    them (`bank_line_columns`), then why a delete is final."""
+    day, title, _operation, net_cents = bank_line_columns(line)
+    row = delete_row_line(title, net_cents, day, account_name)
+    return f"{row}\nNo screen can bring it back."
 
 
 class ContentSwapLockMixin:

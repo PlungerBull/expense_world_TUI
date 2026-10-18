@@ -500,6 +500,7 @@ screen can bring it back.**
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
 | Ledger, "no batch" pane | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, on a part of a split purchase | `Delete this purchase and its 2 parts?` (the purchase's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Purchase deleted.` |
 | A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
@@ -512,6 +513,26 @@ off every transaction carrying it, and one left with no hashtag carries the pend
 list gives it (`#Pendiente`), or says `the pending hashtag` while the user has none yet;
 screen 3 B in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html).
+
+**On the ledger, a split purchase goes whole** (screens 3a, 3c, 3d and 3e in
+[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)). Every
+ledger row names its bank line (contract: "Transactions (Ledger)", "Bank lines"), but not how
+many parts the line holds, so `d` on a row first reads its line once with the shared
+`reads.fetch_bank_line` (contract: GET /v1/bank-lines/{bank_line_id}). With `part_count`
+above 1 the row is a part of a split purchase: the question names the real part count, its
+body is the purchase's line (its date, title and signed total `net_cents` exactly as the
+reconciliation lists show them, through the shared `formatting.bank_line_columns`, then its
+account), and `y` sends one `DELETE /bank-lines/{id}`, which deletes every
+part in one write (contract: DELETE /v1/bank-lines/{bank_line_id}), through the same
+`confirm_delete`; the note reads `Purchase deleted.` and the ledger reads its newest ten
+again, cursor on row 1, every part gone. A line of one part is a row never split: the
+ledger's own question and `DELETE /transactions/{id}`, as above. A line in a completed
+reconciliation is refused, `IN_COMPLETED_RECONCILIATION` on `bank_line_id`, and nothing is
+deleted; the "Failed" note is the engine's words whole, as for a single row (the table in
+"When the engine says no"). A line that cannot be read asks nothing and sends nothing: the
+"Failed" note carries the engine's words, and `d` again reads again. While the read runs,
+`d` again does nothing; a read that lands once the ledger is gone or covered by another
+screen asks nothing.
 
 **A refused delete** leaves the row and the list as they were and shows the "Failed" note:
 the engine's own words, then the line saying what to do instead ("When the engine says no"
@@ -535,7 +556,7 @@ line and one line of the app's saying what to do. Screens in
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
-| `IN_COMPLETED_RECONCILIATION` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
+| `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |

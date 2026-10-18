@@ -7,11 +7,15 @@ are stubbed. Every refusal's words here are stand-ins: the line under them is
 chosen by the engine's code and reason, never by its words.
 """
 
+import re
+import threading
+
 import httpx
 import pytest
 import respx
 
 import expense.tui.screens.transactions as tx_mod
+from expense.errors import EngineError
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -21,8 +25,11 @@ from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_URL,
+    bank_line_row,
     error_response,
     fake_ledger,
+    import_part,
+    refusal_text,
     run_app,
     wait_for,
     wait_for_list,
@@ -237,9 +244,34 @@ LEDGER = [
         "account_id": "acc1",
         "category_id": "pend",
         "hashtag_ids": [],
+        "bank_line_id": f"bl{i}",
     }
     for i in range(1, 26)
 ]
+
+
+def _one_part_lines(engine) -> respx.Route:
+    """`GET /bank-lines/{id}` for every `LEDGER` row's line, each never split:
+    one part, `part_count` 1 (contract: GET /v1/bank-lines/{bank_line_id})."""
+
+    def read(request):
+        line = request.url.path.rsplit("/", 1)[-1]
+        row = next(r for r in LEDGER if r["bank_line_id"] == line)
+        part = import_part(
+            row["id"],
+            row["amount_cents"],
+            account_id="acc1",
+            line=line,
+            day=row["date"][:10],
+            title=row["title"],
+        )
+        body = bank_line_row(line, [part], net_cents=row["amount_cents"], account_id="acc1")
+        return httpx.Response(200, json=body)
+
+    pattern = rf"{re.escape(ENGINE_URL)}/v1/bank-lines/bl\d+$"
+    return engine.get(url__regex=pattern).mock(side_effect=read)
+
+
 NAMES = {"acc1": "Sueldo Soles", "pend": "@Pendiente"}
 FILTER = LedgerFilter("category", "pend", "@Pendiente")
 
@@ -293,8 +325,10 @@ def test_d_on_the_ledger_deletes_the_cursor_row_and_reads_the_newest_ten(
         assert "t11" not in screen._by_id
 
     with respx.mock() as engine:
+        lines = _one_part_lines(engine)
         route = engine.delete(f"{ENGINE_URL}/v1/transactions/t11").mock(side_effect=engine_deletes)
         run_app(scenario, size=SIZE)
+    assert [c.request.url.path for c in lines.calls] == ["/v1/bank-lines/bl11"]
     assert route.call_count == 1
     assert route.calls.last.request.headers["X-Idempotency-Key"]
 
@@ -347,6 +381,7 @@ def test_any_other_answer_on_the_ledger_sends_nothing(configured, monkeypatch, k
         assert len(screen._rows) == 3 and not screen._selected
 
     with respx.mock(assert_all_called=False) as engine:
+        _one_part_lines(engine)
         route = engine.delete(url__startswith=ENGINE_URL).mock(httpx.Response(200, json={}))
         run_app(scenario, size=SIZE)
     assert not route.called
@@ -512,6 +547,7 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
         assert "t1" in screen._by_id and len(screen._rows) == 3
 
     with respx.mock() as engine:
+        _one_part_lines(engine)
         engine.delete(f"{ENGINE_URL}/v1/transactions/t1").mock(
             error_response(
                 409,
@@ -609,3 +645,395 @@ def test_a_cancelled_delete_keeps_the_archive_re_selection(configured, monkeypat
         assert screen.query_one(CursorList).cursor_key == "a2"
 
     run_app(scenario, size=SIZE)
+
+
+# ---- a part of a split purchase: d deletes the purchase whole ---------------
+# docs/mockups/expense-world-bank-lines-whole.html 3a, 3c, 3d, 3e. Each ledger row
+# names its bank line; `d` reads that line once (contract: GET
+# /v1/bank-lines/{bank_line_id}) and a line of more than one part goes whole, in
+# one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}).
+
+#: The engine's own words for a line in a completed reconciliation, as the practice
+#: engine sends them (contract: DELETE /v1/bank-lines/{bank_line_id}).
+SEALED_LINE_WORDS = (
+    "Cannot delete a bank line assigned to a completed reconciliation. "
+    "Revert the reconciliation to draft first."
+)
+SEALED_LINE_FIELD = "Must not be assigned to a completed reconciliation."
+
+
+def _ledger_row(tx_id: str, title: str, amount: int, line: str, day: str = "2026-10-11") -> dict:
+    """One ledger row as `GET /transactions` lists it, signed, naming its bank line."""
+    return {
+        "id": tx_id,
+        "title": title,
+        "description": None,
+        "amount_cents": amount,
+        "date": f"{day}T05:00:00Z",
+        "account_id": "acc1",
+        "category_id": "pend",
+        "hashtag_ids": [],
+        "bank_line_id": line,
+    }
+
+
+#: Part amounts of FARMACIA, the split purchase, by how many parts it has.
+PARTS = {2: [-6000, -4000], 3: [-6000, -2500, -1500]}
+
+
+def _split_ledger(parts: int) -> tuple[list[dict], dict]:
+    """A ledger whose rows 2.. are FARMACIA's parts, every other row a line of
+    its own; and FARMACIA's line as `GET /bank-lines/bl-farm` reads it."""
+    amounts = PARTS[parts]
+    farm = [_ledger_row(f"p{i}", "FARMACIA", a, "bl-farm") for i, a in enumerate(amounts, 1)]
+    rows = [
+        _ledger_row("t-net", "NETFLIX.COM", -4490, "bl-net", "2026-10-14"),
+        *farm,
+        _ledger_row("t-cine", "CINE PLAZA", -2800, "bl-cine", "2026-10-10"),
+    ]
+    line = bank_line_row(
+        "bl-farm",
+        [
+            import_part(f"p{i}", a, account_id="acc1", line="bl-farm", day="2026-10-11")
+            for i, a in enumerate(amounts, 1)
+        ],
+        net_cents=sum(amounts),
+        account_id="acc1",
+    )
+    for part in line["parts"]:
+        part["title"] = "FARMACIA"
+    return rows, line
+
+
+def _cine_line() -> dict:
+    """CINE PLAZA's line: one part, never split."""
+    return bank_line_row(
+        "bl-cine",
+        [import_part("t-cine", -2800, account_id="acc1", line="bl-cine", day="2026-10-10")],
+        net_cents=-2800,
+        account_id="acc1",
+    )
+
+
+@pytest.fixture
+def line_engine(fake_client, monkeypatch):
+    """`fake_client`, also answering the shared reads, so the bank-line read goes
+    through `reads.fetch_bank_line` to the fake engine; the ledger's own list
+    reads stay `fake_ledger`'s."""
+    monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
+    return fake_client
+
+
+def _line_reads(client) -> list[str]:
+    return [
+        path
+        for method, path in client.requests
+        if method == "GET" and path.startswith("/bank-lines/")
+    ]
+
+
+async def _cursor_on(pilot, screen, key: str) -> None:
+    listing = screen.query_one(CursorList)
+    listing.set_cursor(listing.index_of(key))
+    await pilot.pause()
+
+
+@pytest.mark.parametrize("parts", [2, 3])
+@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+def test_d_on_a_part_asks_about_the_whole_purchase_then_deletes_it(
+    configured, monkeypatch, line_engine, parts, flt
+):
+    """3a, 3c: `d` on the second part reads the line once and asks about the
+    purchase, naming its real part count and its signed total; `y` sends one
+    `DELETE /bank-lines/{id}`, the note reads `Purchase deleted.` and the
+    ledger reads fresh from the newest ten, cursor on row 1, every part gone."""
+    rows, line = _split_ledger(parts)
+    calls = _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-farm"] = line
+    total = "-100.00"
+
+    def engine_deletes(path: str) -> dict:
+        line_engine._record("DELETE", path)
+        rows[:] = [r for r in rows if r["bank_line_id"] != "bl-farm"]
+        return {"parts": []}
+
+    line_engine.delete = engine_deletes
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=flt)
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p2")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == f"Delete this purchase and its {parts} parts?"
+        assert app.screen._message == (
+            f"FARMACIA · {total} · 2026-10-11 · Sueldo Soles\nNo screen can bring it back."
+        )
+        assert _line_reads(line_engine) == ["/bank-lines/bl-farm"]
+        reads = len(calls)
+        await pilot.press("y")
+        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 2)
+        assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
+        assert screen.query_one(CursorList).cursor_index == 0
+        assert not any(key.startswith("p") for key in screen._by_id)
+
+    run_app(scenario, size=SIZE)
+    assert line_engine.deletes == ["/bank-lines/bl-farm"]
+    assert _line_reads(line_engine) == ["/bank-lines/bl-farm"]
+
+
+def test_y_on_a_purchase_sends_one_delete_with_one_idempotency_key(configured, monkeypatch):
+    """Through the real HTTP client: one `GET /bank-lines/{id}`, then one
+    `DELETE /bank-lines/{id}` carrying the client's idempotency key, and no
+    `DELETE /transactions/{id}` at all."""
+    rows, line = _split_ledger(2)
+    _stub_ledger(monkeypatch, rows)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p1")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+
+    with respx.mock(assert_all_called=False) as engine:
+        read = engine.get(f"{ENGINE_URL}/v1/bank-lines/bl-farm").mock(
+            httpx.Response(200, json=line)
+        )
+        route = engine.delete(f"{ENGINE_URL}/v1/bank-lines/bl-farm").mock(
+            httpx.Response(200, json={"parts": []})
+        )
+        single = engine.delete(url__startswith=f"{ENGINE_URL}/v1/transactions/").mock(
+            httpx.Response(200, json={})
+        )
+        run_app(scenario, size=SIZE)
+    assert read.call_count == 1
+    assert route.call_count == 1
+    assert route.calls.last.request.headers["X-Idempotency-Key"]
+    assert not single.called
+
+
+@pytest.mark.parametrize("key", ["n", "escape", "enter"])
+def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, line_engine, key):
+    rows, line = _split_ledger(2)
+    calls = _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-farm"] = line
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p1")
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press(key)
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert len(calls) == reads and len(screen._rows) == 4
+        assert screen.query_one(CursorList).cursor_key == "p1"
+
+    run_app(scenario, size=SIZE)
+    assert line_engine.deletes == []
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "words", "fields", "reasons"),
+    [
+        (
+            409,
+            "CONFLICT",
+            SEALED_LINE_WORDS,
+            {"bank_line_id": SEALED_LINE_FIELD},
+            {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
+        ),
+        (404, "NOT_FOUND", "Bank line not found.", None, None),
+    ],
+    ids=["completed-reconciliation", "gone"],
+)
+def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
+    configured, monkeypatch, line_engine, status, code, words, fields, reasons
+):
+    """3d: the engine refuses; nothing is deleted, the list is not read again and
+    the cursor stays on the part. The note is the engine's words whole: its
+    message already says to revert the reconciliation to draft, so the app adds
+    no line, and any other refusal reads as every delete's does."""
+    rows, line = _split_ledger(2)
+    calls = _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-farm"] = line
+    err = EngineError(code, words, fields, status, {}, reasons)
+    line_engine.errors["DELETE"] = err
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p2")
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert notes == [("Failed", refusal_text(err, None))]
+        assert len(calls) == reads and len(screen._rows) == 4
+        assert screen.query_one(CursorList).cursor_key == "p2"
+
+    run_app(scenario, size=SIZE)
+    assert line_engine.deletes == ["/bank-lines/bl-farm"]
+    if code == "CONFLICT":
+        assert refusal_text(err, None) == (
+            f"CONFLICT — {SEALED_LINE_WORDS}\n  bank_line_id: {SEALED_LINE_FIELD}"
+        )
+
+
+def test_a_row_never_split_deletes_as_today(configured, monkeypatch, line_engine):
+    """3e: CINE PLAZA's line holds one part, so `d` asks today's question word for
+    word and `y` sends `DELETE /transactions/{id}` for that row alone."""
+    rows, _line = _split_ledger(2)
+    calls = _stub_ledger(monkeypatch, rows)
+    line_engine.get_responses["/bank-lines/bl-cine"] = _cine_line()
+
+    def engine_deletes(path: str) -> dict:
+        line_engine._record("DELETE", path)
+        rows[:] = [r for r in rows if r["id"] != "t-cine"]
+        return {}
+
+    line_engine.delete = engine_deletes
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "t-cine")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this transaction?"
+        assert app.screen._message == (
+            "CINE PLAZA · -28.00 · 2026-10-10 · Sueldo Soles\n"
+            "It leaves every balance and report, and no screen can bring it back."
+        )
+        reads = len(calls)
+        await pilot.press("y")
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
+        await wait_for(pilot, lambda: len(calls) > reads and len(screen._rows) == 3)
+        assert screen.query_one(CursorList).cursor_index == 0
+
+    run_app(scenario, size=SIZE)
+    assert line_engine.deletes == ["/transactions/t-cine"]
+    assert _line_reads(line_engine) == ["/bank-lines/bl-cine"]
+
+
+def test_a_failed_line_read_asks_nothing_and_sends_nothing(configured, monkeypatch, line_engine):
+    """The line cannot be read: no question, no delete, the list as it was, and
+    the engine's words in the "Failed" note; `d` again reads again."""
+    rows, _line = _split_ledger(2)
+    calls = _stub_ledger(monkeypatch, rows)  # no answer for the line: the fake engine's 404
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p1")
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert app.screen is screen
+        assert notes == [("Failed", "NOT_FOUND — no fake response for GET /bank-lines/bl-farm")]
+        assert len(calls) == reads and len(screen._rows) == 4
+        assert screen.query_one(CursorList).cursor_key == "p1"
+        await pilot.press("d")
+        await wait_for(pilot, lambda: len(notes) == 2)
+
+    run_app(scenario, size=SIZE)
+    assert line_engine.deletes == []
+    assert _line_reads(line_engine) == ["/bank-lines/bl-farm", "/bank-lines/bl-farm"]
+
+
+def _held_line_read(monkeypatch, line: dict) -> tuple[threading.Event, list[str]]:
+    """`reads.fetch_bank_line` that waits until the returned event is set, so a
+    test acts while the read is in flight; every read is logged by line id."""
+    release = threading.Event()
+    asked: list[str] = []
+
+    def read(_cfg, bank_line_id, **_kw):
+        asked.append(bank_line_id)
+        release.wait(timeout=5)
+        return line
+
+    monkeypatch.setattr("expense.reads.fetch_bank_line", read)
+    return release, asked
+
+
+def test_a_second_d_while_the_line_is_read_is_ignored(configured, monkeypatch, line_engine):
+    """`d` pressed again before the line read lands reads nothing more and asks
+    one question."""
+    rows, line = _split_ledger(2)
+    _stub_ledger(monkeypatch, rows)
+    release, asked = _held_line_read(monkeypatch, line)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p1")
+        try:
+            await pilot.press("d")
+            await wait_for(pilot, lambda: asked)
+            await pilot.press("d")
+            await pilot.pause()
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.pause()
+        pushed = [s for s in app.screen_stack if isinstance(s, ConfirmModal)]
+        assert len(pushed) == 1
+        await pilot.press("n")
+        await wait_for(pilot, lambda: app.screen is screen)
+
+    run_app(scenario, size=SIZE)
+    assert asked == ["bl-farm"]
+    assert line_engine.deletes == []
+
+
+@pytest.mark.parametrize("how", ["left", "covered"])
+def test_a_line_read_that_lands_off_the_ledger_asks_nothing(
+    configured, monkeypatch, line_engine, how
+):
+    """The user leaves the ledger (`esc`) or opens another screen over it while
+    the line is read: when the read lands, nothing is asked and nothing is sent."""
+    from textual.screen import Screen
+
+    rows, line = _split_ledger(2)
+    _stub_ledger(monkeypatch, rows)
+    release, asked = _held_line_read(monkeypatch, line)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "p1")
+        try:
+            await pilot.press("d")
+            await wait_for(pilot, lambda: asked)
+            if how == "left":
+                await pilot.press("escape")
+                await wait_for(pilot, lambda: screen not in app.screen_stack)
+            else:
+                await app.push_screen(Screen())
+                await pilot.pause()
+        finally:
+            release.set()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        await pilot.pause()
+        assert not any(isinstance(s, ConfirmModal) for s in app.screen_stack)
+        if how == "covered":
+            assert not screen._delete_reading  # `d` works again once the ledger is in front
+
+    run_app(scenario, size=SIZE)
+    assert asked == ["bl-farm"]
+    assert line_engine.deletes == []

@@ -252,9 +252,11 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     `amount_cents` a magnitude and its `transaction_type`, in the engine's order
     (contract: GET /v1/bank-lines/{bank_line_id}). Read by the transaction Edit
     form, whose "changes every part" note shows only when the engine's
-    `part_count` is above 1, and by the split screen, which opens a purchase from
-    this one read: its parts, their count and its total. The app counts and adds
-    no parts itself.
+    `part_count` is above 1; by the split screen, which opens a purchase from
+    this one read: its parts, their count and its total; and by the ledger's
+    `d`, whose question for a part of a split purchase names its part count and
+    total, and whose delete goes whole when `part_count` is above 1. The app
+    counts and adds no parts itself.
     """
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
 

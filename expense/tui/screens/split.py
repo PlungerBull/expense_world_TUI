@@ -45,7 +45,13 @@ from textual.widgets import Footer, Input, Label, Static
 from expense import reads
 from expense.dates import today_local
 from expense.errors import EngineError, engine_words, format_error
-from expense.formatting import format_cents, format_short_date, resolve_name, signed_cents
+from expense.formatting import (
+    bank_line_part_count,
+    format_cents,
+    format_short_date,
+    resolve_name,
+    signed_cents,
+)
 from expense.quickadd.money import amount_to_text
 from expense.quickadd.parse import ParsedLine, parse
 from expense.quickadd.route import Routing, describe, route_part
@@ -408,7 +414,7 @@ class SplitScreen(EngineWriteMixin, Screen):
     def _loaded(self, refs: QuickAddRefs, line: dict) -> None:
         self._refs = refs
         self._total = _int_or_none(line.get("net_cents"))
-        self._line_parts = _int_or_none(line.get("part_count")) or 0
+        self._line_parts = bank_line_part_count(line)
         if self._line_parts > 1:
             parts = line.get("parts") or []
             self._parts = [part_from_engine(item, refs) for item in parts]
