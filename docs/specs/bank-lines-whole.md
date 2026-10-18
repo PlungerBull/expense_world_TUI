@@ -90,12 +90,15 @@ for the owner's pick.
    batch" list); the row carries the purchase's title alone and its total, says nothing of its
    parts, and the parts are not listed there. Every reconciliation list shows only the bank's
    columns, on every row, one line per row: date · title · operation number · amount, with no
-   category, hashtags or note (owner, 2026-10-17).
+   category, hashtags or note (owner, 2026-10-17). Picked as drawn in
+   [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html) 2a B–2d:
+   the column is named `Operation`, and the date comes first on every list.
 3. **[UI]** `d` on a part of a split purchase, from the ledger and the reconciliation screen:
    one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
    `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The
    question reads "Delete this purchase and its 3 parts? No screen can bring it back." with the
-   real part count (owner, 2026-10-17).
+   real part count (owner, 2026-10-17). Picked as drawn in 3a–3e of the same mockup; the note
+   after the delete reads `Purchase deleted.`
 4. The ledger's `c`, `h` and `b` on parts: confirm with tests that `c` and `h` change only the
    selected parts and that `b` on one part moves the whole purchase (the engine's rule), and
    that the ledger reloads fresh after each.
