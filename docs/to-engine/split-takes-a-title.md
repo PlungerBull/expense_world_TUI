@@ -37,5 +37,6 @@ the body, next to `parts`.
 
 ## What this client removes once it lands
 
-Nothing yet. Without this ask, the split screen refuses a title typed on a part's line. Once it
-lands, the screen sends that title with the split, in one write.
+Nothing to remove: until it lands, the split screen shows the transaction's title but cannot
+change it. Once it lands, the title becomes a field on that screen, sent with the split in one
+write.

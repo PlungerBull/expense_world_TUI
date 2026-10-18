@@ -24,12 +24,6 @@ IMPORT_FLOOR = date(2026, 1, 1)
 #: row an earlier one had just created, and vanish without a word.
 IMPORT_MAX_ROWS = 500
 
-#: The engine's rule → the preview's words, strongest first.
-RULE_LABELS = {
-    "operation_code": "operation",
-    "same_day": "same day",
-}
-
 
 @dataclass(frozen=True)
 class SentRow:
@@ -69,6 +63,12 @@ class Placed:
     #: On a `matched` row, whether the bank's title is (or, on a dry run,
     #: would be) written onto the line; None on the other outcomes.
     retitled: bool | None
+    #: On a `matched` row, whether the line is (or would be) moved to the
+    #: bank's day; None on the other outcomes.
+    redated: bool | None
+    #: On a `matched` row whose move a completed reconciliation stops: that
+    #: reconciliation's id; None otherwise.
+    redate_blocked_by: str | None
     sealed_by: str | None
 
 
@@ -114,6 +114,7 @@ class AnswerCounts:
     sealed: int
     backfilled: int
     retitled: int
+    redated: int  # the lines moved (or, on a dry run, to move) to the bank's day
 
 
 def split_floor(rows: list[BankRow]) -> tuple[list[BankRow], list[BankRow]]:
@@ -177,6 +178,8 @@ def placements(response: dict, sent: list[SentRow]) -> list[Placed]:
                 bank_line_id=item.get("bank_line_id"),
                 backfill_code=item.get("backfill_code"),
                 retitled=item.get("retitled"),
+                redated=item.get("redated"),
+                redate_blocked_by=item.get("redate_blocked_by"),
                 sealed_by=item.get("sealed_by"),
             )
         )
@@ -221,28 +224,48 @@ def answer_counts(response: dict) -> AnswerCounts:
         sealed=int(counts.get("sealed") or 0),
         backfilled=int(counts.get("backfilled") or 0),
         retitled=int(counts.get("retitled") or 0),
+        redated=int(counts.get("redated") or 0),
     )
 
 
-def match_label(p: Placed, period_names: dict[str, str]) -> str:
-    """The preview's `match` cell."""
+#: The preview's reason for each row of the file, and whether that row is in
+#: the ledger after the import (✓) or left out (✗).
+NEW = "New"
+IN_LEDGER = "Already in the ledger"
+MODIFIED = "Modified existing transaction"
+CLOSED = "Closed period"
+BEFORE_FLOOR = f"Before {IMPORT_FLOOR.year}"
+UNREADABLE = "Couldn't read the row"
+#: A move a completed reconciliation stops; `{}` is its name.
+NOT_MODIFIED = "Not modified: {} is reconciled"
+#: The name in NOT_MODIFIED when the reconciliations could not be read.
+UNNAMED_RECONCILIATION = "a reconciliation"
+
+
+def row_reason(p: Placed, names: dict[str, str]) -> tuple[bool, str]:
+    """(in the ledger after the import, the reason) of one answered row.
+
+    A matched row is modified when the apply writes the bank's code, title
+    or day onto its line; a move a completed reconciliation stops wins over
+    the rest, named from `names` (reconciliation id → name)."""
     if p.outcome == "new":
-        return "new"
+        return True, NEW
     if p.outcome == "sealed":
-        return f"closed · {period_names.get(p.sealed_by or '', 'a closed period')}"
-    label = f"in ledger · {RULE_LABELS.get(p.rule or '', p.rule or '?')}"
-    if p.backfill_code:
-        label += " · +code"
-    if p.retitled:
-        label += " · +title"
-    return label
+        return False, CLOSED
+    if p.redate_blocked_by:
+        name = names.get(p.redate_blocked_by, UNNAMED_RECONCILIATION)
+        return False, NOT_MODIFIED.format(name)
+    if p.backfill_code or p.retitled or p.redated:
+        return True, MODIFIED
+    return True, IN_LEDGER
 
 
-def sealed_accounts(placed: list[Placed]) -> list[str]:
-    """The leg accounts with a sealed row, whose periods need naming."""
+def blocked_accounts(placed: list[Placed]) -> list[str]:
+    """The leg accounts with a row whose move a reconciliation stops, whose
+    reconciliations need naming."""
     seen: list[str] = []
     for p in placed:
-        if p.outcome == "sealed" and p.sent.account_id not in seen:
+        if p.redate_blocked_by and p.sent.account_id not in seen:
             seen.append(p.sent.account_id)
     return seen
 

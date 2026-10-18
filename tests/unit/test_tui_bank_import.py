@@ -1,7 +1,8 @@
 """The import door — a bank file dropped on the LOG bar → account → preview → result.
 
-Pure builders first, then pilot tests through the LOG bar the way a drop
-arrives. The sheet reaches flow.py's reader through its `read_workbook` seam;
+The preview and the result are docs/mockups/expense-world-import-report.html
+(1 A, 2 A and 3). Pure builders first, then pilot tests through the LOG bar the
+way a drop arrives. The sheet reaches flow.py's reader through its `read_workbook` seam;
 the one engine call,
 `POST /transactions/import`, is answered by a fake on the shared FakeClient
 that echoes each row's id and decides its outcome.
@@ -15,7 +16,7 @@ from textual.widgets import Input, Static
 
 from expense.bank_import import flow
 from expense.bank_import.engine import AnswerCounts, DayMismatch, UnclaimedLine
-from expense.bank_import.flow import account_groups
+from expense.bank_import.flow import FileLine, account_groups
 from expense.errors import EngineError
 from expense.import_.reader import RawRow, SheetData
 from expense.tui.screens.bank_import import (
@@ -23,10 +24,13 @@ from expense.tui.screens.bank_import import (
     ImportPreviewScreen,
     ImportResultScreen,
     account_lines,
-    result_lines,
+    mark_cell,
+    reason_cell,
+    result_head,
 )
 from expense.tui.screens.home import HomeScreen
 from expense.tui.screens.log_bar import LogBarScreen
+from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
@@ -172,6 +176,8 @@ def _engine(fake_client, decide=None, *, mismatches=None, counts=None):
                 "bank_line_id": None,
                 "backfill_code": None,
                 "retitled": None,
+                "redated": None,
+                "redate_blocked_by": None,
                 "sealed_by": None,
             }
             result.update((decide or (lambda i, r: {}))(i, row))
@@ -183,6 +189,7 @@ def _engine(fake_client, decide=None, *, mismatches=None, counts=None):
             "sealed": outcomes.count("sealed"),
             "backfilled": sum(1 for r in rows if r["backfill_code"]),
             "retitled": sum(1 for r in rows if r["retitled"]),
+            "redated": sum(1 for r in rows if r["redated"]),
         }
         return {
             "dry_run": json_body["dry_run"],
@@ -200,7 +207,13 @@ def _imports(fake_client) -> list[bool]:
 
 
 def _matched(rule):
-    return {"outcome": "matched", "rule": rule, "bank_line_id": "bl-x", "retitled": False}
+    return {
+        "outcome": "matched",
+        "rule": rule,
+        "bank_line_id": "bl-x",
+        "retitled": False,
+        "redated": False,
+    }
 
 
 def _two_new_two_in_ledger(i, _row):
@@ -234,12 +247,6 @@ def _crumb(screen) -> str:
     return render_text(screen.query_one("#crumb", Static).render(), width=120)
 
 
-#: What the result table says the import did to a ledger row it left alone,
-#: and to file row 5, added as new.
-LEFT = "left as it was · no file row for it"
-NEW_5 = "added as new · file row 5"
-
-
 def _days_shown(preview) -> list[str]:
     """The preview's lines from the days' `!` head down, each stripped."""
     lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
@@ -247,16 +254,9 @@ def _days_shown(preview) -> list[str]:
     return lines[start:]
 
 
-def _table_shown(result) -> list[list[str]]:
-    """The result table's rows under its header, each cut into its columns."""
-    lines = _body(result).split("\n")
-    head = next(i for i, line in enumerate(lines) if "what the import did" in line)
-    assert lines[head].split() == ["date", "title", "amount", "what", "the", "import", "did"]
-    return [
-        [cell.strip() for cell in re.split(r"\s{2,}", line.strip())]
-        for line in lines[head + 1 :]
-        if line.strip()
-    ]
+def _result_shown(result) -> list[str]:
+    """The result's lines, each stripped, blanks left out."""
+    return [line.strip() for line in _body(result).split("\n") if line.strip()]
 
 
 async def _open(app, pilot) -> LogBarScreen:
@@ -307,22 +307,44 @@ def test_a_cards_two_legs_fold_into_one_line():
     assert lines[1].endswith("PEN")
 
 
-def test_result_lines_are_the_engines_counts_and_where_the_rows_landed():
-    """The head lines of screen 3: the engine's `new`, the pending category and
-    hashtag, and its `retitled` when any row took the bank's title."""
+def test_the_result_head_is_the_engines_new_count_and_where_the_rows_landed():
+    """Screen 3's title line: the engine's `new`, the account, and the
+    pending category and hashtag, dim."""
     group = account_groups(ACCOUNTS)[1]
-    assert [t.plain for t in result_lines(group, AnswerCounts(0, 0, 0, 0, 0))] == [
-        "✓ 0 rows imported · BCP PEN",
-        "  under @Pendiente and #Pendiente",
-    ]
-    assert [t.plain for t in result_lines(group, AnswerCounts(9, 5, 0, 0, 2))] == [
-        "✓ 9 rows imported · BCP PEN",
-        "  under @Pendiente and #Pendiente",
-        "  2 rows in the ledger took the bank's title",
-    ]
-    assert result_lines(group, AnswerCounts(1, 1, 0, 0, 1))[2].plain == (
-        "  1 row in the ledger took the bank's title"
+    head = result_head(group, AnswerCounts(9, 5, 0, 0, 2, 1))
+    assert head.plain == "✓ 9 rows imported · BCP PEN   new ones under @Pendiente and #Pendiente"
+    assert result_head(group, AnswerCounts(1, 0, 0, 0, 0, 0)).plain.startswith(
+        "✓ 1 row imported · BCP PEN"
     )
+
+
+def _line(reason: str, kept: bool) -> FileLine:
+    return FileLine(2, "2026-09-11", "X", -100, kept, reason)
+
+
+@pytest.mark.parametrize(
+    ("reason", "kept", "style"),
+    [
+        ("New", True, PALETTE.success),
+        ("Already in the ledger", True, "dim"),
+        ("Modified existing transaction", True, ""),
+        ("Not modified: Septiembre 2026 is reconciled", False, PALETTE.warning),
+        ("Closed period", False, PALETTE.warning),
+        ("Before 2026", False, PALETTE.warning),
+        ("Couldn't read the row", False, PALETTE.warning),
+    ],
+)
+def test_each_reason_takes_its_style_and_its_mark(reason, kept, style):
+    """A row in the ledger after the import is ✓; one left out is ✗ and its
+    reason takes the warning style. Every style is the theme's."""
+    line = _line(reason, kept)
+    cell = reason_cell(line)
+    assert (cell.plain, str(cell.style)) == (reason, style)
+    mark = mark_cell(line)
+    if kept:
+        assert (mark.plain, str(mark.style)) == ("✓", PALETTE.success)
+    else:
+        assert (mark.plain, str(mark.style)) == ("✗", f"bold {PALETTE.error}")
 
 
 # ---- screen 5 A: not a bank file -----------------------------------------------
@@ -535,16 +557,21 @@ def test_the_preview_shows_verdicts_and_writes_nothing_before_enter(
         body = _body(preview)
         lines = [line.rstrip() for line in body.split("\n")]
         assert lines[0].strip() == "Preview · BCP Signature · nothing written yet"
-        assert lines[2].split() == ["#", "date", "title", "amount", "match"]
+        # the mark's column has no heading, and the old `match` column is gone
+        assert lines[2].split() == ["#", "date", "title", "amount", "reason"]
         rows = [line.split() for line in lines[3:7]]
         assert [r[0] for r in rows] == ["2", "3", "4", "5"]  # the file's own lines
-        assert lines[3].endswith("new")
-        assert lines[4].endswith("in ledger · same day")
-        # the engine's `retitled` marks the row where `+code` sits (screen 1 A)
-        assert lines[5].endswith("in ledger · operation · +title")
+        assert lines[3].endswith("✓  New")
+        assert lines[4].endswith("✓  Already in the ledger")
+        # the engine's `retitled`: the row takes the bank's title
+        assert lines[5].endswith("✓  Modified existing transaction")
+        assert lines[6].endswith("✓  New")
         assert lines[8] == "4 rows · 2 new · 2 in the ledger · 1 takes the bank's title"
+        assert "match" not in body and "in ledger ·" not in body
         assert preview._mismatches == [PARSED_0907]
-        assert preview._counts == AnswerCounts(new=2, matched=2, sealed=0, backfilled=0, retitled=1)
+        assert preview._counts == AnswerCounts(
+            new=2, matched=2, sealed=0, backfilled=0, retitled=1, redated=0
+        )
         assert [p.retitled for p in preview._placed] == [None, False, True, None]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}
         assert _imports(fake_client) == [True]  # the dry run only
@@ -567,7 +594,7 @@ def _no_reads_per_part(monkeypatch) -> list:
 
 
 @pytest.mark.parametrize(
-    ("day", "lines", "shown", "table"),
+    ("day", "lines", "shown"),
     [
         (
             DAY_0908_SPLIT,
@@ -575,12 +602,8 @@ def _no_reads_per_part(monkeypatch) -> list:
             [
                 "! 1 day where the file and the ledger disagree",
                 "2026-09-08 · BCP Signature PEN   file -4.20 · ledger after import -104.20",
-                "TOTTUS PORONGOCHE  -60.00   in the ledger, not claimed",
-                "TOTTUS PORONGOCHE  -40.00   in the ledger, not claimed",
-            ],
-            [
-                ["2026-09-08 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-60.00", LEFT],
-                ["2026-09-08 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-40.00", LEFT],
+                "TOTTUS PORONGOCHE  -60.00   in the ledger, not in the file",
+                "TOTTUS PORONGOCHE  -40.00   in the ledger, not in the file",
             ],
         ),
         (
@@ -589,25 +612,22 @@ def _no_reads_per_part(monkeypatch) -> list:
             [
                 "! 1 day where the file and the ledger disagree",
                 "2026-09-11 · BCP Signature PEN   file -49.00 · ledger after import -49.00",
-                "TOTTUS PORONGOCHE   50.00   in the ledger, not claimed",
-                "TOTTUS PORONGOCHE  -50.00   in the ledger, not claimed",
-            ],
-            [
-                ["2026-09-11 · BCP Signature PEN", "TOTTUS PORONGOCHE", "50.00", LEFT],
-                ["2026-09-11 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-50.00", LEFT],
+                "TOTTUS PORONGOCHE   50.00   in the ledger, not in the file",
+                "TOTTUS PORONGOCHE  -50.00   in the ledger, not in the file",
             ],
         ),
     ],
     ids=["split-line-two-parts", "equal-totals-day"],
 )
-def test_reported_days_are_drawn_from_their_parts_on_both_screens(
-    fake_client, monkeypatch, tmp_path, day, lines, shown, table
+def test_reported_days_are_drawn_from_their_parts_on_the_preview_only(
+    fake_client, monkeypatch, tmp_path, day, lines, shown
 ):
     """A split line (one entry, two parts) and a day reported with equal totals:
     each part is its own row, its amount signed off the engine's magnitude and
-    type, under the engine's two totals as sent; the result lists the same parts
-    as left as they were. The screens hold each line's signed `net_cents` and its
-    parts, and no transaction is read to fill them."""
+    type, under the engine's two totals as sent. The preview holds each line's
+    signed `net_cents` and its parts, and no transaction is read to fill them;
+    the screen after importing shows no days (expense-world-import-report.html
+    2 A and 3)."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
@@ -635,8 +655,7 @@ def test_reported_days_are_drawn_from_their_parts_on_both_screens(
         ]
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        assert _table_shown(result) == table
-        assert result._mismatches == preview._mismatches
+        assert not any("disagree" in line or "TOTTUS" in line for line in _result_shown(result))
         assert reads_made == []
         assert [m for m, _ in fake_client.requests if m == "GET"] == []
 
@@ -649,7 +668,7 @@ def test_the_summary_and_the_footer_read_the_engines_counts(fake_client, monkeyp
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
-    counts = {"new": 7, "matched": 5, "sealed": 0, "backfilled": 0, "retitled": 3}
+    counts = {"new": 7, "matched": 5, "sealed": 0, "backfilled": 0, "retitled": 3, "redated": 0}
     _engine(fake_client, _two_new_two_in_ledger, counts=counts)
 
     async def scenario(pilot, app):
@@ -663,11 +682,9 @@ def test_the_summary_and_the_footer_read_the_engines_counts(fake_client, monkeyp
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 7 rows"}
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
-        assert lines == [
-            "✓ 7 rows imported · BCP Signature",
-            "under @Pendiente and #Pendiente",
-            "3 rows in the ledger took the bank's title",
+        assert _result_shown(result) == [
+            "✓ 7 rows imported · BCP Signature   new ones under @Pendiente and #Pendiente",
+            "4 rows · 7 new · 5 in the ledger · 3 took the bank's title",
         ]
 
     run_app(scenario, size=(120, 40))
@@ -694,12 +711,14 @@ def test_a_reported_day_lists_the_file_rows_not_found_and_the_ledger_rows_not_cl
             "! 1 day where the file and the ledger disagree",
             "2026-09-07 · BCP Signature PEN   file -3.50 · ledger after import -7.00",
             "row 5   APPARKA MALL AVENTURA AREQU  -3.50   in the file, not found",
-            "TOTTUS PORONGOCHE            -3.50   in the ledger, not claimed",
+            "TOTTUS PORONGOCHE            -3.50   in the ledger, not in the file",
         ]
         body = _body(preview)
         assert "no file row matched" not in body and "unmatched" not in body
         # the ledger row sits under the file row's title, not under its tag
-        rows = [line for line in body.split("\n") if "not found" in line or "not claimed" in line]
+        rows = [
+            line for line in body.split("\n") if "not found" in line or "not in the file" in line
+        ]
         assert rows[0].index("APPARKA") == rows[1].index("TOTTUS")
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 2 rows"}  # a report only
 
@@ -728,9 +747,9 @@ DAY_0909_USD = {
 }
 
 
-def test_a_card_files_days_name_their_account_on_both_screens(fake_client, monkeypatch, tmp_path):
-    """A card's two currencies are two accounts: every day on the preview, and
-    every row of the result's table, names its account."""
+def test_a_card_files_days_name_their_account(fake_client, monkeypatch, tmp_path):
+    """A card's two currencies are two accounts: every day on the preview
+    names its account."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
@@ -746,29 +765,16 @@ def test_a_card_files_days_name_their_account_on_both_screens(fake_client, monke
             "! 2 days where the file and the ledger disagree",
             "2026-09-07 · BCP Signature PEN   file  -3.50 · ledger after import  -7.00",
             "row 5   APPARKA MALL AVENTURA AREQU   -3.50   in the file, not found",
-            "TOTTUS PORONGOCHE             -3.50   in the ledger, not claimed",
+            "TOTTUS PORONGOCHE             -3.50   in the ledger, not in the file",
             "2026-09-09 · BCP Signature USD   file -21.17 · ledger after import -42.34",
-            "Apple                        -21.17   in the ledger, not claimed",
-        ]
-        await pilot.press("enter")
-        result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
-        assert lines[3:5] == [
-            "! 2 days where the ledger may now hold the same movement twice —",
-            "check them and delete the extra one",
-        ]
-        assert _table_shown(result) == [
-            ["2026-09-07 · BCP Signature PEN", "APPARKA MALL AVENTURA AREQU", "-3.50", NEW_5],
-            ["2026-09-07 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-3.50", LEFT],
-            ["2026-09-09 · BCP Signature USD", "Apple", "-21.17", LEFT],
+            "Apple                        -21.17   in the ledger, not in the file",
         ]
 
     run_app(scenario, size=(120, 40))
 
 
 def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch, tmp_path):
-    """On a file of one account the days are not named by account; the result
-    table says what the import did to each row."""
+    """On a file of one account the days are not named by account."""
     path = _bank_file(tmp_path)
     rows = [("2026-09-12", "FARMACIA CENTRAL", "S/", -42.9), ("2026-09-11", "CINE", "S/", -28)]
     day = {
@@ -808,45 +814,140 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
             "! 1 day where the file and the ledger disagree",
             "2026-09-12   file -42.90 · ledger after import -84.90",
             "row 2   FARMACIA CENTRAL  -42.90   in the file, not found",
-            "Farmacia          -42.00   in the ledger, not claimed",
-        ]
-        await pilot.press("enter")
-        result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        assert _table_shown(result) == [
-            ["2026-09-12", "FARMACIA CENTRAL", "-42.90", "added as new · file row 2"],
-            ["2026-09-12", "Farmacia", "-42.00", LEFT],
+            "Farmacia          -42.00   in the ledger, not in the file",
         ]
 
     run_app(scenario, size=(120, 40))
 
 
-def test_closed_period_rows_count_the_engines_number_and_name_their_period_on_both_screens(
-    fake_client, monkeypatch, tmp_path
-):
-    """The closed-period note's number is the engine's `counts.sealed` (here
-    deliberately not the rows answered `sealed`), each sealed row still listed;
-    and the result table names a sealed row's period with the names the preview
-    read, never "a closed period"."""
+#: A file with one row of each reason: lines 2–7 go to the engine; line 8 is
+#: under the floor and line 9 the parser cannot read (its date).
+EVERY_REASON_ROWS = [
+    ("2026-10-14", "CAFE ANDINO LIMA PE", "S/", -18.5),
+    ("2026-10-13", "UBER TRIP", "S/", -4.2),
+    ("2026-10-07", "MERCADO NORTE", "S/", -61.3),
+    ("2026-10-04", "WONG SAN ISIDRO", "S/", -100),
+    ("2026-10-01", "TAMBO MIRAFLORES", "S/", -7.5),
+    ("2026-08-29", "SHELL SAN ISIDRO", "S/", -120),
+    ("2025-12-30", "RAPPI LIMA PE", "S/", -36.9),
+    ("31/13/2026", "PLIN JUAN P.", "S/", -15.4),
+]
+
+
+def _every_reason(i, _row):
+    """The engine's answer for EVERY_REASON_ROWS, by the index each was sent under."""
+    return {
+        1: _matched("same_day"),
+        2: {**_matched("operation_code"), "retitled": True},
+        3: {**_matched("operation_code"), "redated": True},
+        4: {**_matched("operation_code"), "redate_blocked_by": "r-sep"},
+        5: {"outcome": "sealed", "sealed_by": "r-aug"},
+    }.get(i, {})
+
+
+EVERY_REASON_COUNTS = {
+    "new": 1,
+    "matched": 4,
+    "sealed": 1,
+    "backfilled": 0,
+    "retitled": 1,
+    "redated": 1,
+}
+
+
+def _reconciliations(monkeypatch, answer=None) -> list:
+    """`GET /reconciliations`, recorded: each call's account, answered with
+    `answer` (an exception is raised)."""
+    asked: list = []
+
+    def fetch(cfg, *, account_id, verbose=False):
+        asked.append(account_id)
+        if isinstance(answer, Exception):
+            raise answer
+        return whole(
+            answer
+            or [
+                {"id": "r-aug", "name": "Agosto 2026"},
+                {"id": "r-sep", "name": "Septiembre 2026"},
+            ]
+        )
+
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", fetch)
+    return asked
+
+
+def test_every_row_of_the_file_shows_its_mark_and_its_reason(fake_client, monkeypatch, tmp_path):
+    """expense-world-import-report.html 1 A: one table of the file's lines,
+    numbered by the file's own line, the line under the floor and the
+    unreadable one included, each with ✓ or ✗ and its reason alone. A move a
+    completed reconciliation stops names that reconciliation, read once by the
+    worker for the row's account; the counts add the engine's moved count,
+    and the closed, pre-2026 and unreadable counts go on a line of their own."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
-    monkeypatch.setattr(
-        "expense.reads.fetch_reconciliations",
-        lambda *a, **k: whole([{"id": "r1", "name": "September 2026"}]),
-    )
+    asked = _reconciliations(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, EVERY_REASON_ROWS)})
+    _engine(fake_client, _every_reason, counts=EVERY_REASON_COUNTS)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        assert lines[1].split() == ["#", "date", "title", "amount", "reason"]
+        rows = [re.split(r"\s{2,}", line) for line in lines[2:10]]
+        assert rows == [
+            ["2", "2026-10-14", "CAFE ANDINO LIMA PE", "-18.50", "✓", "New"],
+            ["3", "2026-10-13", "UBER TRIP", "-4.20", "✓", "Already in the ledger"],
+            ["4", "2026-10-07", "MERCADO NORTE", "-61.30", "✓", "Modified existing transaction"],
+            ["5", "2026-10-04", "WONG SAN ISIDRO", "-100.00", "✓", "Modified existing transaction"],
+            [
+                "6",
+                "2026-10-01",
+                "TAMBO MIRAFLORES",
+                "-7.50",
+                "✗",
+                "Not modified: Septiembre 2026 is reconciled",
+            ],
+            ["7", "2026-08-29", "SHELL SAN ISIDRO", "-120.00", "✗", "Closed period"],
+            ["8", "2025-12-30", "RAPPI LIMA PE", "-36.90", "✗", "Before 2026"],
+            ["9", "—", "PLIN JUAN P.", "-15.40", "✗", "Couldn't read the row"],
+        ]
+        assert lines[10:] == [
+            "8 rows · 1 new · 4 in the ledger · 1 moves to the bank's day · "
+            "1 takes the bank's title",
+            "1 closed · 1 before 2026 · 1 unreadable",
+        ]
+        # the second line sits under the first count, not under `8 rows`
+        raw = [line for line in _body(preview).split("\n") if line.strip()]
+        assert raw[-1].index("1 closed") == raw[-2].index("1 new")
+        # the old notes are gone: no closed-period block, no floor or refused-line note
+        body = _body(preview)
+        assert "never go" not in body and "not sent" not in body and "! row" not in body
+        # the reconciliation is named by one read, in the worker, for the row's account
+        assert asked == ["bcp-pen"]
+        preview._repaint()
+        await pilot.resize_terminal(130, 40)
+        await pilot.pause()
+        assert asked == ["bcp-pen"]  # drawing the screen again reads nothing
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 1 row"}
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_no_reconciliation_is_read_when_no_move_is_stopped(fake_client, monkeypatch, tmp_path):
+    """A closed period's row says `Closed period` alone, so nothing is read to
+    name it; and with no move, the counts say nothing of the bank's day."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    asked = _reconciliations(monkeypatch)
     _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
-    day = {
-        "account_id": "sig-pen",
-        "date": "2026-09-11",
-        "file_net_cents": -4900,
-        "ledger_net_cents": 0,
-        "unmatched_rows": [0],
-        "unclaimed_lines": [],
-    }
-    counts = {"new": 3, "matched": 0, "sealed": 2, "backfilled": 0, "retitled": 0}
+    counts = {"new": 3, "matched": 0, "sealed": 1, "backfilled": 0, "retitled": 0, "redated": 0}
     _engine(
         fake_client,
-        lambda i, r: {"outcome": "sealed", "sealed_by": "r1"} if i == 0 else {},
-        mismatches=[day],
+        lambda i, r: {"outcome": "sealed", "sealed_by": "r-aug"} if i == 0 else {},
         counts=counts,
     )
 
@@ -857,23 +958,95 @@ def test_closed_period_rows_count_the_engines_number_and_name_their_period_on_bo
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
         lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
-        at = lines.index(
-            "! 2 rows fall inside a closed period and never go in — revert the period to add them"
+        assert lines[2].endswith("✗  Closed period")
+        assert lines[-2:] == ["4 rows · 3 new · 0 in the ledger", "1 closed"]
+        assert "bank's day" not in _body(preview)
+        assert asked == []
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_a_reconciliation_that_cannot_be_read_leaves_the_move_unnamed(
+    fake_client, monkeypatch, tmp_path
+):
+    """A failed read never hides the preview: the row stays ✗, its
+    reconciliation unnamed, and why is one dim line under the counts."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    refusal = EngineError("INTERNAL_ERROR", "The engine failed.", None, 500, {})
+    asked = _reconciliations(monkeypatch, refusal)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    _engine(
+        fake_client,
+        lambda i, r: {**_matched("operation_code"), "redate_blocked_by": "r-sep"} if i == 0 else {},
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        assert lines[2].endswith("✗  Not modified: a reconciliation is reconciled")
+        assert any(
+            line.startswith("! could not read the reconciliations' names:") for line in lines
         )
-        assert lines[at + 1] == (
-            "row 2 · 2026-09-11 · EDO SUSHI BAR LI · -49.00 · BCP Signature PEN — September 2026"
-        )
-        assert "4 rows · 3 new · 0 in the ledger · 2 in a closed period" in lines
+        assert asked == ["sig-pen"]
+        assert _shown(preview) == {"escape": "Cancel", "enter": "Import 3 rows"}
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_screen_after_importing_gives_the_counts_alone_in_the_past_tense(
+    fake_client, monkeypatch, tmp_path
+):
+    """expense-world-import-report.html 3: the title line and the engine's
+    counts, the moved count among them, in the past tense; no table and no
+    days, though the apply reported one."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _reconciliations(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, EVERY_REASON_ROWS)})
+    day = {**DAY_0907, "account_id": "bcp-pen", "unmatched_rows": []}
+    _engine(fake_client, _every_reason, mismatches=[day], counts=EVERY_REASON_COUNTS)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("down", "enter")  # BCP PEN
+        preview = await _previewed(pilot, app)
+        assert "! 1 day where the file and the ledger disagree" in _body(preview)
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
-        assert _table_shown(result) == [
-            [
-                "2026-09-11 · BCP Signature PEN",
-                "EDO SUSHI BAR LI",
-                "-49.00",
-                "closed · September 2026 · file row 2",
-            ],
+        assert _result_shown(result) == [
+            "✓ 1 row imported · BCP PEN   new ones under @Pendiente and #Pendiente",
+            "8 rows · 1 new · 4 in the ledger · 1 moved to the bank's day · "
+            "1 took the bank's title",
+            "1 closed · 1 before 2026 · 1 unreadable",
         ]
+        assert _shown(result) == {"escape": "Back", "enter": "Home"}
+
+    run_app(scenario, size=(120, 40))
+
+
+def test_the_counts_say_how_many_move_in_the_plural(fake_client, monkeypatch, tmp_path):
+    """`2 move to the bank's day` on the preview, the engine's number."""
+    path = _bank_file(tmp_path)
+    _patch(monkeypatch)
+    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
+    counts = {"new": 2, "matched": 2, "sealed": 0, "backfilled": 0, "retitled": 0, "redated": 2}
+    _engine(fake_client, _two_new_two_in_ledger, counts=counts)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await _drop(pilot, screen, path)
+        await _preview(pilot, app)
+        await pilot.press("enter")
+        preview = await _previewed(pilot, app)
+        lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
+        assert lines[-1] == "4 rows · 2 new · 2 in the ledger · 2 move to the bank's day"
 
     run_app(scenario, size=(120, 40))
 
@@ -1042,6 +1215,7 @@ def test_nothing_new_shows_the_preview_and_enter_writes_nothing(fake_client, mon
         preview = await _previewed(pilot, app)
         lines = [line.strip() for line in _body(preview).split("\n") if line.strip()]
         assert lines[-2:] == ["4 rows · 0 new · 4 in the ledger", "nothing to import"]
+        assert sum(line.endswith("✓  Already in the ledger") for line in lines) == 4
         assert _shown(preview) == {"escape": "Back"}
         await pilot.press("enter")
         await pilot.pause()
@@ -1070,19 +1244,11 @@ def test_apply_writes_once_and_the_result_says_what_to_check(fake_client, monkey
         await pilot.press("enter")
         result = await _on(pilot, app, ImportResultScreen, "no result screen")
         assert _imports(fake_client) == [True, False]
-        lines = [line.strip() for line in _body(result).split("\n") if line.strip()]
-        assert lines[:5] == [
-            "✓ 2 rows imported · BCP Signature",
-            "under @Pendiente and #Pendiente",
-            "1 row in the ledger took the bank's title",
-            "! 1 day where the ledger may now hold the same movement twice —",
-            "check it and delete the extra one",
+        # its title line and the counts, in the past tense: no table, no days
+        assert _result_shown(result) == [
+            "✓ 2 rows imported · BCP Signature   new ones under @Pendiente and #Pendiente",
+            "4 rows · 2 new · 2 in the ledger · 1 took the bank's title",
         ]
-        assert _table_shown(result) == [
-            ["2026-09-07 · BCP Signature PEN", "APPARKA MALL AVENTURA AREQU", "-3.50", NEW_5],
-            ["2026-09-07 · BCP Signature PEN", "TOTTUS PORONGOCHE", "-3.50", LEFT],
-        ]
-        assert result._mismatches == [PARSED_0907]
         assert _shown(result) == {"escape": "Back", "enter": "Home"}
         # the two calls are one logical write each: the same rows, the same ids
         (_, dry), (_, applied) = fake_client.posts

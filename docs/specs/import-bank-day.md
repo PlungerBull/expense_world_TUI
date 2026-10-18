@@ -60,30 +60,8 @@ Nothing in this range.
 ## Tasks
 
 Approved 2026-10-18, with the screens picked in
-[expense-world-import-report.html](../mockups/expense-world-import-report.html).
-
-1. **The preview becomes one table of the file's rows with a mark and a reason; the screen
-   after importing gives the counts alone.**
-   - The preview's table is `#  date  title  amount  mark  reason`, one row per line of the
-     file, numbered by the file's own line, the refused and pre-2026 lines included. It
-     replaces the `match` column and the closed-period, pre-2026 and refused-line notes.
-   - The reasons, alone on the row, nothing after them: `New`, `Already in the ledger` and
-     `Modified existing transaction` (it took the bank's title, got the operation number, or
-     moves to the bank's day) carry ✓; `Not modified: <reconciliation> is reconciled`, `Closed
-     period`, `Before 2026` and `Couldn't read the row` carry ✗, in the warning colour.
-   - The counts line under the table adds the engine's count of transactions moved to the
-     bank's day; every count stays the engine's.
-   - The block of days where the file and the ledger disagree stays under the counts, on the
-     preview only.
-   - The screen after importing shows its title line and the counts, in the past tense: no
-     table, no block of days.
-   - The import reads `redated`, `redate_blocked_by` and `counts.redated` from the engine's
-     answer, through the shared reader in [engine.py](../../expense/bank_import/engine.py). A
-     blocking reconciliation is named by a read of it by id.
-   - The unit fixtures carry the new keys; unit tests cover every reason, both marks, the
-     counts with and without a move, and the screen after importing.
-   - A live contract test proves both the move and the blocked move on the practice engine.
-   - [tui.md](../tui.md) "The import door" says what the screens show.
+[expense-world-import-report.html](../mockups/expense-world-import-report.html). Every task is
+done; the tester's acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 

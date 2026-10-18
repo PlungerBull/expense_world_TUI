@@ -10,21 +10,23 @@ from dataclasses import dataclass
 
 from expense import reads
 from expense.bank_import.engine import (
+    BEFORE_FLOOR,
     IMPORT_FLOOR,
     IMPORT_MAX_ROWS,
+    UNREADABLE,
     AnswerCounts,
     IncompleteAnswer,
     Placed,
     SentRow,
+    blocked_accounts,
     request_body,
-    sealed_accounts,
+    row_reason,
     sent_rows,
     split_floor,
 )
 from expense.bank_import.parse import SHEET_NAME, BadRow, BankFormatError, BankRow, parse_bank_sheet
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import EngineConnectionError, EngineError, format_error
-from expense.formatting import format_cents
 from expense.import_.reader import ImportFileError, read_workbook
 from expense.reads import items_of
 
@@ -195,13 +197,18 @@ def import_call(client, prepared: Prepared, *, dry_run: bool) -> dict:
     )
 
 
-def period_names(cfg, placed: list[Placed], *, verbose: bool) -> tuple[dict[str, str], str | None]:
-    """reconciliation id → name, for the legs with a row inside a closed
-    period (the response carries ids only). A failed read never hides what
-    the import did: the rows still print, under "a closed period", and the
-    reason is returned for one line under the table."""
+def reconciliation_names(
+    cfg, placed: list[Placed], *, verbose: bool
+) -> tuple[dict[str, str], str | None]:
+    """reconciliation id → name, for the legs with a row whose move to the
+    bank's day a completed reconciliation stops (the response carries its id
+    only). The engine reads reconciliations one account at a time and has no
+    read by id (contract: GET /v1/reconciliations), so each such leg's list is
+    read once. A failed read never hides what the import does: the rows still
+    show, the reconciliation unnamed, and the reason is returned for one line
+    under the table."""
     names: dict[str, str] = {}
-    for account_id in sealed_accounts(placed):
+    for account_id in blocked_accounts(placed):
         try:
             body = reads.fetch_reconciliations(cfg, account_id=account_id, verbose=verbose)
         except (EngineError, EngineConnectionError) as err:
@@ -210,6 +217,40 @@ def period_names(cfg, placed: list[Placed], *, verbose: bool) -> tuple[dict[str,
             if item.get("id"):
                 names[str(item["id"])] = str(item.get("name") or item["id"])
     return names, None
+
+
+@dataclass(frozen=True)
+class FileLine:
+    """One line of the file as the preview lists it: what the file says, and
+    whether it is in the ledger after the import with the reason why. A cell
+    the parser could not read is None."""
+
+    line: int
+    date_iso: str | None
+    title: str | None
+    amount_cents: int | None  # signed: negative = outflow
+    kept: bool
+    reason: str
+
+
+def file_lines(prepared: Prepared, placed: list[Placed], names: dict[str, str]) -> list[FileLine]:
+    """Every line of the file, by its own line number: the rows the engine
+    answered with the reason it gives, the rows under the floor, and the lines
+    the parser refused. `names` names a reconciliation that stops a move."""
+    out: list[FileLine] = []
+    for p in placed:
+        row = p.sent.row
+        kept, reason = row_reason(p, names)
+        out.append(FileLine(row.line, row.date_iso, row.title, row.amount_cents, kept, reason))
+    out.extend(
+        FileLine(r.line, r.date_iso, r.title, r.amount_cents, False, BEFORE_FLOOR)
+        for r in prepared.before_floor
+    )
+    out.extend(
+        FileLine(b.line, b.date_iso, b.title, b.amount_cents, False, UNREADABLE)
+        for b in prepared.bad
+    )
+    return sorted(out, key=lambda f: f.line)
 
 
 @dataclass(frozen=True)
@@ -222,6 +263,7 @@ class ImportCounts:
     matched: int
     sealed: int
     retitled: int  # matched rows that take (or took) the bank's title
+    redated: int  # matched lines that move (or moved) to the bank's day
     before_floor: int
     refused: int
 
@@ -235,32 +277,10 @@ def import_counts(prepared: Prepared, counts: AnswerCounts) -> ImportCounts:
         matched=counts.matched,
         sealed=counts.sealed,
         retitled=counts.retitled,
+        redated=counts.redated,
         before_floor=len(prepared.before_floor),
         refused=len(prepared.bad),
     )
-
-
-def sealed_lines(placed: list[Placed], names: dict[str, str], counts: AnswerCounts) -> list[str]:
-    """Rows inside a closed period, as their own block: never written, and
-    shown so a bank restating something in a closed month is noticed. The
-    head line's number is the engine's `counts.sealed`; the rows under it are
-    the ones it answered `sealed`."""
-    sealed = [p for p in placed if p.outcome == "sealed"]
-    n = counts.sealed
-    if not sealed and not n:
-        return []
-    lines = [
-        f"! {n} row{'' if n == 1 else 's'} fall{'s' if n == 1 else ''} inside a closed "
-        f"period and never go{'es' if n == 1 else ''} in — revert the period to add them"
-    ]
-    for p in sealed:
-        row = p.sent.row
-        period = names.get(p.sealed_by or "", "a closed period")
-        lines.append(
-            f"    row {row.line} · {row.date_iso} · {row.title} · "
-            f"{format_cents(row.amount_cents)} · {p.sent.account_name} — {period}"
-        )
-    return lines
 
 
 def incomplete_sentence(gap: IncompleteAnswer, prepared: Prepared) -> str:

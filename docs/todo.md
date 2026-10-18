@@ -60,21 +60,28 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
-### The split screen: two keys
-Asked 2026-10-18 · Blocks: the split screen's changes
+### The import's reconciled row, when the bank's title still lands
+Asked 2026-10-18 · Blocks: nothing (the row shows; only its words)
 
-The layout is yours: the parts in a table on top, and `⏎` on a part opens its fields below,
-one per line, like the Edit form
-([mockups/expense-world-split-screen.html](mockups/expense-world-split-screen.html)). The title
-is one line above the table and changes every part (asked of the engine:
-[to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)). Two keys are open, and
-the four panes need your yes:
-- **1.** `⏎` on the last field: **A** back to the table, or **B** on to the next part.
-- **2.** `esc` in the fields below: **A** back to the table keeping the fields already left, or
-  **B** back with the whole part as it was before `⏎` opened it.
+A row whose move to the bank's day is stopped by a completed reconciliation reads
+`✗ Not modified: Septiembre 2026 is reconciled`. But the engine still writes the bank's title or
+operation number onto it, so "not modified" can be untrue.
+- **A.** Keep `Not modified: … is reconciled`.
+- **B.** `Not moved: … is reconciled` on every such row, true whether or not the title landed.
 
-**Recommended:** 1 A and 2 A, because the table stays the place you return to, and nothing you
-finished typing is lost.
+**Recommended:** B, because the row then says exactly what was stopped.
+
+### The import's reconciled row, when its name cannot be read
+Asked 2026-10-18 · Blocks: nothing (only words)
+
+The reconciliation's name is read from the engine. If that read fails, the row reads
+`✗ Not modified: a reconciliation is reconciled` and a dim line under the counts says
+`! could not read the reconciliations' names: <the reason>`.
+- **A.** Keep it.
+- **B.** Other words: say which.
+
+**Recommended:** A, because it happens only when the engine stops answering mid-preview, and
+it says so.
 
 ---
 
@@ -95,8 +102,21 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
+- **A bank file cell reading `nan` or `inf` crashes the import.** `parse_amount` turns the
+  amount into cents outside its `try`, so `nan` raises `ValueError` and `inf` or `Infinity`
+  raise `OverflowError` instead of refusing the row as not an amount
+  ([parse.py](../expense/bank_import/parse.py)). Refuse it, with a test.
+- **Leftovers in the import door.** The apply still builds `day_mismatches` the screen after
+  importing no longer shows; `reason_cell` picks a row's style by comparing the reason's words
+  (a kind on `FileLine` would not); `Placed.rule` and `Placed.sealed_by` are read but used only
+  by tests; `test_apply_writes_once_and_the_result_says_what_to_check` is named for a screen
+  that no longer says what to check; no test draws a row whose amount could not be read; the
+  `ImportCounts` docstring says "summary" ([bank_import.py](../expense/tui/screens/bank_import.py),
+  [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
 - **Catch up with the import moving a matched line to the bank's day.** Spec (approved, in
   progress): [specs/import-bank-day.md](specs/import-bank-day.md).
+- **The split screen: a table of the parts, each part's fields below.** Spec (draft, its tasks
+  waiting for the owner): [specs/split-screen-fields.md](specs/split-screen-fields.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
@@ -124,7 +144,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not) and `expense-world-screen-map.html` (linked from nowhere). Deleting one means removing
   its links from tui.md and from code and test docstrings in the same change; keep
-  `expense-world-split-action.html` until the split screen's redraw is built.
+  `expense-world-split-action.html` until [specs/split-screen-fields.md](specs/split-screen-fields.md) replaces it.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it

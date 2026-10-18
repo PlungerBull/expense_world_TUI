@@ -16,15 +16,16 @@ from expense.bank_import.engine import (
     Placed,
     UnclaimedLine,
     answer_counts,
+    blocked_accounts,
     day_mismatches,
-    match_label,
     placements,
     request_body,
+    row_reason,
     row_refusals,
-    sealed_accounts,
     sent_rows,
     split_floor,
 )
+from expense.bank_import.flow import AccountGroup, FileLine, Prepared, file_lines
 from expense.bank_import.parse import (
     BankFormatError,
     BankRow,
@@ -50,7 +51,16 @@ def _bank(line, date_iso, title, cents, *, currency="PEN", code=None) -> BankRow
 
 
 def _result(
-    ident, outcome="new", *, rule=None, line=None, code=None, retitled=None, sealed_by=None
+    ident,
+    outcome="new",
+    *,
+    rule=None,
+    line=None,
+    code=None,
+    retitled=None,
+    redated=None,
+    blocked_by=None,
+    sealed_by=None,
 ) -> dict:
     return {
         "id": ident,
@@ -59,6 +69,8 @@ def _result(
         "bank_line_id": line,
         "backfill_code": code,
         "retitled": retitled,
+        "redated": redated,
+        "redate_blocked_by": blocked_by,
         "sealed_by": sealed_by,
     }
 
@@ -132,6 +144,14 @@ def test_parse_sheet_refuses_bad_cells_and_keeps_going():
     assert "not a date" in bad[0].reason and "no description" in bad[1].reason
     assert "not a currency" in bad[2].reason and "not an amount" in bad[3].reason
     assert "zero" in bad[4].reason
+    # each refused line keeps the cells that could be read, None for the rest
+    assert [(b.date_iso, b.title, b.amount_cents) for b in bad] == [
+        (None, "X", -100),
+        ("2026-09-01", None, -100),
+        ("2026-09-01", "Y", -100),
+        ("2026-09-01", "Z", None),
+        ("2026-09-01", "W", 0),
+    ]
 
 
 def test_parse_sheet_refuses_both_rows_of_a_repeated_operation_number():
@@ -145,6 +165,7 @@ def test_parse_sheet_refuses_both_rows_of_a_repeated_operation_number():
     )
     assert [r.title for r in rows] == ["A", "B"]
     assert len(bad) == 1 and "appears twice" in bad[0].reason and "rows 2 and 4" in bad[0].reason
+    assert (bad[0].date_iso, bad[0].title, bad[0].amount_cents) == ("2026-09-11", "C", -300)
 
 
 def test_missing_columns_are_named():
@@ -227,7 +248,6 @@ def test_response_rows_join_back_to_the_file_by_id():
     )
     assert [p.sent.row.line for p in placed] == [2, 3, 4]
     assert [p.outcome for p in placed] == ["new", "matched", "sealed"]
-    assert sealed_accounts(placed) == ["sig-pen"]
 
 
 def test_a_matched_row_carries_its_bank_line_and_whether_it_was_retitled():
@@ -251,32 +271,85 @@ def test_a_matched_row_carries_its_bank_line_and_whether_it_was_retitled():
     ]
 
 
-def test_each_outcome_and_rule_has_its_words():
+def test_a_matched_row_carries_whether_its_line_moves_and_what_stops_it():
+    """`redated` says the line moves to the bank's day; `redate_blocked_by`
+    names the completed reconciliation that stops the move (contract:
+    POST /v1/transactions/import); a row with neither keeps null."""
     sent = _sent()
+    placed = placements(
+        {
+            "rows": [
+                _result(sent[0].id, "matched", rule="operation_code", line="bl-1", redated=True),
+                _result(
+                    sent[1].id,
+                    "matched",
+                    rule="operation_code",
+                    line="bl-2",
+                    redated=False,
+                    blocked_by="r9",
+                ),
+                _result(sent[2].id),
+            ]
+        },
+        sent,
+    )
+    assert [(p.redated, p.redate_blocked_by) for p in placed] == [
+        (True, None),
+        (False, "r9"),
+        (None, None),
+    ]
+    assert blocked_accounts(placed) == ["sig-pen"]
 
-    def label(**kw):
-        return match_label(Placed(sent=sent[0], **kw), {"r1": "September 2026"})
 
+def _placed(**kw) -> Placed:
     base = {
-        "rule": None,
-        "bank_line_id": None,
+        "outcome": "matched",
+        "rule": "operation_code",
+        "bank_line_id": "bl-1",
         "backfill_code": None,
-        "retitled": None,
+        "retitled": False,
+        "redated": False,
+        "redate_blocked_by": None,
         "sealed_by": None,
     }
-    assert label(**{**base, "outcome": "new"}) == "new"
-    matched = {**base, "outcome": "matched", "bank_line_id": "bl-1", "retitled": False}
-    assert label(**{**matched, "rule": "operation_code"}) == "in ledger · operation"
-    assert label(**{**matched, "rule": "same_day"}) == "in ledger · same day"
-    coded = {**matched, "rule": "same_day", "backfill_code": "1"}
-    assert label(**coded) == "in ledger · same day · +code"
-    # the engine's `retitled` sits where `+code` does, after it when both apply
-    retitled = {**matched, "rule": "same_day", "retitled": True}
-    assert label(**retitled) == "in ledger · same day · +title"
-    assert label(**{**coded, "retitled": True}) == "in ledger · same day · +code · +title"
-    sealed = {**base, "outcome": "sealed", "sealed_by": "r1"}
-    assert label(**sealed) == "closed · September 2026"
-    assert label(**{**sealed, "sealed_by": "gone"}) == "closed · a closed period"
+    return Placed(sent=_sent()[0], **{**base, **kw})
+
+
+@pytest.mark.parametrize(
+    ("kw", "expected"),
+    [
+        ({"outcome": "new", "rule": None, "bank_line_id": None}, (True, "New")),
+        ({}, (True, "Already in the ledger")),
+        ({"rule": "same_day"}, (True, "Already in the ledger")),
+        ({"retitled": True}, (True, "Modified existing transaction")),
+        ({"backfill_code": "00000009"}, (True, "Modified existing transaction")),
+        ({"redated": True}, (True, "Modified existing transaction")),
+        (
+            {"redate_blocked_by": "r1", "retitled": True},
+            (False, "Not modified: Septiembre 2026 is reconciled"),
+        ),
+        (
+            {"redate_blocked_by": "gone"},
+            (False, "Not modified: a reconciliation is reconciled"),
+        ),
+        ({"outcome": "sealed", "sealed_by": "r1", "rule": None}, (False, "Closed period")),
+    ],
+    ids=[
+        "new",
+        "in-ledger",
+        "in-ledger-same-day",
+        "took-title",
+        "got-code",
+        "moves",
+        "move-stopped",
+        "move-stopped-unnamed",
+        "closed",
+    ],
+)
+def test_each_answered_row_has_its_mark_and_reason(kw, expected):
+    """✓ for a row in the ledger after the import, ✗ for one left out; a move
+    a completed reconciliation stops is ✗, named, whatever else is written."""
+    assert row_reason(_placed(**kw), {"r1": "Septiembre 2026"}) == expected
 
 
 def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
@@ -394,11 +467,20 @@ def test_no_day_mismatches_is_an_empty_list():
     assert day_mismatches({"day_mismatches": []}, {}) == []
 
 
-def test_the_engines_counts_include_retitled():
+def test_the_engines_counts_include_retitled_and_redated():
     counts = answer_counts(
-        {"counts": {"new": 2, "matched": 5, "sealed": 1, "backfilled": 3, "retitled": 4}}
+        {
+            "counts": {
+                "new": 2,
+                "matched": 5,
+                "sealed": 1,
+                "backfilled": 3,
+                "retitled": 4,
+                "redated": 6,
+            }
+        }
     )
-    assert counts == AnswerCounts(new=2, matched=5, sealed=1, backfilled=3, retitled=4)
+    assert counts == AnswerCounts(new=2, matched=5, sealed=1, backfilled=3, retitled=4, redated=6)
 
 
 def test_a_refusal_names_the_files_line_not_the_engines_index():
@@ -451,3 +533,29 @@ def test_a_response_with_a_row_never_sent_fails_loudly():
     with pytest.raises(IncompleteAnswer) as gap:
         placements({"rows": rows}, sent)
     assert gap.value.unknown == ["stranger"]
+
+
+def test_the_files_lines_come_back_whole_in_the_files_order():
+    """Every line of the file, the answered rows, the ones under the floor and
+    the refused ones interleaved by the file's own line, each with its mark
+    and its reason."""
+    rows, bad = parse_bank_sheet(
+        _sheet(
+            CARD_HEADERS,
+            ("2026-09-11", "A", "S/", -1),
+            ("2025-12-31", "OLD", "S/", -2),
+            ("nope", "BAD", "S/", -3),
+            ("2026-09-09", "B", "S/", -4),
+        )
+    )
+    kept, before = split_floor(rows)
+    group = AccountGroup("BCP", {"PEN": ("bcp-pen", "BCP PEN")})
+    sent = sent_rows(kept, group.legs)
+    prepared = Prepared("f.xlsx", group, rows, bad, before, sent)
+    placed = placements({"rows": [_result(sent[0].id), _result(sent[1].id, "sealed")]}, sent)
+    assert file_lines(prepared, placed, {}) == [
+        FileLine(2, "2026-09-11", "A", -100, True, "New"),
+        FileLine(3, "2025-12-31", "OLD", -200, False, "Before 2026"),
+        FileLine(4, None, "BAD", -300, False, "Couldn't read the row"),
+        FileLine(5, "2026-09-09", "B", -400, False, "Closed period"),
+    ]

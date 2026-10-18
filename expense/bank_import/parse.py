@@ -72,10 +72,16 @@ class BankRow:
 
 @dataclass(frozen=True)
 class BadRow:
-    """A line the parser could not read. Listed, never guessed."""
+    """A line the parser could not read. Listed, never guessed.
+
+    Its cells keep what could be read of them, each None when it could not,
+    so a screen can show the line beside the file's other rows."""
 
     line: int
     reason: str
+    date_iso: str | None = None
+    title: str | None = None
+    amount_cents: int | None = None  # signed: negative = outflow
 
 
 #: The bank's own spelling of each required column, keyed by the normalized
@@ -211,29 +217,30 @@ def parse_bank_sheet(sheet: SheetData) -> tuple[list[BankRow], list[BadRow]]:
             continue  # a blank line at the bottom of the export
 
         date_iso = parse_date(cell("date"))
-        if date_iso is None:
-            bad.append(BadRow(raw.line, f'"{cell("date")}" is not a date'))
-            continue
-        raw_title = str(cell("title") or "").strip()
-        if not raw_title:
-            bad.append(BadRow(raw.line, "the row has no description"))
-            continue
+        title = " ".join(str(cell("title") or "").split()) or None
         currency = parse_currency(cell("currency"))
-        if currency is None:
-            bad.append(BadRow(raw.line, f'"{cell("currency")}" is not a currency'))
-            continue
         amount = parse_amount(cell("amount"))
-        if amount is None:
-            bad.append(BadRow(raw.line, f'"{cell("amount")}" is not an amount'))
-            continue
-        if amount == 0:
-            bad.append(BadRow(raw.line, "the amount is zero"))
+
+        if date_iso is None:
+            reason = f'"{cell("date")}" is not a date'
+        elif title is None:
+            reason = "the row has no description"
+        elif currency is None:
+            reason = f'"{cell("currency")}" is not a currency'
+        elif amount is None:
+            reason = f'"{cell("amount")}" is not an amount'
+        elif amount == 0:
+            reason = "the amount is zero"
+        else:
+            reason = None
+        if reason is not None:
+            bad.append(BadRow(raw.line, reason, date_iso, title, amount))
             continue
         rows.append(
             BankRow(
                 line=raw.line,
                 date_iso=date_iso,
-                title=" ".join(raw_title.split()),
+                title=title,
                 currency=currency,
                 amount_cents=amount,
                 operation_code=parse_operation(cell("operation")) if has_operation else None,
@@ -253,7 +260,7 @@ def parse_bank_sheet(sheet: SheetData) -> tuple[list[BankRow], list[BadRow]]:
             twice = (
                 f"operation {code} appears twice in this file — rows {seen[code]} and {row.line}"
             )
-            bad.append(BadRow(row.line, twice))
+            bad.append(BadRow(row.line, twice, row.date_iso, row.title, row.amount_cents))
             continue
         seen[code] = row.line
         kept.append(row)

@@ -59,7 +59,7 @@ bank import.
    title is dropped**; `description` is untouched.
 5. Operation codes are not written here. The first real import writes them (the engine's
    backfill on a `same_day` match), and its dry run is the check: every aligned row must read
-   `in ledger · … · +code`, none `new`.
+   `✓ Modified existing transaction` (its line gets the operation number), none `New`.
 
 ---
 

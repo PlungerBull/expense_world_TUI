@@ -13,10 +13,11 @@ the other in drop order, through three full screens:
 Every step is the shared code in expense/bank_import/flow.py: the read,
 the account folding, the `Prepared` rows, the one `POST /transactions/import`
 (contract: POST /v1/transactions/import) and the verdicts. What is here is
-only what the screens draw, from docs/mockups/expense-world-import-door.html
-and, for the rows that take the bank's title, the days where the file and the
-ledger disagree and a ledger line changed while the import ran,
-docs/mockups/expense-world-bank-lines-upload.html.
+only what the screens draw: the preview's table of the file's rows and the
+screen after importing from docs/mockups/expense-world-import-report.html, the
+days where the file and the ledger disagree and a ledger line changed while
+the import ran from docs/mockups/expense-world-bank-lines-upload.html, and the
+rest from docs/mockups/expense-world-import-door.html.
 
 The screens replace one another (`switch_screen`), so the stack is always
 `… → LOG bar → the current import screen`, and leaving any of them lands on
@@ -27,7 +28,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from rich.console import Group, RenderableType
-from rich.padding import Padding
 from rich.table import Table
 from rich.text import Text
 from textual import work
@@ -40,6 +40,8 @@ from expense import reads
 from expense.bank_import import flow
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
+    IN_LEDGER,
+    NEW,
     AnswerCounts,
     DayMismatch,
     IncompleteAnswer,
@@ -47,22 +49,22 @@ from expense.bank_import.engine import (
     SentRow,
     answer_counts,
     day_mismatches,
-    match_label,
     placements,
     row_index,
     row_refusals,
 )
 from expense.bank_import.flow import (
     AccountGroup,
+    FileLine,
     ImportRefused,
     Prepared,
     account_groups,
+    file_lines,
     import_counts,
     incomplete_sentence,
-    period_names,
     prepared_for,
     read_bank_file,
-    sealed_lines,
+    reconciliation_names,
 )
 from expense.bank_import.parse import BadRow, BankFormatError, BankRow
 from expense.errors import EngineError, engine_words, format_error
@@ -93,9 +95,9 @@ RERUN_KEY = "Preview again"
 
 #: Lines the preview spends on everything but its rows: the breadcrumb (4 with
 #: its padding and rule), the body's padding (2), the title and the blank under
-#: it, the table's header, the `… more` line, the blank and the summary under
-#: the table, and the footer. The notes under the summary are counted per
-#: screen.
+#: it, the table's header, the `… more` line, the blank and the counts' first
+#: line under the table, and the footer. The counts' second line and the notes
+#: under them are counted per screen.
 PREVIEW_CHROME = 13
 
 #: The fewest rows a page shows, however short the terminal.
@@ -403,55 +405,101 @@ class ImportAccountScreen(_ImportScreen):
 
 
 # ---------------------------------------------------------------------------
-# screen 3 (and 6 A) — the preview
+# screen 3 (and 6 A) — the preview, as expense-world-import-report.html 1 A
 # ---------------------------------------------------------------------------
-def match_cell(p: Placed, names: dict[str, str]) -> Text:
-    """The typed import's verdict; a new row stands out, the rest stay dim."""
-    label = match_label(p, names)
-    return Text(label, style=PALETTE.success if p.outcome == "new" else "dim")
+#: A cell of the file the parser could not read.
+UNREAD = "—"
 
 
-def preview_table(placed: list[Placed], names: dict[str, str]) -> Table:
-    """`#  date  title  amount  match`, numbered by the file's own line."""
+def mark_cell(line: FileLine) -> Text:
+    """✓ when the row is in the ledger after the import, ✗ when it is left out."""
+    if line.kept:
+        return Text("✓", style=PALETTE.success)
+    return Text("✗", style=f"bold {PALETTE.error}")
+
+
+def reason_cell(line: FileLine) -> Text:
+    """The reason alone: a new row stands out, a row already in the ledger
+    stays dim, a row left out takes the warning style."""
+    if not line.kept:
+        style = PALETTE.warning
+    elif line.reason == NEW:
+        style = PALETTE.success
+    elif line.reason == IN_LEDGER:
+        style = "dim"
+    else:
+        style = ""
+    return Text(line.reason, style=style)
+
+
+def preview_table(lines: list[FileLine]) -> Table:
+    """`#  date  title  amount  ✓  reason`, one row per line of the file,
+    numbered by its own line; the mark's column has no heading."""
     table = Table(box=None, pad_edge=False, expand=False, show_header=True)
-    for header in ("#", "date", "title", "amount", "match"):
+    for header in ("#", "date", "title", "amount", "", "reason"):
         table.add_column(
             Text(header, style="dim"),
             justify="right" if header in ("#", "amount") else "left",
             no_wrap=True,
             overflow="ellipsis",
         )
-    for p in placed:
-        row = p.sent.row
+    for line in lines:
+        amount = (
+            UNREAD
+            if line.amount_cents is None
+            else amount_cell(line.amount_cents, PALETTE, AMOUNT_RULE)
+        )
         table.add_row(
-            str(row.line),
-            row.date_iso,
-            row.title,
-            amount_cell(row.amount_cents, PALETTE, AMOUNT_RULE),
-            match_cell(p, names),
+            str(line.line),
+            line.date_iso or UNREAD,
+            line.title or UNREAD,
+            amount,
+            mark_cell(line),
+            reason_cell(line),
         )
     return table
 
 
-def preview_summary(prepared: Prepared, answer: AnswerCounts) -> Text:
-    """`14 rows · 9 new · 5 in the ledger · 2 take the bank's title`, then the
-    closed, pre-floor and refused counts when there are any. Every verdict's
-    count is the engine's own (`counts`); none is counted off the rows."""
+def counts_lines(prepared: Prepared, answer: AnswerCounts, *, done: bool) -> list[Text]:
+    """`14 rows · 9 new · 5 in the ledger · 1 moves to the bank's day · 2 take
+    the bank's title`, then, when there are any, `1 closed · 1 before 2026 · 1
+    unreadable` under it. `done` says it in the past tense, as the screen after
+    importing does. Every verdict's count is the engine's own (`counts`); none
+    is counted off the rows."""
     counts = import_counts(prepared, answer)
-    line = Text(f"{counts.total} {_plural(counts.total, 'row', 'rows')} · ")
-    line.append(f"{counts.new} new", style=PALETTE.success if counts.new else "")
-    line.append(f" · {counts.matched} in the ledger")
+    kept = Text(f"{counts.total} {_plural(counts.total, 'row', 'rows')} · ")
+    kept.append(f"{counts.new} new", style=PALETTE.success if counts.new else "")
+    kept.append(f" · {counts.matched} in the ledger")
+    if counts.redated:
+        verb = "moved" if done else _plural(counts.redated, "moves", "move")
+        kept.append(f" · {counts.redated} {verb} to the bank's day")
     if counts.retitled:
-        line.append(
-            f" · {counts.retitled} {_plural(counts.retitled, 'takes', 'take')} the bank's title"
-        )
+        verb = "took" if done else _plural(counts.retitled, "takes", "take")
+        kept.append(f" · {counts.retitled} {verb} the bank's title")
+    left: list[str] = []
     if counts.sealed:
-        line.append(f" · {counts.sealed} in a closed period")
+        left.append(f"{counts.sealed} closed")
     if counts.before_floor:
-        line.append(f" · {counts.before_floor} before {IMPORT_FLOOR.year}")
+        left.append(f"{counts.before_floor} before {IMPORT_FLOOR.year}")
     if counts.refused:
-        line.append(f" · {counts.refused} refused")
-    return line
+        left.append(f"{counts.refused} unreadable")
+    return [kept, Text(" · ".join(left))] if left else [kept]
+
+
+def counts_block(lines: list[Text]) -> RenderableType:
+    """The counts, the second line under the first count, not under `14 rows`."""
+    if len(lines) == 1:
+        return lines[0]
+    first = lines[0]
+    lead = first.plain.index(" · ") + 3
+    grid = Table.grid()
+    grid.add_column(no_wrap=True)
+    grid.add_column()
+    rest = first[lead:]
+    rest.append("\n")
+    rest.append_text(lines[1])
+    grid.add_row(first[:lead], rest)
+    return grid
 
 
 @dataclass(frozen=True)
@@ -535,39 +583,22 @@ def preview_days(days: list[DayMismatch], sent: list[SentRow], *, name_account: 
                 line.append("   ")
             line.append(f"{r.title.ljust(title_w)}  ")
             line.append_text(_amount(r.amount_cents, amount_w))
-            where = "in the file, not found" if r.sent else "in the ledger, not claimed"
+            where = "in the file, not found" if r.sent else "in the ledger, not in the file"
             line.append(f"   {where}", style="dim")
             lines.append(line)
     return lines
 
 
 def preview_notes(
-    prepared: Prepared,
-    placed: list[Placed],
-    counts: AnswerCounts,
-    days: list[DayMismatch],
-    names: dict[str, str],
-    names_error: str | None,
+    prepared: Prepared, days: list[DayMismatch], names_error: str | None
 ) -> list[Text]:
-    """Everything under the summary: the days where the file and the ledger
-    disagree, the closed period's rows, the rows under the floor, the refused
-    lines."""
+    """Everything under the counts: the days where the file and the ledger
+    disagree, and why a reconciliation that stops a move goes unnamed."""
     lines = preview_days(days, prepared.sent, name_account=len(prepared.group.legs) > 1)
-    lines.extend(Text(line, style=PALETTE.warning) for line in sealed_lines(placed, names, counts))
     if names_error:
         lines.append(
-            Text(f"! could not read the closed periods' names: {names_error}", style="dim")
+            Text(f"! could not read the reconciliations' names: {names_error}", style="dim")
         )
-    if prepared.before_floor:
-        n = len(prepared.before_floor)
-        lines.append(
-            Text(
-                f"{n} {_plural(n, 'row', 'rows')} dated before {IMPORT_FLOOR} not sent — "
-                "imports start there.",
-                style="dim",
-            )
-        )
-    lines.extend(Text(f"! row {b.line}: {b.reason}", style=PALETTE.error) for b in prepared.bad)
     return lines
 
 
@@ -647,10 +678,12 @@ class ImportPreviewScreen(_ImportScreen):
         super().__init__(run, owner)
         self._prepared = prepared
         self._placed: list[Placed] | None = None
+        #: Every line of the file, with its mark and its reason.
+        self._lines: list[FileLine] = []
         #: The engine's days that disagree and its counts, from the answer.
         self._mismatches: list[DayMismatch] = []
         self._counts: AnswerCounts | None = None
-        self._names: dict[str, str] = {}
+        #: Why the reconciliations that stop a move could not be named.
         self._names_error: str | None = None
         self._failure: list[Text] = []
         self._writing = False
@@ -700,12 +733,18 @@ class ImportPreviewScreen(_ImportScreen):
         if action == "page":
             delta = parameters[0] if parameters else 1
             if delta == 1:
-                return self._start + self._page_size() < len(self._placed or [])
+                return self._start + self._page_size() < len(self._lines)
             return self._start > 0
         return True
 
+    def _counts_lines(self) -> list[Text]:
+        if self._counts is None:
+            return []
+        return counts_lines(self._prepared, self._counts, done=False)
+
     def _page_size(self) -> int:
-        notes = len(self._notes()) + (1 if self._placed is not None and not self.new_count else 0)
+        notes = len(self._notes()) + max(0, len(self._counts_lines()) - 1)
+        notes += 1 if self._placed is not None and not self.new_count else 0
         return max(MIN_PAGE, self.size.height - PREVIEW_CHROME - notes)
 
     # ---- the engine ----------------------------------------------------------
@@ -725,30 +764,33 @@ class ImportPreviewScreen(_ImportScreen):
             placed = placements(response, prepared.sent)
             mismatches = day_mismatches(response, prepared.group.leg_names)
             counts = answer_counts(response)
-            names: dict[str, str] = {}
             names_error = None
             if dry_run:
-                names, names_error = period_names(cfg, placed, verbose=self.app._verbose)
+                # The one read the preview adds: the names of the
+                # reconciliations that stop a move to the bank's day.
+                names, names_error = reconciliation_names(cfg, placed, verbose=self.app._verbose)
+                lines = file_lines(prepared, placed, names)
         except Exception as err:  # every failure is shown, none swallowed
             self.app.call_from_thread(self._failed, err, not dry_run)
             return
         if dry_run:
             self.app.call_from_thread(
-                self._previewed, placed, mismatches, counts, names, names_error
+                self._previewed, placed, lines, mismatches, counts, names_error
             )
         else:
-            self.app.call_from_thread(self._applied, placed, mismatches, counts)
+            self.app.call_from_thread(self._applied, counts)
 
     def _previewed(
         self,
         placed: list[Placed],
+        lines: list[FileLine],
         mismatches: list[DayMismatch],
         counts: AnswerCounts,
-        names: dict[str, str],
         names_error: str | None,
     ) -> None:
-        self._placed, self._mismatches, self._counts = placed, mismatches, counts
-        self._names, self._names_error = names, names_error
+        self._placed, self._lines = placed, lines
+        self._mismatches, self._counts = mismatches, counts
+        self._names_error = names_error
         new = self.new_count
         if new:
             _relabel(self, "enter", f"Import {new} {_plural(new, 'row', 'rows')}")
@@ -762,22 +804,10 @@ class ImportPreviewScreen(_ImportScreen):
         self.refresh_bindings()
         self._repaint()
 
-    def _applied(
-        self, placed: list[Placed], mismatches: list[DayMismatch], counts: AnswerCounts
-    ) -> None:
+    def _applied(self, counts: AnswerCounts) -> None:
         self._writing = False
         self._run.imported += 1
-        self.app.switch_screen(
-            ImportResultScreen(
-                self._run,
-                self._owner,
-                self._prepared,
-                placed,
-                mismatches,
-                counts,
-                self._names,
-            )
-        )
+        self.app.switch_screen(ImportResultScreen(self._run, self._owner, self._prepared, counts))
 
     def _failed(self, err: Exception, applied: bool) -> None:
         self._writing = False
@@ -799,7 +829,7 @@ class ImportPreviewScreen(_ImportScreen):
             # so the file is checked again before anything is written.
             self._rerun = False
             self._failure = []
-            self._placed, self._mismatches, self._counts = None, [], None
+            self._placed, self._lines, self._mismatches, self._counts = None, [], [], None
             self._start = 0
             self.refresh_bindings()
             self._repaint()
@@ -816,7 +846,7 @@ class ImportPreviewScreen(_ImportScreen):
         self._ask(dry_run=False)
 
     def action_page(self, delta: int) -> None:
-        total = len(self._placed or [])
+        total = len(self._lines)
         size = self._page_size()
         if (delta > 0 and self._start + size >= total) or (delta < 0 and self._start == 0):
             return
@@ -834,14 +864,7 @@ class ImportPreviewScreen(_ImportScreen):
     def _notes(self) -> list[Text]:
         if self._placed is None or self._counts is None:
             return []
-        return preview_notes(
-            self._prepared,
-            self._placed,
-            self._counts,
-            self._mismatches,
-            self._names,
-            self._names_error,
-        )
+        return preview_notes(self._prepared, self._mismatches, self._names_error)
 
     def body(self) -> RenderableType:
         title = Text(f"Preview · {self._prepared.group.name} · ")
@@ -854,17 +877,17 @@ class ImportPreviewScreen(_ImportScreen):
                 parts.append(Text(ASKING, style="dim"))
             return Group(*parts)
 
-        placed = self._placed
+        lines = self._lines
         size = self._page_size()
-        window = placed[self._start : self._start + size]
-        parts.append(preview_table(window, self._names))
-        after = len(placed) - (self._start + len(window))
+        window = lines[self._start : self._start + size]
+        parts.append(preview_table(window))
+        after = len(lines) - (self._start + len(window))
         if after > 0:
             parts.append(Text(f"… {after} more · pgdn", style="dim"))
         elif self._start > 0:
             parts.append(Text(f"… {self._start} above · pgup", style="dim"))
         parts.append(Text(""))
-        parts.append(preview_summary(self._prepared, self._counts))
+        parts.append(counts_block(self._counts_lines()))
         parts.extend(hanging(t) for t in self._notes())
         if not self.new_count:
             parts.append(Text(NOTHING_NEW, style="dim"))
@@ -889,102 +912,33 @@ def hanging(line: Text) -> RenderableType:
 
 
 # ---------------------------------------------------------------------------
-# the result — the import door's screen 4 B, with the head lines and the days
-# of expense-world-bank-lines-upload.html screen 3 and its table B
+# the result — expense-world-import-report.html 3: its title line and the counts
 # ---------------------------------------------------------------------------
-def result_lines(group: AccountGroup, counts: AnswerCounts) -> list[Text]:
-    """`✓ 9 rows imported · Sueldo Soles`, `under @Pendiente and #Pendiente`,
-    and `2 rows in the ledger took the bank's title` when any did — the
-    engine's counts."""
+def result_head(group: AccountGroup, counts: AnswerCounts) -> Text:
+    """`✓ 9 rows imported · Sueldo Soles   new ones under @Pendiente and
+    #Pendiente` — the engine's `new`."""
     new = counts.new
-    head = Text(f"✓ {new} {_plural(new, 'row', 'rows')} imported", style=PALETTE.success)
-    head.append(f" · {group.name}", style="")
-    lines = [head, Text(f"  under {PENDING} and {PENDING_HASHTAG}", style="dim")]
-    if counts.retitled:
-        n = counts.retitled
-        lines.append(
-            Text(
-                f"  {n} {_plural(n, 'row', 'rows')} in the ledger took the bank's title",
-                style="dim",
-            )
-        )
-    return lines
-
-
-def result_days(
-    days: list[DayMismatch],
-    placed: list[Placed],
-    sent: list[SentRow],
-    names: dict[str, str],
-    *,
-    name_account: bool,
-) -> list[RenderableType]:
-    """The days the engine reports after the apply, as a table: one line per
-    row behind them, the bank's and the ledger's, with what the import did to
-    it. A file row is `added as new` (or what the engine did with it instead,
-    a sealed row naming its period from `names`, the names the preview read);
-    a ledger row no file row claimed is `left as it was` — the upload never
-    changes it. No day totals: the rows say it."""
-    if not days:
-        return []
-    n = len(days)
-    warning = Text(
-        f"! {n} {_plural(n, 'day', 'days')} where the ledger may now hold the same movement "
-        f"twice —\ncheck {_plural(n, 'it', 'them')} and delete the extra one",
-        style=PALETTE.warning,
-    )
-    outcomes = {p.sent.id: p for p in placed}
-    table = Table(box=None, pad_edge=False, expand=False, show_header=True)
-    for header in ("date", "title", "amount", "what the import did"):
-        table.add_column(
-            Text(header, style="dim"),
-            justify="right" if header == "amount" else "left",
-            no_wrap=True,
-            overflow="ellipsis",
-        )
-    for day in days:
-        when = day_label(day, name_account=name_account)
-        for r in flagged_rows(day, sent):
-            if r.sent is None:
-                did = Text.assemble("left as it was", (" · no file row for it", "dim"))
-            else:
-                p = outcomes.get(r.sent.id)
-                what = "added as new" if p is None or p.outcome == "new" else match_label(p, names)
-                did = Text.assemble(
-                    (what, ACCENT if what == "added as new" else ""),
-                    (f" · file row {r.sent.row.line}", "dim"),
-                )
-            table.add_row(when, r.title, _amount(r.amount_cents), did)
-    return [hanging(warning), Text(""), Padding(table, (0, 0, 0, 2))]
+    head = Text("✓ ", style=PALETTE.success)
+    head.append(f"{new} {_plural(new, 'row', 'rows')} imported", style="bold")
+    head.append(f" · {group.name}")
+    head.append(f"   new ones under {PENDING} and {PENDING_HASHTAG}", style="dim")
+    return head
 
 
 class ImportResultScreen(_ImportScreen):
-    """What the apply wrote. `⏎` opens the next file's account list, or goes
-    Home after the last; `esc` returns to the LOG bar."""
+    """What the apply wrote: its title line and the engine's counts, in the
+    past tense. `⏎` opens the next file's account list, or goes Home after the
+    last; `esc` returns to the LOG bar."""
 
     BINDINGS = [
         Binding("escape", "back", "Back"),
         Binding("enter", "next", "Home"),
     ]
 
-    def __init__(
-        self,
-        run: ImportRun,
-        owner,
-        prepared: Prepared,
-        placed: list[Placed],
-        mismatches: list[DayMismatch],
-        counts: AnswerCounts,
-        names: dict[str, str],
-    ) -> None:
+    def __init__(self, run: ImportRun, owner, prepared: Prepared, counts: AnswerCounts) -> None:
         super().__init__(run, owner)
         self._prepared = prepared
-        #: reconciliation id → name, as the preview read them: a sealed row
-        #: names its period.
-        self._names = names
-        self._placed = placed
-        #: The engine's days that disagree after the apply, and its counts.
-        self._mismatches = mismatches
+        #: The engine's counts of the apply.
         self._counts = counts
 
     def on_mount(self) -> None:
@@ -993,18 +947,11 @@ class ImportResultScreen(_ImportScreen):
         super().on_mount()
 
     def body(self) -> RenderableType:
-        group = self._prepared.group
-        parts: list[RenderableType] = [hanging(t) for t in result_lines(group, self._counts)]
-        parts.extend(
-            result_days(
-                self._mismatches,
-                self._placed,
-                self._prepared.sent,
-                self._names,
-                name_account=len(group.legs) > 1,
-            )
+        return Group(
+            result_head(self._prepared.group, self._counts),
+            Text(""),
+            counts_block(counts_lines(self._prepared, self._counts, done=True)),
         )
-        return Group(*parts)
 
     def action_next(self) -> None:
         if self._run.has_next:

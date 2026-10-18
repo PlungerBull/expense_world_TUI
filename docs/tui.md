@@ -430,8 +430,10 @@ still open; `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
-[expense-world-import-door.html](mockups/expense-world-import-door.html), and for the rows that
-take the bank's title, the days that disagree and a row changed while the import ran in
+[expense-world-import-door.html](mockups/expense-world-import-door.html), the preview's table
+of the file's rows and the screen after importing in
+[expense-world-import-report.html](mockups/expense-world-import-report.html), and the days that
+disagree and a row changed while the import ran in
 [expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html)). `↵` on the LOG
 bar's dropped files (§4 "A dropped bank file") reads every file at once, before any screen
 opens, through `read_bank_file` in [flow.py](../expense/bank_import/flow.py)
@@ -446,12 +448,41 @@ three full screens that replace one another above the LOG bar:
 | Screen | Shows | Keys |
 |---|---|---|
 | **Which account is this file?** | the file's `14 movements · 2026-09-02 → 2026-09-15 · PEN` dim beside the question; every live, non-person account, a card's two currency legs folded into one line (`BCP Signature   PEN + USD`) — `account_groups` in [flow.py](../expense/bank_import/flow.py), archived accounts left out. Asked every time; nothing is remembered | `↑↓` move, `⏎ Pick`, `esc Cancel` |
-| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import): `#  date  title  amount  match`, numbered by the file's own line, the verdicts (`new`, `in ledger · operation`, `in ledger · same day`, either with ` · +code` when the apply writes the file's code onto the line and ` · +title` when the line takes the bank's title (the engine's `retitled`), `closed · <period>`); `… N more · pgdn` when the rows outrun the screen; then `14 rows · 9 new · 5 in the ledger · 2 take the bank's title` (the title, closed, pre-2026 and refused counts when there are any), the days where the file and the ledger disagree (below), the closed-period, pre-floor and refused-line notes | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
-| **✓ 9 rows imported · <account>** | `under @Pendiente and #Pendiente` dim, `2 rows in the ledger took the bank's title` dim when any did, then the days the apply reports as a table (below) | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
+| **Preview · <account> · nothing written yet** | the engine's dry run (contract: POST /v1/transactions/import) as one table of the file's lines, `#  date  title  amount  ✓  reason` (the mark's column has no heading), one row per line numbered by the file's own line, the lines under the floor and the ones the parser could not read included (a cell it could not read shows `—`); each row's mark and reason (below); `… N more · pgdn` when the rows outrun the screen; then the counts (below), and under them the days where the file and the ledger disagree (below) | `⏎ Import 9 rows` (with nothing new: below), `pgdn`/`pgup` (hinted in the body, not the footer), `esc Cancel` |
+| **✓ 9 rows imported · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line, then the counts in the past tense (below): no table and no days | `⏎ Home` (`⏎ Next file` while a file follows), `esc Back` |
 
-Every count on the summary and the result, and the count in `⏎ Import N rows`, is the
-engine's `counts` (`new`, `matched`, `sealed`, `retitled`); the app counts only the file's own
-lines (the total, the pre-2026 and the refused ones), never the answer's rows.
+**Each row's mark and reason.** `✓` (success colour) means the row is in the ledger after the
+import, `✗` (error colour, bold) that it is left out. The reason stands alone on the row, from
+`row_reason` in [engine.py](../expense/bank_import/engine.py) and `file_lines` in
+[flow.py](../expense/bank_import/flow.py):
+
+| Mark | Reason | When |
+|---|---|---|
+| ✓ | `New` (success colour) | the engine's `new`: created on `⏎` |
+| ✓ | `Already in the ledger` (dim) | `matched`, and the apply writes nothing onto its line |
+| ✓ | `Modified existing transaction` | `matched`, and the apply writes the file's operation number onto the line (`backfill_code`), the bank's title (`retitled`), or moves the line to the bank's day (`redated`) |
+| ✗ | `Not modified: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
+| ✗ | `Closed period` | the engine's `sealed`: inside a closed period, never created |
+| ✗ | `Before 2026` | dated before 2026-01-01: never sent |
+| ✗ | `Couldn't read the row` | a line the parser refused: never sent |
+
+Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
+reconciliation's id only, and the engine lists reconciliations one account at a time with no
+read by id (contract: GET /v1/reconciliations), so the preview's worker reads each such row's
+account's list once (`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)),
+never while drawing. When that read fails, the row reads `Not modified: a reconciliation is
+reconciled` and a dim `! could not read the reconciliations' names: <why>` sits under the
+counts.
+
+**The counts** under the table: `14 rows · 5 new · 6 in the ledger · 1 moves to the bank's day ·
+1 takes the bank's title`, the moved and title counts only when not zero; then, on a line of
+its own under the first count, `1 closed · 1 before 2026 · 1 unreadable`, each only when not
+zero, the line only when one is. After importing they read in the past tense: `1 moved to the
+bank's day`, `1 took the bank's title`.
+
+Every count on the preview and the result, and the count in `⏎ Import N rows`, is the
+engine's `counts` (`new`, `matched`, `sealed`, `retitled`, `redated`); the app counts only the
+file's own lines (the total, the pre-2026 and the unreadable ones), never the answer's rows.
 
 **The days where the file and the ledger disagree** are the engine's `day_mismatches`: a day is
 reported when its file total and its ledger total after the import differ, or when it holds a
@@ -459,32 +490,26 @@ ledger line no file row claimed, so a day with equal totals can be one
 (contract: POST /v1/transactions/import). Each names the file rows it found in no ledger line
 (`unmatched_rows`, by the index each row was sent under) and the ledger lines no file row
 claimed (`unclaimed_lines`: a `bank_line_id`, a signed `net_cents` and its `parts`, the whole
-transaction responses, a split transaction being one entry with every part). The screens take
+transaction responses, a split transaction being one entry with every part). The preview takes
 them as they come, in `day_mismatches` in [engine.py](../expense/bank_import/engine.py), and
 read no transaction to fill them. Each part is its own row, the transaction's title and the
 part's own amount: the parts arrive with `amount_cents` positive and the direction in
 `transaction_type`, and `signed_cents` in [formatting.py](../expense/formatting.py) signs them;
 nothing adds parts up, and every total is the engine's.
 
-- **On the preview** (screen 2 B), under the summary: `! 3 days where the file and the ledger
-  disagree`, then each day as `2026-09-12   file -42.90 · ledger after import -84.90`, and
-  under it its rows: a file row as `row 4   FARMACIA CENTRAL  -42.90   in the file, not
-  found`, a ledger part as `Farmacia  -42.00   in the ledger, not claimed`. It is a report
-  only: nothing on it changes what `⏎` writes.
-- **On the result** (screen 3 with table B): `! 3 days where the ledger may now hold the same
-  movement twice — check them and delete the extra one`, then a table `date  title  amount
-  what the import did`, one line per row behind the days, the file's first: `added as new ·
-  file row 4` for a file row (`closed · <period> · file row 4` for one inside a closed period,
-  named as the preview read it), `left as it was · no file row for it` for a ledger part. No
-  day totals.
-- **On a card file**, whose two currencies are two accounts, each day names its account:
-  `2026-09-12 · BCP Signature USD`, on the preview's day lines and in the result's `date`
-  column.
+They show **on the preview only**, under the counts: `! 3 days where the file and the ledger
+disagree`, then each day as `2026-09-12   file -42.90 · ledger after import -84.90`, and under
+it its rows: a file row as `row 4   FARMACIA CENTRAL  -42.90   in the file, not found`, a
+ledger part as `Farmacia  -42.00   in the ledger, not in the file`. It is a report only: nothing on
+it changes what `⏎` writes. On a card file, whose two currencies are two accounts, each day
+names its account: `2026-09-12 · BCP Signature USD`. A line the import moves to the bank's day
+counts on that day, so the move leaves no day disagreeing
+(contract: POST /v1/transactions/import). The screen after importing shows no days.
 
 The upload does nothing to a ledger row no file row claimed: it removes nothing and asks
 nothing. Such a row stays out of that month's reconciliation, where it is deleted.
 
-A preview with nothing new keeps the table and the summary and adds dim `nothing to import`.
+A preview with nothing new keeps the table and the counts and adds dim `nothing to import`.
 On the last (or only) file `⏎` does nothing and the footer is `esc Back`. With a file still
 to come the footer is `esc Cancel both` / `esc Cancel all` (below) and `⏎ Next file`, and
 `⏎` opens the next file's account list, writing nothing. `⏎` on a preview with new rows

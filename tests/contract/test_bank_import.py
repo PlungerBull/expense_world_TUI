@@ -16,7 +16,13 @@ so what the preview and the apply say is the engine's word. Pinned here:
   · a day whose totals agree is still reported when it holds a line no file
     row claimed;
   · a row not in the ledger, dated inside a completed period, is `sealed` and
-    names the period: never written, never an error.
+    names the period: never written, never an error;
+  · a row matched by `operation_code` on another day moves its line, every
+    part, to the bank's day: `redated`, counted in `counts.redated`, said on
+    the dry run and done by the apply;
+  · a completed reconciliation the line is in stops that move: the row is
+    still `matched`, `redate_blocked_by` names the reconciliation, the line
+    keeps its day, and the file's other rows are written.
 
 Each test builds its own account. Gating, target and the real-ledger guard:
 conftest.py.
@@ -252,4 +258,111 @@ def test_a_row_inside_a_completed_period_comes_back_sealed(client):
         _safe(client.post, f"/reconciliations/{period}/revert")
         _safe(client.delete, f"/reconciliations/{period}")
         _safe(client.delete, f"/transactions/{anchor}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def _day_of(client, zone: ZoneInfo, tx_id: str):
+    """The calendar day of a transaction's `date` in `display_timezone`."""
+    return datetime.fromisoformat(client.get(f"/transactions/{tx_id}")["date"]).astimezone(zone)
+
+
+def test_a_code_matched_line_moves_every_part_to_the_banks_day(client):
+    zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
+    account = _make_account(client)
+    code = f"OP-{uuid4().hex[:10]}"
+    whole = str(uuid4())
+    parts = [{"id": str(uuid4()), "amount_cents": a} for a in (-1590, -1000)]
+    written = [whole, *(p["id"] for p in parts)]
+    try:
+        client.post(
+            "/transactions",
+            json_body={
+                "id": whole,
+                "amount_cents": -2590,
+                "account_id": account,
+                "operation_code": code,
+                "date": datetime(2026, 3, 3, 12, tzinfo=zone).isoformat(timespec="seconds"),
+            },
+        )
+        client.post(f"/transactions/{whole}/split", json_body={"parts": parts})
+
+        row = _row(account, "2026-03-04", code)
+        dry = client.post("/transactions/import", json_body={"dry_run": True, "rows": [row]})
+        (only,) = dry["rows"]
+        assert only["outcome"] == "matched" and only["rule"] == "operation_code"
+        assert only["redated"] is True
+        assert only["redate_blocked_by"] is None
+        assert dry["counts"]["redated"] == 1
+        # a moved line counts on the bank's day: nothing disagrees
+        assert dry["day_mismatches"] == []
+        assert {_day_of(client, zone, p["id"]).date().isoformat() for p in parts} == {"2026-03-03"}
+
+        applied = client.post("/transactions/import", json_body={"dry_run": False, "rows": [row]})
+        (only,) = applied["rows"]
+        assert only["outcome"] == "matched"
+        assert only["redated"] is True and only["redate_blocked_by"] is None
+        assert applied["counts"]["redated"] == 1
+        for p in parts:
+            moved = _day_of(client, zone, p["id"])
+            assert moved.date().isoformat() == "2026-03-04"
+            assert (moved.hour, moved.minute) == (0, 0)  # 00:00, as a created row is dated
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_completed_reconciliation_stops_the_move_and_the_rest_imports(client):
+    zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
+    account = _make_account(client)
+    code = f"OP-{uuid4().hex[:10]}"
+    reconciled = str(uuid4())
+    period = str(uuid4())
+    other = _row(account, "2026-03-03", "")
+    del other["operation_code"]
+    other["amount_cents"] = -1000
+    try:
+        client.post(
+            "/transactions",
+            json_body={
+                "id": reconciled,
+                "amount_cents": -2590,
+                "account_id": account,
+                "operation_code": code,
+                "date": datetime(2026, 2, 27, 12, tzinfo=zone).isoformat(timespec="seconds"),
+            },
+        )
+        client.post(
+            "/reconciliations",
+            json_body={
+                "id": period,
+                "account_id": account,
+                "name": f"contract-import-{period[:8]}",
+                "date_start": "2026-02-01",
+                "date_end": "2026-02-28",
+                "beginning_balance_cents": 0,
+                "ending_balance_cents": -2590,
+            },
+        )
+        client.put(f"/transactions/{reconciled}", json_body={"reconciliation_id": period})
+        client.post(f"/reconciliations/{period}/complete")
+
+        rows = [_row(account, "2026-03-02", code), other]
+        for dry_run in (True, False):
+            body = client.post("/transactions/import", json_body={"dry_run": dry_run, "rows": rows})
+            stopped, new = body["rows"]
+            assert stopped["outcome"] == "matched" and stopped["rule"] == "operation_code"
+            assert stopped["redated"] is False
+            assert stopped["redate_blocked_by"] == period
+            assert new["outcome"] == "new"
+            assert body["counts"]["redated"] == 0
+            assert _day_of(client, zone, reconciled).date().isoformat() == "2026-02-27"
+        # the stopped move is not an error: the file's other row is written
+        assert _count(client, account) == 2
+        assert client.get(f"/transactions/{other['id']}")["amount_cents"] == 1000
+    finally:
+        _safe(client.post, f"/reconciliations/{period}/revert")
+        _safe(client.delete, f"/reconciliations/{period}")
+        for tx_id in (reconciled, other["id"]):
+            _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/accounts/{account}")
