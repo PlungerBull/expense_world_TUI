@@ -27,19 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the tasks of the next catch-up spec
-Asked 2026-10-17 · Blocks: [specs/bank-lines-whole.md](specs/bank-lines-whole.md)
-
-The engine's file up to contract `7ff6a09d863d6e44` is now the draft spec
-[specs/bank-lines-whole.md](specs/bank-lines-whole.md): a purchase is read, reconciled and
-deleted whole, and the ledger stays one row per part. Its four tasks wait for your approval; two
-start with a mockup (the reconciliation screen listing purchases, and `d` deleting a purchase).
-- **A.** Approve the tasks as written.
-- **B.** Change them first (say how).
-
-**Recommended:** A, because each task follows your picks of 2026-10-17 and the engine's own
-list of what this client does.
-
 ### The split screen's undrawn moments
 Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
 
@@ -81,8 +68,8 @@ is already caught by the days that disagree.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up with purchases read, reconciled and deleted whole.** Spec (draft, waiting for
-  approval): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
+- **Catch up with purchases read, reconciled and deleted whole.** Spec (approved,
+  the loop runs on it): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
 - **The split screen keeps copies of shared code.** `part_index` in
   [split.py](../expense/tui/screens/split.py) repeats `row_index` of
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is

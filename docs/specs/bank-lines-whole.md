@@ -1,6 +1,6 @@
 # Catch up with purchases read, reconciled and deleted whole
 
-**Status: draft, for the owner's approval (2026-10-17).**
+**Status: approved by the owner (2026-10-17); the loop runs on it.**
 **Catches up to contract `7ff6a09d863d6e44`:** every contract change after `890453f80a08cec9`.
 It holds the engine's hand-off "A bank line is read, reconciled, deleted and listed whole; the
 import's mismatched days show what each unclaimed line is; system rows keep their names", whose
@@ -72,8 +72,8 @@ rule, and serves `ce4e5cb642e53fdb` until then.
 
 ## Tasks
 
-Draft, for the owner's approval. Each **[UI]** task starts with its mockup; the build waits for
-the owner's pick.
+Approved by the owner (2026-10-17). Each **[UI]** task starts with its mockup; the build waits
+for the owner's pick.
 
 1. Read contract `7ff6a09d863d6e44`. Test fixtures follow `GET /bank-lines/{id}` with `parts` in
    place of `transaction_ids`, and the fixture check is clean (including the `grid` key it
@@ -85,7 +85,10 @@ the owner's pick.
    line, cursor binding), and reconciling one part assigning the whole line.
 2. **[UI]** The reconciliation screen lists purchases from `GET /bank-lines` and its count, one
    row per purchase with its total; ticking sends one `PUT` with `reconciliation_id` on any one
-   part, unticking sends `null`, and the screen re-reads what it shows after each tick.
+   part, unticking sends `null`, and the screen re-reads what it shows after each tick. Every
+   reconciliation list shows a purchase this way (a draft month, a completed month, the "no
+   batch" list); the row carries the total and a part count, and the parts are not listed there
+   (owner, 2026-10-17).
 3. **[UI]** `d` on a part of a split purchase, from the ledger and the reconciliation screen:
    one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
    `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The
