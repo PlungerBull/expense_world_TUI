@@ -478,12 +478,13 @@ import, `✗` (error colour, bold) that it is left out. The reason stands alone 
 | ✗ | `Couldn't read the row` | a line the parser refused: never sent |
 
 Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
-reconciliation's id only, and the engine lists reconciliations one account at a time with no
-read by id (contract: GET /v1/reconciliations), so the preview's worker reads each such row's
-account's list once (`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)),
-never while drawing. When that read fails, the row reads `Not moved: a reconciliation is
-reconciled` and a dim `! could not read the reconciliations' names: <why>` sits under the
-counts.
+reconciliation's id only, so the preview's worker reads each distinct one once by its id
+(`reconciliation_names` in [flow.py](../expense/bank_import/flow.py)), never the account's list
+and never while drawing
+(contract: GET /v1/reconciliations/{reconciliation_id}).
+When a read fails, its rows read `Not moved: a reconciliation is reconciled`, the other ids are
+still read, and a dim `! could not read the reconciliations' names: <why>` sits under the
+counts with the first failure's reason.
 
 **The counts** under the table: `14 rows · 5 new · 6 in the ledger · 1 moves to the bank's day ·
 1 takes the bank's title`, the moved and title counts only when not zero; then, on a line of

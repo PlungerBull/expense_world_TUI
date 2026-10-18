@@ -261,13 +261,13 @@ def row_reason(p: Placed, names: dict[str, str]) -> tuple[bool, str]:
     return True, IN_LEDGER
 
 
-def blocked_accounts(placed: list[Placed]) -> list[str]:
-    """The leg accounts with a row whose move a reconciliation stops, whose
-    reconciliations need naming."""
+def blocking_reconciliations(placed: list[Placed]) -> list[str]:
+    """The distinct ids of the reconciliations that stop a row's move to the
+    bank's day, in the rows' order: the ones that need naming."""
     seen: list[str] = []
     for p in placed:
-        if p.redate_blocked_by and p.sent.account_id not in seen:
-            seen.append(p.sent.account_id)
+        if p.redate_blocked_by and p.redate_blocked_by not in seen:
+            seen.append(p.redate_blocked_by)
     return seen
 
 

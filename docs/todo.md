@@ -124,6 +124,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
   line 104) has a two-field version. One shared copy, with tests.
+- **The reconciliation detail's `r` reads the account's whole list to refresh one record.**
+  The engine reads one reconciliation by its id (contract: GET /v1/reconciliations/{reconciliation_id});
+  `r` should read it that way and treat a `404` as gone. Its comment and the docstring of
+  `test_r_refreshes_record_from_its_account_list_and_never_writes` still say there is no read by
+  id ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 1077,
+  [test_tui_reconcile_detail.py](../tests/unit/test_tui_reconcile_detail.py) line 1074). The
+  lifecycle contract test's docstring says the state machine follows the read by id; the next
+  test is `test_a_period_refuses_any_datetime`
+  ([test_reconciliations_lifecycle.py](../tests/contract/test_reconciliations_lifecycle.py)).
 - **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
   [tests/contract/](../tests/contract/) each define their own; one copy belongs in
   [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.

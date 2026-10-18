@@ -21,8 +21,9 @@ so what the preview and the apply say is the engine's word. Pinned here:
     part, to the bank's day: `redated`, counted in `counts.redated`, said on
     the dry run and done by the apply;
   · a completed reconciliation the line is in stops that move: the row is
-    still `matched`, `redate_blocked_by` names the reconciliation, the line
-    keeps its day, and the file's other rows are written.
+    still `matched`, `redate_blocked_by` names the reconciliation, whose read
+    by its id gives the name the preview shows, the line keeps its day, and
+    the file's other rows are written.
 
 Each test builds its own account. Gating, target and the real-ledger guard:
 conftest.py.
@@ -354,6 +355,9 @@ def test_a_completed_reconciliation_stops_the_move_and_the_rest_imports(client):
             assert stopped["outcome"] == "matched" and stopped["rule"] == "operation_code"
             assert stopped["redated"] is False
             assert stopped["redate_blocked_by"] == period
+            # the preview's name for it (contract: GET /v1/reconciliations/{reconciliation_id})
+            named = client.get(f"/reconciliations/{stopped['redate_blocked_by']}")
+            assert named["name"] == f"contract-import-{period[:8]}"
             assert new["outcome"] == "new"
             assert body["counts"]["redated"] == 0
             assert _day_of(client, zone, reconciled).date().isoformat() == "2026-02-27"

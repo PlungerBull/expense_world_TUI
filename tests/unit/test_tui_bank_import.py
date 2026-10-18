@@ -855,24 +855,29 @@ EVERY_REASON_COUNTS = {
 }
 
 
+RECONCILIATIONS = {
+    "r-aug": {"id": "r-aug", "name": "Agosto 2026"},
+    "r-sep": {"id": "r-sep", "name": "Septiembre 2026"},
+}
+
+
 def _reconciliations(monkeypatch, answer=None) -> list:
-    """`GET /reconciliations`, recorded: each call's account, answered with
-    `answer` (an exception is raised)."""
+    """`GET /reconciliations/{id}`, recorded: each call's id, answered from
+    RECONCILIATIONS, or `answer` raised when it is an exception. The account's
+    list is never read: a read of it fails the test."""
     asked: list = []
 
-    def fetch(cfg, *, account_id, verbose=False):
-        asked.append(account_id)
+    def fetch(cfg, reconciliation_id, *, verbose=False):
+        asked.append(reconciliation_id)
         if isinstance(answer, Exception):
             raise answer
-        return whole(
-            answer
-            or [
-                {"id": "r-aug", "name": "Agosto 2026"},
-                {"id": "r-sep", "name": "Septiembre 2026"},
-            ]
-        )
+        return RECONCILIATIONS[reconciliation_id]
 
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", fetch)
+    def listed(*a, **k):
+        raise AssertionError("the account's reconciliation list is read")
+
+    monkeypatch.setattr("expense.reads.fetch_reconciliation", fetch)
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", listed)
     return asked
 
 
@@ -880,8 +885,8 @@ def test_every_row_of_the_file_shows_its_mark_and_its_reason(fake_client, monkey
     """expense-world-import-report.html 1 A: one table of the file's lines,
     numbered by the file's own line, the line under the floor and the
     unreadable one included, each with ✓ or ✗ and its reason alone. A move a
-    completed reconciliation stops names that reconciliation, read once by the
-    worker for the row's account; the counts add the engine's moved count,
+    completed reconciliation stops names that reconciliation, read once by its
+    id in the worker; the counts add the engine's moved count,
     and the closed, pre-2026 and unreadable counts go on a line of their own."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
@@ -926,12 +931,12 @@ def test_every_row_of_the_file_shows_its_mark_and_its_reason(fake_client, monkey
         # the old notes are gone: no closed-period block, no floor or refused-line note
         body = _body(preview)
         assert "never go" not in body and "not sent" not in body and "! row" not in body
-        # the reconciliation is named by one read, in the worker, for the row's account
-        assert asked == ["bcp-pen"]
+        # the reconciliation is named by one read of it by its id, in the worker
+        assert asked == ["r-sep"]
         preview._repaint()
         await pilot.resize_terminal(130, 40)
         await pilot.pause()
-        assert asked == ["bcp-pen"]  # drawing the screen again reads nothing
+        assert asked == ["r-sep"]  # drawing the screen again reads nothing
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 1 row"}
 
     run_app(scenario, size=(120, 40))
@@ -992,7 +997,7 @@ def test_a_reconciliation_that_cannot_be_read_leaves_the_move_unnamed(
         assert any(
             line.startswith("! could not read the reconciliations' names:") for line in lines
         )
-        assert asked == ["sig-pen"]
+        assert asked == ["r-sep"]
         assert _shown(preview) == {"escape": "Cancel", "enter": "Import 3 rows"}
 
     run_app(scenario, size=(120, 40))

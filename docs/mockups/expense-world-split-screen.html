@@ -186,6 +186,50 @@
 
  <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split</pre></div></div><p class="cap"><code>⏎</code> keeps it and goes back to the table; <code>esc</code> goes back without it.</p></div></div></div>
 
+<div class="pane"><div class="lbl">5 · ⏎ on an empty title <span>— refused, as on the Edit form</span></div>
+<p class="blurb">The title field is emptied and <code>⏎</code> pressed. The same note the Edit form gives pops up at the bottom right, the field stays open, and the line above the table keeps the title it had. A split never removes a title.</p>
+<div class="opt"><div class="var"><div class="oh">5 · <span>an emptied title</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="sel">▌TITLE      Tottus Jockey Plaza</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+     2  <span class="n"> -40.00</span>    HOGAR          —               lejía
+   <span class="d">  +  add a part</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+   <span class="b">TITLE</span> <span class="d">· changes it on every part</span>
+   <span class="a">▌</span> <span class="sel">TITLE</span>     ▍
+                                                         <span class="n">┃ Title is required.         </span>
+
+ <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split</pre></div></div><p class="cap">Type a title and <code>⏎</code>, or <code>esc</code> to keep <b>Tottus Jockey Plaza</b>.</p></div></div></div>
+
+<div class="pane"><div class="lbl">6 · ^s with a new title on a reconciled transaction <span>— the engine refuses</span></div>
+<p class="blurb">The transaction is in a completed reconciliation: it may be split, but its title cannot change. The engine's refusal shows under the parts like any other refusal, with any part's refusal from the same answer, and nothing is split. Changing the title back to <b>Tottus Jockey Plaza</b> and pressing <code>^s</code> again splits it.</p>
+<div class="opt"><div class="var"><div class="oh">6 · <span>a locked title</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="d"> </span>TITLE      Tottus — semana
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+     2  <span class="n"> -40.00</span>    HOGAR          —               lejía
+   <span class="sel">▌ +  add a part</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+   <span class="n">VALIDATION_ERROR — (the engine's words)</span>
+   <span class="n">! title: (the engine's words: the title is locked by a completed reconciliation)</span>
+   <span class="d">Nothing was split.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The words are the engine's, shown whole; the drawing stands in for them. The refusal stays until a part or the title changes.</p></div></div></div>
+
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;

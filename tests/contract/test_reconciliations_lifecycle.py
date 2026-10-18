@@ -99,10 +99,9 @@ def _make_reconciliation(client, account_id: str) -> str:
 def test_reconciliations_lifecycle(client):
     """create → list → update → delete, ending on "deleted is deleted":
     the row leaves its account's list and the old
-    restore route is a 404. There is no get: the engine has no by-id read,
-    and its path answers 405 because PUT and DELETE still live
-    there. An account's list comes back whole, so absence from it is proof.
-    The state machine is the next test."""
+    restore route is a 404. An account's list comes back whole, so absence
+    from it is proof. The read by id is the next test; the state machine
+    follows it."""
     account_id = _make_account(client)
     recon_id = str(uuid4())
     name = f"contract-recon-{recon_id[:8]}"
@@ -147,12 +146,13 @@ def test_reconciliations_lifecycle(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
-def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
-    """The two reads the app does not make. Without an
-    account the list is a 422 naming `account_id`; one account's list comes
-    back as `{items}` alone, with no paging keys; a GET on one reconciliation
-    is a 405. The browse screen and the working screen's refresh are both
-    built on these three facts."""
+def test_the_list_is_one_account_whole_and_one_reads_by_its_id(client):
+    """Without an account the list is a 422 naming `account_id`; one
+    account's list comes back as `{items}` alone, with no paging keys. One
+    reconciliation read by its id is exactly its item in that list, and a
+    deleted one is a 404 (contract: GET /v1/reconciliations/{reconciliation_id}).
+    The browse screen and the working screen's refresh are built on the list;
+    the bank import's preview names a reconciliation from the read by id."""
     account_id = _make_account(client)
     recon_id = _make_reconciliation(client, account_id)
     try:
@@ -165,9 +165,15 @@ def test_the_list_is_one_account_whole_and_there_is_no_read_by_id(client):
         assert set(listed) == {"items"}
         assert [item["id"] for item in listed["items"]] == [recon_id]
 
+        one = client.get(f"/reconciliations/{recon_id}")
+        assert one == listed["items"][0]
+        assert one["name"] == f"contract-recon-{recon_id[:8]}"
+
+        client.delete(f"/reconciliations/{recon_id}")
         with pytest.raises(EngineError) as excinfo:
             client.get(f"/reconciliations/{recon_id}")
-        assert excinfo.value.status == 405
+        assert excinfo.value.status == 404
+        assert excinfo.value.code == "NOT_FOUND"
     finally:
         _safe_delete(client, f"/reconciliations/{recon_id}")
         _safe_delete(client, f"/accounts/{account_id}")

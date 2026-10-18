@@ -401,14 +401,28 @@ def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dic
     a time: the
     account is required, the list comes back whole as `{items}` — no `limit`,
     no `offset`, no `total` — sorted `date_start` ascending, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"). There is no read
-    by id; a row not in its account's list has been deleted.
+    oldest first (contract: "Reconciliations", "Ordering"). A row not in its
+    account's list has been deleted.
     """
     return fetch_body(
         cfg,
         path="/reconciliations",
         params=query_params(account_id=account_id),
         verbose=verbose,
+    )
+
+
+def fetch_reconciliation(cfg, reconciliation_id: str, *, verbose: bool = False) -> dict:
+    """GET /v1/reconciliations/{reconciliation_id} → the raw engine body.
+
+    One reconciliation, the same fields and values as its item in its
+    account's list; a deleted one, or an id that names none of the user's, is
+    a 404 (contract: GET /v1/reconciliations/{reconciliation_id}). Read by the
+    bank import's preview, to name a reconciliation an import row knows by
+    its id only.
+    """
+    return fetch_body(
+        cfg, path=f"/reconciliations/{reconciliation_id}", params=None, verbose=verbose
     )
 
 

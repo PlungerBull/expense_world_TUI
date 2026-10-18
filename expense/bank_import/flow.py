@@ -18,7 +18,7 @@ from expense.bank_import.engine import (
     IncompleteAnswer,
     Placed,
     SentRow,
-    blocked_accounts,
+    blocking_reconciliations,
     request_body,
     row_reason,
     sent_rows,
@@ -28,7 +28,6 @@ from expense.bank_import.parse import SHEET_NAME, BadRow, BankFormatError, BankR
 from expense.currencies import SUPPORTED_CURRENCIES
 from expense.errors import EngineConnectionError, EngineError, format_error
 from expense.import_.reader import ImportFileError, read_workbook
-from expense.reads import items_of
 
 
 @dataclass(frozen=True)
@@ -200,23 +199,22 @@ def import_call(client, prepared: Prepared, *, dry_run: bool) -> dict:
 def reconciliation_names(
     cfg, placed: list[Placed], *, verbose: bool
 ) -> tuple[dict[str, str], str | None]:
-    """reconciliation id → name, for the legs with a row whose move to the
-    bank's day a completed reconciliation stops (the response carries its id
-    only). The engine reads reconciliations one account at a time and has no
-    read by id (contract: GET /v1/reconciliations), so each such leg's list is
-    read once. A failed read never hides what the import does: the rows still
-    show, the reconciliation unnamed, and the reason is returned for one line
-    under the table."""
+    """reconciliation id → name, for the reconciliations that stop a row's
+    move to the bank's day (the response carries their id only). Each distinct
+    id is read once, by its id (contract: GET /v1/reconciliations/{reconciliation_id}).
+    A failed read never hides what the import does: its rows still show, the
+    reconciliation unnamed, the other ids are still read, and the first
+    failure's reason is returned for one line under the table."""
     names: dict[str, str] = {}
-    for account_id in blocked_accounts(placed):
+    failure: str | None = None
+    for reconciliation_id in blocking_reconciliations(placed):
         try:
-            body = reads.fetch_reconciliations(cfg, account_id=account_id, verbose=verbose)
+            body = reads.fetch_reconciliation(cfg, reconciliation_id, verbose=verbose)
         except (EngineError, EngineConnectionError) as err:
-            return names, format_error(err)
-        for item in items_of(body):
-            if item.get("id"):
-                names[str(item["id"])] = str(item.get("name") or item["id"])
-    return names, None
+            failure = failure or format_error(err)
+            continue
+        names[reconciliation_id] = str(body.get("name") or reconciliation_id)
+    return names, failure
 
 
 @dataclass(frozen=True)

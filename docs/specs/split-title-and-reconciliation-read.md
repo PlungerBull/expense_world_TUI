@@ -1,6 +1,6 @@
 # Catch up with the split's title and the read of one reconciliation
 
-**Status: draft, 2026-10-18.** Its tasks wait for the owner's approval.
+**Status: approved 2026-10-18.**
 **Catches up to contract `c4327854a6d6e301`:** every contract change after `786d68f3b071dbf4`.
 It holds the engine's hand-off "A split can rename its line in the same write, and one
 reconciliation can be read by its id". What it asks of this client is in the tasks, and its
@@ -64,29 +64,22 @@ reply to the engine reports each result.
 
 ## Tasks
 
-Drafted 2026-10-18; wait for the owner's approval.
+Approved 2026-10-18, with screens 4 to 6 of the mockup. Task 2, the import preview's read by
+id, is done.
 
 1. **The split screen's title is a field, sent with the split.** Screen 4 of the mockup: `⏎`
    on the title line opens one field below, `⏎` there commits it, `esc` leaves the title as it
    was. An empty field is refused with `Title is required.`, worded and shown as on the Edit
    form, and the field stays open. `^s` sends `title` beside `parts` only when it differs from
    the transaction's title, and leaves the key out otherwise. A `LOCKED` refusal on `title`
-   shows in the refusal lines under the parts, with any part's refusal from the same `422`.
+   shows in the refusal lines under the parts, with any part's refusal from the same `422`, and
+   the refusal goes when the title changes, as it does when a part changes (screen 6).
    Unit tests: a changed title is sent and lands on every part, an untouched one is not sent,
    an empty one is refused and sends nothing, and `LOCKED` together with a part's refusal shows
    both and splits nothing. A live contract test: a split with `title` titles every part, one
    without keeps the title, and a changed title on a line in a completed reconciliation is
    `422` `LOCKED` with the line unchanged. [tui.md](../tui.md) follows. Passes check 1 of the
    engine's, and 1 to 4 above.
-2. **The import preview reads each stopping reconciliation by its id.** For each distinct
-   `redate_blocked_by` on the rows, one `GET /reconciliations/{id}` gives its name, read through
-   [reads.py](../../expense/reads.py); the read of the account's whole list goes
-   (`reconciliation_names` in [flow.py](../../expense/bank_import/flow.py)). A failed read
-   keeps the fallback `a reconciliation`. Unit tests: the name comes from the read by id, no
-   list is read, one read per distinct id, and a failed read gives the fallback. A live contract
-   test: `GET /reconciliations/{id}` answers the same item the account's list holds, and `404`
-   on a deleted one. Every new unit fixture passes the drift script. Passes check 2 of the
-   engine's, and 5 above.
 
 ## Reply to the engine
 

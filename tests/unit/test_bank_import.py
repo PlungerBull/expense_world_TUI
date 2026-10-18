@@ -6,8 +6,11 @@ mixed S/ and $, no operation number, and padded merchant descriptors. The
 response shape is the contract's (contract: POST /v1/transactions/import).
 """
 
+import httpx
 import pytest
+import respx
 
+from expense import config as config_module
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
     AnswerCounts,
@@ -16,7 +19,7 @@ from expense.bank_import.engine import (
     Placed,
     UnclaimedLine,
     answer_counts,
-    blocked_accounts,
+    blocking_reconciliations,
     day_mismatches,
     placements,
     request_body,
@@ -25,7 +28,13 @@ from expense.bank_import.engine import (
     sent_rows,
     split_floor,
 )
-from expense.bank_import.flow import AccountGroup, FileLine, Prepared, file_lines
+from expense.bank_import.flow import (
+    AccountGroup,
+    FileLine,
+    Prepared,
+    file_lines,
+    reconciliation_names,
+)
 from expense.bank_import.parse import (
     BankFormatError,
     BankRow,
@@ -34,7 +43,8 @@ from expense.bank_import.parse import (
     parse_operation,
 )
 from expense.import_.reader import RawRow, SheetData
-from tests.unit.helpers import import_part
+from tests.unit.helpers import ENGINE_URL as BASE
+from tests.unit.helpers import error_response, import_part
 
 CARD_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]
 ACCOUNT_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
@@ -298,7 +308,7 @@ def test_a_matched_row_carries_whether_its_line_moves_and_what_stops_it():
         (False, "r9"),
         (None, None),
     ]
-    assert blocked_accounts(placed) == ["sig-pen"]
+    assert blocking_reconciliations(placed) == ["r9"]
 
 
 def _placed(**kw) -> Placed:
@@ -313,6 +323,104 @@ def _placed(**kw) -> Placed:
         "sealed_by": None,
     }
     return Placed(sent=_sent()[0], **{**base, **kw})
+
+
+def _stopped(*blocked_by: str | None) -> list[Placed]:
+    """One placed row per id: a matched row whose move `blocked_by` stops,
+    or an unstopped one for None."""
+    sent = _sent() * 2
+    return [
+        Placed(
+            sent=sent[i],
+            outcome="matched",
+            rule="operation_code",
+            bank_line_id=f"bl-{i}",
+            backfill_code=None,
+            retitled=False,
+            redated=bool(not rid),
+            redate_blocked_by=rid,
+            sealed_by=None,
+        )
+        for i, rid in enumerate(blocked_by)
+    ]
+
+
+#: Two completed reconciliations, as `GET /reconciliations/{id}` answers them.
+SEP = {"id": "r-sep", "account_id": "sig-pen", "name": "Septiembre 2026", "status": 2}
+OCT = {"id": "r-oct", "account_id": "sig-usd", "name": "Octubre 2026", "status": 2}
+
+
+def test_the_distinct_stopping_reconciliations_in_the_rows_order():
+    placed = _stopped("r-sep", None, "r-oct", "r-sep")
+    assert blocking_reconciliations(placed) == ["r-sep", "r-oct"]
+    assert blocking_reconciliations(_stopped(None, None)) == []
+
+
+@respx.mock
+def test_each_stopping_reconciliation_is_named_by_one_read_of_it_by_its_id(configured):
+    """One `GET /reconciliations/{id}` per distinct id, however many rows it
+    stops, and no account's list is read
+    (contract: GET /v1/reconciliations/{reconciliation_id})."""
+    listed = respx.get(f"{BASE}/v1/reconciliations").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    sep = respx.get(f"{BASE}/v1/reconciliations/r-sep").mock(
+        return_value=httpx.Response(200, json=SEP)
+    )
+    oct_ = respx.get(f"{BASE}/v1/reconciliations/r-oct").mock(
+        return_value=httpx.Response(200, json=OCT)
+    )
+    placed = _stopped("r-sep", "r-oct", "r-sep", None, "r-sep")
+    names, error = reconciliation_names(config_module.ensure_loaded(), placed, verbose=False)
+    assert names == {"r-sep": "Septiembre 2026", "r-oct": "Octubre 2026"}
+    assert error is None
+    assert (sep.call_count, oct_.call_count, listed.call_count) == (1, 1, 0)
+    assert [row_reason(p, names)[1] for p in placed[:2]] == [
+        "Not moved: Septiembre 2026 is reconciled",
+        "Not moved: Octubre 2026 is reconciled",
+    ]
+
+
+@respx.mock
+def test_no_reconciliation_is_read_when_no_move_is_stopped(configured):
+    assert reconciliation_names(
+        config_module.ensure_loaded(), _stopped(None, None), verbose=False
+    ) == ({}, None)
+
+
+@pytest.mark.parametrize(
+    ("failure", "why"),
+    [
+        (error_response(404, "NOT_FOUND", "Gone."), "NOT_FOUND — Gone."),
+        (error_response(500, "INTERNAL_ERROR", "Failed."), "INTERNAL_ERROR — Failed."),
+        (httpx.ConnectError("connection refused"), "could not reach engine"),
+    ],
+    ids=["deleted", "engine-failed", "unreachable"],
+)
+@respx.mock
+def test_a_failed_read_leaves_its_reconciliation_unnamed_and_the_rest_are_read(
+    configured, failure, why
+):
+    """A read that fails leaves that id out, so its rows read `a
+    reconciliation`; the ids after it are still read and named, and the
+    failure's reason comes back for the line under the table."""
+    route = respx.get(f"{BASE}/v1/reconciliations/r-sep")
+    if isinstance(failure, Exception):
+        route.mock(side_effect=failure)
+    else:
+        route.mock(return_value=failure)
+    oct_ = respx.get(f"{BASE}/v1/reconciliations/r-oct").mock(
+        return_value=httpx.Response(200, json=OCT)
+    )
+    placed = _stopped("r-sep", "r-oct")
+    names, error = reconciliation_names(config_module.ensure_loaded(), placed, verbose=False)
+    assert names == {"r-oct": "Octubre 2026"}
+    assert oct_.call_count == 1
+    assert error is not None and why in error
+    assert [row_reason(p, names)[1] for p in placed] == [
+        "Not moved: a reconciliation is reconciled",
+        "Not moved: Octubre 2026 is reconciled",
+    ]
 
 
 @pytest.mark.parametrize(
