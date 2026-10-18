@@ -26,8 +26,10 @@ from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 from tests.unit.helpers import (
+    bank_line_row,
     cursor_page,
     fake_ledger,
+    import_part,
     list_ready,
     render_text,
     run_app,
@@ -65,7 +67,6 @@ def test_page_indicator_counts_rows_and_pages():
     assert page_indicator(0, 20, 133, 20) == "rows 1-20 of 133 · page 1 of 7"
     assert page_indicator(20, 20, 133, 20) == "rows 21-40 of 133 · page 2 of 7"
     assert page_indicator(120, 13, 133, 20) == "rows 121-133 of 133 · page 7 of 7"
-    assert page_indicator(20, 5, 25, 20, unit="items") == "items 21-25 of 25 · page 2 of 2"
 
 
 # ---- CursorList window mode (full data in memory) ---------------------------
@@ -135,11 +136,11 @@ def test_set_page_size_rewindows_around_cursor():
     assert lst._page_size == 10
 
 
-# ---- CheckList (always window mode; rows are two physical lines) ------------
+# ---- CheckList (always window mode; one physical line per row) -------------
 
 
 def _chk_rows(n: int) -> list[tuple]:
-    return [(f"t{i}", f"txn {i:02d}", -1000 - i, "2026-07-01", "cat · #tag") for i in range(n)]
+    return [(f"l{i}", "2026-07-01", f"txn {i:02d}", f"op{i}", -1000 - i) for i in range(n)]
 
 
 def _checklist(n: int = 25, **kwargs) -> CheckList:
@@ -148,24 +149,24 @@ def _checklist(n: int = 25, **kwargs) -> CheckList:
     return chk
 
 
-def test_checklist_windows_items_not_lines():
+def test_checklist_windows_rows():
     out = _text(_checklist(25)._build())
     assert "txn 00" in out and "txn 19" in out
-    assert "txn 20" not in out  # 20 ITEMS per page (40 lines)
+    assert "txn 20" not in out  # 20 rows per page
 
 
-def test_checklist_page_status_counts_items():
+def test_checklist_page_status_counts_rows():
     chk = _checklist(25)
-    assert chk.page_status == "items 1-20 of 25 · page 1 of 2"
+    assert chk.page_status == "rows 1-20 of 25 · page 1 of 2"
     chk._cursor = 20
-    assert chk.page_status == "items 21-25 of 25 · page 2 of 2"
+    assert chk.page_status == "rows 21-25 of 25 · page 2 of 2"
 
 
 def test_checklist_checked_state_survives_paging():
-    chk = _checklist(25, checked=["t3", "t22"])
+    chk = _checklist(25, checked=["l3", "l22"])
     chk.post_message = lambda m: True
     chk.action_page(1)  # display window moves; membership must not
-    assert chk.checked == {"t3", "t22"}
+    assert chk.checked == {"l3", "l22"}
     out = _text(chk._build())
     assert "txn 22" in out and "[x]" in out
 
@@ -176,9 +177,9 @@ def test_checklist_toggle_on_page_two_targets_the_right_key():
     chk.post_message = captured.append
     chk.action_page(1)
     chk.action_toggle()
-    assert chk.checked == {"t20"}
+    assert chk.checked == {"l20"}
     toggles = [m for m in captured if isinstance(m, CheckList.Toggled)]
-    assert len(toggles) == 1 and toggles[0].key == "t20" and toggles[0].checked
+    assert len(toggles) == 1 and toggles[0].key == "l20" and toggles[0].checked
 
 
 def test_checklist_single_page_hides_page_keys():
@@ -189,12 +190,12 @@ def test_checklist_single_page_hides_page_keys():
 def test_checklist_set_page_size_keeps_checks():
     """Resize re-slices the window; membership is a key-set over the whole
     batch, so checks survive (adaptive rows)."""
-    chk = _checklist(25, checked=["t3", "t22"])
+    chk = _checklist(25, checked=["l3", "l22"])
     chk.set_page_size(6)
     out = _text(chk._build())
     assert "txn 05" in out and "txn 06" not in out
-    assert chk.checked == {"t3", "t22"}
-    assert chk.page_status == "items 1-6 of 25 · page 1 of 5"
+    assert chk.checked == {"l3", "l22"}
+    assert chk.page_status == "rows 1-6 of 25 · page 1 of 5"
 
 
 # ---- manage-list fetch: one read, the whole list -----------------------------
@@ -556,7 +557,7 @@ def test_both_list_widgets_page_on_the_same_arithmetic():
         start, window = widget._window()
         assert start == 20 and len(window) == 20
     assert lst.page_status == "rows 21-40 of 45 · page 2 of 3"
-    assert chk.page_status == "items 21-40 of 45 · page 2 of 3"
+    assert chk.page_status == "rows 21-40 of 45 · page 2 of 3"
 
 
 def test_a_move_that_goes_nowhere_does_not_repaint():
@@ -623,12 +624,12 @@ def test_fit_rows_falls_back_to_the_default_before_layout():
 
 def test_fit_rows_counts_two_line_rows_and_split_panes():
     """The two callers that hand-roll their own chrome: a pane sharing #content
-    with a sibling, and a checklist whose items are two physical lines each.
+    with a sibling, and the checklist in #rlist, one line per row.
 
     The browse's two panes are not the same size — the batches pane keeps a
     caption naming the account, the accounts pane does not. The checklist
     counts the two blank edge lines the table draws; leaving them out asks for
-    an item that does not fit, and #rlist, which is `overflow: hidden`, clips it
+    a row that does not fit, and #rlist, which is `overflow: hidden`, clips it
     in silence.
 
     Mirrors `ReconciliationsScreen.pane_rows` and `_checklist_items`. If those
@@ -636,7 +637,7 @@ def test_fit_rows_counts_two_line_rows_and_split_panes():
     """
     frame, caption = AdaptiveRowsMixin.LIST_FRAME_LINES, AdaptiveRowsMixin.CAPTION_LINES
     assert _Measured(40).fit_rows(chrome=2 + 2 * frame + caption, lines_per_row=2) == 12
-    assert _Measured(40).fit_rows("#rlist", chrome=frame, lines_per_row=2) == 17
+    assert _Measured(20).fit_rows("#rlist", chrome=frame) == 14
 
 
 # ---- the frame ---------------------------------------------------------------
@@ -657,7 +658,7 @@ def test_the_frame_costs_exactly_list_frame_lines():
     """
     frame = AdaptiveRowsMixin.LIST_FRAME_LINES
     assert _frame_lines(_list(3, page_size=10)) - 3 == frame
-    assert _frame_lines(_checklist(3, page_size=10)) - 3 * 2 == frame
+    assert _frame_lines(_checklist(3, page_size=10)) - 3 == frame
 
     captioned = _list(3, page_size=10, caption="BCP PEN · by statement start date")
     assert _frame_lines(captioned) - 3 == frame + AdaptiveRowsMixin.CAPTION_LINES
@@ -720,23 +721,19 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
         "ending_balance_cents": 921540,
         "difference_cents": -1250,
     }
-    txns = [
-        {
-            "id": f"t{i}",
-            "title": f"row {i}",
-            "amount_cents": -100 * i,
-            "date": f"2026-08-0{i % 9 + 1}T00:00:00Z",
-            "reconciliation_id": None,
-            "hashtag_ids": [],
-        }
+    lines = [
+        bank_line_row(
+            f"l{i}",
+            [import_part(f"t{i}", -100 * i - 1, line=f"l{i}", day=f"2026-08-0{i % 9 + 1}")],
+            net_cents=-100 * i - 1,
+        )
         for i in range(40)
     ]
     monkeypatch.setattr(
-        "expense.reads.fetch_transactions",
-        lambda cfg, **k: cursor_page(txns),
+        "expense.reads.fetch_bank_lines",
+        lambda cfg, **k: cursor_page([] if k.get("reconciliation") else lines),
     )
-    for name in ("account", "category", "hashtag"):
-        monkeypatch.setattr(f"expense.tui.screens.reconciliations.load_{name}_name_map", dict)
+    monkeypatch.setattr("expense.tui.screens.reconciliations.load_account_name_map", dict)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(record))

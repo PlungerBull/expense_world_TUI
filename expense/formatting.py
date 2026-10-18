@@ -85,6 +85,22 @@ def signed_cents(transaction: dict) -> int:
     return -magnitude if transaction.get("transaction_type") == OUTFLOW_TYPE else magnitude
 
 
+def bank_line_columns(line: dict) -> tuple[str, object, object, object]:
+    """A bank line's own columns, the ones every reconciliation list shows:
+    `(day, title, operation_code, net_cents)`.
+
+    The amount is the engine's signed `net_cents`, never a sum of the parts.
+    The title and the day are line fields, the same on every part, and are
+    read off the parts; the engine lists them newest first, so the first part
+    carries the day the line is placed by (contract: GET /v1/bank-lines/{bank_line_id})
+    (contract: GET /v1/bank-lines). `operation_code` is `None` on a line without one.
+    """
+    parts = line.get("parts")
+    first = parts[0] if isinstance(parts, list) and parts and isinstance(parts[0], dict) else {}
+    day = format_short_date(first.get("date"))
+    return day, first.get("title"), line.get("operation_code"), line.get("net_cents")
+
+
 UNRATED_SUFFIX = "unrated"
 
 

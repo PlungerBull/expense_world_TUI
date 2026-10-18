@@ -205,6 +205,27 @@ def import_part(
     }
 
 
+def bank_line_row(
+    line: str,
+    parts: list[dict],
+    *,
+    net_cents: int,
+    operation_code: str | None = None,
+    account_id: str = "sig-pen",
+) -> dict:
+    """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
+    reads it: its `parts` (each an `import_part`), the engine's signed
+    `net_cents` and `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
+    return {
+        "id": line,
+        "account_id": account_id,
+        "operation_code": operation_code,
+        "net_cents": net_cents,
+        "part_count": len(parts),
+        "parts": parts,
+    }
+
+
 #: `GET /accounts?include_people=true` in an order no client could derive:
 #: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
 #: the way the engine lists people after every real account (contract: GET

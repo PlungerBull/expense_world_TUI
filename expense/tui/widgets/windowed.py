@@ -1,7 +1,7 @@
 """WindowedList — the paging, cursor and page-indicator arithmetic both list
 widgets stand on.
 
-`CursorList` (a table with a row cursor) and `CheckList` (two-line rows with
+`CursorList` (a table with a row cursor) and `CheckList` (bank-line rows with
 membership toggles) look nothing alike and render nothing alike, but they page
 identically: a cursor index into the full row list, a window that follows it
 (`cursor // page_size`), `set_page_size` on a terminal resize, and a page
@@ -23,15 +23,13 @@ from textual.widgets import Static
 from expense.reads import DEFAULT_PAGE_ROWS
 
 
-def page_indicator(
-    start: int, shown: int, total: int, page_size: int, *, unit: str = "rows"
-) -> str | None:
+def page_indicator(start: int, shown: int, total: int, page_size: int) -> str | None:
     """`rows 21-40 of 133 · page 2 of 7`, or None when one page holds it all."""
     if total <= page_size:
         return None
     page = start // page_size + 1
     pages = -(-total // page_size)  # ceil
-    return f"{unit} {start + 1}-{start + shown} of {total} · page {page} of {pages}"
+    return f"rows {start + 1}-{start + shown} of {total} · page {page} of {pages}"
 
 
 #: How "you are here" is drawn, app-wide: reverse video — the terminal's own
@@ -52,10 +50,6 @@ class WindowedList(Static):
     """
 
     can_focus = True
-
-    #: What the page indicator counts. `CheckList` shows one transaction as two
-    #: physical lines, so it counts items, not rows.
-    PAGE_UNIT = "rows"
 
     def __init__(
         self,
@@ -113,9 +107,7 @@ class WindowedList(Static):
         the render.
         """
         start, window = self._window()
-        return page_indicator(
-            start, len(window), len(self._rows), self._page_size, unit=self.PAGE_UNIT
-        )
+        return page_indicator(start, len(window), len(self._rows), self._page_size)
 
     @property
     def caption(self) -> str | None:

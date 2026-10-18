@@ -101,6 +101,7 @@ class EngineWriteMixin:
 
     _write_queue: deque[_QueuedWrite] | None = None  # lazily created; UI-thread only
     _write_inflight: bool = False
+    _write_current: _QueuedWrite | None = None  # the write in flight; UI-thread only
 
     def run_write(
         self,
@@ -152,7 +153,21 @@ class EngineWriteMixin:
         if self._write_inflight or not self._write_queue:
             return
         self._write_inflight = True
-        self._execute_write(self._write_queue.popleft())
+        self._write_current = self._write_queue.popleft()
+        self._execute_write(self._write_current)
+
+    def writes_unanswered(self) -> list[_QueuedWrite]:
+        """The write in flight, then every queued one, in order: the one
+        source of truth for what this screen has sent or will send. A write is
+        out of it before its callbacks run."""
+        current = [self._write_current] if self._write_current is not None else []
+        return [*current, *(self._write_queue or ())]
+
+    def _writes_dropped(self, failed: _QueuedWrite, dropped: list[_QueuedWrite]) -> None:
+        """Hook: `failed` was refused and `dropped` (maybe empty) were the
+        writes queued behind it, now never sent. Runs after `failed`'s own
+        callback. A screen whose list showed a dropped write before it was
+        sent reads that list again here."""
 
     @work(thread=True, group="engine-write")
     def _execute_write(self, item: _QueuedWrite) -> None:
@@ -189,7 +204,9 @@ class EngineWriteMixin:
     ) -> None:
         # UI thread: report the outcome, then pump the next write.
         self._write_inflight = False
+        self._write_current = None
         if error is not None:
+            dropped = list(self._write_queue or ())
             if self._write_queue:
                 self._write_queue.clear()
             if item.on_failure is not None and failure is not None:
@@ -198,6 +215,7 @@ class EngineWriteMixin:
                 item.on_error(error)
             else:
                 self.notify(error, title="Failed", severity="error")
+            self._writes_dropped(item, dropped)
         else:
             # Before on_success: a screen that reads the body typically repaints
             # in on_success, and the repaint has to see what the body said.
@@ -389,8 +407,7 @@ class AdaptiveRowsMixin:
 
         `chrome` is what the container spends on anything but rows (borders,
         headers, a legend); `lines_per_row` is how many physical lines one row
-        costs — two for the reconciliation checklist, and two again for a pane
-        that splits its room with a sibling. Pre-layout or unmeasurable → the
+        costs — two for a pane that splits its room with a sibling. Pre-layout or unmeasurable → the
         20-row default, since a page size of 0 would fetch nothing.
         """
         try:

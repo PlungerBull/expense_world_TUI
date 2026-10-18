@@ -37,6 +37,30 @@ becomes the next catch-up spec.
 
 **Recommended:** none — only you can hand it over.
 
+### "No batch" oldest first: ask the engine?
+Asked 2026-10-17 · Blocks: task 2 (pane 2d) of [specs/bank-lines-whole.md](specs/bank-lines-whole.md)
+
+The "no batch" list (`u`) shows the oldest rows first, as drawn, because old leftovers are the
+problem. The engine's list of purchases comes newest first only, with no way to ask for another
+order, and reading everything to turn it around in the app is ruled out (it breaks on long lists).
+Until this is answered, "no batch" stays as it is today: one row per part, with its Category column.
+- **A.** Ask the engine for an oldest-first order on its purchase list; "no batch" is built as
+  drawn once it lands.
+- **B.** Accept newest first for "no batch": it opens on the newest leftovers.
+- **C.** B now, A later.
+
+**Recommended:** A, because oldest first is what you picked, and every client will want it.
+
+### The "Complete reconciliation?" question counts purchases
+Asked 2026-10-17 · Blocks: nothing (the question works; only its words)
+
+`c` on a month asks "Complete reconciliation?" with "Locks amount/account/title/date on the 5
+assigned transaction(s)." The number now counts the ticked rows, and a split purchase is one row.
+- **A.** "Locks amount/account/title/date on the 5 ticked rows."
+- **B.** Keep the words as they are.
+
+**Recommended:** A, because the number is the rows you see ticked.
+
 ### The split screen's undrawn moments
 Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
 
@@ -98,6 +122,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   operation code on another day to the bank's day, with `redated`, `redate_blocked_by` and
   `counts.redated` on the import; `786d68f3b071dbf4` is wording only (among it the
   `OPERATION_CODE_EXISTS` message now speaks of bank lines).
+- **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
+  ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
+  row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
+  Rows dated by day alone (00:00 in the user's time zone) show right. Decide between showing the
+  day in the user's `display_timezone` and an engine ask for each row's local day.
 - **The split screen keeps copies of shared code.** `part_index` in
   [split.py](../expense/tui/screens/split.py) repeats `row_index` of
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is

@@ -1,34 +1,138 @@
-"""Reconciliation working-screen tests — checklist + assign/complete."""
+"""Reconciliation working-screen tests — the bank-line checklist + assign/complete.
 
+Every list reads `GET /bank-lines`: a purchase split into parts is one row with
+its total, and a tick is one `PUT` of `reconciliation_id` on one of its parts
+(contract: GET /v1/bank-lines)
+(contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
+
+import httpx
 import pytest
+import respx
 from textual.widgets import Static
 
 from expense.errors import EngineError
+from expense.formatting import bank_line_columns
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.reconciliations import ReconciliationDetailScreen, _txn_sub
+from expense.tui.screens.reconciliations import ReconciliationDetailScreen, line_rows
 from expense.tui.widgets.checklist import CheckList
-from tests.unit.helpers import cursor_page, run_app, wait_for, whole
+from tests.unit.helpers import (
+    ENGINE_URL,
+    bank_line_row,
+    cursor_page,
+    import_part,
+    render_text,
+    run_app,
+    wait_for,
+    whole,
+)
 
-CATS = {"c1": "Vivienda"}
-TAGS = {"h1": "oficina"}
+
+def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None) -> dict:
+    return {
+        **import_part(tx_id, cents, account_id="acc1", line=line, day=day, title=title),
+        "reconciliation_id": recon,
+        "category_id": "c1",
+        "hashtag_ids": ["h1"],
+        "description": "a note the list never shows",
+    }
 
 
-def test_txn_sub_assembles_category_tags_note():
-    it = {"category_id": "c1", "hashtag_ids": ["h1"], "description": "alquiler"}
-    assert _txn_sub(it, CATS, TAGS) == 'Vivienda  ·  #oficina  ·  "alquiler"'
-    assert _txn_sub({"category_id": "c1"}, CATS, TAGS) == "Vivienda"
-    assert _txn_sub({}, CATS, TAGS) == ""
+#: The batch's one line, ticked: a purchase never split.
+NETFLIX = bank_line_row(
+    "l1",
+    [_part("t1", -4490, line="l1", day="2026-04-14", title="NETFLIX.COM", recon="r1")],
+    net_cents=-4490,
+    operation_code="48213907",
+    account_id="acc1",
+)
+#: A purchase split 60 + 40: one row of -100.00, its title alone.
+FARMACIA = bank_line_row(
+    "l2",
+    [
+        _part("t2a", -6000, line="l2", day="2026-04-11", title="FARMACIA"),
+        _part("t2b", -4000, line="l2", day="2026-04-11", title="FARMACIA"),
+    ],
+    net_cents=-10000,
+    operation_code="48201764",
+    account_id="acc1",
+)
+#: A line typed in by hand: no operation code.
+UBER = bank_line_row(
+    "l3",
+    [_part("t3", -4200, line="l3", day="2026-04-12", title="UBER *TRIP")],
+    net_cents=-4200,
+    account_id="acc1",
+)
+ASSIGNED = [NETFLIX]
+AVAILABLE = [UBER, FARMACIA]  # the engine's order: newest first
+
+
+def test_a_lines_columns_are_the_banks_own():
+    """Date and title come off the parts, the amount is the engine's signed
+    `net_cents` — never a sum of the parts' magnitudes."""
+    assert bank_line_columns(FARMACIA) == ("2026-04-11", "FARMACIA", "48201764", -10000)
+    assert bank_line_columns(UBER) == ("2026-04-12", "UBER *TRIP", None, -4200)
+
+
+def test_line_rows_lists_a_split_purchase_once_and_ticks_by_one_part():
+    rows, checked, part_of = line_rows(ASSIGNED, [*AVAILABLE, NETFLIX])
+    assert [r[0] for r in rows] == ["l1", "l3", "l2"]  # the batch first; l1 once
+    assert checked == ["l1"]
+    assert part_of == {"l1": "t1", "l3": "t3", "l2": "t2a"}
+    assert rows[2] == ("l2", "2026-04-11", "FARMACIA", "48201764", -10000)
+
+
+def _rendered(checklist: CheckList, width: int = 100) -> str:
+    return render_text(checklist._build(), width=width)
+
+
+def test_a_row_is_one_line_of_bank_columns():
+    """Date · title · operation · amount, in that order, one line per row; a row
+    without an operation code shows `—`; no category, hashtag, note or part
+    count, and nothing marks a row as split."""
+    rows, checked, _ = line_rows(ASSIGNED, AVAILABLE)
+    text = _rendered(CheckList(rows, checked))
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    header = lines[0]
+    assert header.split() == ["Date", "Title", "Operation", "Amount"]
+    assert [header.index(w) for w in ("Date", "Title", "Operation", "Amount")] == sorted(
+        header.index(w) for w in ("Date", "Title", "Operation", "Amount")
+    )
+    body = [ln for ln in lines if "[" in ln]
+    assert len(body) == 3  # one physical line per row
+    farmacia = next(ln for ln in body if "FARMACIA" in ln)
+    assert farmacia.split() == ["[", "]", "2026-04-11", "FARMACIA", "48201764", "-100.00"]
+    uber = next(ln for ln in body if "UBER" in ln)
+    assert uber.split()[-2:] == ["—", "-42.00"]
+    assert "[x]" in next(ln for ln in body if "NETFLIX.COM" in ln)
+    for hidden in ("Vivienda", "#", "note", "-60.00", "-40.00", "part"):
+        assert hidden not in "\n".join(body), hidden
+
+
+def test_a_completed_list_has_no_tick_box():
+    rows, checked, _ = line_rows(ASSIGNED, [])
+    text = _rendered(CheckList(rows, checked, read_only=True))
+    assert "[" not in text
+    header = next(ln for ln in text.splitlines() if ln.strip())
+    assert header.split() == ["Date", "Title", "Operation", "Amount"]
+    assert "2026-04-14" in text and "48213907" in text and "-44.90" in text
 
 
 def test_checklist_toggle_emits_and_tracks():
-    rows = [("t1", "Alquiler", -250000, "2026-04-03", "Vivienda")]
+    rows = [("l1", "2026-04-03", "Alquiler", "001", -250000)]
     cl = CheckList(rows, checked=[])
-    assert cl.cursor_key == "t1" and cl.checked == set()
+    assert cl.cursor_key == "l1" and cl.checked == set()
     # simulate a toggle (no event loop): action_toggle posts a message + flips state
     cl.action_toggle()
-    assert cl.checked == {"t1"}
+    assert cl.checked == {"l1"}
     cl.action_toggle()
     assert cl.checked == set()
+
+
+def test_checklist_lands_on_the_row_it_is_given():
+    rows = [(f"l{i}", "2026-04-03", f"row {i}", None, -100) for i in range(5)]
+    assert CheckList(rows, land_on="l3").cursor_key == "l3"
+    assert CheckList(rows, land_on="gone").cursor_key == "l0"
 
 
 def test_checklist_colors_come_from_palette():
@@ -36,14 +140,15 @@ def test_checklist_colors_come_from_palette():
     from expense.tui.theme import PALETTE
 
     rows = [
-        ("t1", "Alquiler", -250000, "2026-04-03", "Vivienda"),
-        ("t2", "Refund", 5620, "2026-04-09", ""),
+        ("l1", "2026-04-03", "Alquiler", None, -250000),
+        ("l2", "2026-04-09", "Refund", "77", 5620),
     ]
-    table = CheckList(rows, checked=["t1"])._build()  # app-less, PALETTE palette
-    marks, amounts = table.columns[0]._cells, table.columns[2]._cells
-    assert marks[0].style == PALETTE.success and marks[2].style == "dim"  # [x] vs [ ]
+    table = CheckList(rows, checked=["l1"])._build()  # app-less, PALETTE palette
+    marks, ops, amounts = table.columns[0]._cells, table.columns[3]._cells, table.columns[4]._cells
+    assert marks[0].style == PALETTE.success and marks[1].style == "dim"  # [x] vs [ ]
+    assert ops[0].style == "dim"  # the — of a line with no code
     assert amounts[0].style == PALETTE.error  # -2,500.00
-    assert amounts[2].style == PALETTE.success  # +56.20
+    assert amounts[1].style == PALETTE.success  # +56.20
 
 
 def test_status_span_maps_completed_and_draft():
@@ -66,53 +171,30 @@ DRAFT = {
     "difference_cents": -3500,
     "status": 1,
 }
-ASSIGNED = [
-    {
-        "id": "t1",
-        "title": "Alquiler",
-        "amount_cents": -250000,
-        "date": "2026-04-03",
-        "reconciliation_id": "r1",
-        "category_id": "c1",
-        "hashtag_ids": ["h1"],
-    },
-]
-AVAILABLE = [
-    {
-        "id": "t2",
-        "title": "Gasolina",
-        "amount_cents": -12000,
-        "date": "2026-04-08",
-        "reconciliation_id": None,
-        "category_id": None,
-        "hashtag_ids": [],
-    },
-    {
-        "id": "t3",
-        "title": "Other batch",
-        "amount_cents": -5000,
-        "date": "2026-04-09",
-        "reconciliation_id": "rX",
-    },  # belongs elsewhere → excluded
-]
 
 
-def _patch(monkeypatch):
-    """Screen-specific patches; the client/config seams come from fake_client."""
+def _patch(monkeypatch, record: dict = DRAFT):
+    """Screen-specific patches; the client/config seams come from fake_client.
+    Returns the log of `GET /reconciliations` reads (the header's re-read)."""
+    month_reads: list = []
 
     def fake_fetch(cfg, **k):
         if k.get("reconciliation") == "r1":
-            return {"items": ASSIGNED}
-        if k.get("account") == "acc1":
-            return {"items": AVAILABLE}
-        return {"items": []}
+            return cursor_page(ASSIGNED)
+        if k.get("account") == "acc1" and k.get("unreconciled"):
+            return cursor_page(AVAILABLE)
+        return cursor_page([])
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
+    def fake_month(cfg, *, account_id, **k):
+        month_reads.append(account_id)
+        return whole([dict(record)])
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", fake_month)
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
     )
-    monkeypatch.setattr("expense.tui.screens.reconciliations.load_category_name_map", lambda: CATS)
-    monkeypatch.setattr("expense.tui.screens.reconciliations.load_hashtag_name_map", lambda: TAGS)
+    return month_reads
 
 
 async def _wait_list(screen, pilot):
@@ -120,21 +202,21 @@ async def _wait_list(screen, pilot):
 
 
 def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkeypatch):
-    """The tick-list's in-range read passes the period's own days to the
-    engine's day filters, unconverted: a bare `date_to` is the whole last day
-    (contract: GET /v1/transactions), so rows dated on the 30th are offered too."""
+    """The tick-list's in-range read asks for the account's lines in no batch,
+    with the period's own days in the engine's day filters, unconverted: a bare
+    `date_to` is the whole last day (contract: GET /v1/bank-lines)."""
     _patch(monkeypatch)
     calls: list = []
     from expense import reads
 
-    fake = reads.fetch_transactions  # _patch's fake
+    fake = reads.fetch_bank_lines  # _patch's fake
 
     def spy(cfg, **k):
         assert "offset" not in k
         calls.append(k)
         return fake(cfg, **k)
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", spy)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", spy)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -142,8 +224,11 @@ def test_available_read_takes_the_periods_days_byte_for_byte(fake_client, monkey
         await _wait_list(screen, pilot)
         in_range = [k for k in calls if k.get("account") == "acc1"]
         assert len(in_range) == 1
+        assert in_range[0]["unreconciled"] is True
         assert in_range[0]["date_from"] == "2026-04-01"
         assert in_range[0]["date_to"] == "2026-04-30"
+        batch = [k for k in calls if k.get("reconciliation") == "r1"]
+        assert len(batch) == 1 and "account" not in batch[0]
 
     run_app(scenario)
 
@@ -165,6 +250,8 @@ def test_header_shows_difference_not_source(fake_client, monkeypatch):
 
 
 def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
+    """The batch's lines first, ticked, then the account's lines in no batch;
+    the split purchase is one row with its total."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -172,28 +259,101 @@ def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         cl = screen._list
-        keys = [r[0] for r in cl._rows]
-        assert keys == ["t1", "t2"]  # t3 (other batch) excluded
-        assert cl.checked == {"t1"}  # assigned one is checked
+        assert [r[0] for r in cl._rows] == ["l1", "l3", "l2"]
+        assert cl.checked == {"l1"}
         assert not cl._read_only
+        assert cl._rows[2][1:] == ("2026-04-11", "FARMACIA", "48201764", -10000)
 
     run_app(scenario)
 
 
-def test_toggle_puts_reconciliation_id(fake_client, monkeypatch):
-    _patch(monkeypatch)
+def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, monkeypatch):
+    """`space` on a split purchase: one `PUT` on one of its parts, then the
+    month and its lines are read again, and the cursor stays on that row."""
+    month_reads = _patch(monkeypatch)
+    ticked = {**FARMACIA, "parts": [{**p, "reconciliation_id": "r1"} for p in FARMACIA["parts"]]}
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        # toggle the available row (t2) into the batch
-        screen._list._cursor = 1
-        screen._list.action_toggle()
+        first = screen._list
+        # the engine after the PUT: FARMACIA is in the batch, listed among its lines
+        monkeypatch.setattr(
+            "expense.reads.fetch_bank_lines",
+            lambda cfg, **k: cursor_page([NETFLIX, ticked] if k.get("reconciliation") else [UBER]),
+        )
+        first._cursor = 2
+        await pilot.press("space")
         await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [("/transactions/t2", {"reconciliation_id": "r1"})]
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert fake_client.puts == [("/transactions/t2a", {"reconciliation_id": "r1"})]
+        assert month_reads == ["acc1"]  # the header's figures, read again
+        assert [r[0] for r in screen._list._rows] == ["l1", "l2", "l3"]  # ticked rows first
+        assert screen._list.checked == {"l1", "l2"}
+        assert screen._list.cursor_key == "l2"  # the cursor stays on the purchase
 
     run_app(scenario)
+
+
+def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch):
+    month_reads = _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        await pilot.press("space")  # the cursor starts on NETFLIX, ticked
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert fake_client.puts == [("/transactions/t1", {"reconciliation_id": None})]
+        assert month_reads == ["acc1"]
+        assert screen._list.cursor_key == "l1"
+
+    run_app(scenario)
+
+
+def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
+    """A tick is one logical write: one `PUT`, one `X-Idempotency-Key`, through
+    the shared write path and the real HTTP client."""
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        first._cursor = 2
+        await pilot.press("space")
+        await wait_for(pilot, lambda: screen._list is not first)
+
+    with respx.mock() as mock:
+        lines = mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(
+            side_effect=lambda request: httpx.Response(
+                200,
+                json=cursor_page(
+                    ASSIGNED if "reconciliation_id" in request.url.params else AVAILABLE
+                ),
+            )
+        )
+        mock.get(f"{ENGINE_URL}/v1/reconciliations").mock(httpx.Response(200, json=whole([DRAFT])))
+        route = mock.put(f"{ENGINE_URL}/v1/transactions/t2a").mock(httpx.Response(200, json={}))
+        run_app(scenario)
+    assert route.call_count == 1
+    request = route.calls.last.request
+    assert request.headers["X-Idempotency-Key"]
+    assert request.read() == b'{"reconciliation_id":"r1"}'
+    sent = [dict(call.request.url.params) for call in lines.calls]
+    assert {"reconciliation_id": "r1", "limit": "200"} in sent
+    assert {
+        "account_id": "acc1",
+        "unreconciled": "true",
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-30",
+        "limit": "200",
+    } in sent
 
 
 def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
@@ -223,17 +383,19 @@ def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        screen._list._cursor = 0
-        screen._list.action_toggle()  # t1 → out of the batch
-        screen._list._cursor = 1
-        screen._list.action_toggle()  # t2 → into the batch
+        first = screen._list
+        first._cursor = 0
+        first.action_toggle()  # l1 → out of the batch
+        first._cursor = 2
+        first.action_toggle()  # l2 → into the batch
         await wait_for(pilot, lambda: len(fake_client.puts) == 2)
+        await wait_for(pilot, lambda: screen._list is not first)  # the re-read is in
 
     run_app(scenario)
     assert max_active == 1  # serialized: never two PUTs in flight
     assert fake_client.puts == [
         ("/transactions/t1", {"reconciliation_id": None}),
-        ("/transactions/t2", {"reconciliation_id": "r1"}),
+        ("/transactions/t2a", {"reconciliation_id": "r1"}),
     ]
 
 
@@ -265,13 +427,15 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        screen._list._cursor = 0
-        screen._list.action_toggle()
-        screen._list._cursor = 1
-        screen._list.action_toggle()  # queued behind the failing PUT
+        first = screen._list
+        first._cursor = 0
+        first.action_toggle()
+        first._cursor = 1
+        first.action_toggle()  # queued behind the failing PUT
         await wait_for(pilot, lambda: len(screen._write_queue or ()) == 1)
         release.set()
         await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: screen._list is not first)  # the resync is in
         await pilot.pause()  # let the queue drain settle, then assert a non-event
         assert not screen._write_queue  # stale intent dropped, not sent
         assert len(fake_client.puts) == 1
@@ -279,27 +443,272 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
     run_app(scenario)
 
 
-def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
-    """A burst of toggles sends one PUT per toggle, in the order pressed —
-    including a re-toggle of the same row (t1 out, then back in)."""
+@pytest.mark.parametrize(
+    "error",
+    [
+        EngineError(
+            "VALIDATION_ERROR",
+            "Period 2026-04-01 to 2026-04-30 is sealed by completed reconciliation 'April'.",
+            {"reconciliation_id": "Period is sealed."},
+            422,
+            {},
+            reasons={"reconciliation_id": "PERIOD_SEALED"},
+        ),
+        EngineError(
+            "VALIDATION_ERROR",
+            "Another part of this bank line (t2b) is the cause: the account does not match.",
+            {"reconciliation_id": "Must be on the reconciliation's account."},
+            422,
+            {},
+        ),
+    ],
+)
+def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, monkeypatch, error):
+    """A refusal is shown in the engine's words under `Couldn't update`, and the
+    list is read again from the engine, the cursor back on row 1."""
     _patch(monkeypatch)
+    fake_client.errors["PUT"] = error
+    notices: list = []
+
+    def note(self, message, title="", **kw):
+        notices.append((title, message))
+
+    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
-        screen._list._cursor = 0
-        screen._list.action_toggle()  # t1 → out
-        screen._list._cursor = 1
-        screen._list.action_toggle()  # t2 → in
-        screen._list._cursor = 0
-        screen._list.action_toggle()  # t1 → back in
-        await wait_for(pilot, lambda: len(fake_client.puts) == 3)
+        first = screen._list
+        first._cursor = 2
+        await pilot.press("space")
+        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert notices[0][0] == "Couldn't update"
+        assert error.message in notices[0][1]
+        assert screen._list.checked == {"l1"}  # the engine's state, not the tick
+        assert screen._list.cursor_key == "l1"
+
+    run_app(scenario)
+
+
+def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_client, monkeypatch):
+    """Tick A lands while tick B waits behind it, then B is refused: A moved the
+    month's `diff`, so the screen reads the month again as well as its lines,
+    and the cursor goes back to row 1."""
+    import threading
+
+    month_reads = _patch(monkeypatch)
+    from expense import reads as reads_module
+
+    fake = reads_module.fetch_bank_lines
+    line_reads: list = []
+
+    def counting(cfg, **k):
+        line_reads.append(k)
+        return fake(cfg, **k)
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", counting)
+    release = threading.Event()
+    real_put = fake_client.put
+    refusal = EngineError(
+        "VALIDATION_ERROR",
+        "Period 2026-04-01 to 2026-04-30 is sealed by completed reconciliation 'April'.",
+        {"reconciliation_id": "Period is sealed."},
+        422,
+        {},
+    )
+
+    def put(path, json_body=None):
+        if path == "/transactions/t1":
+            release.wait(timeout=5)  # A lands only once B sits in the queue
+            return real_put(path, json_body=json_body)
+        fake_client.calls.append(("PUT", path, json_body))
+        raise refusal
+
+    fake_client.put = put
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        loaded = len(line_reads)
+        first._cursor = 0
+        first.action_toggle()  # l1 out: lands
+        first._cursor = 2
+        first.action_toggle()  # l2 in: refused
+        await wait_for(pilot, lambda: len(screen._write_queue or ()) == 1)
+        release.set()
+        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: screen._list is not first)
+        await pilot.pause()  # let any further read settle, then count
         assert fake_client.puts == [
             ("/transactions/t1", {"reconciliation_id": None}),
-            ("/transactions/t2", {"reconciliation_id": "r1"}),
+            ("/transactions/t2a", {"reconciliation_id": "r1"}),
+        ]
+        assert month_reads == ["acc1"]  # the header's figures, read again once
+        assert len(line_reads) - loaded == 2  # the batch's lines and the rest, once
+        assert screen._list.cursor_key == "l1"
+
+    run_app(scenario)
+
+
+def test_a_tick_while_a_reload_runs_keeps_the_cursor_on_it(fake_client, monkeypatch):
+    """Ticking down a statement: tick A lands and its re-read starts; `↓ ↓
+    space` ticks B on the list still shown, and B's PUT is still out when A's
+    re-read lands. That read is not drawn (it may predate B); the one after B
+    is, with the cursor on B."""
+    import threading
+
+    _patch(monkeypatch)
+    from expense import reads as reads_module
+
+    fake = reads_module.fetch_bank_lines
+    reads_open = threading.Event()
+    reads_open.set()
+    line_reads: list = []
+
+    def gated(cfg, **k):
+        reads_open.wait(timeout=5)
+        line_reads.append(k)
+        return fake(cfg, **k)
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", gated)
+    put_open = threading.Event()
+    put_open.set()
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        put_open.wait(timeout=5)
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        loaded = len(line_reads)
+        reads_open.clear()  # A's re-read waits
+        await pilot.press("space")  # A: l1 out
+        await wait_for(pilot, lambda: len(fake_client.puts) == 1 and not screen._ticks_unanswered())
+        put_open.clear()  # B's PUT stays out
+        await pilot.press("down", "down", "space")  # B: l2 in, on the list still shown
+        await wait_for(pilot, screen._ticks_unanswered)
+        reads_open.set()  # A's re-read lands while B is unanswered
+        await wait_for(pilot, lambda: len(line_reads) - loaded == 2)
+        await pilot.pause()
+        await pilot.pause()
+        assert screen._list is first  # not drawn
+        assert first.cursor_key == "l2"
+        put_open.set()
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"reconciliation_id": None}),
+            ("/transactions/t2a", {"reconciliation_id": "r1"}),
+        ]
+        assert screen._list.cursor_key == "l2"
+
+    run_app(scenario)
+
+
+def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
+    fake_client, monkeypatch
+):
+    """`y` to revert, then `space` before the engine answers: the tick waits
+    behind the revert. The revert is refused, which drops the tick unsent, so
+    the month and its list are read again and drawn — the engine's ticks, the
+    cursor on row 1 — and `r` keeps drawing after it."""
+    import threading
+
+    month_reads = _patch(monkeypatch)
+    release = threading.Event()
+    refusal = EngineError("CONFLICT", "Reconciliation changed elsewhere.", None, 409, {})
+
+    def held_post(path, json_body=None):
+        release.wait(timeout=5)
+        fake_client.calls.append(("POST", path, json_body))
+        raise refusal
+
+    fake_client.post = held_post
+    notices: list = []
+
+    def note(self, message, title="", **kw):
+        notices.append((title, message))
+
+    monkeypatch.setattr(ReconciliationDetailScreen, "notify", note)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        await pilot.press("u")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: app.screen is screen and screen.writes_unanswered())
+        first._cursor = 2
+        first.action_toggle()  # l2 in, queued behind the revert
+        await wait_for(pilot, lambda: len(screen._write_queue or ()) == 1)
+        assert first.checked == {"l1", "l2"}
+        release.set()
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert notices[0][0] == "Couldn't revert"
+        assert fake_client.puts == []  # the tick was never sent
+        assert month_reads == ["acc1"]
+        assert screen._list.checked == {"l1"}  # the engine's ticks
+        assert screen._list.cursor_key == "l1"
+        assert not screen._ticks_unanswered()
+        drawn = screen._list
+        await pilot.press("r")
+        await wait_for(pilot, lambda: screen._list is not drawn)
+
+    run_app(scenario)
+
+
+def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
+    """A burst of toggles sends one PUT per toggle, in the order pressed —
+    including a re-toggle of the same row (l1 out, then back in) — and reads
+    the list again once, after the last."""
+    _patch(monkeypatch)
+    reads: list = []
+    from expense import reads as reads_module
+
+    fake = reads_module.fetch_bank_lines
+
+    def counting(cfg, **k):
+        reads.append(k)
+        return fake(cfg, **k)
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", counting)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        loaded = len(reads)
+        first = screen._list
+        screen._list._cursor = 0
+        screen._list.action_toggle()  # l1 → out
+        screen._list._cursor = 2
+        screen._list.action_toggle()  # l2 → in
+        screen._list._cursor = 0
+        screen._list.action_toggle()  # l1 → back in
+        await wait_for(pilot, lambda: len(fake_client.puts) == 3)
+        await wait_for(pilot, lambda: screen._list is not first)
+        await pilot.pause()
+        assert fake_client.puts == [
+            ("/transactions/t1", {"reconciliation_id": None}),
+            ("/transactions/t2a", {"reconciliation_id": "r1"}),
             ("/transactions/t1", {"reconciliation_id": "r1"}),
         ]
+        assert len(reads) - loaded == 2  # one re-read: the batch's lines and the rest
 
     run_app(scenario)
 
@@ -316,22 +725,21 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
     calls = {"n": 0}
-    fresh_row = {
-        "id": "t9",
-        "title": "Fresh",
-        "amount_cents": -100,
-        "date": "2026-04-10",
-        "reconciliation_id": "r1",
-    }
+    fresh_line = bank_line_row(
+        "l9",
+        [_part("t9", -100, line="l9", day="2026-04-10", title="Fresh", recon="r1")],
+        net_cents=-100,
+        account_id="acc1",
+    )
 
     def fake_fetch(cfg, **k):
         calls["n"] += 1
         if calls["n"] == 1:
             time.sleep(0.15)  # the superseded first load finishes last
-            return {"items": ASSIGNED}
-        return {"items": [*ASSIGNED, fresh_row]}
+            return cursor_page(ASSIGNED)
+        return cursor_page([*ASSIGNED, fresh_line])
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(completed))
@@ -341,15 +749,15 @@ def test_rapid_reloads_keep_one_fresh_checklist(fake_client, monkeypatch):
         await wait_for(pilot, lambda: screen._list is not None and len(screen._list._rows) == 2)
         await pilot.pause(0.25)  # window for the cancelled worker to (not) paint
         assert len(screen.query(CheckList)) == 1
-        assert [r[0] for r in screen._list._rows] == ["t1", "t9"]
+        assert [r[0] for r in screen._list._rows] == ["l1", "l9"]
 
     run_app(scenario)
 
 
-def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
+def test_fetch_all_lines_pages_at_engine_cap(monkeypatch):
     """The detail fetch never exceeds the engine's 200-row limit cap
     and follows `next_cursor` until it is null — never an offset."""
-    from expense.tui.screens.reconciliations import _fetch_all_txns
+    from expense.tui.screens.reconciliations import _fetch_all_lines
 
     calls: list[tuple[int, str | None]] = []
 
@@ -357,13 +765,13 @@ def test_fetch_all_txns_pages_at_engine_cap(monkeypatch):
         assert "offset" not in kw
         calls.append((limit, after))
         if after is None:  # one full page with a cursor, then the last one
-            return cursor_page([{"id": f"t{i}"} for i in range(200)], next_cursor="c1")
-        return cursor_page([{"id": f"t{200 + i}"} for i in range(40)])
+            return cursor_page([{"id": f"l{i}"} for i in range(200)], next_cursor="c1")
+        return cursor_page([{"id": f"l{200 + i}"} for i in range(40)])
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
-    rows = _fetch_all_txns(object(), reconciliation="r1")
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+    rows = _fetch_all_lines(object(), reconciliation="r1")
     assert calls == [(200, None), (200, "c1")]
-    assert [r["id"] for r in rows] == [f"t{i}" for i in range(240)]
+    assert [r["id"] for r in rows] == [f"l{i}" for i in range(240)]
 
 
 def test_complete_confirms_then_posts(fake_client, monkeypatch):
@@ -391,7 +799,7 @@ def test_completed_is_read_only(fake_client, monkeypatch):
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert screen._list._read_only
-        assert [r[0] for r in screen._list._rows] == ["t1"]  # only batch txns
+        assert [r[0] for r in screen._list._rows] == ["l1"]  # only the batch's lines
 
     run_app(scenario)
 
@@ -481,10 +889,10 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
 
     def fake_fetch(cfg, **k):  # nothing assigned to r1
         if k.get("account") == "acc1":
-            return {"items": AVAILABLE}
-        return {"items": []}
+            return cursor_page(AVAILABLE)
+        return cursor_page([])
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", fake_fetch)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
         "Cannot complete reconciliation with no assigned transactions.",
@@ -763,7 +1171,7 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
     def boom(cfg, **k):
         raise RuntimeError("engine down")
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", boom)
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", boom)
     notices: list = []
     monkeypatch.setattr(
         ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)

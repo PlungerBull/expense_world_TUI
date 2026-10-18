@@ -33,7 +33,7 @@ expense/tui/
                     #   + page_indicator() — `rows 21-40 of 133 · page 2 of 7`
     cursor_list.py  # CursorList — arrow-key list, window + growing modes
                     #   + CursorOptionList — the home menu
-    checklist.py    # CheckList — multi-select (hashtag picker)
+    checklist.py    # CheckList — the reconciliation tick-list, one bank line per row
     picker.py       # suggestion_list() — the scrolling name list both quick-add
                     #   surfaces drop under their input
   screens/
@@ -97,7 +97,9 @@ stays that way. It is called inside a Textual worker (`@work(thread=True)`) so t
 never blocks. Read screens subclass `SectionScreen` and override `fetch()` (runs in
 the worker) + `build(data)`; writes go through `EngineWriteMixin.run_write` in its own
 worker group — a FIFO queue, one write in flight, and an error drops the queued
-remainder.
+remainder. `writes_unanswered()` lists the write in flight and the queued ones, and the
+`_writes_dropped(failed, dropped)` hook runs after a refusal, so a screen can redraw what
+it showed of the writes that were never sent.
 
 **A thread worker hands back through `call_while_attached`.** A thread worker cannot be
 stopped, so a read still in flight when its screen is popped or the app quits still
@@ -776,11 +778,33 @@ reconciliation list, where a batch's own delete lives one screen deeper); `esc` 
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
-**A reconciliation's batch screen** (`⏎` on one in the panel) is its header — name,
-account, period, then `begin`, `end`, `diff` and `status` — over a tick-list: on a draft,
-the batch's rows and the account's rows in its period that are in no batch; once completed,
-the batch's rows, read-only. **Keys**: `space` puts the row under the cursor in or out of
-the batch; `c` completes, `u` reverts, `d` deletes, `r` reads it again, `esc` goes back.
+**A reconciliation's batch screen** (`⏎` on one in the panel; screens 2a–2c in
+[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is its
+header — name, account, period, then `begin`, `end`, `diff` and `status` — over a list of
+**bank lines**, read from `GET /bank-lines` (contract: GET /v1/bank-lines) through
+`fetch_bank_lines` in [reads.py](../expense/reads.py), every page of each read. On a draft
+it is a tick-list: the batch's lines (`reconciliation_id=`) ticked and first, then the
+account's lines in no batch inside the period (`account_id`, `unreconciled=true`, and the
+period's own days as `date_from` / `date_to`), each read in the engine's order, newest
+first. Once completed it is the batch's lines alone, read-only, with no tick box. A
+purchase split into parts is **one row with its total**, never half of it, and nothing on
+the row says it is split. Every row is one line of the bank's own columns, `Date ·
+Title · Operation · Amount`, made by `bank_line_columns` in
+[formatting.py](../expense/formatting.py): the day and title of the line's parts, its
+`operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured
+(contract: GET /v1/bank-lines/{bank_line_id}); no category, hashtags, note or part count.
+**Keys**: `space` puts the line under the cursor in or out of the batch with one
+`PUT /transactions/{id}` of `reconciliation_id` (or `null`) on one of its parts, which
+moves every part (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment");
+once every tick sent is answered, the screen reads the reconciliation and its lines again,
+so the header's `diff` is the engine's, and the cursor stays on the line ticked last, now
+among the ticked ones; a read that lands while a tick is still unanswered is not drawn, so
+ticking down a statement (`space`, `↓`, `space`…) never lands on another row. A refused
+tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
+reads the reconciliation and its lines again, the cursor on row 1; so does a refused
+complete, revert, delete or balance save that had ticks queued behind it, under its own
+`Couldn't …` note. `c` completes, `u` reverts, `d` deletes the reconciliation, `r` reads it
+again, `esc` goes back.
 **`c` needs the ending balance**: the engine completes no reconciliation without it
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The
@@ -960,7 +984,7 @@ cursor, the count, the `pgdn` read and the rule that a `pgdn` read never lands o
 fresh read replaced.
 
 **Full-data screens window locally** — Manage, the Reconciliations account list (full
-height alone, an equal split with the open panel), the recon checklist at fit÷2 items —
+height alone, an equal split with the open panel), the recon checklist at what fits —
 with `pgdn` next page, `pgup` previous (hidden when one page holds it all); `↑`/`↓` walk
 through and cursor-restore lands on its page. Exempt: Home's month grid, static tables,
 System kv-tables.

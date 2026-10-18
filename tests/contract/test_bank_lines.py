@@ -37,6 +37,10 @@ stand on rules only the engine can confirm. Pinned here:
     id, newest first; the filters on whole lines, the count agreeing with the
     list, pages counted in lines that never cut a split line in two, and a
     cursor bound to its list and its filters;
+  · the reconciliation batch screen's own path: its reads of a draft month
+    (the batch's lines, and the account's lines in no batch inside the period)
+    list a split purchase as one row of its total, and a tick on the one part
+    it names moves the whole line in and out;
   · the split refusals: `SPLIT_TOTAL_MISMATCH` on `parts` and every
     `parts.<i>.amount_cents`, and `OPENING_BALANCE_NOT_SPLIT` on
     `transaction_id`; and a batch `line_group` whose items differ is
@@ -869,4 +873,101 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/categories/{groceries}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_the_batch_screen_lists_and_ticks_lines_through_its_own_reads(client):
+    """The reconciliation batch screen's own path, end to end: a draft month's
+    list is the batch's lines (`reconciliation_id=`) and the account's lines in
+    no batch inside the period (`account_id`, `unreconciled=true`, the period's
+    own days), read by `_fetch_all_lines`; a purchase split 60 + 40 is one row
+    of its signed total with its title, day and operation code; a line late on
+    the period's last day is in it and one past it is not. A tick is one `PUT`
+    of `reconciliation_id` on the one part `line_rows` names, which moves the
+    whole line into the batch, and `null` there takes it out
+    (contract: GET /v1/bank-lines)
+    (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
+    from expense.formatting import format_short_date
+    from expense.reads import fetch_bank_lines
+    from expense.tui.screens.reconciliations import _fetch_all_lines, line_rows
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
+    zone = _zone(client)
+    account = _make_account(client)
+    recon = _make_reconciliation(client, account)
+    period = next(
+        r
+        for r in client.get("/reconciliations", params={"account_id": account})["items"]
+        if r["id"] == recon
+    )
+    code = f"OP-{uuid4().hex[:10]}"
+    written: list[str] = []
+
+    def month() -> tuple[list, list, dict]:
+        assigned = _fetch_all_lines(cfg, reconciliation=recon)
+        available = _fetch_all_lines(
+            cfg,
+            account=account,
+            unreconciled=True,
+            date_from=period["date_start"],
+            date_to=period["date_end"],
+        )
+        return line_rows(assigned, available)
+
+    try:
+        purchase = client.post(
+            "/transactions",
+            json_body={
+                "id": str(uuid4()),
+                "title": "FARMACIA",
+                "amount_cents": -10000,
+                "account_id": account,
+                "date": _noon(zone, 2026, 4, 11),
+                "operation_code": code,
+            },
+        )
+        late = datetime(2026, 4, 30, 23, 30, tzinfo=zone).isoformat(timespec="seconds")
+        last_day = _post_tx(client, account, late, -4200, "UBER *TRIP")
+        after = _post_tx(client, account, _noon(zone, 2026, 5, 1), -2500, "TAXI")
+        written.extend([purchase["id"], last_day["id"], after["id"]])
+        parts = _split(client, purchase["id"], [-6000, -4000], written)
+        split_line = parts[0]["bank_line_id"]
+
+        rows, checked, part_of = month()
+        assert checked == []
+        assert [r[0] for r in rows] == [last_day["bank_line_id"], split_line]
+        # the day as every list shows it: the response's own day (format_short_date)
+        assert rows[0][1:] == (format_short_date(last_day["date"]), "UBER *TRIP", None, -4200)
+        assert rows[1][1:] == ("2026-04-11", "FARMACIA", code, -10000)
+        assert part_of[split_line] in {p["id"] for p in parts}
+
+        # Tick: one part named, the whole line in the batch.
+        client.put(f"/transactions/{part_of[split_line]}", json_body={"reconciliation_id": recon})
+        rows, checked, part_of = month()
+        assert checked == [split_line]
+        assert [r[0] for r in rows] == [split_line, last_day["bank_line_id"]]
+        assert rows[0][1:] == ("2026-04-11", "FARMACIA", code, -10000)
+        for part in parts:
+            assert client.get(f"/transactions/{part['id']}")["reconciliation_id"] == recon
+
+        # Without the period's days, `unreconciled=true` on the account lists every
+        # line in no batch, any date, newest first: the ticked purchase is not in it.
+        no_batch = fetch_bank_lines(cfg, account=account, unreconciled=True)["items"]
+        assert [line["id"] for line in no_batch] == [
+            after["bank_line_id"],
+            last_day["bank_line_id"],
+        ]
+
+        # Untick: `null` on the same part takes every part out.
+        client.put(f"/transactions/{part_of[split_line]}", json_body={"reconciliation_id": None})
+        rows, checked, _ = month()
+        assert checked == []
+        assert [r[0] for r in rows] == [last_day["bank_line_id"], split_line]
+        for part in parts:
+            assert client.get(f"/transactions/{part['id']}")["reconciliation_id"] is None
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
         _safe(client.delete, f"/accounts/{account}")

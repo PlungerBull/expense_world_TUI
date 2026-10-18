@@ -75,7 +75,9 @@ rule, and serves `ce4e5cb642e53fdb` until then.
 Approved by the owner (2026-10-17). Each **[UI]** task starts with its mockup; the build waits
 for the owner's pick.
 
-2. **[UI]** The reconciliation screen lists purchases from `GET /bank-lines` and its count, one
+2. **[UI]** What is left: the "no batch" list (pane 2d), parked on todo.md "'No batch' oldest
+   first: ask the engine?"; the month lists are built. The reconciliation screen lists purchases
+   from `GET /bank-lines` and its count, one
    row per purchase with its total; ticking sends one `PUT` with `reconciliation_id` on any one
    part, unticking sends `null`, and the screen re-reads what it shows after each tick. Every
    reconciliation list shows a purchase this way (a draft month, a completed month, the "no

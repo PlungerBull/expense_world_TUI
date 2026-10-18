@@ -86,7 +86,7 @@ def fetch_all_cursor_pages(
 ) -> list[dict]:
     """Exhaust a cursor-paged resource. `fetch_page(limit, after)` returns one raw body.
 
-    `GET /transactions` is the one cursor-paged endpoint. The only stop is
+    `GET /transactions` and `GET /bank-lines` page this way. The only stop is
     `next_cursor` being null (contract: "Base Conventions", "Cursors, on every
     cursor-paged list") — not a short page, not a count: a page holding exactly the
     remaining rows already comes back null, and a short page with a cursor still has more.
@@ -257,6 +257,43 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     no parts itself.
     """
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
+
+
+def fetch_bank_lines(
+    cfg,
+    *,
+    account: str | None = None,
+    reconciliation: str | None = None,
+    unreconciled: bool = False,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    after: str | None = None,
+    limit: int | None = None,
+    verbose: bool = False,
+) -> dict:
+    """GET /v1/bank-lines → the raw engine body: one row per bank line, each
+    the shape `fetch_bank_line` reads, newest first (contract: GET /v1/bank-lines).
+
+    Read by the reconciliation batch screen, which lists a purchase as one row
+    and never half of it. Each filter applies to a whole line. Cursor-paged
+    like `fetch_transactions`, with `limit` counting lines, but it takes no
+    `sort`, no `search` and no `debit_as_negative`: the engine refuses any
+    parameter it does not list, and `net_cents` is signed already.
+    """
+    return fetch_body(
+        cfg,
+        path="/bank-lines",
+        params=query_params(
+            account_id=account,
+            reconciliation_id=reconciliation,
+            unreconciled=unreconciled,
+            date_from=date_from,
+            date_to=date_to,
+            after=after,
+            limit=limit,
+        ),
+        verbose=verbose,
+    )
 
 
 def count_transactions(

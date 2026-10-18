@@ -17,11 +17,13 @@ so `beginning_balance_cents` is required. Both dates are required too
 calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
 the field. POST /reconciliations.
 
-Working screen (ReconciliationDetailScreen): a checklist of the account's
-unassigned + already-in-batch transactions (draft) or a read-only list of the
-batch's transactions (completed). `space` toggles membership (PUT the
-transaction's reconciliation_id); `c`/`u`/`d` complete/revert/delete; `r`
-refetches the batch + checklist. Complete
+Working screen (ReconciliationDetailScreen): a checklist of bank lines — the
+batch's, then the account's in its period that are in no batch (draft) — or a
+read-only list of the batch's lines (completed), read from `GET /bank-lines`
+so a purchase split into parts is one row with its total. `space` toggles
+membership (PUT `reconciliation_id` on one part, which moves the whole line)
+and reads the batch and its list again; `c`/`u`/`d` complete/revert/delete;
+`r` refetches the batch + checklist. Complete
 needs ≥1 transaction and locks amount/account/title/date on them; delete is
 draft-only and just detaches the transactions. Completing also needs the
 ending balance (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
@@ -54,13 +56,13 @@ from expense.reads import (
     items_of,
     load_account_name_map,
     load_category_name_map,
-    load_hashtag_name_map,
 )
 from expense.tui.screens._base import (
     AdaptiveRowsMixin,
     ContentSwapLockMixin,
     EngineWriteMixin,
     SectionScreen,
+    call_while_attached,
     list_refusal_text,
     screen_fetch_kwargs,
     transaction_delete_message,
@@ -839,14 +841,14 @@ class NewReconciliationScreen(FormScreen):
 # --------------------------------------------------------------------------- #
 # Working / detail screen — assign transactions, complete / revert / delete
 # --------------------------------------------------------------------------- #
-def _fetch_all_txns(cfg, **kw) -> list[dict]:
-    """Every matching transaction, cursor-paged at the engine cap.
+def _fetch_all_lines(cfg, **kw) -> list[dict]:
+    """Every matching bank line, cursor-paged at the engine cap.
 
     A single limit=500 request 422s live (cap is 200) and silently truncates
     the checklist; page through instead.
     """
     return fetch_all_cursor_pages(
-        lambda limit, after: reads.fetch_transactions(cfg, after=after, limit=limit, **kw)
+        lambda limit, after: reads.fetch_bank_lines(cfg, after=after, limit=limit, **kw)
     )
 
 
@@ -855,19 +857,27 @@ def _status_span(status: str, palette: Palette) -> tuple[str, str]:
     return status, palette.success if status == "completed" else palette.warning
 
 
-def _txn_sub(it: dict, cat_names: dict, tag_names: dict) -> str:
-    """The dim category · #tags · note sub-line for a transaction row."""
-    parts = []
-    cat = cat_names.get(it.get("category_id"))
-    if cat:
-        parts.append(cat)
-    tags = it.get("hashtag_ids") or []
-    if tags:
-        parts.append(" ".join("#" + tag_names.get(t, t[:6]) for t in tags))
-    note = it.get("description")
-    if note:
-        parts.append(f'"{note}"')
-    return "  ·  ".join(parts)
+def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, dict]:
+    """`(rows, checked, part_of)` for the batch screen's checklist.
+
+    One row per bank line, the batch's lines first, then the ones in no batch,
+    each read in the engine's order; a line in both reads is listed once.
+    `part_of` maps a line to the one part a tick is sent on: `reconciliation_id`
+    is a line field, so a `PUT` on any part moves every part
+    (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment").
+    """
+    rows, checked, part_of = [], [], {}
+    in_batch = {line.get("id") for line in assigned}
+    for line in [*assigned, *available]:
+        key = line.get("id")
+        parts = [p for p in line.get("parts") or [] if isinstance(p, dict) and p.get("id")]
+        if key in part_of or not parts:
+            continue
+        part_of[key] = parts[0]["id"]
+        if key in in_batch:
+            checked.append(key)
+        rows.append((key, *formatting.bank_line_columns(line)))
+    return rows, checked, part_of
 
 
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
@@ -885,7 +895,7 @@ class ReconciliationDetailScreen(
     AdaptiveRowsMixin,
     Screen,
 ):
-    """One batch: header + a transaction checklist (draft) or read-only list
+    """One batch: header + a bank-line checklist (draft) or read-only list
     (completed). `space` toggles membership; `c`/`u`/`d` complete/revert/delete;
     `r` refetches the batch + checklist (r = refresh everywhere, never a write)."""
 
@@ -906,6 +916,8 @@ class ReconciliationDetailScreen(
         self._account_id = record.get("account_id")
         self._busy = False
         self._list: CheckList | None = None
+        self._part_of: dict = {}  # line id → the part a tick is sent on
+        self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
@@ -931,14 +943,14 @@ class ReconciliationDetailScreen(
 
     # ---- adaptive window ---------------------------------------------------
     def _checklist_items(self) -> int:
-        """Items-per-page = what fits #rlist at two lines each.
+        """Rows-per-page = what fits #rlist, one line each.
 
         The chrome is `LIST_FRAME_LINES` — the same frame every other list
         pays, with no caption here (the crumb and #rhead both name the batch).
         Never a literal: #rlist is `overflow: hidden`, so a miscount clips the
         page status in silence.
         """
-        return self.fit_rows("#rlist", chrome=self.LIST_FRAME_LINES, lines_per_row=2)
+        return self.fit_rows("#rlist", chrome=self.LIST_FRAME_LINES)
 
     def on_resize(self, _event) -> None:
         if self._list is not None and self._list.is_attached:
@@ -946,7 +958,7 @@ class ReconciliationDetailScreen(
 
     def _apply_fresh_record(self, fresh: dict) -> None:
         """Main-thread: rebind _record from a refreshed batch, then repaint the
-        header. Called via call_from_thread so the worker never mutates screen
+        header. Called on the UI thread so the worker never mutates screen
         state directly, and a cancelled stale load can't clobber _record."""
         self._record = fresh
         self._render_header()
@@ -1011,56 +1023,41 @@ class ReconciliationDetailScreen(
                 if worker.is_cancelled:
                     return
                 if fresh is None:
-                    self.app.call_from_thread(self._record_gone)
+                    call_while_attached(self, self._record_gone)
                     return
                 # Marshal onto the main thread — worker mustn't mutate screen state.
-                self.app.call_from_thread(self._apply_fresh_record, fresh)
-            # assigned-to-this-batch transactions (always; any date)
-            assigned = _fetch_all_txns(cfg, reconciliation=self._id, **kw)
+                call_while_attached(self, self._apply_fresh_record, fresh)
+            # the batch's lines (always; any date)
+            assigned = _fetch_all_lines(cfg, reconciliation=self._id, **kw)
             available = []
-            if not self._completed:  # draft also offers the account's unassigned txns in range
-                available = [
-                    it
-                    for it in _fetch_all_txns(
-                        cfg,
-                        account=self._account_id,
-                        date_from=self._record["date_start"],
-                        date_to=self._record["date_end"],
-                        **kw,
-                    )
-                    if it.get("reconciliation_id") is None
-                ]
-            cat_names = load_category_name_map()
-            tag_names = load_hashtag_name_map()
+            if not self._completed:  # a draft also offers the account's lines in no batch
+                available = _fetch_all_lines(
+                    cfg,
+                    account=self._account_id,
+                    unreconciled=True,
+                    date_from=self._record["date_start"],
+                    date_to=self._record["date_end"],
+                    **kw,
+                )
             acct_name = resolve_name(self._account_id, load_account_name_map())
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
-                self.app.call_from_thread(self.notify, format_error(exc), severity="error")
+                call_while_attached(self, self.notify, format_error(exc), severity="error")
             return
-        rows, checked, seen = [], [], set()
-        for it in [*assigned, *available]:
-            key = it.get("id")
-            if key in seen:
-                continue
-            seen.add(key)
-            if it.get("reconciliation_id") == self._id:
-                checked.append(key)
-            rows.append(
-                (
-                    key,
-                    it.get("title"),
-                    it.get("amount_cents"),
-                    (it.get("date") or "")[:10],
-                    _txn_sub(it, cat_names, tag_names),
-                )
-            )
+        rows, checked, part_of = line_rows(assigned, available)
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._set_acct_name, acct_name)
-        self.app.call_from_thread(self._render_header)  # picks up _acct_name
-        self.app.call_from_thread(self._populate, rows, checked)
+        call_while_attached(self, self._set_acct_name, acct_name)
+        call_while_attached(self, self._render_header)  # picks up _acct_name
+        call_while_attached(self, self._populate, rows, checked, part_of)
 
-    async def _populate(self, rows: list, checked: list) -> None:
+    async def _populate(self, rows: list, checked: list, part_of: dict) -> None:
+        """Paint a read. Not while a tick is unanswered: the read may predate
+        it, and the read after the last tick paints with the cursor on the line
+        ticked last, so ticking down a statement never lands on another row."""
+        if self._ticks_unanswered():
+            return
+        land_on, self._land_on = self._land_on, None
         async with self._content_lock():
             container = self.query_one("#rlist", Container)
             await container.remove_children()
@@ -1069,6 +1066,7 @@ class ReconciliationDetailScreen(
                 if self._completed
                 else "(no transactions for this account in range)"
             )
+            self._part_of = part_of
             self._list = CheckList(
                 rows,
                 checked,
@@ -1076,6 +1074,7 @@ class ReconciliationDetailScreen(
                 empty=empty,
                 palette=PALETTE,
                 page_size=self._checklist_items(),  # adaptive window
+                land_on=land_on,
             )
             await container.mount(self._list)
             if not self._completed:
@@ -1083,21 +1082,52 @@ class ReconciliationDetailScreen(
 
     # ---- assign / unassign ----------------------------------------------
     def on_check_list_toggled(self, event: CheckList.Toggled) -> None:
-        # The mixin queue sends one PUT at a time, in order.
-        # Success is silent — the checklist toggle already shows the new state.
+        """`space`: one `PUT` of `reconciliation_id` on one part of the line,
+        which puts every part in the batch or takes every part out
+        (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). The
+        mixin queue sends one PUT at a time, in order; once the last one is in,
+        the screen reads the batch and its lines again, the cursor on the line
+        just ticked."""
+        part = self._part_of.get(event.key)
+        if part is None:
+            return
+        self._land_on = event.key
         self.run_write(
             "PUT",
-            f"/transactions/{event.key}",
+            f"/transactions/{part}",
             json_body={"reconciliation_id": self._id if event.checked else None},
-            on_success=lambda: None,
+            on_success=self._assigned,
             on_error=self._assign_failed,
         )
 
+    def _is_tick(self, write) -> bool:
+        return write.on_success == self._assigned
+
+    def _ticks_unanswered(self) -> bool:
+        """A tick is sent or queued and its answer has not come back. Read off
+        the write queue itself, so a dropped queue can never leave it stuck."""
+        return any(self._is_tick(w) for w in self.writes_unanswered())
+
+    def _assigned(self) -> None:
+        if not self._ticks_unanswered():  # a tick still unanswered reads again when it lands
+            self._load_txns(refresh_record=True)
+
+    def _writes_dropped(self, failed, dropped: list) -> None:
+        """A refused complete, revert, delete or balance save dropped ticks
+        queued behind it: their boxes show a state the engine never got, so
+        the month and its list are read again, the cursor on row 1. A refused
+        tick reads again on its own (`_assign_failed`)."""
+        if not self._is_tick(failed) and any(self._is_tick(w) for w in dropped):
+            self._land_on = None
+            self._load_txns(refresh_record=True)
+
     def _assign_failed(self, message: str) -> None:
         # The mixin already dropped the queued intents (they were made against
-        # a checklist state the engine just contradicted) — resync to truth.
+        # a checklist state the engine just contradicted) — resync to truth:
+        # the month too, since a tick before this one may have landed.
         self.notify(message, title="Couldn't update", severity="error")
-        self._load_txns()
+        self._land_on = None
+        self._load_txns(refresh_record=True)
 
     # ---- status actions --------------------------------------------------
     def action_back(self) -> None:

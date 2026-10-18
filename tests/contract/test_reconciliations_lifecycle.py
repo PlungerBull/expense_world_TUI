@@ -236,8 +236,9 @@ def test_a_period_always_has_both_days(client):
 
 def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
     """Rows on `date_end` must not be left out. The working screen
-    reads the account's rows with `date_from` / `date_to` set to the period's
-    own days; a row logged at 23:30 local on `date_end` must be in that read."""
+    reads the account's lines in no batch with `date_from` / `date_to` set to
+    the period's own days; a row logged at 23:30 local on `date_end` must be in
+    that read (contract: GET /v1/bank-lines)."""
     zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
     late = datetime(2026, 4, 30, 23, 30, tzinfo=zone).isoformat(timespec="seconds")
     account_id = _make_account(client)
@@ -260,14 +261,15 @@ def test_the_tick_list_read_includes_a_row_late_on_the_last_day(client):
             if r["id"] == recon_id
         )
         page = client.get(
-            "/transactions",
+            "/bank-lines",
             params={
                 "account_id": account_id,
+                "unreconciled": "true",
                 "date_from": period["date_start"],
                 "date_to": period["date_end"],
             },
         )
-        assert txn_id in [row["id"] for row in page["items"]]
+        assert [[part["id"] for part in line["parts"]] for line in page["items"]] == [[txn_id]]
     finally:
         _safe_delete(client, f"/transactions/{txn_id}")
         _safe_delete(client, f"/reconciliations/{recon_id}")
