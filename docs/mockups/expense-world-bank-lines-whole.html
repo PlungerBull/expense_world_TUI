@@ -184,7 +184,7 @@
 </div>
 
 <div class="pane"><div class="lbl">2e · ⏎ on a split purchase in “no batch” <span>— the form is about the whole purchase</span></div>
-<p class="blurb">In the “no batch” list, <code>⏎</code> on a row opens a form, so you can fix what keeps the row out of a month. On every reconciliation list a split purchase is the whole purchase, never its parts, so <code>⏎</code> on FARMACIA -100.00 opens a form for the whole purchase. Its parts in the ledger are -60.00 (SALUD, #casa, medicinas) and -40.00 (HOGAR, #casa, limpieza). Each pane opens with the cursor on the date, except the last, drawn after <code>⇥</code> three times to show the amount. The form looks and works like the ledger's Edit form; the heading line, the field <code>Operation</code> and the line under the total are new.</p>
+<p class="blurb">In the “no batch” list, <code>⏎</code> on a row opens a form, so you can fix what keeps the row out of a month. On every reconciliation list a split purchase is the whole purchase, never its parts, so <code>⏎</code> on FARMACIA -100.00 opens a form for the whole purchase. Its parts in the ledger are -60.00 (SALUD, #casa, medicinas) and -40.00 (HOGAR, #casa, limpieza). Each pane opens with the cursor on the date, except the last, drawn after <code>⇥</code> three times to show the amount. The form looks and works like the ledger's Edit form; the heading line, the field <code>Operation</code> and the <code>Parts</code> section are new. On a split purchase the form has two sections: the fields every part shares, all editable, and below them <code>Parts</code>, each part's amount and their total, shown but not editable.</p>
 <div class="opt">
 <div class="var"><div class="oh">C1 · <span>a Purchase form, for a split purchase only</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Purchase</span>
 
@@ -202,12 +202,17 @@
    <span class="b">date       </span>2026-10-11
    title      FARMACIA
    operation  48201764
-   <span class="d">amount     -100.00  read-only</span>
-   <span class="d">           the sum of its parts · s in the ledger splits it again to change it</span>
    account    Sueldo Soles
 
+   <span class="b">Parts</span><span class="d">  read-only</span>
+   <span class="d">             -60.00</span>
+   <span class="d">             -40.00</span>
+   <span class="d">           ────────</span>
+   <span class="d">total       -100.00</span>
+   <span class="d">the parts must add up to the total · s in the ledger splits it again to change them</span>
+
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><b>For you:</b> <code>⏎</code> on FARMACIA shows the purchase as the list does. You fix its date, title, operation number or account, and every part changes with it. The total can't be changed here, and category, hashtags and note are not shown.</p></div>
+<p class="cap"><b>For you:</b> <code>⏎</code> on FARMACIA shows the purchase as the list does. You fix its date, title, operation number or account, and every part changes with it. Below, <code>Parts</code> shows each part's amount adding up to the total; you change those by splitting again in the ledger. Category, hashtags and note are not shown.</p></div>
 <div class="var"><div class="oh">C1 · <span>a row never split: today's Edit form, unchanged</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
@@ -247,9 +252,14 @@
    <span class="b">date       </span>2026-10-11
    title      FARMACIA
    operation  48201764
-   <span class="d">amount     -100.00  read-only</span>
-   <span class="d">           the sum of its parts · s in the ledger splits it again to change it</span>
    account    Sueldo Soles
+
+   <span class="b">Parts</span><span class="d">  read-only</span>
+   <span class="d">             -60.00</span>
+   <span class="d">             -40.00</span>
+   <span class="d">           ────────</span>
+   <span class="d">total       -100.00</span>
+   <span class="d">the parts must add up to the total · s in the ledger splits it again to change them</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap"><b>Recommended:</b> every reconciliation screen then works on the bank's columns alone, as you asked.</p></div>
@@ -273,7 +283,7 @@
    account    Sueldo Soles
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap"><b>For you:</b> in “no batch” every row opens the same short form, the bank's columns and nothing else. A row never split can change its amount here; its category, hashtags and note you change from the ledger, as for a split purchase.</p></div>
+<p class="cap"><b>For you:</b> in “no batch” every row opens the same short form, the bank's columns and nothing else. A row never split has no <code>Parts</code> section: its amount is a field at the top you can change; its category, hashtags and note you change from the ledger, as for a split purchase.</p></div>
 </div></div>
 
 <div class="pane"><div class="lbl">3a · d on one part, on the ledger <span>— the question names how many parts go</span></div>
@@ -412,7 +422,7 @@
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
 </div>
 
-<div class="pick"><b>Still open:</b> 2e, <code>⏎</code> on a split purchase in “no batch”: C1 or C2 (C2 recommended).<br><b>Picked (owner, 2026-10-17):</b> every other pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Picked 2026-10-17:</b> the “no batch” list is newest first (2d, and behind the question in 3b), the only order the engine's purchase list has.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. On these lists a split purchase is the whole purchase, never its parts, so its form (2e) is about the whole purchase. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code> (also the form's field in 2e), the form's name <code>Purchase</code> and its heading line, the line under the total in 2e, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
+<div class="pick"><b>Still open:</b> 2e, <code>⏎</code> on a split purchase in “no batch”: C1 or C2 (C2 recommended).<br><b>Picked (owner, 2026-10-17):</b> every other pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Picked 2026-10-17:</b> the “no batch” list is newest first (2d, and behind the question in 3b), the only order the engine's purchase list has.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. On these lists a split purchase is the whole purchase, never its parts, so its form (2e) is about the whole purchase. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code> (also the form's field in 2e), the form's name <code>Purchase</code> and its heading line, the <code>Parts</code> heading and the line under the total in 2e, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
