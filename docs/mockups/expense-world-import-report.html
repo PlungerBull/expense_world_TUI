@@ -76,101 +76,44 @@
 <button class="theme" type="button">light / dark</button>
 <div class="head">
   <h1>Import · the report</h1>
-  <p>The import door's preview, and the screen after importing, as <b>one table of the file's rows</b> with two more columns: a <b>mark</b> (✓ or ✗) and a <b>reason</b> from a short fixed list. Every outcome of an import — new, already there, modified, stopped, left out — is a reason, so a new engine feature adds a reason, not a new note.</p>
-  <p>It replaces the preview's <code>match</code> column and the notes under the summary. The example file has one row of each reason: row 7 <code>WONG SAN ISIDRO</code> is on 03 Oct in the ledger and 04 Oct in the bank, and moves; row 9 <code>TAMBO MIRAFLORES</code> would move from 30 Sep to 01 Oct, but its reconciliation <code>Septiembre 2026</code> is completed. The rows are invented. Use the button at the top right for a light terminal.</p>
+  <p>The import door's preview as <b>one table of the file's rows</b> with two more columns: a <b>mark</b> (✓ in the ledger after the import, ✗ left out) and a <b>reason</b> from a short fixed list. After importing, the screen gives the counts alone. It replaces the preview's <code>match</code> column and the notes under the summary.</p>
+  <p>The example file has one row of each reason. The rows are invented. Use the button at the top right for a light terminal.</p>
 </div>
 
 <div class="qs">
+  <h2>Picked</h2>
+  <p>1B (✓ = in the ledger after the import) · 2A (the reason alone) · after importing, the counts alone, no table.</p>
   <h2>Questions for the owner</h2>
   <ol>
-    <li><b>Pane 1 · what does ✓ mean?</b>
+    <li><b>Pane 1 · a row whose transaction sits in a completed reconciliation on another day.</b> You are right that with a reconciliation done well this cannot happen: the bank's day would agree. It happens only when a reconciliation was completed wrong, so the row should point at it.
       <ul>
-        <li><b>1A</b>: ✓ only when the row made a new transaction. A row already in the ledger gets ✗, so a re-imported file is mostly ✗ though nothing is wrong.</li>
-        <li><b>1B</b> (recommended): ✓ when the row is in the ledger after the import — new, already there, or modified. ✗ only for a row left out (closed period, before 2026, unreadable), so ✗ always means “look at this”.</li>
+        <li><b>1A</b> (recommended): <code>✗  Not modified: Septiembre 2026 is reconciled</code> — a ✗, because something needs looking at: that reconciliation.</li>
+        <li><b>1B</b>: a ✓ with the same words, because the row is in the ledger.</li>
       </ul>
     </li>
-    <li><b>Pane 2 · does the reason say what changed?</b>
+    <li><b>Pane 2 · the block under the table.</b> My earlier example was wrong — it came from the case above. The block is for this one: you typed <code>Farmacia -42.90</code> on 10 Oct; the bank has <code>FARMACIA CENTRAL -42.90</code> on 11 Oct with no operation number, so the file row comes in as New and the ledger would hold that transaction twice. The block names the typed one so you can delete it. It is the only place a transaction in the ledger that the file does not have shows.
       <ul>
-        <li><b>2A</b>: the reason alone — <code>Modified existing transaction</code>.</li>
-        <li><b>2B</b> (recommended): the reason, then dim what changed — <code>Modified existing transaction · day 03 Oct → 04 Oct</code>, <code>Not modified · Septiembre 2026 is reconciled, keeps 30 Sep</code>. Full detail of what happened, row by row.</li>
+        <li><b>2A</b> (recommended): keep the block under the table, on the preview only.</li>
+        <li><b>2B</b>: the table alone.</li>
       </ul>
     </li>
-    <li><b>Pane 3 · under the table.</b> The table lists the file's rows, so a transaction in the ledger that the file does not have cannot be a row of it. Today it shows only in “days where the file and the ledger disagree” (a possible duplicate).
-      <ul>
-        <li><b>3A</b> (recommended): keep that block under the table, on the preview and after importing.</li>
-        <li><b>3B</b>: the table alone.</li>
-      </ul>
-    </li>
-    <li><b>Pane 4 · after importing.</b> The same table, with the same reasons and marks, under <code>✓ 5 rows imported</code>; the column is headed <code>what happened</code> instead of <code>reason</code>. Agree, or say what differs.</li>
     <li><b>The reasons' words</b> (the box under these questions). Change any of them, or agree.</li>
   </ol>
 </div>
 
 
-<div class="pick"><b>The reasons</b> — the whole list, one per row. The words after <code>·</code> are the detail (question 2).
+<div class="pick"><b>The reasons</b> — the whole list, one per row, nothing after it.
 <pre>
-  <span class="p">✓</span>  <span class="p">New</span>                             <span class="d">· added to the ledger</span>
-  <span class="p">✓</span>  <span class="d">Already in the ledger</span>           <span class="d">  found by operation number or by the same day and amount; nothing changed</span>
-  <span class="p">✓</span>  Modified existing transaction   <span class="d">· took the bank's title / got the operation number / day 03 Oct → 04 Oct</span>
-  <span class="p">✓</span>  <span class="w">Not modified</span>                    <span class="d">· Septiembre 2026 is reconciled, keeps 30 Sep  (the move to the bank's day was stopped)</span>
-  <span class="nb">✗</span>  <span class="w">Closed period</span>                   <span class="d">· Agosto 2026</span>
+  <span class="p">✓</span>  <span class="p">New</span>
+  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
+  <span class="p">✓</span>  Modified existing transaction      <span class="d">(took the bank's title, got the operation number, or moved to the bank's day)</span>
+  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>   <span class="d">(question 1)</span>
+  <span class="nb">✗</span>  <span class="w">Closed period</span>
   <span class="nb">✗</span>  <span class="w">Before 2026</span>
-  <span class="nb">✗</span>  <span class="w">Couldn't read the row</span>           <span class="d">· the date is empty / the operation number is on two rows</span>
-</pre>
-Marks as in 1B. A row modified two ways says both: <code>Modified existing transaction · took the bank's title, day 03 Oct → 04 Oct</code>.</div>
+  <span class="nb">✗</span>  <span class="w">Couldn't read the row</span>
+</pre></div>
 
-<div class="pane"><div class="lbl">1 · The mark <span>— what ✓ and ✗ mean · the preview, before anything is written</span></div><p class="blurb">The same preview twice; only the marks differ. Both show the detail of question 2 (2B).</p><div class="opt wide"><div class="var"><div class="oh">1A · <span>✓ = a new transaction was made</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
-
-<span class="d">     #  date        title                    amount     reason</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="nb">✗</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="nb">✗</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="nb">✗</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="nb">✗</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="nb">✗</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
-    11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
-  <span class="d">… 3 more · pgdn</span>
-
-  14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
-           1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger after import </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger after import </span><span class="n"> -7.50</span>
-
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Rows 3, 6, 7, 8 and 9 are in the ledger, yet carry ✗ — the same mark as the rows left out.</p></div><div class="var"><div class="oh">1B · <span>✓ = in the ledger after the import</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
-
-<span class="d">     #  date        title                    amount     reason</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
-    11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
-  <span class="d">… 3 more · pgdn</span>
-
-  14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
-           1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger after import </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger after import </span><span class="n"> -7.50</span>
-
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">✗ marks only rows 10, 11 and 12, the ones the import leaves out. Row 9 is ✓ — it is in the ledger — and its reason, in the warning colour, says it was not moved.</p></div></div></div>
-<div class="pane"><div class="lbl">2 · The reason <span>— the reason alone, or with what changed</span></div><p class="blurb">Marks as in 1B.</p><div class="opt wide"><div class="var"><div class="oh">2A · <span>the reason alone</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<div class="pane"><div class="lbl">1 · The reconciled row <span>— row 9: the ledger has it on 30 Sep inside the completed Septiembre 2026, the bank on 01 Oct</span></div><p class="blurb">Both with the block of question 2 (2A).</p><div class="opt wide"><div class="var"><div class="oh">1A · <span>✗ — a reconciliation to check</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
   Preview · Sueldo Soles · <span class="d">nothing written yet</span>
@@ -183,7 +126,7 @@ Marks as in 1B. A row modified two ways says both: <code>Modified existing trans
      6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction
      7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction
      8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span>
+     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>
     10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span>
     11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
     12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span>
@@ -191,107 +134,90 @@ Marks as in 1B. A row modified two ways says both: <code>Modified existing trans
 
   14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
            1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger after import </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger after import </span><span class="n"> -7.50</span>
+  <span class="w">! 1 day where the file and the ledger disagree</span>
+      2026-10-10   file   0.00<span class="d"> · ledger after import </span><span class="n">-42.90</span>
+        Farmacia                <span class="n">-42.90</span>   <span class="d">in the ledger, not in the file</span>
 
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Rows 6, 7 and 8 all read <code>Modified existing transaction</code>; which change each got is not on the screen.</p></div><div class="var"><div class="oh">2B · <span>the reason, then what changed</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Row 9 is marked like the rows the import leaves out: something needs your eye.</p></div><div class="var"><div class="oh">1B · <span>✓ — the row is in the ledger</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
   Preview · Sueldo Soles · <span class="d">nothing written yet</span>
 
 <span class="d">     #  date        title                    amount     reason</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
+     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span>
      3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
+     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span>
+     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span>
+     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction
+     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction
+     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction
+     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>
+    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span>
     11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
+    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span>
   <span class="d">… 3 more · pgdn</span>
 
   14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
            1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger after import </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger after import </span><span class="n"> -7.50</span>
+  <span class="w">! 1 day where the file and the ledger disagree</span>
+      2026-10-10   file   0.00<span class="d"> · ledger after import </span><span class="n">-42.90</span>
+        Farmacia                <span class="n">-42.90</span>   <span class="d">in the ledger, not in the file</span>
 
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Each row says exactly what the import did or would do to it. On a terminal narrower than about 105 columns the detail's end is cut with <code>…</code>.</p></div></div></div>
-<div class="pane"><div class="lbl">3 · Under the table <span>— the days where the file and the ledger disagree</span></div><p class="blurb">Row 9 kept 30 Sep, so the file and the ledger now disagree on 30 Sep and 01 Oct. The block lists those days, and a transaction the file does not have (none here) under its day, as built today.</p><div class="opt wide"><div class="var"><div class="oh">3A · <span>keep the block</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Row 9 is marked like every row found in the ledger; only its words, in the warning colour, say something is off.</p></div></div></div>
+<div class="pane"><div class="lbl">2 · Under the table <span>— a transaction you typed by hand on another day than the bank's</span></div><p class="blurb">Row 4 FARMACIA CENTRAL comes in as New on 11 Oct; the Farmacia you typed on 10 Oct stays. Row 9 as 1A.</p><div class="opt wide"><div class="var"><div class="oh">2A · <span>keep the block</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
   Preview · Sueldo Soles · <span class="d">nothing written yet</span>
 
 <span class="d">     #  date        title                    amount     reason</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
+     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span>
      3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
+     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span>
+     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span>
+     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction
+     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction
+     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction
+     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>
+    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span>
     11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
+    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span>
   <span class="d">… 3 more · pgdn</span>
 
   14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
            1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger after import </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger after import </span><span class="n"> -7.50</span>
+  <span class="w">! 1 day where the file and the ledger disagree</span>
+      2026-10-10   file   0.00<span class="d"> · ledger after import </span><span class="n">-42.90</span>
+        Farmacia                <span class="n">-42.90</span>   <span class="d">in the ledger, not in the file</span>
 
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">As in panes 1 and 2.</p></div><div class="var"><div class="oh">3B · <span>the table alone</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">The block names the typed Farmacia, the one to delete after importing.</p></div><div class="var"><div class="oh">2B · <span>the table alone</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
   Preview · Sueldo Soles · <span class="d">nothing written yet</span>
 
 <span class="d">     #  date        title                    amount     reason</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
+     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span>
      3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
+     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span>
+     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span>
+     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction
+     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction
+     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction
+     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="nb">✗</span>  <span class="w">Not modified: Septiembre 2026 is reconciled</span>
+    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span>
     11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
+    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span>
   <span class="d">… 3 more · pgdn</span>
 
   14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moves to the bank's day · 1 takes the bank's title
            1 closed · 1 before 2026 · 1 unreadable
 
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Nothing under the counts. A transaction in the ledger that the file does not have is not shown anywhere on the import.</p></div></div></div>
-<div class="pane"><div class="lbl">4 · After importing <span>— the same table, saying what happened</span></div><p class="blurb">Marks 1B, detail 2B, block 3A. The counts are the engine's, in the past tense.</p><div class="opt wide"><div class="var"><div class="oh">4 · <span>the imported screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 5 rows</pre></div></div><p class="cap">Nothing under the counts. The typed Farmacia is not shown anywhere on the import.</p></div></div></div>
+<div class="pane"><div class="lbl">3 · After importing <span>— the counts alone</span></div><p class="blurb">As you asked: no table again.</p><div class="opt wide"><div class="var"><div class="oh">3 · <span>the imported screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="p">✓</span> <span class="b">5 rows imported</span> · Sueldo Soles   <span class="d">new ones under @Pendiente and #Pendiente</span>
 
-<span class="d">     #  date        title                    amount     what happened</span>
-     2  2026-10-14  CAFE ANDINO LIMA PE   <span class="n">   -18.50</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     3  2026-10-13  UBER TRIP             <span class="n">    -4.20</span>  <span class="p">✓</span>  <span class="d">Already in the ledger</span>
-     4  2026-10-11  FARMACIA CENTRAL      <span class="n">   -42.90</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     5  2026-10-09  CINE PLAZA LIMA PE    <span class="n">   -28.00</span>  <span class="p">✓</span>  <span class="p">New</span><span class="d"> · added to the ledger</span>
-     6  2026-10-07  MERCADO NORTE         <span class="n">   -61.30</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · took the bank&#x27;s title</span>
-     7  2026-10-04  WONG SAN ISIDRO       <span class="n">  -100.00</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · day 03 Oct → 04 Oct</span>
-     8  2026-10-03  NETFLIX.COM           <span class="n">   -44.90</span>  <span class="p">✓</span>  Modified existing transaction<span class="d"> · got the operation number</span>
-     9  2026-10-01  TAMBO MIRAFLORES      <span class="n">    -7.50</span>  <span class="p">✓</span>  <span class="w">Not modified</span><span class="d"> · Septiembre 2026 is reconciled, keeps 30 Sep</span>
-    10  2026-08-29  SHELL SAN ISIDRO      <span class="n">  -120.00</span>  <span class="nb">✗</span>  <span class="w">Closed period</span><span class="d"> · Agosto 2026</span>
-    11  2025-12-30  RAPPI LIMA PE         <span class="n">   -36.90</span>  <span class="nb">✗</span>  <span class="w">Before 2026</span>
-    12  —           PLIN JUAN P.          <span class="n">   -15.40</span>  <span class="nb">✗</span>  <span class="w">Couldn&#x27;t read the row</span><span class="d"> · the date is empty</span>
-  <span class="d">… 3 more · pgdn</span>
-
   14 rows · <span class="p">5 new</span> · 6 in the ledger · 1 moved to the bank's day · 1 took the bank's title
            1 closed · 1 before 2026 · 1 unreadable
-  <span class="w">! 2 days where the file and the ledger disagree — check them</span>
-      2026-10-01   file <span class="n"> -7.50</span><span class="d"> · ledger </span>  0.00
-      2026-09-30   file   0.00<span class="d"> · ledger </span><span class="n"> -7.50</span>
 
  <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap"><code>⏎ Next file</code> instead of <code>⏎ Home</code> while a file follows, as today.</p></div></div></div>
 <script>

@@ -63,26 +63,33 @@ read per selected part, so the engine may be asked to say what moved in its answ
 ### Approve the next catch-up and pick the import report
 Asked 2026-10-17 · Blocks: [specs/import-bank-day.md](specs/import-bank-day.md)
 
-The engine now moves a transaction matched by operation number to the bank's day when you
-import a file. Instead of one more note on the preview, the preview and the screen after
-importing become one table of the file's rows with a mark (✓/✗) and a reason from a short list.
-Read the draft spec, then pick in
-[mockups/expense-world-import-report.html](mockups/expense-world-import-report.html): what ✓
-means (1A or 1B), whether the reason says what changed (2A or 2B), what stays under the table
-(3A or 3B), the screen after importing (4), and the reasons' words.
+The preview becomes one table of the file's rows with a mark and a reason; picked so far: ✓
+means "in the ledger after the import", the reason stands alone, and the screen after importing
+gives the counts alone. Left in
+[mockups/expense-world-import-report.html](mockups/expense-world-import-report.html): the mark
+on a row whose transaction sits in a completed reconciliation on another day (1A ✗ or 1B ✓),
+whether the block of days where the file and the ledger disagree stays under the table (2A or
+2B), the reasons' words, and approving the spec.
 
-**Recommended:** approve the spec; 1B, 2B, 3A, and pane 4 and the reasons as drawn, because ✗
-then always means "look at this" and each row says what the import did to it.
+**Recommended:** 1A, because that row means a reconciliation was completed wrong and needs
+looking at; 2A, because it is the only place a transaction typed by hand and also in the file
+shows up twice; the reasons as drawn; approve the spec.
 
-### The split screen's three moments
-Asked 2026-10-17 · Blocks: nothing; each pick that changes the screen becomes a task
+### The split screen: a typed line or a form?
+Asked 2026-10-18 · Blocks: the split screen's changes
 
-[mockups/expense-world-split-moments.html](mockups/expense-world-split-moments.html): a title
-typed on a part's line (1), `esc` with parts typed (2), and the `@`/`#` suggestion list on a
-part's line (3), each as built and its alternative. The rest of the split screen stays as built.
+Picked in [mockups/expense-world-split-moments.html](mockups/expense-world-split-moments.html):
+`esc` with parts typed leaves at once (2 A, as built), `@`/`#` open the LOG bar's suggestion
+list (3 A), and a title typed on a part's line changes the transaction's title on every part
+(the engine is asked to take a title with the split: [to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)).
+Earlier you also suggested replacing the typed line with the Edit form's fields, one per line.
+- **A.** Keep the typed line, with the picks above.
+- **B.** The Edit form's fields: the title once at the top, then amount, category, hashtags and
+  note per part; the picks above then apply to the form (its category field already has a
+  suggestion list).
 
-**Recommended:** 1 A (refused: a part has no title of its own), 2 A (leave at once: nothing is
-sent before `^s`), 3 A (the LOG bar's suggestion list).
+**Recommended:** B, because the title is the transaction's, so it reads best as one field above
+the parts, and a field per value leaves nothing to misread.
 
 ---
 
