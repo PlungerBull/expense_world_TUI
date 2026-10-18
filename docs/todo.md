@@ -27,16 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for one catch-up file from `7ff6a09d863d6e44`
-Asked 2026-10-17 · Blocks: the next catch-up (backlog "Catch up with the engine after `7ff6a09d863d6e44`")
-
-The current spec catches up to `7ff6a09d863d6e44`; the practice engine serves
-`786d68f3b071dbf4`. Ask the engine coders for one hand-off file covering every change from
-`7ff6a09d863d6e44` to their current version ([from-engine/README.md](from-engine/README.md)); it
-becomes the next catch-up spec.
-
-**Recommended:** none — only you can hand it over.
-
 ### The help card's line for `⏎` in "no batch"
 Asked 2026-10-17 · Blocks: nothing (only words)
 
@@ -57,15 +47,15 @@ With one row ticked, `c` asks "Locks amount/account/title/date on the 1 ticked r
 
 **Recommended:** A, because it reads as written English either way.
 
-### The note after `b` moves one part of a split purchase
+### The note after `b` moves one part of a split transaction
 Asked 2026-10-17 · Blocks: nothing (the move works; only its note)
 
-`b` on one part of a split purchase moves every part to the new account (the engine's rule), but
+`b` on one part of a split transaction moves every part to the new account (the engine's rule), but
 the note at the bottom counts the rows you selected: `1 row → BCP Oro PEN · 1 left its
 reconciliation`, while both parts moved and both left it.
 - **A.** Keep it: the note counts the rows you selected.
 - **B.** Count what moved: `2 rows → BCP Oro PEN · 2 left their reconciliation`.
-- **C.** Add a phrase: `1 row → BCP Oro PEN · the whole purchase moved`.
+- **C.** Add a phrase: `1 row → BCP Oro PEN · the whole transaction moved`.
 
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
@@ -87,8 +77,6 @@ sent before `^s`), 3 A (the LOG bar's suggestion list).
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Catch up with purchases read, reconciled and deleted whole.** Spec (approved,
-  the loop runs on it): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
 - **Two unit tests fail at random in CI.** Each fails now and then on one Python version and
   passes on the others, because it reads the screen before the screen has finished drawing:
   `test_config_screen_shows_only_the_engine_connection`
@@ -101,25 +89,41 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
-- **Catch up with the engine after `7ff6a09d863d6e44`** (owner, 2026-10-17: after the current
-  spec). Waits for the engine's hand-off file ("Waiting on you" above), which becomes its spec.
-  Known so far from the contract's change log: `1efa6f4627ff9acf` moves a line matched by
-  operation code on another day to the bank's day, with `redated`, `redate_blocked_by` and
-  `counts.redated` on the import; `786d68f3b071dbf4` is wording only (among it the
-  `OPERATION_CODE_EXISTS` message now speaks of bank lines).
+- **Catch up with the engine after `7ff6a09d863d6e44`** (owner, 2026-10-17). Its hand-off is
+  sections 5 and 6 of
+  [from-engine/bank-lines-whole-and-import-bank-day.md](from-engine/bank-lines-whole-and-import-bank-day.md),
+  with that file's "What the TUI does" steps 7 to 9 and its last "Done when".
+  `1efa6f4627ff9acf` moves a line matched by operation code on another day to the bank's day,
+  with `redated`, `redate_blocked_by` and `counts.redated` on the import; `786d68f3b071dbf4` is
+  wording only. Next: its draft spec.
+- **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
+  [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
+  is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
+  bank line assigned to a completed reconciliation. Revert the reconciliation to draft first.",
+  as [test_tui_delete.py](../tests/unit/test_tui_delete.py) already has. The test passes either
+  way, since the app shows the engine's words whole; align the fixture.
 - **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
   ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Decide between showing the
   day in the user's `display_timezone` and an engine ask for each row's local day.
-- **"A purchase is split" is spelled three ways.** `is_split_purchase` in
+- **"A transaction is split" is spelled three ways.** `is_split_line` in
   [reconciliations.py](../expense/tui/screens/reconciliations.py) and the inline
   `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
   formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no batch"
   rows), and the delete question shows `—` for the same untitled line: one fallback everywhere.
 - **A guard against "purchase" in the app's words.** The owner's word is "transaction"
   (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
-  fails when a user-visible string in `expense/` says "purchase".
+  fails when a user-visible string in `expense/` says "purchase". Code comments and docstrings
+  say "purchase" too (split.py, transactions.py, reconciliations.py, reads.py, bank_import.py,
+  quickadd/route.py, app.tcss): make them "split transaction" or "bank line" first, so the guard
+  needs no exemption for comments.
+- **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
+  most in [mockups/](mockups/) back screens already built, among them
+  `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
+  does not) and `expense-world-screen-map.html` (linked from nowhere). Deleting one means removing
+  its links from tui.md and from code and test docstrings in the same change; keep
+  `expense-world-split-action.html` while `expense-world-split-moments.html` links it.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it
