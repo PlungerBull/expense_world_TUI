@@ -79,57 +79,71 @@
 <button class="theme" type="button">light / dark</button>
 <div class="head">
   <h1>Split · the screen</h1>
-  <p><code>s</code> on a ledger row opens this screen. One bank charge becomes several parts: <b>Tottus Jockey Plaza -100.00</b> becomes -60.00 of food and -40.00 of cleaning products. The <b>title</b> is the transaction's, so it is one field on top and changing it changes every part. The date and the account are the bank's, shown and never asked. Each part has an <b>amount</b>, a <b>category</b>, <b>hashtags</b> and a <b>note</b>, each in its own field, with the same suggestion list the Edit form has. No typed line, no grammar.</p>
-  <p>Every pane shows the same moment: part 1 is filled in, and on part 2 you have typed <code>ho</code> in the category, so the list offers HOGAR and HOSPEDAJE. The rows are invented. Use the button at the top right for a light terminal.</p>
+  <p><code>s</code> on a ledger row opens this screen: <b>Tottus Jockey Plaza -100.00</b> becomes -60.00 of food and -40.00 of cleaning products. On top, a <b>table of the parts</b> that the cursor moves through. <code>⏎</code> on a part opens <b>its fields in a section below</b>, one per line, like the Edit form: amount, category, hashtags, note. The title is the transaction's: one line above the table, edited the same way, and it changes every part. The date and the account are never asked.</p>
+  <p>The rows are invented. Use the button at the top right for a light terminal.</p>
 </div>
 
 <div class="qs">
   <h2>Already picked</h2>
-  <p><code>esc</code> leaves at once, nothing sent. A category or hashtag field shows the suggestion list as you type. A new title reaches every part, sent with the split in one write (asked of the engine).</p>
-  <h2>Question for the owner</h2>
+  <p>The layout: your table on top, the picked part's fields below. <code>esc</code> on the table leaves at once, nothing sent. A category or hashtag field shows the suggestion list as you type. A new title reaches every part, sent with the split in one write (asked of the engine).</p>
+  <h2>Questions for the owner</h2>
   <ol>
-    <li><b>Pick one layout: A, B or C.</b>
+    <li><b>After the last field.</b> <code>⏎</code> on NOTE:
       <ul>
-        <li><b>A · a table you edit in place</b>: every part is a row, every field a cell; arrows move from cell to cell, as in a spreadsheet. Compact: ten parts still fit on one screen.</li>
-        <li><b>B · the Edit form, part after part</b> (recommended): what you described. One field per line, ↑↓ moves through them, from the title down through part 1, part 2 and <code>+ add a part</code>. It works exactly like the Edit form you already use, the same keys and the same suggestion list.</li>
-        <li><b>C · the parts on the left, the picked part's fields on the right</b>: ↑↓ on the left picks a part, <code>⇥</code> goes into its fields. Short list, and only one part's fields at a time.</li>
+        <li><b>A</b> (recommended): back to the table, the cursor on the part you just edited, the section below closed.</li>
+        <li><b>B</b>: straight on to the next part's AMOUNT, so you can fill every part without going back.</li>
       </ul>
     </li>
+    <li><b><code>esc</code> in the section below.</b>
+      <ul>
+        <li><b>A</b> (recommended): back to the table, keeping every field you already moved past with <code>⏎</code> or ↑↓; only the field you were typing in goes back to what it was.</li>
+        <li><b>B</b>: back to the table, and the whole part goes back to what it was before <code>⏎</code> opened it.</li>
+      </ul>
+    </li>
+    <li><b>Agree with the four panes as drawn, or say what differs.</b></li>
   </ol>
 </div>
 
-<div class="pane"><div class="lbl">1 · The split screen <span>— three layouts, the same moment</span></div>
-<p class="blurb">Part 1 is filled in; you are on part 2's category, the list open under it. The line at the bottom adds up the parts against the transaction's total; it never stops a send, and the engine has the last word.</p>
-<div class="opt"><div class="var"><div class="oh">A · <span>a table you edit in place</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<div class="pane"><div class="lbl">1 · On the table <span>— the cursor on part 2</span></div>
+<p class="blurb">Part 1 is filled in; part 2 only has its amount. ↑↓ move from the title through the parts to <code>+ add a part</code>. Nothing is open below.</p>
+<div class="opt"><div class="var"><div class="oh">1 · <span>moving through the parts</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
    <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
 
-   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                       same on every part</span>
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
 
-   <span class="d">     amount     category       hashtags      note</span>
-     1  <span class="n">-60.00</span>     COMIDA         #casa         verduras
-     2  <span class="n">-40.00</span>     <span class="cur">ho▍           </span>
-                   <span class="box">┌──────────────┐</span>
-                   <span class="box">│</span> <span class="rev">HOGAR       </span> <span class="box">│</span>
-                   <span class="box">│</span> HOSPEDAJE    <span class="box">│</span>
-                   <span class="box">└──────────────┘</span>
-     <span class="a">+</span>  <span class="d">add a part</span>
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+   <span class="cur">  2   -40.00    —              —                                            </span>
+   <span class="d">  +  add a part</span>
 
    2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
 
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">↑↓ move between parts, ←→ between cells, typing fills the cell under the cursor, <code>⏎</code> keeps it and moves right. <code>+ add a part</code> is the last row: <code>⏎</code> on it opens a new empty row. The title is the line above the table, reached with ↑ from row 1.</p></div><div class="var"><div class="oh">B · <span>the Edit form, part after part</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap"><code>⏎</code> opens the part under the cursor below. <code>^x</code> drops it. The bottom line adds the parts against the transaction's total; it never stops a send, the engine has the last word.</p></div></div></div>
+
+<div class="pane"><div class="lbl">2 · ⏎ on part 2 <span>— its fields open below</span></div>
+<p class="blurb">The part being edited stays marked in the table. In the section below, ↑↓ (or <code>⏎</code>) move from field to field. On CATEGORY you have typed <code>ho</code>: the list offers HOGAR and HOSPEDAJE, and while it is open ↑↓ move in it, as on the Edit form.</p>
+<div class="opt"><div class="var"><div class="oh">2 · <span>editing part 2</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
    <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
 
-   <span class="d">TITLE</span>       Tottus Jockey Plaza<span class="d">                      same on every part</span>
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
 
-   <span class="b">PART 1</span>                                   <span class="n">-60.00</span>
-     <span class="d">AMOUNT</span>    -60.00
-     <span class="d">CATEGORY</span>  COMIDA
-     <span class="d">HASHTAGS</span>  #casa
-     <span class="d">NOTE</span>      verduras
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+   <span class="sel">▌ 2   -40.00    —              —               </span>
+   <span class="d">  +  add a part</span>
 
-   <span class="b">PART 2</span>                                   <span class="n">-40.00</span>
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+   <span class="b">PART 2</span>
      <span class="d">AMOUNT</span>    -40.00
    <span class="a">▌</span> <span class="sel">CATEGORY</span>  ho▍
                  <span class="rev">HOGAR       </span>
@@ -137,51 +151,56 @@
      <span class="d">HASHTAGS</span>
      <span class="d">NOTE</span>
 
-   <span class="a">+</span> <span class="d">add a part</span>
+ <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Each field you leave shows in the table row at once. The footer swaps <code>esc Cancel</code> for <code>esc Back to the parts</code> (question 2).</p></div></div></div>
+
+<div class="pane"><div class="lbl">3 · ⏎ on + add a part <span>— a new part, empty, the cursor on its amount</span></div>
+<p class="blurb">Part 3 appears in the table and its fields open below, empty.</p>
+<div class="opt"><div class="var"><div class="oh">3 · <span>a new part</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+     2  <span class="n"> -40.00</span>    HOGAR          —               lejía
+   <span class="sel">▌ 3        —    —              —               </span>
+   <span class="d">  +  add a part</span>
+
+   3 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+   <span class="b">PART 3</span>
+   <span class="a">▌</span> <span class="sel">AMOUNT</span>    ▍
+     <span class="d">CATEGORY</span>
+     <span class="d">HASHTAGS</span>
+     <span class="d">NOTE</span>
+
+
+ <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Leaving part 3 with nothing typed drops it again, so <code>+ add a part</code> by mistake costs nothing.</p></div></div></div>
+
+<div class="pane"><div class="lbl">4 · ⏎ on the title <span>— one field below</span></div>
+<p class="blurb">The title line above the table opens its own one-field section. Once you press <code>⏎</code>, the new title shows on the line above the table; it is sent with the split.</p>
+<div class="opt"><div class="var"><div class="oh">4 · <span>changing the title</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="sel">▌TITLE      Tottus Jockey Plaza</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa           verduras
+     2  <span class="n"> -40.00</span>    HOGAR          —               lejía
+   <span class="d">  +  add a part</span>
 
    2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
 
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⇥</span> Field  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">↑↓ (or <code>⏎</code>) move from field to field, top to bottom: title, then each part's four fields, then <code>+ add a part</code>, where <code>⏎</code> adds part 3 with its fields empty and the cursor on its amount. <code>^x</code> drops the part the cursor is in. While the list is open, ↑↓ move in it, as on the Edit form.</p></div><div class="var"><div class="oh">C · <span>the parts on the left, the picked part's fields on the right</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
-   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+   <span class="b">TITLE</span> <span class="d">· changes it on every part</span>
+   <span class="a">▌</span> <span class="sel">TITLE</span>     Tottus — semana▍
 
-   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                       same on every part</span>
 
-   <span class="d">PARTS</span>                           <span class="box">│</span>   <span class="b">PART 2</span>
-     1  <span class="n">-60.00</span>  COMIDA             <span class="box">│</span>     <span class="d">AMOUNT</span>    -40.00
-   <span class="sel">▸ 2  -40.00  —</span>                  <span class="box">│</span>   <span class="a">▌</span> <span class="sel">CATEGORY</span>  ho▍
-     <span class="a">+</span>  <span class="d">add a part</span>                 <span class="box">│</span>                 <span class="rev">HOGAR       </span>
-                                   <span class="box">│</span>                 HOSPEDAJE
-   2 parts                         <span class="box">│</span>     <span class="d">HASHTAGS</span>
-   <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>           <span class="box">│</span>     <span class="d">NOTE</span>
 
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⇥</span> Field  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The left side lists the parts in one line each. ↑↓ there picks a part, <code>⇥</code> moves into its fields on the right, and <code>esc</code> from a field goes back to the list. The title is reached with ↑ from the first part.</p></div></div></div>
-
-<div class="pane"><div class="lbl">2 · The parts do not add up yet <span>— drawn in B</span></div>
-<p class="blurb">You changed part 2 to -30.00: the parts make -90.00 of -100.00, and the bottom line says how much is left, in red. <code>^s</code> still sends; the engine refuses a split that does not add up and its words show under the parts, as today.</p>
-<div class="opt"><div class="var"><div class="oh">2 · <span>-10.00 left</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
-<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
-   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
-
-   <span class="d">TITLE</span>       Tottus Jockey Plaza<span class="d">                      same on every part</span>
-
-   <span class="b">PART 1</span>                                   <span class="n">-60.00</span>
-     <span class="d">AMOUNT</span>    -60.00
-     <span class="d">CATEGORY</span>  COMIDA
-     <span class="d">HASHTAGS</span>  #casa
-     <span class="d">NOTE</span>      verduras
-
-   <span class="b">PART 2</span>                                   <span class="n">-30.00</span>
-   <span class="a">▌</span> <span class="sel">AMOUNT</span>    -30▍
-     <span class="d">CATEGORY</span>  HOGAR
-     <span class="d">HASHTAGS</span>
-     <span class="d">NOTE</span>      lejía y papel
-
-   <span class="a">+</span> <span class="d">add a part</span>
-
-   2 parts  ·  <span class="n">-90.00</span> of <span class="n">-100.00</span>  ·  <span class="nb">-10.00 left</span>
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⇥</span> Field  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Opening a transaction already split shows every part filled in like part 1, ready to change, drop or add to.</p></div></div></div>
+ <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split</pre></div></div><p class="cap"><code>⏎</code> keeps it and goes back to the table; <code>esc</code> goes back without it.</p></div></div></div>
 
 <script>
 document.querySelector('.theme').addEventListener('click',function(){

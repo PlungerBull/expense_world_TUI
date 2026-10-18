@@ -60,20 +60,21 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
-### The split screen's layout
+### The split screen: two keys
 Asked 2026-10-18 · Blocks: the split screen's changes
 
-The split screen is redrawn with fields instead of a typed line:
-[mockups/expense-world-split-screen.html](mockups/expense-world-split-screen.html). The title
-is one field on top and changes every part (asked of the engine:
-[to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)); `esc` leaves at once;
-a category or hashtag field shows the suggestion list as you type.
-- **A.** A table you edit in place, a row per part, a cell per field.
-- **B.** The Edit form, part after part: one field per line, `↑↓` through all of them.
-- **C.** The parts listed on the left, the picked part's fields on the right.
+The layout is yours: the parts in a table on top, and `⏎` on a part opens its fields below,
+one per line, like the Edit form
+([mockups/expense-world-split-screen.html](mockups/expense-world-split-screen.html)). The title
+is one line above the table and changes every part (asked of the engine:
+[to-engine/split-takes-a-title.md](to-engine/split-takes-a-title.md)). Two keys are open, and
+the four panes need your yes:
+- **1.** `⏎` on the last field: **A** back to the table, or **B** on to the next part.
+- **2.** `esc` in the fields below: **A** back to the table keeping the fields already left, or
+  **B** back with the whole part as it was before `⏎` opened it.
 
-**Recommended:** B, because it works exactly like the Edit form you already use, with its keys
-and its suggestion list.
+**Recommended:** 1 A and 2 A, because the table stays the place you return to, and nothing you
+finished typing is lost.
 
 ---
 
