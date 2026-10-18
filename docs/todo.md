@@ -27,36 +27,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine moved to `1efa6f4627ff9acf`: fold it into the current spec?
-Asked 2026-10-17 · Blocks: [specs/bank-lines-whole.md](specs/bank-lines-whole.md) (the loop is stopped)
+### Ask the engine coders for one catch-up file from `7ff6a09d863d6e44`
+Asked 2026-10-17 · Blocks: the next catch-up (backlog "Catch up with the engine after `7ff6a09d863d6e44`")
 
-This client last caught up to `890453f80a08cec9`; the current spec catches up to
-`7ff6a09d863d6e44`. The practice engine now serves `1efa6f4627ff9acf`. The version check prints:
+The current spec catches up to `7ff6a09d863d6e44`; the practice engine serves
+`786d68f3b071dbf4`. Ask the engine coders for one hand-off file covering every change from
+`7ff6a09d863d6e44` to their current version ([from-engine/README.md](from-engine/README.md)); it
+becomes the next catch-up spec.
 
-```
-the engine's contract version has changed: saved 7ff6a09d863d6e44, engine 1efa6f4627ff9acf.
-what the contract changed since 7ff6a09d863d6e44, newest first:
-  1efa6f4627ff9acf  2026-10-17
-    changed: `POST /transactions/import` → a row matched by `operation_code` on another day than its line now moves the line to the bank's day: every live part whose `date` differs takes 00:00 of the row's day in `display_timezone`, as a created row is dated. A line whose parts are on different days counts as differing. A `same_day` match never moves. The move is not made when the line is in a completed reconciliation, or when the row's day falls inside a sealed period of the line's account; the row is still `matched`, its title and code are still written, and the rest of the import is applied. Nothing about a stopped move is an error.
-    added: `POST /transactions/import` → each row's `redated` (`true` when its line is moved to the bank's day, `false` on any other `matched` row, `null` otherwise) and `redate_blocked_by` (the id of the completed reconciliation that stopped the move: the line's own, else the one sealing the row's day; `null` otherwise), on the dry run and the apply alike; `counts.redated`, the number of lines moved.
-    changed: `POST /transactions/import` → `day_mismatches` counts a moved line on the bank's day, not its old one, on the dry run and the apply alike, so a line moved to its bank day no longer makes two days disagree.
-    changed: `POST /transactions/import` → a part the apply moves and retitles gets one `updated` activity entry carrying both changes.
-    changed: wording only, *Sealed periods* and `PUT /transactions/{id}` → *Field locking* say the import never moves a line into a sealed period or out of a completed reconciliation.
-```
-
-In plain words: when a bank row matches one of your rows by its bank code but your row is dated
-another day, the upload now moves your row to the bank's day (not inside a completed
-reconciliation or a sealed month), and says which rows it moved.
-- **A.** Fold it into the current spec: ask the engine coders for one hand-off file from
-  `7ff6a09d863d6e44` to `1efa6f4627ff9acf`, record `1efa6f4627ff9acf` now so the loop runs, and
-  add a task for the upload (with a mockup of how the preview shows a moved row).
-- **B.** Finish the current spec on `7ff6a09d863d6e44` first and make `1efa6f4627ff9acf` its own
-  catch-up spec; the loop runs with the version check red until then.
-- **C.** Stop the loop until the engine coders' hand-off arrives.
-
-**Recommended:** A, because the practice engine cannot go back to `7ff6a09d863d6e44`, the
-change is small and touches only the upload, and the live tests of the upload would otherwise
-fail against an engine this spec does not describe.
+**Recommended:** none — only you can hand it over.
 
 ### The split screen's undrawn moments
 Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
@@ -113,6 +92,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
+- **Catch up with the engine after `7ff6a09d863d6e44`** (owner, 2026-10-17: after the current
+  spec). Waits for the engine's hand-off file ("Waiting on you" above), which becomes its spec.
+  Known so far from the contract's change log: `1efa6f4627ff9acf` moves a line matched by
+  operation code on another day to the bank's day, with `redated`, `redate_blocked_by` and
+  `counts.redated` on the import; `786d68f3b071dbf4` is wording only (among it the
+  `OPERATION_CODE_EXISTS` message now speaks of bank lines).
 - **The split screen keeps copies of shared code.** `part_index` in
   [split.py](../expense/tui/screens/split.py) repeats `row_index` of
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is
