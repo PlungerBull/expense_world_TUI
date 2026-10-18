@@ -19,10 +19,11 @@ transaction by its operation number and the bank has it on another day, importin
 transaction, every part of it, to the bank's day. The preview says so before anything is
 written.
 
-- **On the preview, a row that moves says so.** It shows the ledger's day and the bank's day.
+- **On the preview, a row that moves reads `✓ Modified existing transaction`,** like any row
+  the import changes; the counts say how many move.
 - **A row that keeps its day says why.** A completed reconciliation stops the move, either
-  because the transaction is in it or because it covers the bank's day. The row names that
-  reconciliation. The row is still matched, and the rest of the file still imports.
+  because the transaction is in it or because it covers the bank's day. The row reads
+  `✗ Not moved: <reconciliation> is reconciled`. The row is still matched, and the rest of the file still imports.
 - **The counts say how many move.** The preview's summary line and the "imported" screen give
   the number of transactions moved to the bank's day, next to the other counts. That number is
   the engine's.
@@ -36,10 +37,11 @@ before it is built.
 ## How the owner knows it is done
 
 1. A file with a transaction the ledger has on 3 October and the bank on 4 October, matched by
-   its operation number, shows on the preview as moving from 3 to 4 October. After importing,
+   its operation number, shows on the preview as `✓ Modified existing transaction`, and the
+   counts say 1 moves to the bank's day. After importing,
    the ledger has it, every part, on 4 October.
-2. The same transaction inside a completed reconciliation shows on the preview as keeping its
-   day, naming that reconciliation. After importing it is still on 3 October, and the file's
+2. The same transaction inside a completed reconciliation shows on the preview as
+   `✗ Not moved: <reconciliation> is reconciled`. After importing it is still on 3 October, and the file's
    other rows are in the ledger.
 3. The preview's summary and the "imported" screen give how many transactions moved.
 4. A row matched on its own day shows nothing new.
@@ -60,8 +62,14 @@ Nothing in this range.
 ## Tasks
 
 Approved 2026-10-18, with the screens picked in
-[expense-world-import-report.html](../mockups/expense-world-import-report.html). Every task is
-done; the tester's acceptance check and the librarian's sweep follow.
+[expense-world-import-report.html](../mockups/expense-world-import-report.html). The tester's
+acceptance check passed and the librarian's sweep is done on 2026-10-18; this task follows them.
+
+2. **A stopped move reads `Not moved`.** The reason `Not modified: <reconciliation> is
+   reconciled` becomes `Not moved: <reconciliation> is reconciled`, and its fallback when the
+   names cannot be read `Not moved: a reconciliation is reconciled` (the dim note under the
+   counts stays). The mark stays ✗, in the warning colour. Unit tests, [tui.md](../tui.md) and the
+   mockup's words follow.
 
 ## Reply to the engine
 

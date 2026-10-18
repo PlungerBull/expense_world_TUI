@@ -27,74 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The help card's line for `⏎` in "no batch"
-Asked 2026-10-17 · Blocks: nothing (only words)
-
-The `?` card in "no batch" says `⏎` "Edit the row: its date or its account", but the Edit form
-there also changes the title, the operation number and, on a row never split, the amount.
-- **A.** "Edit the row: its date, title, operation, amount or account".
-- **B.** "Edit the row's bank columns".
-- **C.** Keep it.
-
-**Recommended:** A, because it names what the form changes.
-
-### "1 ticked rows"
-Asked 2026-10-17 · Blocks: nothing (only words)
-
-With one row ticked, `c` asks "Locks amount/account/title/date on the 1 ticked rows."
-- **A.** "1 ticked row" when there is one, "5 ticked rows" otherwise.
-- **B.** Keep the words exactly as given.
-
-**Recommended:** A, because it reads as written English either way.
-
-### The note after `b` moves one part of a split transaction
-Asked 2026-10-17 · Blocks: nothing (the move works; only its note)
-
-`b` on one part of a split transaction moves every part to the new account (the engine's rule), but
-the note at the bottom counts the rows you selected: `1 row → BCP Oro PEN · 1 left its
-reconciliation`, while both parts moved and both left it.
-- **A.** Keep it: the note counts the rows you selected.
-- **B.** Count what moved: `2 rows → BCP Oro PEN · 2 left their reconciliation`.
-- **C.** Add a phrase: `1 row → BCP Oro PEN · the whole transaction moved`.
-
-**Recommended:** B, because the note then says what happened in the ledger; it costs one engine
-read per selected part, so the engine may be asked to say what moved in its answer instead.
-
-### A row that moves to the bank's day: its own words, or the spec's?
-Asked 2026-10-18 · Blocks: closing [specs/import-bank-day.md](specs/import-bank-day.md)
-
-The spec says a row that moves "shows the ledger's day and the bank's day" (3 → 4 October). Your
-pick was "the reason alone", so that row reads `✓ Modified existing transaction`, the same words
-as a row that took the bank's title; only the counts line says `1 moves to the bank's day`.
-- **A.** Keep the pick, and the spec's words change to match it.
-- **B.** The row says it moves: `✓ Moved to the bank's day` as a reason of its own (a new task).
-
-**Recommended:** B, because a change of day is the one change worth seeing before you import,
-and it costs one more reason, not a longer cell.
-
-### The import's reconciled row, when the bank's title still lands
-Asked 2026-10-18 · Blocks: nothing (the row shows; only its words)
-
-A row whose move to the bank's day is stopped by a completed reconciliation reads
-`✗ Not modified: Septiembre 2026 is reconciled`. But the engine still writes the bank's title or
-operation number onto it, so "not modified" can be untrue.
-- **A.** Keep `Not modified: … is reconciled`.
-- **B.** `Not moved: … is reconciled` on every such row, true whether or not the title landed.
-
-**Recommended:** B, because the row then says exactly what was stopped.
-
-### The import's reconciled row, when its name cannot be read
-Asked 2026-10-18 · Blocks: nothing (only words)
-
-The reconciliation's name is read from the engine. If that read fails, the row reads
-`✗ Not modified: a reconciliation is reconciled` and a dim line under the counts says
-`! could not read the reconciliations' names: <the reason>`.
-- **A.** Keep it.
-- **B.** Other words: say which.
-
-**Recommended:** A, because it happens only when the engine stops answering mid-preview, and
-it says so.
-
 ---
 
 ## Backlog
@@ -114,6 +46,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
+- **Two wordings in "no batch".** The owner's picks (2026-10-18): the `?` card's line for `⏎`
+  reads "Edit the row: its date, title, operation, amount or account"; and `c`'s question counts
+  in written English, "1 ticked row" for one and "5 ticked rows" otherwise
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py)). Tests follow.
+- **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
+  part (the engine's rule), so the note says `2 rows → BCP Oro PEN · 2 left their
+  reconciliation`, not the count of rows selected (the owner's pick, 2026-10-18). The count is the
+  engine's: if its answer does not say what moved, it becomes an engine ask, never one read per
+  part ([transactions.py](../expense/tui/screens/transactions.py)).
 - **A bank file cell reading `nan` or `inf` crashes the import.** `parse_amount` turns the
   amount into cents outside its `try`, so `nan` raises `ValueError` and `inf` or `Infinity`
   raise `OverflowError` instead of refusing the row as not an amount
@@ -127,8 +68,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
 - **Catch up with the import moving a matched line to the bank's day.** Spec (approved, in
   progress): [specs/import-bank-day.md](specs/import-bank-day.md).
-- **The split screen: a table of the parts, each part's fields below.** Spec (draft, its tasks
-  waiting for the owner): [specs/split-screen-fields.md](specs/split-screen-fields.md).
+- **The split screen: a table of the parts, each part's fields below.** Spec (approved, next
+  after import-bank-day): [specs/split-screen-fields.md](specs/split-screen-fields.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a

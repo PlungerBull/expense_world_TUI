@@ -1,6 +1,6 @@
 # The split screen: a table of the parts, each part's fields below
 
-**Status: draft, waiting for the owner's approval of its tasks.** The screen is the owner's
+**Status: approved 2026-10-18.** The screen is the owner's
 design, approved 2026-10-18 in
 [expense-world-split-screen.html](../mockups/expense-world-split-screen.html). When done, the
 why moves to [decisions.md](../decisions.md), and this file is deleted.
@@ -43,7 +43,7 @@ split screen, as today; what changes is how the parts are typed.
 
 ## Tasks
 
-Drafted 2026-10-18, waiting for the owner's approval.
+Approved 2026-10-18.
 
 1. **The split screen becomes the table of parts with the picked part's fields below.** Screens
    1 to 3 of the mockup, the title line shown but not yet editable.
