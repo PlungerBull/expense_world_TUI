@@ -358,23 +358,44 @@ rather than a partial total. Opening balances are excluded engine-side. Home's g
 builder, `formatting.build_range_grid`, is covered by
 [test_range_grid.py](../tests/unit/test_range_grid.py).
 
-**`u` on the Reconciliations browse — the account's rows in no batch**.
+**`u` on the Reconciliations browse — the account's bank lines in no batch** (pane 2d of
+[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)).
 The **panel swaps**: same screen, same place, and the open account's reconciliations
-are replaced by its transactions belonging to no reconciliation
-(`GET /transactions?account_id=&unreconciled=true`). `u` works only while an account's
+are replaced by its bank lines assigned to no reconciliation, any day: `GET /bank-lines`
+with `account_id` and `unreconciled=true` and no dates (contract: GET /v1/bank-lines), through
+`fetch_bank_lines` in [reads.py](../expense/reads.py). `u` works only while an account's
 panel is open — on the plain account list it does nothing and is not in the footer.
-`esc` swaps it back to the panel, `⏎ Edit` opens the ledger's edit form (date and account
-are the two remedies for a row in no batch), and `d` deletes the cursor row after the
-ledger's own question ("`d` is the TUI's one destructive key" below). It is deliberately
-not a filtered ledger: reconciliation work stays in the reconciliation view.
+It is deliberately not a filtered ledger: reconciliation work stays in the reconciliation
+view.
 
-The pane **lands on the oldest rows** — old orphans are the problem — so it reads with
-`sort=date_asc`, ten rows at a time, growing like the ledger (§5). The caption's
-`N of M loaded` takes M from `GET /transactions/count`, read together with the first rows;
-a count that cannot be read fails the pane. `r`, an edit and a delete all start again
-from the oldest ten, cursor on row 1. The **`!` flag is a hint, not a ruling** — it marks
-a row whose date falls inside a batch window this screen already holds, so it costs no
-request; the engine stays the authority at close time.
+Every row is **one line of the bank's own columns**, `Date · Title · Operation · Amount`,
+as on a reconciliation's batch screen (below): `bank_line_columns` in
+[formatting.py](../expense/formatting.py) gives the day and title of the line's parts, its
+`operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured. A
+purchase split into parts is **one row**, its title alone and its total; nothing on the row
+says it is split, and its parts are not listed. No category, hashtags or note.
+
+The list is **newest first**, the one order the engine's line list has (contract: GET /v1/bank-lines),
+and the caption says so: `In no batch · <account>   ·   N of M loaded · newest first   ·
+! blocks a batch's close`. It reads ten lines at a time and grows like the ledger (§5,
+`GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`),
+read together with the first rows, and counts a split purchase once
+(contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an
+edit and a delete all start again from the newest ten, cursor on row 1. The **`!` flag is
+a hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
+already holds, so it costs no request; the engine stays the authority at close time.
+
+**Keys**: `esc` swaps back to the panel. `⏎ Edit` on a line never split opens the ledger's
+edit form on its one transaction (date and account are the two remedies for a row in no
+batch); the part arrives as a magnitude and its `transaction_type`, and `signed_cents` in
+[formatting.py](../expense/formatting.py) signs it, so the form shows what a ledger read
+shows. On a split purchase `⏎` is off: it leaves the footer and the `?` card, and pressing
+it does nothing. `d` deletes the line under the cursor after a question (pane 3b, and "`d`
+is the TUI's one destructive key" below), with the line the list already holds, so nothing
+is read before asking: a split purchase (`part_count` above 1) asks the ledger's purchase
+question and goes whole in one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),
+a line never split asks the ledger's transaction question and goes as its one transaction
+in `DELETE /transactions/{id}`.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
@@ -490,7 +511,7 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
-the ledger (whole or filtered from Home) and in the reconciliation's "no batch" pane, always
+the ledger (whole or filtered from Home) and in the reconciliation's "no batch" list, always
 as the last entry of the screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
 of the footer, while rows are selected (`esc` clears the selection and it is back) and
 while a bulk write runs. On an
@@ -506,14 +527,14 @@ screen can bring it back.**
 | Accounts | `Delete this account?` | `Prueba · bank · PEN · 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, "no batch" pane | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
-| Ledger, on a part of a split purchase | `Delete this purchase and its 2 parts?` (the purchase's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Purchase deleted.` |
+| Ledger, and a line never split in the "no batch" list | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, on a part of a split purchase; a split purchase in the "no batch" list | `Delete this purchase and its 2 parts?` (the purchase's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Purchase deleted.` |
 | A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the pane's oldest ten. The hashtag question names the
+page, the ledger's newest ten, the "no batch" list's newest ten. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
 off every transaction carrying it, and one left with no hashtag carries the pending hashtag
 (contract: DELETE /v1/hashtags/{hashtag_id}). The question names the pending hashtag as the
@@ -754,7 +775,10 @@ them — they are hand-written into the `?` card
   confirm-free (a reversible toggle, not destruction).
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
-  advertise `⏎ Open` falsely.
+  advertise `⏎ Open` falsely. A widget whose key is off on some rows names the action in
+  its `CARD_FOLLOWS_CHECK`, and the card lists that row only while the widget's
+  `check_action` allows it, as the footer does: the Reconciliations panel's `⏎ Open` and
+  `⏎ Edit`, which is off on a split purchase in the "no batch" list.
 
 **The import door's exceptions** (§2 "The import door",
 [bank_import.py](../expense/tui/screens/bank_import.py)):
@@ -831,8 +855,9 @@ ticking down a statement (`space`, `↓`, `space`…) never lands on another row
 tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
 reads the reconciliation and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
-`Couldn't …` note. `c` completes, `u` reverts, `d` deletes the reconciliation, `r` reads it
-again, `esc` goes back.
+`Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks
+amount/account/title/date on the N ticked rows.` (N the rows ticked), `u` reverts, `d`
+deletes the reconciliation, `r` reads it again, `esc` goes back.
 **`c` needs the ending balance**: the engine completes no reconciliation without it
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The
@@ -1006,8 +1031,8 @@ resize reads nothing. After a write (a bulk key, the `⏎` edit, `+`, `s`, `d`) 
 the newest 10 with the cursor on row 1, as `r` does. Leaving the `⏎` form with `esc` is
 not a write: nothing is read and the list comes back as it was — the rows `pgdn` loaded
 and the cursor on its row; the form dismisses with `True` only on a
-save. The "no batch" pane on
-Reconciliations grows through the same `GrowingRead`, oldest first — one copy of the
+save. The "no batch" list on
+Reconciliations grows through the same `GrowingRead`, newest first — one copy of the
 cursor, the count, the `pgdn` read and the rule that a `pgdn` read never lands on a list a
 fresh read replaced.
 

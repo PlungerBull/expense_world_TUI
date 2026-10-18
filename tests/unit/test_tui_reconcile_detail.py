@@ -1272,7 +1272,7 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
         texts = [str(s.visual) for s in app.screen.query(Static)]
         assert texts[0] == "Complete reconciliation?"
-        assert texts[1] == "Locks amount/account/title/date on the 1 assigned transaction(s)."
+        assert texts[1] == "Locks amount/account/title/date on the 1 ticked rows."
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
         assert fake_client.posts == [(COMPLETE_PATH, None)]

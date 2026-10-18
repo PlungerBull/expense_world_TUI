@@ -75,25 +75,9 @@ rule, and serves `ce4e5cb642e53fdb` until then.
 Approved by the owner (2026-10-17). Each **[UI]** task starts with its mockup; the build waits
 for the owner's pick.
 
-2. **[UI]** What is left: the "no batch" list (pane 2d), parked on todo.md "'No batch' oldest
-   first: ask the engine?"; the month lists are built. The reconciliation screen lists purchases
-   from `GET /bank-lines` and its count, one
-   row per purchase with its total; ticking sends one `PUT` with `reconciliation_id` on any one
-   part, unticking sends `null`, and the screen re-reads what it shows after each tick. Every
-   reconciliation list shows a purchase this way (a draft month, a completed month, the "no
-   batch" list); the row carries the purchase's title alone and its total, says nothing of its
-   parts, and the parts are not listed there. Every reconciliation list shows only the bank's
-   columns, on every row, one line per row: date · title · operation number · amount, with no
-   category, hashtags or note (owner, 2026-10-17). Picked as drawn in
-   [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html) 2a B–2d:
-   the column is named `Operation`, and the date comes first on every list.
-3. **[UI]** What is left: `d` in the "no batch" list (pane 3b), built with pane 2d; the ledger
-   side is built. `d` on a part of a split purchase, from the ledger and the reconciliation screen:
-   one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
-   `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The
-   question reads "Delete this purchase and its 3 parts? No screen can bring it back." with the
-   real part count (owner, 2026-10-17). Picked as drawn in 3a–3e of the same mockup; the note
-   after the delete reads `Purchase deleted.`
+2. **[UI]** What is left: what `⏎` opens on a split purchase in "no batch" (pane 2e of
+   [expense-world-bank-lines-whole.html](../mockups/expense-world-bank-lines-whole.html)), off
+   until the owner picks. Everything else of the reconciliation screens and of `d` is built.
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.

@@ -29,7 +29,7 @@ No list pages by position; every list is one of three shapes, each read its own 
 | Shape | Lists | How the app reads it |
 |---|---|---|
 | **Whole** `{items}` | accounts, categories, hashtags, a category's hashtags, one account's reconciliations | One read, every row; no paging parameters. |
-| **Cursor** `{items, limit, next_cursor}` | transactions, bank lines | `?after=<next_cursor>` until it is `null`. A count is its own read: `/transactions/count`, once per list, for the lists that show one; no screen reads `/bank-lines/count`, since the reconciliation tick-list reads every page. The TUI's growing lists are [tui.md](tui.md) §5. |
+| **Cursor** `{items, limit, next_cursor}` | transactions, bank lines | `?after=<next_cursor>` until it is `null`. A count is its own read, once per list, for the lists that show one: `/transactions/count` for the ledger, `/bank-lines/count` for the reconciliation's "no batch" list; the reconciliation tick-list reads every page and no count. The TUI's growing lists are [tui.md](tui.md) §5. |
 | **Cursor + date window** | activity, exchange-rate history | The cursor inside one window (30 calendar days counting `date_to`'s own day when `date_from` is left out; at most 366, counting both ends). The window before it is read by sending the response's `previous_date_to` back unchanged as `date_to`, which reads no row twice; `null` means nothing earlier. No screen reads these. |
 
 A stale `limit`, `offset` or unknown parameter is the engine's `422`, never a quietly wrong answer.

@@ -1,7 +1,9 @@
 """Reconciliations tests — list rows + new-batch form (fake client)."""
 
+import pytest
 from textual.widgets import Input
 
+from expense.tui.screens._base import list_refusal_text
 from expense.tui.screens.reconciliations import (
     NewReconciliationScreen,
     ReconciliationsScreen,
@@ -10,7 +12,9 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    bank_line_row,
     cursor_page,
+    import_part,
     in_order,
     render_text,
     run_app,
@@ -618,15 +622,33 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     assert [a[0] for a in screen._suggestions] == ["acc2"]
 
 
-# ---- the unfiled pane (`u`) -------------------------------------------------
+# ---- the "no batch" list (`u`) ----------------------------------------------
 # Reconciliation work stays
 # in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it
 # does not push a filtered ledger, and it does not touch the account cursor.
+# It lists bank lines (`GET /bank-lines`), newest first, a split purchase once.
+def _line(
+    key: str,
+    amounts: list[int],
+    *,
+    day: str,
+    title: str,
+    code: str | None = None,
+) -> dict:
+    """One bank line on acc1 as `GET /bank-lines` lists it: a part per amount,
+    each a magnitude and its type, and the engine's signed total."""
+    parts = [
+        import_part(f"{key}-p{i}", a, account_id="acc1", line=key, day=day, title=title)
+        for i, a in enumerate(amounts, 1)
+    ]
+    return bank_line_row(key, parts, net_cents=sum(amounts), operation_code=code, account_id="acc1")
+
+
 UNFILED = [
-    # the engine answers in the order asked for: `sort=date_asc`, oldest first
-    {"id": "t1", "date": "2026-01-04T12:00:00-05:00", "title": "NETFLIX", "amount_cents": -4490},
-    {"id": "t2", "date": "2026-03-10T12:00:00-05:00", "title": "UBER", "amount_cents": -2450},
-    {"id": "t3", "date": "2026-03-20T12:00:00-05:00", "title": "RAPPI", "amount_cents": -3890},
+    # the engine's one order: newest first
+    _line("bl-uber", [-2450], day="2026-03-20", title="UBER *TRIP"),
+    _line("bl-farm", [-6000, -4000], day="2026-03-10", title="FARMACIA", code="48201764"),
+    _line("bl-net", [-4490], day="2026-01-04", title="NETFLIX", code="47391026"),
 ]
 
 
@@ -637,31 +659,48 @@ def test_blocking_windows_takes_only_this_accounts_periods():
     assert blocking_windows(ITEMS, "acc2") == [("2026-04-01", "2026-04-30", "April 2026")]
 
 
-def test_unfiled_rows_keep_the_engine_order_and_flag_the_blocking_ones():
+def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
+    """2d: date · title · operation · amount, the signed `net_cents`, a dim `—`
+    for no code; a split purchase is one row with its title alone and its
+    total; `!` on the rows inside a month's dates."""
     from expense.tui.screens.reconciliations import blocking_windows, unfiled_rows
 
     windows = blocking_windows(ITEMS, "acc1")
-    rows = unfiled_rows(UNFILED, {}, windows)
-    assert [r[0] for r in rows] == ["t1", "t2", "t3"]  # as the engine sent them
-    flags = [r[1][0] for r in rows]
+    rows = unfiled_rows(UNFILED, windows)
+    assert [r[0] for r in rows] == ["bl-uber", "bl-farm", "bl-net"]  # as the engine sent them
+    cells = [[str(c) for c in r[1]] for r in rows]
     # January is in no window; both March rows sit inside 'March 2026'
-    assert flags == ["", "!", "!"]
-    assert [r[1][1] for r in rows] == ["2026-01-04", "2026-03-10", "2026-03-20"]
+    assert cells == [
+        ["!", "2026-03-20", "UBER *TRIP", "—", "-24.50"],
+        ["!", "2026-03-10", "FARMACIA", "48201764", "-100.00"],
+        ["", "2026-01-04", "NETFLIX", "47391026", "-44.90"],
+    ]
+    assert rows[0][1][3].style == "dim"  # no code: a dim em dash
 
 
-def _txn(n: int) -> dict:
-    return {"id": f"t{n}", "date": f"2025-01-{n:02d}T12:00:00-05:00", "title": f"ROW {n}"}
+def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
+    from expense.tui.screens.reconciliations import unfiled_rows
+
+    rows = unfiled_rows([UNFILED[1]], [])
+    assert len(rows) == 1
+    assert [str(c) for c in rows[0][1]] == ["", "2026-03-10", "FARMACIA", "48201764", "-100.00"]
+
+
+def _numbered(n: int) -> dict:
+    return _line(f"bl{n}", [-100 * n], day=f"2025-01-{n:02d}", title=f"ROW {n}")
 
 
 def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
-    """A cursor-paged fake: it refuses `offset`, serves `items` in slices of the
-    requested `limit`, and hands back `c<next index>` as the cursor."""
+    """A cursor-paged fake of `GET /bank-lines`: it refuses `offset` and `sort`,
+    serves `items` in slices of the requested `limit`, and hands back
+    `c<next index>` as the cursor; `count_bank_lines` answers `total`."""
     calls: list = []
     counts: list = []
     rows = UNFILED if items is None else items
 
     def fetch(_cfg, *, limit=None, after=None, **kw):
         assert "offset" not in kw, "the engine refuses offset"
+        assert "sort" not in kw, "the engine's line list has one order"
         calls.append({"limit": limit, "after": after, **kw})
         start = int(after[1:]) if after else 0
         end = start + (limit or 50)
@@ -674,9 +713,14 @@ def _patch_unfiled(monkeypatch, items=None, total=None, count_fails=False):
             raise RuntimeError("count unavailable")
         return len(rows) if total is None else total
 
-    monkeypatch.setattr("expense.reads.fetch_transactions", fetch)
-    monkeypatch.setattr("expense.reads.count_transactions", count)
-    monkeypatch.setattr("expense.tui.screens.reconciliations.load_category_name_map", lambda: {})
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fetch)
+    monkeypatch.setattr("expense.reads.count_bank_lines", count)
+
+    def no_ledger_read(*_a, **_k):
+        raise AssertionError("the no batch list reads no transactions")
+
+    monkeypatch.setattr("expense.reads.fetch_transactions", no_ledger_read)
+    monkeypatch.setattr("expense.reads.count_transactions", no_ledger_read)
     return calls, counts
 
 
@@ -687,7 +731,7 @@ async def _open_unfiled(pilot, app):
     return screen
 
 
-def test_u_swaps_the_lower_pane_and_leaves_the_account_cursor_alone(monkeypatch):
+def test_u_reads_the_accounts_lines_in_no_batch_newest_first(monkeypatch):
     _patch_browse(monkeypatch)
     calls, counts = _patch_unfiled(monkeypatch)
 
@@ -695,14 +739,18 @@ def test_u_swaps_the_lower_pane_and_leaves_the_account_cursor_alone(monkeypatch)
         screen = await _open_unfiled(pilot, app)
         # the account cursor never moved, and no screen was pushed
         assert screen._acct_idx == 0 and app.screen is screen
-        # oldest first, in the lower pane, under its own column labels
-        assert [r.key for r in screen._batch_list._rows] == ["t1", "t2", "t3"]
-        assert screen._batch_list._headers[1] == "Date"
-        assert "In no batch · BCP PEN" in (screen._batch_list._caption or "")
-        # one read, oldest first, scoped to this account; the count asks the same question
-        assert len(calls) == 1
-        assert calls[0]["sort"] == "date_asc" and calls[0]["limit"] == 10
-        assert calls[0]["account"] == "acc1" and calls[0]["unreconciled"] is True
+        # one row per line, in the engine's order, under the bank's columns
+        assert [r.key for r in screen._batch_list._rows] == ["bl-uber", "bl-farm", "bl-net"]
+        assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Amount"]
+        caption = screen._batch_list._caption or ""
+        assert caption.startswith("In no batch · BCP PEN")
+        assert "3 of 3 loaded · newest first" in caption
+        assert "oldest" not in caption
+        # one read of the account's lines in no batch, no dates, no sort; the
+        # count asks the same question
+        assert calls == [
+            {"limit": 10, "after": None, "account": "acc1", "unreconciled": True, "verbose": False}
+        ]
         assert counts == [{"account": "acc1", "unreconciled": True, "verbose": False}]
 
     run_app(scenario)
@@ -728,29 +776,29 @@ def test_esc_in_no_batch_returns_to_the_panel(monkeypatch):
 
 def test_the_caption_counts_what_is_loaded_against_the_engine_count(monkeypatch):
     _patch_browse(monkeypatch)
-    _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)], total=1716)
+    _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)], total=1716)
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         assert len(screen._batch_list._rows) == 10
-        # the figure is the engine's count, not the length of the page in hand
-        assert "10 of 1716 loaded · oldest first" in (screen._batch_list._caption or "")
+        # the figure is the engine's line count, not the length of the page in hand
+        assert "10 of 1716 loaded · newest first" in (screen._batch_list._caption or "")
 
     run_app(scenario)
 
 
 def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
     _patch_browse(monkeypatch)
-    calls, counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
+    calls, counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
         await pilot.press("pagedown")
         await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
         # appended, not swapped: the first ten are still there, in order
-        assert [r.key for r in screen._batch_list._rows] == [f"t{n}" for n in range(1, 21)]
+        assert [r.key for r in screen._batch_list._rows] == [f"bl{n}" for n in range(1, 21)]
         assert screen._batch_list.cursor_index == 10  # row 11, the first new one
-        assert calls[-1]["after"] == "c10" and calls[-1]["sort"] == "date_asc"
+        assert calls[-1]["after"] == "c10" and calls[-1]["unreconciled"] is True
         assert len(counts) == 1  # no recount on pgdn
         assert "20 of 25 loaded" in (screen._batch_list._caption or "")
 
@@ -766,13 +814,31 @@ def test_pgdn_appends_the_next_ten_and_lands_on_the_first_new_row(monkeypatch):
     run_app(scenario)
 
 
+def test_appended_rows_carry_the_flag_too(monkeypatch):
+    """The `!` rule holds on rows `pgdn` brings in, not only the first ten."""
+    _patch_browse(monkeypatch)
+    rows = [_numbered(n) for n in range(1, 12)]
+    rows[10] = _line("bl11", [-500], day="2026-03-15", title="IN MARCH")
+    _patch_unfiled(monkeypatch, items=rows)
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        await pilot.press("pagedown")
+        await wait_for(pilot, lambda: len(screen._batch_list._rows) == 11)
+        flags = [str(r.cells[0]) for r in screen._batch_list._rows]
+        assert flags == [""] * 10 + ["!"]
+
+    run_app(scenario)
+
+
 def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
-    """`⏎` on a row in no batch, then `esc`: not a write, so nothing is read
-    again and the cursor stays on its row."""
+    """`⏎` on a line never split opens the edit form on its one transaction,
+    signed; `esc` is not a write, so nothing is read again and the cursor stays
+    on its row."""
     from expense.tui.screens.edit_form import EditFormScreen
 
     _patch_browse(monkeypatch)
-    calls, _counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
+    calls, _counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
     monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
 
     async def scenario(pilot, app):
@@ -784,18 +850,83 @@ def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
         reads = len(calls)
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+        form = app.screen
+        assert form._record["id"] == "bl12-p1"  # the line's one transaction
+        assert form._values["amount"] == -1200  # signed, as a ledger read gives it
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         assert len(calls) == reads
-        assert screen._batch_list.cursor_key == key == "t12"
+        assert screen._batch_list.cursor_key == key == "bl12"
         assert len(screen._batch_list._rows) == 20
 
     run_app(scenario)
 
 
-def test_r_starts_again_from_the_oldest_ten(monkeypatch):
+def _enter_label(app):
+    active = app.screen.active_bindings.get("enter")
+    return active.binding.description if active and active.enabled else None
+
+
+def _card_enter_rows(screen) -> list[str]:
+    from expense.tui.screens.help import screen_inventory
+
+    _, groups = screen_inventory(screen)
+    keyed = [g for g in groups if g.title in ("This screen", "Moving around")]
+    return [row.description for g in keyed for row in g.rows if row.keys == "⏎"]
+
+
+async def _cursor_on(pilot, screen, key: str) -> None:
+    screen._batch_list.set_cursor(screen._batch_list.index_of(key))
+    await pilot.pause()
+
+
+def test_enter_is_off_on_a_split_purchase_in_the_footer_the_card_and_the_key(monkeypatch):
+    """4: on a split purchase `⏎` is not offered — not in the footer, not on the
+    `?` card — and pressing it opens nothing; on a line never split it is
+    `⏎ Edit` as before."""
+    from expense.tui.screens.edit_form import EditFormScreen
+
     _patch_browse(monkeypatch)
-    calls, counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
+    _patch_unfiled(monkeypatch)
+    monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        assert _enter_label(app) == "Edit"
+        assert _card_enter_rows(screen) == ["Edit the row: its date or its account"]
+        await pilot.press("down")  # FARMACIA, in two parts
+        await wait_for(pilot, lambda: screen._batch_list.cursor_key == "bl-farm")
+        await pilot.pause()
+        assert _enter_label(app) is None
+        assert "enter" not in _footer_keys(app)
+        assert _card_enter_rows(screen) == []
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.screen is screen  # nothing opened
+        await pilot.press("down")  # NETFLIX, never split: back
+        await wait_for(pilot, lambda: screen._batch_list.cursor_key == "bl-net")
+        await pilot.pause()
+        assert _enter_label(app) == "Edit"
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+
+    run_app(scenario)
+
+
+def test_the_card_on_the_reconciliations_offers_open_alone(monkeypatch):
+    """The panel's two `⏎` rows follow what `⏎` does: `Open` on a reconciliation."""
+    _patch_browse(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_panel(pilot, app)
+        assert _card_enter_rows(screen) == ["Open"]
+
+    run_app(scenario)
+
+
+def test_r_starts_again_from_the_newest_ten(monkeypatch):
+    _patch_browse(monkeypatch)
+    calls, counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
@@ -825,51 +956,244 @@ def test_a_count_that_cannot_be_read_fails_the_pane(monkeypatch):
     run_app(scenario)
 
 
-def test_a_delete_starts_the_list_over(monkeypatch, fake_client):
+def _notes(monkeypatch, screen) -> list[tuple[str, str]]:
+    notes: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        screen, "notify", lambda message, title="", **kw: notes.append((title, str(message)))
+    )
+    return notes
+
+
+def test_d_on_a_line_never_split_deletes_its_transaction_and_starts_over(monkeypatch, fake_client):
+    """A line never split deletes as today: the ledger's question word for word,
+    `DELETE /transactions/{id}` of its one transaction, then the newest ten
+    again, the cursor on row 1."""
     from expense.tui.screens.modals import ConfirmModal
 
     _patch_browse(monkeypatch)
-    calls, _counts = _patch_unfiled(monkeypatch, items=[_txn(n) for n in range(1, 26)])
+    calls, _counts = _patch_unfiled(monkeypatch, items=[_numbered(n) for n in range(1, 26)])
 
     async def scenario(pilot, app):
         screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
         await pilot.press("pagedown")
         await wait_for(pilot, lambda: len(screen._batch_list._rows) == 20)
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == "Delete this transaction?"
+        assert app.screen._message == (
+            "ROW 11 · -11.00 · 2025-01-11 · BCP PEN\n"
+            "It leaves every balance and report, and no screen can bring it back."
+        )
+        reads = len(calls)
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.deletes)
-        assert fake_client.deletes == ["/transactions/t11"]
-        # any write starts the list over: the oldest 10,
-        # the cursor on row 1
-        await wait_for(pilot, lambda: len(calls) == 3 and not screen._unfiled_busy)
+        assert fake_client.deletes == ["/transactions/bl11-p1"]
+        # any write starts the list over: the newest 10, the cursor on row 1
+        await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
+        assert ("", "Transaction deleted.") in notes
         assert calls[-1]["limit"] == 10 and calls[-1]["after"] is None
         assert screen._batch_list.cursor_index == 0
         assert len(screen._batch_list._rows) == 10
 
     run_app(scenario)
+    assert not [r for m, r in fake_client.requests if m == "GET"]  # nothing read before asking
 
 
-def test_d_deletes_the_cursor_row_after_a_confirm(monkeypatch, fake_client):
+@pytest.mark.parametrize("parts", [2, 3])
+def test_d_on_a_split_purchase_asks_about_it_whole_then_deletes_it(monkeypatch, fake_client, parts):
+    """3b: the purchase is one row, so `d` asks the ledger's purchase question
+    with its real part count and total, reads nothing first, and `y` sends one
+    `DELETE /bank-lines/{id}`; `Purchase deleted.`, then the newest ten again,
+    the cursor on row 1."""
+    from expense.tui.screens.modals import ConfirmModal
+
+    amounts = {2: [-6000, -4000], 3: [-6000, -2500, -1500]}[parts]
+    farm = _line("bl-farm", amounts, day="2026-03-10", title="FARMACIA", code="48201764")
+    _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch, items=[UNFILED[0], farm, UNFILED[2]])
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
+        await _cursor_on(pilot, screen, "bl-farm")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert app.screen._title == f"Delete this purchase and its {parts} parts?"
+        assert app.screen._message == (
+            "FARMACIA · -100.00 · 2026-03-10 · BCP PEN\nNo screen can bring it back."
+        )
+        reads = len(calls)
+        await pilot.press("y")
+        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
+        await wait_for(pilot, lambda: len(calls) > reads and not screen._unfiled_busy)
+        assert calls[-1]["after"] is None and calls[-1]["limit"] == 10
+        assert screen._batch_list.cursor_index == 0
+
+    run_app(scenario)
+    assert fake_client.deletes == ["/bank-lines/bl-farm"]
+    assert not [r for m, r in fake_client.requests if m == "GET"]  # the line was in hand
+
+
+@pytest.mark.parametrize("key", ["n", "escape", "enter"])
+def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, key):
     from expense.tui.screens.modals import ConfirmModal
 
     _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        await _cursor_on(pilot, screen, "bl-farm")
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press(key)
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert len(calls) == reads
+        assert screen._batch_list.cursor_key == "bl-farm"
+
+    run_app(scenario)
+    assert fake_client.deletes == []
+
+
+SEALED_LINE_WORDS = (
+    "This bank line is in a completed reconciliation and cannot be deleted. "
+    "Revert the reconciliation to draft first."
+)
+
+
+@pytest.mark.parametrize(
+    ("row", "path", "status", "code", "fields", "reasons"),
+    [
+        (
+            "bl-farm",
+            "/bank-lines/bl-farm",
+            409,
+            "CONFLICT",
+            {"bank_line_id": "Must not be assigned to a completed reconciliation."},
+            {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
+        ),
+        ("bl-farm", "/bank-lines/bl-farm", 404, "NOT_FOUND", None, None),
+        (
+            "bl-net",
+            "/transactions/bl-net-p1",
+            409,
+            "CONFLICT",
+            {"transaction_id": "Must not be assigned to a completed reconciliation."},
+            {"transaction_id": "IN_COMPLETED_RECONCILIATION"},
+        ),
+    ],
+    ids=["purchase-sealed", "purchase-gone", "transaction-sealed"],
+)
+def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
+    monkeypatch, fake_client, row, path, status, code, fields, reasons
+):
+    """The engine refuses: its words in the "Failed" note, nothing deleted, the
+    list not read again and the cursor where it was."""
+    from expense.errors import EngineError
+    from expense.tui.screens.modals import ConfirmModal
+
+    _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch)
+    err = EngineError(code, SEALED_LINE_WORDS, fields, status, {}, reasons)
+    fake_client.errors["DELETE"] = err
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
+        await _cursor_on(pilot, screen, row)
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert notes == [("Failed", list_refusal_text(err))]
+        assert notes[0][1].startswith(f"{code} — {SEALED_LINE_WORDS}")
+        assert len(calls) == reads and len(screen._batch_list._rows) == 3
+        assert screen._batch_list.cursor_key == row
+
+    run_app(scenario)
+    assert fake_client.deletes == [path]
+
+
+def test_y_on_a_purchase_sends_one_delete_with_an_idempotency_key(configured, monkeypatch):
+    """Through the real HTTP client: one `DELETE /bank-lines/{id}` carrying the
+    client's idempotency key, no `DELETE /transactions/{id}`, no line read."""
+    import httpx
+    import respx
+
+    from expense import config as config_module
+    from expense.tui.screens.modals import ConfirmModal
+    from tests.unit.helpers import ENGINE_URL
+
+    real_config = config_module.ensure_loaded
+    _patch_browse(monkeypatch)
+    monkeypatch.setattr("expense.config.ensure_loaded", real_config)
     _patch_unfiled(monkeypatch)
 
     async def scenario(pilot, app):
-        await _open_unfiled(pilot, app)
+        screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
+        await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("d")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert app.screen._title == "Delete this transaction?"
-        # the ledger's question, word for word (`transaction_delete_message`)
-        assert app.screen._message.endswith(
-            "\nIt leaves every balance and report, and no screen can bring it back."
-        )
         await pilot.press("y")
-        await wait_for(pilot, lambda: fake_client.deletes)
-        assert fake_client.deletes == ["/transactions/t1"]  # the cursor row, oldest first
+        await wait_for(pilot, lambda: ("", "Purchase deleted.") in notes)
 
-    run_app(scenario)
+    with respx.mock(assert_all_called=False) as engine:
+        read = engine.get(url__startswith=f"{ENGINE_URL}/v1/bank-lines").mock(
+            httpx.Response(200, json={})
+        )
+        route = engine.delete(f"{ENGINE_URL}/v1/bank-lines/bl-farm").mock(
+            httpx.Response(200, json={"parts": []})
+        )
+        single = engine.delete(url__startswith=f"{ENGINE_URL}/v1/transactions/").mock(
+            httpx.Response(200, json={})
+        )
+        run_app(scenario)
+    assert route.call_count == 1
+    assert route.calls.last.request.headers["X-Idempotency-Key"]
+    assert not single.called and not read.called
+
+
+def test_y_on_a_line_never_split_sends_its_transaction_delete_with_an_idempotency_key(
+    configured, monkeypatch
+):
+    import httpx
+    import respx
+
+    from expense import config as config_module
+    from expense.tui.screens.modals import ConfirmModal
+    from tests.unit.helpers import ENGINE_URL
+
+    real_config = config_module.ensure_loaded
+    _patch_browse(monkeypatch)
+    monkeypatch.setattr("expense.config.ensure_loaded", real_config)
+    _patch_unfiled(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
+        await _cursor_on(pilot, screen, "bl-net")
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: ("", "Transaction deleted.") in notes)
+
+    with respx.mock(assert_all_called=False) as engine:
+        route = engine.delete(f"{ENGINE_URL}/v1/transactions/bl-net-p1").mock(
+            httpx.Response(200, json={})
+        )
+        whole_line = engine.delete(url__startswith=f"{ENGINE_URL}/v1/bank-lines/").mock(
+            httpx.Response(200, json={"parts": []})
+        )
+        run_app(scenario)
+    assert route.call_count == 1
+    assert route.calls.last.request.headers["X-Idempotency-Key"]
+    assert not whole_line.called
 
 
 def test_d_does_nothing_outside_the_unfiled_pane(monkeypatch, fake_client):

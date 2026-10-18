@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Split · three moments</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Split · three moments on the split screen</h1>
+  <p>The split screen is built. Its mockup (<code>expense-world-split-action.html</code>) draws splitting a purchase, splitting it again and a refusal. It does not draw these three moments: title words typed on a part's line, <code>esc</code> with parts typed and not sent, and typing part of a category's name. For each one, the variant marked <b>as built</b> is what the app shows today; the other is the change on offer.</p>
+  <p>The purchase is FARMACIA, -100.00 on 2026-10-11 from Sueldo Soles, split into -60.00 <code>@salud</code> and -40.00 <code>@hogar #casa</code>. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+
+<div class="pane"><div class="lbl">1 · A title typed on a part's line <span>— -40 @hogar lejía</span></div>
+<p class="blurb">Part 1 (-60.00, SALUD) is in the list. On part 2's line you type <code>-40 @hogar lejía</code> and press <code>↵</code>. <code>lejía</code> has no <code>//</code> in front, so the grammar reads it as title words, the way the LOG bar reads a line's loose words as its title. A part keeps the purchase's title, FARMACIA.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the line is refused in place</span><span class="ref">as built</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @hogar lejía<span class="a">▍</span>
+   <span class="d">-40.00 · HOGAR · no hashtag</span>
+   <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
+
+   <span class="n">! a part keeps the purchase's title</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
+
+   <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
+<p class="cap">The line stays in the bar and the reason shows under the legend until your next keystroke. You add <code>//</code> before <code>lejía</code> and press <code>↵</code> again. <b>Recommended:</b> a loose word may be a typo or a title meant for the purchase, so the app does not guess. A note is always what you mark with <code>//</code>, here as in the LOG bar.</p></div>
+<div class="var"><div class="oh">B · <span>the extra words become the part's note</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @hogar lejía<span class="a">▍</span>
+   <span class="d">-40.00 · HOGAR · no hashtag · note: lejía</span>
+   <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
+
+   <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
+<p class="cap">The line under the bar shows the words as the part's note, before you press <code>↵</code>. After <code>↵</code>, part 2 reads <code>-40.00  HOGAR  #Pendiente  lejía</code>. A line with loose words and a <code>//note</code> together would still be refused, since it would hold two notes. Fewer refusals, but the same words mean a title in the LOG bar and a note here.</p></div>
+</div></div>
+
+<div class="pane"><div class="lbl">2 · esc with two parts typed and not sent <span>— nothing has reached the engine yet</span></div>
+<p class="blurb">Both parts are in the list and the bar is empty. Nothing is sent until <code>^s</code>. You press <code>esc</code>. (If a part were picked or being changed, <code>esc</code> would first put it back or unpick it. This is the <code>esc</code> after that.)</p>
+<div class="var"><div class="oh"><span>where you are</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span><span class="a">▍</span>
+   <span class="d">↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it</span>
+   <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
+   <span class="a">•</span> <span class="d">2</span>   <span class="n">  -40.00</span>   HOGAR       #casa
+
+   <span class="d">2 parts · </span><span class="n">-100.00</span><span class="d"> of </span><span class="n">-100.00</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div></div>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>leaves at once, back on the ledger, nothing sent</span><span class="ref">as built</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Cafe Andino                             <span class="n">   -18.50</span>  2026-10-12  Sueldo Soles   COMIDA       almuerzo   
+      <span class="rev">FARMACIA                                  -100.00  2026-10-11  Sueldo Soles   @Pendiente   Pendiente  </span>
+      Uber                  al aeropuerto     <span class="n">   -42.00</span>  2026-10-11  Sueldo Soles   TRANSPORTE   viaje-cusco
+      Pago planilla                           <span class="p"> 6,519.00</span>  2026-10-05  Sueldo Soles   SUELDO       trabajo    
+
+     <span class="d">no filter · 10 of 133 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The ledger is as you left it, same rows, cursor still on FARMACIA, and FARMACIA is still one row of -100.00. No note in the corner, because nothing was sent. The two parts you typed are gone. <b>Recommended:</b> nothing changed on the ledger, and two short lines are quick to type again.</p></div>
+<div class="var"><div class="oh">B · <span>a “discard?” question first, as the LOG bar asks</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Transactions  ▸  Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   FARMACIA  ·  2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN</span>
+
+<span class="d">   PART     </span><span class="a">────────────────────────────────────────────────────────────────</span>
+<span class="d">   ↑↓ picks </span>
+<span class="d">   ±amount ·</span>  <span class="ab">2 parts are typed and not sent.</span>
+<span class="d">            </span>  <span class="d">[enter] keep editing    [d] discard    [^s] split first</span>
+<span class="d">           a</span>
+<span class="d">   • 1     -</span><span class="a">────────────────────────────────────────────────────────────────</span>
+<span class="d">   • 2     -40.00   HOGAR       #casa</span>
+
+<span class="d">   2 parts · -100.00 of -100.00</span>
+
+ <span class="a">d</span> Discard  <span class="a">^s</span> Split first  <span class="a">⏎</span> Keep editing</pre></div></div>
+<p class="cap">The LOG bar's own question, with its three answers, worded for parts. The LOG bar reads <code>2 rows are staged and not written.</code> and <code>[enter] keep editing    [d] discard    [^s] save first</code>. <code>⏎</code> and <code>esc</code> keep you on the screen, <code>d</code> leaves with nothing sent, and <code>^s</code> sends the split and leaves only if the engine takes it. It asks only when the list holds a part you typed or changed. A line still in the bar is not a part, as in the LOG bar.</p></div>
+</div></div>
+
+<div class="pane"><div class="lbl">3 · Typing part of a category's name <span>— -40 @ho, two categories match</span></div>
+<p class="blurb">On part 2's line you have typed <code>-40 @ho</code>. Two categories hold “ho”: HOGAR and HOSPEDAJE. Names match the way the LOG bar matches them, anywhere in the name, ignoring case and accents.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the LOG bar's suggestion list opens under the line</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @ho<span class="a">▍</span>
+   <span class="d">"@ho" matches 2 categories — ↑↓ moves, ↵ writes the full name into the line</span>
+   <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
+
+     <span class="rev">HOGAR</span>
+     HOSPEDAJE
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
+
+   <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
+<p class="cap">The same list, the same words and the same keys as the LOG bar: at most eight names, <code>↑↓</code> move in it, and <code>↵</code> writes <code>@HOGAR</code> into the line. Then the line under the bar reads <code>-40.00 · HOGAR · no hashtag</code> again, and a second <code>↵</code> adds the part. While the list is open, <code>↑↓</code> move in it, not through the parts. The same list opens on <code>#</code>. <b>Recommended:</b> you pick a category the way you already do every day, instead of guessing its name.</p></div>
+<div class="var"><div class="oh">B · <span>no list; a name that matches nothing is refused on ↵</span><span class="ref">as built</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+
+   <span class="b">PART            </span>-40 @hox<span class="a">▍</span>
+   <span class="d">-40.00 · "@hox" matches no categories · no hashtag</span>
+   <span class="d">±amount · @category · #tag · //note            ↵ adds the part</span>
+
+   <span class="n">! "@hox" matches no categories</span>
+
+<span class="d">           amount   category    hashtags     note</span>
+   <span class="a">•</span> <span class="d">1</span>   <span class="n">  -60.00</span>   SALUD       <span class="d">#Pendiente   </span>
+
+   <span class="d">1 part · </span><span class="n">-60.00</span><span class="d"> of </span><span class="n">-100.00</span><span class="d"> · </span><span class="n">-40.00</span><span class="d"> left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split</pre></div></div>
+<p class="cap">Drawn one keystroke on, at <code>@hox</code>, after <code>↵</code>. While you type, the line under the bar says what the name matches: at <code>@ho</code> it reads <code>-40.00 · "@ho" matches 2 categories · no hashtag</code>, and <code>↵</code> there is refused with <code>! "@ho" matches 2 categories</code>. You type more of the name (<code>@hog</code>) until it matches one. Nothing lists the names to pick from.</p></div>
+</div></div>
+
+<div class="pick"><b>To answer:</b> one letter per moment: <b>1</b> A or B · <b>2</b> A or B · <b>3</b> A or B.<br><b>Recommended:</b> 1 A (a note is what you mark with <code>//</code>, as in the LOG bar) · 2 A (nothing changed on the ledger, and two short lines are quick to type again) · 3 A (you pick a name from the list you already know, instead of guessing it).<br><b>New words, yours to change:</b> <code>note: lejía</code> (1 B), <code>2 parts are typed and not sent.</code> and <code>[^s] split first</code> (2 B). Every other word is the app's own today.</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

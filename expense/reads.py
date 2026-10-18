@@ -276,26 +276,86 @@ def fetch_bank_lines(
     """GET /v1/bank-lines → the raw engine body: one row per bank line, each
     the shape `fetch_bank_line` reads, newest first (contract: GET /v1/bank-lines).
 
-    Read by the reconciliation batch screen, which lists a purchase as one row
-    and never half of it. Each filter applies to a whole line. Cursor-paged
-    like `fetch_transactions`, with `limit` counting lines, but it takes no
-    `sort`, no `search` and no `debit_as_negative`: the engine refuses any
-    parameter it does not list, and `net_cents` is signed already.
+    Read by the reconciliation batch screen and the "no batch" list, which list
+    a purchase as one row and never half of it. Each filter applies to a whole
+    line. Cursor-paged like `fetch_transactions`, with `limit` counting lines,
+    but it takes no `sort`, no `search` and no `debit_as_negative`: the engine
+    refuses any parameter it does not list, and `net_cents` is signed already.
     """
     return fetch_body(
         cfg,
         path="/bank-lines",
-        params=query_params(
-            account_id=account,
-            reconciliation_id=reconciliation,
+        params={
+            **_line_filter_params(
+                account=account,
+                reconciliation=reconciliation,
+                unreconciled=unreconciled,
+                date_from=date_from,
+                date_to=date_to,
+            ),
+            **query_params(after=after, limit=limit),
+        },
+        verbose=verbose,
+    )
+
+
+def _line_filter_params(
+    *,
+    account: str | None,
+    reconciliation: str | None,
+    unreconciled: bool,
+    date_from: str | None,
+    date_to: str | None,
+) -> dict:
+    """The filters `GET /bank-lines` and `/bank-lines/count` share — one copy,
+    so the list and its count describe the same lines (contract: GET /v1/bank-lines/count)."""
+    return query_params(
+        account_id=account,
+        reconciliation_id=reconciliation,
+        unreconciled=unreconciled,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+def count_bank_lines(
+    cfg,
+    *,
+    account: str | None = None,
+    reconciliation: str | None = None,
+    unreconciled: bool = False,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    verbose: bool = False,
+) -> int:
+    """GET /v1/bank-lines/count → how many bank lines the same filters match.
+
+    It counts lines, so a purchase split into parts counts once
+    (contract: GET /v1/bank-lines/count). Read by the "no batch" list for its
+    `N of M loaded`. Raises when the body carries no int `count`, as
+    `count_transactions` does: a list that cannot get the number fails instead.
+    """
+    body = fetch_body(
+        cfg,
+        path="/bank-lines/count",
+        params=_line_filter_params(
+            account=account,
+            reconciliation=reconciliation,
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
-            after=after,
-            limit=limit,
         ),
         verbose=verbose,
     )
+    return _count_of(body, "GET /bank-lines/count")
+
+
+def _count_of(body: object, read: str) -> int:
+    """The int `count` of a count read's body; raises when there is none."""
+    count = body.get("count") if isinstance(body, dict) else None
+    if not isinstance(count, int) or isinstance(count, bool):
+        raise ValueError(f"{read} answered without a count: {body!r}")
+    return count
 
 
 def count_transactions(
@@ -330,10 +390,7 @@ def count_transactions(
         ),
         verbose=verbose,
     )
-    count = body.get("count") if isinstance(body, dict) else None
-    if not isinstance(count, int) or isinstance(count, bool):
-        raise ValueError(f"GET /transactions/count answered without a count: {body!r}")
-    return count
+    return _count_of(body, "GET /transactions/count")
 
 
 def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:

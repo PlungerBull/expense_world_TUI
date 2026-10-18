@@ -29,7 +29,7 @@ from textual.message import Message
 
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
-from expense.tui.widgets.cells import amount_cell
+from expense.tui.widgets.cells import amount_cell, operation_cell
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 
 
@@ -115,11 +115,10 @@ class CheckList(WindowedList):
         t.add_column("Amount", justify="right", no_wrap=True)
         start, window = self._window()
         for i, (key, date, title, operation, amount) in enumerate(window, start=start):
-            op = str(operation) if operation else Text("—", style="dim")
             cells: list = [
                 str(date or "")[:10],
                 str(title or "(untitled)"),
-                op,
+                operation_cell(operation),
                 amount_cell(amount, self._palette, AMOUNT_RULE),
             ]
             if not self._read_only:

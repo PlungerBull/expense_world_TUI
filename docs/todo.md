@@ -37,29 +37,14 @@ becomes the next catch-up spec.
 
 **Recommended:** none — only you can hand it over.
 
-### "No batch" oldest first: ask the engine?
-Asked 2026-10-17 · Blocks: task 2 (pane 2d) of [specs/bank-lines-whole.md](specs/bank-lines-whole.md)
+### "1 ticked rows"
+Asked 2026-10-17 · Blocks: nothing (only words)
 
-The "no batch" list (`u`) shows the oldest rows first, as drawn, because old leftovers are the
-problem. The engine's list of purchases comes newest first only, with no way to ask for another
-order, and reading everything to turn it around in the app is ruled out (it breaks on long lists).
-Until this is answered, "no batch" stays as it is today: one row per part, with its Category column.
-- **A.** Ask the engine for an oldest-first order on its purchase list; "no batch" is built as
-  drawn once it lands.
-- **B.** Accept newest first for "no batch": it opens on the newest leftovers.
-- **C.** B now, A later.
+With one row ticked, `c` asks "Locks amount/account/title/date on the 1 ticked rows."
+- **A.** "1 ticked row" when there is one, "5 ticked rows" otherwise.
+- **B.** Keep the words exactly as given.
 
-**Recommended:** A, because oldest first is what you picked, and every client will want it.
-
-### The "Complete reconciliation?" question counts purchases
-Asked 2026-10-17 · Blocks: nothing (the question works; only its words)
-
-`c` on a month asks "Complete reconciliation?" with "Locks amount/account/title/date on the 5
-assigned transaction(s)." The number now counts the ticked rows, and a split purchase is one row.
-- **A.** "Locks amount/account/title/date on the 5 ticked rows."
-- **B.** Keep the words as they are.
-
-**Recommended:** A, because the number is the rows you see ticked.
+**Recommended:** A, because it reads as written English either way.
 
 ### The note after `b` moves one part of a split purchase
 Asked 2026-10-17 · Blocks: nothing (the move works; only its note)
@@ -74,39 +59,26 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
-### The split screen's undrawn moments
-Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
+### The split screen's three moments
+Asked 2026-10-17 · Blocks: nothing; each pick that changes the screen becomes a task
 
-The split screen is built as drawn. Three moments the mockup does not draw:
-1. A title typed on a part's line (`-40 @hogar lejía`) is refused in place: "a part keeps the
-   purchase's title". **A.** keep the refusal · **B.** take the words as the part's note.
-2. `esc` with parts typed leaves at once (nothing is written before `^s`). **A.** leave at once
-   · **B.** ask "discard?" first, as the LOG bar does.
-3. The part line has no `@`/`#` suggestion list; a name that matches nothing is refused.
-   **A.** add the LOG bar's suggestion list · **B.** leave it out.
+[mockups/expense-world-split-moments.html](mockups/expense-world-split-moments.html): a title
+typed on a part's line (1), `esc` with parts typed (2), and the `@`/`#` suggestion list on a
+part's line (3), each as built and its alternative. The rest of the split screen stays as built.
 
-The rest is kept as built unless you say otherwise: the refusal reads `! <reason>`, the preview
-says `no category`/`no amount`, a refused field other than the amount shows the engine's key
-(`part 1 (category_id)`), the empty screen reads `0 parts · 0.00 of -100.00 · -100.00 left`, and
-a successful split closes the screen and reloads the ledger with no message.
+**Recommended:** 1 A (refused: a part has no title of its own), 2 A (leave at once: nothing is
+sent before `^s`), 3 A (the LOG bar's suggestion list).
 
-**Recommended:** 1 A, because a part has no title of its own and nothing typed is lost; 2 A,
-because nothing is lost on the engine; 3 A, because the LOG bar has it and you will expect it.
+### What `⏎` opens on a split purchase in "no batch"
+Asked 2026-10-17 · Blocks: `⏎` on a split purchase in "no batch" (task 2 of [specs/bank-lines-whole.md](specs/bank-lines-whole.md))
 
-### Is the one-time title alignment still needed?
-Asked 2026-10-16 · Blocks: [specs/official-migration.md](specs/official-migration.md)
+[mockups/expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html) pane 2e.
+- **A.** The edit form of one part (its amount reads -60.00 under a row of -100.00).
+- **B.** Nothing: `⏎` is not offered on a split purchase there.
+- **C.** A short form with only the purchase's date and account.
 
-Before the migration, the plan has a one-time pass that renames your typed rows to the bank's
-wording ([file-import-plan.md](file-import-plan.md) §6), so that the engine would recognise each
-row by its title. Titles play no part in recognising a row: the engine recognises it by its bank
-code, or by account, exact day and amount, and writes the bank's wording onto the row itself
-when it recognises it. Rows typed a day off are the only ones it misses, and those show in
-the days whose totals disagree.
-- **A.** Drop the alignment pass; the month-by-month statement uploads do its job.
-- **B.** Keep it as a one-time tidy-up of wording before the first upload.
-
-**Recommended:** A, because the engine now does the renaming on every match, and a day-off row
-is already caught by the days that disagree.
+**Recommended:** C, because date and account are what a leftover row needs, and they belong to
+the whole purchase.
 
 ---
 
@@ -140,6 +112,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
   Rows dated by day alone (00:00 in the user's time zone) show right. Decide between showing the
   day in the user's `display_timezone` and an engine ask for each row's local day.
+- **"A purchase is split" is spelled three ways.** `is_split_purchase` in
+  [reconciliations.py](../expense/tui/screens/reconciliations.py) and the inline
+  `bank_line_part_count(line) > 1` in transactions.py and edit_form.py; one helper in
+  formatting.py. Also one shared title cell for `(untitled)` (checklist.py and the "no batch"
+  rows), and the delete question shows `—` for the same untitled line: one fallback everywhere.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it
@@ -197,7 +174,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Move the official data into the app** (sheet re-import, `PENDIENTES`, 2026 month by month).
-  Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md).
+  Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md). Whether the plan's one-time title
+  alignment ([file-import-plan.md](file-import-plan.md) §6) stays is decided when the owner plans
+  the import (owner, 2026-10-17).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),

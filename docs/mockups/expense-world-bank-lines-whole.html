@@ -157,7 +157,7 @@
 </div>
 
 <div class="pane"><div class="lbl">2d · The “no batch” list <span>— u on the reconciliations panel</span></div>
-<p class="blurb">The account's rows that are in no month yet, oldest first, with the same bank columns and no Category column. A purchase is one row here too, with its title alone: TOTTUS JOCKEY (three parts) and FARMACIA (two). The count <code>5 of 5 loaded</code> counts a purchase once. <code>!</code> marks rows inside a month's dates, as today. Drawn with B.</p>
+<p class="blurb">The account's rows that are in no month yet, newest first (the only order the engine's purchase list has), with the same bank columns and no Category column. A purchase is one row here too, with its title alone: TOTTUS JOCKEY (three parts) and FARMACIA (two). The count <code>5 of 5 loaded</code> counts a purchase once. <code>!</code> marks rows inside a month's dates, as today. Drawn with B.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
@@ -169,19 +169,87 @@
    <span class="a">▸</span> Sueldo Soles                                            PEN                        <span class="p">12,450.00</span>
    Cuenta Digital Dólares                                    USD                           <span class="p">820.15</span>
 
-  In no batch · Sueldo Soles   ·   5 of 5 loaded · oldest first   ·   ! blocks a batch's close
+  In no batch · Sueldo Soles   ·   5 of 5 loaded · newest first   ·   ! blocks a batch's close
    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
          Date                Title                                   Operation             Amount
   <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
-         2026-08-28          TOTTUS JOCKEY                           47391026             <span class="n">-150.00</span>
-         2026-08-30          CINE PLAZA                              <span class="d">—</span>                     <span class="n">-28.00</span>
-   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                          48172390              <span class="n">-25.00</span>
-  <span class="rev"> !     2026-10-11          FARMACIA                                48201764             -100.00 </span>
    <span class="w">!</span>     2026-10-12          UBER *TRIP                              <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> !     2026-10-11          FARMACIA                                48201764             -100.00 </span>
+   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                          48172390              <span class="n">-25.00</span>
+         2026-08-30          CINE PLAZA                              <span class="d">—</span>                     <span class="n">-28.00</span>
+         2026-08-28          TOTTUS JOCKEY                           47391026             <span class="n">-150.00</span>
 
 
  <span class="a">⏎</span> Edit  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div>
 </div>
+
+<div class="pane"><div class="lbl">2e · ⏎ on a split purchase in “no batch” <span>— the row is the purchase, the form edits a part</span></div>
+<p class="blurb">In the “no batch” list, <code>⏎</code> on a row opens the ledger's Edit form for that row, so you can fix its date or account, the two things that move a row into a month. A split purchase is one row there with its total, FARMACIA -100.00, but the Edit form edits one part, and each part has its own amount. FARMACIA's parts are -60.00 (SALUD, #casa, medicinas) and -40.00 (HOGAR, #casa, limpieza).</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the Edit form of the first part, as it is today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">DATE            </span>2026-10-11<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date · </span><span class="a">changes every part of the purchase</span>
+
+
+
+   <span class="b">date      </span>2026-10-11
+   title     FARMACIA
+   amount    <span class="n">-60.00</span>
+   account   Sueldo Soles
+   category  SALUD
+   hashtags  #casa
+   note      medicinas
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The form the ledger opens on a part, with its note on date, title and account: a change to one of them reaches every part. Amount, category, hashtags and note are part 1's alone, so the row you pressed <code>⏎</code> on reads -100.00 and the form reads -60.00. Part 2 cannot be reached from here.</p></div>
+<div class="var"><div class="oh">B · <span>⏎ does nothing on a split purchase</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+   Account                                                   Cur                          Balance
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="a">▸</span> Sueldo Soles                                            PEN                        <span class="p">12,450.00</span>
+   Cuenta Digital Dólares                                    USD                           <span class="p">820.15</span>
+
+  In no batch · Sueldo Soles   ·   5 of 5 loaded · newest first   ·   ! blocks a batch's close
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+         Date                Title                                   Operation             Amount
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="w">!</span>     2026-10-12          UBER *TRIP                              <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> !     2026-10-11          FARMACIA                                48201764             -100.00 </span>
+   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                          48172390              <span class="n">-25.00</span>
+         2026-08-30          CINE PLAZA                              <span class="d">—</span>                     <span class="n">-28.00</span>
+         2026-08-28          TOTTUS JOCKEY                           47391026             <span class="n">-150.00</span>
+
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div>
+<p class="cap">With the cursor on FARMACIA the footer drops <code>⏎ Edit</code>; on UBER *TRIP, a row never split, it comes back. To move FARMACIA's date or account, you edit one of its parts from the ledger.</p></div>
+<div class="var"><div class="oh">C · <span>a short form: the purchase's date and account</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">FARMACIA</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  2 parts</span>
+
+   <span class="b">DATE            </span>2026-10-11<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date · </span><span class="a">changes every part of the purchase</span>
+
+
+
+   <span class="b">date      </span>2026-10-11
+   account   Sueldo Soles
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The head is the purchase as the list shows it: its title, its total -100.00 and its count. The form asks only the date and the account, the two fields every part shares. Saving sends the change on one part, and the engine moves every part with it. The header line and the short form are new; the rest is the Edit form's words. <b>Recommended:</b> you pressed <code>⏎</code> on the whole purchase, so the form is about the whole purchase, and it asks only the two things a row in no batch needs fixed.</p></div>
+</div></div>
 
 <div class="pane"><div class="lbl">3a · d on one part, on the ledger <span>— the question names how many parts go</span></div>
 <p class="blurb">On the ledger each part is its own row. <code>d</code> on either FARMACIA part asks about the whole purchase. The second line is the purchase's total, its date and its account. Only <code>y</code> deletes; <code>⏎</code>, <code>n</code> and <code>esc</code> cancel and nothing is sent.</p>
@@ -210,7 +278,7 @@
 <p class="cap">The question is your wording; the number is the purchase's real count, so a purchase in three parts reads “its 3 parts” (3b).</p></div>
 
 <div class="pane"><div class="lbl">3b · d on a purchase, in the “no batch” list <span>— the same question</span></div>
-<p class="blurb">Here the purchase is already one row, so <code>d</code> on it asks the same question. TOTTUS JOCKEY has three parts. After <code>y</code> the list starts again from the oldest rows, cursor on row 1, as after any delete today, with the note <code>Purchase deleted.</code></p>
+<p class="blurb">Here the purchase is already one row, so <code>d</code> on it asks the same question. TOTTUS JOCKEY has three parts. After <code>y</code> the list starts again from the newest rows, cursor on row 1, as after any delete today, with the note <code>Purchase deleted.</code></p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  Sueldo Soles</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
@@ -226,11 +294,11 @@
 <span class="d">   ───────────────────</span><span class="a">────────────────────────────────────────────────────────</span><span class="d">─────────────────────</span>
 <span class="d">         Date                Title                                   Operation             Amount</span>
 <span class="d">   ──────────────────────────────────────────────────────────────────────────────────────────────</span>
-<span class="d">         2026-08-28          TOTTUS JOCKEY                           47391026             -150.00</span>
-<span class="d">         2026-08-30          CINE PLAZA                              —                     -28.00</span>
-<span class="d">   !     2026-10-08          TAXI SATELITAL                          48172390              -25.00</span>
-<span class="d">   !     2026-10-11          FARMACIA                                48201764             -100.00</span>
 <span class="d">   !     2026-10-12          UBER *TRIP                              —                     -42.00</span>
+<span class="d">   !     2026-10-11          FARMACIA                                48201764             -100.00</span>
+<span class="d">   !     2026-10-08          TAXI SATELITAL                          48172390              -25.00</span>
+<span class="d">         2026-08-30          CINE PLAZA                              —                     -28.00</span>
+<span class="d">         2026-08-28          TOTTUS JOCKEY                           47391026             -150.00</span>
 
 
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
@@ -319,7 +387,7 @@
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
 </div>
 
-<div class="pick"><b>Picked (owner, 2026-10-17):</b> every pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code>, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
+<div class="pick"><b>Still open:</b> 2e, <code>⏎</code> on a split purchase in “no batch”: A, B or C (C recommended).<br><b>Picked (owner, 2026-10-17):</b> every other pane as drawn. <b>Was asked:</b> “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Picked 2026-10-17:</b> the “no batch” list is newest first (2d, and behind the question in 3b), the only order the engine's purchase list has.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and its title alone, and its parts are not listed there. The columns are B: date · title · operation number · amount. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> the column name <code>Operation</code>, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;

@@ -889,6 +889,44 @@ def test_list_and_count_take_the_same_filters():
     assert list_params == set(inspect.signature(count_transactions).parameters)
 
 
+@respx.mock
+def test_count_bank_lines_sends_the_filters_and_nothing_else(configured):
+    """`GET /bank-lines/count` takes the list's filters and refuses `after` and
+    `limit` (contract: GET /v1/bank-lines/count)."""
+    from expense import config as config_module
+    from expense.reads import count_bank_lines
+
+    route = respx.get(f"{BASE}/v1/bank-lines/count").mock(
+        return_value=httpx.Response(200, json={"count": 42})
+    )
+    count = count_bank_lines(config_module.ensure_loaded(), account="acct-id", unreconciled=True)
+    assert count == 42
+    assert dict(route.calls.last.request.url.params) == {
+        "account_id": "acct-id",
+        "unreconciled": "true",
+    }
+
+
+@pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])
+@respx.mock
+def test_count_bank_lines_raises_without_an_int_count(configured, body):
+    from expense import config as config_module
+    from expense.reads import count_bank_lines
+
+    respx.get(f"{BASE}/v1/bank-lines/count").mock(return_value=httpx.Response(200, json=body))
+    with pytest.raises(ValueError, match="without a count"):
+        count_bank_lines(config_module.ensure_loaded(), account="acct-id")
+
+
+def test_the_line_list_and_its_count_take_the_same_filters():
+    import inspect
+
+    from expense.reads import count_bank_lines, fetch_bank_lines
+
+    list_params = set(inspect.signature(fetch_bank_lines).parameters) - {"after", "limit"}
+    assert list_params == set(inspect.signature(count_bank_lines).parameters)
+
+
 @pytest.mark.parametrize(
     ("line", "count"),
     [

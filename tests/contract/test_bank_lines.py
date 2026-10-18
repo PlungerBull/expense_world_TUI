@@ -1086,3 +1086,64 @@ def test_the_batch_screen_lists_and_ticks_lines_through_its_own_reads(client):
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/reconciliations/{recon}")
         _safe(client.delete, f"/accounts/{account}")
+
+
+def test_the_no_batch_list_reads_through_its_own_reads(client):
+    """The "no batch" list's own path: the account's lines in no reconciliation,
+    any day (`account_id`, `unreconciled=true`, no dates), read by
+    `fetch_bank_lines` page by page and counted by `count_bank_lines` with the
+    same filter. Newest first; a purchase split 60 + 40 is one row of its
+    signed total and title; a line ticked into a month is in neither the list
+    nor the count; and the pages add up to the count
+    (contract: GET /v1/bank-lines) (contract: GET /v1/bank-lines/count)."""
+    from expense.reads import count_bank_lines, fetch_bank_lines
+    from expense.tui.screens.reconciliations import UNFILED_FILTER, unfiled_rows
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
+    zone = _zone(client)
+    account = _make_account(client)
+    recon = _make_reconciliation(client, account)
+    written: list[str] = []
+
+    def no_batch(limit: int) -> list[dict]:
+        lines, after = [], None
+        while True:
+            body = fetch_bank_lines(
+                cfg, account=account, after=after, limit=limit, **UNFILED_FILTER
+            )
+            assert len(body["items"]) <= limit
+            lines.extend(body["items"])
+            after = body["next_cursor"]
+            if after is None:
+                return lines
+
+    try:
+        old = _post_tx(client, account, _noon(zone, 2026, 1, 3), -1500, "OLD ONE")
+        ticked = _post_tx(client, account, _noon(zone, 2026, 4, 9), -700, "TICKED")
+        purchase = _post_tx(client, account, _noon(zone, 2026, 6, 11), -10000, "FARMACIA")
+        new = _post_tx(client, account, _noon(zone, 2026, 9, 2), 2500, "NEWEST")
+        written.extend([old["id"], ticked["id"], purchase["id"], new["id"]])
+        parts = _split(client, purchase["id"], [-6000, -4000], written)
+        client.put(f"/transactions/{ticked['id']}", json_body={"reconciliation_id": recon})
+
+        expected = [new["bank_line_id"], parts[0]["bank_line_id"], old["bank_line_id"]]
+        count = count_bank_lines(cfg, account=account, **UNFILED_FILTER)
+        assert count == 3
+        for limit in (1, 2, 10):
+            lines = no_batch(limit)
+            assert [line["id"] for line in lines] == expected, limit
+            assert len(lines) == count
+        rows = unfiled_rows(no_batch(10), [])
+        assert [[str(c) for c in cells] for _key, cells in rows][1] == [
+            "",
+            "2026-06-11",
+            "FARMACIA",
+            "—",
+            "-100.00",
+        ]
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/accounts/{account}")

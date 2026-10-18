@@ -70,6 +70,13 @@ NEEDS_SCREEN_HANDLER = {
     "more": "on_cursor_list_more_requested",
 }
 
+#: A widget may name, in a `CARD_FOLLOWS_CHECK` frozenset, the actions whose
+#: card row follows its `check_action`: listed only while it allows them, as
+#: the footer does. For a key that is off on some rows (the "no batch" list's
+#: `⏎` on a split purchase); every other row of the card lists what the classes
+#: declare.
+CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
+
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
 #: interior columns.
 LEFT_WIDTH = 34
@@ -215,6 +222,10 @@ def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
             action
             for action, handler in NEEDS_SCREEN_HANDLER.items()
             if not hasattr(screen, handler)
+        ) | frozenset(
+            action
+            for action in getattr(focused, CARD_FOLLOWS_CHECK, ())
+            if focused.check_action(action, ()) is False
         )
         widget_rows = key_rows(declared_bindings(type(focused)), drop=inert)
         if widget_rows:

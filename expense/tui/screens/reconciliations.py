@@ -7,8 +7,9 @@ cursor in it. They stand in the order the engine returns them: `date_start`
 ascending, then creation time, oldest first
 (contract: "Reconciliations", "Ordering"). There `⏎` opens the working
 screen, `n` creates one for the account, `u` swaps the panel for the
-account's rows in no batch, and `esc` closes the panel. Nothing is read for
-an account until you press `⏎` on it.
+account's bank lines in no batch (`GET /bank-lines`, newest first, a split
+purchase one row), and `esc` closes the panel. Nothing is read for an
+account until you press `⏎` on it.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine has no derived (chained) begin,
@@ -47,7 +48,13 @@ from textual.worker import get_current_worker
 from expense import formatting, reads
 from expense.dates import is_calendar_day
 from expense.errors import format_error
-from expense.formatting import format_cents, resolve_name
+from expense.formatting import (
+    bank_line_columns,
+    bank_line_part_count,
+    format_cents,
+    resolve_name,
+    signed_cents,
+)
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import (
@@ -55,7 +62,6 @@ from expense.reads import (
     fetch_all_cursor_pages,
     items_of,
     load_account_name_map,
-    load_category_name_map,
 )
 from expense.tui.screens._base import (
     AdaptiveRowsMixin,
@@ -64,6 +70,8 @@ from expense.tui.screens._base import (
     SectionScreen,
     call_while_attached,
     list_refusal_text,
+    purchase_delete_message,
+    purchase_delete_question,
     screen_fetch_kwargs,
     transaction_delete_message,
 )
@@ -72,7 +80,7 @@ from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, BALANCE_RULE, PALETTE, Palette
-from expense.tui.widgets.cells import amount_cell, difference_cell
+from expense.tui.widgets.cells import amount_cell, difference_cell, operation_cell
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
@@ -82,12 +90,13 @@ from expense.tui.widgets.header import Breadcrumb
 _period = formatting.format_period
 
 _BATCH_HEADERS = ["Name", "Period", "Begin", "End", "Diff", "Status"]
-_UNFILED_HEADERS = ["", "Date", "Title", "Amount", "Category"]
+_UNFILED_HEADERS = ["", "Date", "Title", "Operation", "Amount"]
 
-#: What the unfiled pane asks the engine for: this account's rows in no batch,
-#: oldest first. It opens with the `GROW_STEP` oldest and `pgdn` appends the
-#: next ones —
-#: a work queue you walk forward from the oldest, never a jump into the middle.
+#: What the "no batch" list asks the engine for, with the account and no dates:
+#: this account's bank lines in no reconciliation, any day. The list and its
+#: count both take it (`GET /bank-lines`, `GET /bank-lines/count`). The engine
+#: lists them newest first, its one order (contract: GET /v1/bank-lines); the
+#: list opens with the `GROW_STEP` newest and `pgdn` appends the next ones.
 UNFILED_FILTER = {"unreconciled": True}
 
 
@@ -109,9 +118,14 @@ def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str
     return windows
 
 
-def unfiled_rows(items: list[dict], cat_names: dict, windows, palette=None) -> list:
-    """Rows for the unfiled pane, in the order given (the engine's `date_asc`),
-    `!` on the ones inside a window.
+def unfiled_rows(lines: list[dict], windows, palette=None) -> list:
+    """Rows for the "no batch" list, one per bank line, in the order given (the
+    engine's, newest first), `!` on the ones inside a window.
+
+    Each row is one line of the bank's own columns, `bank_line_columns`: the
+    day, the title, the operation code (a dim `—` when there is none) and the
+    signed `net_cents`. A purchase split into parts is one row with its title
+    alone and its total; nothing on the row says it is split.
 
     **The flag is a hint, not a ruling.** It compares each row's date against
     windows this screen already holds, so it costs no request — but the engine
@@ -120,8 +134,8 @@ def unfiled_rows(items: list[dict], cat_names: dict, windows, palette=None) -> l
     only tells you which rows are worth opening first.
     """
     rows = []
-    for it in items:
-        day = (it.get("date") or "")[:10]
+    for line in lines:
+        day, title, operation, net_cents = bank_line_columns(line)
         blocked = any(start <= day <= end for start, end, _name in windows)
         if not blocked:
             flag: object = ""
@@ -129,17 +143,38 @@ def unfiled_rows(items: list[dict], cat_names: dict, windows, palette=None) -> l
             flag = Text("!", style=palette.warning) if palette else "!"
         rows.append(
             (
-                it.get("id"),
+                line.get("id"),
                 [
                     flag,
                     day,
-                    it.get("title") or "—",
-                    amount_cell(it.get("amount_cents"), palette, AMOUNT_RULE),
-                    resolve_name(it.get("category_id"), cat_names),
+                    title or "(untitled)",
+                    operation_cell(operation),
+                    amount_cell(net_cents, palette, AMOUNT_RULE),
                 ],
             )
         )
     return rows
+
+
+def is_split_purchase(line: object) -> bool:
+    """A bank line holding more than one part, as the engine counts them."""
+    return bank_line_part_count(line) > 1
+
+
+def lone_transaction(line: dict) -> dict | None:
+    """A line never split as the transaction it is: its one part, the
+    transaction response, with `amount_cents` signed the app's way. The part
+    arrives as a magnitude and its `transaction_type`
+    (contract: GET /v1/bank-lines/{bank_line_id}); `signed_cents` signs it, so
+    the edit form and the delete question get the record a ledger read gives.
+    None for a split purchase or a line with no part."""
+    parts = line.get("parts")
+    if is_split_purchase(line) or not isinstance(parts, list) or not parts:
+        return None
+    part = parts[0]
+    if not isinstance(part, dict) or not part.get("id"):
+        return None
+    return {**part, "amount_cents": signed_cents(part)}
 
 
 def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
@@ -170,12 +205,15 @@ class _PanelList(CursorList):
     """The panel under the accounts. It lists two things: a
     reconciliation, which `enter` opens, or a row in no batch, which `enter`
     edits — so the footer says `Edit` there. Two bindings on one key: Textual takes the first whose
-    `check_action` allows it."""
+    `check_action` allows it. On a split purchase in no batch neither is: `⏎`
+    is off there, and leaves the footer and the `?` card."""
 
     BINDINGS = [
         Binding("enter", "edit_row", "Edit", tooltip="Edit the row: its date or its account"),
         Binding("enter", "select", "Open"),
     ]
+    #: The `?` card lists these only while `check_action` allows them (help.py).
+    CARD_FOLLOWS_CHECK = frozenset({"edit_row", "select"})
 
     def _listing_unfiled(self) -> bool:
         try:
@@ -183,9 +221,16 @@ class _PanelList(CursorList):
         except Exception:
             return False
 
+    def _on_split_purchase(self) -> bool:
+        try:
+            record = getattr(self.screen, "_unfiled_record", None)
+        except Exception:
+            return False
+        return record is not None and is_split_purchase(record())
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "edit_row":
-            return self._listing_unfiled()
+            return self._listing_unfiled() and not self._on_split_purchase()
         if action == "select" and self._listing_unfiled():
             return False
         return super().check_action(action, parameters)
@@ -226,10 +271,9 @@ class ReconciliationsScreen(SectionScreen):
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
-        self._unfiled: list = []  # every unfiled row loaded so far, oldest first
+        self._unfiled: list = []  # every bank line in no batch loaded so far, newest first
         # the cursor past the last row, the count, and `pgdn` — shared with the ledger
         self._unfiled_grow = GrowingRead(self, on_more=self._append_unfiled)
-        self._unfiled_cats: dict = {}
         self._unfiled_busy = False
         self._by_id: dict = {}
         self._resume_key: object | None = None  # the panel row to land on after a reload
@@ -368,6 +412,10 @@ class ReconciliationsScreen(SectionScreen):
         return True
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
+        if self._mode == "unfiled" and event.control is self._batch_list:
+            # `⏎ Edit` follows the row: off on a split purchase
+            self._batch_list.refresh_bindings()
+            return
         # Source guard: only the account list moves the account
         # cursor, and only while it is the list in use. Moving it reads nothing.
         if self._mode != "accts" or event.control is not self._accts_list:
@@ -377,8 +425,9 @@ class ReconciliationsScreen(SectionScreen):
     def on_cursor_list_selected(self, event: CursorList.Selected) -> None:
         if self._mode == "unfiled":
             # `⏎` opens the form that already edits date and account — the two
-            # remedies for a row that is in no batch.
-            record = self._unfiled_record()
+            # remedies for a row that is in no batch. Off on a split purchase.
+            line = self._unfiled_record()
+            record = lone_transaction(line) if line is not None else None
             if record is not None:
                 from expense.tui.screens.edit_form import EditFormScreen
 
@@ -475,7 +524,7 @@ class ReconciliationsScreen(SectionScreen):
         self.refresh_bindings()
 
     def _reload_unfiled(self) -> None:
-        """After `⏎` edit or `d`: the oldest `GROW_STEP` again, the cursor on
+        """After `⏎` edit or `d`: the newest `GROW_STEP` again, the cursor on
         row 1 (any write starts the list over, like any app's list). A row whose
         date or account moved is gone, which is the point of editing it."""
         if self._open_aid and self._mode == "unfiled" and self._batch_list is not None:
@@ -484,7 +533,7 @@ class ReconciliationsScreen(SectionScreen):
             self._load_unfiled(self._open_aid)
 
     async def action_reload(self) -> None:
-        """`r` — in the unfiled pane, start again from the oldest `GROW_STEP`;
+        """`r` — in the unfiled pane, start again from the newest `GROW_STEP`;
         anywhere else, reload the screen (an open panel stays open)."""
         if self._mode == "unfiled":
             if not self._unfiled_busy:
@@ -515,15 +564,14 @@ class ReconciliationsScreen(SectionScreen):
         self._load_unfiled(acct[0])
 
     def _unfiled_page(self, account_id: str):
-        """`(limit, after) -> body`: this account's rows in no batch, oldest
-        first (worker thread)."""
+        """`(limit, after) -> body`: this account's bank lines in no batch,
+        newest first (worker thread)."""
         from expense import config as config_module
 
         def page(limit: int, after: str | None) -> dict:
-            return reads.fetch_transactions(
+            return reads.fetch_bank_lines(
                 config_module.ensure_loaded(),
                 account=account_id,
-                sort="date_asc",
                 after=after,
                 limit=limit,
                 **UNFILED_FILTER,
@@ -545,16 +593,15 @@ class ReconciliationsScreen(SectionScreen):
             kw = screen_fetch_kwargs(self.app)
             items, next_cursor, total = read_first(
                 self._unfiled_page(account_id),
-                lambda: reads.count_transactions(cfg, account=account_id, **UNFILED_FILTER, **kw),
+                lambda: reads.count_bank_lines(cfg, account=account_id, **UNFILED_FILTER, **kw),
             )
-            cat_names = load_category_name_map()
         except Exception as exc:
             if not worker.is_cancelled:
                 self.app.call_from_thread(self._unfiled_failed, format_error(exc))
             return
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._show_unfiled, items, total, next_cursor, cat_names)
+        self.app.call_from_thread(self._show_unfiled, items, total, next_cursor)
 
     def on_cursor_list_more_requested(self, event: CursorList.MoreRequested) -> None:
         """`pgdn` in the unfiled pane: the next `GROW_STEP` rows, appended."""
@@ -567,69 +614,84 @@ class ReconciliationsScreen(SectionScreen):
             return
         self._unfiled.extend(items)
         windows = blocking_windows(self._recons, self._open_aid)
-        rows = unfiled_rows(items, self._unfiled_cats, windows, palette=PALETTE)
+        rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.append_rows(rows, more=more)
+        self._batch_list.refresh_bindings()
 
     def _unfiled_failed(self, message: str) -> None:
         self._unfiled_busy = False
         self._show_batches()
         self.notify(message, title="Failed", severity="error")
 
-    def _show_unfiled(
-        self,
-        items: list,
-        total: int,
-        next_cursor: str | None,
-        cat_names: dict,
-    ) -> None:
+    def _show_unfiled(self, items: list, total: int, next_cursor: str | None) -> None:
         self._unfiled_busy = False
         if self._mode != "unfiled" or self._batch_list is None:  # esc landed mid-read
             return
         self._unfiled = list(items)
         self._unfiled_grow.took(next_cursor, total)
-        self._unfiled_cats = cat_names
         # the panel already holds this account's reconciliations: the `!`
         # windows cost no read of their own
         windows = blocking_windows(self._recons, self._open_aid)
-        rows = unfiled_rows(items, cat_names, windows, palette=PALETTE)
+        rows = unfiled_rows(items, windows, palette=PALETTE)
         self._batch_list.set_caption(self._unfiled_caption())
         self._batch_list.set_rows(rows)
         self._batch_list.set_growth(more=self._unfiled_grow.more)
         self._batch_list.set_cursor(0)
         self._batch_list.focus()
+        self._batch_list.refresh_bindings()
 
     def _unfiled_caption(self) -> str:
-        """`In no batch · BCP PEN · 20 of 1716 loaded · oldest first · …`"""
+        """`In no batch · BCP PEN · 20 of 1716 loaded · newest first · …`"""
         acct = self._open_account()
         label = acct[1] if acct else "—"
         return (
             f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
-            " · oldest first   ·   ! blocks a batch's close"
+            " · newest first   ·   ! blocks a batch's close"
         )
 
     def _unfiled_record(self) -> dict | None:
+        """The bank line under the cursor in the "no batch" list, as listed."""
         key = self._batch_list.cursor_key if self._batch_list is not None else None
         return next((it for it in self._unfiled if it.get("id") == key), None)
 
     def action_delete_row(self) -> None:
-        """`d` — delete the row under the cursor, in the unfiled pane only.
+        """`d` — delete the line under the cursor, in the unfiled pane only.
 
-        Cursor row only, never a selection, and the confirm says a delete is
-        final. Why: docs/decisions.md "Rows in no batch live in the
+        Cursor row only, never a selection, and the question says a delete is
+        final. The line in hand is the list's own read, so nothing is read
+        before asking. A split purchase (`part_count` above 1) goes whole, in
+        one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),
+        after the question naming its part count; a line never split goes as
+        its one transaction, in `DELETE /transactions/{id}`, after the ledger's
+        question. Why: docs/decisions.md "Rows in no batch live in the
         reconciliation view".
         """
         if self._mode != "unfiled":
             return
-        record = self._unfiled_record()
-        if record is None:
+        line = self._unfiled_record()
+        if line is None:
             return
         acct = self._open_account()
+        account_name = acct[1] if acct else "—"
+        if is_split_purchase(line):
+            self.confirm_delete(
+                "bank-lines",
+                line.get("id"),
+                purchase_delete_question(line),
+                purchase_delete_message(line, account_name),
+                done="Purchase deleted.",
+                after=self._reload_unfiled,
+            )
+            return
+        record = lone_transaction(line)
+        if record is None:
+            return
         self.confirm_delete(
             "transactions",
             record.get("id"),
             "Delete this transaction?",
-            transaction_delete_message(record, acct[1] if acct else "—"),
+            transaction_delete_message(record, account_name),
             done="Transaction deleted.",
             after=self._reload_unfiled,
         )
@@ -1160,7 +1222,7 @@ class ReconciliationDetailScreen(
         n = len(self._list.checked) if self._list else 0
         self._confirm(
             "Complete reconciliation?",
-            f"Locks amount/account/title/date on the {n} assigned transaction(s).",
+            f"Locks amount/account/title/date on the {n} ticked rows.",
             lambda: self._status_action(
                 "POST",
                 f"/reconciliations/{self._id}/complete",
