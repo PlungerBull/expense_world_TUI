@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Import · the bank's day</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Import · the bank's day</h1>
+  <p>The import door's preview and its <code>✓ N rows imported</code> screen, when a file row is found in the ledger by its <b>operation number</b> but the bank has it on another day. Importing moves that transaction, every part of it, to the bank's day, and the preview says so before anything is written. A <b>completed reconciliation</b> stops the move: the transaction keeps its day, still found, and the rest of the file imports as usual.</p>
+  <p>The example in every pane: <code>WONG SAN ISIDRO -100.00</code>, operation number 123456, is on <b>03 Oct</b> in the ledger and on <b>04 Oct</b> in the bank file. Everything else on these screens is as built. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
+</div>
+
+<div class="qs">
+  <h2>Questions for the owner</h2>
+  <ol>
+    <li><b>Pick one letter for pane 1 and one for pane 2.</b>
+      <ul>
+        <li><b>1A</b> (recommended): the move is written in the match column, where <code>+code</code> and <code>+title</code> already sit. The date column stays a clean column of dates.</li>
+        <li><b>1B</b>: the move is written in the date cell itself, so the eye catches it in the date column.</li>
+        <li><b>2A</b>: the whole reason is in the match column. One place to look, but the row needs a terminal about 120 columns wide; narrower, its end is cut with <code>…</code>.</li>
+        <li><b>2B</b> (recommended): a short mark on the row, and the reconciliation's name and the reason in one note under the summary. The row stays as wide as the others.</li>
+      </ul>
+    </li>
+    <li><b>How are the two days written?</b> Every other date on the preview reads <code>2026-10-04</code>; the move is drawn as <code>03 Oct → 04 Oct</code>.
+      <ul>
+        <li><b>A</b> (recommended): <code>03 Oct → 04 Oct</code>, as drawn. Short, and a move is only ever a day or two.</li>
+        <li><b>B</b>: <code>2026-10-03 → 2026-10-04</code>, the same way as the date column. Longer: on a narrow terminal the match cell is cut.</li>
+      </ul>
+    </li>
+    <li><b>The line on the imported screen.</b> The line above it today reads <code>2 rows in the ledger took the bank's title</code>.
+      <ul>
+        <li><b>A</b> (recommended): <code>1 transaction moved to the bank's day</code>, as drawn. “Transaction” is the app's word for a ledger row.</li>
+        <li><b>B</b>: <code>1 row in the ledger moved to the bank's day</code>, worded like the line above it.</li>
+      </ul>
+    </li>
+    <li><b>The note in 2B</b> (new words): <code>! row 11 keeps 03 Oct, the ledger's day: Septiembre 2026 is completed.</code>
+      <ul>
+        <li><b>A</b> (recommended): with a second line saying what to do, <code>Revert it and import the file again to move it to 04 Oct.</code>, the way the closed-period note says “revert the period to add them”.</li>
+        <li><b>B</b>: the first line alone.</li>
+      </ul>
+    </li>
+  </ol>
+</div>
+
+<div class="pane"><div class="lbl">1 · A transaction moves to the bank's day <span>— the preview, before anything is written</span></div>
+<p class="blurb">Row 7 is in the ledger on 03 Oct and the bank has it on 04 Oct; importing moves it to 04 Oct, and the summary counts it.</p>
+<div class="var"><div class="oh">1A · <span>the move in the match column</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-10-14  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-10-13  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day</span>
+    4  2026-10-11  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-10-09  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-10-07  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    7  2026-10-04  WONG SAN ISIDRO         <span class="n">  -100.00</span>  <span class="d">in ledger · operation · 03 Oct → 04 Oct</span>
+    8  2026-10-02  PAGO PLANILLA           <span class="p"> 6,519.00</span>  <span class="d">in ledger · operation</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 1 moves to the bank&#x27;s day
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">The match column gains <code>· 03 Oct → 04 Oct</code> after <code>in ledger · operation</code>, read as “from the ledger's day to the bank's day”. The date column shows the bank's day, as it does for every row. The summary's last count, <code>1 moves to the bank's day</code>, is the engine's own count, like every count on that line (<code>2 move</code> for two).</p></div>
+<div class="var"><div class="oh">1B · <span>the move in the date cell</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-10-14  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-10-13  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day</span>
+    4  2026-10-11  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-10-09  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-10-07  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    7  <span class="a">03→04 Oct </span>  WONG SAN ISIDRO         <span class="n">  -100.00</span>  <span class="d">in ledger · operation</span>
+    8  2026-10-02  PAGO PLANILLA           <span class="p"> 6,519.00</span>  <span class="d">in ledger · operation</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger · 1 moves to the bank&#x27;s day
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">The date cell reads <code>03→04 Oct</code>, coloured so it stands out among the dates; the match column is as today. The summary is the same as in 1A.</p></div>
+</div>
+
+<div class="pane"><div class="lbl">2 · A transaction keeps its day <span>— a completed reconciliation stops the move</span></div>
+<p class="blurb">Row 11 stays on 03 Oct because the card's reconciliation <code>Septiembre 2026</code> (its statement runs 2026-09-04 → 2026-10-03) is completed; the row is still found, and the other rows import.</p>
+<p class="blurb">The app names the reconciliation by reading it. The row is not moved, so nothing is added to the summary. Because the transaction stays a day off, the days where the file and the ledger disagree list both days, with no row under them: the file row was found. A card file names its account on each day, as today.</p>
+<div class="var"><div class="oh">2A · <span>the reason in the match column</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Movimientos Signature.xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · BCP Signature · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    7  2026-10-08  SHELL SAN ISIDRO        <span class="n">  -120.00</span>  <span class="p">new</span>
+    8  2026-10-07  RAPPI LIMA PE           <span class="n">   -36.90</span>  <span class="p">new</span>
+    9  2026-10-06  SPOTIFY                 <span class="n">   -21.90</span>  <span class="d">in ledger · same day</span>
+   10  2026-10-05  TAMBO MIRAFLORES        <span class="n">    -7.50</span>  <span class="p">new</span>
+   11  2026-10-04  WONG SAN ISIDRO         <span class="n">  -100.00</span>  <span class="d">in ledger · operation · keeps 03 Oct: Septiembre 2026 is completed</span>
+   12  2026-10-03  NETFLIX.COM             <span class="n">   -44.90</span>  <span class="d">in ledger · operation</span>
+   13  2026-10-03  CABIFY                  <span class="n">   -15.40</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 5 above · pgup</span>
+
+  12 rows · <span class="p">7 new</span> · 5 in the ledger
+  <span class="w">! 2 days where the file and the ledger disagree</span>
+      2026-10-04 · BCP Signature PEN   file <span class="n">-100.00</span><span class="d"> · ledger after import </span>  0.00
+      2026-10-03 · BCP Signature PEN   file <span class="n"> -60.30</span><span class="d"> · ledger after import </span><span class="n">-160.30</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 7 rows</pre></div></div><p class="cap">The cell reads <code>in ledger · operation · keeps 03 Oct: Septiembre 2026 is completed</code>. Everything on one line, but this terminal is drawn 120 columns wide to fit it; narrower, the end of the cell is cut with <code>…</code>.</p></div>
+<div class="var"><div class="oh">2B · <span>a short mark on the row, the reason in a note</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Movimientos Signature.xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · BCP Signature · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    7  2026-10-08  SHELL SAN ISIDRO        <span class="n">  -120.00</span>  <span class="p">new</span>
+    8  2026-10-07  RAPPI LIMA PE           <span class="n">   -36.90</span>  <span class="p">new</span>
+    9  2026-10-06  SPOTIFY                 <span class="n">   -21.90</span>  <span class="d">in ledger · same day</span>
+   10  2026-10-05  TAMBO MIRAFLORES        <span class="n">    -7.50</span>  <span class="p">new</span>
+   11  2026-10-04  WONG SAN ISIDRO         <span class="n">  -100.00</span>  <span class="d">in ledger · operation · </span><span class="w">keeps its day</span>
+   12  2026-10-03  NETFLIX.COM             <span class="n">   -44.90</span>  <span class="d">in ledger · operation</span>
+   13  2026-10-03  CABIFY                  <span class="n">   -15.40</span>  <span class="d">in ledger · same day</span>
+  <span class="d">… 5 above · pgup</span>
+
+  12 rows · <span class="p">7 new</span> · 5 in the ledger
+  <span class="w">! row 11 keeps 03 Oct, the ledger's day: Septiembre 2026 is completed.</span>
+  <span class="w">  Revert it and import the file again to move it to 04 Oct.</span>
+  <span class="w">! 2 days where the file and the ledger disagree</span>
+      2026-10-04 · BCP Signature PEN   file <span class="n">-100.00</span><span class="d"> · ledger after import </span>  0.00
+      2026-10-03 · BCP Signature PEN   file <span class="n"> -60.30</span><span class="d"> · ledger after import </span><span class="n">-160.30</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 7 rows</pre></div></div><p class="cap">The row says <code>· keeps its day</code>; the note under the summary names the reconciliation, says why, and says what to do. The note's words are new: question 4 above.</p></div>
+</div>
+
+<div class="pane"><div class="lbl">3 · After importing <span>— the count of transactions moved</span></div>
+<p class="blurb">The imported screen gains one dim line with the engine's count of transactions moved to the bank's day, under the line it already has.</p>
+<div class="var"><div class="oh">3 · <span>the screen as built, with one more line</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="p">✓</span> <span class="b">9 rows imported</span> · Sueldo Soles
+    <span class="d">under @Pendiente and #Pendiente</span>
+    <span class="d">1 transaction moved to the bank's day</span>
+
+ <span class="a">esc</span> Back  <span class="a">⏎</span> Home</pre></div></div><p class="cap">The line shows only when something moved. When rows also took the bank's title, <code>2 rows in the ledger took the bank's title</code> comes first and this line under it. The days where the ledger may now hold the same movement twice still follow, as today.</p></div>
+</div>
+
+<div class="pane"><div class="lbl">4 · A file where nothing moves <span>— the preview as today</span></div>
+<p class="blurb">Every row found in the ledger is on the bank's day already, so nothing new appears: no mark on any row, no count in the summary.</p>
+<div class="var"><div class="oh">4 · <span>nothing new</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Import  ▸  <span class="b">Sueldo Soles (1).xlsx</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Preview · Sueldo Soles · <span class="d">nothing written yet</span>
+
+<span class="d">    #  date        title                      amount  match</span>
+    2  2026-10-14  CAFE ANDINO LIMA PE     <span class="n">   -18.50</span>  <span class="p">new</span>
+    3  2026-10-13  UBER TRIP               <span class="n">    -4.20</span>  <span class="d">in ledger · same day</span>
+    4  2026-10-11  FARMACIA CENTRAL        <span class="n">   -42.90</span>  <span class="p">new</span>
+    5  2026-10-09  CINE PLAZA LIMA PE      <span class="n">   -28.00</span>  <span class="p">new</span>
+    6  2026-10-07  MERCADO NORTE           <span class="n">   -61.30</span>  <span class="d">in ledger · operation</span>
+    7  2026-10-04  WONG SAN ISIDRO         <span class="n">  -100.00</span>  <span class="d">in ledger · operation</span>
+    8  2026-10-02  PAGO PLANILLA           <span class="p"> 6,519.00</span>  <span class="d">in ledger · operation</span>
+  <span class="d">… 7 more · pgdn</span>
+
+  14 rows · <span class="p">9 new</span> · 5 in the ledger
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Import 9 rows</pre></div></div><p class="cap">The summary reads <code>14 rows · 9 new · 5 in the ledger</code>, exactly as today. Row 7 is the same WONG row, here already on 04 Oct in the ledger.</p></div>
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

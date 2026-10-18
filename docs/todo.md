@@ -60,6 +60,21 @@ reconciliation`, while both parts moved and both left it.
 **Recommended:** B, because the note then says what happened in the ledger; it costs one engine
 read per selected part, so the engine may be asked to say what moved in its answer instead.
 
+### Approve the next catch-up and pick its screens
+Asked 2026-10-17 · Blocks: [specs/import-bank-day.md](specs/import-bank-day.md)
+
+The engine now moves a transaction matched by operation number to the bank's day when you
+import a file; the import's preview has to say which rows move, and which keep their day
+because a completed reconciliation stops them. Read the draft spec, then pick in
+[mockups/expense-world-import-bank-day.html](mockups/expense-world-import-bank-day.html): pane 1
+(1A the move written after the match, or 1B in the date), pane 2 (2A the reason on the row, or
+2B a short mark plus a note under the summary), and the wording questions in its box at the top.
+A kept row also leaves its two days disagreeing in the list of such days; the tester confirms
+that against the engine before the build.
+
+**Recommended:** approve the spec; 1A, 2B, and the box's recommended wordings, because 2A's
+reason is cut off on a normal-width terminal.
+
 ### The split screen's three moments
 Asked 2026-10-17 · Blocks: nothing; each pick that changes the screen becomes a task
 
@@ -89,13 +104,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
-- **Catch up with the engine after `7ff6a09d863d6e44`** (owner, 2026-10-17). Its hand-off is
-  sections 5 and 6 of
-  [from-engine/bank-lines-whole-and-import-bank-day.md](from-engine/bank-lines-whole-and-import-bank-day.md),
-  with that file's "What the TUI does" steps 7 to 9 and its last "Done when".
-  `1efa6f4627ff9acf` moves a line matched by operation code on another day to the bank's day,
-  with `redated`, `redate_blocked_by` and `counts.redated` on the import; `786d68f3b071dbf4` is
-  wording only. Next: its draft spec.
+- **Catch up with the import moving a matched line to the bank's day.** Spec (draft, waiting
+  for the owner): [specs/import-bank-day.md](specs/import-bank-day.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
