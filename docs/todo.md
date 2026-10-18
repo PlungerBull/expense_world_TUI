@@ -101,6 +101,18 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 - **Catch up with purchases read, reconciled and deleted whole.** Spec (approved,
   the loop runs on it): [specs/bank-lines-whole.md](specs/bank-lines-whole.md).
+- **Two unit tests fail at random in CI.** Each fails now and then on one Python version and
+  passes on the others, because it reads the screen before the screen has finished drawing:
+  `test_config_screen_shows_only_the_engine_connection`
+  ([test_tui_system.py](../tests/unit/test_tui_system.py)) finds the `#card` text empty
+  (`assert 'engine url' in ''`; CI runs 38196778409 on 2026-10-12, 38691759623 and 38810299743
+  on 2026-10-15, 38853551793 on 2026-10-16), and
+  `test_state8_a_partial_failure_ticks_what_landed`
+  ([test_tui_log_bar.py](../tests/unit/test_tui_log_bar.py)) raises
+  `NoMatches("No nodes match '#field' on LogBarScreen()")` (runs 38595998705 on 2026-10-14,
+  38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
+  helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
+  that waiting for every test.
 - **The split screen keeps copies of shared code.** `part_index` in
   [split.py](../expense/tui/screens/split.py) repeats `row_index` of
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is
