@@ -58,17 +58,16 @@ reconciliation or a sealed month), and says which rows it moved.
 change is small and touches only the upload, and the live tests of the upload would otherwise
 fail against an engine this spec does not describe.
 
-### Pick on the purchase-whole screens
+### "ok" on the purchase-whole screens
 Asked 2026-10-17 · Blocks: tasks 2 and 3 of [specs/bank-lines-whole.md](specs/bank-lines-whole.md)
 
-[mockups/expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html): every
-reconciliation list shows only the bank's columns, one line per row (2a–2d), and `d` deletes a
-whole purchase (3a–3e). Pick the columns, and say "ok" or what to change on the rest.
-- **A.** Date · title · amount.
-- **B.** Date · title · the bank's operation code · amount.
+[mockups/expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html): the
+columns are picked (date · title · operation number · amount, the title alone). Left: "ok" or what
+to change on 2b–2d (ticking, the completed month, the "no batch" list) and 3a–3e (`d` deleting a
+whole purchase), and the new words: the column name `Operation`, the date first on the month's
+list, and `Purchase deleted.`
 
-**Recommended:** B, because the code tells two alike charges on one day apart, and a row typed by
-hand shows `—`.
+**Recommended:** none — these are your screens.
 
 ### The split screen's undrawn moments
 Asked 2026-10-17 · Blocks: nothing; each answer that changes the screen becomes a backlog item
