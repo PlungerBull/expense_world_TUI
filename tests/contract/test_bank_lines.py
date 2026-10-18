@@ -20,16 +20,27 @@ stand on rules only the engine can confirm. Pinned here:
     `INVALID_FORMAT` on `bank_line_id`, and a cursor issued under one line's
     filter is `422` `INVALID_CURSOR` on `after` under another;
   · `GET /bank-lines/{id}` reads `id`, `account_id`, `operation_code`, the
-    signed `net_cents`, `part_count` and `transaction_ids`: an unsplit line is
-    one part at its signed amount, a split 60 + 40 reads `-10000` over two
-    parts; an unknown id is `404`, a malformed one `422` `INVALID_FORMAT`;
-  · the split screen's own path: its body splits, `fetch_line_parts` and the
-    line's `net_cents` read the parts and the total back, the parts read go out
-    again as a re-split, and a set that misses the total names parts 1 and 2;
+    signed `net_cents`, `part_count` and `parts`, each part exactly the
+    transaction read by id: an unsplit line is one part at its signed amount, a
+    split 60 + 40 reads `-10000` over two parts in the ledger's order; an
+    unknown id is `404`, a malformed one `422` `INVALID_FORMAT`;
+  · the split screen's own path: its body splits, one `fetch_bank_line` reads
+    the parts and the total back, the parts read go out again as a re-split,
+    and a set that misses the total names parts 1 and 2;
+  · a line is reconciled whole: `reconciliation_id` sent on one part puts every
+    part in the reconciliation, and `null` on one part takes every part out;
+  · `DELETE /bank-lines/{id}` deletes every part in one write, after which the
+    line and its parts read `404` and its `operation_code` is free; a line in a
+    completed reconciliation is `409` `IN_COMPLETED_RECONCILIATION` on
+    `bank_line_id`, with nothing deleted;
+  · `GET /bank-lines` and its count: one row per line, each the line read by
+    id, newest first; the filters on whole lines, the count agreeing with the
+    list, pages counted in lines that never cut a split line in two, and a
+    cursor bound to its list and its filters;
   · the split refusals: `SPLIT_TOTAL_MISMATCH` on `parts` and every
-    `parts.<i>.amount_cents`, `SPLIT_RECONCILIATION_MIXED` and
-    `OPENING_BALANCE_NOT_SPLIT` on `transaction_id`; and a batch `line_group`
-    whose items differ is `LINE_GROUP_FIELDS_DIFFER` on each item's field.
+    `parts.<i>.amount_cents`, and `OPENING_BALANCE_NOT_SPLIT` on
+    `transaction_id`; and a batch `line_group` whose items differ is
+    `LINE_GROUP_FIELDS_DIFFER` on each item's field.
 
 Not pinned here: `SPLIT_LINE_PARTS_DIVERGE`. No route leaves a line's parts on
 different accounts or dates: a split gives every part the line's account and
@@ -49,6 +60,7 @@ import pytest
 
 from expense.config import Config
 from expense.errors import EngineError
+from expense.formatting import signed_cents
 from tests.contract.conftest import reason_on
 
 
@@ -279,33 +291,272 @@ def test_split_parts_that_miss_the_total_are_split_total_mismatch(client):
         _safe(client.delete, f"/accounts/{account}")
 
 
-def test_a_line_in_two_reconciliations_is_split_reconciliation_mixed(client):
+def _make_reconciliation(client, account_id: str, *, ending: int | None = None) -> str:
+    """A draft reconciliation for April 2026 on `account_id`, from a zero balance."""
+    new_id = str(uuid4())
+    body = {
+        "id": new_id,
+        "account_id": account_id,
+        "name": f"contract-lines-{new_id[:8]}",
+        "date_start": "2026-04-01",
+        "date_end": "2026-04-30",
+        "beginning_balance_cents": 0,
+    }
+    if ending is not None:
+        body["ending_balance_cents"] = ending
+    client.post("/reconciliations", json_body=body)
+    return new_id
+
+
+def _reconciliation_of(client, tx_id: str) -> object:
+    return client.get(f"/transactions/{tx_id}")["reconciliation_id"]
+
+
+def test_reconciling_one_part_assigns_and_unassigns_the_whole_line(client):
+    """`reconciliation_id` is a line field: sent on one part, it puts every live
+    part of the line in the reconciliation, and `null` on one part takes every
+    part out (contract: PUT /v1/transactions/{transaction_id}, "Line fields")
+    (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
     zone = _zone(client)
     account = _make_account(client)
-    recon = str(uuid4())
+    recon = _make_reconciliation(client, account)
     written: list[str] = []
     try:
         original = _post_tx(client, account, _noon(zone, 2026, 4, 10), -10000, "line")
         written.append(original["id"])
         one, two = _split(client, original["id"], [-6000, -4000], written)
-        client.post(
-            "/reconciliations",
+
+        client.put(f"/transactions/{one['id']}", json_body={"reconciliation_id": recon})
+        assert [_reconciliation_of(client, p["id"]) for p in (one, two)] == [recon, recon]
+        assert client.get(f"/transactions/{two['id']}")["version"] == two["version"] + 1
+        listed = client.get("/transactions", params={"reconciliation_id": recon})["items"]
+        assert {t["id"] for t in listed} == {one["id"], two["id"]}
+
+        client.put(f"/transactions/{two['id']}", json_body={"reconciliation_id": None})
+        assert [_reconciliation_of(client, p["id"]) for p in (one, two)] == [None, None]
+        assert client.get("/transactions", params={"reconciliation_id": recon})["items"] == []
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_deleting_a_bank_line_deletes_every_part(client, statuses):
+    """One `DELETE /bank-lines/{id}` soft-deletes every live part, answers each
+    part as `DELETE /transactions/{id}` would in the ledger's order, and the line
+    goes with them: it and its parts read `404`, and its `operation_code` is free
+    on the account (contract: DELETE /v1/bank-lines/{bank_line_id})."""
+    zone = _zone(client)
+    account = _make_account(client)
+    written: list[str] = []
+    code = f"OP-{uuid4().hex[:10]}"
+    try:
+        original = client.post(
+            "/transactions",
             json_body={
-                "id": recon,
+                "id": str(uuid4()),
+                "title": "TOTTUS",
+                "amount_cents": -10000,
                 "account_id": account,
-                "name": f"contract-lines-{recon[:8]}",
-                "date_start": "2026-04-01",
-                "date_end": "2026-04-30",
-                "beginning_balance_cents": 0,
+                "date": _noon(zone, 2026, 4, 16),
+                "operation_code": code,
             },
         )
-        # `reconciliation_id` settles the part named alone, so the line is now mixed.
-        client.put(f"/transactions/{one['id']}", json_body={"reconciliation_id": recon})
+        written.append(original["id"])
+        line = original["bank_line_id"]
+        parts = _split(client, original["id"], [-6000, -4000], written)
+        order = [p["id"] for p in client.get(f"/bank-lines/{line}")["parts"]]
 
-        err = _refused(lambda: _split(client, two["id"], [-5000, -5000], written))
+        gone = client.delete(f"/bank-lines/{line}")
+        assert statuses[-1] == 200
+        assert set(gone) == {"parts"}
+        assert [p["id"] for p in gone["parts"]] == order
+        assert {p["id"] for p in gone["parts"]} == {p["id"] for p in parts}
+        for part in gone["parts"]:
+            assert part["deleted_at"] is not None
+            assert part["hashtag_ids"] == []
+
+        err = _refused(lambda: client.get(f"/bank-lines/{line}"))
+        assert (err.status, err.code) == (404, "NOT_FOUND")
+        for part in parts:
+            err = _refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
+            assert err.status == 404
+        assert _live_ids(client, account) == set()
+        err = _refused(lambda: client.delete(f"/bank-lines/{line}"))
+        assert (err.status, err.code) == (404, "NOT_FOUND")
+        err = _refused(lambda: client.delete("/bank-lines/not-a-uuid"))
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert reason_on(err, "transaction_id") == "SPLIT_RECONCILIATION_MIXED"
-        assert _live_ids(client, account) == {one["id"], two["id"]}
+        assert reason_on(err, "bank_line_id") == "INVALID_FORMAT"
+
+        # The code is free: a new line on the account takes it.
+        again = _post_tx(client, account, _noon(zone, 2026, 4, 16), -500, "again")
+        written.append(again["id"])
+        client.put(f"/transactions/{again['id']}", json_body={"operation_code": code})
+        assert client.get(f"/transactions/{again['id']}")["operation_code"] == code
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def test_a_line_in_a_completed_reconciliation_is_not_deleted(client):
+    """A line whose parts are in a completed reconciliation is `409` on
+    `bank_line_id` (`IN_COMPLETED_RECONCILIATION`), judged before anything
+    changes: every part stays (contract: DELETE /v1/bank-lines/{bank_line_id})."""
+    zone = _zone(client)
+    account = _make_account(client)
+    recon = _make_reconciliation(client, account, ending=-10000)
+    written: list[str] = []
+    try:
+        original = _post_tx(client, account, _noon(zone, 2026, 4, 17), -10000, "held")
+        written.append(original["id"])
+        line = original["bank_line_id"]
+        parts = _split(client, original["id"], [-6000, -4000], written)
+        client.put(f"/transactions/{parts[0]['id']}", json_body={"reconciliation_id": recon})
+        client.post(f"/reconciliations/{recon}/complete")
+
+        err = _refused(lambda: client.delete(f"/bank-lines/{line}"))
+        assert (err.status, err.code) == (409, "CONFLICT")
+        assert reason_on(err, "bank_line_id") == "IN_COMPLETED_RECONCILIATION"
+        kept = client.get(f"/bank-lines/{line}")
+        assert (kept["part_count"], kept["net_cents"]) == (2, -10000)
+        assert _live_ids(client, account) == {p["id"] for p in parts}
+    finally:
+        _safe(client.post, f"/reconciliations/{recon}/revert")
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/accounts/{account}")
+
+
+def _lines(client, **params) -> list[str]:
+    return [row["id"] for row in client.get("/bank-lines", params=params)["items"]]
+
+
+def _lines_counted(client, **params) -> int:
+    return client.get("/bank-lines/count", params=params)["count"]
+
+
+def _every_page(client, **params) -> list[list[dict]]:
+    pages, after = [], None
+    while True:
+        page = client.get("/bank-lines", params={**params, **({"after": after} if after else {})})
+        pages.append(page["items"])
+        after = page["next_cursor"]
+        if after is None:
+            return pages
+
+
+def test_the_line_list_and_its_count(client):
+    """`GET /bank-lines`: one row per live line, each exactly the line read by id,
+    newest first; filters on whole lines; `limit` counts lines, so a page never
+    cuts a split line; a cursor is bound to this list and its filters; and
+    `GET /bank-lines/count` counts what the list's pages hold
+    (contract: GET /v1/bank-lines) (contract: GET /v1/bank-lines/count)."""
+    zone = _zone(client)
+    account = _make_account(client)
+    recon = _make_reconciliation(client, account)
+    written: list[str] = []
+    try:
+        older = _post_tx(client, account, _noon(zone, 2026, 4, 19), -1500, "older")
+        split_me = _post_tx(client, account, _noon(zone, 2026, 4, 20), -10000, "split")
+        newer = _post_tx(client, account, _noon(zone, 2026, 4, 21), 2500, "newer")
+        written.extend([older["id"], split_me["id"], newer["id"]])
+        parts = _split(client, split_me["id"], [-6000, -4000], written)
+        split_line = parts[0]["bank_line_id"]
+        order = [newer["bank_line_id"], split_line, older["bank_line_id"]]
+
+        # One row per line, newest first, each exactly `GET /bank-lines/{id}`.
+        body = client.get("/bank-lines", params={"account_id": account})
+        assert set(body) == {"items", "limit", "next_cursor"}
+        assert (body["limit"], body["next_cursor"]) == (50, None)
+        assert [row["id"] for row in body["items"]] == order
+        for row in body["items"]:
+            assert row == client.get(f"/bank-lines/{row['id']}")
+        assert _lines_counted(client, account_id=account) == 3
+        assert client.get("/transactions/count", params={"account_id": account})["count"] == 4
+
+        # Paging counts lines: the split line is whole on its page.
+        for limit in (1, 2):
+            pages = _every_page(client, account_id=account, limit=limit)
+            assert all(len(page) <= limit for page in pages)
+            assert [row["id"] for page in pages for row in page] == order
+            assert sum(len(page) for page in pages) == _lines_counted(client, account_id=account)
+            (whole,) = [row for page in pages for row in page if row["id"] == split_line]
+            assert {p["id"] for p in whole["parts"]} == {p["id"] for p in parts}
+        # `limit` is not part of the cursor's binding.
+        first = client.get("/bank-lines", params={"account_id": account, "limit": 1})
+        rest = client.get(
+            "/bank-lines",
+            params={"account_id": account, "limit": 5, "after": first["next_cursor"]},
+        )
+        assert [row["id"] for row in rest["items"]] == order[1:]
+
+        # Filters apply to whole lines, and the count reads them identically.
+        client.put(f"/transactions/{parts[1]['id']}", json_body={"reconciliation_id": recon})
+        cases = [
+            ({"reconciliation_id": recon}, [split_line]),
+            ({"account_id": account, "unreconciled": "true"}, [order[0], order[2]]),
+            (
+                {"account_id": account, "date_from": "2026-04-20", "date_to": "2026-04-20"},
+                [split_line],
+            ),
+            ({"account_id": account, "date_from": "2026-04-20"}, order[:2]),
+            ({"account_id": account, "date_to": "2026-04-20"}, order[1:]),
+        ]
+        for params, expected in cases:
+            assert _lines(client, **params) == expected, params
+            assert _lines_counted(client, **params) == len(expected), params
+        (assigned,) = client.get("/bank-lines", params={"reconciliation_id": recon})["items"]
+        assert assigned["part_count"] == 2 and assigned["net_cents"] == -10000
+
+        # The refusals the list and the count share.
+        for path in ("/bank-lines", "/bank-lines/count"):
+            err = _refused(
+                lambda path=path: client.get(
+                    path, params={"reconciliation_id": recon, "unreconciled": "true"}
+                )
+            )
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+            assert reason_on(err, "unreconciled") == "CONFLICTING_PARAMETERS"
+            for param, value in [
+                ("search", "split"),
+                ("category_id", str(uuid4())),
+                ("hashtag_id", str(uuid4())),
+                ("bank_line_id", split_line),
+                ("sort", "date_asc"),
+                ("debit_as_negative", "true"),
+            ]:
+                err = _refused(
+                    lambda path=path, param=param, value=value: client.get(
+                        path, params={param: value}
+                    )
+                )
+                assert err.status == 422, (path, param)
+                assert reason_on(err, param) == "UNKNOWN_PARAMETER", (path, param)
+        err = _refused(lambda: client.get("/bank-lines", params={"offset": 1}))
+        assert err.status == 422
+        for param, value in [("limit", 1), ("after", first["next_cursor"])]:
+            err = _refused(
+                lambda param=param, value=value: client.get(
+                    "/bank-lines/count", params={param: value}
+                )
+            )
+            assert err.status == 422, param
+
+        # A cursor is bound to this list and to its filters.
+        foreign = client.get("/transactions", params={"account_id": account, "limit": 1})
+        assert foreign["next_cursor"]
+        bound = [
+            ({"account_id": account, "after": foreign["next_cursor"]}),
+            ({"account_id": account, "unreconciled": "true", "after": first["next_cursor"]}),
+            ({"after": "not-a-cursor"}),
+        ]
+        for params in bound:
+            err = _refused(lambda params=params: client.get("/bank-lines", params=params))
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR"), params
+            assert reason_on(err, "after") == "INVALID_CURSOR", params
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -505,13 +756,20 @@ def test_a_bank_line_reads_its_figures(client):
             "operation_code",
             "net_cents",
             "part_count",
-            "transaction_ids",
+            "parts",
         }
         assert line["id"] == out["bank_line_id"]
         assert line["account_id"] == account
         assert line["operation_code"] is None
         assert (line["net_cents"], line["part_count"]) == (-2500, 1)
-        assert line["transaction_ids"] == [out["id"]]
+        # Each part is exactly the transaction read by id: unsigned, with its type.
+        assert line["parts"] == [client.get(f"/transactions/{out['id']}")]
+        (part,) = line["parts"]
+        assert (part["amount_cents"], signed_cents(part)) == (2500, -2500)
+        # What the split screen pre-fills from a part.
+        for key in ("amount_cents", "transaction_type", "category_id", "hashtag_ids"):
+            assert key in part
+        assert "description" in part
 
         inflow = client.get(f"/bank-lines/{into['bank_line_id']}")
         assert (inflow["net_cents"], inflow["part_count"]) == (1800, 1)
@@ -519,9 +777,11 @@ def test_a_bank_line_reads_its_figures(client):
         parts = _split(client, split_me["id"], [-6000, -4000], written)
         split = client.get(f"/bank-lines/{parts[0]['bank_line_id']}")
         assert (split["net_cents"], split["part_count"]) == (-10000, 2)
+        assert split["part_count"] == len(split["parts"])
         # In the order `?bank_line_id=` lists them by default.
-        assert split["transaction_ids"] == _listed(client, bank_line_id=split["id"])
-        assert set(split["transaction_ids"]) == {p["id"] for p in parts}
+        assert [p["id"] for p in split["parts"]] == _listed(client, bank_line_id=split["id"])
+        assert {p["id"] for p in split["parts"]} == {p["id"] for p in parts}
+        assert sorted(signed_cents(p) for p in split["parts"]) == [-6000, -4000]
 
         err = _refused(lambda: client.get(f"/bank-lines/{uuid4()}"))
         assert (err.status, err.code) == (404, "NOT_FOUND")
@@ -536,11 +796,11 @@ def test_a_bank_line_reads_its_figures(client):
 
 def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
     """The split screen's own path, end to end: its body (`split_body`) splits a
-    purchase, `fetch_line_parts` lists the line's parts and `fetch_bank_line`'s
-    `net_cents` gives its total; the parts read back go out again unchanged as a
-    re-split, then as a new set by the id of one part; parts that miss the total
-    come back keyed so the screen names part 1 and part 2."""
-    from expense.reads import fetch_bank_line, fetch_line_parts, load_quickadd_refs
+    purchase, one `fetch_bank_line` gives the line's parts and its `net_cents`
+    total; the parts read back go out again unchanged as a re-split, then as a
+    new set by the id of one part; parts that miss the total come back keyed so
+    the screen names part 1 and part 2."""
+    from expense.reads import fetch_bank_line, load_quickadd_refs
     from expense.tui.screens.split import Part, flagged_parts, part_from_engine, split_body
     from tests.contract.conftest import ENGINE_URL, PAT
 
@@ -549,6 +809,9 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
     account = _make_account(client)
     groceries = _make_category(client)
     written: list[str] = []
+
+    def line_parts(line: str) -> list[dict]:
+        return fetch_bank_line(cfg, line)["parts"]
 
     def send(tx_id: str, parts: list[Part]) -> list[str]:
         refs = load_quickadd_refs(cfg)
@@ -561,7 +824,7 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         original = _post_tx(client, account, _noon(zone, 2026, 4, 14), -10000, "TOTTUS")
         written.append(original["id"])
         line = original["bank_line_id"]
-        assert [p["id"] for p in fetch_line_parts(cfg, line)] == [original["id"]]
+        assert [p["id"] for p in line_parts(line)] == [original["id"]]
         assert fetch_bank_line(cfg, line)["net_cents"] == -10000
 
         first = send(
@@ -571,20 +834,20 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
                 Part("-40", -4000, None, (), None),
             ],
         )
-        parts = fetch_line_parts(cfg, line)
+        parts = line_parts(line)
         assert {p["id"] for p in parts} == set(first)
-        assert sorted(p["amount_cents"] for p in parts) == [-6000, -4000]
+        assert sorted(signed_cents(p) for p in parts) == [-6000, -4000]
         assert fetch_bank_line(cfg, line)["net_cents"] == -10000
 
         # Re-split with the parts as read: the same set goes back as it is.
         refs = load_quickadd_refs(cfg)
         again = send(parts[0]["id"], [part_from_engine(p, refs) for p in parts])
-        reread = fetch_line_parts(cfg, line)
+        reread = line_parts(line)
         assert {p["id"] for p in reread} == set(again)
         assert sorted(
-            (p["amount_cents"], p["category_id"] == groceries, p["description"]) for p in reread
+            (signed_cents(p), p["category_id"] == groceries, p["description"]) for p in reread
         ) == sorted(
-            (p["amount_cents"], p["category_id"] == groceries, p["description"]) for p in parts
+            (signed_cents(p), p["category_id"] == groceries, p["description"]) for p in parts
         )
 
         # A new set, by the id of one part.
@@ -592,7 +855,7 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
             reread[1]["id"],
             [Part("-70", -7000, None, (), None), Part("-30", -3000, None, (), None)],
         )
-        assert {p["id"] for p in fetch_line_parts(cfg, line)} == set(last)
+        assert {p["id"] for p in line_parts(line)} == set(last)
         assert fetch_bank_line(cfg, line)["net_cents"] == -10000
 
         err = _refused(
@@ -601,7 +864,7 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
             )
         )
         assert flagged_parts(err) == frozenset({0, 1})
-        assert {p["id"] for p in fetch_line_parts(cfg, line)} == set(last)
+        assert {p["id"] for p in line_parts(line)} == set(last)
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")

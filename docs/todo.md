@@ -103,9 +103,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is
   imported from the bank-import screen instead of a shared widget home; `real_tags` wraps
   `hashtags_to_send` instead of extending it; `refusal_lines` slices `format_error` by the length
-  of `engine_words`; the head counts the listed parts instead of reading the engine's
-  `part_count`, which `fetch_bank_line`'s docstring says the app never does; and
-  `count_transactions(bank_line=...)` has no caller. One shared copy each, with tests.
+  of `engine_words`; `_int_or_none` is one more copy of the "int and not bool" check of
+  formatting.py, cells.py, edit_form.py and reads.py; and `_as_part` in
+  [test_tui_split.py](../tests/unit/test_tui_split.py) repeats `import_part` of
+  [helpers.py](../tests/unit/helpers.py). One shared copy each, with tests.
 - **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
   [tests/contract/](../tests/contract/) each define their own; one copy belongs in
   [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.

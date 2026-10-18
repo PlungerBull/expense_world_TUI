@@ -160,7 +160,6 @@ def _filter_params(
     unreconciled: bool,
     date_from: str | None,
     date_to: str | None,
-    bank_line: str | None = None,
 ) -> dict:
     """The filters `GET /transactions` and `/transactions/count` share — one copy.
 
@@ -177,7 +176,6 @@ def _filter_params(
         unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,
-        bank_line_id=bank_line,
     )
 
 
@@ -191,7 +189,6 @@ def fetch_transactions(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
-    bank_line: str | None = None,
     sort: str | None = None,
     after: str | None = None,
     limit: int | None = None,
@@ -213,7 +210,6 @@ def fetch_transactions(
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
-            bank_line=bank_line,
         ),
         **query_params(
             sort=sort,
@@ -251,26 +247,16 @@ def fetch_transaction(cfg, transaction_id: str, *, verbose: bool = False) -> dic
 def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     """GET /v1/bank-lines/{bank_line_id} → the raw engine body.
 
-    One bank line as the engine figures it: its `part_count`, signed `net_cents`
-    and `transaction_ids` (contract: GET /v1/bank-lines/{bank_line_id}). Read by
-    the transaction Edit form, whose "changes every part" note shows only when the
-    engine's `part_count` is above 1, and by the split screen, whose purchase
-    total is the line's `net_cents`; the app counts and adds no parts itself.
+    One bank line with its parts, as the engine figures it: its `part_count`,
+    signed `net_cents` and `parts`, each part the transaction response with
+    `amount_cents` a magnitude and its `transaction_type`, in the engine's order
+    (contract: GET /v1/bank-lines/{bank_line_id}). Read by the transaction Edit
+    form, whose "changes every part" note shows only when the engine's
+    `part_count` is above 1, and by the split screen, which opens a purchase from
+    this one read: its parts, their count and its total. The app counts and adds
+    no parts itself.
     """
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
-
-
-def fetch_line_parts(cfg, bank_line_id: str, *, verbose: bool = False) -> list[dict]:
-    """Every live part of one bank line, signed, in the engine's order:
-    `GET /v1/transactions?bank_line_id=`, every cursor page
-    (contract: GET /v1/transactions). A line never split lists its one
-    transaction. Read by the split screen, whose list opens with a split
-    purchase's current parts."""
-    return fetch_all_cursor_pages(
-        lambda limit, after: fetch_transactions(
-            cfg, bank_line=bank_line_id, limit=limit, after=after, verbose=verbose
-        )
-    )
 
 
 def count_transactions(
@@ -283,7 +269,6 @@ def count_transactions(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
-    bank_line: str | None = None,
     verbose: bool = False,
 ) -> int:
     """GET /v1/transactions/count → how many rows the same filters match.
@@ -303,7 +288,6 @@ def count_transactions(
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
-            bank_line=bank_line,
         ),
         verbose=verbose,
     )

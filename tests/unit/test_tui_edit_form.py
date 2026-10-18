@@ -25,6 +25,7 @@ from tests.unit.helpers import (
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
     hashtag_refusal,
+    import_part,
     in_order,
     refusal_text,
     render_text,
@@ -839,7 +840,12 @@ def _bank_line(part_count: int) -> dict:
         "operation_code": None,
         "net_cents": -10000 if part_count > 1 else -4250,
         "part_count": part_count,
-        "transaction_ids": ["tx1", "tx2"][:part_count],
+        "parts": [
+            import_part(tx_id, amount, account_id="acc1", line="bl1")
+            for tx_id, amount in [("tx1", -6000), ("tx2", -4000)][:part_count]
+        ]
+        if part_count > 1
+        else [import_part("tx1", -4250, account_id="acc1", line="bl1")],
     }
 
 

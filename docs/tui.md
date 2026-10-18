@@ -273,13 +273,14 @@ works on the cursor row only: off, and out of the footer, while rows are selecte
 write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
 ledger's. On top, the purchase as the ledger has it: `Tottus Jockey Plaza  ·  2026-10-11  ·
 Sueldo Soles  ·  -100.00 PEN`, its title, date and account, which every part keeps, and the
-line's total. The screen reads the row's bank line as it opens: its parts from
-`GET /transactions?bank_line_id=` (`fetch_line_parts` in [reads.py](../expense/reads.py)),
-its total from `GET /bank-lines/{id}`'s signed `net_cents` (contract: GET /v1/bank-lines/{bank_line_id}).
-A purchase never split lists its one transaction, so the list opens empty; on any part of a
-split purchase the list opens with all its current parts, ready to change, drop or add to,
-and the head adds `  ·  2 parts`. A row with no bank line opens at its own amount and reads
-none.
+line's total. The screen opens the row's bank line with one `GET /bank-lines/{id}`
+(`fetch_bank_line` in [reads.py](../expense/reads.py)): its `parts`, its `part_count` and
+its signed `net_cents` total (contract: GET /v1/bank-lines/{bank_line_id}). Each part comes
+as a magnitude and its `transaction_type`, signed by `signed_cents` in
+[formatting.py](../expense/formatting.py). A purchase never split has one part, its
+transaction, so the list opens empty; on any part of a split purchase the list opens with all
+its current parts, ready to change, drop or add to, and the head adds `  ·  2 parts`, the
+engine's `part_count`. A row with no bank line opens at its own amount and reads none.
 Each part is one typed line in the LOG bar's grammar, read by the same parser
 (`expense/quickadd/`): `±amount · @category · #tag · //note`, the legend under the bar with
 `↵ adds the part`. While a line is typed, the row under the bar says what it makes of the
@@ -311,7 +312,7 @@ reason has one ("When the engine says no" below). The amounts a `parts.<i>.amoun
 names turn the error colour in the list. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every
 `parts.<i>.amount_cents`, its words giving both totals in cents), and every other refusal of
 the route, `OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`,
-`SPLIT_RECONCILIATION_MIXED`, `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`,
+`PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`,
 `INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
 `ID_EXISTS`, `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way. A failure that is
 not the engine's answer (the engine out of reach) shows the app's error text there instead.

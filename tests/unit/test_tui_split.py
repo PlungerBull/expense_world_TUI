@@ -87,9 +87,29 @@ PART_1 = _tx("p1", -6000, line="bl-9", category="c-com", tags=["h-casa"], note="
 PART_2 = _tx("p2", -4000, line="bl-9", category="c-hog", note="lejía y papel")
 LEDGER = [TOTTUS, CAFE, PART_1, PART_2]
 LINES = {"bl-1": [TOTTUS], "bl-2": [CAFE], "bl-9": [PART_1, PART_2]}
-#: What `GET /bank-lines/{id}` reads (contract: GET /v1/bank-lines/{bank_line_id}); the
-#: screen reads `net_cents` alone.
+#: Each line's signed total, its `net_cents` (contract: GET /v1/bank-lines/{bank_line_id}).
 NET = {"bl-1": -10000, "bl-2": -1850, "bl-9": -10000}
+
+
+def _as_part(tx: dict) -> dict:
+    """A part as `GET /bank-lines/{id}` lists it: the transaction response, its
+    `amount_cents` a magnitude and the direction in `transaction_type`, 1 out and
+    2 in (contract: GET /v1/bank-lines/{bank_line_id})."""
+    amount = tx["amount_cents"]
+    return {**tx, "amount_cents": abs(amount), "transaction_type": 1 if amount < 0 else 2}
+
+
+def bank_line(line: str) -> dict:
+    """`GET /bank-lines/{id}` for one of `LINES`: the line with every part."""
+    return {
+        "id": line,
+        "account_id": "acc1",
+        "operation_code": None,
+        "net_cents": NET[line],
+        "part_count": len(LINES[line]),
+        "parts": [_as_part(tx) for tx in LINES[line]],
+    }
+
 
 MISMATCH = (
     "Must add up to the line's total: the line's total is -10000 cents "
@@ -98,9 +118,8 @@ MISMATCH = (
 
 
 class LineClient(FakeClient):
-    """The fake engine: reference lists whole, `GET /transactions` by its
-    `bank_line_id` filter (the ledger without one), the count, and each bank
-    line's figures."""
+    """The fake engine: reference lists whole, the ledger and its count, and
+    each bank line with its parts."""
 
     def __init__(self, ledger: list[dict]) -> None:
         super().__init__()
@@ -112,30 +131,23 @@ class LineClient(FakeClient):
                 "/hashtags": whole(HASHTAGS),
             }
         )
-        for line, net in NET.items():
-            self.get_responses[f"/bank-lines/{line}"] = {
-                "id": line,
-                "account_id": "acc1",
-                "operation_code": None,
-                "net_cents": net,
-                "part_count": len(LINES[line]),
-            }
+        for line in LINES:
+            self.get_responses[f"/bank-lines/{line}"] = bank_line(line)
 
     def get(self, path: str, *, auth: bool = True, params: dict | None = None) -> dict:
         params = params or {}
         if path == "/transactions":
             self._record("GET", path, params)
-            line = params.get("bank_line_id")
-            rows = LINES.get(line, []) if line else self.ledger
             limit = params.get("limit") or 50
-            return cursor_page(rows[:limit], limit=limit)
+            return cursor_page(self.ledger[:limit], limit=limit)
         if path == "/transactions/count":
             self._record("GET", path, params)
             return {"count": len(self.ledger)}
         return super().get(path, auth=auth, params=params)
 
     def line_reads(self) -> list[tuple[str, object]]:
-        """The split screen's own reads: the line's parts and its figures."""
+        """The split screen's own reads of a line: `GET /bank-lines/{id}`, and
+        any ledger read filtered by `bank_line_id`, which the screen never makes."""
         return [
             (path, body.get("bank_line_id") if path == "/transactions" else None)
             for method, path, body in self.calls
@@ -244,7 +256,7 @@ def test_s_sits_before_d_and_opens_a_purchase_never_split(engine, flt):
         assert screen.query_one("#bar", Input).has_focus
 
     run_app(scenario, size=SIZE)
-    assert engine.line_reads() == [("/transactions", "bl-1"), ("/bank-lines/bl-1", None)]
+    assert engine.line_reads() == [("/bank-lines/bl-1", None)]
 
 
 def test_s_is_off_while_rows_are_selected(engine):
@@ -444,9 +456,9 @@ def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
 @pytest.mark.parametrize("key", ["p1", "p2"])
 def test_s_on_either_part_opens_with_all_its_parts_and_sends_the_whole_new_set(engine, key):
     """The list opens with the line's current parts and the total is the line's
-    `net_cents`; `↑` picks a part, `↵` puts it in the bar to change, `ctrl+x`
-    drops one, a typed line adds one, and `^s` sends the whole new set by the
-    id of the row `s` was pressed on."""
+    `net_cents`, all from one `GET /bank-lines/{id}`; `↑` picks a part, `↵`
+    puts it in the bar to change, `ctrl+x` drops one, a typed line adds one, and
+    `^s` sends the whole new set by the id of the row `s` was pressed on."""
 
     async def scenario(pilot, app):
         ledger = await _open_ledger(pilot, app)
@@ -480,7 +492,7 @@ def test_s_on_either_part_opens_with_all_its_parts_and_sends_the_whole_new_set(e
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    assert engine.line_reads() == [("/transactions", "bl-9"), ("/bank-lines/bl-9", None)]
+    assert engine.line_reads() == [("/bank-lines/bl-9", None)]
     ((path, body),) = engine.posts
     assert path == f"/transactions/{key}/split"
     assert [{k: v for k, v in p.items() if k != "id"} for p in body["parts"]] == [
@@ -529,6 +541,35 @@ def test_a_row_with_no_bank_line_opens_at_its_own_amount_and_reads_no_line(engin
     head = run_app(scenario, size=SIZE)
     assert head.endswith("-100.00 PEN")
     assert engine.line_reads() == []
+
+
+def test_the_head_counts_parts_by_the_engines_part_count(engine):
+    """The head's `N parts` is the engine's `part_count`, never the length of the
+    list the app holds: a line read with a `part_count` of 3 says 3 parts
+    (contract: GET /v1/bank-lines/{bank_line_id})."""
+    engine.get_responses["/bank-lines/bl-9"] = {**bank_line("bl-9"), "part_count": 3}
+
+    async def scenario(pilot, app):
+        ledger = await _open_ledger(pilot, app)
+        screen = await _open_split(pilot, app, ledger, "p1")
+        return _text(screen, "#split-head").strip(), len(screen._parts)
+
+    head, listed = run_app(scenario, size=SIZE)
+    assert head.endswith("-100.00 PEN  ·  3 parts")
+    assert listed == 2
+
+
+def test_a_part_read_from_the_line_is_signed_by_its_transaction_type():
+    """`parts` carry a magnitude and `transaction_type`; a part money out reads
+    negative and a part money in positive, with its `+` in the bar's line."""
+    from expense.reads import QuickAddRefs
+    from expense.tui.screens.split import part_from_engine
+
+    refs = QuickAddRefs([], [], [], {}, {}, {})
+    out = part_from_engine(_as_part(_tx("o", -6000, line="bl-x", category=None, tags=[])), refs)
+    into = part_from_engine(_as_part(_tx("i", 5000, line="bl-x", category=None, tags=[])), refs)
+    assert (out.amount_cents, out.line) == (-6000, "-60")
+    assert (into.amount_cents, into.line) == (5000, "+50")
 
 
 # ---- screen 4 B · the refusals --------------------------------------------------
@@ -589,7 +630,6 @@ def test_parts_that_do_not_add_up_keep_the_refusal_under_the_parts(engine):
 OTHER_REFUSALS = [
     ("VALIDATION_ERROR", 422, "transaction_id", "OPENING_BALANCE_NOT_SPLIT", None),
     ("VALIDATION_ERROR", 422, "transaction_id", "SPLIT_LINE_PARTS_DIVERGE", None),
-    ("VALIDATION_ERROR", 422, "transaction_id", "SPLIT_RECONCILIATION_MIXED", None),
     ("VALIDATION_ERROR", 422, "parts.1.hashtag_ids", "PENDING_HASHTAG_NOT_ALONE", None),
     ("VALIDATION_ERROR", 422, "parts.0.amount_cents", "ZERO_AMOUNT", None),
     ("VALIDATION_ERROR", 422, "parts.0.category_id", "INVALID_REFERENCE", None),

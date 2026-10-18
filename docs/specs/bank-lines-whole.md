@@ -75,14 +75,6 @@ rule, and serves `ce4e5cb642e53fdb` until then.
 Approved by the owner (2026-10-17). Each **[UI]** task starts with its mockup; the build waits
 for the owner's pick.
 
-1. Read contract `7ff6a09d863d6e44`. Test fixtures follow `GET /bank-lines/{id}` with `parts` in
-   place of `transaction_ids`, and the fixture check is clean (including the `grid` key it
-   reports in the Home tests: engine drift or a test-local key). Re-split opens with one
-   `GET /bank-lines/{id}`, its `parts` and `net_cents`, instead of the ledger filter plus the
-   line read. No code handles `SPLIT_RECONCILIATION_MIXED`; the live test expecting it is
-   replaced by tests of the whole-line rule. Live contract tests cover `DELETE /bank-lines/{id}`
-   (incl. `IN_COMPLETED_RECONCILIATION`), `GET /bank-lines` and its count (filters, paging by
-   line, cursor binding), and reconciling one part assigning the whole line.
 2. **[UI]** The reconciliation screen lists purchases from `GET /bank-lines` and its count, one
    row per purchase with its total; ticking sends one `PUT` with `reconciliation_id` on any one
    part, unticking sends `null`, and the screen re-reads what it shows after each tick. Every

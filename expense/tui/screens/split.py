@@ -8,11 +8,12 @@ it, one typed line per part in the LOG bar's grammar (`±amount · @category ·
 date or title words is refused in place (`route_part`). Every line is read by
 `expense/quickadd/`, so this screen owns no grammar.
 
-**Re-split.** On a part of a split purchase the list opens with the line's
-current parts, read from `GET /transactions?bank_line_id=`, and the total is
-the line's `net_cents` (contract: GET /v1/bank-lines/{bank_line_id}); a line
-never split lists its one transaction, so the list opens empty. `↑↓` pick a
-part, `↵` puts it in the bar to change, `ctrl+x` drops it.
+**Re-split.** The screen opens a purchase with one `GET /bank-lines/{id}`
+read: on a part of a split purchase the list opens with the line's `parts`, the
+head counts them by the engine's `part_count`, and the total is the line's
+`net_cents` (contract: GET /v1/bank-lines/{bank_line_id}); a line never split
+has one part, its transaction, so the list opens empty. `↑↓` pick a part, `↵`
+puts it in the bar to change, `ctrl+x` drops it.
 
 **The only arithmetic is "left"**: the parts' amounts as typed, summed, against
 the engine's total, as the LOG bar's staged total sums its rows. It never stops
@@ -44,7 +45,7 @@ from textual.widgets import Footer, Input, Label, Static
 from expense import reads
 from expense.dates import today_local
 from expense.errors import EngineError, engine_words, format_error
-from expense.formatting import format_cents, format_short_date, resolve_name
+from expense.formatting import format_cents, format_short_date, resolve_name, signed_cents
 from expense.quickadd.money import amount_to_text
 from expense.quickadd.parse import ParsedLine, parse
 from expense.quickadd.route import Routing, describe, route_part
@@ -94,16 +95,16 @@ def part_from_line(line: str, parsed: ParsedLine) -> Part:
 
 
 def part_from_engine(item: dict, refs: QuickAddRefs) -> Part:
-    """A part the engine holds (signed, as `fetch_line_parts` reads it), with
-    the line that says the same: `@Pendiente` and the pending hashtag are what
-    a line naming no category or no `#tag` means, so neither is written."""
+    """A part the engine holds, as `GET /bank-lines/{id}` lists it (a magnitude
+    and its `transaction_type`, signed by `signed_cents`), with the line that
+    says the same: `@Pendiente` and the pending hashtag are what a line naming no
+    category or no `#tag` means, so neither is written."""
     pending_category = refs.pending[0] if refs.pending else None
     category = item.get("category_id")
     if category == pending_category:
         category = None
     tags = tuple(str(t) for t in item.get("hashtag_ids") or ())
-    amount = item.get("amount_cents")
-    amount = amount if isinstance(amount, int) else 0
+    amount = signed_cents(item)
     note = item.get("description") or None
     words = [("+" if amount > 0 else "") + amount_to_text(amount)]
     if category:
@@ -146,6 +147,10 @@ def split_body(parts: list[Part], refs: QuickAddRefs | None) -> dict:
 # ---------------------------------------------------------------------------
 # pure builders — no app, no event loop
 # ---------------------------------------------------------------------------
+def _int_or_none(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def head_line(
     record: dict,
     total: int | None,
@@ -381,7 +386,7 @@ class SplitScreen(EngineWriteMixin, Screen):
     @work(thread=True, exclusive=True)
     def _load(self) -> None:
         """The reference lists, then — on a row that names its bank line — the
-        line's parts and its total: `?bank_line_id=` and `GET /bank-lines/{id}`.
+        line, its parts, their count and its total, in one `GET /bank-lines/{id}`.
         A row with no bank line opens as a purchase never split, at its own
         amount."""
         from expense import config as config_module
@@ -392,20 +397,20 @@ class SplitScreen(EngineWriteMixin, Screen):
             kw = screen_fetch_kwargs(self.app)
             refs = reads.load_quickadd_refs(cfg, **kw)
             if line_id:
-                parts = reads.fetch_line_parts(cfg, str(line_id), **kw)
-                total = reads.fetch_bank_line(cfg, str(line_id), **kw).get("net_cents")
+                line = reads.fetch_bank_line(cfg, str(line_id), **kw)
             else:
-                parts, total = [], self._record.get("amount_cents")
+                line = {"net_cents": self._record.get("amount_cents"), "parts": []}
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             call_while_attached(self, self.notify, format_error(exc), severity="error")
             return
-        call_while_attached(self, self._loaded, refs, parts, total)
+        call_while_attached(self, self._loaded, refs, line)
 
-    def _loaded(self, refs: QuickAddRefs, parts: list[dict], total: object) -> None:
+    def _loaded(self, refs: QuickAddRefs, line: dict) -> None:
         self._refs = refs
-        self._total = total if isinstance(total, int) and not isinstance(total, bool) else None
-        self._line_parts = len(parts)
-        if len(parts) > 1:
+        self._total = _int_or_none(line.get("net_cents"))
+        self._line_parts = _int_or_none(line.get("part_count")) or 0
+        if self._line_parts > 1:
+            parts = line.get("parts") or []
             self._parts = [part_from_engine(item, refs) for item in parts]
         self._reparse(self.query_one("#bar", Input).value)
         self._refresh_view()

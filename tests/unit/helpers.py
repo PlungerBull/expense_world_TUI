@@ -177,8 +177,10 @@ def import_part(
     day: str = "2026-09-07",
     title: str = "TOTTUS PORONGOCHE",
 ) -> dict:
-    """One part of an unclaimed line in a `POST /transactions/import` answer:
-    the whole transaction response (contract: POST /v1/transactions/import),
+    """One part of a bank line as the engine lists it, in a
+    `POST /transactions/import` answer's unclaimed line or in the `parts` of
+    `GET /bank-lines/{id}`: the whole transaction response
+    (contract: POST /v1/transactions/import) (contract: GET /v1/bank-lines/{bank_line_id}),
     `amount_cents` a magnitude and the direction in `transaction_type`, 1 out
     and 2 in (contract: "Base Conventions", "Sign convention — responses").
     `amount_cents` is given signed here and written as the engine sends it."""

@@ -141,6 +141,9 @@ KNOWN_LOCAL = frozenset(
         "hashtag",
         # the reconciliation form's internal value key for the beginning balance
         "begin",
+        # Home's own data dict: the month grid the app builds from the
+        # dashboard's `months` (formatting.build_range_grid), not an engine field
+        "grid",
         # a fake cursor value the paging tests hand back
         "c10",
         # Textual key names the import door's footer-binding asserts look up

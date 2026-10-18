@@ -766,14 +766,22 @@ BANK_LINE_RESPONSE = {
     "operation_code": None,
     "net_cents": -10000,
     "part_count": 2,
-    "transaction_ids": ["55555555-5555-5555-5555-555555555555", "tx-two"],
+    # Each part the transaction response, unsigned: a magnitude and its type.
+    "parts": [
+        {
+            **TRANSACTION_RESPONSE,
+            "id": "55555555-5555-5555-5555-555555555555",
+            "amount_cents": 6000,
+        },
+        {**TRANSACTION_RESPONSE, "id": "tx-two", "amount_cents": 4000},
+    ],
 }
 
 
 @respx.mock
 def test_fetch_bank_line_reads_one_line_as_the_engine_sends_it(configured):
-    """One GET by the line's id, no query, the body untouched: `part_count` is the
-    engine's figure (contract: GET /v1/bank-lines/{bank_line_id})."""
+    """One GET by the line's id, no query, the body untouched: `part_count`,
+    `net_cents` and `parts` are the engine's (contract: GET /v1/bank-lines/{bank_line_id})."""
     from expense import config as config_module
     from expense.reads import fetch_bank_line
 
@@ -784,41 +792,6 @@ def test_fetch_bank_line_reads_one_line_as_the_engine_sends_it(configured):
     assert fetch_bank_line(config_module.ensure_loaded(), line) == BANK_LINE_RESPONSE
     assert route.call_count == 1
     assert dict(route.calls.last.request.url.params) == {}
-
-
-@respx.mock
-def test_fetch_line_parts_reads_every_page_of_one_line_signed(configured):
-    """A line's parts: `?bank_line_id=`, signed, every cursor page until the
-    engine's `next_cursor` is null (contract: GET /v1/transactions)."""
-    from expense.reads import fetch_line_parts
-
-    line = BANK_LINE_RESPONSE["id"]
-    one = {**TRANSACTION_RESPONSE, "id": "part-1"}
-    two = {**TRANSACTION_RESPONSE, "id": "part-2"}
-    route = respx.get(f"{BASE}/v1/transactions").mock(
-        side_effect=[
-            httpx.Response(200, json=cursor_page([one], next_cursor="c1", limit=200)),
-            httpx.Response(200, json=cursor_page([two], limit=200)),
-        ]
-    )
-    parts = fetch_line_parts(config_module.ensure_loaded(), line)
-    assert [p["id"] for p in parts] == ["part-1", "part-2"]
-    sent = [dict(call.request.url.params) for call in route.calls]
-    assert sent == [
-        {"bank_line_id": line, "limit": "200", "debit_as_negative": "true"},
-        {"bank_line_id": line, "limit": "200", "after": "c1", "debit_as_negative": "true"},
-    ]
-
-
-@respx.mock
-def test_count_transactions_takes_the_bank_line_filter(configured):
-    from expense.reads import count_transactions
-
-    route = respx.get(f"{BASE}/v1/transactions/count").mock(
-        return_value=httpx.Response(200, json={"count": 2})
-    )
-    assert count_transactions(config_module.ensure_loaded(), bank_line="bl-9") == 2
-    assert dict(route.calls.last.request.url.params) == {"bank_line_id": "bl-9"}
 
 
 PENDING_HASHTAG = {"id": "h-pend", "name": "Por etiquetar", "system_key": "pending"}
