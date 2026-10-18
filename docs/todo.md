@@ -76,8 +76,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   that no longer says what to check; no test draws a row whose amount could not be read; the
   `ImportCounts` docstring says "summary" ([bank_import.py](../expense/tui/screens/bank_import.py),
   [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
-- **The split screen: a table of the parts, each part's fields below.** Spec (approved, in
-  progress): [specs/split-screen-fields.md](specs/split-screen-fields.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
@@ -106,7 +104,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   does not), `expense-world-screen-map.html` (linked from nowhere), and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
   `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
-  and the screen map's split pane still draws the typed line the split screen no longer has.
+  and the screen map's split pane still draws the typed line the split screen no longer has;
+  `expense-world-split-screen.html` backs the split screen as built.
   Deleting one means removing its links from tui.md and from code and test docstrings in the
   same change.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
@@ -130,6 +129,14 @@ ships (its why moves to [decisions.md](decisions.md)).
   lifecycle contract test's docstring says the state machine follows the read by id; the next
   test is `test_a_period_refuses_any_datetime`
   ([test_reconciliations_lifecycle.py](../tests/contract/test_reconciliations_lifecycle.py)).
+- **The live import test names the stopping reconciliation without the app's own read.**
+  `test_a_completed_reconciliation_stops_the_move_and_the_rest_imports` calls
+  `GET /reconciliations/{id}` directly; it should name it through `reconciliation_names`
+  ([flow.py](../expense/bank_import/flow.py)), so the app's path is proven live and not only
+  mocked ([test_bank_import.py](../tests/contract/test_bank_import.py)).
+- **No test covers a split refused with a 5xx.** `refusal_lines` leaves out
+  `Nothing was split.` when the status is 500 or more ([split.py](../expense/tui/screens/split.py));
+  add a unit test in [test_tui_split.py](../tests/unit/test_tui_split.py).
 - **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
   [tests/contract/](../tests/contract/) each define their own; one copy belongs in
   [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.
@@ -155,7 +162,7 @@ ships (its why moves to [decisions.md](decisions.md)).
 
 - **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
   popped or the app closing still runs its callback, which then queries pruned widgets
-  ([tui.md](tui.md) "Async/workers"). `SectionScreen._load` and the LOG bar use the guard; about
+  ([tui.md](tui.md) "Async / workers"). `SectionScreen._load` and the LOG bar use the guard; about
   20 hand-backs still call `self.app.call_from_thread` directly: `_base.py` (`_execute_write`),
   `_growing.py`, `reconciliations.py`, `home.py`, `bank_import.py`, `transactions.py`,
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a

@@ -61,8 +61,9 @@ expense/tui/
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
     split.py        # the split screen — what `s` on a ledger row opens. A table of
-                    #   the parts, the picked part's fields below it (FormScreen), one
-                    #   POST /transactions/{id}/split; a refusal stays under the parts
+                    #   the parts, the picked part's fields or the title's one field
+                    #   below it (FormScreen), one POST /transactions/{id}/split with
+                    #   the title when it changed; a refusal stays under the parts
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
@@ -322,8 +323,8 @@ back on `+ add a part`.
 `TITLE · changes it on every part` (`TITLE` bold, the rest dim): `▌ TITLE` in the accent with
 the input after it, opening on the title as it is. While it is open the TITLE line reads
 `▌TITLE      Tottus Jockey Plaza` in the accent, bold, the `▌` in the column `TITLE` starts in
-otherwise, the title as last kept, and no part is under the cursor. `⏎` keeps the title typed, trimmed, puts it on the TITLE line and goes back
-to the table, the cursor on the TITLE line; `esc` goes back leaving the title as it was. An
+otherwise, the title as last kept, and no part is under the cursor. `⏎` keeps the title typed,
+trimmed, puts it on the TITLE line and goes back to the table, the cursor on the TITLE line; `esc` goes back leaving the title as it was. An
 empty title, or spaces only, is refused as on the Edit form (`_title_given` in
 [_form.py](../expense/tui/screens/_form.py), one copy for both): the error toast
 `Title is required.`, the field stays open and the TITLE line keeps its title (screen 5), so
@@ -345,9 +346,10 @@ closes and the ledger reads fresh from the newest 10, cursor on row 1.
 `parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`, the index read
 by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent (`! title: …`),
 each hanging under its own words (`hanging` in
-[refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was split.` dim, then a blank
-line and the app's line when the reason has one (`app_lines`; "When the engine says no"
-below). The amounts a `parts.<i>.amount_cents` key names turn the error colour in the table.
+[refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was split.` dim (not under a
+`5xx`), then a blank line and the app's line when the reason has one (`app_lines`; "When the
+engine says no" below). The amounts a `parts.<i>.amount_cents` key names turn the error colour
+in the table.
 `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words giving
 both totals in cents), and every other refusal of the route, `OPENING_BALANCE_NOT_SPLIT`,
 `SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`, `INVALID_REFERENCE`,
