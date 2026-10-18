@@ -16,7 +16,7 @@ Decisions whose why lives elsewhere:
 | The app is a thin wrapper / contract validator for the multi-client engine | [CLAUDE.md](../CLAUDE.md) "Product scope and role" |
 | Server-first writes, no offline queue | [CLAUDE.md](../CLAUDE.md) "Tech stack" · [runtime.md](runtime.md) "Write semantics" |
 | PAT auth (`ewe_pat_` prefix) | [commands.md](commands.md) "Auth model" |
-| Private GitHub repo, and secrets still never enter it | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
+| Public GitHub repo (free CI), so secrets and real ledger data never enter it | [CLAUDE.md](../CLAUDE.md) "Config isolation" |
 | Sanctioned deviations from the principles | [commands.md](commands.md) "Sanctioned exceptions" |
 | Rates cross the wire as integers (`rate_e8`, the rate × 10^8), so every client does exact integer maths with no float drift | (contract: GET /v1/exchange-rates) |
 
