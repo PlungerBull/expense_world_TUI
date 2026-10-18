@@ -29,6 +29,18 @@ def truncate(text: object, max_width: int) -> str:
     return s[: max_width - 1] + "…"
 
 
+def whole_number(value: object) -> int | None:
+    """`value` when it is a whole number, else None.
+
+    A JSON `true` arrives as Python's `True`, which is an `int` too, so a flag
+    is never read as a figure or a count. One copy of the check for every reader
+    of an engine figure.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
 def format_short_date(iso_value: object) -> str:
     """`2026-04-24T12:00:00Z` → `2026-04-24`. None / non-string → `—`."""
     if not isinstance(iso_value, str) or len(iso_value) < 10:
@@ -57,10 +69,11 @@ def format_cents(value: object) -> str:
     """
     if value is None:
         return "(null)"
-    if not isinstance(value, int) or isinstance(value, bool):
+    number = whole_number(value)
+    if number is None:
         return str(value)
-    negative = value < 0
-    cents = -value if negative else value
+    negative = number < 0
+    cents = -number if negative else number
     major, minor = divmod(cents, MINOR_UNIT_SCALE)
     body = f"{major:,}.{minor:02d}"
     return f"-{body}" if negative else body
@@ -107,10 +120,8 @@ def bank_line_part_count(line: object) -> int:
     (contract: GET /v1/bank-lines/{bank_line_id}). `0` when the read carries no
     whole number there; every reader takes anything but a count above 1 as a
     line never split."""
-    count = line.get("part_count") if isinstance(line, dict) else None
-    if isinstance(count, int) and not isinstance(count, bool):
-        return count
-    return 0
+    count = whole_number(line.get("part_count")) if isinstance(line, dict) else None
+    return 0 if count is None else count
 
 
 UNRATED_SUFFIX = "unrated"
@@ -124,8 +135,8 @@ def unconverted_of(payload: object) -> int:
     """
     if not isinstance(payload, dict):
         return 0
-    count = payload.get("unconverted_count")
-    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+    count = whole_number(payload.get("unconverted_count"))
+    if count is None or count < 0:
         return 0
     return count
 
@@ -145,7 +156,7 @@ def format_aggregate(value: object, unconverted_count: object = 0) -> str:
 
     A present figure formats exactly as `format_cents` does.
     """
-    if isinstance(value, int) and not isinstance(value, bool):
+    if whole_number(value) is not None:
         return format_cents(value)
     count = unconverted_of({"unconverted_count": unconverted_count})
     if count > 0:
@@ -165,7 +176,7 @@ def has_aggregate(value: object, unconverted_count: object = 0) -> bool:
     """
     if unconverted_of({"unconverted_count": unconverted_count}) > 0:
         return True
-    return isinstance(value, int) and not isinstance(value, bool) and value != 0
+    return whole_number(value) not in (None, 0)
 
 
 def redact_token(token: str) -> str:
@@ -236,7 +247,7 @@ def split_settled(people: list[dict]) -> tuple[list[dict], list[dict]]:
     settled: list[dict] = []
     for person in people:
         balance = person.get("current_balance_cents")
-        is_settled = isinstance(balance, int) and not isinstance(balance, bool) and balance == 0
+        is_settled = whole_number(balance) == 0
         (settled if is_settled else outstanding).append(person)
     return outstanding, settled
 
@@ -249,7 +260,7 @@ def settled_label(count: int) -> str:
     return f"{count} settled"
 
 
-STATUS_LABELS = {1: "draft", 2: "completed"}
+STATUS_LABELS: dict[object, str] = {1: "draft", 2: "completed"}
 
 
 def format_status(value: object) -> str:

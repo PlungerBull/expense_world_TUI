@@ -1,8 +1,9 @@
 """How a typed fragment matches a reference name. Pure, no I/O.
 
 One copy for every picker in the app: the quick-add grammar
-([parse.py](parse.py)) and the two TUI form pickers
-(`edit_form.py`, `create_forms.py`) match case- and **accent-blind**, so
+([parse.py](parse.py)) and the TUI form pickers (`matching` in
+`expense/tui/widgets/picker.py` for the Edit form and the split screen,
+`create_forms.py`) match case- and **accent-blind**, so
 `#banos` finds `BAÑOS`. The typed side and the stored side go through the
 same function, so `#baños` still matches itself.
 

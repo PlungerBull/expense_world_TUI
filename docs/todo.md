@@ -27,6 +27,16 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### `esc` after adding hashtags on a split part
+Asked 2026-10-18 · Blocks: nothing (the screen works either way)
+
+On a split part's HASHTAGS line, `⏎` on a name adds that hashtag at once. If you then press `esc`
+while still on that line, the hashtags you just added stay.
+- **A.** They stay, since each was added with `⏎`.
+- **B.** They go, like any typing not yet left.
+
+**Recommended:** A, because `⏎` is how you say "keep this" everywhere else on the screen.
+
 ---
 
 ## Backlog
@@ -95,22 +105,25 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not), `expense-world-screen-map.html` (linked from nowhere), and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
-  `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview. Deleting one means removing
-  its links from tui.md and from code and test docstrings in the same change; keep
-  `expense-world-split-action.html` until [specs/split-screen-fields.md](specs/split-screen-fields.md) replaces it.
+  `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
+  and the screen map's split pane still draws the typed line the split screen no longer has.
+  Deleting one means removing its links from tui.md and from code and test docstrings in the
+  same change.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it
   ([test_bank_lines.py](../tests/contract/test_bank_lines.py)).
-- **The split screen keeps copies of shared code.** `part_index` in
-  [split.py](../expense/tui/screens/split.py) repeats `row_index` of
-  [bank_import/engine.py](../expense/bank_import/engine.py) with another prefix; `hanging` is
-  imported from the bank-import screen instead of a shared widget home; `real_tags` wraps
-  `hashtags_to_send` instead of extending it; `refusal_lines` slices `format_error` by the length
-  of `engine_words`; `_int_or_none` is one more copy of the "int and not bool" check of
-  formatting.py, cells.py, edit_form.py and reads.py; and `_as_part` in
-  [test_tui_split.py](../tests/unit/test_tui_split.py) repeats `import_part` of
-  [helpers.py](../tests/unit/helpers.py). One shared copy each, with tests.
+- **A split part holding only the pending hashtag never drops.** A part whose only content is
+  `#Pendiente` is not empty, so it stays when its fields close, shows `—` in every cell and is
+  sent as an id alone, which the engine refuses ([split.py](../expense/tui/screens/split.py)).
+  It should drop like an empty part, with a test.
+- **tui.md gives the wrong reason the split screen has no `?`.** It says the input takes the
+  key; on the table nothing is focused, and the reason is that a form screen has no help card
+  ([tui.md](tui.md) "The bar forms' keys").
+- **Three more copies of the name filter.** `matching` in
+  [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
+  (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
+  line 104) has a two-field version. One shared copy, with tests.
 - **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
   [tests/contract/](../tests/contract/) each define their own; one copy belongs in
   [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.

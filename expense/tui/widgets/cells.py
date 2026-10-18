@@ -2,7 +2,7 @@
 
 from rich.text import Text
 
-from expense.formatting import format_aggregate, format_cents, unconverted_of
+from expense.formatting import format_aggregate, format_cents, unconverted_of, whole_number
 from expense.tui.theme import Palette
 
 
@@ -40,7 +40,7 @@ def difference_cell(cents: object, palette: Palette | None) -> str | Text:
     renderings: docs/decisions.md "A null difference is blank, a zero
     difference is the em-dash".
     """
-    if not isinstance(cents, int) or isinstance(cents, bool):
+    if whole_number(cents) is None:
         return ""
     if cents == 0:
         return Text("—", style="dim")
@@ -90,7 +90,7 @@ def aggregate_cell(
     A present amount is delegated to `amount_cell`, so aggregates stay colored
     exactly like every other amount in the TUI.
     """
-    if isinstance(cents, int) and not isinstance(cents, bool):
+    if whole_number(cents) is not None:
         return amount_cell(cents, palette, rule)
     text = format_aggregate(cents, unconverted_count)
     if palette is None or unconverted_of({"unconverted_count": unconverted_count}) == 0:

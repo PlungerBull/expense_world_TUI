@@ -10,13 +10,18 @@ Both draw through this one copy of that arithmetic: the window is a named
 constant and the cursor is `CURSOR_STYLE`. The label is the only thing that
 genuinely differs — one appends a currency, the other whatever third field the
 entity tuple carries — so the caller formats the labels and this draws them.
+
+What a field's list holds is `matching`'s: the edit form and the split
+screen's part fields fill their lists through it, so a typed name finds the
+same entities on both.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from rich.console import Group, RenderableType
 from rich.text import Text
 
+from expense.quickadd.names import matches
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: Names visible at once. Eight fits under the bar without pushing the staged
@@ -60,3 +65,11 @@ def suggestion_list(
     if total > end:
         rows.append(Text(f"  ↓ {total - end} more", style="dim"))
     return Group(*rows)
+
+
+def matching(entities: Sequence[tuple], typed: str, *, chosen: Collection[str] = ()) -> list[tuple]:
+    """The `(id, name, …)` entities whose name holds `typed`, case- and
+    accent-blind (`names.matches`), in their order, without the ids in
+    `chosen` (the hashtags a field already holds). An empty `typed` holds
+    every name."""
+    return [e for e in entities if matches(typed, e[1]) and e[0] not in chosen]

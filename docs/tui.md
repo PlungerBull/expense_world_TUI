@@ -60,8 +60,8 @@ expense/tui/
                     #   runtime.md "Bulk writes"). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
-    split.py        # the split screen — what `s` on a ledger row opens. One typed
-                    #   line per part (expense/quickadd/), the parts under it, one
+    split.py        # the split screen — what `s` on a ledger row opens. A table of
+                    #   the parts, the picked part's fields below it (FormScreen), one
                     #   POST /transactions/{id}/split; a refusal stays under the parts
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
@@ -277,51 +277,62 @@ of a split transaction selected, each part gets its own `PUT`; a later one finds
 and the engine accepts it as it is, since the `PUT` carries no `version`. The receipt counts the
 rows sent, so `b` on one part reads `1 row → …` however many parts moved.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
-screens 1, 2 B, 3 and 4 B in
-[expense-world-split-action.html](mockups/expense-world-split-action.html)). `s Split` sits
-in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
-works on the cursor row only: off, and out of the footer, while rows are selected or a bulk
-write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
-ledger's. On top, the transaction as the ledger has it: `Tottus Jockey Plaza  ·  2026-10-11  ·
-Sueldo Soles  ·  -100.00 PEN`, its title, date and account, which every part keeps, and the
-line's total. The screen opens the row's bank line with one `GET /bank-lines/{id}`
-(`fetch_bank_line` in [reads.py](../expense/reads.py)): its `parts`, its `part_count` and
-its signed `net_cents` total (contract: GET /v1/bank-lines/{bank_line_id}). Each part comes
-as a magnitude and its `transaction_type`, signed by `signed_cents` in
-[formatting.py](../expense/formatting.py). A transaction never split is its line's one
-part, so the list opens empty; on any part of a split transaction the list opens with all
-its current parts, ready to change, drop or add to, and the head adds `  ·  2 parts`, the
-engine's `part_count`. A row with no bank line opens at its own amount and reads none.
-Each part is one typed line in the LOG bar's grammar, read by the same parser
-(`expense/quickadd/`): `±amount · @category · #tag · //note`, the legend under the bar with
-`↵ adds the part`. While a line is typed, the row under the bar says what it makes of the
-part (`-40.00 · HOGAR · no hashtag`; `no category`, `no amount`, or the grammar's own phrase
-for a name that matches nothing or several). `↵` adds it to the list, or refuses it in
-place, the line kept in the bar and the reason under the legend in the error colour, until
-the next keystroke: a line naming an account or a date reads `! a part keeps the
-transaction's account and date`, one with title words `! a part keeps the transaction's
-title`, one with no
-amount or an unmatched name the LOG bar's own phrase (`route_part` in
-[route.py](../expense/quickadd/route.py)). The split takes no title, date or account
-(contract: POST /v1/transactions/{transaction_id}/split).
-The list is `amount  category  hashtags  note`, each part numbered (`• 1`); a part with no
-category reads `@Pendiente` dim and one with no real hashtag `#Pendiente` dim. Under it,
-`1 part · -60.00 of -100.00 · -40.00 left`: the parts' amounts as typed, summed, against the
-engine's total, as the LOG bar's staged total sums its rows, and `-40.00` in the error
-colour while it is not 0; at 0 the line ends at the total. It never stops a send.
-`ctrl+s` always sends the whole list in one `POST /transactions/{id}/split` through
-`run_write` (one idempotency key), by the id of the row `s` was pressed on, each part under a
-fresh id, with its signed amount and only what it names: `category_id`, `description`, and
-`hashtag_ids` through `hashtags_to_send`, a part with only the pending hashtag sending none.
-A line still in the bar is not a part and is not sent. The engine decides whether the parts
-add up (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). Split,
-the screen closes and the ledger reads fresh from the newest 10, cursor on row 1.
-**A refused split stays under the parts** (screen 4 B) until the list changes: the engine's
+screens 1 to 3 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
+`s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
+like `d` it works on the cursor row only: off, and out of the footer, while rows are selected
+or a bulk write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
+ledger's. On top, what every part keeps: `2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every
+part keeps this date and account`, the date, the account and the line's total. Under it the
+TITLE line, `TITLE      Tottus Jockey Plaza      same on every part`: the transaction's title,
+shown, not editable, and the cursor never stops on it. The screen opens the row's bank line
+with one `GET /bank-lines/{id}` (`fetch_bank_line` in [reads.py](../expense/reads.py)): its
+`parts`, its `part_count` and its signed `net_cents` total
+(contract: GET /v1/bank-lines/{bank_line_id}). Each part comes as a magnitude and its
+`transaction_type`, signed by `signed_cents` in [formatting.py](../expense/formatting.py). A
+transaction never split is its line's one part, so the table opens empty; on any part of a
+split transaction (`part_count` above 1) the table opens with all its current parts, ready to
+change, drop or add to. A row with no bank line opens at its own amount and reads none.
+**The table** is `amount  category  hashtags  note`, each part numbered, then `+  add a part`
+dim, then the line adding the parts up: `2 parts  ·  -100.00 of -100.00  ✓`, the tick in the
+success colour, or `2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error
+colour: the parts' amounts summed against the engine's total. It never stops a send. A part
+with no amount, category or real hashtag reads `—` there (no category is `@Pendiente`, the
+pending hashtag alone is no hashtag); no note reads blank. `↑↓` move the cursor through the
+parts and `+ add a part`, the cursor's line in reverse, and stop at either end.
+**The fields below.** `⏎` on a part opens its fields under the table, under a dim rule and
+`PART 2`: `AMOUNT`, `CATEGORY`, `HASHTAGS`, `NOTE`, one per line, the part marked `▌ 2` in the
+accent in the table. They are the bar form's (`FormScreen` in
+[_form.py](../expense/tui/screens/_form.py)), behaving as on the Edit form: the field the
+cursor is on reads `▌ CATEGORY` in the accent with its input after it; AMOUNT and NOTE open on
+what the part holds, CATEGORY and HASHTAGS open empty and are picked afresh. On CATEGORY and
+HASHTAGS the shared suggestion list ([picker.py](../expense/tui/widgets/picker.py), the Edit
+form's names, `matching`) shows under the field once something is typed, and `↑↓` move in it
+while it is open. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
+table row at once: an amount that is not a number, or a name that matches nothing, is not
+kept, a toast says why (the Edit form's words) and the cursor stays. A field left empty clears
+the amount or the note, and keeps the category and the hashtags the part holds. `⏎` on
+HASHTAGS with a name typed adds that hashtag and stays for another; with nothing typed it
+moves on. `⏎` on NOTE goes back to the table, the cursor on that part. `esc` goes back too,
+keeping every field already left; only the field being typed goes back to what it was.
+**`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
+A part left with nothing in it, by `esc` or `⏎` through its fields, drops again, the cursor
+back on `+ add a part`.
+`ctrl+s` always sends every part in one `POST /transactions/{id}/split` through `run_write`
+(one idempotency key), by the id of the row `s` was pressed on, each part under a fresh id,
+with only what it holds: its signed `amount_cents`, `category_id`, `description`, and
+`hashtag_ids` through `hashtags_to_send` with `pending_alone=False`, so a part with only the
+pending hashtag sends none. Pressed in the fields, it keeps the field being typed first and
+the table comes back. The engine decides whether the parts add up
+(contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). Split, the screen
+closes and the ledger reads fresh from the newest 10, cursor on row 1. The title is not sent.
+**A refused split stays under the parts** until a part changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
-`parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`) and any other
-key as sent, then `Nothing was split.` dim, then a blank line and the app's line when the
-reason has one ("When the engine says no" below). The amounts a `parts.<i>.amount_cents` key
-names turn the error colour in the list. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every
+`parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`, the index read
+by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent, each hanging
+under its own words (`hanging` in [refusal.py](../expense/tui/widgets/refusal.py)), then
+`Nothing was split.` dim, then a blank line and the app's line when the reason has one
+(`app_lines`; "When the engine says no" below). The amounts a `parts.<i>.amount_cents` key
+names turn the error colour in the table. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every
 `parts.<i>.amount_cents`, its words giving both totals in cents), and every other refusal of
 the route, `OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`,
 `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`,
@@ -968,13 +979,15 @@ bar). `↵` stages nothing: it hands the paths to `LogBarScreen.import_bank_file
 starts the import door (§2 "The import door"). Editing the line back to anything else
 returns the bar to quick-add on the same keystroke.
 
-**The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): `↵` adds the
-typed line as a part, or puts it back in place of the part it was lifted from; with the bar
-empty, `↑↓` pick a part (`↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it`
-under the bar), `↵` puts the picked part in the bar as its line, `ctrl+x` drops it
-(`priority=True`, below); `ctrl+s` sends the split; `esc` puts back the part being changed,
-then unpicks, then leaves with nothing sent. The footer reads `esc Cancel  ^s Split`. As on the
-LOG bar the bar always holds focus, so no bare letter is a command and there is no `?`.
+**The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): the bar
+form's keymap (`form_bindings`) with the table's keys, each shown only where it works
+(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the part
+under it or adds one, `ctrl+x` drops the part under it, `ctrl+s` sends the split, `esc` leaves
+at once with nothing sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In
+the fields the input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥`
+and `shift+tab` move fields, `ctrl+s` sends, `esc` goes back to the table; the footer reads
+`esc Back to the parts  ^s Split  ⇥ Field`. `esc` is two bindings, `check_action` showing one.
+There is no `?`: in the fields the input would take it, as on every form.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
@@ -998,7 +1011,8 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
-one copy for the edit form, the create/edit forms, the new-reconciliation form and Setup):
+one copy for the edit form, the create/edit forms, the new-reconciliation form, Setup and the
+split screen's fields, whose keys differ as "The split screen's own keys" above says):
 `⏎` saves the field and moves on (saving the form on the last field), `ctrl+s` saves the
 form, `esc` cancels. `tab` moves to the next field and `shift+tab` to the previous, on
 every field, whether or not a suggestion list is open. `FormScreen` is declared

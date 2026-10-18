@@ -254,6 +254,38 @@ def engine_text(err: Exception) -> str:
     return format_error(err)
 
 
+def app_lines(err: EngineError, *, on_list: bool = False) -> list[str]:
+    """The app's lines `format_error` puts under the engine's words, each after
+    a blank line: `next_step`'s line (`on_list` on a list screen), then a hint
+    chosen by the status or the error code. Empty when the refusal has none. A
+    screen that lays the engine's words out itself (the split screen) adds these
+    under them."""
+    lines: list[str] = []
+    step = next_step(err, on_list=on_list)
+    if step is not None:
+        lines.append(step)
+    if err.status == 401:
+        lines.append(
+            "Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t)."
+        )
+    if err.code == SETTINGS_MISSING:
+        lines.append(
+            "Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b."
+        )
+    return lines
+
+
+def key_index(key: object, collection: str) -> int | None:
+    """The item a refusal's key names in a list the request sent, from 0:
+    `<collection>.<i>` or `<collection>.<i>.<field>` gives `i`; any other key
+    gives None. One reader for every screen that names a refused item by its
+    place: the bank import's `rows`, the split's `parts`."""
+    bits = str(key).split(".", 2)
+    if len(bits) >= 2 and bits[0] == collection and bits[1].isdigit():
+        return int(bits[1])
+    return None
+
+
 def format_error(err: Exception, *, on_list: bool = False) -> str:
     """Human-readable error text for the app's toasts, notes and banners.
 
@@ -263,23 +295,7 @@ def format_error(err: Exception, *, on_list: bool = False) -> str:
     texts. The sheet import prints `engine_text` instead.
     """
     if isinstance(err, EngineError):
-        lines = [engine_words(err)]
-        step = next_step(err, on_list=on_list)
-        if step is not None:
-            lines.append("")
-            lines.append(step)
-        if err.status == 401:
-            lines.append("")
-            lines.append(
-                "Hint: the key is missing or not valid. Set a fresh one on "
-                "System ▸ Config (press t)."
-            )
-        if err.code == SETTINGS_MISSING:
-            lines.append("")
-            lines.append(
-                "Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b."
-            )
-        return "\n".join(lines)
+        return "\n\n".join([engine_words(err), *app_lines(err, on_list=on_list)])
     if isinstance(err, EngineConnectionError):
         return f"could not reach engine at {err.url} (is it running?)"
     # ConfigMissing/ConfigInvalid render as their message, same as any other

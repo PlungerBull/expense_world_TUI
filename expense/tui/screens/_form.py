@@ -6,7 +6,9 @@ last field) submits via `run_write`. Subclasses supply the field sequence,
 labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
 locked fields, edit mode), NewReconciliationScreen (dynamic sequence),
-SetupScreen (first-time setup: the engine address and key, then a profile).
+SetupScreen (first-time setup: the engine address and key, then a profile),
+SplitScreen (a part's fields under the table of parts, its own layout and
+send).
 """
 
 from rich.console import Group, RenderableType

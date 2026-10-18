@@ -23,6 +23,7 @@ from expense.formatting import (
     settled_label,
     signed_cents,
     split_settled,
+    whole_number,
 )
 from expense.reads import (
     account_choices,
@@ -653,6 +654,39 @@ def test_hashtags_to_send_drops_the_pending_hashtag_beside_a_real_one(ids, pendi
     """(contract: "Transactions (Ledger)", "The pending hashtag is never combined")"""
     assert hashtags_to_send(ids, pending) == sent
     assert hashtags_to_send(tuple(ids), pending) == sent  # a parsed line's tuple too
+
+
+@pytest.mark.parametrize(
+    ("ids", "pending", "sent"),
+    [
+        (["hp"], "hp", []),
+        (["hp", "h1"], "hp", ["h1"]),
+        ([], "hp", []),
+        (["h1"], "hp", ["h1"]),
+        (["hp"], None, ["hp"]),
+    ],
+)
+def test_hashtags_to_send_without_the_pending_one_alone(ids, pending, sent):
+    """`pending_alone=False`, the split's parts: the pending hashtag never goes,
+    alone or not, so a part with no real hashtag sends none
+    (contract: POST /v1/transactions/{transaction_id}/split)."""
+    assert hashtags_to_send(ids, pending, pending_alone=False) == sent
+
+
+@pytest.mark.parametrize(
+    ("value", "number"),
+    [
+        (0, 0),
+        (-10000, -10000),
+        (True, None),
+        (False, None),
+        (None, None),
+        ("12", None),
+        (1.5, None),
+    ],
+)
+def test_whole_number_takes_an_int_and_never_a_flag(value, number):
+    assert whole_number(value) == number
 
 
 # ---- query_params -----------------------------------------------------------

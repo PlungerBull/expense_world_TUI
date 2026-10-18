@@ -4,7 +4,7 @@ The LOG bar and the bar-cycle edit form share this scroll arithmetic; these
 pin its window behaviour.
 """
 
-from expense.tui.widgets.picker import PICKER_WINDOW, suggestion_list
+from expense.tui.widgets.picker import PICKER_WINDOW, matching, suggestion_list
 from expense.tui.widgets.windowed import CURSOR_STYLE
 from tests.unit.helpers import render_text
 
@@ -47,3 +47,16 @@ def test_the_cursor_row_is_drawn_with_the_shared_style():
     out = _text(suggestion_list(_labels(3), 1), ansi=True)
     lines = [ln for ln in out.splitlines() if "name" in ln]
     assert "\x1b[7m" in lines[1] and "\x1b[7m" not in lines[0]
+
+
+def test_matching_finds_a_name_anywhere_case_and_accent_blind_without_the_chosen():
+    """What a field's list holds, for the Edit form and the split screen's part
+    fields alike: every entity whose name holds what is typed, in their order,
+    the whole tuple kept, and none whose id the field already holds."""
+    pool = [("c-hog", "HOGAR"), ("c-hos", "HOSPEDAJE"), ("c-ban", "BAÑOS"), ("c-com", "COMIDA")]
+    assert matching(pool, "ho") == [("c-hog", "HOGAR"), ("c-hos", "HOSPEDAJE")]
+    assert matching(pool, "banos") == [("c-ban", "BAÑOS")]
+    assert matching(pool, "ho", chosen=("c-hog",)) == [("c-hos", "HOSPEDAJE")]
+    assert matching(pool, "") == pool
+    accounts = [("a1", "Sueldo Soles", "PEN")]
+    assert matching(accounts, "soles") == accounts

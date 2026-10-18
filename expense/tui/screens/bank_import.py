@@ -50,7 +50,6 @@ from expense.bank_import.engine import (
     answer_counts,
     day_mismatches,
     placements,
-    row_index,
     row_refusals,
 )
 from expense.bank_import.flow import (
@@ -67,13 +66,14 @@ from expense.bank_import.flow import (
     reconciliation_names,
 )
 from expense.bank_import.parse import BadRow, BankFormatError, BankRow
-from expense.errors import EngineError, engine_words, format_error
+from expense.errors import EngineError, engine_words, format_error, key_index
 from expense.formatting import format_cents, signed_cents
 from expense.reads import items_of
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.refusal import hanging
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: The breadcrumb's trail before the file part.
@@ -611,7 +611,7 @@ def changed_while_running(err: Exception) -> bool:
         isinstance(err, EngineError)
         and err.code == "CONFLICT"
         and any(
-            row_index(key) is not None and reason == "CONCURRENT_CHANGE"
+            key_index(key, "rows") is not None and reason == "CONCURRENT_CHANGE"
             for key, reason in (err.reasons or {}).items()
         )
     )
@@ -897,18 +897,6 @@ class ImportPreviewScreen(_ImportScreen):
             parts.append(Text(""))
             parts.extend(hanging(t) for t in self._failure)
         return Group(*parts)
-
-
-def hanging(line: Text) -> RenderableType:
-    """A `! …` line wraps under its own words, not under the `!` (mockup
-    screen 4 B); any other line is itself."""
-    if not line.plain.startswith("! "):
-        return line
-    grid = Table.grid()
-    grid.add_column(no_wrap=True)
-    grid.add_column()
-    grid.add_row(line[:2], line[2:])
-    return grid
 
 
 # ---------------------------------------------------------------------------

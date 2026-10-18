@@ -1,10 +1,11 @@
-"""`s` on the ledger — the split screen: split, re-split, and the refusals.
+"""`s` on the ledger — the split screen: the table of parts, each part's fields
+below, the split, the re-split and the refusals.
 
-Screens: docs/mockups/expense-world-split-action.html (1, 2 B, 3, 4 B). Every
-engine call goes to one fake engine (`LineClient`), the ledger's reads, the
-split screen's and the split itself, so a test can assert exactly what was
-read and sent. One test sends the split through the real HTTP client against
-a respx-mocked engine, for the idempotency key. The refusals' words are
+Screens: docs/mockups/expense-world-split-screen.html (1, 2, 3). Every engine
+call goes to one fake engine (`LineClient`), the ledger's reads, the split
+screen's and the split itself, so a test can assert exactly what was read and
+sent. One test sends the split through the real HTTP client against a
+respx-mocked engine, for the idempotency key. The refusals' words are
 stand-ins, except the mismatch sentence, which is the contract's own
 (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept").
 """
@@ -16,21 +17,27 @@ import httpx
 import pytest
 import respx
 from rich.text import Text
-from textual.widgets import Input, Static
+from textual.widgets import Footer, Input, Static
+from textual.widgets._footer import FooterKey
 
 from expense.errors import EngineConnectionError, EngineError
+from expense.reads import QuickAddRefs
 from expense.tui.screens.split import (
+    Part,
     SplitScreen,
     count_line,
+    part_from_engine,
     part_key,
 )
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.theme import PALETTE
 from expense.tui.widgets.cursor_list import CursorList
+from expense.tui.widgets.refusal import hanging
 from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
     cursor_page,
+    import_part,
     render_text,
     run_app,
     wait_for,
@@ -53,6 +60,7 @@ ACCOUNTS = [
 CATEGORIES = [
     {"id": "c-com", "name": "COMIDA", "is_system": False, "system_key": None},
     {"id": "c-hog", "name": "HOGAR", "is_system": False, "system_key": None},
+    {"id": "c-hos", "name": "HOSPEDAJE", "is_system": False, "system_key": None},
     {"id": "c-pend", "name": "@Pendiente", "is_system": True, "system_key": "pending"},
     {"id": "c-open", "name": "@Opening", "is_system": True, "system_key": "opening_balance"},
 ]
@@ -80,7 +88,7 @@ def _tx(
     }
 
 
-#: One purchase never split, and one already split into two parts (screen 1).
+#: One transaction never split, and one already split into two parts.
 TOTTUS = _tx("t1", -10000, line="bl-1")
 CAFE = _tx("t2", -1850, line="bl-2", title="Cafe Andino", category="c-com", tags=["h-casa"])
 PART_1 = _tx("p1", -6000, line="bl-9", category="c-com", tags=["h-casa"], note="verduras")
@@ -92,11 +100,18 @@ NET = {"bl-1": -10000, "bl-2": -1850, "bl-9": -10000}
 
 
 def _as_part(tx: dict) -> dict:
-    """A part as `GET /bank-lines/{id}` lists it: the transaction response, its
-    `amount_cents` a magnitude and the direction in `transaction_type`, 1 out and
-    2 in (contract: GET /v1/bank-lines/{bank_line_id})."""
-    amount = tx["amount_cents"]
-    return {**tx, "amount_cents": abs(amount), "transaction_type": 1 if amount < 0 else 2}
+    """A ledger transaction as `GET /bank-lines/{id}` lists it among `parts`."""
+    return import_part(
+        tx["id"],
+        tx["amount_cents"],
+        account_id=tx["account_id"],
+        line=tx["bank_line_id"],
+        day="2026-10-11",
+        title=tx["title"],
+        category_id=tx["category_id"],
+        hashtag_ids=tuple(tx["hashtag_ids"]),
+        description=tx["description"],
+    )
 
 
 def bank_line(line: str) -> dict:
@@ -145,24 +160,13 @@ class LineClient(FakeClient):
             return {"count": len(self.ledger)}
         return super().get(path, auth=auth, params=params)
 
-    def line_reads(self) -> list[tuple[str, object]]:
-        """The split screen's own reads of a line: `GET /bank-lines/{id}`, and
-        any ledger read filtered by `bank_line_id`, which the screen never makes."""
-        return [
-            (path, body.get("bank_line_id") if path == "/transactions" else None)
-            for method, path, body in self.calls
-            if method == "GET"
-            and (
-                path.startswith("/bank-lines/")
-                or (path == "/transactions" and body.get("bank_line_id"))
-            )
-        ]
+    def line_reads(self) -> list[str]:
+        """The split screen's own reads of a line, `GET /bank-lines/{id}`."""
+        return [path for method, path, _ in self.calls if path.startswith("/bank-lines/")]
 
     def ledger_reads(self) -> list[dict]:
         return [
-            body
-            for method, path, body in self.calls
-            if method == "GET" and path == "/transactions" and not body.get("bank_line_id")
+            body for method, path, body in self.calls if method == "GET" and path == "/transactions"
         ]
 
 
@@ -175,12 +179,8 @@ def engine(monkeypatch):
     return client
 
 
-def _footer(screen) -> list[str]:
-    return [
-        f"{a.binding.key} {a.binding.description}"
-        for a in screen.active_bindings.values()
-        if a.binding.show and a.enabled
-    ]
+def _footer(screen) -> list[tuple[str, str]]:
+    return [(k.key_display, k.description) for k in screen.query_one(Footer).query(FooterKey)]
 
 
 async def _open_ledger(pilot, app, flt=None) -> TransactionsScreen:
@@ -192,33 +192,48 @@ async def _open_ledger(pilot, app, flt=None) -> TransactionsScreen:
     return screen
 
 
-async def _cursor_to(pilot, ledger, key) -> None:
+async def _open_split(pilot, app, key, flt=None) -> tuple[TransactionsScreen, SplitScreen]:
+    ledger = await _open_ledger(pilot, app, flt)
     listing = ledger.query_one(CursorList)
     listing.set_cursor(listing.index_of(key))
     await pilot.pause()
-
-
-async def _open_split(pilot, app, ledger, key) -> SplitScreen:
-    await _cursor_to(pilot, ledger, key)
     await pilot.press("s")
     await wait_for(pilot, lambda: isinstance(app.screen, SplitScreen))
     screen = app.screen
     await wait_for(pilot, lambda: screen._refs is not None, message="split screen never loaded")
     await pilot.pause()
-    return screen
+    return ledger, screen
 
 
-async def _type(pilot, screen, line: str) -> None:
-    """Type `line` into the bar and press `↵`."""
+async def _field(pilot, screen, text: str, key: str = "enter") -> None:
+    """Type `text` in the field the cursor is on, then press `key`."""
     bar = screen.query_one("#bar", Input)
-    bar.value = line
+    bar.value = text
     await pilot.pause()
+    await pilot.press(key)
+    await pilot.pause()
+
+
+async def _add_part(pilot, screen, amount, category="", tag="", note="") -> None:
+    """`⏎` on `+ add a part`, then each field in turn: `⏎` on NOTE closes it."""
+    while screen._cursor < len(screen._parts):
+        await pilot.press("down")
     await pilot.press("enter")
     await pilot.pause()
+    await _field(pilot, screen, amount)
+    await _field(pilot, screen, category)
+    if tag:
+        await _field(pilot, screen, tag)  # adds the hashtag, stays for another
+    await _field(pilot, screen, "")
+    await _field(pilot, screen, note)
 
 
 def _text(screen, widget_id: str) -> str:
     return render_text(screen.query_one(widget_id, Static).content, width=110)
+
+
+def _lines(screen, widget_id: str) -> list[str]:
+    return [line.rstrip() for line in _text(screen, widget_id).splitlines()]
 
 
 def _styles_of(text: Text, needle: str) -> set[str]:
@@ -226,37 +241,29 @@ def _styles_of(text: Text, needle: str) -> set[str]:
     return {str(s.style) for s in text.spans if s.start <= start < s.end}
 
 
-# ---- screen 1 · `s Split` on the ledger --------------------------------------
+def _sent(engine) -> list[dict]:
+    """The one split's parts, without their fresh ids."""
+    ((_path, body),) = engine.posts
+    return [{k: v for k, v in p.items() if k != "id"} for p in body["parts"]]
 
 
-@pytest.mark.parametrize(
-    "flt",
-    [None, LedgerFilter("category", "c-pend", "@Pendiente")],
-    ids=["whole", "filtered"],
-)
-def test_s_sits_before_d_and_opens_a_purchase_never_split(engine, flt):
-    """`s Split` is the footer's key before `d Delete`; on a row never split it
-    opens screen 2 headed by the purchase as the ledger has it, with an empty
-    list, after reading the row's line: its parts and its total."""
+# ---- `s Split` on the ledger -----------------------------------------------------
 
+
+def _ledger_footer(screen) -> list[str]:
+    return [
+        f"{a.binding.key} {a.binding.description}"
+        for a in screen.active_bindings.values()
+        if a.binding.show and a.enabled
+    ]
+
+
+def test_s_sits_before_d_on_the_ledger(engine):
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app, flt)
-        assert _footer(ledger)[-2:] == ["s Split", "d Delete"]
-        screen = await _open_split(pilot, app, ledger, "t1")
-        assert screen.crumb[-1] == "Split"
-        assert screen.crumb[:-1] == ledger.crumb
-        head = _text(screen, "#split-head")
-        assert head.strip() == "Tottus Jockey Plaza  ·  2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN"
-        assert screen._parts == []
-        assert _text(screen, "#parts").strip() == "0 parts · 0.00 of -100.00 · -100.00 left"
-        assert _footer(screen) == ["escape Cancel", "ctrl+s Split"]
-        assert str(screen.query_one("#legend", Static).content) == (
-            "±amount · @category · #tag · //note            ↵ adds the part"
-        )
-        assert screen.query_one("#bar", Input).has_focus
+        ledger = await _open_ledger(pilot, app)
+        assert _ledger_footer(ledger)[-2:] == ["s Split", "d Delete"]
 
     run_app(scenario, size=SIZE)
-    assert engine.line_reads() == [("/bank-lines/bl-1", None)]
 
 
 def test_s_is_off_while_rows_are_selected(engine):
@@ -268,45 +275,314 @@ def test_s_is_off_while_rows_are_selected(engine):
         await pilot.press("space")
         await pilot.pause()
         assert ledger._selected
-        assert "s Split" not in _footer(ledger)
+        assert "s Split" not in _ledger_footer(ledger)
         await pilot.press("s")
         await pilot.pause()
         assert app.screen is ledger
         await pilot.press("escape")
         await pilot.pause()
-        assert _footer(ledger)[-2:] == ["s Split", "d Delete"]
+        assert _ledger_footer(ledger)[-2:] == ["s Split", "d Delete"]
 
     run_app(scenario, size=SIZE)
     assert engine.line_reads() == []
 
 
-# ---- screen 2 B · typing the parts -------------------------------------------
+# ---- screen 1 · on the table ---------------------------------------------------
 
 
-def test_typed_parts_join_the_list_and_ctrl_s_splits_then_the_ledger_reads_fresh(engine):
-    """Each `↵` adds the typed line as a part; `^s` sends the whole set in one
-    split, each part under a fresh id, and the ledger reads its newest rows
+@pytest.mark.parametrize(
+    "flt",
+    [None, LedgerFilter("category", "c-pend", "@Pendiente")],
+    ids=["whole", "filtered"],
+)
+def test_s_opens_the_table_under_the_date_account_total_and_the_title(engine, flt):
+    """Screen 1: the line every part keeps, the TITLE line, the table's header,
+    `+  add a part` and the count line; on a transaction never split the table
+    opens empty, the cursor on `+ add a part`, after one read of the row's
+    line. Nothing is focused, and the footer is the table's."""
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "t1", flt)
+        assert screen.crumb == (*ledger.crumb, "Split")
+        assert _text(screen, "#split-head").strip() == (
+            "2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every part keeps this date and account"
+        )
+        title = _text(screen, "#split-title").strip()
+        assert title.startswith("TITLE      Tottus Jockey Plaza")
+        assert title.endswith("same on every part")
+        assert _lines(screen, "#parts") == [
+            "      amount    category       hashtags        note",
+            "  +  add a part",
+            "",
+            "0 parts  ·  0.00 of -100.00  ·  -100.00 left",
+        ]
+        assert screen._cursor == 0 and screen._parts == []
+        assert app.focused is None
+        assert not screen.query_one("#part-fields").display
+        assert _footer(screen) == [
+            ("esc", "Cancel"),
+            ("^s", "Split"),
+            ("⏎", "Edit"),
+            ("^x", "Drop part"),
+        ]
+
+    run_app(scenario, size=SIZE)
+    assert engine.line_reads() == ["/bank-lines/bl-1"]
+
+
+def test_the_cursor_moves_through_the_parts_and_add_a_part_never_the_title(engine):
+    """`↑↓` move through the parts and `+ add a part` and stop at either end;
+    the cursor never stops on the TITLE line. The cursor's line is in the
+    cursor style."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        lines = _lines(screen, "#parts")
+        assert lines[1].split() == ["1", "-60.00", "COMIDA", "#casa", "verduras"]
+        assert lines[2].split() == ["2", "-40.00", "HOGAR", "—", "lejía", "y", "papel"]
+        assert lines[3].strip() == "+  add a part"
+        seen = [screen._cursor]
+        for key in ("up", "down", "down", "down", "up"):
+            await pilot.press(key)
+            seen.append(screen._cursor)
+        assert seen == [0, 0, 1, 2, 2, 1]
+        cursor_line = screen.query_one("#parts", Static).content.renderables[2]
+        assert cursor_line.plain.startswith("  2")
+        assert "reverse" in {str(s.style) for s in cursor_line.spans}
+
+    run_app(scenario, size=SIZE)
+
+
+def test_parts_that_reach_the_total_tick_and_ones_short_of_it_say_what_is_left():
+    """`2 parts  ·  -100.00 of -100.00  ✓`, the tick in the success colour, or
+    `-10.00 left` in the error colour; a part with no amount adds nothing."""
+    whole_line = count_line([Part(-6000), Part(-4000)], -10000, palette=PALETTE)
+    assert whole_line.plain == "2 parts  ·  -100.00 of -100.00  ✓"
+    assert _styles_of(whole_line, "✓") == {PALETTE.success}
+    short = count_line([Part(-6000), Part(-3000), Part()], -10000, palette=PALETTE)
+    assert short.plain == "3 parts  ·  -90.00 of -100.00  ·  -10.00 left"
+    assert _styles_of(short, "-10.00 left") == {PALETTE.error}
+    over = count_line([Part(-12000)], -10000, palette=PALETTE)
+    assert over.plain == "1 part  ·  -120.00 of -100.00  ·  20.00 left"
+
+
+# ---- screen 2 · a part's fields below -------------------------------------------
+
+
+def test_enter_on_a_part_opens_its_fields_below_with_the_part_marked(engine):
+    """Screen 2: `⏎` on part 2 opens PART 2's fields one per line, the cursor
+    on AMOUNT holding the part's amount; the part reads `▌ 2` in the table, and
+    the footer is the fields'."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "enter")
+        await pilot.pause()
+        assert screen._editing == 1
+        assert screen.query_one("#part-fields").display
+        assert app.focused is screen.query_one("#bar", Input)
+        assert screen.query_one("#bar", Input).value == "-40"
+        head = _lines(screen, "#part-head")
+        assert head[0].startswith("────") and head[1] == "PART 2"
+        assert str(screen.query_one("#part-field").content).strip() == "▌ AMOUNT"
+        assert _lines(screen, "#fields-below") == [
+            "  CATEGORY  HOGAR",
+            "  HASHTAGS",
+            "  NOTE      lejía y papel",
+        ]
+        assert not screen.query_one("#fields-above").display
+        marked = screen.query_one("#parts", Static).content.renderables[2]
+        assert marked.plain.startswith("▌ 2")
+        assert _footer(screen) == [
+            ("esc", "Back to the parts"),
+            ("^s", "Split"),
+            ("⇥", "Field"),
+        ]
+
+    run_app(scenario, size=SIZE)
+
+
+def test_typing_ho_in_category_lists_hogar_and_hospedaje_and_arrows_move_in_it(engine):
+    """Spec check 2: the shared suggestion list shows as you type, under the
+    field; `↑↓` move in it while it is open, and `⏎` picks the highlighted one,
+    which the table shows at once."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await pilot.press("enter")  # + add a part
+        await _field(pilot, screen, "-40")
+        assert screen._key == "category"
+        assert not screen.query_one("#part-suggest").display  # nothing typed yet
+        await pilot.press("h", "o")
+        await pilot.pause()
+        assert screen.query_one("#part-suggest").display
+        assert [line.strip() for line in _lines(screen, "#part-suggest")] == [
+            "HOGAR",
+            "HOSPEDAJE",
+        ]
+        await pilot.press("down")
+        assert screen._key == "category" and screen._suggest_idx == 1
+        await pilot.press("up")
+        assert screen._suggest_idx == 0
+        await pilot.press("down", "enter")
+        await pilot.pause()
+        assert screen._key == "hashtags"
+        assert screen._parts[0].category_id == "c-hos"
+        assert _lines(screen, "#parts")[1].split()[:3] == ["▌", "1", "-40.00"]
+        assert "HOSPEDAJE" in _lines(screen, "#parts")[1]
+
+    run_app(scenario, size=SIZE)
+
+
+def test_arrows_and_tab_move_between_fields_keeping_each_field_left(engine):
+    """`↓`, `↑`, `⇥` and `⏎` move between the fields; each field left is kept
+    and shows in the table row at once; moves stop at either end."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("enter")  # part 1, AMOUNT
+        await _field(pilot, screen, "-70", key="down")
+        assert screen._key == "category"
+        assert "-70.00" in _lines(screen, "#parts")[1]
+        assert _lines(screen, "#fields-above") == ["  AMOUNT    -70.00"]
+        await pilot.press("tab")
+        assert screen._key == "hashtags"
+        await pilot.press("down")
+        assert screen._key == "note"
+        await _field(pilot, screen, "fruta", key="down")  # the last field: stays
+        assert screen._key == "note" and screen._parts[0].note == "fruta"
+        assert _lines(screen, "#parts")[1].endswith("fruta")
+        await pilot.press("shift+tab", "up", "up", "up")
+        assert screen._key == "amount"
+        assert screen._editing == 0
+
+    run_app(scenario, size=SIZE)
+
+
+def test_enter_on_the_last_field_goes_back_to_the_table_on_that_part(engine):
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "enter")
+        for _ in range(3):
+            await _field(pilot, screen, screen.query_one("#bar", Input).value)
+        assert screen._key == "note"
+        await _field(pilot, screen, "lejía")
+        assert screen._editing is None and screen._cursor == 1
+        assert not screen.query_one("#part-fields").display
+        assert app.focused is None
+        assert _lines(screen, "#parts")[2].endswith("lejía")
+        assert _footer(screen)[0] == ("esc", "Cancel")
+
+    run_app(scenario, size=SIZE)
+
+
+def test_esc_in_the_fields_keeps_the_fields_left_and_drops_only_the_one_typed(engine):
+    """`esc` goes back to the table: AMOUNT, left, keeps -55.00; the note being
+    typed goes back to what it was. The screen stays."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("enter")
+        await _field(pilot, screen, "-55")
+        await pilot.press("tab", "tab")
+        assert screen._key == "note"
+        screen.query_one("#bar", Input).value = "never kept"
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.screen is screen
+        assert screen._editing is None and screen._cursor == 0
+        assert screen._parts[0] == Part(-5500, "c-com", ("h-casa",), "verduras")
+
+    run_app(scenario, size=SIZE)
+    assert engine.posts == []
+
+
+def test_a_category_or_hashtag_that_matches_nothing_is_not_kept(engine):
+    """As on the Edit form: the field says so and the cursor stays; an amount
+    that is not a number likewise."""
+    notes: list[str] = []
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        screen.notify = lambda message, **kw: notes.append(message)
+        await pilot.press("enter")
+        await _field(pilot, screen, "sesenta")
+        assert screen._key == "amount"
+        await _field(pilot, screen, "-60")
+        await _field(pilot, screen, "zzz")
+        assert screen._key == "category" and screen._parts[0].category_id is None
+        await _field(pilot, screen, "")  # empty keeps what the part holds: none
+        await _field(pilot, screen, "zzz")
+        assert screen._key == "hashtags" and screen._parts[0].hashtag_ids == ()
+
+    run_app(scenario, size=SIZE)
+    assert notes == [
+        "Amount: a signed decimal, e.g. -99.92",
+        "No category matches “zzz”.",
+        "No hashtag matches “zzz”.",
+    ]
+
+
+# ---- screen 3 · + add a part --------------------------------------------------------
+
+
+def test_enter_on_add_a_part_adds_an_empty_part_open_on_its_amount(engine):
+    """Screen 3: part 3 appears in the table, marked, with `—` cells, its
+    fields open below and empty, the cursor on AMOUNT; the count counts it."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "down", "enter")
+        await pilot.pause()
+        assert screen._editing == 2 and screen._key == "amount"
+        assert screen.query_one("#bar", Input).value == ""
+        lines = _lines(screen, "#parts")
+        assert lines[3].split() == ["▌", "3", "—", "—", "—"]
+        assert lines[4].strip() == "+  add a part"
+        assert lines[-1] == "3 parts  ·  -100.00 of -100.00  ✓"
+        assert _lines(screen, "#fields-below") == ["  CATEGORY", "  HASHTAGS", "  NOTE"]
+
+    run_app(scenario, size=SIZE)
+
+
+@pytest.mark.parametrize("leave", ["escape", "fields"], ids=["esc", "enter-through"])
+def test_a_part_left_with_nothing_typed_drops_again(engine, leave):
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "down", "enter")
+        await pilot.pause()
+        assert len(screen._parts) == 3
+        if leave == "escape":
+            await pilot.press("escape")
+        else:
+            for _ in range(4):
+                await _field(pilot, screen, "")
+        await pilot.pause()
+        assert screen._editing is None
+        assert len(screen._parts) == 2
+        assert screen._cursor == 2  # back on `+ add a part`
+        assert app.screen is screen
+
+    run_app(scenario, size=SIZE)
+
+
+# ---- the table's keys and the split ---------------------------------------------
+
+
+def test_two_parts_typed_in_the_fields_and_ctrl_s_split_then_the_ledger_reads_fresh(engine):
+    """Spec check 1: -60.00 COMIDA #casa and -40.00 HOGAR, `^s`, and one split
+    goes with both, each under a fresh id; the ledger reads its newest rows
     again, the cursor on row 1."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        screen.query_one("#bar", Input).value = "-60 @comida #casa //verduras"
-        await pilot.pause()
-        assert str(screen.query_one("#hint", Static).content) == "-60.00 · COMIDA · #casa"
-        await pilot.press("enter")
-        await pilot.pause()
-        assert screen.query_one("#bar", Input).value == ""
-        screen.query_one("#bar", Input).value = "-40 @hogar //lejía y papel"
-        await pilot.pause()
-        # screen 2 B: what the line makes of the part, under the bar
-        assert str(screen.query_one("#hint", Static).content) == "-40.00 · HOGAR · no hashtag"
-        parts = _text(screen, "#parts")
-        assert "1 part · -60.00 of -100.00 · -40.00 left" in parts
-        await pilot.press("enter")
-        await pilot.pause()
-        parts = _text(screen, "#parts")
-        assert "2 parts · -100.00 of -100.00" in parts and "left" not in parts
+        ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60", "comida", "casa", "verduras")
+        await _add_part(pilot, screen, "-40", "hogar")
+        lines = _lines(screen, "#parts")
+        assert lines[1].split() == ["1", "-60.00", "COMIDA", "#casa", "verduras"]
+        assert lines[2].split() == ["2", "-40.00", "HOGAR", "—"]
+        assert lines[-1] == "2 parts  ·  -100.00 of -100.00  ✓"
         reads = len(engine.ledger_reads())
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: app.screen is ledger)
@@ -316,77 +592,82 @@ def test_typed_parts_join_the_list_and_ctrl_s_splits_then_the_ledger_reads_fresh
         assert ledger.query_one(CursorList).cursor_index == 0
 
     run_app(scenario, size=SIZE)
-    assert len(engine.posts) == 1
     path, body = engine.posts[0]
     assert path == "/transactions/t1/split"
-    ids = [p.pop("id") for p in body["parts"]]
+    ids = [p["id"] for p in body["parts"]]
     assert len(set(ids)) == 2 and all(uuid.UUID(i) for i in ids)
-    assert body == {
-        "parts": [
-            {
-                "amount_cents": -6000,
-                "category_id": "c-com",
-                "hashtag_ids": ["h-casa"],
-                "description": "verduras",
-            },
-            {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"},
-        ]
-    }
+    assert _sent(engine) == [
+        {
+            "amount_cents": -6000,
+            "category_id": "c-com",
+            "hashtag_ids": ["h-casa"],
+            "description": "verduras",
+        },
+        {"amount_cents": -4000, "category_id": "c-hog"},
+    ]
 
 
-def test_a_part_with_no_category_or_hashtag_reads_pending_dim_and_sends_only_real_tags(engine):
-    """A part naming no category reads `@Pendiente` dim and sends none; one
-    naming the pending hashtag beside a real one sends the real one only."""
+def test_ctrl_s_in_the_fields_keeps_the_field_being_typed_and_sends(engine):
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "t1")
+        await pilot.press("enter")
+        screen.query_one("#bar", Input).value = "-100"
+        await pilot.pause()
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    assert _sent(engine) == [{"amount_cents": -10000}]
+
+
+def test_a_part_with_only_the_pending_hashtag_sends_none_and_no_category_none(engine):
+    """A part naming the pending hashtag alone sends no hashtag, as one with
+    none; beside a real one, only the real one goes. The table reads `—`."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, "-70")
-        await _type(pilot, screen, "-30 #Pendiente #casa")
-        table = screen.query_one("#parts", Static).content.renderables[0]
-        first = [str(col._cells[0]) for col in table.columns]
-        assert first[2:4] == ["@Pendiente", "#Pendiente"]
-        assert table.columns[2]._cells[0].style == "dim"
-        assert table.columns[3]._cells[0].style == "dim"
-        assert str(table.columns[3]._cells[1]) == "#casa"
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-70", "", "pendiente")
+        await _add_part(pilot, screen, "-30", "", "pendiente")
+        await pilot.press("enter", "tab", "tab")  # part 2, under the cursor: HASHTAGS
+        await _field(pilot, screen, "casa")
+        await pilot.press("escape")
+        assert _lines(screen, "#parts")[1].split() == ["1", "-70.00", "—", "—"]
+        assert _lines(screen, "#parts")[2].split() == ["2", "-30.00", "—", "#casa"]
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: engine.posts)
 
     run_app(scenario, size=SIZE)
-    parts = engine.posts[0][1]["parts"]
-    assert [{k: v for k, v in p.items() if k != "id"} for p in parts] == [
+    assert _sent(engine) == [
         {"amount_cents": -7000},
         {"amount_cents": -3000, "hashtag_ids": ["h-casa"]},
     ]
 
 
-@pytest.mark.parametrize(
-    ("line", "reason"),
-    [
-        ("-40 $sueldo", "a part keeps the transaction's account and date"),
-        ("-40 ayer", "a part keeps the transaction's account and date"),
-        ("-40 lejía", "a part keeps the transaction's title"),
-        ("@hogar", "the line has no amount — a number needs a sign to be one"),
-    ],
-    ids=["account", "date", "title-words", "no-amount"],
-)
-def test_a_line_the_part_cannot_take_is_refused_in_place(engine, line, reason):
-    """The line stays in the bar with the reason under it; the list is
-    untouched, and the next keystroke clears the reason."""
+def test_ctrl_x_drops_the_part_under_the_cursor(engine):
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("ctrl+x")
+        assert [p.note for p in screen._parts] == ["lejía y papel"]
+        assert screen._cursor == 0
+        await pilot.press("down", "ctrl+x")  # on `+ add a part`: nothing to drop
+        assert len(screen._parts) == 1
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    assert _sent(engine) == [
+        {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"}
+    ]
+
+
+def test_esc_on_the_table_leaves_at_once_with_nothing_sent(engine):
+    """Spec check 3: back to the ledger, Tottus still one row."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, line)
-        assert screen._parts == []
-        assert screen.query_one("#bar", Input).value == line
-        assert screen.query_one("#part-refused", Static).display
-        shown = screen.query_one("#part-refused", Static).content
-        assert shown.plain == f"! {reason}"
-        assert str(shown.style) == PALETTE.error
-        await pilot.press("x")
-        await pilot.pause()
-        assert not screen.query_one("#part-refused", Static).display
+        ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60")
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
     assert engine.posts == []
@@ -397,32 +678,13 @@ def test_ctrl_s_always_sends_even_when_the_parts_do_not_add_up(engine):
     typed, and the engine is the one to answer."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, "-60")
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: engine.posts)
 
     run_app(scenario, size=SIZE)
-    assert [p["amount_cents"] for p in engine.posts[0][1]["parts"]] == [-6000]
-
-
-def test_left_is_in_the_error_colour_while_it_is_not_zero():
-    """`left` is the parts as typed against the engine's total, and shows only
-    while it is not 0 — in the error colour whichever way it points."""
-    from expense.tui.screens.split import Part
-
-    def part(cents):
-        return Part(str(cents), cents, None, (), None)
-
-    short = count_line([part(-6000)], -10000, palette=PALETTE)
-    assert short.plain == "1 part · -60.00 of -100.00 · -40.00 left"
-    assert _styles_of(short, "-40.00") == {PALETTE.error}
-    over = count_line([part(-12000)], -10000, palette=PALETTE)
-    assert over.plain == "1 part · -120.00 of -100.00 · 20.00 left"
-    assert _styles_of(over, "20.00 left") == {PALETTE.error}
-    mixed = count_line([part(-12000), part(2000)], -10000, palette=PALETTE)
-    assert mixed.plain == "2 parts · -100.00 of -100.00"
+    assert _sent(engine) == [{"amount_cents": -6000}]
 
 
 def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
@@ -432,10 +694,9 @@ def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
     monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: client)
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, "-60")
-        await _type(pilot, screen, "-40")
+        ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60")
+        await _add_part(pilot, screen, "-40")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: app.screen is ledger)
 
@@ -450,52 +711,33 @@ def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
     assert [p["amount_cents"] for p in json.loads(request.content)["parts"]] == [-6000, -4000]
 
 
-# ---- screen 3 · splitting it again -------------------------------------------
+# ---- a transaction already split -------------------------------------------------
 
 
 @pytest.mark.parametrize("key", ["p1", "p2"])
-def test_s_on_either_part_opens_with_all_its_parts_and_sends_the_whole_new_set(engine, key):
-    """The list opens with the line's current parts and the total is the line's
-    `net_cents`, all from one `GET /bank-lines/{id}`; `↑` picks a part, `↵`
-    puts it in the bar to change, `ctrl+x` drops one, a typed line adds one, and
-    `^s` sends the whole new set by the id of the row `s` was pressed on."""
+def test_s_on_either_part_opens_the_table_with_both_parts(engine, key):
+    """Spec check 5: the table opens with the line's current parts and the
+    total is the line's `net_cents`, from one `GET /bank-lines/{id}`; `^s`
+    sends the whole new set by the id of the row `s` was pressed on."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, key)
-        head = _text(screen, "#split-head").strip()
-        assert head.endswith("-100.00 PEN  ·  2 parts")
-        parts = _text(screen, "#parts")
-        assert "2 parts · -100.00 of -100.00" in parts
-        assert "verduras" in parts and "lejía y papel" in parts
-        assert str(screen.query_one("#hint", Static).content) == (
-            "↑↓ picks a part · ↵ puts it in the bar to change · ^x drops it"
-        )
-        # part 2 waits for a hashtag: #Pendiente, dim
-        table = screen.query_one("#parts", Static).content.renderables[0]
-        assert str(table.columns[3]._cells[1]) == "#Pendiente"
-        assert table.columns[3]._cells[1].style == "dim"
-        await pilot.press("up", "up")
-        assert screen._picked == 0
+        ledger, screen = await _open_split(pilot, app, key)
+        lines = _lines(screen, "#parts")
+        assert lines[1].split()[:4] == ["1", "-60.00", "COMIDA", "#casa"]
+        assert lines[2].split()[:3] == ["2", "-40.00", "HOGAR"]
+        assert lines[-1] == "2 parts  ·  -100.00 of -100.00  ✓"
         await pilot.press("enter")
-        await pilot.pause()
-        assert screen.query_one("#bar", Input).value == "-60 @COMIDA #casa //verduras"
-        await _type(pilot, screen, "-70 @COMIDA #casa //verduras")
-        await pilot.press("down")
-        assert screen._picked == 1
-        await pilot.press("ctrl+x")
-        await pilot.pause()
-        assert len(screen._parts) == 1
-        await _type(pilot, screen, "-30 @hogar //lejía y papel")
-        assert "2 parts · -100.00 of -100.00" in _text(screen, "#parts")
+        await _field(pilot, screen, "-70")
+        await pilot.press("escape", "down", "enter")
+        await _field(pilot, screen, "-30")
+        await pilot.press("escape")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    assert engine.line_reads() == [("/bank-lines/bl-9", None)]
-    ((path, body),) = engine.posts
-    assert path == f"/transactions/{key}/split"
-    assert [{k: v for k, v in p.items() if k != "id"} for p in body["parts"]] == [
+    assert engine.line_reads() == ["/bank-lines/bl-9"]
+    assert engine.posts[0][0] == f"/transactions/{key}/split"
+    assert _sent(engine) == [
         {
             "amount_cents": -7000,
             "category_id": "c-com",
@@ -508,17 +750,15 @@ def test_s_on_either_part_opens_with_all_its_parts_and_sends_the_whole_new_set(e
 
 def test_an_unchanged_re_split_sends_the_parts_as_the_engine_holds_them(engine):
     """Loaded parts go back as they are: a part waiting for a hashtag sends
-    none, and the pending category none."""
+    none, and the pending category none; every part under a fresh id."""
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        await _open_split(pilot, app, ledger, "p1")
+        _ledger, _screen = await _open_split(pilot, app, "p1")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: engine.posts)
 
     run_app(scenario, size=SIZE)
-    parts = engine.posts[0][1]["parts"]
-    assert [{k: v for k, v in p.items() if k != "id"} for p in parts] == [
+    assert _sent(engine) == [
         {
             "amount_cents": -6000,
             "category_id": "c-com",
@@ -527,52 +767,31 @@ def test_an_unchanged_re_split_sends_the_parts_as_the_engine_holds_them(engine):
         },
         {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"},
     ]
-    assert not {p["id"] for p in parts} & {"p1", "p2"}
+    assert not {p["id"] for p in engine.posts[0][1]["parts"]} & {"p1", "p2"}
 
 
 def test_a_row_with_no_bank_line_opens_at_its_own_amount_and_reads_no_line(engine):
     engine.ledger = [{k: v for k, v in TOTTUS.items() if k != "bank_line_id"}]
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        return _text(screen, "#split-head").strip()
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        return _lines(screen, "#parts")[-1]
 
-    head = run_app(scenario, size=SIZE)
-    assert head.endswith("-100.00 PEN")
+    assert run_app(scenario, size=SIZE) == "0 parts  ·  0.00 of -100.00  ·  -100.00 left"
     assert engine.line_reads() == []
-
-
-def test_the_head_counts_parts_by_the_engines_part_count(engine):
-    """The head's `N parts` is the engine's `part_count`, never the length of the
-    list the app holds: a line read with a `part_count` of 3 says 3 parts
-    (contract: GET /v1/bank-lines/{bank_line_id})."""
-    engine.get_responses["/bank-lines/bl-9"] = {**bank_line("bl-9"), "part_count": 3}
-
-    async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "p1")
-        return _text(screen, "#split-head").strip(), len(screen._parts)
-
-    head, listed = run_app(scenario, size=SIZE)
-    assert head.endswith("-100.00 PEN  ·  3 parts")
-    assert listed == 2
 
 
 def test_a_part_read_from_the_line_is_signed_by_its_transaction_type():
     """`parts` carry a magnitude and `transaction_type`; a part money out reads
-    negative and a part money in positive, with its `+` in the bar's line."""
-    from expense.reads import QuickAddRefs
-    from expense.tui.screens.split import part_from_engine
-
-    refs = QuickAddRefs([], [], [], {}, {}, {})
-    out = part_from_engine(_as_part(_tx("o", -6000, line="bl-x", category=None, tags=[])), refs)
-    into = part_from_engine(_as_part(_tx("i", 5000, line="bl-x", category=None, tags=[])), refs)
-    assert (out.amount_cents, out.line) == (-6000, "-60")
-    assert (into.amount_cents, into.line) == (5000, "+50")
+    negative and a part money in positive, and the pending category as none."""
+    refs = QuickAddRefs([], [], [], {}, {}, {}, pending=("c-pend", "@Pendiente"))
+    out = part_from_engine(import_part("o", -6000, category_id="c-pend"), refs)
+    into = part_from_engine(import_part("i", 5000, category_id="c-com"), refs)
+    assert (out.amount_cents, out.category_id) == (-6000, None)
+    assert (into.amount_cents, into.category_id) == (5000, "c-com")
 
 
-# ---- screen 4 B · the refusals --------------------------------------------------
+# ---- the refusals -------------------------------------------------------------------
 
 
 def _mismatch() -> EngineError:
@@ -587,42 +806,45 @@ def _mismatch() -> EngineError:
     )
 
 
-def test_parts_that_do_not_add_up_keep_the_refusal_under_the_parts(engine):
-    """Screen 4 B: the engine's words under the list, each `parts.<i>` key read
-    as part i+1, the amounts it names in the error colour, `Nothing was
-    split.`; the screen stays, and changing the list clears it."""
+def test_parts_short_of_the_total_say_what_is_left_and_keep_the_refusal_under_them(engine):
+    """Spec check 6: -60.00 and -30.00 of -100.00 show `-10.00 left` in red;
+    `^s` shows the engine's words under the parts, each `parts.<i>` key read as
+    part i+1, the amounts it names in the error colour, `Nothing was split.`;
+    the screen stays, and changing a part clears it."""
     engine.errors["POST"] = _mismatch()
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, "+20")
-        await _type(pilot, screen, "-110")
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "+20")
+        await _add_part(pilot, screen, "-110")
+        await _add_part(pilot, screen, "-10")
+        await pilot.press("ctrl+x")  # drop the -10.00 again: -90.00 of -100.00
+        count = screen.query_one("#parts", Static).content.renderables[5]
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: screen._refusal is not None)
         assert app.screen is screen
         shown = _text(screen, "#parts")
-        table = screen.query_one("#parts", Static).content.renderables[0]
-        amounts = table.columns[1]._cells
-        await pilot.press("ctrl+x")  # nothing picked: the list stands
-        still = screen._refusal is not None
-        await _type(pilot, screen, "-10")
-        return shown, amounts, still, _text(screen, "#parts")
+        table = screen.query_one("#parts", Static).content.renderables
+        amounts = [table[1], table[2]]
+        await pilot.press("enter")
+        await _field(pilot, screen, "-20")
+        return count, shown, amounts, _text(screen, "#parts")
 
-    shown, amounts, still, after = run_app(scenario, size=SIZE)
+    count, shown, amounts, after = run_app(scenario, size=SIZE)
+    assert count.plain == "2 parts  ·  -90.00 of -100.00  ·  -10.00 left"
+    assert _styles_of(count, "-10.00 left") == {PALETTE.error}
     lines = [line.strip() for line in shown.splitlines()]
     tail = lines[lines.index("VALIDATION_ERROR — Validation failed.") :]
-    assert tail[0] == "VALIDATION_ERROR — Validation failed."
     flat = " ".join(tail)
     assert f"! parts: {MISMATCH}" in flat
     assert f"! part 1 (amount): {MISMATCH}" in flat
     assert f"! part 2 (amount): {MISMATCH}" in flat
     assert tail[-1] == "Nothing was split."
     # the named amounts in the error colour, the positive one included
-    assert [a.plain for a in amounts] == ["20.00", "-110.00"]
-    assert {str(a.style) for a in amounts} == {PALETTE.error}
-    assert still
+    assert _styles_of(amounts[0], "20.00") == {PALETTE.error}
+    assert PALETTE.error in _styles_of(amounts[1], "-110.00")  # under the cursor too
     assert "VALIDATION_ERROR" not in after and "Nothing was split." not in after
+    assert len(engine.posts) == 1
 
 
 #: Every other refusal of the split route: (code, status, key, reason, the app's
@@ -676,10 +898,9 @@ def test_every_other_refusal_shows_the_engine_words_in_the_same_place(
     engine.errors["POST"] = EngineError(code, words, fields, status, {}, reasons={key: reason})
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
-        await _type(pilot, screen, "-60")
-        await _type(pilot, screen, "-40")
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60")
+        await _add_part(pilot, screen, "-40")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: screen._refusal is not None)
         assert app.screen is screen
@@ -691,7 +912,7 @@ def test_every_other_refusal_shows_the_engine_words_in_the_same_place(
     assert tail[1] == f"! {part_key(key)}: stand-in field words"
     assert tail[2] == "Nothing was split."
     if line is None:
-        assert tail[3:] == [] or all(not row for row in tail[3:])
+        assert [row for row in tail[3:] if row] == []
     else:
         assert [row for row in tail[3:] if row] == [line]
 
@@ -704,12 +925,22 @@ def test_part_keys_read_by_number():
     assert part_key("transaction_id") == "transaction_id"
 
 
+def test_a_refused_line_hangs_under_its_own_words():
+    """`hanging`: a `! …` line is the `!` beside its words, so a wrapped line
+    starts under the words; any other line is itself."""
+    plain = Text("Nothing was split.")
+    assert hanging(plain) is plain
+    long = Text("! part 1 (amount): " + "word " * 30)
+    rendered = render_text(hanging(long), width=40).splitlines()
+    assert rendered[0].startswith("! part 1 (amount):")
+    assert all(row.startswith("  ") for row in rendered[1:])
+
+
 def test_an_engine_out_of_reach_says_so_under_the_parts(engine):
     engine.errors["POST"] = EngineConnectionError(url="https://x.invalid", original=Exception("no"))
 
     async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "t1")
+        _ledger, screen = await _open_split(pilot, app, "t1")
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: screen._refusal is not None)
         return _text(screen, "#parts")
@@ -717,17 +948,3 @@ def test_an_engine_out_of_reach_says_so_under_the_parts(engine):
     shown = run_app(scenario, size=SIZE)
     assert "could not reach engine at https://x.invalid (is it running?)" in shown
     assert "Nothing was split." not in shown
-
-
-def test_esc_leaves_with_nothing_sent(engine):
-    async def scenario(pilot, app):
-        ledger = await _open_ledger(pilot, app)
-        screen = await _open_split(pilot, app, ledger, "p1")
-        await pilot.press("up")
-        await pilot.press("escape")  # unpick
-        assert app.screen is screen and screen._picked is None
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is ledger)
-
-    run_app(scenario, size=SIZE)
-    assert engine.posts == []

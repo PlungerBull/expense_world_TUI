@@ -12,6 +12,7 @@ from datetime import date
 from uuid import uuid4
 
 from expense.bank_import.parse import BankRow
+from expense.errors import key_index
 
 #: Nothing dated earlier is ever sent. The hand-typed rows the bank files
 #: overlap are aligned to the bank's wording before the first real import
@@ -270,15 +271,6 @@ def blocked_accounts(placed: list[Placed]) -> list[str]:
     return seen
 
 
-def row_index(key: object) -> int | None:
-    """The sent row's index a refusal's key names — `rows.<index>` or
-    `rows.<index>.<field>` — or None for any other key."""
-    parts = str(key).split(".", 2)
-    if len(parts) >= 2 and parts[0] == "rows" and parts[1].isdigit():
-        return int(parts[1])
-    return None
-
-
 def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, str | None, str]]:
     """A refusal's `rows.<index>` and `rows.<index>.<field>` keys → (the file's
     line, field, message); the field is None when the key names the row alone.
@@ -290,7 +282,7 @@ def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, 
     if not isinstance(fields, dict):
         return out
     for key, message in fields.items():
-        i = row_index(key)
+        i = key_index(key, "rows")
         if i is not None and i < len(sent):
             parts = str(key).split(".", 2)
             out.append((sent[i].row.line, parts[2] if len(parts) == 3 else None, str(message)))

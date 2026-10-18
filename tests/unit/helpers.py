@@ -176,6 +176,9 @@ def import_part(
     line: str = "bl-1",
     day: str = "2026-09-07",
     title: str = "TOTTUS PORONGOCHE",
+    category_id: str = "pend",
+    hashtag_ids: tuple[str, ...] = ("h-pend",),
+    description: str | None = None,
 ) -> dict:
     """One part of a bank line as the engine lists it, in a
     `POST /transactions/import` answer's unclaimed line or in the `parts` of
@@ -188,12 +191,12 @@ def import_part(
         "id": tx_id,
         "user_id": "u-1",
         "title": title,
-        "description": None,
+        "description": description,
         "amount_cents": abs(amount_cents),
         "transaction_type": 1 if amount_cents < 0 else 2,  # 1 outflow, 2 inflow
         "date": f"{day}T05:00:00Z",
         "account_id": account_id,
-        "category_id": "pend",
+        "category_id": category_id,
         "reconciliation_id": None,
         "bank_line_id": line,
         "operation_code": None,
@@ -201,7 +204,7 @@ def import_part(
         "updated_at": f"{day}T15:00:00Z",
         "version": 1,
         "deleted_at": None,
-        "hashtag_ids": ["h-pend"],
+        "hashtag_ids": list(hashtag_ids),
     }
 
 

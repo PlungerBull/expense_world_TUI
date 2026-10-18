@@ -11,17 +11,12 @@ the other under @Pendiente.
 
 from datetime import date
 
-import pytest
-
 from expense.quickadd.parse import Span, Unresolved, parse
 from expense.quickadd.route import (
     LEDGER,
-    PART_KEEPS_LINE,
-    PART_KEEPS_TITLE,
     REFUSED,
     describe,
     route,
-    route_part,
 )
 
 ACCOUNTS = [
@@ -135,58 +130,3 @@ def test_a_bare_sigil_reads_as_unfinished_not_as_a_failed_match():
         candidates=(("h1", "TAXI"), ("h2", "CAJA")),
     )
     assert describe(token) == '"#" names no hashtag yet'
-
-
-# ---- one part of a split purchase (expense-world-split-action.html screen 2 B) ----
-
-
-def _part(line):
-    parsed = parse(line, accounts=ACCOUNTS, categories=CATEGORIES, hashtags=HASHTAGS, today=TODAY)
-    return route_part(parsed)
-
-
-def test_a_part_with_an_amount_category_tags_and_note_joins_the_parts():
-    result = _part("-40 @korakuen #caja #taxi //lejía y papel")
-    assert (result.target, result.reasons) == (LEDGER, ())
-
-
-def test_a_part_needs_only_its_amount():
-    assert _part("-40").target == LEDGER
-    assert _part("+20").target == LEDGER
-
-
-def test_a_part_with_no_amount_is_refused_with_the_bars_own_phrase():
-    result = _part("@korakuen")
-    assert result.refused
-    assert result.reasons == ("the line has no amount — a number needs a sign to be one",)
-
-
-@pytest.mark.parametrize(
-    "line",
-    ["-40 $BCP PEN", "-40 $nowhere", "-40 hoy", "-40 18/8/2026", "-40 31/02/2026"],
-    ids=["account", "unknown-account", "date-word", "date", "not-a-real-date"],
-)
-def test_a_part_naming_an_account_or_a_date_is_refused(line):
-    """Every part keeps the transaction's account and date, so a line naming
-    either, even one that matches nothing, says so once."""
-    result = _part(line)
-    assert result.refused
-    assert result.reasons == (PART_KEEPS_LINE,)
-    assert PART_KEEPS_LINE == "a part keeps the transaction's account and date"
-
-
-def test_a_part_with_title_words_is_refused():
-    result = _part("-40 lejía")
-    assert result.refused
-    assert result.reasons == (PART_KEEPS_TITLE,)
-
-
-def test_an_unresolved_category_or_tag_is_described_as_on_the_bar():
-    result = _part("-40 @nada #nunca")
-    assert result.refused
-    assert result.reasons == ('"@nada" matches no categories', '"#nunca" matches no hashtags')
-
-
-def test_a_part_never_checks_the_total():
-    """Whether the parts add up is the engine's: any signed amount joins."""
-    assert _part("-999999.99").target == LEDGER

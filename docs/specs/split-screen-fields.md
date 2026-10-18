@@ -43,20 +43,8 @@ split screen, as today; what changes is how the parts are typed.
 
 ## Tasks
 
-Approved 2026-10-18.
+Approved 2026-10-18. Task 1, the table and the fields below, is done.
 
-1. **The split screen becomes the table of parts with the picked part's fields below.** Screens
-   1 to 3 of the mockup, the title line shown but not yet editable.
-   - The fields below are built on the shared form scaffolding
-     ([_form.py](../../expense/tui/screens/_form.py)) and the shared suggestion list
-     ([picker.py](../../expense/tui/widgets/picker.py)); the typed line, its legend and the
-     part grammar (`route_part` in [route.py](../../expense/quickadd/route.py)) go, with their
-     tests.
-   - While the screen is rebuilt, its copies of shared code listed in [todo.md](../todo.md)
-     ("The split screen keeps copies of shared code") move to one shared copy each.
-   - Unit tests cover each check above but 4, and each refusal the screen handles today.
-   - [tui.md](../tui.md) describes the screen; `expense-world-split-action.html` is deleted
-     with its links, the new mockup cited instead.
 2. **The title line becomes editable and is sent with the split.** Screen 4 of the mockup.
    Waits for the engine to answer
    [split-takes-a-title.md](../to-engine/split-takes-a-title.md); the check is 4 above, with a

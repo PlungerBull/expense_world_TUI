@@ -71,13 +71,12 @@ from expense.formatting import (
     signed_cents,
 )
 from expense.quickadd.money import amount_to_text, parse_amount
-from expense.quickadd.names import matches
 from expense.reads import hashtags_to_send, load_quickadd_refs
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_cell
-from expense.tui.widgets.picker import suggestion_list
+from expense.tui.widgets.picker import matching, suggestion_list
 
 _LABELS = {
     "date": "DATE",
@@ -301,13 +300,12 @@ class EditFormScreen(FormScreen):
         key = self._key
         needle = text.strip()
         if key == "account":
-            pool = [(i, n, c) for (i, n, c) in self._accounts if matches(needle, n)]
+            pool = matching(self._accounts, needle)
         elif key == "category":
-            pool = [(i, n) for (i, n) in self._categories if matches(needle, n)]
+            pool = matching(self._categories, needle)
         elif key == "hashtags":
-            needle = needle.lstrip("#")
             chosen = set(self._values.get("hashtags", []))
-            pool = [(i, n) for (i, n) in self._hashtags if matches(needle, n) and i not in chosen]
+            pool = matching(self._hashtags, needle.lstrip("#"), chosen=chosen)
         else:
             pool = []
         self._suggestions = pool

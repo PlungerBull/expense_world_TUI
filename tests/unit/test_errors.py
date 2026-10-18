@@ -9,9 +9,12 @@ from expense.errors import (
     ConfigMissingError,
     EngineConnectionError,
     EngineError,
+    app_lines,
     engine_text,
+    engine_words,
     format_error,
     handle_errors,
+    key_index,
     refuses_every_write,
     render,
 )
@@ -738,3 +741,51 @@ def test_a_replay_with_a_second_reason_is_a_refusal():
         reasons={"id": "ID_EXISTS", "name": "NAME_EXISTS"},
     )
     assert not is_own_id_replay(err, "id")
+
+
+@pytest.mark.parametrize(
+    ("key", "collection", "index"),
+    [
+        ("parts.0.amount_cents", "parts", 0),
+        ("parts.11", "parts", 11),
+        ("rows.3.date", "rows", 3),
+        ("parts", "parts", None),
+        ("parts.x.amount_cents", "parts", None),
+        ("rows.3", "parts", None),
+        ("transaction_id", "parts", None),
+    ],
+)
+def test_key_index_reads_the_place_a_refused_key_names(key, collection, index):
+    """One reader for the bank import's `rows.<i>` and the split's `parts.<i>`."""
+    assert key_index(key, collection) == index
+
+
+@pytest.mark.parametrize(
+    ("err", "lines"),
+    [
+        (EngineError("VALIDATION_ERROR", "Nope.", {"x": "bad"}, 422, {}), []),
+        (
+            EngineError(
+                "CONFLICT",
+                "Busy.",
+                {"transaction_id": "busy"},
+                409,
+                {},
+                reasons={"transaction_id": "CONCURRENT_CHANGE"},
+            ),
+            ["It changed at the same moment: save again."],
+        ),
+        (
+            EngineError("UNAUTHORIZED", "No.", None, 401, {}),
+            [
+                "Hint: the key is missing or not valid. "
+                "Set a fresh one on System ▸ Config (press t)."
+            ],
+        ),
+    ],
+    ids=["none", "next-step", "401"],
+)
+def test_app_lines_are_what_format_error_puts_under_the_engine_words(err, lines):
+    """`format_error` is the engine's words and each app line after a blank line."""
+    assert app_lines(err) == lines
+    assert format_error(err) == "\n\n".join([engine_words(err), *lines])

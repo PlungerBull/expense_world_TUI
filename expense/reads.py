@@ -18,6 +18,7 @@ from typing import Any
 from expense import config as config_module
 from expense.config import Config
 from expense.errors import EngineError
+from expense.formatting import whole_number
 from expense.http import ExpenseClient
 
 ENGINE_PAGE_CAP = 200  # the engine's hard cap on `limit` — the one copy
@@ -352,8 +353,8 @@ def count_bank_lines(
 
 def _count_of(body: object, read: str) -> int:
     """The int `count` of a count read's body; raises when there is none."""
-    count = body.get("count") if isinstance(body, dict) else None
-    if not isinstance(count, int) or isinstance(count, bool):
+    count = whole_number(body.get("count")) if isinstance(body, dict) else None
+    if count is None:
         raise ValueError(f"{read} answered without a count: {body!r}")
     return count
 
@@ -638,7 +639,9 @@ def fetch_pending_hashtag(cfg, *, verbose: bool = False) -> tuple[str, str] | No
     return pending_hashtag_of(items_of(fetch_hashtags(cfg, verbose=verbose)))
 
 
-def hashtags_to_send(ids: Iterable[str], pending_id: str | None) -> list[str]:
+def hashtags_to_send(
+    ids: Iterable[str], pending_id: str | None, *, pending_alone: bool = True
+) -> list[str]:
     """The `hashtag_ids` a write sends: `ids` without the pending hashtag
     whenever a real hashtag is among them.
 
@@ -650,12 +653,19 @@ def hashtags_to_send(ids: Iterable[str], pending_id: str | None) -> list[str]:
     stays as sent, and `[]` stays `[]`, which the engine files under the
     pending hashtag. `pending_id` is `QuickAddRefs.pending_hashtag_id`, found
     by its system key; None (the user has none yet) leaves `ids` as they are.
-    One copy for every hashtag write: the edit form, the ledger's bulk `h` and
-    the LOG bar.
+    One copy for every hashtag write: the edit form, the ledger's bulk `h`,
+    the LOG bar and the split screen.
+
+    `pending_alone=False` drops the pending hashtag even alone, for a sparse
+    create that files a part naming no real hashtag under the pending one by
+    sending none: the split screen's parts
+    (contract: POST /v1/transactions/{transaction_id}/split).
     """
     ids = list(ids)
+    if pending_id is None:
+        return ids
     real = [i for i in ids if i != pending_id]
-    return real if real and pending_id is not None else ids
+    return real if real or not pending_alone else ids
 
 
 def account_choices(
