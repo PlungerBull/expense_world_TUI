@@ -88,7 +88,8 @@ for the owner's pick.
    part, unticking sends `null`, and the screen re-reads what it shows after each tick. Every
    reconciliation list shows a purchase this way (a draft month, a completed month, the "no
    batch" list); the row carries the total and a part count, and the parts are not listed there
-   (owner, 2026-10-17).
+   (owner, 2026-10-17). Every reconciliation list shows only the bank's columns, on every row,
+   one line per row: no category, hashtags or note (owner, 2026-10-17).
 3. **[UI]** `d` on a part of a split purchase, from the ledger and the reconciliation screen:
    one `DELETE /bank-lines/{id}` behind a question naming how many parts go, and the
    `IN_COMPLETED_RECONCILIATION` refusal. A transaction never split deletes as today. The

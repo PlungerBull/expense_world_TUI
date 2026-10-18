@@ -70,132 +70,86 @@
   <p>Part 2 is the reconciliation screens, part 3 is <code>d</code>. Each drawing uses the app's real words and layout; only the new words are new. The rows are invented. Use the button at the top right to see the page on a light terminal.</p>
 </div>
 
-<div class="pane"><div class="lbl">2a · A month still open, with a split purchase <span>— where the part count sits</span></div>
-<p class="blurb">The Octubre 2026 reconciliation, still a draft. FARMACIA is one row with its total, -100.00, and the number of parts it has; its parts are not listed here. The second line under a row is its category, hashtags and note; a purchase's parts each have their own, so that line stays empty for it. The cursor is on FARMACIA, not ticked yet. The only choice is where the part count goes.</p>
+<div class="pane"><div class="lbl">2a · A month still open, with a split purchase <span>— which bank columns show</span></div>
+<p class="blurb">The Octubre 2026 reconciliation, still a draft. Every row shows only what the bank statement shows, one line each, with no category, hashtags or note. FARMACIA is one row with its total, -100.00, and its part count after the title. Its parts are not listed here. The cursor is on FARMACIA, which is not ticked yet. The choice is which bank columns show. The engine gives each bank line its date, title, total and the bank's operation number. Nothing else on it is the bank's, so there are two options.</p>
 <div class="opt wide">
-<div class="var"><div class="oh">A · <span>after the title</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<div class="var"><div class="oh">A · <span>date · title · amount</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
 <span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
 
-           Title                                            Amount                 Date
+             Date                   Title                                        Amount
   <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
-   <span class="p">[x]</span>     NETFLIX.COM                                      <span class="n">-44.90</span>           2026-10-14
-           <span class="d">OCIO  ·  #casa</span>
-   <span class="p">[x]</span>     HABER PLANILLA                                 <span class="p">6,519.00</span>           2026-10-05
-           <span class="d">SUELDO  ·  #trabajo</span>
-   <span class="p">[x]</span>     PLAZA VEA SURCO                                  <span class="n">-84.30</span>           2026-10-02
-           <span class="d">COMIDA  ·  #casa</span>
-   <span class="d">[ ]</span>     UBER *TRIP                                       <span class="n">-42.00</span>           2026-10-12
-           <span class="d">@Pendiente  ·  #Pendiente</span>
-  <span class="rev"> [ ]     FARMACIA · 2 parts                              -100.00           2026-10-11 </span>
-  <span class="rev">                                                                                      </span>
-   <span class="d">[ ]</span>     TAXI SATELITAL                                   <span class="n">-25.00</span>           2026-10-08
-           <span class="d">TRANSPORTE</span>
+   <span class="p">[x]</span>       2026-10-14             NETFLIX.COM                                  <span class="n">-44.90</span>
+   <span class="p">[x]</span>       2026-10-05             HABER PLANILLA                             <span class="p">6,519.00</span>
+   <span class="p">[x]</span>       2026-10-02             PLAZA VEA SURCO                              <span class="n">-84.30</span>
+   <span class="d">[ ]</span>       2026-10-12             UBER *TRIP                                   <span class="n">-42.00</span>
+  <span class="rev"> [ ]       2026-10-11             FARMACIA · 2 parts                          -100.00 </span>
+   <span class="d">[ ]</span>       2026-10-08             TAXI SATELITAL                               <span class="n">-25.00</span>
 
   <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
 
  <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
-<p class="cap"><b>Recommended:</b> the title column is the wide one, so the count fits there without moving the amounts, and it reads as one phrase: “FARMACIA · 2 parts”.</p></div>
-<div class="var"><div class="oh">B · <span>in the amount cell</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+<p class="cap">The fewest columns: what you read down the statement to tick it off.</p></div>
+<div class="var"><div class="oh">B · <span>date · title · operation number · amount</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
 <span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
 
-           Title                                               Amount              Date
+           Date               Title                        Operation             Amount
   <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
-   <span class="p">[x]</span>     NETFLIX.COM                                         <span class="n">-44.90</span>        2026-10-14
-           <span class="d">OCIO  ·  #casa</span>
-   <span class="p">[x]</span>     HABER PLANILLA                                    <span class="p">6,519.00</span>        2026-10-05
-           <span class="d">SUELDO  ·  #trabajo</span>
-   <span class="p">[x]</span>     PLAZA VEA SURCO                                     <span class="n">-84.30</span>        2026-10-02
-           <span class="d">COMIDA  ·  #casa</span>
-   <span class="d">[ ]</span>     UBER *TRIP                                          <span class="n">-42.00</span>        2026-10-12
-           <span class="d">@Pendiente  ·  #Pendiente</span>
-  <span class="rev"> [ ]     FARMACIA                                 2 parts · -100.00        2026-10-11 </span>
-  <span class="rev">                                                                                      </span>
-   <span class="d">[ ]</span>     TAXI SATELITAL                                      <span class="n">-25.00</span>        2026-10-08
-           <span class="d">TRANSPORTE</span>
+   <span class="p">[x]</span>     2026-10-14         NETFLIX.COM                  48213907              <span class="n">-44.90</span>
+   <span class="p">[x]</span>     2026-10-05         HABER PLANILLA               00731552            <span class="p">6,519.00</span>
+   <span class="p">[x]</span>     2026-10-02         PLAZA VEA SURCO              48190211              <span class="n">-84.30</span>
+   <span class="d">[ ]</span>     2026-10-12         UBER *TRIP                   <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> [ ]     2026-10-11         FARMACIA · 2 parts           48201764             -100.00 </span>
+   <span class="d">[ ]</span>     2026-10-08         TAXI SATELITAL               48172390              <span class="n">-25.00</span>
 
   <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
 
  <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
-<p class="cap">The count sits just before the total. The amounts still line up on the right, but the amount column grows wider for every row because of one purchase.</p></div>
-<div class="var"><div class="oh">C · <span>a small column of its own</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
-<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
-
-           Title                                  Parts        Amount              Date
-  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
-   <span class="p">[x]</span>     NETFLIX.COM                                         <span class="n">-44.90</span>        2026-10-14
-           <span class="d">OCIO  ·  #casa</span>
-   <span class="p">[x]</span>     HABER PLANILLA                                    <span class="p">6,519.00</span>        2026-10-05
-           <span class="d">SUELDO  ·  #trabajo</span>
-   <span class="p">[x]</span>     PLAZA VEA SURCO                                     <span class="n">-84.30</span>        2026-10-02
-           <span class="d">COMIDA  ·  #casa</span>
-   <span class="d">[ ]</span>     UBER *TRIP                                          <span class="n">-42.00</span>        2026-10-12
-           <span class="d">@Pendiente  ·  #Pendiente</span>
-  <span class="rev"> [ ]     FARMACIA                                   2       -100.00        2026-10-11 </span>
-  <span class="rev">                                                                                      </span>
-   <span class="d">[ ]</span>     TAXI SATELITAL                                      <span class="n">-25.00</span>        2026-10-08
-           <span class="d">TRANSPORTE</span>
-
-  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
-
- <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
-<p class="cap">A new column, “Parts”, empty on every ordinary row. Tidy, but it takes room on every list for the few rows that are purchases.</p></div>
-</div></div>
+<p class="cap"><b>Recommended:</b> the operation number is the bank's own name for each line, so two charges alike on the same day can still be told apart, and a row you typed in by hand shows <code>—</code>.</p></div>
+</div>
+<p class="blurb">The tick box, date, title and amount come in that order in both options, so a reconciliation list reads the same way as the “no batch” list (2d). Today this screen puts the date last.</p></div>
 
 <div class="pane"><div class="lbl">2b · After space <span>— the whole purchase is ticked</span></div>
-<p class="blurb"><code>space</code> on FARMACIA puts the whole purchase in the month, both parts at once; there is never half a purchase ticked. The screen then reads the month again from the engine: <code>diff</code> goes from -167.00 to -67.00. Ticked rows are listed first, as today, so FARMACIA moves up among them and the cursor stays on it. <code>space</code> again takes both parts out. Drawn with A.</p>
+<p class="blurb"><code>space</code> on FARMACIA puts the whole purchase in the month, both parts at once. Half a purchase is never ticked. The screen then reads the month again from the engine, and <code>diff</code> goes from -167.00 to -67.00. Ticked rows are listed first, as today, so FARMACIA moves up among them and the cursor stays on it. <code>space</code> again takes both parts out. Drawn with B.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
 <span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-67.00</span><span class="d">    status </span><span class="w">draft</span>
 
-           Title                                            Amount                 Date
+           Date               Title                        Operation             Amount
   <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
-   <span class="p">[x]</span>     NETFLIX.COM                                      <span class="n">-44.90</span>           2026-10-14
-           <span class="d">OCIO  ·  #casa</span>
-  <span class="rev"> [x]     FARMACIA · 2 parts                              -100.00           2026-10-11 </span>
-  <span class="rev">                                                                                      </span>
-   <span class="p">[x]</span>     HABER PLANILLA                                 <span class="p">6,519.00</span>           2026-10-05
-           <span class="d">SUELDO  ·  #trabajo</span>
-   <span class="p">[x]</span>     PLAZA VEA SURCO                                  <span class="n">-84.30</span>           2026-10-02
-           <span class="d">COMIDA  ·  #casa</span>
-   <span class="d">[ ]</span>     UBER *TRIP                                       <span class="n">-42.00</span>           2026-10-12
-           <span class="d">@Pendiente  ·  #Pendiente</span>
-   <span class="d">[ ]</span>     TAXI SATELITAL                                   <span class="n">-25.00</span>           2026-10-08
-           <span class="d">TRANSPORTE</span>
+   <span class="p">[x]</span>     2026-10-14         NETFLIX.COM                  48213907              <span class="n">-44.90</span>
+  <span class="rev"> [x]     2026-10-11         FARMACIA · 2 parts           48201764             -100.00 </span>
+   <span class="p">[x]</span>     2026-10-05         HABER PLANILLA               00731552            <span class="p">6,519.00</span>
+   <span class="p">[x]</span>     2026-10-02         PLAZA VEA SURCO              48190211              <span class="n">-84.30</span>
+   <span class="d">[ ]</span>     2026-10-12         UBER *TRIP                   <span class="d">—</span>                     <span class="n">-42.00</span>
+   <span class="d">[ ]</span>     2026-10-08         TAXI SATELITAL               48172390              <span class="n">-25.00</span>
 
   <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
 
  <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div>
-<p class="cap">The header's figures are the engine's, read again after every tick; the app adds up nothing.</p></div>
+<p class="cap">The header's figures come from the engine and are read again after every tick. The app adds nothing up itself.</p></div>
 
 <div class="pane"><div class="lbl">2c · A completed month <span>— read-only, a purchase as one row</span></div>
-<p class="blurb">Septiembre 2026, completed. The list is read-only, as today: no tick boxes. The September FARMACIA purchase (-70.00 and -30.00) is one row of -100.00 with its count, like in the open month. Drawn with A.</p>
+<p class="blurb">Septiembre 2026, completed. The list is read-only, as today, with no tick boxes. The September FARMACIA purchase (-70.00 and -30.00) is one row of -100.00 with its count, as in the open month. Drawn with B.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Septiembre 2026</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
   <span class="b">Septiembre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-09-01 → 2026-09-30</span>
 <span class="d">  begin </span>9,120.40<span class="d">    end </span>15,398.40<span class="d">    diff </span><span class="d">—</span><span class="d">    status </span><span class="p">completed</span>
 
-   Title                                               Amount                      Date
+   Date                Title                            Operation                Amount
   <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev"> NETFLIX.COM                                         -44.90                2026-09-14 </span>
-  <span class="rev"> OCIO  ·  #casa                                                                       </span>
-   FARMACIA<span class="d"> · 2 parts</span>                                 <span class="n">-100.00</span>                2026-09-09
-  
-   HABER PLANILLA                                    <span class="p">6,519.00</span>                2026-09-05
-   <span class="d">SUELDO  ·  #trabajo</span>
-   PLAZA VEA SURCO                                     <span class="n">-96.10</span>                2026-09-03
-   <span class="d">COMIDA  ·  #casa</span>
+  <span class="rev"> 2026-09-14          NETFLIX.COM                      47710385                 -44.90 </span>
+   2026-09-09          FARMACIA<span class="d"> · 2 parts</span>               47622918                <span class="n">-100.00</span>
+   2026-09-05          HABER PLANILLA                   00729810               <span class="p">6,519.00</span>
+   2026-09-03          PLAZA VEA SURCO                  47580114                 <span class="n">-96.10</span>
 
   <span class="d">read-only while completed · u revert to edit · r refresh · esc back</span>
 
@@ -203,7 +157,7 @@
 </div>
 
 <div class="pane"><div class="lbl">2d · The “no batch” list <span>— u on the reconciliations panel</span></div>
-<p class="blurb">The account's rows that are in no month yet, oldest first. A purchase is one row here too: TOTTUS JOCKEY (three parts) and FARMACIA (two). The count <code>5 of 5 loaded</code> counts a purchase once. The Category column shows <code>—</code> for a purchase, since its parts each have their own. <code>!</code> marks rows inside a month's dates, as today. Drawn with A.</p>
+<p class="blurb">The account's rows that are in no month yet, oldest first, with the same bank columns and no Category column. A purchase is one row here too: TOTTUS JOCKEY (three parts) and FARMACIA (two). The count <code>5 of 5 loaded</code> counts a purchase once. <code>!</code> marks rows inside a month's dates, as today. Drawn with B.</p>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
@@ -217,13 +171,13 @@
 
   In no batch · Sueldo Soles   ·   5 of 5 loaded · oldest first   ·   ! blocks a batch's close
    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
-         Date                Title                                        Amount   Category
+         Date                Title                                   Operation             Amount
   <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
-         2026-08-28          TOTTUS JOCKEY<span class="d"> · 3 parts</span>                     <span class="n">-150.00</span>   <span class="d">—</span>
-         2026-08-30          CINE PLAZA                                   <span class="n">-28.00</span>   OCIO
-   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                               <span class="n">-25.00</span>   TRANSPORTE
-  <span class="rev"> !     2026-10-11          FARMACIA · 2 parts                          -100.00   —              </span>
-   <span class="w">!</span>     2026-10-12          UBER *TRIP                                   <span class="n">-42.00</span>   @Pendiente
+         2026-08-28          TOTTUS JOCKEY<span class="d"> · 3 parts</span>                 47391026             <span class="n">-150.00</span>
+         2026-08-30          CINE PLAZA                              <span class="d">—</span>                     <span class="n">-28.00</span>
+   <span class="w">!</span>     2026-10-08          TAXI SATELITAL                          48172390              <span class="n">-25.00</span>
+  <span class="rev"> !     2026-10-11          FARMACIA · 2 parts                      48201764             -100.00 </span>
+   <span class="w">!</span>     2026-10-12          UBER *TRIP                              <span class="d">—</span>                     <span class="n">-42.00</span>
 
 
  <span class="a">⏎</span> Edit  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div>
@@ -270,13 +224,13 @@
 <span class="d">                      </span>  <span class="d">[y] confirm    [enter / n / esc] cancel</span>               
 <span class="d">  In no batch · Sueldo</span>                                                        <span class="d"> a batch's close</span>
 <span class="d">   ───────────────────</span><span class="a">────────────────────────────────────────────────────────</span><span class="d">─────────────────────</span>
-<span class="d">         Date                Title                                        Amount   Category</span>
+<span class="d">         Date                Title                                   Operation             Amount</span>
 <span class="d">   ──────────────────────────────────────────────────────────────────────────────────────────────</span>
-<span class="d">         2026-08-28          TOTTUS JOCKEY · 3 parts                     -150.00   —</span>
-<span class="d">         2026-08-30          CINE PLAZA                                   -28.00   OCIO</span>
-<span class="d">   !     2026-10-08          TAXI SATELITAL                               -25.00   TRANSPORTE</span>
-<span class="d">   !     2026-10-11          FARMACIA · 2 parts                          -100.00   —</span>
-<span class="d">   !     2026-10-12          UBER *TRIP                                   -42.00   @Pendiente</span>
+<span class="d">         2026-08-28          TOTTUS JOCKEY · 3 parts                 47391026             -150.00</span>
+<span class="d">         2026-08-30          CINE PLAZA                              —                     -28.00</span>
+<span class="d">   !     2026-10-08          TAXI SATELITAL                          48172390              -25.00</span>
+<span class="d">   !     2026-10-11          FARMACIA · 2 parts                      48201764             -100.00</span>
+<span class="d">   !     2026-10-12          UBER *TRIP                              —                     -42.00</span>
 
 
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
@@ -365,7 +319,7 @@
  <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
 </div>
 
-<div class="pick"><b>To answer:</b> one letter for 2a (A, B or C), and “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Recommended:</b> 2a A.<br><b>Settled already:</b> a split purchase is one row with its total and part count on every reconciliation list, its parts not listed there; the question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> <code>· 2 parts</code>, <code>Purchase deleted.</code>, the empty second line and the <code>—</code> category for a purchase (2a, 2d), and the cursor staying on a purchase after it moves up (2b).</div>
+<div class="pick"><b>To answer:</b> one letter for the columns in 2a (A or B), and “ok” or what to change for 2b, 2c, 2d, 3a, 3b, 3c, 3d and 3e.<br><b>Recommended:</b> 2a B.<br><b>Settled already:</b> every reconciliation list shows only the bank's columns, one line per row. A split purchase is one row with its total and part count after the title, and its parts are not listed there. The question reads “Delete this purchase and its 3 parts? No screen can bring it back.” with the real count.<br><b>New words, yours to change:</b> <code>· 2 parts</code>, the column name <code>Operation</code>, <code>Purchase deleted.</code>, the date now first on the month's list, and the cursor staying on a purchase after it moves up (2b).</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
