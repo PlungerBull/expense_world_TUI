@@ -1,6 +1,6 @@
-# An archived account is frozen except for its transactions' categorisation; the contract's wording was trimmed
+# An archived account is frozen except for its transactions' categorisation
 
-Shipped 2026-10-18 · ⚠️ breaking · contract `c4327854a6d6e301` → `15063ec5587491ad` → `6088c6255f258ce7` → `98fd5c39226bc126` → `ab14bd54f4c8b016`
+Shipped 2026-10-18 · ⚠️ breaking · contract `15063ec5587491ad` → `6088c6255f258ce7` → `98fd5c39226bc126` → `ab14bd54f4c8b016`
 
 Answers: no ask (the owner raised the freeze, 2026-10-18)
 
@@ -82,25 +82,6 @@ A blank `name` sent to a reconciliation that does not exist, is deleted or is an
 
 No behaviour changed. `POST /accounts/{id}/opening-balance` now says that on an archived account the opening balance changes only in its categorisation and is not deleted, as everything above says. `POST /transactions/{id}/split` states the archived-account refusal once instead of twice.
 
-### The contract's wording was trimmed and corrected (`15063ec5587491ad`)
-
-No route, field, status, error code or reason changed in this version.
-
-- **`x-changelog` is short now.** It lists recent versions newest first, down to and including the oldest one a client is expected to hold; older entries are dropped. A client whose version is not listed treats the whole contract as changed.
-- **Where rules are published moved:**
-  - *Settings preconditions* (which requests answer `422 SETTINGS_MISSING`) and *No exchange-rate preconditions on writes* are now in the contract's general description (`info.description`), not inside `PUT /auth/settings`'s operation description.
-  - *Balances* is now in the `Bank Accounts` tag description, *Engine-created system categories* in `Categories`, *Person rules* in `People / Person Accounts`, and *Sealed periods* in `Transactions (Ledger)`, not inside one operation.
-  - *Aggregate exceptions* (activity log) are named, not numbered: **Hashtag links**, **Login bumps**, **Reconciliation side-effects**, **Hashtag delete**, **Exchange rates**, **Idempotency keys**, **Bank lines**.
-  - The `sort_order` default on create (omitted or `null` → one more than the highest in its list, deleted rows included, `0` for an empty list; real accounts and people are separate lists) is stated once, in *Defaults on create*.
-  - Cursor behaviour shared by every cursor-paged list (no cursor to an empty page; edits behind the bookmark move no later page; a malformed cursor is `INVALID_CURSOR`) is stated once, in *Cursors*.
-- **Corrections that make the text match what the engine already did:**
-  - A stored exchange rate can change when it is corrected, which changes every figure that reads it, past ones included.
-  - *Optimistic locking* is renamed *Version*: every mutable resource carries `version`, but no write compares it.
-  - `GET /exchange-rates`: a `base` or `target` that is not 3 letters is `422` `OUT_OF_RANGE`.
-  - `GET /transactions/count` and `GET /bank-lines/count` take bare dates in their date filters, like their lists.
-  - `PUT /transactions/{id}`: `description` is stored as sent; `""` empties it; `null` is `NOT_NULL`.
-- **Reason texts reworded** (meaning unchanged): `RETIRED_PARAMETER`, `SPLIT_RECONCILIATION_MIXED` ("Not sent by any operation."), `SPLIT_LINE_PARTS_DIVERGE`.
-
 ## How it was checked
 
 The engine's full test suite passed against the test database (1647 tests), including the contract checks that every route has its section, that every version has a changelog entry, and that every reason a route sends is declared. Against the practice engine on contract `98fd5c39226bc126`, with an account holding an opening balance, transactions (one split into two parts, one with an empty title), a draft and a completed reconciliation, then archived:
@@ -118,12 +99,13 @@ The live engine serves `ab14bd54f4c8b016` (the checks above ran on `98fd5c39226b
 
 ## What the TUI does
 
-1. Read the `15063ec5587491ad`, `6088c6255f258ce7`, `98fd5c39226bc126` and `ab14bd54f4c8b016` entries of `x-changelog`, and store `ab14bd54f4c8b016` as the version it was checked against.
+1. Read the `6088c6255f258ce7`, `98fd5c39226bc126` and `ab14bd54f4c8b016` entries of `x-changelog`, and store `ab14bd54f4c8b016` as the version it was checked against.
 2. On an archived account's transactions, offer only category, hashtag and description edits, plus filling an empty title or operation code. Hide or disable editing amount, date, title, operation code, account and reconciliation, and delete, bank-line delete and split, and point to unarchiving the account.
 3. On an archived account's reconciliations, hide or disable rename, date and balance edits, complete, revert and delete, and point to unarchiving.
 4. Handle `ACCOUNT_ARCHIVED` wherever these routes are called (a stale screen can still send one): show the message and offer to unarchive. A `PUT /transactions/{id}` that sends `account_id` on an archived account's transaction now answers `ACCOUNT_ARCHIVED`, not `INVALID_REFERENCE`.
 5. If the TUI shows an `EMPTY` name error for a reconciliation rename, expect `404` first when the reconciliation is gone.
-6. If the TUI quotes an *Aggregate exceptions* item by number, or reads *Settings preconditions* from `PUT /auth/settings`, point it at the new names and place.
+6. ⚠️ The archived-account test the TUI added while catching up to `15063ec5587491ad` asserts what is now refused: on an archived account's transaction, the split and the `DELETE` now answer `ACCOUNT_ARCHIVED` (`422` and `409`), and the `PUT` sending its own `account_id` now answers `ACCOUNT_ARCHIVED` instead of `INVALID_REFERENCE`. The `PUT` of `category_id` and of `description` still goes through. Turn that test around, and run it against a practice engine started fresh on the current contract, not one left running from an earlier check.
+7. Keep the Edit form sending only the fields that changed. On an archived account's transaction, any `title` or `operation_code` key is refused, even `null` or unchanged, unless the stored value is empty.
 
 ## Done when
 
