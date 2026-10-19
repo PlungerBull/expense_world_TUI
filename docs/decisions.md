@@ -343,7 +343,7 @@ the bar is where the right file gets dropped next.
 
 ## Deleted is deleted (2026-09-23)
 
-**Decision.** A delete is final from every client: there is no restore and no way to list deleted rows. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (contract: "Base Conventions", "There is no restore"). Delete prompts are unchanged.
+**Decision.** A delete is final from every client: there is no restore and no way to list deleted rows. The engine still soft-deletes, so `GET /activity` keeps the history; **undoing a delete is an operator task** (contract: "Base Conventions", "A delete is final"). Delete prompts are unchanged.
 
 **Rejected.** *A restore in this client only* — a write no other client has. *A "recently deleted" view* — a list shape for a rare operator action.
 
@@ -439,7 +439,7 @@ the bar is where the right file gets dropped next.
 
 ## Missing settings stop a multi-write run (2026-10-11)
 
-**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every route that lists that code (contract: "Error codes"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([runtime.md](runtime.md) "Bulk writes").
+**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every request its settings preconditions name (contract: "Base Conventions", "Settings preconditions"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally means one bad row, so the batch is retried row by row ([runtime.md](runtime.md) "Bulk writes").
 
 **Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. The test is the error code alone, in one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home.
 

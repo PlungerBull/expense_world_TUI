@@ -187,7 +187,7 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     # A system row's name is not for a user row: a user category, new or
     # renamed, cannot be named like `@Opening` or `@Pendiente`
     # (contract: POST /v1/categories, "Reserved names")
-    # (contract: PUT /v1/categories/{category_id}, "Reserved names on rename"), and a user
+    # (contract: PUT /v1/categories/{category_id}), and a user
     # hashtag, new or renamed, cannot take the pending hashtag's name, in any
     # letter case (contract: "Hashtags", "The built-in pending hashtag"). One line
     # for both.

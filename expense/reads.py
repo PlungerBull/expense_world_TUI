@@ -465,7 +465,7 @@ def fetch_rate(cfg, *, target: str, verbose: bool = False) -> dict:
 def rate_is_stale(body: dict) -> bool | None:
     """True when the requested day has no rate row of its own.
 
-    `GET /exchange-rates` (contract: "Staleness: `rate_date` is the signal")
+    `GET /exchange-rates` (contract: GET /v1/exchange-rates, "Staleness")
     returns both the day you asked about (`date`) and the
     day of the row it actually used (`rate_date`), and `rate_date < date` means
     the figure is being carried forward. That one comparison covers every way
@@ -490,9 +490,9 @@ def fetch_rate_staleness(cfg, *, target: str, verbose: bool = False) -> bool | N
     """Whether today's rate for `target` is missing — True/False, or None if unknown.
 
     A `404` is the same condition at its extreme (no rate at all on or before
-    today) and counts as stale (contract: "Staleness: `rate_date` is the
-    signal"). Every other engine error is
-    a question about the engine rather than about the rate, so it answers None.
+    today) and counts as stale (contract: GET /v1/exchange-rates, "Staleness").
+    Every other engine error is a question about the engine rather than about the
+    rate, so it answers None.
 
     Connection and config failures are deliberately not caught here: only the
     caller knows whether going quiet is the right response to being offline.

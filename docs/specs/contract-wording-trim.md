@@ -49,14 +49,6 @@ Nothing; the hand-off answers no ask.
 
 Approved by the owner on 2026-10-18.
 
-3. **Every contract citation points at a part the live contract holds, where it says.** Each
-   `(contract: …)` citation in the repo's code and docs is checked against the practice
-   engine's `/openapi.json`: a quoted section, rule or tag name exists in the place the citation
-   names (the general description, the tag, or the operation). The citations the trim broke are
-   pointed at the rules' new homes and names, among them *Staleness* under `Exchange Rates`,
-   *There is no restore*, and *Reserved names on rename*. A new live contract test reads every
-   citation in the repo and fails on one the live contract does not hold, so the next move is
-   caught by the tester's run. Passes check 2 of the engine's.
 4. **The fixture drift check passes on the Edit form's tests.** The test of the never-`null`
    rule in [test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py) holds the local
    names `note`, `operation` and `transaction`, which the drift script reads as fixture keys the

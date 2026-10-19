@@ -4,7 +4,7 @@ The header shows a `!` when today has no exchange rate of its own, so every
 home-currency figure on screen is priced at an older day's rate. There is no
 bespoke engine field behind it: `GET /exchange-rates` returns the day you asked
 about (`date`) and the day it actually used (`rate_date`), and the whole signal
-is `rate_date < date` (contract: "Staleness: `rate_date` is the signal").
+is `rate_date < date` (contract: GET /v1/exchange-rates, "Staleness").
 These lock the three halves that can independently rot: the comparison,
 what happens on an engine error, and the render.
 
