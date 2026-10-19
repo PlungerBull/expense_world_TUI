@@ -74,7 +74,7 @@ import pytest
 from expense.config import Config
 from expense.errors import EngineError
 from expense.formatting import signed_cents
-from tests.contract.conftest import reason_on
+from tests.contract.conftest import read_signed, reason_on
 
 
 def _safe(call, *args):
@@ -137,13 +137,6 @@ def _split(client, tx_id: str, amounts: list[int], written: list[str], **extra) 
     return client.post(f"/transactions/{tx_id}/split", json_body={"parts": parts})["parts"]
 
 
-def _signed(client, tx_id: str) -> dict:
-    """The transaction read signed, negative for money out: write responses carry
-    the magnitude and `transaction_type`
-    (contract: "Base Conventions", "Sign convention — responses")."""
-    return client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
-
-
 def _live_ids(client, account_id: str) -> set[str]:
     listed = client.get("/transactions", params={"account_id": account_id})
     return {item["id"] for item in listed["items"]}
@@ -176,7 +169,7 @@ def test_split_then_re_split_keep_the_line(client, statuses):
         assert statuses[-1] == 201
         first = body["parts"]
         assert [p["id"] for p in first] == [p["id"] for p in parts]
-        assert [_signed(client, p["id"])["amount_cents"] for p in first] == [-6000, -4000]
+        assert [read_signed(client, p["id"])["amount_cents"] for p in first] == [-6000, -4000]
         assert {p["bank_line_id"] for p in first} == {line}
         for part in first:
             assert part["title"] == "SUPERMERCADO LIMA"
@@ -188,7 +181,7 @@ def test_split_then_re_split_keep_the_line(client, statuses):
 
         # Re-split 60 + 40 into 70 + 30, by the id of the second part.
         second = _split(client, first[1]["id"], [-7000, -3000], written)
-        assert [_signed(client, p["id"])["amount_cents"] for p in second] == [-7000, -3000]
+        assert [read_signed(client, p["id"])["amount_cents"] for p in second] == [-7000, -3000]
         assert {p["bank_line_id"] for p in second} == {line}
         assert _live_ids(client, account) == {p["id"] for p in second}
         for gone in first:
@@ -224,9 +217,9 @@ def test_a_line_field_reaches_every_part_and_the_rest_stay_own(client):
             f"/transactions/{one['id']}",
             json_body={"amount_cents": -3500, "description": "vitamins"},
         )
-        mine = _signed(client, one["id"])
+        mine = read_signed(client, one["id"])
         assert (mine["amount_cents"], mine["description"]) == (-3500, "vitamins")
-        after = _signed(client, two["id"])
+        after = read_signed(client, two["id"])
         assert after["amount_cents"] == -2000
         assert after["description"] == before["description"]
         assert after["version"] == before["version"]

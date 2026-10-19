@@ -1,6 +1,6 @@
 # Catch up with the frozen archived account
 
-**Status: draft, 2026-10-18.** The owner picked its screens; its tasks wait for approval.
+**Status: approved, 2026-10-18.** The loop runs its tasks.
 **Catches up to contract `ab14bd54f4c8b016`:** every contract change after `15063ec5587491ad`.
 It holds the engine's hand-off "An archived account is frozen except for its transactions'
 categorisation". What it asks of this client is in the tasks, and its checks are in "The
@@ -62,23 +62,8 @@ reconciliation's `name`.
 
 ## Tasks
 
-Drafted 2026-10-18 from the owner's picks; wait for the owner's approval.
+Approved by the owner on 2026-10-18.
 
-1. **The live contract tests follow the freeze.** The archived-account test in
-   [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py) is turned
-   around: on an archived account's transaction, `PUT` of `category_id`, `hashtag_ids` and
-   `description` goes through; `PUT` of each of `amount_cents`, `date`, `title`,
-   `operation_code`, `account_id` and `reconciliation_id`, at its current value too, is `422`
-   `ACCOUNT_ARCHIVED` on that key, and a mixed `PUT` writes nothing and names only the frozen
-   keys; an empty `title` is filled once and then refused; `DELETE /transactions/{id}` and
-   `DELETE /bank-lines/{id}` are `409`, the split `422`, all `ACCOUNT_ARCHIVED`, the balance
-   unchanged; a row also in a completed reconciliation answers `ACCOUNT_ARCHIVED`, not
-   `LOCKED`. On its reconciliations, draft and completed, `PUT /reconciliations/{id}` is `422`
-   on every field sent, and complete, revert and delete are `409` `ACCOUNT_ARCHIVED`. After
-   `POST /accounts/{id}/unarchive` each refused write works again. Moving another account's
-   transaction onto an archived one stays `INVALID_REFERENCE`. Run against a practice engine
-   stopped and started fresh; every unit fixture passes the drift script. Passes check 4 of the
-   engine's.
 2. **A refusal on an archived account shows the engine's words alone.** `ACCOUNT_ARCHIVED`, as
    `VALIDATION_ERROR` and as `CONFLICT`, shows on every screen that sends one of the eight
    routes: the ledger's delete and bulk `b`, the Edit form and the bank-line Edit form, the split
@@ -101,5 +86,10 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
   answering every section of the hand-off named above.
 - **Done when, checked:** the four checks in "The engine's checks" above, with the tester's
   results.
-- **Contract problems found:** what the build and the tester's run find.
+- **Contract problems found:** what the build and the tester's run find, among them: the
+  contract describes bank lines whose parts sit on different accounts or days
+  (`SPLIT_LINE_PARTS_DIVERGE`, the import's match by operation code only, and "another part on
+  an archived account refuses too"), but no public route builds one: a split keeps the line's
+  account, a batch `line_group` must share it, and a `PUT` of `account_id` moves every part. Ask
+  whether such lines can exist and how; if they cannot, those rules can go.
 - **Asks this closes:** none.

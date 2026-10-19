@@ -22,6 +22,9 @@ What this pins, and why each is a contract claim rather than a client one:
   · moving an assigned row to another account must say what happens to its
     draft reconciliation; `reconciliation_id: null` in the same body moves and
     unassigns. The TUI's edit form and bulk `b` send exactly that.
+  · an archived account's reconciliations, draft and completed, refuse every
+    write as `ACCOUNT_ARCHIVED`, and its row in a completed one answers that
+    before `LOCKED`; unarchiving gives the writes back.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -489,4 +492,100 @@ def test_moving_an_assigned_row_needs_the_unassign_in_the_same_body(client):
         _safe_delete(client, f"/transactions/{tx_id}")
         _safe_delete(client, f"/reconciliations/{recon_id}")
         _safe_delete(client, f"/accounts/{other_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+#: Every field `PUT /reconciliations/{id}` takes.
+RECONCILIATION_FIELDS = (
+    "name",
+    "date_start",
+    "date_end",
+    "beginning_balance_cents",
+    "ending_balance_cents",
+)
+
+
+def test_an_archived_accounts_reconciliations_are_frozen_until_unarchived(client):
+    """On an archived account, a draft and a completed reconciliation alike: `PUT` is
+    `422` `ACCOUNT_ARCHIVED` on every field sent, `name` included and each at its
+    current value; complete, revert and delete are `409` `ACCOUNT_ARCHIVED` on
+    `reconciliation_id`, complete of the completed one and revert of the draft
+    included; both stay as they were
+    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts")
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "On an archived
+    account").
+
+    A row in the completed one answers `ACCOUNT_ARCHIVED` before `LOCKED` and
+    `IN_COMPLETED_RECONCILIATION` (contract: PUT /v1/transactions/{transaction_id},
+    "Checked first"). After `POST /accounts/{id}/unarchive` a `PUT` of the draft's
+    `name`, a revert and a complete again of the completed one, and a delete of the
+    draft go through (contract: POST /v1/accounts/{account_id}/unarchive).
+    """
+    account_id = _make_account(client)
+    tx_id = _make_transaction(client, account_id)
+    completed_id = _make_reconciliation(client, account_id)
+    draft_id = str(uuid4())
+    try:
+        client.post(
+            "/reconciliations",
+            json_body={
+                "id": draft_id,
+                "account_id": account_id,
+                "name": f"contract-recon-{draft_id[:8]}",
+                "date_start": "2026-05-01",
+                "date_end": "2026-05-31",
+                "beginning_balance_cents": 946000,
+                "ending_balance_cents": 946000,
+            },
+        )
+        client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": completed_id})
+        client.post(f"/reconciliations/{completed_id}/complete")
+        client.post(f"/accounts/{account_id}/archive")
+
+        with pytest.raises(EngineError) as locked_row:
+            client.put(f"/transactions/{tx_id}", json_body={"amount_cents": -9999})
+        assert locked_row.value.status == 422
+        assert locked_row.value.reasons == {"amount_cents": "ACCOUNT_ARCHIVED"}
+        with pytest.raises(EngineError) as undeletable_row:
+            client.delete(f"/transactions/{tx_id}")
+        assert undeletable_row.value.status == 409
+        assert undeletable_row.value.reasons == {"transaction_id": "ACCOUNT_ARCHIVED"}
+
+        before = {rid: client.get(f"/reconciliations/{rid}") for rid in (draft_id, completed_id)}
+        assert (before[draft_id]["status"], before[completed_id]["status"]) == (1, 2)
+        for recon_id, current in before.items():
+            path = f"/reconciliations/{recon_id}"
+            for body in (
+                {key: current[key] for key in RECONCILIATION_FIELDS},
+                {"name": f"{current['name']}-renamed"},
+            ):
+                with pytest.raises(EngineError) as refused:
+                    client.put(path, json_body=body)
+                assert refused.value.status == 422, (recon_id, body)
+                assert refused.value.reasons == dict.fromkeys(body, "ACCOUNT_ARCHIVED")
+            for call, route in (
+                (client.post, f"{path}/complete"),
+                (client.post, f"{path}/revert"),
+                (client.delete, path),
+            ):
+                with pytest.raises(EngineError) as refused:
+                    call(route)
+                assert (refused.value.status, refused.value.code) == (409, "CONFLICT"), route
+                assert refused.value.reasons == {"reconciliation_id": "ACCOUNT_ARCHIVED"}, route
+        assert {rid: client.get(f"/reconciliations/{rid}") for rid in before} == before
+
+        client.post(f"/accounts/{account_id}/unarchive")
+        renamed = client.put(
+            f"/reconciliations/{draft_id}", json_body={"name": f"contract-recon-{draft_id[:8]}-r"}
+        )
+        assert renamed["name"].endswith("-r")
+        assert client.post(f"/reconciliations/{completed_id}/revert")["status"] == 1
+        assert client.post(f"/reconciliations/{completed_id}/complete")["status"] == 2
+        assert client.delete(f"/reconciliations/{draft_id}")["deleted_at"] is not None
+    finally:
+        _safe(client.post, f"/accounts/{account_id}/unarchive")
+        _safe(client.post, f"/reconciliations/{completed_id}/revert")
+        _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/reconciliations/{draft_id}")
+        _safe_delete(client, f"/reconciliations/{completed_id}")
         _safe_delete(client, f"/accounts/{account_id}")

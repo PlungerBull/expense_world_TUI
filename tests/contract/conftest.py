@@ -36,6 +36,13 @@ def reason_on(err: EngineError, field: str) -> str | None:
     return err.reasons.get(field)
 
 
+def read_signed(client: ExpenseClient, tx_id: str) -> dict:
+    """The transaction read signed, negative for money out, so its `amount_cents` can
+    be compared or sent back as is: write responses carry the magnitude and
+    `transaction_type` (contract: "Base Conventions", "Sign convention — responses")."""
+    return client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_xdist_auto_num_workers(config):
     """Run this suite in one process when `-n auto` comes from pyproject's addopts.
