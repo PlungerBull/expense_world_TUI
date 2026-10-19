@@ -581,10 +581,15 @@ def load_account_index() -> AccountIndex:
     `archived` to stop offering what the engine would refuse.
     """
     rows = _load_rows("/accounts", {"include_archived": "true", "include_people": "true"})
-    archived = frozenset(
+    return AccountIndex(_id_name_map(rows), archived_ids(rows))
+
+
+def archived_ids(rows: list) -> frozenset[str]:
+    """The ids of the archived accounts among `rows`, one accounts read with
+    `include_archived`; the one copy for the ledger and the edit form."""
+    return frozenset(
         r["id"] for r in rows if isinstance(r.get("id"), str) and r.get("is_archived") is True
     )
-    return AccountIndex(_id_name_map(rows), archived)
 
 
 def load_account_name_map() -> dict[str, str]:
@@ -756,6 +761,10 @@ class QuickAddRefs:
     # has created it. It stays in `hashtags`, so it can be named; every
     # hashtag write drops it beside a real one (`hashtags_to_send`).
     pending_hashtag: tuple[str, str] | None = None
+    # The ids of the archived accounts, from the same accounts read. An
+    # archived account's transactions change only their categorisation; the
+    # edit form reads it to show the frozen fields read-only.
+    archived_accounts: frozenset[str] = frozenset()
 
     @property
     def pending_hashtag_id(self) -> str | None:
@@ -804,7 +813,8 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     * **One superset accounts fetch** (`include_archived`, `include_people`)
       feeds both the name map and the suggestion pool; the pool then drops
       archived accounts, so you cannot type your way into a retired one but a
-      transaction that already names one still renders.
+      transaction that already names one still renders; the same read gives
+      the archived ids (`archived_accounts`).
     * **System categories are excluded** from the pool — `@Opening` is the
       engine's own bookkeeping, and `@Pendiente` is what an *empty* category
       means, so neither is something a typed line names.
@@ -829,4 +839,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         pending=_pending_of(cats),
         opening=_opening_of(cats),
         pending_hashtag=pending_hashtag_of(tags),
+        archived_accounts=archived_ids(accts),
     )

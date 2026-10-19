@@ -37,6 +37,16 @@ and it carries no hashtag, not even the pending one
 (contract: PUT /v1/transactions/{transaction_id}). The form knows the row once
 the reference lists load (`QuickAddRefs.opening`).
 
+On a transaction whose account is archived only its categorisation changes
+(contract: PUT /v1/transactions/{transaction_id}, "Archived accounts"): date,
+title, amount and account show read-only and are never sent, at their current
+value either, and the form opens on the first field left, category. A title that
+is still empty stays editable, and its first value is sent once
+(contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled");
+reopened once filled, it is read-only like the rest. The form knows the account
+is archived from the same accounts read (`QuickAddRefs.archived_accounts`); a
+failed read leaves the form as on any row, and the engine judges the save.
+
 On a part of a split transaction, the hint under the bar adds `changes every
 part of the transaction` while the cursor is on date, title or account: the
 engine writes those three onto every part of the bank line, in one go
@@ -51,7 +61,9 @@ Operation › Amount › Account on a line never split; on a split line the amou
 gives way to a read-only `Parts` section under the summary, each part's amount
 and the line's total. The save is the same diffed PUT on one part; the engine
 writes date, title, operation and account onto every part
-(contract: PUT /v1/transactions/{transaction_id}, "Line fields").
+(contract: PUT /v1/transactions/{transaction_id}, "Line fields"). On an archived
+account's line every field is read-only except an empty title or operation
+code, filled once, as above.
 
 `enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
@@ -111,6 +123,11 @@ _HINTS = {
 # what the hint adds on them.
 _EVERY_PART = {"date", "title", "account"}
 EVERY_PART_NOTE = "changes every part of the transaction"
+# The fields an archived account's transaction never changes, and of them the
+# two that may be filled while empty
+# (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts").
+_FROZEN_ON_ARCHIVED = {"date", "title", "amount", "operation", "account"}
+_FILLED_ONCE = {"title", "operation"}
 # engine field name for each form key
 _ENGINE_FIELD = {
     "date": "date",
@@ -193,8 +210,9 @@ class EditFormScreen(FormScreen):
         # in place would change both and the edit diff would never see it.
         self._original = copy.deepcopy(self._values)
         # no client-side reconciliation locks: they rely on the engine's 422
-        # (not reliably detectable from the row). The one client lock is an
-        # opening balance's account, category and hashtags, set in `_set_entities`.
+        # (not reliably detectable from the row). The client locks are an
+        # opening balance's account, category and hashtags, and an archived
+        # account's frozen fields, both set in `_set_entities`.
 
     # ---- field sequence --------------------------------------------------
     def _sequence(self) -> list[str]:
@@ -247,10 +265,18 @@ class EditFormScreen(FormScreen):
             maps,
             refs.opening,
             refs.pending_hashtag_id,
+            refs.archived_accounts,
         )
 
     def _set_entities(
-        self, accounts, categories, hashtags, maps, opening=None, pending_tag=None
+        self,
+        accounts,
+        categories,
+        hashtags,
+        maps,
+        opening=None,
+        pending_tag=None,
+        archived=frozenset(),
     ) -> None:
         self._accounts, self._categories, self._hashtags = accounts, categories, hashtags
         self._pending_tag = pending_tag
@@ -259,9 +285,11 @@ class EditFormScreen(FormScreen):
             # an opening balance: the three fields it can never change show
             # read-only, and `_edit_payload` skips locked fields
             self._locked |= {"account", "category", "hashtags"}
-            if self._key in self._locked:
-                self._current = self._first_editable()
-                self._refresh_bar()
+        if self._record.get("account_id") in archived:
+            self._locked |= self._frozen_on_archived()
+        if self._key in self._locked:
+            self._current = self._first_editable()
+            self._refresh_bar()
         # resolve pre-filled ids → names.
         # resolve_name (shared) renders a null reference as "—" instead of
         # crashing on None[:8]
@@ -275,6 +303,17 @@ class EditFormScreen(FormScreen):
             )
         self._recompute(self.query_one("#bar", Input).value)
         self._refresh_view()
+
+    def _frozen_on_archived(self) -> set[str]:
+        """The fields of this form an archived account's transaction keeps as
+        they are: every frozen one, but a title or operation code still empty
+        (`_original` holds no value for it), which may be filled once."""
+        return {
+            key
+            for key in self._sequence()
+            if key in _FROZEN_ON_ARCHIVED
+            and not (key in _FILLED_ONCE and not self._original.get(key))
+        }
 
     # ---- FormScreen hooks --------------------------------------------------
     def _label(self, key: str) -> str:

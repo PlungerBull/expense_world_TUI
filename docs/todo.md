@@ -27,6 +27,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The Edit form when nothing on an archived line can change
+Asked 2026-10-18 · Blocks: nothing (it is reachable only from a list read before the account was archived)
+
+In Reconciliations ▸ "no batch", `⏎` on a line of an account archived after the list was read
+opens its Edit form with every line read-only (date, title, operation, amount, account), since
+an archived account's lines don't change. Nothing can be saved there.
+- **A.** Open it as now, every line read-only.
+- **B.** Don't open it; a note says the account is archived.
+
+**Recommended:** A, because it is rare, nothing is sent, and it shows what the line holds.
+
 ### `⏎` on an empty account or category on the Edit form
 Asked 2026-10-18 · Blocks: nothing (the form works either way)
 
@@ -62,6 +73,21 @@ ships (its why moves to [decisions.md](decisions.md)).
   [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
   `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
   does; the message it shows is wording the owner picks first.
+- **In a bar form, `⏎` does not save when no editable field lies ahead.** `FormScreen._advance`
+  in [_form.py](../expense/tui/screens/_form.py) saves only on the last field of the sequence,
+  so when the fields after the current one are all read-only, `⏎` does nothing and only `ctrl+s`
+  saves, against [tui.md](tui.md) "The bar forms' keys". It shows on the "no batch" Edit form of
+  an archived account's line with only its operation code (or title) still empty, and on Manage ▸
+  Accounts Edit after a failed opening-balance read. The fix saves when no editable field is
+  ahead.
+- **A read-only field can take typing when every field is read-only.** On the "no batch" Edit
+  form of an archived account's line whose title and operation code are both set, the bar opens
+  on DATE (`_first_editable` in [_form.py](../expense/tui/screens/_form.py) falls back to the
+  first field), and `⏎` writes the typed text into the summary as `<typed>  read-only`; `ctrl+s`
+  then says "No changes to save.", and nothing is sent. A typed value must not land on a
+  read-only line ([edit_form.py](../expense/tui/screens/edit_form.py) `on_input_submitted`);
+  what the form shows when nothing can change is the question "The Edit form when nothing on an
+  archived line can change" above.
 - **A comment cites a decisions.md heading in the wrong case.**
   [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
   heading in [decisions.md](decisions.md) is "The ledger fills the window".

@@ -352,65 +352,6 @@ def test_an_edit_that_keeps_the_account_sends_no_reconciliation_id(fake_client, 
     assert ("", "Saved.") in notices
 
 
-ARCHIVED_ACCOUNT = {
-    "id": "accX",
-    "name": "Old bank",
-    "currency_code": "PEN",
-    "is_person": False,
-    "is_archived": True,
-    "opening_balance_transaction_id": None,
-}
-
-
-def test_a_row_on_an_archived_account_saves_every_other_field_without_its_account(
-    fake_client, monkeypatch
-):
-    """The engine refuses a `PUT` that sends an archived account's id as
-    `account_id`, even unchanged, and takes every other field
-    (contract: POST /v1/accounts/{account_id}/archive). So an edit that
-    leaves the account alone never sends `account_id`, on a row whose account
-    is archived too, and the account field offers no archived account."""
-    _patch(monkeypatch)
-    monkeypatch.setattr(
-        "expense.reads.fetch_accounts", lambda *a, **k: whole([*ACCOUNTS, ARCHIVED_ACCOUNT])
-    )
-    record = {**TXN, "account_id": "accX"}
-
-    async def scenario(pilot, app):
-        screen = EditFormScreen(record=record, resource="transactions")
-        await app.push_screen(screen)
-        await _wait_loaded(screen, pilot)
-        for key, text in (
-            ("date", "2026-06-21"),
-            ("title", "Farmacia Inkafarma"),
-            ("amount", "-50"),
-            ("category", "Masc"),
-            ("hashtags", "trav"),
-        ):
-            screen._current = screen._sequence().index(key)
-            _enter(screen, text)
-        # the cursor passes the account field without picking anything
-        screen._current = screen._sequence().index("account")
-        screen._recompute("")
-        assert "accX" not in [ent[0] for ent in screen._suggestions]
-        screen.action_field(1)
-        screen._current = screen._sequence().index("note")
-        _enter(screen, "otra receta")  # note is last: enter saves
-        await wait_for(pilot, lambda: fake_client.puts)
-
-    run_app(scenario)
-    [(path, body)] = fake_client.puts
-    assert path == "/transactions/tx1"
-    assert "account_id" not in body and "reconciliation_id" not in body
-    assert body.pop("date").startswith("2026-06-21")
-    assert body == {
-        "title": "Farmacia Inkafarma",
-        "amount_cents": -5000,
-        "hashtag_ids": ["h1", "h2"],
-        "description": "otra receta",
-    }
-
-
 def test_a_move_on_a_completed_reconciliation_still_shows_the_lock(fake_client, monkeypatch):
     """The engine checks `LOCKED` first; the form shows its refusal and stays."""
     fake_client.errors["PUT"] = EngineError(
@@ -1239,3 +1180,374 @@ def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client
     assert body["account_id"] == "acc2"
     assert body["hashtag_ids"] == ["h1", "h2"]
     assert body["date"].startswith("2026-07-01T00:00:00")
+
+
+# ---- an archived account's transaction: the read-only lines alone (screen 2 B) ----
+# expense-world-archived-account.html, screen 2 B. Only the categorisation of an
+# archived account's transaction changes, and the refusal is on keys, not
+# changed values (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts");
+# an empty title or operation code may be filled once
+# (contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled").
+
+ARCHIVED_ACCOUNT = {
+    "id": "accX",
+    "name": "Old bank",
+    "currency_code": "PEN",
+    "is_person": False,
+    "is_archived": True,
+    "opening_balance_transaction_id": None,
+}
+ON_ARCHIVED = {**TXN, "account_id": "accX", "reconciliation_id": None}
+#: The keys no save on an archived account's transaction ever holds (an empty
+#: title or operation code filled aside).
+FROZEN_KEYS = {"amount_cents", "date", "title", "operation_code", "account_id", "reconciliation_id"}
+#: Each frozen field of the transaction form, by its form key: a new value, and
+#: its current one (pairs, not a dict: the drift check reads dict keys as fields).
+FROZEN_VALUES = dict(
+    [
+        ("date", ("2026-06-21", "2026-06-20")),
+        ("title", ("Farmacia Inkafarma", "Farmacia")),
+        ("amount", (-5000, -4250)),
+        ("account", ("acc2", "accX")),
+    ]
+)
+WITH_SALUD = {"items": [*CATEGORIES["items"], {"id": "cat2", "name": "Salud", "is_system": False}]}
+
+
+def _patch_archived(monkeypatch, *, categories=CATEGORIES):
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([*ACCOUNTS, ARCHIVED_ACCOUNT])
+    )
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: categories)
+
+
+def _summary_rows(screen) -> list[tuple[Text, Text]]:
+    table = screen._summary_renderable()
+    labels, values = (list(column._cells) for column in table.columns)
+    return list(zip(labels, values, strict=True))
+
+
+def test_an_archived_accounts_row_shows_date_title_amount_and_account_read_only(
+    fake_client, monkeypatch
+):
+    """Screen 2 B: date, title, amount and account read `… read-only`, dimmed,
+    as an opening balance's locked lines are; the form opens on CATEGORY, a
+    field move never lands on them, and no line says why."""
+    _patch_archived(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=ON_ARCHIVED, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._locked == {"date", "title", "amount", "account"}
+        assert screen._key == "category"
+        assert screen.query_one("#bar", Input).value == ""
+        assert screen.query_one("#hint", Static).content.plain == (
+            "pick an existing category · ↑↓ highlight · enter select"
+        )
+        summary = render_text(screen._summary_renderable(), width=60)
+        assert [line.rstrip() for line in summary.splitlines()] == [
+            "date      2026-06-20  read-only",
+            "title     Farmacia  read-only",
+            "amount    -42.50  read-only",
+            "account   Old bank  read-only",
+            "category  Mascotas",
+            "hashtags  #dog",
+            "note      receta",
+        ]
+        for label, value in _summary_rows(screen)[:4]:
+            assert (label.style, value.style) == ("dim", "dim")
+        assert not screen.query("#form-head")  # no heading, no line saying why
+        await pilot.press("shift+tab")
+        assert screen._key == "category"  # nothing editable above it
+        await pilot.press("up")
+        assert screen._key == "category"
+        await pilot.press("tab", "tab")
+        assert screen._key == "note"
+        await pilot.press("shift+tab", "shift+tab", "shift+tab")
+        assert screen._key == "category"
+
+    run_app(scenario)
+
+
+def test_an_opening_balance_and_an_archived_row_look_alike_where_locked(fake_client, monkeypatch):
+    """The account line of an archived account's row is drawn as an opening
+    balance's: `<name>  read-only`, the label and the value dimmed; an active
+    account's row locks nothing."""
+    _patch_archived(monkeypatch)
+
+    async def scenario(pilot, app):
+        drawn = []
+        for record in (OPENING, ON_ARCHIVED, {**ON_ARCHIVED, "account_id": "acc1"}):
+            screen = EditFormScreen(record=record, resource="transactions")
+            await app.push_screen(screen)
+            await _wait_loaded(screen, pilot)
+            drawn.append(screen)
+        return drawn
+
+    opening, archived, active = run_app(scenario)
+    assert active._locked == set()
+    index = TXN_FIELDS.index("account")
+    [(o_label, o_value), (a_label, a_value)] = [
+        _summary_rows(screen)[index] for screen in (opening, archived)
+    ]
+    assert (o_value.plain, a_value.plain) == ("BCP PEN  read-only", "Old bank  read-only")
+    assert o_label.plain == a_label.plain == "account"
+    assert (a_label.style, a_value.style) == (o_label.style, o_value.style) == ("dim", "dim")
+
+
+@pytest.mark.parametrize("field", list(FROZEN_VALUES))
+@pytest.mark.parametrize("which", ["new", "current"])
+def test_a_frozen_field_is_never_sent_at_a_new_or_its_current_value(
+    fake_client, monkeypatch, field, which
+):
+    """Whatever lands under a frozen field, a new value or the one it has, the
+    save sends only the category change, never the field's key."""
+    _patch_archived(monkeypatch, categories=WITH_SALUD)
+    notices = _record_notices(monkeypatch)
+    value = FROZEN_VALUES[field][0 if which == "new" else 1]
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=ON_ARCHIVED, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._values[field] = value
+        _enter(screen, "Salud")  # category
+        screen.action_submit()
+        await wait_for(pilot, lambda: ("", "Saved.") in notices)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"category_id": "cat2"})]
+
+
+def test_every_frozen_field_changed_still_sends_only_the_categorisation(fake_client, monkeypatch):
+    """Date, title, amount and account all set under their locks, then the
+    category, a hashtag and the note changed through the bar: the save holds
+    exactly those three keys."""
+    _patch_archived(monkeypatch, categories=WITH_SALUD)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=ON_ARCHIVED, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._values.update({key: new for key, (new, _) in FROZEN_VALUES.items()})
+        _enter(screen, "Salud")  # category
+        _enter(screen, "trav")  # hashtags: adds one and stays
+        _enter(screen, "")  # hashtags done
+        _enter(screen, "otra receta")  # note is last: enter saves
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    [(path, body)] = fake_client.puts
+    assert path == "/transactions/tx1"
+    assert not FROZEN_KEYS & set(body)
+    assert body == {
+        "category_id": "cat2",
+        "hashtag_ids": ["h1", "h2"],
+        "description": "otra receta",
+    }
+
+
+def test_an_account_set_under_the_lock_adds_no_unassign(fake_client, monkeypatch):
+    """`unassign_on_move` on an assigned row whose account is archived: a new
+    account set under the lock is no move, so no `reconciliation_id` goes with
+    the save and the note is a plain `Saved.`."""
+    _patch_archived(monkeypatch)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record={**ON_ARCHIVED, "reconciliation_id": "rec1"})
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._values["account"] = "acc2"
+        screen._current = screen._sequence().index("note")
+        _enter(screen, "otra receta")
+        await wait_for(pilot, lambda: notices)
+        assert not screen._leaves_reconciliation
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"description": "otra receta"})]
+    assert notices == [("", "Saved.")]
+
+
+def test_an_archived_rows_empty_title_is_filled_once(fake_client, monkeypatch):
+    """A title still empty stays editable, its look and hint as on any row: the
+    form opens on it, `⏎` goes on to category past amount and account, and the
+    save sends `title` once. Reopened with the title filled, it is read-only."""
+    _patch_archived(monkeypatch)
+    untitled = {**ON_ARCHIVED, "title": None}
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=untitled, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._locked == {"date", "amount", "account"}
+        assert screen._key == "title"
+        assert screen.query_one("#hint", Static).content.plain == "free text · enter to save"
+        assert "title     —  (optional)" in render_text(screen._summary_renderable(), width=60)
+        _enter(screen, "Retiro cajero")
+        assert screen._key == "category"
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+        await wait_for(pilot, lambda: app.screen is not screen)
+
+        reopened = EditFormScreen(record={**untitled, "title": "Retiro cajero"})
+        await app.push_screen(reopened)
+        await _wait_loaded(reopened, pilot)
+        assert reopened._locked == {"date", "title", "amount", "account"}
+        assert reopened._key == "category"
+        summary = render_text(reopened._summary_renderable(), width=60)
+        assert "title     Retiro cajero  read-only" in summary
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"title": "Retiro cajero"})]
+
+
+def test_an_archived_rows_empty_title_left_empty_sends_no_title(fake_client, monkeypatch):
+    _patch_archived(monkeypatch, categories=WITH_SALUD)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record={**ON_ARCHIVED, "title": None})
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("category")
+        _enter(screen, "Salud")
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"category_id": "cat2"})]
+
+
+def test_an_opening_balance_on_an_archived_account_keeps_only_its_note(fake_client, monkeypatch):
+    """Both locks at once: an opening balance's three, an archived account's
+    four; the form opens on NOTE, the one field left."""
+    _patch_archived(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record={**OPENING, "account_id": "accX"})
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        assert screen._locked == {"date", "title", "amount", "account", "category", "hashtags"}
+        assert screen._key == "note"
+
+    run_app(scenario)
+
+
+def test_a_failed_accounts_read_leaves_an_archived_row_as_any_row(fake_client, monkeypatch):
+    """With no accounts read the form cannot know the account is archived: it
+    is the form of any row, and the engine judges the save."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+
+    def fail(*a, **k):
+        raise EngineConnectionError("engine down")
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", fail)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=ON_ARCHIVED, resource="transactions")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: notices)
+        assert screen._locked == set()
+        assert screen._key == "date"
+
+    run_app(scenario)
+
+
+# The bank-line Edit form on an archived account's line ("no batch" opened before
+# the account was archived): the same rule for date, title, operation, amount
+# and account.
+ARCHIVED_LINE = {**BANK_LINE, "account_id": "accX"}
+UNNAMED_LINE = {
+    **ARCHIVED_LINE,
+    "operation_code": None,
+    "parts": [{**BANK_LINE["parts"][0], "title": None}],
+}
+
+
+def _open_line(line, monkeypatch, steps):
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    _patch_archived(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = BankLineEditFormScreen(line=line)
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        return await steps(screen, pilot, app)
+
+    return run_app(scenario)
+
+
+def test_an_archived_line_with_title_and_code_has_nothing_to_save(fake_client, monkeypatch):
+    """Every field of the line is frozen and drawn read-only; values set under
+    them, new or current, are never sent."""
+    notices = _record_notices(monkeypatch)
+
+    async def steps(screen, pilot, app):
+        assert screen._locked == set(LINE_FIELDS)
+        summary = render_text(screen._summary_renderable(), width=60)
+        assert summary.count("read-only") == len(LINE_FIELDS)
+        assert "operation  47391026  read-only" in summary
+        screen._values.update(
+            date="2026-06-21", title="OTRA", operation="1", amount=-1, account="acc2"
+        )
+        screen.action_submit()
+        screen._values.update(
+            date="2026-06-20", title="FARMACIA", operation="47391026", amount=-4250, account="accX"
+        )
+        screen.action_submit()
+        await wait_for(pilot, lambda: len(notices) == 2)
+
+    _open_line(ARCHIVED_LINE, monkeypatch, steps)
+    assert fake_client.puts == []
+    assert notices == [("", "No changes to save.")] * 2
+
+
+def test_an_archived_lines_empty_operation_code_is_filled_once(fake_client, monkeypatch):
+    """A line with no operation code and no title: both stay editable, the form
+    opens on the title, and the save sends the two first values alone."""
+
+    async def steps(screen, pilot, app):
+        assert screen._locked == {"date", "amount", "account"}
+        assert screen._key == "title"
+        _enter(screen, "FARMACIA")
+        assert screen._key == "operation"
+        _enter(screen, "47391026")
+        assert screen._key == "operation"  # nothing editable after it
+        screen._values.update(date="2026-06-21", amount=-1, account="acc2")
+        screen.action_submit()
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open_line(UNNAMED_LINE, monkeypatch, steps)
+    assert fake_client.puts == [
+        ("/transactions/p1", {"title": "FARMACIA", "operation_code": "47391026"})
+    ]
+
+
+def test_an_archived_lines_filled_code_reopens_read_only(fake_client, monkeypatch):
+    async def steps(screen, pilot, app):
+        assert screen._locked == {"date", "operation", "amount", "account"}
+        assert screen._key == "title"
+
+    _open_line({**UNNAMED_LINE, "operation_code": "47391026"}, monkeypatch, steps)
+
+
+def test_an_archived_split_line_freezes_its_fields_too(fake_client, monkeypatch):
+    """A split line shows no amount field; the other four follow the rule."""
+    split = {
+        **ARCHIVED_LINE,
+        "part_count": 2,
+        "net_cents": -10000,
+        "parts": [
+            {**BANK_LINE["parts"][0], "amount_cents": 6000},
+            {**BANK_LINE["parts"][0], "id": "p2", "amount_cents": 4000},
+        ],
+    }
+
+    async def steps(screen, pilot, app):
+        assert screen._locked == {"date", "title", "operation", "account"}
+
+    _open_line(split, monkeypatch, steps)

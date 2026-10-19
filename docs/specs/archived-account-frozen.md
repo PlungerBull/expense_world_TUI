@@ -64,12 +64,6 @@ reconciliation's `name`.
 
 Approved by the owner on 2026-10-18.
 
-4. **The Edit form on an archived account's transaction** shows read-only lines alone: date, title,
-   amount and account read-only and skipped, a title editable only while it is empty, and the
-   save sends only `category_id`, `hashtag_ids`, `description` and an empty title's first
-   value. The bank-line Edit form follows the same rule for its fields, its operation code
-   included. Unit tests: no frozen key is ever sent, at its current value either. Passes 2 above.
-
 ## Reply to the engine
 
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.

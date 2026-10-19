@@ -590,7 +590,7 @@ first currency leg does. The LOG bar's `$` picker, the edit forms' account field
 ledger's `b` picker offer no archived account (`QuickAddRefs.accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
-shows its name, and the edit form sends `account_id` only when it changes.
+shows its name, read-only on its Edit form (below).
 
 **On an archived account's row the ledger offers no `s` and no `d`** (screen 1 A of
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html)). The
@@ -605,6 +605,26 @@ names, one read per load (`reads.load_account_index`), so an account unarchived 
 Manage ▸ Accounts gets its `s` and `d` back at the ledger's next read (`r`, or any reload).
 The `?` card still lists `s` and `d`, as it does while rows are selected: it lists a screen's
 own keys as the screen declares them.
+
+**On an archived account's transaction the Edit form shows the read-only lines alone**
+(screen 2 B of [expense-world-archived-account.html](mockups/expense-world-archived-account.html)).
+Only such a transaction's categorisation changes, and the engine refuses `amount_cents`, `date`,
+`title`, `operation_code`, `account_id` and `reconciliation_id` sent even at their current value
+(contract: PUT /v1/transactions/{transaction_id}, "Archived accounts"). So the `⏎` edit form
+shows `date`, `title`, `amount` and `account` dimmed and marked `read-only`, as an opening
+balance's locked lines, every field move skips them, and it opens on `category`; nothing on it
+says why. The save sends only what changed among `category_id`, `hashtag_ids` and
+`description`, and never a `reconciliation_id`, since the account never changes. A title that
+is still empty may be filled once
+(contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled"): it stays
+editable, with its look and hint as on any row, the form opens on it, and its first value is
+saved; opened again once filled, it is read-only like the rest. The "no batch" Edit form
+follows the same rule on a line of an archived account, which only a list read before the
+account was archived still shows: `date`, `title`, `operation`, `amount` and `account` are
+read-only, but a title or operation still empty, filled once. The form learns which
+accounts are archived from the `GET /accounts` it already makes for its suggestions
+(`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that read fails,
+the form is as on any row and the engine judges the save ("When the engine says no" below).
 
 **Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).
