@@ -25,9 +25,12 @@ from expense.tui.screens.transactions import (
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
+    ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
+    archived_refusal,
     fake_ledger,
     hashtag_refusal,
     in_order,
@@ -402,6 +405,50 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
             "That account already has a row with this operation number: "
             "look there for a duplicate."
         )
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
+    fake_client, monkeypatch
+):
+    """Screen 3 A of expense-world-archived-account.html: `b` over a selection
+    that holds a row of an account archived since the ledger was read. The
+    "Refused" note names the row and gives the engine's words, each key it
+    refused with its words, and no line of the app's; the other rows still
+    move, and the refused row stays selected, as every refused row does."""
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/t2"):
+            raise archived_refusal(422, ARCHIVED_PUT_WORDS, *json_body)
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
+        assert [m for t, m in toasts if t == "Refused"] == [
+            f"row 2: VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
+            f"  account_id: {ARCHIVED_FIELD_WORDS}\n"
+            f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}"
+        ]
+        assert ("", "2 rows → BCP Oro PEN") in toasts
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert screen._selected == {"t2"}
 
     run_app(scenario, size=(120, 30))
 

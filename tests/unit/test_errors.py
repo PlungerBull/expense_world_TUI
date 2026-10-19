@@ -488,6 +488,11 @@ APP_FAULT = (
             "Leave the opening balance out of the selection.",
         ),
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
+        # archived-account 3 A: the engine's words alone, on every route that answers it
+        ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),
+        ("CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED", False, None),
+        ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
+        ("VALIDATION_ERROR", "ending_balance_cents", "ACCOUNT_ARCHIVED", True, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
         # 3A

@@ -154,6 +154,41 @@ def hashtag_refusal(code: str, status: int, reason: str, *, item: int | None = N
     )
 
 
+#: The engine's words on each key a write on an archived account refuses, every
+#: route alike (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
+#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts").
+ARCHIVED_FIELD_WORDS = "The account is archived. Unarchive it first."
+#: The engine's message on a refused `PUT /transactions/{id}`.
+ARCHIVED_PUT_WORDS = (
+    "The transaction's account is archived: only its category, hashtags and description "
+    "can change. Unarchive the account first."
+)
+#: The engine's message on a refused `PUT /reconciliations/{id}`.
+ARCHIVED_RECONCILIATION_PUT_WORDS = (
+    "The reconciliation's account is archived. Unarchive the account first."
+)
+
+
+def archived_words(verb: str, thing: str) -> str:
+    """The engine's message on a refused delete, split, complete or revert:
+    `Cannot <verb> a <thing> on an archived account. Unarchive the account first.`"""
+    return f"Cannot {verb} a {thing} on an archived account. Unarchive the account first."
+
+
+def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
+    """The engine's `ACCOUNT_ARCHIVED` refusal, naming each of `keys` with
+    `ARCHIVED_FIELD_WORDS`: a `409 CONFLICT` on a delete, a complete or a
+    revert, a `422 VALIDATION_ERROR` on a `PUT` or a split
+    (contract: DELETE /v1/transactions/{transaction_id})
+    (contract: POST /v1/transactions/{transaction_id}/split)
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete)."""
+    code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
+    fields = dict.fromkeys(keys, ARCHIVED_FIELD_WORDS)
+    reasons = dict.fromkeys(keys, "ACCOUNT_ARCHIVED")
+    body = error_body(code, message, fields, reasons)
+    return EngineError(code, message, fields, status, body, reasons=reasons)
+
+
 def refusal_text(err: EngineError, line: str | None) -> str:
     """What the app shows for `err`: the engine's words whole, then its line, if any."""
     fields = [f"  {k}: {v}" for k, v in (err.fields or {}).items()]

@@ -12,12 +12,17 @@ from expense.tui.screens.reconciliations import (
 )
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
+    ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    archived_refusal,
+    archived_words,
     bank_line_row,
     cursor_page,
     import_part,
     in_order,
+    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -1171,6 +1176,48 @@ def test_a_refused_save_shows_the_engine_words_and_the_form_stays(monkeypatch, f
     assert fake_client.puts == [("/transactions/bl-farm-p1", {"operation_code": "47391026"})]
 
 
+def test_a_save_on_an_archived_account_shows_the_engine_words_alone(monkeypatch, fake_client):
+    """Screen 3 A of expense-world-archived-account.html: the form was opened
+    before the line's account was archived, and a new operation number is
+    saved. The "Failed" note is the engine's words, its field's words under
+    them, and no line of the app's; the form stays open with what was typed,
+    and "no batch" is not read again."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    calls, _counts = _patch_form(monkeypatch)
+    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "operation_code")
+    fake_client.errors["PUT"] = err
+    notices: list = []
+    monkeypatch.setattr(
+        BankLineEditFormScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, str(message))),
+    )
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-farm")
+        reads = len(calls)
+        form.action_field(1)
+        form.action_field(1)
+        _type_and_enter(form, "47391026")
+        typed = dict(form._values)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notices and not form._submitting)
+        assert notices == [
+            (
+                "Failed",
+                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
+                f"  operation_code: {ARCHIVED_FIELD_WORDS}",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert app.screen is form and form._values == typed
+        assert len(calls) == reads
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/bl-farm-p1", {"operation_code": "47391026"})]
+
+
 def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypatch, fake_client):
     calls, _counts = _patch_form(monkeypatch)
 
@@ -1400,6 +1447,52 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
         await pilot.pause()
         assert notes == [("Failed", list_refusal_text(err))]
         assert notes[0][1].startswith(f"{code} — {SEALED_LINE_WORDS}")
+        assert len(calls) == reads and len(screen._batch_list._rows) == 3
+        assert screen._batch_list.cursor_key == row
+
+    run_app(scenario)
+    assert fake_client.deletes == [path]
+
+
+@pytest.mark.parametrize(
+    ("row", "path", "thing", "key"),
+    [
+        ("bl-farm", "/bank-lines/bl-farm", "bank line", "bank_line_id"),
+        ("bl-net", "/transactions/bl-net-p1", "transaction", "transaction_id"),
+    ],
+    ids=["purchase", "transaction"],
+)
+def test_a_delete_on_an_archived_account_shows_the_engine_words_alone(
+    monkeypatch, fake_client, row, path, thing, key
+):
+    """Screen 3 A of expense-world-archived-account.html: the pane was read
+    before the account was archived, and `d` then `y` is refused. The "Failed"
+    note is the engine's words alone, no line of the app's under them, and the
+    list is as it was: not read again, its rows and cursor kept."""
+    from expense.tui.screens.modals import ConfirmModal
+
+    _patch_browse(monkeypatch)
+    calls, _counts = _patch_unfiled(monkeypatch)
+    err = archived_refusal(409, archived_words("delete", thing), key)
+    fake_client.errors["DELETE"] = err
+
+    async def scenario(pilot, app):
+        screen = await _open_unfiled(pilot, app)
+        notes = _notes(monkeypatch, screen)
+        await _cursor_on(pilot, screen, row)
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert notes == [
+            (
+                "Failed",
+                f"CONFLICT — {archived_words('delete', thing)}\n  {key}: {ARCHIVED_FIELD_WORDS}",
+            )
+        ]
+        assert notes[0][1] == refusal_text(err, None)
         assert len(calls) == reads and len(screen._batch_list._rows) == 3
         assert screen._batch_list.cursor_key == row
 

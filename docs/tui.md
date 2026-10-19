@@ -356,10 +356,10 @@ each hanging under its own words (`hanging` in
 engine says no" below). The amounts a `parts.<i>.amount_cents` key names turn the error colour
 in the table.
 `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words giving
-both totals in cents), and every other refusal of the route, `OPENING_BALANCE_NOT_SPLIT`,
-`SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`, `ZERO_AMOUNT`, `INVALID_REFERENCE`,
-`RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`, `ID_EXISTS`,
-`RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way, and so does `LOCKED` on `title`:
+both totals in cents), and every other refusal of the route, `ACCOUNT_ARCHIVED`,
+`OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`,
+`ZERO_AMOUNT`, `INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
+`ID_EXISTS`, `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way, and so does `LOCKED` on `title`:
 a transaction in a completed reconciliation may be split, but a changed title is refused, with
 any part's refusal from the same `422`, and nothing is split (screen 6). A failure that is not
 the engine's answer (the engine out of reach) shows the app's error text there instead.
@@ -682,6 +682,7 @@ line and one line of the app's saying what to do. Screens in
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete or revert; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |

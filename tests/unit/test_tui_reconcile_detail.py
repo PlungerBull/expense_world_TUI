@@ -16,10 +16,16 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import ReconciliationDetailScreen, line_rows
 from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
+    ARCHIVED_PUT_WORDS,
+    ARCHIVED_RECONCILIATION_PUT_WORDS,
     ENGINE_URL,
+    archived_refusal,
+    archived_words,
     bank_line_row,
     cursor_page,
     import_part,
+    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -492,6 +498,47 @@ def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, mon
     run_app(scenario)
 
 
+def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
+    """Screen 3 A of expense-world-archived-account.html: the batch was opened
+    before its account was archived, and `space` is refused. `Couldn't update`
+    carries the engine's words and its `reconciliation_id` words, no line of
+    the app's; the list is read again as after any refused tick, the engine's
+    ticks kept and the cursor on row 1."""
+    _patch(monkeypatch)
+    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "reconciliation_id")
+    fake_client.errors["PUT"] = err
+    notices: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, message)),
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        first = screen._list
+        first._cursor = 2
+        await pilot.press("space")
+        await wait_for(pilot, lambda: notices)
+        await wait_for(pilot, lambda: screen._list is not first)
+        assert notices == [
+            (
+                "Couldn't update",
+                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
+                f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert screen._list.checked == {"l1"}
+        assert screen._list.cursor_key == "l1"
+        assert screen._record["status"] == 1
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/t2a", {"reconciliation_id": "r1"})]
+
+
 def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_client, monkeypatch):
     """Tick A lands while tick B waits behind it, then B is refused: A moved the
     month's `diff`, so the screen reads the month again as well as its lines,
@@ -880,6 +927,54 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
         ]
 
     run_app(scenario)
+
+
+@pytest.mark.parametrize(
+    ("key", "verb", "method", "path"),
+    [
+        ("c", "complete", "POST", "/reconciliations/r1/complete"),
+        ("u", "revert", "POST", "/reconciliations/r1/revert"),
+        ("d", "delete", "DELETE", "/reconciliations/r1"),
+    ],
+    ids=["complete", "revert", "delete"],
+)
+def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
+    fake_client, monkeypatch, key, verb, method, path
+):
+    """Screen 3 A of expense-world-archived-account.html: the batch was opened
+    before its account was archived; `c`, `u` or `d`, then `y`, is refused.
+    `Couldn't <verb>` carries the engine's words and its `reconciliation_id`
+    words, no line of the app's; the batch stays open as a draft."""
+    _patch(monkeypatch)
+    _fresh_read(monkeypatch, DRAFT)  # a refused complete reads the batch fresh
+    err = archived_refusal(409, archived_words(verb, "reconciliation"), "reconciliation_id")
+    fake_client.errors[method] = err
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT), currency="PEN")
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press(key)
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notices)
+        await pilot.pause()
+        assert notices == [
+            (
+                f"Couldn't {verb}",
+                f"CONFLICT — {archived_words(verb, 'reconciliation')}\n"
+                f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}",
+                "error",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert app.screen is screen
+        assert screen._record["status"] == 1 and not screen._busy
+        assert screen._list.checked == {"l1"}
+
+    run_app(scenario)
+    assert [(m, p) for m, p, _b in fake_client.calls if m != "GET"] == [(method, path)]
 
 
 def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatch):
@@ -1394,6 +1489,41 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
         assert not screen._busy
 
     run_app(scenario)
+
+
+def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
+    fake_client, monkeypatch
+):
+    """Screen 3 A of expense-world-archived-account.html: `c` on a draft with
+    no ending balance, opened before its account was archived; the figure's
+    save is refused. `Couldn't save` carries the engine's words and its
+    `ending_balance_cents` words, no line of the app's; nothing is completed
+    and the end stays empty."""
+    _patch(monkeypatch)
+    err = archived_refusal(422, ARCHIVED_RECONCILIATION_PUT_WORDS, "ending_balance_cents")
+    fake_client.errors["PUT"] = err
+    notices = _notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: notices)
+        assert notices == [
+            (
+                "Couldn't save",
+                f"VALIDATION_ERROR — {ARCHIVED_RECONCILIATION_PUT_WORDS}\n"
+                f"  ending_balance_cents: {ARCHIVED_FIELD_WORDS}",
+                "error",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert app.screen is screen and not screen._busy
+        assert screen._record["ending_balance_cents"] is None
+
+    run_app(scenario)
+    assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": 1385320})]
+    assert fake_client.posts == []
 
 
 def test_saved_then_complete_refused_says_which_half_went_through(fake_client, monkeypatch):

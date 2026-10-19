@@ -22,9 +22,12 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.theme import ACCENT
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
+    ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
+    archived_refusal,
     hashtag_refusal,
     import_part,
     in_order,
@@ -892,6 +895,39 @@ def test_a_hashtag_refusal_on_the_form_shows_as_sent(
     fake_client.errors["PUT"] = err
     notices = _tag_and_save(ON_PENDING, ["dog"], fake_client, monkeypatch, settle=bool)
     assert notices == [("Failed", refusal_text(err, line))]
+
+
+def test_a_save_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
+    """Screen 3 A of expense-world-archived-account.html: the form was opened
+    before the row's account was archived, and a new amount is saved. The
+    "Failed" note is the engine's words, its field's words under them, and no
+    line of the app's; the form stays open with what was typed."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "amount_cents")
+    fake_client.errors["PUT"] = err
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("amount")
+        _enter(screen, "-50.00")
+        typed = dict(screen._values)
+        screen.action_submit()
+        await wait_for(pilot, lambda: notices and not screen._submitting)
+        assert notices == [
+            (
+                "Failed",
+                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n  amount_cents: {ARCHIVED_FIELD_WORDS}",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert app.screen is screen
+        assert screen._values == typed
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"amount_cents": -5000})]
 
 
 # ---- a part of a split purchase: the every-part note (screen 1 B) ----------

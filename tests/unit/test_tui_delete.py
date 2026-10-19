@@ -24,7 +24,10 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
+    archived_refusal,
+    archived_words,
     bank_line_row,
     error_response,
     fake_ledger,
@@ -560,6 +563,45 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
         run_app(scenario, size=SIZE)
 
 
+def test_a_transaction_on_an_archived_account_shows_only_the_engine_words(configured, monkeypatch):
+    """Screen 3 A of expense-world-archived-account.html: the ledger was read
+    before the row's account was archived, and `d` then `y` is refused. The
+    "Failed" note is the engine's words alone, no line of the app's under them,
+    and the list is as it was: not read again, its rows and cursor kept."""
+    calls = _stub_ledger(monkeypatch, list(LEDGER[:3]))
+    err = archived_refusal(409, archived_words("delete", "transaction"), "transaction_id")
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        notes = _record_notes(monkeypatch, screen)
+        await _open_ledger(pilot, app, screen)
+        await _cursor_on(pilot, screen, "t2")
+        reads = len(calls)
+        await pilot.press("d")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        await pilot.pause()
+        assert notes == [
+            (
+                "Failed",
+                f"CONFLICT — {archived_words('delete', 'transaction')}\n"
+                f"  transaction_id: {ARCHIVED_FIELD_WORDS}",
+            )
+        ]
+        assert notes[0][1] == refusal_text(err, None)
+        assert len(calls) == reads and len(screen._rows) == 3
+        assert screen.query_one(CursorList).cursor_key == "t2"
+
+    with respx.mock() as engine:
+        _one_part_lines(engine)
+        route = engine.delete(f"{ENGINE_URL}/v1/transactions/t2").mock(
+            error_response(err.status, err.code, err.message, err.fields, err.reasons)
+        )
+        run_app(scenario, size=SIZE)
+    assert route.call_count == 1
+
+
 def test_a_delete_refusal_with_no_reason_gets_no_line(configured, monkeypatch):
     """A `409` on the very route whose refusal has a line, but with no reason,
     gets none: the line follows the reason, never the status and the route."""
@@ -852,16 +894,25 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
         (404, "NOT_FOUND", "Bank line not found.", None, None),
+        # archived-account 3 A: the engine's words alone
+        (
+            409,
+            "CONFLICT",
+            archived_words("delete", "bank line"),
+            {"bank_line_id": ARCHIVED_FIELD_WORDS},
+            {"bank_line_id": "ACCOUNT_ARCHIVED"},
+        ),
     ],
-    ids=["completed-reconciliation", "gone"],
+    ids=["completed-reconciliation", "gone", "archived-account"],
 )
 def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
     configured, monkeypatch, line_engine, status, code, words, fields, reasons
 ):
     """3d: the engine refuses; nothing is deleted, the list is not read again and
     the cursor stays on the part. The note is the engine's words whole: its
-    message already says to revert the reconciliation to draft, so the app adds
-    no line, and any other refusal reads as every delete's does."""
+    message already says to revert the reconciliation to draft, or to unarchive
+    the account, so the app adds no line, and any other refusal reads as every
+    delete's does."""
     rows, line = _split_ledger(2)
     calls = _stub_ledger(monkeypatch, rows)
     line_engine.get_responses["/bank-lines/bl-farm"] = line
@@ -887,7 +938,7 @@ def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
     assert line_engine.deletes == ["/bank-lines/bl-farm"]
     if code == "CONFLICT":
         assert refusal_text(err, None) == (
-            f"CONFLICT — {SEALED_LINE_WORDS}\n  bank_line_id: {SEALED_LINE_FIELD}"
+            f"CONFLICT — {words}\n  bank_line_id: {fields['bank_line_id']}"
         )
 
 

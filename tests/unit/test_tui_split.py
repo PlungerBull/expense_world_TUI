@@ -36,8 +36,11 @@ from expense.tui.theme import ACCENT, PALETTE
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.refusal import hanging
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
     FakeClient,
+    archived_refusal,
+    archived_words,
     cursor_page,
     import_part,
     render_text,
@@ -1167,6 +1170,35 @@ def test_every_other_refusal_shows_the_engine_words_in_the_same_place(
         assert [row for row in tail[3:] if row] == []
     else:
         assert [row for row in tail[3:] if row] == [line]
+
+
+def test_a_split_on_an_archived_account_shows_the_engine_words_alone(engine):
+    """Screen 3 A of expense-world-archived-account.html: the split screen was
+    opened before the account was archived, and `^s` is refused. Under the
+    parts: the engine's words, its `transaction_id` words, `Nothing was split.`
+    and no line of the app's; the screen stays with the parts as typed."""
+    words = archived_words("split", "transaction")
+    engine.errors["POST"] = archived_refusal(422, words, "transaction_id")
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-60")
+        await _add_part(pilot, screen, "-40")
+        typed = list(screen._parts)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: screen._refusal is not None)
+        assert app.screen is screen
+        assert screen._parts == typed
+        return _text(screen, "#parts")
+
+    shown = run_app(scenario, size=SIZE)
+    lines = [row.strip() for row in shown.splitlines()]
+    tail = lines[lines.index(f"VALIDATION_ERROR — {words}") :]
+    assert [row for row in tail[1:] if row] == [
+        f"! transaction_id: {ARCHIVED_FIELD_WORDS}",
+        "Nothing was split.",
+    ]
+    assert len(engine.posts) == 1
 
 
 def test_part_keys_read_by_number():

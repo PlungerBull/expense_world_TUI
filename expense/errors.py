@@ -131,6 +131,9 @@ _APP_FAULT = (
 #: `IN_COMPLETED_RECONCILIATION`, whose message already says to revert the
 #: reconciliation to draft first (contract: DELETE /v1/transactions/{transaction_id})
 #: (contract: DELETE /v1/bank-lines/{bank_line_id}),
+#: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account first
+#: (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
+#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts"),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {

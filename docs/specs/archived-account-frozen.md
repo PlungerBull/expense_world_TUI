@@ -64,11 +64,6 @@ reconciliation's `name`.
 
 Approved by the owner on 2026-10-18.
 
-2. **A refusal on an archived account shows the engine's words alone.** `ACCOUNT_ARCHIVED`, as
-   `VALIDATION_ERROR` and as `CONFLICT`, shows on every screen that sends one of the eight
-   routes: the ledger's delete and bulk `b`, the Edit form and the bank-line Edit form, the split
-   screen's refusal lines, the "no batch" delete, and a reconciliation's `space`, `c`, `u` and
-   `d`, with no line of the app's own added. Unit tests: one per screen. Passes 4 above and check 3 of the engine's.
 3. **The ledger knows an archived account's rows** from the accounts read's `is_archived`, and
    hides `s` and `d` while the cursor is on one; the row is drawn as any other. Unit tests: the
    footer on such a row and on any other, and after an unarchive. Passes 1 and 3 above.
