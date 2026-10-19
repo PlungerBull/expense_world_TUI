@@ -62,6 +62,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
   `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
   does; the message it shows is wording the owner picks first.
+- **A comment cites a decisions.md heading in the wrong case.**
+  [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
+  heading in [decisions.md](decisions.md) is "The ledger fills the window".
 - **Two unit tests fail at random in CI.** Each fails now and then on one Python version and
   passes on the others, because it reads the screen before the screen has finished drawing:
   `test_config_screen_shows_only_the_engine_connection`
@@ -174,7 +177,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   the practice engine without the key reaching a file. Load the settings once at launch and hand
   them to every screen; then the pipe form in [runtime.md](runtime.md) works for the app.
 
-- **A test docstring tells history.** `test_tui_reconciliations.py` line 157 says "`date_start`
+- **A test docstring tells history.** `test_tui_reconciliations.py` line 183 says "`date_start`
   orders the batch now"; state it in the present tense
   ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
 

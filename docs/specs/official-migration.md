@@ -1,7 +1,7 @@
 # Move the official data into the app
 
 **Status: draft, deferred.** The loop does not start on it until the owner says so; its open
-questions are in [todo.md](../todo.md) "Waiting on you".
+questions are in [before-the-official-import.md](before-the-official-import.md).
 Background and the engine's rules: [file-import-plan.md](../file-import-plan.md) §6 and §10.
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -25,7 +25,7 @@ Nothing typed into the app before the wipe is kept.
   means the same: the row goes to `@Pendiente`, and an empty hashtag cell to the pending hashtag
   (owner, 2026-10-17) — such a row is imported, never skipped. The sheet stays as it is and
   a re-run never brings the names back. The app finds the pending hashtag by its system key
-  ([decisions.md](../decisions.md) "Split purchases, the pending hashtag and system rows").
+  ([decisions.md](../decisions.md) "Split transactions, the pending hashtag and system rows").
 - The sheet comes in as it is: one transaction per row. Rows split from one bank purchase are
   not grouped; how to mark them is decided later. Everything up to 31-Dec-2025 is accepted as
   imported.

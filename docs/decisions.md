@@ -556,3 +556,36 @@ wrong. *The reason followed by what changed* (`· day 03 Oct → 04 Oct`) — th
 rows short. *A reason of its own for a move* — the owner keeps the list short; the count says
 it. *The table again after importing* — the preview already gave it. *A ✓ on a stopped move* —
 it hides a reconciliation to check.
+
+## Every contract citation is checked against the live contract (2026-10-18)
+
+**Decision.** [tests/contract/test_contract_citations.py](../tests/contract/test_contract_citations.py)
+reads every `(contract: …)` citation in the repo's code, tests and docs and fails, naming the
+file and line, on one whose operation, tag, section or rule heading the live contract does not
+hold in the place the citation names. Its docstring defines what counts as a heading. It runs
+with the rest of the live suite, so the tester's acceptance check catches a citation the engine
+moved or renamed.
+
+**Why.** The engine moves and renames rules between versions without changing behaviour
+(contract `15063ec5587491ad` moved a dozen and renamed several), and a citation that no longer
+resolves sends the next reader looking for a rule that is not where it says. A name-and-place
+check is mechanical, so it is a test, not a sweep someone has to remember.
+
+**Rejected.** *A hermetic unit test over a saved copy of the contract* — no copy is kept ("The
+engine is learned only from its live contract"). *Checking only that each quoted name appears
+somewhere* — a rule moved to another tag would still pass while the citation sends readers to
+the wrong place.
+
+## A form never sends `null` where the engine refuses it (2026-10-18)
+
+**Decision.** The Edit form sends `null` only for the fields the engine clears with it
+(`reconciliation_id`, `title`, `operation_code`); an emptied note is sent as
+`description: ""` (contract: PUT /v1/transactions/{transaction_id}). A unit test empties every
+field of both Edit forms and fails on any other `null`.
+
+**Why.** An explicit `null` is `NOT_NULL` on every other field, so a `null` there is a refusal
+the owner did nothing to cause. Pinning it field by field keeps a new field from bringing the
+bug back.
+
+**Rejected.** *Leaving an emptied note unsent* — the old note stays, and the owner's emptying is
+silently lost.

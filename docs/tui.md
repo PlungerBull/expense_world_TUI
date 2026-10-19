@@ -583,7 +583,11 @@ browse, the new-reconciliation form and the bank import's "Which account is this
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
-first currency leg does.
+first currency leg does. The LOG bar's `$` picker, the edit forms' account field and the
+ledger's `b` picker offer no archived account (`QuickAddRefs.accounts` in
+[reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
+`account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
+shows its name, and the edit form sends `account_id` only when it changes.
 
 **Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).
@@ -1188,8 +1192,9 @@ make rows fit that do not. Width has **no** floor of any kind.
 - **`fake_client` (conftest) patches the lazy-import seams only** —
   `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on
   `client.calls` / `.posts` / `.puts` ordering.
-- **`test_command_surface.py` pins the typed surface.** `expense` alone opens the app
-  and `import sheet` is the only command; a command added or removed fails it.
+- **The typed surface is pinned** by
+  [test_command_surface.py](../tests/unit/test_command_surface.py) (CLAUDE.md "Testing
+  conventions").
 
 **Known, accepted:** a screen load may open several short-lived clients (Transactions:
 the page and three name maps; the bulk pickers' reference lists load once, on the first
