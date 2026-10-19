@@ -49,13 +49,6 @@ Nothing; the hand-off answers no ask.
 
 Approved by the owner on 2026-10-18.
 
-2. **The archived-account rule has a live contract test.** On a transaction whose account is
-   archived, `PUT` of `category_id` and `description`, a split and a delete go through, and a
-   `PUT` that sends the archived account's `account_id`, even unchanged, is `422`
-   `INVALID_REFERENCE` on `account_id`. A unit test pins that the Edit form and the ledger's
-   bulk `b` never put an archived account's id in a body: the form sends `account_id` only when
-   it changes, and the account picker offers no archived account. Passes 2 above and check 3 of
-   the engine's.
 3. **Every contract citation points at a part the live contract holds, where it says.** Each
    `(contract: …)` citation in the repo's code and docs is checked against the practice
    engine's `/openapi.json`: a quoted section, rule or tag name exists in the place the citation
@@ -64,6 +57,12 @@ Approved by the owner on 2026-10-18.
    *There is no restore*, and *Reserved names on rename*. A new live contract test reads every
    citation in the repo and fails on one the live contract does not hold, so the next move is
    caught by the tester's run. Passes check 2 of the engine's.
+4. **The fixture drift check passes on the Edit form's tests.** The test of the never-`null`
+   rule in [test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py) holds the local
+   names `note`, `operation` and `transaction`, which the drift script reads as fixture keys the
+   engine does not serve. `python scripts/check_fixture_drift.py --engine-url
+   http://127.0.0.1:8002` reports no fixture key the engine does not serve, by rewording the
+   test or listing the names as local in the script, whichever the script's own rules call for.
 
 ## Reply to the engine
 

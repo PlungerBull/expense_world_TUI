@@ -8,6 +8,10 @@ resource.
 Every lifecycle ends on "deleted is deleted": the row leaves
 every list, its get is a 404, and there is no `restore`.
 
+An archived account's transactions stay editable, splittable and deletable, but
+a `PUT` that sends the archived account's id as `account_id` is refused, even
+unchanged (contract: POST /v1/accounts/{account_id}/archive).
+
 An account or a category created with no `color` comes back with the engine's
 default colour.
 
@@ -15,11 +19,13 @@ Hits a real engine. Gating, target resolution and the real-ledger guard live in
 conftest.py; uses ExpenseClient directly so each test owns its idempotency keys.
 """
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 
 from expense.errors import EngineError
+from tests.contract.conftest import reason_on
 
 
 def _list_all(client, resource: str, **flags) -> list[dict]:
@@ -141,6 +147,81 @@ def test_hashtags_lifecycle(client):
             client.delete(f"/hashtags/{new_id}")
         except Exception:
             pass
+
+
+def test_an_archived_accounts_transaction_stays_editable_but_refuses_its_account_id(client):
+    """On a transaction whose account is archived, a `PUT` of `category_id` and of
+    `description`, a split and a delete each go through; a `PUT` sending the
+    archived account's own `account_id`, unchanged, is `422` `INVALID_REFERENCE`
+    on `account_id` and writes nothing (contract: POST /v1/accounts/{account_id}/archive).
+    So the Edit form sends `account_id` only when it changes, and no picker offers
+    an archived account."""
+    account_id = str(uuid4())
+    category_id = str(uuid4())
+    tx_id = str(uuid4())
+    part_ids = [str(uuid4()), str(uuid4())]
+    client.post(
+        "/accounts",
+        json_body={
+            "id": account_id,
+            "name": f"contract-arch-{account_id[:8]}",
+            "currency_code": "PEN",
+        },
+    )
+    try:
+        client.post(
+            "/categories",
+            json_body={"id": category_id, "name": f"contract-cat-{category_id[:8]}"},
+        )
+        client.post(
+            "/transactions",
+            json_body={
+                "id": tx_id,
+                "title": "archived-row",
+                "amount_cents": -1000,
+                "account_id": account_id,
+                "date": datetime.now(UTC).isoformat(timespec="seconds"),
+            },
+        )
+        client.post(f"/accounts/{account_id}/archive")
+        assert client.get(f"/accounts/{account_id}")["is_archived"] is True
+
+        recategorised = client.put(f"/transactions/{tx_id}", json_body={"category_id": category_id})
+        assert recategorised["category_id"] == category_id
+        noted = client.put(f"/transactions/{tx_id}", json_body={"description": "still editable"})
+        assert noted["description"] == "still editable"
+
+        before = client.get(f"/transactions/{tx_id}")
+        with pytest.raises(EngineError) as refused:
+            client.put(f"/transactions/{tx_id}", json_body={"account_id": account_id})
+        assert refused.value.status == 422
+        assert reason_on(refused.value, "account_id") == "INVALID_REFERENCE"
+        assert client.get(f"/transactions/{tx_id}") == before  # nothing written
+
+        split = client.post(
+            f"/transactions/{tx_id}/split",
+            json_body={
+                "parts": [
+                    {"id": part_ids[0], "amount_cents": -600, "category_id": category_id},
+                    {"id": part_ids[1], "amount_cents": -400},
+                ]
+            },
+        )
+        assert [p["id"] for p in split["parts"]] == part_ids
+        assert {p["account_id"] for p in split["parts"]} == {account_id}
+
+        deleted = client.delete(f"/transactions/{part_ids[0]}")
+        assert deleted["deleted_at"] is not None
+    finally:
+        for path in (
+            *(f"/transactions/{i}" for i in (*part_ids, tx_id)),
+            f"/categories/{category_id}",
+            f"/accounts/{account_id}",
+        ):
+            try:
+                client.delete(path)
+            except EngineError:
+                pass
 
 
 #: The colour a create gives when `color` is left out (contract: "Colour format").

@@ -264,6 +264,40 @@ def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
     run_app(scenario, size=(160, 30))
 
 
+def test_b_offers_no_archived_account_so_no_body_names_one(fake_client, monkeypatch):
+    """The engine refuses a `PUT` that sends an archived account's id as
+    `account_id` (contract: POST /v1/accounts/{account_id}/archive), so `b`
+    lists no archived account, bank or person, through the shared reference
+    read, even on a row that sits on one, and every PUT names the picked active
+    account."""
+    archived = [
+        {**ENGINE_ORDER_ACCOUNTS[0], "id": "accX", "name": "Retired Bank", "is_archived": True},
+        {**ENGINE_ORDER_ACCOUNTS[-1], "id": "perX", "name": "Retired Friend", "is_archived": True},
+    ]
+    _stub_ledger(monkeypatch, [{**ITEMS[0], "account_id": "accX"}])
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", load_quickadd_refs)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts",
+        lambda *a, **k: whole([*ENGINE_ORDER_ACCOUNTS, *archived]),
+    )
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        assert [name for _, name in app.screen._pool] == ENGINE_ORDER_NAMES
+        await pilot.press("a", "l", "f", "a", "enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [
+            ("/transactions/t1", {"account_id": "acc-alfa", "reconciliation_id": None})
+        ]
+
+    run_app(scenario, size=(160, 30))
+
+
 def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
 

@@ -27,6 +27,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### `⏎` on an empty account or category on the Edit form
+Asked 2026-10-18 · Blocks: nothing (the form works either way)
+
+On the `⏎` Edit form, pressing `⏎` on the ACCOUNT or CATEGORY line with nothing typed picks the
+first name in the list. So stepping through the form with `⏎` can move a transaction to another
+account, or change its category, without your meaning to.
+- **A.** `⏎` with nothing typed keeps the account or category the transaction has.
+- **B.** It picks the first name in the list, as now.
+
+**Recommended:** A, because stepping past a line should never change it.
+
 ### `esc` after adding hashtags on a split part
 Asked 2026-10-18 · Blocks: nothing (the screen works either way)
 

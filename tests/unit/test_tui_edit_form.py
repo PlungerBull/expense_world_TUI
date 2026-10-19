@@ -349,6 +349,65 @@ def test_an_edit_that_keeps_the_account_sends_no_reconciliation_id(fake_client, 
     assert ("", "Saved.") in notices
 
 
+ARCHIVED_ACCOUNT = {
+    "id": "accX",
+    "name": "Old bank",
+    "currency_code": "PEN",
+    "is_person": False,
+    "is_archived": True,
+    "opening_balance_transaction_id": None,
+}
+
+
+def test_a_row_on_an_archived_account_saves_every_other_field_without_its_account(
+    fake_client, monkeypatch
+):
+    """The engine refuses a `PUT` that sends an archived account's id as
+    `account_id`, even unchanged, and takes every other field
+    (contract: POST /v1/accounts/{account_id}/archive). So an edit that
+    leaves the account alone never sends `account_id`, on a row whose account
+    is archived too, and the account field offers no archived account."""
+    _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole([*ACCOUNTS, ARCHIVED_ACCOUNT])
+    )
+    record = {**TXN, "account_id": "accX"}
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        for key, text in (
+            ("date", "2026-06-21"),
+            ("title", "Farmacia Inkafarma"),
+            ("amount", "-50"),
+            ("category", "Masc"),
+            ("hashtags", "trav"),
+        ):
+            screen._current = screen._sequence().index(key)
+            _enter(screen, text)
+        # the cursor passes the account field without picking anything
+        screen._current = screen._sequence().index("account")
+        screen._recompute("")
+        assert "accX" not in [ent[0] for ent in screen._suggestions]
+        screen.action_field(1)
+        screen._current = screen._sequence().index("note")
+        _enter(screen, "otra receta")  # note is last: enter saves
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    [(path, body)] = fake_client.puts
+    assert path == "/transactions/tx1"
+    assert "account_id" not in body and "reconciliation_id" not in body
+    assert body.pop("date").startswith("2026-06-21")
+    assert body == {
+        "title": "Farmacia Inkafarma",
+        "amount_cents": -5000,
+        "hashtag_ids": ["h1", "h2"],
+        "description": "otra receta",
+    }
+
+
 def test_a_move_on_a_completed_reconciliation_still_shows_the_lock(fake_client, monkeypatch):
     """The engine checks `LOCKED` first; the form shows its refusal and stays."""
     fake_client.errors["PUT"] = EngineError(
