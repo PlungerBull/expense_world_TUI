@@ -444,7 +444,8 @@ its title, then its signed `net_cents` and the account's currency
 (`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, so
 the form reads no line: the day and title off its first part, its `operation_code` and its
 account. A line never split edits `date › title › operation › amount › account`, all
-editable, its amount the one part's, signed by `signed_cents` in
+editable but on an archived account's line ("On an archived account's transaction the Edit
+form shows the read-only lines alone" below), its amount the one part's, signed by `signed_cents` in
 [formatting.py](../expense/formatting.py). A split transaction edits
 `date › title › operation › account`, and under the summary stands a read-only `Parts`
 section: each part's amount, signed by `signed_cents`, then a rule, then `total` and the
@@ -752,8 +753,8 @@ it again) asks for the list's line (`list_refusal_text` in
 resources share; its key (`account_id` or `category_id`) picks the line, and the keys
 `hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The three
 opening-balance reasons, `ENDING_BALANCE_REQUIRED`, `SYSTEM_NAME_FIXED` and `RESERVED_NAME`
-are the table's only `VALIDATION_ERROR` rows; any other validation error, `LOCKED` included
-(the field lock answers first in a completed reconciliation), has no line. The lines for
+are the table's only `VALIDATION_ERROR` rows with a line; any other validation error,
+`ACCOUNT_ARCHIVED` and `LOCKED` included (the field lock answers first in a completed reconciliation), has no line. The lines for
 `SYSTEM_HASHTAG`, `SYSTEM_NAME_FIXED` and `OPENING_BALANCE_NOT_TAGGED` are screens 4 B, 5 B
 and 7 B in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html);
@@ -952,8 +953,11 @@ other list it is the next page of rows already loaded (§5). On Home it walks th
 window one month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** opens on
-the **account list alone**, full height, and reads no reconciliations: the engine lists
-them one account at a time (`GET /reconciliations?account_id=`, whole, `date_start`
+the **account list alone**, full height, and reads no reconciliations. The list is
+`GET /accounts` as the engine gives it without `include_archived`, people left out, so an
+archived account and its reconciliations are not listed until it is unarchived on
+Manage ▸ Accounts. The engine lists
+reconciliations one account at a time (`GET /reconciliations?account_id=`, whole, `date_start`
 ascending, then creation time, oldest first (contract: "Reconciliations", "Ordering")),
 so moving the account cursor costs nothing. `⏎ Its reconciliations` reads that account's
 list and opens the **panel** under the accounts, halving the height, with the cursor in

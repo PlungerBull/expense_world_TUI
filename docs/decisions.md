@@ -589,3 +589,27 @@ bug back.
 
 **Rejected.** *Leaving an emptied note unsent* — the old note stays, and the owner's emptying is
 silently lost.
+
+## An archived account's frozen writes are not offered, and a refusal is the engine's words (2026-10-18, owner)
+
+**Decision.** The engine freezes an archived account: of its transactions only the category,
+hashtags and note change and an empty title or operation code is filled once, and its
+reconciliations don't change (contract: POST /v1/accounts/{account_id}/archive). The app reads
+`is_archived` from the accounts read each screen already makes and stops offering what the
+engine would refuse: (1) the ledger hides `s` and `d` on such a row and draws the row as any
+other; (2) both Edit forms show its frozen fields read-only, as an opening balance's are, with
+no line saying why; (3) a frozen change sent anyway (a screen opened before the archive) shows
+the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps
+listing only active accounts. The owner picked each from
+[expense-world-archived-account.html](mockups/expense-world-archived-account.html) (screens
+1 A, 2 B, 3 A, 4 A). The engine still judges every write.
+
+**Why.** Offering a key the engine always refuses invites a refusal for nothing, and every
+client would meet it. Reading the engine's own flag keeps the rule in the engine: the app adds
+no judgement of its own, and a failed accounts read only puts the keys back for the engine to
+refuse. The engine's refusal already says to unarchive first, so the app adds nothing to it.
+
+**Rejected.** *Dimming the archived account's rows* and *a line on the Edit form saying why* —
+the owner keeps the screens as they are. *A line naming where to unarchive* — the engine's words
+say it. *A question that unarchives and retries* — it would make unfreezing a side effect of an
+edit. *Listing archived accounts on Reconciliations, read-only* — nothing there can change.

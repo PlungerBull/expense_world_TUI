@@ -88,6 +88,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   read-only line ([edit_form.py](../expense/tui/screens/edit_form.py) `on_input_submitted`);
   what the form shows when nothing can change is the question "The Edit form when nothing on an
   archived line can change" above.
+- **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
+  `GET /accounts` without `include_archived`
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
+  so an archived account and its reconciliations are not listed ([tui.md](tui.md)); only the
+  acceptance check of 2026-10-18 saw it live. A unit test should hold it.
 - **A comment cites a decisions.md heading in the wrong case.**
   [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
   heading in [decisions.md](decisions.md) is "The ledger fills the window".
