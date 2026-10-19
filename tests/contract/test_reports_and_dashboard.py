@@ -10,8 +10,8 @@ green and Home draws zeros.
 
 So these tests assert *shape*, not values: the keys the renderers index by, the
 nesting they walk, and the one number that has to agree with the rows it came
-from. A seeded practice database has no ledger to speak of, and a test that
-depended on its contents would be a test of the seed script.
+from. The practice user holds whatever earlier runs left, so a test that
+depended on its contents would depend on run order.
 
 Gating, target resolution and the real-ledger guard live in conftest.py.
 """
@@ -189,7 +189,7 @@ def test_a_category_row_carries_its_hashtag_breakdown(client):
     by the pair. The nesting IS the feature: a flat list of hashtag totals could
     not be attributed to a category at all.
 
-    Asserted structurally — the practice database has no history to total.
+    Asserted structurally — the practice user's history is not fixed.
     """
     now = _now()
     body = client.get("/reports/monthly", params={"year": str(now.year), "month": str(now.month)})

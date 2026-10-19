@@ -23,6 +23,8 @@ because another part of its line sits on an archived account. Every part of a li
 shares its account: a split gives each part the line's account, a batch
 `line_group` must share it, and `PUT` of `account_id` writes it onto every part
 (contract: "Transactions (Ledger)", "Bank lines"), so no route builds such a line.
+It comes only from a manual database repair outside the engine, so no client test
+can build one; the refusal is a safety check for that case.
 
 An account or a category created with no `color` comes back with the engine's
 default colour.

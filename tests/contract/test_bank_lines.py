@@ -58,8 +58,9 @@ stand on rules only the engine can confirm. Pinned here:
 Not pinned here: `SPLIT_LINE_PARTS_DIVERGE`. No route leaves a line's parts on
 different accounts or dates: a split gives every part the line's account and
 date, a `line_group` must share them, and `PUT` writes either onto every part
-(contract: "Transactions (Ledger)", "Bank lines"). Only rows from before the
-engine kept lines could show it, and the practice user has none.
+(contract: "Transactions (Ledger)", "Bank lines"). Such a line comes only from a
+manual database repair outside the engine, so no client test can build one; the
+refusal is a safety check for that case.
 
 Each test builds its own account and undoes what it wrote. Gating, target and the
 real-ledger guard: conftest.py.
