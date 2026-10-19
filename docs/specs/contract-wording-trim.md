@@ -49,12 +49,6 @@ Nothing; the hand-off answers no ask.
 
 Approved by the owner on 2026-10-18.
 
-4. **The fixture drift check passes on the Edit form's tests.** The test of the never-`null`
-   rule in [test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py) holds the local
-   names `note`, `operation` and `transaction`, which the drift script reads as fixture keys the
-   engine does not serve. `python scripts/check_fixture_drift.py --engine-url
-   http://127.0.0.1:8002` reports no fixture key the engine does not serve, by rewording the
-   test or listing the names as local in the script, whichever the script's own rules call for.
 
 ## Reply to the engine
 

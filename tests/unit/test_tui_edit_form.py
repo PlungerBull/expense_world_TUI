@@ -1074,6 +1074,12 @@ BANK_LINE = {
 
 TXN_FIELDS = ["date", "title", "amount", "account", "category", "hashtags", "note"]
 LINE_FIELDS = ["date", "title", "operation", "amount", "account"]
+# The exact save an emptied field sends, for the fields whose save the null check pins,
+# keyed by (form, field).
+EMPTIED_FIELD_PUTS = {
+    ("transaction", "note"): [("/transactions/tx1", {"description": ""})],
+    ("bank_line", "operation"): [("/transactions/p1", {"operation_code": None})],
+}
 
 
 def test_the_null_check_covers_every_field_of_both_forms():
@@ -1148,10 +1154,11 @@ def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
     notices = _record_notices(monkeypatch)
 
     async def scenario(pilot, app):
-        if form == "transaction":
-            screen = EditFormScreen(record=TXN, resource="transactions")
-        else:
-            screen = BankLineEditFormScreen(line=BANK_LINE)
+        screen = (
+            EditFormScreen(record=TXN, resource="transactions")
+            if form == "transaction"
+            else BankLineEditFormScreen(line=BANK_LINE)
+        )
         await app.push_screen(screen)
         await _wait_loaded(screen, pilot)
         screen._current = screen._sequence().index(field)
@@ -1163,10 +1170,8 @@ def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
     run_app(scenario)
     for _path, body in fake_client.puts:
         assert _nulls(body) <= NULL_CLEARS, body
-    if field == "note":
-        assert fake_client.puts == [("/transactions/tx1", {"description": ""})]
-    if field == "operation":
-        assert fake_client.puts == [("/transactions/p1", {"operation_code": None})]
+    if (form, field) in EMPTIED_FIELD_PUTS:
+        assert fake_client.puts == EMPTIED_FIELD_PUTS[form, field]
 
 
 def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client, monkeypatch):
