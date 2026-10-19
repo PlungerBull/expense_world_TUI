@@ -242,6 +242,11 @@ that left one — `3 rows → BCP USD · 2 left their reconciliation` (`· 1 lef
 reconciliation` for one). The `⏎` edit form does the same when its account changes and
 says `Saved. It left its reconciliation.` instead of `Saved.`; both share
 `unassign_on_move` in [edit_form.py](../expense/tui/screens/edit_form.py).
+**An emptied note empties it.** `⏎` on an emptied NOTE empties the note: the save sends
+`description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
+(contract: PUT /v1/transactions/{transaction_id}). On a row with no note it is no change.
+No field the form sends is `null` except `operation_code`, which `null` clears, and the
+`reconciliation_id: null` a move adds.
 **An opening balance stays on its account and in @Opening.** The engine refuses to move
 such a row to another account or category, `@Pendiente` included, and accepts every other
 field (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"); screens in

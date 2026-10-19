@@ -44,6 +44,13 @@ while still on that line, the hashtags you just added stay.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **A non-date in the Edit form's date crashes the app.** On the `⏎` Edit form, and the
+  bank-line Edit form that shares its code, `⏎` on a date bar holding a non-date (e.g. `abc`)
+  accepts it, and `ctrl+s` raises an uncaught `typer.BadParameter`, so the app exits with a
+  traceback ([edit_form.py](../expense/tui/screens/edit_form.py) stores the text unchecked;
+  [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
+  `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
+  does; the message it shows is wording the owner picks first.
 - **Two unit tests fail at random in CI.** Each fails now and then on one Python version and
   passes on the others, because it reads the screen before the screen has finished drawing:
   `test_config_screen_shows_only_the_engine_connection`

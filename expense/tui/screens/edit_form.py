@@ -22,6 +22,13 @@ the save sends only the real hashtags (`hashtags_to_send`, the same helper for
 both); an emptied set sends `[]`, which the engine files under the pending
 hashtag (contract: PUT /v1/transactions/{transaction_id}).
 
+`⏎` on an emptied note empties it, and the save sends `description: ""`: the
+engine stores `""` as an empty note and refuses `null` there as `NOT_NULL`
+(contract: PUT /v1/transactions/{transaction_id}). Every field the form sends
+is a value, never `null`, except `operation_code`, which `null` clears, and the
+`reconciliation_id: null` a move adds; an empty date bar commits today, and an
+emptied title is refused (`_title_given`).
+
 On an opening balance (a row filed under @Opening) account, category and
 hashtags show read-only and are never sent: the engine keeps such a row on its
 account and in @Opening
@@ -354,8 +361,12 @@ class EditFormScreen(FormScreen):
             self._commit_hashtag(text)
             return
         elif key == "note":
+            # an emptied bar empties the note; the save sends it as `""`
             if text:
                 self._values["note"] = self._display["note"] = text
+            else:
+                self._values.pop("note", None)
+                self._display.pop("note", None)
             self.action_submit()  # note is last → enter submits
             return
         self._refresh_view()
@@ -405,9 +416,12 @@ class EditFormScreen(FormScreen):
                 continue
             new = self._values.get(key)
             if key == "date":
-                payload["date"] = to_canonical_aware(new) if new else None
+                # never empty: an empty date bar commits today
+                payload["date"] = to_canonical_aware(new)
             elif key == "note":
-                payload["description"] = new or None
+                # `""` empties the note; `null` is refused as `NOT_NULL`
+                # (contract: PUT /v1/transactions/{transaction_id})
+                payload["description"] = new or ""
             elif key == "operation":
                 # `null` clears the line's code
                 # (contract: PUT /v1/transactions/{transaction_id})

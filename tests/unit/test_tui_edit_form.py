@@ -987,3 +987,155 @@ def test_a_row_with_no_bank_line_reads_none(line_client):
 
     assert run_app(scenario) == FIELD_HINTS[0][1]
     assert _line_reads(line_client) == []
+
+
+# ---- what the save sends for an emptied field --------------------------------
+# An explicit `null` is `NOT_NULL` on every field of the transaction PUT except
+# `reconciliation_id` (unassigns), `title` and `operation_code` (clear them);
+# `""` empties `description` (contract: PUT /v1/transactions/{transaction_id}).
+NULL_CLEARS = {"reconciliation_id", "title", "operation_code"}
+
+BANK_LINE = {
+    "id": "bl1",
+    "account_id": "acc1",
+    "operation_code": "47391026",
+    "part_count": 1,
+    "net_cents": -4250,
+    "parts": [
+        {
+            "id": "p1",
+            "date": "2026-06-20T00:00:00Z",
+            "title": "FARMACIA",
+            "amount_cents": 4250,
+            "transaction_type": 1,
+        }
+    ],
+}
+
+
+TXN_FIELDS = ["date", "title", "amount", "account", "category", "hashtags", "note"]
+LINE_FIELDS = ["date", "title", "operation", "amount", "account"]
+
+
+def test_the_null_check_covers_every_field_of_both_forms():
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    assert EditFormScreen(record=TXN)._sequence() == TXN_FIELDS
+    assert BankLineEditFormScreen(line=BANK_LINE)._sequence() == LINE_FIELDS
+
+
+def _nulls(body: dict) -> set[str]:
+    return {key for key, value in body.items() if value is None}
+
+
+def test_an_emptied_note_sends_an_empty_description_and_says_saved(fake_client, monkeypatch):
+    """`⏎` on an emptied NOTE empties the note: the PUT carries
+    `description: ""`, never `null`, and the form says `Saved.`."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("note")
+        screen._refresh_bar()
+        assert screen.query_one("#bar", Input).value == "receta"
+        _enter(screen, "")
+        await wait_for(pilot, lambda: ("", "Saved.") in notices)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/transactions/tx1", {"description": ""})]
+
+
+def test_an_empty_note_on_a_row_with_none_is_no_change(fake_client, monkeypatch):
+    """A row with no note, `⏎` on the empty NOTE: nothing to empty, nothing sent."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+    record = {k: v for k, v in TXN.items() if k != "description"}
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index("note")
+        screen._refresh_bar()
+        _enter(screen, "")
+        await wait_for(pilot, lambda: notices)
+
+    run_app(scenario)
+    assert notices == [("", "No changes to save.")]
+    assert fake_client.puts == []
+
+
+@pytest.mark.parametrize(
+    ("form", "field"),
+    [
+        *[("transaction", f) for f in TXN_FIELDS],
+        *[("bank_line", f) for f in LINE_FIELDS],
+    ],
+)
+def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
+    fake_client, monkeypatch, form, field
+):
+    """Every field of both Edit forms, its bar emptied and `⏎`, then saved:
+    whatever the form sends holds `null` only on a field `null` clears. An
+    emptied date commits today, an emptied title or amount is refused, an empty
+    account or category picks the first name, an emptied operation clears the
+    code and an emptied note sends `""`."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        if form == "transaction":
+            screen = EditFormScreen(record=TXN, resource="transactions")
+        else:
+            screen = BankLineEditFormScreen(line=BANK_LINE)
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._current = screen._sequence().index(field)
+        screen._refresh_bar()
+        _enter(screen, "")
+        screen.action_submit()  # a no-op when `⏎` already saved
+        await wait_for(pilot, lambda: notices)
+
+    run_app(scenario)
+    for _path, body in fake_client.puts:
+        assert _nulls(body) <= NULL_CLEARS, body
+    if field == "note":
+        assert fake_client.puts == [("/transactions/tx1", {"description": ""})]
+    if field == "operation":
+        assert fake_client.puts == [("/transactions/p1", {"operation_code": None})]
+
+
+def test_every_field_changed_at_once_sends_null_only_where_it_clears(fake_client, monkeypatch):
+    """Date, title, amount, account, hashtags changed and the note emptied, in
+    one save: the one `null` is the `reconciliation_id` the move adds."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        _enter(screen, "2026-07-01")  # date
+        _enter(screen, "Inkafarma")  # title
+        _enter(screen, "-10.00")  # amount
+        _enter(screen, "BCP USD")  # account
+        _enter(screen, "Mascotas")  # category, as it is
+        _enter(screen, "traveling")  # hashtags: adds one and stays
+        _enter(screen, "")  # hashtags done
+        _enter(screen, "")  # note emptied: saves
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    [(path, body)] = fake_client.puts
+    assert path == "/transactions/tx1"
+    assert _nulls(body) == {"reconciliation_id"}
+    assert body["description"] == ""
+    assert body["title"] == "Inkafarma"
+    assert body["amount_cents"] == -1000
+    assert body["account_id"] == "acc2"
+    assert body["hashtag_ids"] == ["h1", "h2"]
+    assert body["date"].startswith("2026-07-01T00:00:00")

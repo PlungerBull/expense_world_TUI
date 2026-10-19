@@ -1,6 +1,6 @@
 # Catch up with the contract's trimmed and corrected wording
 
-**Status: draft, 2026-10-18.** Its tasks wait for the owner's approval.
+**Status: approved, 2026-10-18.** The loop runs its tasks.
 **Catches up to contract `15063ec5587491ad`:** every contract change after `c4327854a6d6e301`.
 It holds the engine's hand-off "The contract's wording was trimmed and corrected; no behaviour
 changed". What it asks of this client is in the tasks, and its checks are in "The engine's
@@ -47,16 +47,8 @@ Nothing; the hand-off answers no ask.
 
 ## Tasks
 
-Drafted 2026-10-18; wait for the owner's approval.
+Approved by the owner on 2026-10-18.
 
-1. **The Edit form empties a note with `""`.** An emptied note sends `description: ""`, never
-   `null`, which the engine refuses as `NOT_NULL` (contract: PUT /v1/transactions/{transaction_id}).
-   Every other field the form sends is checked against the same rule: a field the form lets the
-   owner empty sends what the contract accepts for it, or the form refuses the empty value
-   before sending. Unit tests: an emptied note sends `""` and the form says `Saved.`; no field
-   the form sends is ever `null` unless the contract lets that field clear with `null`. A live
-   contract test: `PUT` with `description: ""` empties the note, and `description: null` is
-   `422` `NOT_NULL`. Passes 1 above.
 2. **The archived-account rule has a live contract test.** On a transaction whose account is
    archived, `PUT` of `category_id` and `description`, a split and a delete go through, and a
    `PUT` that sends the archived account's `account_id`, even unchanged, is `422`

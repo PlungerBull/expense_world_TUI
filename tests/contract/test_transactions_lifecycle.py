@@ -105,6 +105,48 @@ def test_transactions_lifecycle(client):
         _safe_delete(client, f"/accounts/{account_id}")
 
 
+def test_an_empty_description_empties_the_note_and_null_is_refused(client):
+    """`""` empties a note and `null` is `422` `NOT_NULL` on `description`, so the
+    Edit form sends `""` for an emptied note
+    (contract: PUT /v1/transactions/{transaction_id})."""
+    account_id = _make_account(client)
+    category_id = _make_category(client)
+    tx_id = str(uuid4())
+
+    try:
+        client.post(
+            "/transactions",
+            json_body={
+                "id": tx_id,
+                "title": "pharmacy",
+                "amount_cents": -4250,
+                "account_id": account_id,
+                "category_id": category_id,
+                "date": _now_iso(),
+                "description": "receta",
+            },
+        )
+
+        emptied = client.put(f"/transactions/{tx_id}", json_body={"description": ""})
+        assert emptied["description"] == ""
+        assert client.get(f"/transactions/{tx_id}")["description"] == ""
+
+        with pytest.raises(EngineError) as excinfo:
+            client.put(f"/transactions/{tx_id}", json_body={"description": None})
+        err = excinfo.value
+        assert err.status == 422
+        assert err.code == "VALIDATION_ERROR"
+        assert set(err.fields) == {"description"}
+        assert err.reasons == {"description": "NOT_NULL"}
+        after = client.get(f"/transactions/{tx_id}")
+        assert after["description"] == ""
+        assert after["version"] == emptied["version"]  # nothing written
+    finally:
+        _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/categories/{category_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
 def test_batch_create(client):
     account_id = _make_account(client)
     category_id = _make_category(client)
