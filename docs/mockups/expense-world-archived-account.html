@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Archived accounts frozen</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:980px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>An archived account is frozen</h1>
+  <p>The engine now freezes an archived account. Of its transactions only the <b>category</b>, the <b>hashtags</b> and the <b>note</b> change; a title that is still empty can be filled once. Their amount, date, title and account stay as they are, and they can't be split or deleted. Its reconciliations don't change at all. Unarchiving the account (<b>Manage ▸ Accounts</b>, <code>a</code>) lifts every one of these.</p>
+  <p>Where you meet this today: the <b>ledger</b> lists every transaction, an archived account's included, and looks the same on them. The Reconciliations screen lists only active accounts, so an archived account's reconciliations don't appear there. Each screen below has a choice, every option drawn, the recommended one marked. Nothing is built until you pick. The rows are invented; the engine's words are its real ones.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">1 · The ledger, on an archived account's transaction <span>— what changes with the cursor on one</span></div>
+<p class="blurb">The cursor is on <b>Retiro cajero</b>, a transaction of the archived account <b>Ahorro viejo</b>. <code>c</code> <code>h</code> and <code>⏎</code> still work on it; <code>s</code> Split and <code>d</code> Delete can't.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>s and d leave the footer; the row looks as it does now</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+      Interés ganado                          <span class="p">     1.20</span>  2024-03-28  Ahorro viejo   INTERESES    —
+      Netflix                                 <span class="n">   -39.90</span>  2024-03-27  BCP Signature  SUSCRIPCION  casa
+
+     <span class="d">no filter · 50 of 133 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags</pre></div></div>
+<p class="cap">Like the built-in categories, which hide <code>e</code> and <code>d</code>. Nothing on the row says why the keys went.</p></div>
+
+<div class="var"><div class="oh">B · <span>s and d leave the footer, and the account's rows are dimmed</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+<span class="d">      Interés ganado                               1.20  2024-03-28  Ahorro viejo   INTERESES    —</span>
+      Netflix                                 <span class="n">   -39.90</span>  2024-03-27  BCP Signature  SUSCRIPCION  casa
+
+     <span class="d">no filter · 50 of 133 loaded</span>
+
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags</pre></div></div>
+<p class="cap">Dimmed the way Manage ▸ Accounts dims an archived account, so you can see why <code>s</code> and <code>d</code> are gone.</p></div>
+
+</div>
+<div class="var"><div class="oh">C · <span>s and d stay; pressing one says why and sends nothing</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+      Interés ganado                          <span class="p">     1.20</span>  2024-03-28  Ahorro viejo   INTERESES    —
+      Netflix                                 <span class="n">   -39.90</span>  2024-03-27  BCP Signature  SUSCRIPCION  casa
+
+     <span class="d">no filter · 50 of 133 loaded</span>
+                                              <span class="w">▌</span> Ahorro viejo is archived: its transactions can't be
+                                              <span class="w">▌</span> split or deleted. Unarchive it in Manage ▸ Accounts.
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">Every key stays where it is; <code>s</code> or <code>d</code> on such a row shows this note instead of acting.</p></div>
+
+</div>
+
+<div class="pane">
+<div class="lbl">2 · The Edit form, on an archived account's transaction <span>— <code>⏎</code> on Retiro cajero</span></div>
+<p class="blurb">Date, title, amount and account are read-only and skipped, the way an opening balance's account and category are today; the form opens on CATEGORY. A title that is still empty stays editable until it is filled. The save sends only what changed.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the read-only lines, and two lines at the top saying why</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="w">Ahorro viejo is archived: only category, hashtags and note change.</span>
+  <span class="d">Unarchive it in Manage ▸ Accounts to change the rest.</span>
+
+   <span class="b">CATEGORY        </span>efec<span class="a">▍</span>
+     <span class="rev">EFECTIVO</span>
+
+   <span class="d">↑↓ highlight · enter select</span>
+
+   <span class="d">date      2024-03-28  read-only</span>
+   <span class="d">title     Retiro cajero  read-only</span>
+   <span class="d">amount    -200.00  read-only</span>
+   <span class="d">account   Ahorro viejo  read-only</span>
+   <span class="b">category  </span>EFECTIVO
+   hashtags  <span class="d">—  (optional)</span>
+   note      <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Says what can change and how to change the rest.</p></div>
+
+<div class="var"><div class="oh">B · <span>the read-only lines alone</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CATEGORY        </span>efec<span class="a">▍</span>
+     <span class="rev">EFECTIVO</span>
+
+   <span class="d">↑↓ highlight · enter select</span>
+
+   <span class="d">date      2024-03-28  read-only</span>
+   <span class="d">title     Retiro cajero  read-only</span>
+   <span class="d">amount    -200.00  read-only</span>
+   <span class="d">account   Ahorro viejo  read-only</span>
+   <span class="b">category  </span>EFECTIVO
+   hashtags  <span class="d">—  (optional)</span>
+   note      <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">As an opening balance's read-only lines look today.</p></div>
+
+</div>
+</div>
+
+<div class="pane">
+<div class="lbl">3 · When the engine refuses anyway <span>— a screen opened before the account was archived, or a bulk move</span></div>
+<p class="blurb">A screen left open while the account was archived elsewhere can still send a frozen change, and <code>b</code> on a selection that holds an archived account's rows has those rows refused (the others still move, and the note counts them, as today). Nothing changes on a refusal. Drawn here: <code>d</code> on a ledger opened before Ahorro viejo was archived.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the engine's words alone</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+      Interés ganado                          <span class="p">     1.20</span>  2024-03-28  Ahorro viejo   INTERESES    —
+      Netflix                                 <span class="n">   -39.90</span>  2024-03-27  BCP Signature  SUSCRIPCION  casa
+
+     <span class="d">no filter · 50 of 133 loaded</span>
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> CONFLICT — Cannot delete a transaction on an archived
+                                    <span class="n">▌</span> account. Unarchive the account first.
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The engine's own answer already says to unarchive first.</p></div>
+
+<div class="var"><div class="oh">B · <span>the engine's words, then where to unarchive</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+      Interés ganado                          <span class="p">     1.20</span>  2024-03-28  Ahorro viejo   INTERESES    —
+      Netflix                                 <span class="n">   -39.90</span>  2024-03-27  BCP Signature  SUSCRIPCION  casa
+
+     <span class="d">no filter · 50 of 133 loaded</span>
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> CONFLICT — Cannot delete a transaction on an archived
+                                    <span class="n">▌</span> account. Unarchive the account first.
+                                    <span class="n">▌</span>
+                                    <span class="n">▌</span> Unarchive Ahorro viejo in Manage ▸ Accounts with a.
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">One line of the app's own, the way other refusals name the key that fixes them.</p></div>
+
+</div>
+<div class="var"><div class="oh">C · <span>a question that unarchives and tries again</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Title                   Description          Amount  Date        Account        Cat          Hashtags
+    <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+      Pago tarjeta                            <span class="p">   500.00</span>  2024-04-02  BCP Signature  TRANSFER     —
+      Plaza Vea             mercado           <span class="n">  -182.30</span>  2024-03-30  Sueldo Soles   COMIDA       casa
+    <span class="rev">  Retiro cajero                             -200.00  2024-03-28  Ahorro viejo   EFECTIVO     —            </span>
+
+                    <span class="a">────────────────────────────────────────────────────</span>
+
+                      <span class="ab">Unarchive Ahorro viejo?</span>
+
+                      Its transactions are frozen while it is archived.
+                      Unarchive it, then delete this transaction.
+                      <span class="d">[y] unarchive and delete    [n / esc] cancel</span>
+
+                    <span class="a">────────────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap"><code>y</code> unarchives the account and sends the same change again; it stays unarchived afterwards.</p></div>
+
+</div>
+
+<div class="pane">
+<div class="lbl">4 · An archived account's reconciliations <span>— on the Reconciliations screen</span></div>
+<p class="blurb">Today the screen lists only active accounts.</p>
+<div class="var"><div class="oh">A · <span>as now: archived accounts aren't listed</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Reconciliations</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Account                     Cur          Balance
+    <span class="d">────────────────────────────────────────────────────</span>
+    <span class="rev">Sueldo Soles                PEN        12,450.00  </span>
+    Cuenta Digital Dólares      USD           <span class="p">820.15</span>
+    BCP Signature               PEN        <span class="n">-1,204.60</span>
+    Efectivo                    PEN             0.00
+
+ <span class="a">⏎</span> Its reconciliations  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New</pre></div></div>
+<p class="cap">Nothing to build. To look at an archived account's reconciliations, unarchive it first.</p></div>
+
+<div class="opt">
+<div class="var"><div class="oh">B · list · <span>archived accounts listed last, dimmed</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Reconciliations</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Account                     Cur          Balance
+    <span class="d">────────────────────────────────────────────────────</span>
+    <span class="rev">Sueldo Soles                PEN        12,450.00  </span>
+    Cuenta Digital Dólares      USD           <span class="p">820.15</span>
+    BCP Signature               PEN        <span class="n">-1,204.60</span>
+    Efectivo                    PEN             0.00
+    <span class="d">Ahorro viejo                PEN             0.00   archived</span>
+
+ <span class="a">⏎</span> Its reconciliations  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New</pre></div></div>
+<p class="cap"><code>⏎</code> opens its reconciliations as on any account.</p></div>
+
+<div class="var"><div class="oh">B · a reconciliation · <span>opened read-only</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Marzo 2024</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Marzo 2024</span><span class="d">  ·  </span>Ahorro viejo<span class="d">  ·  2024-03-01 → 2024-03-31</span>
+  <span class="d">begin </span>198.80<span class="d">    end </span>0.00<span class="d">    diff </span>0.00<span class="d">    status </span>completed
+
+    [<span class="p">x</span>] 2024-03-28  RETIRO CAJERO                  <span class="n">-200.00</span>
+    [<span class="p">x</span>] 2024-03-28  INTERES GANADO                    <span class="p">1.20</span>
+
+  <span class="w">Ahorro viejo is archived: this reconciliation can't change.</span>
+  <span class="d">Unarchive it in Manage ▸ Accounts to complete, revert or delete it.</span>
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys</pre></div></div>
+<p class="cap">No <code>space</code>, <code>c</code>, <code>u</code> or <code>d</code>; two lines say why.</p></div>
+
+</div>
+</div>
+
+<div class="pick">
+<b>To answer:</b> one letter for each of screens 1 (A, B or C), 2 (A or B), 3 (A, B or C) and 4 (A or B).<br><b>Recommended:</b> 1 B · 2 A · 3 B · 4 A.
+</div>
+
+</body>
+</html>
