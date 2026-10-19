@@ -19,7 +19,7 @@ import threading
 import pytest
 from textual.containers import VerticalScroll
 
-from expense.reads import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, items_of
+from expense.reads import DEFAULT_PAGE_ROWS, ENGINE_PAGE_CAP, AccountIndex, items_of
 from expense.tui.screens._base import AdaptiveRowsMixin
 from expense.tui.screens._growing import read_first
 from expense.tui.widgets.checklist import CheckList
@@ -269,7 +269,7 @@ def _patch_transactions(monkeypatch, n: int = 133, **kw) -> tuple[list, list, li
 
     rows = _ledger_rows(n)
     reads, counts = fake_ledger(monkeypatch, rows, **kw)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: {})
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex({}))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: {})
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: {})
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())

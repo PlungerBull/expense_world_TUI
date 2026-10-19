@@ -122,7 +122,9 @@ maps, and `build()` only looks names up in them).
 **Name resolution is live HTTP and fails silently by design.**
 `load_account_name_map` / `load_category_name_map` / `load_hashtag_name_map` each open
 their own client and page the reference list; on **any** failure they return `{}` and
-renderers fall back to 8-char short ids. No toast, no error. If a user ever reports
+renderers fall back to 8-char short ids. `load_account_index`, what the ledger reads, is the
+same accounts read giving the names and the archived ids together; on a failure it has
+neither, so no key leaves the ledger's footer. No toast, no error. If a user ever reports
 "my tables show hex ids", the cause is the engine rejecting reference-list reads
 (auth/config), never data loss. Every call site must be inside a worker thread.
 
@@ -285,10 +287,11 @@ rows sent, so `b` on one part reads `1 row → …` however many parts moved.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
 screens 1 to 6 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
 `s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
-like `d` it works on the cursor row only: off, and out of the footer, while rows are selected
-or a bulk write runs. It pushes the split screen, a full screen whose crumb adds `Split` to the
-ledger's. On top, what every part keeps: `2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every
-part keeps this date and account`, the date, the account and the line's total. Under it the
+like `d` it works on the cursor row only: off, and out of the footer, while rows are selected,
+while a bulk write runs, or while the cursor is on an archived account's row ("On an
+archived account's row the ledger offers no `s` and no `d`" below). It pushes the split
+screen, a full screen whose crumb adds `Split` to the ledger's. On top, what every part
+keeps: `2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every part keeps this date and account`, the date, the account and the line's total. Under it the
 TITLE line, `TITLE      Tottus Jockey Plaza      same on every part`: the title every part
 takes, the transaction's until it is changed (below). The screen opens the row's bank line
 with one `GET /bank-lines/{id}` (`fetch_bank_line` in [reads.py](../expense/reads.py)): its
@@ -589,6 +592,20 @@ ledger's `b` picker offer no archived account (`QuickAddRefs.accounts` in
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
 shows its name, and the edit form sends `account_id` only when it changes.
 
+**On an archived account's row the ledger offers no `s` and no `d`** (screen 1 A of
+[expense-world-archived-account.html](mockups/expense-world-archived-account.html)). The
+engine splits and deletes none of an archived account's transactions
+(contract: POST /v1/accounts/{account_id}/archive), so with the cursor on one, whole ledger or
+filtered from Home, `s Split` and `d Delete` leave the footer and both keys do nothing and
+send nothing; on the next row of an active account or a person they are back, the footer
+following the cursor. The row is drawn as any other, with nothing on it saying why, and `c`,
+`b`, `h`, `⏎` and every other key stay; the engine still judges each write they send. The
+ledger learns which accounts are archived from the same `GET /accounts` that gives it the
+names, one read per load (`reads.load_account_index`), so an account unarchived on
+Manage ▸ Accounts gets its `s` and `d` back at the ledger's next read (`r`, or any reload).
+The `?` card still lists `s` and `d`, as it does while rows are selected: it lists a screen's
+own keys as the screen declares them.
+
 **Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).
 Categories is a table of Color, Name and System; Hashtags one of Name and System, the same
@@ -610,8 +627,8 @@ or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on H
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
 the ledger (whole or filtered from Home) and in the reconciliation's "no batch" list, always
 as the last entry of the screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
-of the footer, while rows are selected (`esc` clears the selection and it is back) and
-while a bulk write runs. On an
+of the footer, while rows are selected (`esc` clears the selection and it is back),
+while a bulk write runs and on an archived account's row (above). On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
 away and can be undone, delete is for something made by mistake.
 
@@ -900,8 +917,10 @@ them — they are hand-written into the `?` card
 rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` open the
 picker for category / account / hashtags, `esc` clears the selection if there is one,
 else goes back to the screen that opened the ledger. `s` and `d` never follow the
-selection: they are off while one exists, and while a bulk write runs (§2 "`s` splits the
-cursor row into parts", "`d` is the TUI's one destructive key"). `space` is declared on `CursorList` but is live — key and footer both — only on a
+selection: they are off while one exists, while a bulk write runs, and on an archived
+account's row (§2 "`s` splits the cursor row into parts", "On an archived account's row the
+ledger offers no `s` and no `d`", "`d` is the TUI's one destructive key").
+`space` is declared on `CursorList` but is live — key and footer both — only on a
 screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open`
 goes through on the `?` card, so the Manage lists neither react to it nor advertise it.
 

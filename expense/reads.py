@@ -13,7 +13,7 @@ file, and `fetch_me` calls it on every read.
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NamedTuple
 
 from expense import config as config_module
 from expense.config import Config
@@ -540,36 +540,57 @@ def fetch_me(cfg: Config, *, verbose: bool = False, client: "ExpenseClient | Non
     return body
 
 
-def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
-    """Live id → name map over one reference-list endpoint. Empty on any failure.
+def _load_rows(path: str, params: dict | None) -> list:
+    """Live rows of one reference-list endpoint. Empty on any failure.
 
-    The engine's responses are IDs-only, so renderers join against these maps
-    to show human names. An empty map is always safe — callers fall back to
-    short ids — which is why every failure (no config, engine down, auth)
-    degrades to `{}` instead of raising.
+    The engine's responses are IDs-only, so renderers join against the maps
+    built from these rows to show human names. An empty list is always safe —
+    callers fall back to short ids — which is why every failure (no config,
+    engine down, auth) degrades to `[]` instead of raising.
     """
     try:
         cfg = config_module.ensure_loaded()
         with ExpenseClient(cfg) as client:
-            items = items_of(client.get(path, params=params))
+            return items_of(client.get(path, params=params))
     except Exception:
-        return {}
-    out: dict[str, str] = {}
-    for item in items:
-        rid = item.get("id")
-        name = item.get("name")
-        if isinstance(rid, str) and isinstance(name, str):
-            out[rid] = name
-    return out
+        return []
+
+
+def _load_name_map(path: str, params: dict | None) -> dict[str, str]:
+    """Live id → name map over one reference-list endpoint. Empty on any failure
+    (`_load_rows`). A row without a string id and name is skipped."""
+    return _id_name_map(_load_rows(path, params))
+
+
+class AccountIndex(NamedTuple):
+    """What one live accounts read tells a list of transactions: every
+    account's name (`names`) and the ids of the archived ones (`archived`)."""
+
+    names: dict[str, str]
+    archived: frozenset[str] = frozenset()
+
+
+def load_account_index() -> AccountIndex:
+    """Live account id → name map and the archived ids, from **one** read of
+    every account. Empty on any failure.
+
+    Includes archived + people accounts so transaction rows can resolve
+    references to retired accounts. Soft-deleted excluded. An archived
+    account's transactions are frozen except for their categorisation
+    (contract: POST /v1/accounts/{account_id}/archive), so the ledger reads
+    `archived` to stop offering what the engine would refuse.
+    """
+    rows = _load_rows("/accounts", {"include_archived": "true", "include_people": "true"})
+    archived = frozenset(
+        r["id"] for r in rows if isinstance(r.get("id"), str) and r.get("is_archived") is True
+    )
+    return AccountIndex(_id_name_map(rows), archived)
 
 
 def load_account_name_map() -> dict[str, str]:
-    """Live account id → name map. Empty on any failure.
-
-    Includes archived + people accounts so transaction rows can resolve
-    references to retired accounts. Soft-deleted excluded.
-    """
-    return _load_name_map("/accounts", {"include_archived": "true", "include_people": "true"})
+    """Live account id → name map, archived and people accounts included
+    (`load_account_index`). Empty on any failure."""
+    return load_account_index().names
 
 
 def load_category_name_map() -> dict[str, str]:

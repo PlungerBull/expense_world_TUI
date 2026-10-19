@@ -64,9 +64,6 @@ reconciliation's `name`.
 
 Approved by the owner on 2026-10-18.
 
-3. **The ledger knows an archived account's rows** from the accounts read's `is_archived`, and
-   hides `s` and `d` while the cursor is on one; the row is drawn as any other. Unit tests: the
-   footer on such a row and on any other, and after an unarchive. Passes 1 and 3 above.
 4. **The Edit form on an archived account's transaction** shows read-only lines alone: date, title,
    amount and account read-only and skipped, a title editable only while it is empty, and the
    save sends only `category_id`, `hashtag_ids`, `description` and an empty title's first

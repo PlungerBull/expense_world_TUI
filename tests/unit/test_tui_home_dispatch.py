@@ -9,6 +9,7 @@ import pytest
 from textual.widgets import OptionList
 
 import expense.tui.screens.home as home
+from expense.reads import AccountIndex
 from expense.tui.screens._base import SectionScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.home import HomeScreen
@@ -151,7 +152,8 @@ def test_enter_on_the_pending_row_lists_what_still_waits_for_a_hashtag(monkeypat
 
     stub_home_month(monkeypatch)
     seen, counts = fake_ledger(monkeypatch, [])
-    for loader in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex({}))
+    for loader in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, loader, lambda: {})
 
     async def scenario(pilot, app):

@@ -16,6 +16,7 @@ import respx
 
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
+from expense.reads import AccountIndex
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.categories import CategoriesScreen
 from expense.tui.screens.hashtags import HashtagsScreen
@@ -281,7 +282,8 @@ FILTER = LedgerFilter("category", "pend", "@Pendiente")
 
 def _stub_ledger(monkeypatch, rows: list) -> list:
     calls, _counts = fake_ledger(monkeypatch, rows)
-    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(NAMES))
+    for name in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
     return calls
 

@@ -11,7 +11,7 @@ from rich.text import Text
 
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
-from expense.reads import QuickAddRefs, load_quickadd_refs
+from expense.reads import AccountIndex, QuickAddRefs, load_quickadd_refs
 from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
@@ -79,7 +79,8 @@ FILTER = LedgerFilter("category", "pend", "@Pendiente")
 
 def _stub_ledger(monkeypatch, items=ITEMS):
     fake_ledger(monkeypatch, list(items))
-    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(NAMES))
+    for name in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
     monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: REFS)
 
@@ -1018,7 +1019,8 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
     `key` and its pick. Returns (the toasts, the ledger reads before the write, the
     reads after the fresh reload, the cursor's index and key once it is in)."""
     calls, counts = fake_ledger(monkeypatch, list(PURCHASE))
-    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(NAMES))
+    for name in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
     monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TAGGED_REFS)
     typed, _body = ON_PARTS[key]

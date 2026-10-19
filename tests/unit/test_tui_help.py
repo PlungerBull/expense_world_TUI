@@ -15,6 +15,7 @@ import pkgutil
 from textual.binding import Binding
 
 import expense.tui as tui_pkg
+from expense.reads import AccountIndex
 from expense.tui.app import ExpenseApp
 from expense.tui.screens._form import form_bindings
 from expense.tui.screens.accounts import AccountsScreen
@@ -36,7 +37,10 @@ def _stub_engine(monkeypatch, items=()):
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda cfg, **k: {"items": list(items)})
     fake_ledger(monkeypatch, [])
-    for name in ("load_account_name_map", "load_category_name_map", "load_hashtag_name_map"):
+    monkeypatch.setattr(
+        "expense.tui.screens.transactions.load_account_index", lambda: AccountIndex({})
+    )
+    for name in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(f"expense.tui.screens.transactions.{name}", lambda: {})
 
 

@@ -1,5 +1,6 @@
 """Smoke tests for the Transactions TUI screen."""
 
+from expense.reads import AccountIndex
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.transactions import TransactionsScreen, transaction_rows
@@ -56,7 +57,7 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     import expense.tui.screens.transactions as tx_mod
 
     fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     # the edit screen loads entities on mount — stub those too
@@ -84,7 +85,7 @@ def _patch_detail(monkeypatch, rows: list):
     import expense.tui.screens.transactions as tx_mod
 
     calls, _counts = fake_ledger(monkeypatch, rows)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
@@ -146,7 +147,7 @@ def test_plus_opens_the_log_bar(monkeypatch):
     import expense.tui.screens.transactions as tx_mod
 
     fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr(EditFormScreen, "_load_entities", lambda self: None)
@@ -170,7 +171,7 @@ def test_navigate_is_not_advertised_in_the_footer(monkeypatch):
     import expense.tui.screens.transactions as tx_mod
 
     fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
@@ -242,7 +243,7 @@ def test_a_hashtag_filter_narrows_the_category_on_the_wire(monkeypatch):
     from expense.tui.screens.transactions import LedgerFilter
 
     seen, counts = fake_ledger(monkeypatch, ITEMS)
-    monkeypatch.setattr(tx_mod, "load_account_name_map", lambda: ACCOUNTS)
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())

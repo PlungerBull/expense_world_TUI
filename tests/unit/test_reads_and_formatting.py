@@ -31,6 +31,7 @@ from expense.reads import (
     fetch_body,
     hashtags_to_send,
     items_of,
+    load_account_index,
     load_account_name_map,
     load_category_name_map,
     load_hashtag_name_map,
@@ -193,6 +194,33 @@ def test_load_account_name_map_fetches_live_with_archived_and_people(configured)
     assert params["include_archived"] == "true"
     assert params["include_people"] == "true"
     assert "limit" not in params and "offset" not in params
+
+
+@respx.mock
+def test_load_account_index_gives_names_and_archived_ids_from_one_read(configured):
+    """One `GET /accounts?include_archived=true&include_people=true` gives every
+    name and the ids whose `is_archived` is true (contract: GET /v1/accounts)."""
+    route = respx.get(f"{BASE}/v1/accounts").mock(
+        return_value=_list_body(
+            [
+                {"id": "a1", "name": "BCP", "is_archived": False, "is_person": False},
+                {"id": "a2", "name": "Ahorro viejo", "is_archived": True, "is_person": False},
+                {"id": "p1", "name": "Mom", "is_archived": False, "is_person": True},
+            ]
+        )
+    )
+    index = load_account_index()
+    assert index.names == {"a1": "BCP", "a2": "Ahorro viejo", "p1": "Mom"}
+    assert index.archived == {"a2"}
+    assert route.call_count == 1
+    params = route.calls.last.request.url.params
+    assert params["include_archived"] == "true" and params["include_people"] == "true"
+
+
+def test_load_account_index_without_config_is_empty():
+    """No engine to ask: no names and no archived ids, so no key is taken away."""
+    index = load_account_index()
+    assert index.names == {} and index.archived == frozenset()
 
 
 @respx.mock
