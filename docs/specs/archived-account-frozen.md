@@ -1,6 +1,6 @@
 # Catch up with the frozen archived account
 
-**Status: draft, 2026-10-18.** Its screens and tasks wait for the owner's picks and approval.
+**Status: draft, 2026-10-18.** The owner picked its screens; its tasks wait for approval.
 **Catches up to contract `ab14bd54f4c8b016`:** every contract change after `15063ec5587491ad`.
 It holds the engine's hand-off "An archived account is frozen except for its transactions'
 categorisation". What it asks of this client is in the tasks, and its checks are in "The
@@ -16,29 +16,29 @@ hashtags and the note change, and a title that is still empty can be filled once
 date, title and account don't change, and they can't be split or deleted. Its reconciliations
 don't change at all. Unarchiving the account in Manage ▸ Accounts (`a`) lifts all of it.
 
-**The app doesn't offer what is frozen, and says why.** How each screen shows it is drawn in
-[expense-world-archived-account.html](../mockups/expense-world-archived-account.html):
+**The app doesn't offer what is frozen.** The owner's picks of
+[expense-world-archived-account.html](../mockups/expense-world-archived-account.html), 2026-10-18:
 
-1. The ledger, with the cursor on an archived account's transaction.
-2. The Edit form on such a transaction.
-3. What a refusal shows when a frozen change is sent anyway (a screen opened before the account
-   was archived, or a bulk move that includes such rows).
-4. Whether the Reconciliations screen lists archived accounts.
-
-**Questions for the owner:** one letter for each of the mockup's screens 1 (A, B or C), 2 (A or
-B), 3 (A, B or C) and 4 (A or B). **Recommended:** 1 B, 2 A, 3 B, 4 A — the keys that can't act
-leave, the account's rows are dimmed as on Manage ▸ Accounts, the Edit form says what can change,
-a refusal names where to unarchive, and the Reconciliations screen stays as it is.
+1. **The ledger (screen 1 A):** with the cursor on an archived account's transaction, `s` Split
+   and `d` Delete leave the footer. The row looks as it does on any other account.
+2. **The Edit form (screen 2 B):** on such a transaction, date, title, amount and account are
+   read-only and skipped, drawn as an opening balance's read-only lines are today, with no line
+   saying why. A title that is still empty stays editable until it is filled.
+3. **A refusal (screen 3 A):** a frozen change sent anyway (a screen opened before the account
+   was archived, or a bulk `b` that includes such rows) shows the engine's words alone, as
+   every refusal shows today. Nothing changes.
+4. **Reconciliations (screen 4 A):** the Reconciliations screen keeps listing only active
+   accounts, so an archived account's reconciliations don't appear.
 
 ## How the owner knows it is done
 
-1. In the ledger, on a transaction of an archived account, `c`, `h` and `⏎` work, and splitting
-   or deleting it is not offered, as the picked screen 1 draws.
-2. `⏎` on it opens the Edit form with date, title, amount and account read-only, as the picked
-   screen 2 draws; changing its category saves.
+1. In the ledger, on a transaction of an archived account, `c`, `h` and `⏎` work, and `s` and
+   `d` are not in the footer; on the next row, of an active account, they are.
+2. `⏎` on it opens the Edit form with date, title, amount and account read-only; changing its
+   category saves.
 3. After unarchiving the account, the same transaction can be split and deleted again.
 4. A frozen change sent from a screen opened before the account was archived shows the engine's
-   refusal as the picked screen 3 draws, and nothing changes.
+   words, and nothing changes.
 
 ## The engine's checks
 
@@ -46,8 +46,9 @@ The engine's own "Done when" for this range. The tester's acceptance check runs 
 reply to the engine reports each result.
 
 1. The TUI has stored `ab14bd54f4c8b016` as the version it was checked against.
-2. The TUI no longer offers the frozen writes on an archived account's transactions and
-   reconciliations, and points to unarchiving.
+2. The TUI no longer offers the frozen writes on an archived account's transactions, and lists
+   no archived account's reconciliations (the engine's "points to unarchiving" is the engine's
+   own words in a refusal, as the owner picked).
 3. `ACCOUNT_ARCHIVED` is shown with its message wherever the TUI calls one of the eight routes
    that answer it.
 4. The TUI's archived-account contract test is turned around, and the contract tests pass
@@ -61,8 +62,7 @@ reconciliation's `name`.
 
 ## Tasks
 
-Drafted 2026-10-18; wait for the owner's approval. Task 1 draws nothing; tasks 2 to 5 wait for
-the picks above.
+Drafted 2026-10-18 from the owner's picks; wait for the owner's approval.
 
 1. **The live contract tests follow the freeze.** The archived-account test in
    [test_resources_lifecycle.py](../../tests/contract/test_resources_lifecycle.py) is turned
@@ -79,22 +79,19 @@ the picks above.
    transaction onto an archived one stays `INVALID_REFERENCE`. Run against a practice engine
    stopped and started fresh; every unit fixture passes the drift script. Passes check 4 of the
    engine's.
-2. **A refusal on an archived account reads as picked screen 3 draws.** `ACCOUNT_ARCHIVED`, as
+2. **A refusal on an archived account shows the engine's words alone.** `ACCOUNT_ARCHIVED`, as
    `VALIDATION_ERROR` and as `CONFLICT`, shows on every screen that sends one of the eight
    routes: the ledger's delete and bulk `b`, the Edit form and the bank-line Edit form, the split
    screen's refusal lines, the "no batch" delete, and a reconciliation's `space`, `c`, `u` and
-   `d`. Unit tests: one per screen. Passes 4 above and check 3 of the engine's.
+   `d`, with no line of the app's own added. Unit tests: one per screen. Passes 4 above and check 3 of the engine's.
 3. **The ledger knows an archived account's rows** from the accounts read's `is_archived`, and
-   shows them as picked screen 1 draws. Unit tests: the keys and the look on such a row and on
-   any other, and after an unarchive. Passes 1 and 3 above.
-4. **The Edit form on an archived account's transaction** shows picked screen 2: date, title,
+   hides `s` and `d` while the cursor is on one; the row is drawn as any other. Unit tests: the
+   footer on such a row and on any other, and after an unarchive. Passes 1 and 3 above.
+4. **The Edit form on an archived account's transaction** shows read-only lines alone: date, title,
    amount and account read-only and skipped, a title editable only while it is empty, and the
    save sends only `category_id`, `hashtag_ids`, `description` and an empty title's first
    value. The bank-line Edit form follows the same rule for its fields, its operation code
    included. Unit tests: no frozen key is ever sent, at its current value either. Passes 2 above.
-5. **The Reconciliations screen** as picked screen 4. With A, nothing is built beyond task 2;
-   with B, archived accounts are listed last and dimmed, and their reconciliations open
-   read-only, as drawn. Passes check 2 of the engine's.
 
 ## Reply to the engine
 
