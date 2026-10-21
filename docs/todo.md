@@ -45,6 +45,32 @@ its opening balance first.`
 cursor that stays let a second `t` undo a slip. The extra line names the key that fixes the
 refusal, as the other refusals do.
 
+### How the sheet import shows split rows [UI]
+Asked 2026-10-21 · Blocks: [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) tasks 3 and 4
+
+Every option is drawn in
+[mockups/expense-world-sheet-import-groups.html](mockups/expense-world-sheet-import-groups.html):
+one letter for each screen. Screen 1 is the dry run with the 9 split groups: **A** each group
+listed with its lines, or **B** one count line. Screen 2 is a group whose rows differ (two
+dates, say): **A** the import stops and writes nothing until the sheet is fixed, or **B** that
+group's rows are skipped and the rest imports.
+
+**Recommended:** 1 A · 2 A. The list lets you check each group against its statement before
+writing, and the ledger never holds half a split transaction.
+
+### The dry run cannot tell a reused account
+Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) task 3
+
+The spec's check 4 reads "running the import's dry run again shows ALEJO PEN as reused". The dry
+run never talks to the engine: it lists every account the sheet names, without saying which
+already exist. Only `--apply` says it, as counts (`Accounts: created 0, reused 31`).
+- **A.** Check it on `--apply`: the re-run says `created 0` and no row fails.
+- **B.** The dry run starts reading the engine and marks each account `new` or `reused` (a
+  mockup follows).
+
+**Recommended:** A, because the official import runs once onto an empty ledger, and the dry run
+keeps working with the engine off.
+
 ### The Edit form when nothing on an archived line can change
 Asked 2026-10-18 · Blocks: nothing (it is reachable only from a list read before the account was archived)
 

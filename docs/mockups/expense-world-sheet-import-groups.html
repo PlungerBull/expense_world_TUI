@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Sheet import groups</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Sheet import · split rows as one movement</h1>
+  <p>What <code>expense import sheet</code> prints on a dry run once rows sharing a <code>COD_EECC</code> come in as one movement with a part per row. Every other line of the dry run stays as it is. The rows and amounts are invented.</p>
+  <p>Pick <b>one letter for each screen</b>. Use the button at the top right for a light terminal.</p>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 1 <span>— the dry run, with every group sharing account, date and description</span></div>
+  <div class="opt var">
+    <div>
+      <div class="oh">A <span>— each group listed with its lines</span><span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx</span></div><div class="app"><pre>Parsed 4188 transactions to import, as 4167 movements.
+Skipped 2 row(s) — zero-amount: 2
+
+<span class="ab">Split transactions (9):</span>
+  SIG-202603-029  2026-03-14  VISA Infinite Sapphire PEN
+    "SUPERMERCADO NORTE"  -245.30  3 parts (lines 3120, 3121, 3122)
+  SIG-202604-011  2026-04-02  VISA Infinite Sapphire PEN
+    "FARMACIA CENTRAL"  -88.40  2 parts (lines 3301, 3302)
+  <span class="d">…7 more, each the same way</span>
+
+Accounts to ensure (31):
+  <span class="d">…as today</span>
+
+Dry run — nothing written. Re-run with --apply to write.</pre></div></div>
+      <p class="cap">The total is the parts' sum. The <code>Parsed</code> line says how many movements the rows make. The list lets you check each group against the statement before writing.</p>
+    </div>
+    <div>
+      <div class="oh">B <span>— one count line, no list</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx</span></div><div class="app"><pre>Parsed 4188 transactions to import, as 4167 movements.
+Skipped 2 row(s) — zero-amount: 2
+<span class="ab">9 split transactions (30 rows) come in as one movement each.</span>
+
+Accounts to ensure (31):
+  <span class="d">…as today</span>
+
+Dry run — nothing written. Re-run with --apply to write.</pre></div></div>
+      <p class="cap">Shorter; the groups are checked in the app after the import instead.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 2 <span>— a group whose rows differ (here, two dates)</span></div>
+  <div class="opt var">
+    <div>
+      <div class="oh">A <span>— nothing is written until the sheet is fixed</span><span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre><span class="nb">Error: rows sharing a COD_EECC must share account, date and description.</span>
+  SIG-202603-029: line 3120 is 2026-03-14, line 3122 is 2026-03-15.
+Nothing was written. Fix the sheet and run the import again.</pre></div></div>
+      <p class="cap">Shown on the dry run and on <code>--apply</code> alike, exit code 2, as a bad <code>--account-name</code> is today. The ledger never holds half a group.</p>
+    </div>
+    <div>
+      <div class="oh">B <span>— the group's rows are skipped, the rest imports</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre>Skipped 5 row(s) — split-mismatch: 3, zero-amount: 2
+  <span class="w">SIG-202603-029: line 3120 is 2026-03-14, line 3122 is 2026-03-15.</span>
+<span class="d">…the import goes on, without those 3 rows</span></pre></div></div>
+      <p class="cap">The skipped rows come in on a later run once the sheet is fixed.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pick">Reply with one letter per screen, for example <b>1 A · 2 A</b>.</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
