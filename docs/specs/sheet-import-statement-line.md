@@ -74,6 +74,12 @@ half a group.
 Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 [expense-world-sheet-import-groups.html](../mockups/expense-world-sheet-import-groups.html).
 
+**Tasks 3 and 4 are parked** until the engine answers
+[a-replayed-id-answers-id-exists-first.md](../to-engine/a-replayed-id-answers-id-exists-first.md):
+a coded row sent again answers `STATEMENT_LINE_EXISTS`, not `ID_EXISTS` on its own id, so a
+re-run would count every coded row as failed. Task 3 also waits on the owner's answers in
+[todo.md](../todo.md) "Waiting on you".
+
 3. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
    `COD_EECC` column is read (blank is none); rows sharing one become one movement, sent as the
    items of one `line_group` in one `POST /transactions/batch`, each carrying the
