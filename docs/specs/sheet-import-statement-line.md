@@ -71,17 +71,20 @@ half a group.
 
 ## Tasks
 
-Approved by the owner 2026-10-21. Screen 2 is picked A: a group whose rows differ stops the
-import before anything is written. Tasks 3 and 4 wait for the screen 1 pick.
+Approved by the owner 2026-10-21, who picks 1 B · 2 B in
+[expense-world-sheet-import-groups.html](../mockups/expense-world-sheet-import-groups.html).
 
 3. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
    `COD_EECC` column is read (blank is none); rows sharing one become one movement, sent as the
    items of one `line_group` in one `POST /transactions/batch`, each carrying the
    `statement_line`. A chunk never cuts a group, and the row-by-row retry after a refused chunk
    retries a group as one batch, never row by row. A group whose rows differ on account, date or
-   title stops the import before anything is written, on the dry run and on `--apply` alike, as
-   screen 2 A draws. The dry run, and its `--json`, show the groups as
-   picked screen 1 draws. A re-run of an imported sheet still counts every row as already there,
+   title is skipped whole, as screen 2 B draws: its rows count under the skip reason
+   `split-mismatch`, a line names the code and the rows that differ, and the rest imports; once
+   the sheet is fixed, a re-run brings the group in. The dry run shows the groups as screen 1 B
+   draws, one count line (`9 split transactions (30 rows) come in as one movement each.`), and
+   the `Parsed` line says how many movements the rows make; its `--json` carries the same
+   counts. A re-run of an imported sheet still counts every row as already there,
    groups included: checked live first — if the engine answers a re-sent group with
    `STATEMENT_LINE_EXISTS` instead of `ID_EXISTS` on its own id, stop and report it, since that
    is an engine ask. Unit tests: the grouping, a chunk boundary inside a group, the retry, the

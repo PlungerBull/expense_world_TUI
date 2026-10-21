@@ -45,17 +45,6 @@ its opening balance first.`
 cursor that stays let a second `t` undo a slip. The extra line names the key that fixes the
 refusal, as the other refusals do.
 
-### How the sheet import shows split rows [UI]
-Asked 2026-10-21 · Blocks: [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) tasks 3 and 4
-
-Every option is drawn in
-[mockups/expense-world-sheet-import-groups.html](mockups/expense-world-sheet-import-groups.html);
-only screen 1 is open. It is the dry run with the 9 split groups: **A** each group listed with
-its lines, or **B** one count line. Screen 2 is answered: a group whose rows differ stops the
-import before anything is written.
-
-**Recommended:** A. The list lets you check each group against its statement before writing.
-
 ### The dry run cannot tell a reused account
 Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) task 3
 
