@@ -232,10 +232,10 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The bulk `c` pick lists categories in the engine's order.** `_picker_options` moves
   `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
-- **Move the official data into the app** (sheet re-import, `PENDIENTES`, 2026 month by month).
-  Spec (draft, deferred): [specs/official-migration.md](specs/official-migration.md). Whether the plan's one-time title
-  alignment ([file-import-plan.md](file-import-plan.md) §6) stays is decided when the owner plans
-  the import (owner, 2026-10-17).
+- **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
+  [specs/before-the-official-import.md](specs/before-the-official-import.md); it waits on
+  [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) and
+  [specs/accounts-become-people.md](specs/accounts-become-people.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),

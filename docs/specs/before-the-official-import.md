@@ -1,127 +1,64 @@
-# Decide before the official import
+# The official import
 
-**Status: draft, written at the owner's ask (2026-10-17); every question waits on the owner.**
-It feeds [official-migration.md](official-migration.md): each answer moves into that spec's
-"What it must do", and this file is deleted when the last one is in.
+**Status: every question answered (owner, 2026-10-21); the import waits on two specs, each with
+an engine half:** [sheet-import-statement-line.md](sheet-import-statement-line.md) and
+[accounts-become-people.md](accounts-become-people.md). When the import is done, the why moves
+to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
-## Where things stand (2026-10-17)
+## What it is
 
-- The spreadsheet is checked against the bank for 2026: the current account matches every
-  statement January–September to the cent, the dollar account January–August, and both legs of
-  the card every line January–September; October matches the bank downloads. Every 2026 row
-  carries the bank's date, and the current account's rows carry their statement month in
-  `ESTADO_CUENTA`. The figures stay outside this repo.
-- The live database still holds the sheet as it was on 2026-09-14, so the import is a wipe and
-  one fresh import ([official-migration.md](official-migration.md)).
-- Built and waiting for nothing: the sheet import itself. Not built yet: its task 1 (`PENDIENTES`
-  and empty cells go to the pending category and hashtag). Without it, the rows with no category
-  are dropped and the current account's balance comes out wrong.
+The live database is wiped and the owner's spreadsheet (`data` sheet) is imported once, onto an
+empty ledger. Nothing typed into the app before the wipe is kept. **From then on the app is the
+record:** every movement goes in through the app (bank uploads and the LOG bar), and the sheet
+is not imported again (owner, 2026-10-21). Everything that writes to the real ledger is run or
+approved by the owner.
 
-## What the owner decides
+## The sheet as it is imported (checked 2026-10-21)
 
-### 1. Keep the one-time pass that renames typed rows to the bank's wording?
-The engine already does this on every bank upload: when a file row matches a ledger row (same
-bank code, or same account, exact day and amount), the engine writes the bank's wording onto the
-ledger row and keeps the old wording as its note when the note is empty
-(contract: POST /v1/transactions/import, "Matching"). The app only shows the result.
-- **A.** Drop the pass.
-- **B.** Keep it as a one-off tidy-up before the first upload.
+- 4,191 rows, December 2022 to October 2026. Every row has a category and a hashtag; no row
+  waits for a classification.
+- Every row checked against a statement carries the statement's date and wording, and its
+  statement line in `COD_EECC` (2025 to September 2026). Split purchases share one `COD_EECC`:
+  9 of them.
+- Loans follow one standard: every movement with a person is mirrored on an account named after
+  that person, whose balance is the debt. Eight people: ALEJO, ALONSO, LC, ALEX, LIDIA, MATILDE,
+  CARLOS, KORAKUEN; four of them hold both currencies, so they become twelve accounts.
+- PARDO (the José Pardo apartment) holds one opening balance of 38,130, the payments made before
+  the account was tracked.
+- Two rows of zero (account maintenance on the dollar account) are skipped: the engine refuses
+  zero amounts.
 
-**Recommended:** A, because every 2026 row now carries the bank's date and amount, so every
-upload renames it anyway.
+## Decided
 
-### 2. How are January–September 2026 confirmed in the app?
-The plan says "upload each month's statement", but the upload reads only the bank's `.xlsx`
-download, which holds the last 20 movements of an account or 80 of a card, a few weeks at most.
-January–August exist only as PDF statements, which the app does not read (settled:
-[file-import-plan.md](../file-import-plan.md) §8, "Other banks, CSV, PDF").
-- **A.** The sheet import also creates each 2026 statement's reconciliation from the
-  `ESTADO_CUENTA` column and the statement's opening and closing balances (one list, kept outside
-  the repo), and completes the ones that come to zero. About 35 statements over four accounts.
-- **B.** The owner creates each reconciliation by hand in the app's reconciliation screen.
-- **C.** No reconciliations before the first bank upload; 2026 stays checked only in the sheet.
+| # | Question | Answer (owner) |
+|---|---|---|
+| 1 | Rename typed rows to the bank's wording once, before the first bank upload? | No: the sheet already carries the statements' wording, and every bank upload renames a matched row anyway (contract: POST /v1/transactions/import, "Matching") (2026-10-21). |
+| 2 | Create the statements' reconciliations at the import? | No. Reconciling is the owner's call, made later; the `COD_EECC` months are its test data (2026-10-21). |
+| 3 | Group the split purchases? | Yes, by their shared `COD_EECC`: [sheet-import-statement-line.md](sheet-import-statement-line.md) (2026-10-21). |
+| 4 | Classify waiting rows before or after? | None are left in the sheet (2026-10-21). |
+| 5 | Is anything owed on the old Oro card? | No, it has been at zero for a long time; it imports as the sheet has it, showing -691.64 PEN and -88.82 USD (2026-10-21). |
+| 6 | The April `EXTORNO` row? | Gone: the row carries the bank's wording and date (2026-10-21). |
+| 7 | Archive the closed accounts (both Interbank accounts, Alcancía)? | Yes, done by the owner in the app after the import (2026-10-21). |
+| 8 | Is the sheet frozen after the import? | The app is the record; the sheet is not imported again (2026-10-21). |
+| 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
+| — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account leg") (2026-10-17). |
+| — | People | Imported as bank accounts, then turned into people in the app: [accounts-become-people.md](accounts-become-people.md) (2026-10-21). |
 
-**Recommended:** A, because the sheet already says which statement each row belongs to, and the
-engine still judges every balance. It needs the `ESTADO_CUENTA` marks finished for the dollar
-account and the card first.
+## Steps
 
-### 3. Group the split purchases before importing?
-Some single bank charges are two rows in the sheet (one purchase split across categories); 2026
-has 7. The engine joins rows into one purchase only when they are written together, never
-afterwards. Left as separate rows, each such day shows as "totals disagree" on any upload that
-covers it.
-- **A.** Mark them in the sheet (a new column naming the purchase), and the import sends each
-  pair as one purchase with two parts.
-- **B.** Leave them as separate rows (the decision of 2026-10-16) and fix by hand if an upload
-  flags them.
-- **C.** Merge each pair into one row in the sheet.
-
-**Recommended:** A, because it is 7 pairs, and the app then shows them as one split purchase,
-the way the split screens being built expect.
-
-### 4. Classify the rows waiting for a category before or after the import?
-About 20 rows have `PENDIENTES` or an empty category or hashtag. They import as `@Pendiente`
-and the pending hashtag either way.
-- **A.** Classify them in the sheet before the import.
-- **B.** Classify them in the app afterwards (Home, `space` + `c` / `h`).
-
-**Recommended:** A, because the pending hashtag's Home row is not built yet; B is fine if you
-want to try the app's bulk edit on real rows.
-
-### 5. Is anything still owed on the old Oro card?
-It has had no movement since January 2026 but still carries a balance in both currencies, and
-there is no 2026 statement for it in the folder. A fact only the owner knows.
-- **A.** It is paid off: a final payment is missing from the sheet; add it before the import.
-- **B.** The balance is real debt; leave it.
-
-**Recommended:** none.
-
-### 6. Is the April `EXTORNO` row the bank's `ABON PLIN-PALOMA G` two days later?
-The bank shows that money arriving two days after the sheet's date, with another description. A
-fact only the owner knows.
-- **A.** Yes: move it to the bank's date.
-- **B.** No: leave it.
-
-**Recommended:** none.
-
-### 7. Archive the closed accounts after the import?
-The two Interbank accounts and Alcancía end at exactly zero and have had no movement since 2024.
-Archived means retired but real: hidden from pickers, history still counted.
-- **A.** Archive them right after the import.
-- **B.** Leave them active.
-
-**Recommended:** A.
-
-### 8. After the import, is the sheet frozen?
-A second sheet import cannot add to the ledger safely: the import identifies rows by their
-position, so edits above the last row duplicate rows.
-- **A.** Frozen: from the import on, every movement goes into the app (bank uploads and the LOG
-  bar); the sheet is kept as an archive.
-- **B.** Keep both for a while; a later import means wiping again and losing whatever was done
-  in the app.
-
-**Recommended:** A.
-
-### 9. Accept the app's exchange rates for the dollar rows?
-The sheet's `T.C.` and `Solarizado` columns are ignored: the engine converts each dollar row with
-that day's market rate, so soles totals of dollar spending differ slightly from the sheet's.
-- **A.** Accept the engine's rates.
-- **B.** The sheet's own rates matter: that is an engine change, raised as an ask.
-
-**Recommended:** A.
-
-### 10. Import now, or wait for the October statements?
-October matches the bank downloads; its statements arrive in early November.
-- **A.** Import once 1–9 are answered and task 1 is built; reconcile October when its statements
-  arrive.
-- **B.** Wait for the October statements.
-
-**Recommended:** A.
+1. Both specs above are built, engine halves first.
+2. The owner wipes the live database.
+3. The import's dry run, with the four `--account-name` renames: no row skipped but the two
+   zero rows, the 9 split groups shown as one movement each, the four bank names listed.
+4. The import with `--apply`, finishing with no failures.
+5. In the app: the twelve person accounts turned into people, and the three closed accounts
+   archived.
 
 ## How the owner knows it is done
 
-1. Every question above has an answer, and each answer is written into
-   [official-migration.md](official-migration.md).
-2. That spec's task list covers every answer that needs building, ready for the owner's approval.
+1. The accounts screen shows the four bank names, the twelve people under people, and the three
+   closed accounts archived.
+2. Each split purchase shows as one split transaction.
+3. Each account's balance equals its total in the sheet.
