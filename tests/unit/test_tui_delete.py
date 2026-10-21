@@ -33,6 +33,7 @@ from tests.unit.helpers import (
     error_response,
     fake_ledger,
     import_part,
+    line_code_of,
     refusal_text,
     run_app,
     wait_for,
@@ -249,6 +250,8 @@ LEDGER = [
         "category_id": "pend",
         "hashtag_ids": [],
         "bank_line_id": f"bl{i}",
+        "line_code": f"#{i:06d}",
+        "statement_line": None,
     }
     for i in range(1, 26)
 ]
@@ -718,6 +721,8 @@ def _ledger_row(tx_id: str, title: str, amount: int, line: str, day: str = "2026
         "category_id": "pend",
         "hashtag_ids": [],
         "bank_line_id": line,
+        "line_code": line_code_of(line),
+        "statement_line": None,
     }
 
 

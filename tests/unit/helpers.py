@@ -9,6 +9,7 @@ test files pay no TUI import cost.
 import asyncio
 import io
 import re
+import zlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -203,6 +204,14 @@ def whole(items: list) -> dict:
     return {"items": items}
 
 
+def line_code_of(line: str) -> str:
+    """The `line_code` a fixture's bank line `line` reads: `#` and six digits, the same
+    on every part of one line and, in practice, different between lines
+    (contract: "Transactions (Ledger)", "Bank lines"). Derived from the line's id so a
+    fixture never has to keep a counter."""
+    return f"#{zlib.crc32(line.encode()) % 999_999 + 1:06d}"
+
+
 def import_part(
     tx_id: str,
     amount_cents: int,
@@ -214,6 +223,7 @@ def import_part(
     category_id: str = "pend",
     hashtag_ids: tuple[str, ...] = ("h-pend",),
     description: str | None = None,
+    statement_line: str | None = None,
 ) -> dict:
     """One part of a bank line as the engine lists it, in a
     `POST /transactions/import` answer's unclaimed line or in the `parts` of
@@ -234,7 +244,9 @@ def import_part(
         "category_id": category_id,
         "reconciliation_id": None,
         "bank_line_id": line,
+        "line_code": line_code_of(line),
         "operation_code": None,
+        "statement_line": statement_line,
         "created_at": f"{day}T15:00:00Z",
         "updated_at": f"{day}T15:00:00Z",
         "version": 1,
@@ -252,12 +264,15 @@ def bank_line_row(
     account_id: str = "sig-pen",
 ) -> dict:
     """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
-    reads it: its `parts` (each an `import_part`), the engine's signed
-    `net_cents` and `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
+    reads it: its `parts` (each an `import_part`), its `line_code` and
+    `statement_line` as its parts read them, the engine's signed `net_cents` and
+    `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
     return {
         "id": line,
+        "line_code": line_code_of(line),
         "account_id": account_id,
         "operation_code": operation_code,
+        "statement_line": parts[0]["statement_line"] if parts else None,
         "net_cents": net_cents,
         "part_count": len(parts),
         "parts": parts,

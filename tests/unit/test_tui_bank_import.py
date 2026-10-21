@@ -35,6 +35,7 @@ from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
     import_part,
+    line_code_of,
     render_text,
     run_app,
     stub_home_month,
@@ -88,7 +89,14 @@ DAY_0907 = {
     "file_net_cents": -350,
     "ledger_net_cents": -700,
     "unmatched_rows": [3],
-    "unclaimed_lines": [{"bank_line_id": "bl-1", "net_cents": -350, "parts": [PART_1]}],
+    "unclaimed_lines": [
+        {
+            "bank_line_id": "bl-1",
+            "line_code": line_code_of("bl-1"),
+            "net_cents": -350,
+            "parts": [PART_1],
+        }
+    ],
 }
 #: DAY_0907 as the screens hold it.
 PARSED_0907 = DayMismatch(
@@ -111,7 +119,14 @@ DAY_0908_SPLIT = {
     "file_net_cents": -420,
     "ledger_net_cents": -10420,
     "unmatched_rows": [],
-    "unclaimed_lines": [{"bank_line_id": "bl-2", "net_cents": -10000, "parts": SPLIT_PARTS}],
+    "unclaimed_lines": [
+        {
+            "bank_line_id": "bl-2",
+            "line_code": line_code_of("bl-2"),
+            "net_cents": -10000,
+            "parts": SPLIT_PARTS,
+        }
+    ],
 }
 #: A day whose totals agree, reported for the ledger line no file row claimed:
 #: a +50 and a -50 the file does not have.
@@ -126,8 +141,18 @@ DAY_0911_EQUAL = {
     "ledger_net_cents": -4900,
     "unmatched_rows": [],
     "unclaimed_lines": [
-        {"bank_line_id": "bl-3", "net_cents": 5000, "parts": EQUAL_PARTS[:1]},
-        {"bank_line_id": "bl-4", "net_cents": -5000, "parts": EQUAL_PARTS[1:]},
+        {
+            "bank_line_id": "bl-3",
+            "line_code": line_code_of("bl-3"),
+            "net_cents": 5000,
+            "parts": EQUAL_PARTS[:1],
+        },
+        {
+            "bank_line_id": "bl-4",
+            "line_code": line_code_of("bl-4"),
+            "net_cents": -5000,
+            "parts": EQUAL_PARTS[1:],
+        },
     ],
 }
 
@@ -736,6 +761,7 @@ DAY_0909_USD = {
     "unclaimed_lines": [
         {
             "bank_line_id": "bl-9",
+            "line_code": line_code_of("bl-9"),
             "net_cents": -2117,
             "parts": [
                 import_part(
@@ -786,6 +812,7 @@ def test_a_one_account_files_days_carry_the_date_alone(fake_client, monkeypatch,
         "unclaimed_lines": [
             {
                 "bank_line_id": "bl-f",
+                "line_code": line_code_of("bl-f"),
                 "net_cents": -4200,
                 "parts": [
                     import_part(

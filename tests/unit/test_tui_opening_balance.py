@@ -49,6 +49,8 @@ OPENING_ROW = {
     "amount_cents": -320000,
     "transaction_type": 2,
     "date": "2026-01-01T00:00:00-05:00",
+    "line_code": "#000001",
+    "statement_line": None,
 }
 
 

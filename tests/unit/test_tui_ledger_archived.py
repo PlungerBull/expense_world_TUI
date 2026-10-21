@@ -24,6 +24,7 @@ from tests.unit.helpers import (
     bank_line_row,
     fake_ledger,
     import_part,
+    line_code_of,
     render_text,
     run_app,
     wait_for,
@@ -56,6 +57,8 @@ def _row(tx_id: str, account_id: str, title: str) -> dict:
         "category_id": "cat-efe",
         "hashtag_ids": [],
         "bank_line_id": f"bl-{tx_id}",
+        "line_code": line_code_of(f"bl-{tx_id}"),
+        "statement_line": None,
         "reconciliation_id": None,
     }
 

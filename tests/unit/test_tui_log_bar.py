@@ -112,6 +112,8 @@ PEEK_ITEMS = [
         "account_id": "acc1",
         "category_id": "cat1",
         "hashtag_ids": ["h1"],
+        "line_code": "#000002",
+        "statement_line": None,
     },
     {
         "id": "t2",
@@ -121,6 +123,8 @@ PEEK_ITEMS = [
         "account_id": "acc1",
         "category_id": "cat2",
         "hashtag_ids": [],
+        "line_code": "#000001",
+        "statement_line": None,
     },
 ]
 PEEK_BODY = cursor_page(PEEK_ITEMS, next_cursor="c40", limit=40)
@@ -1187,7 +1191,13 @@ def test_peek_rows_carry_the_five_columns_and_never_the_account():
 
 
 def test_peek_row_of_an_unnamed_category_still_renders():
-    rows = peek_rows([{"date": "2026-08-20T10:00:00-05:00", "amount_cents": -100}], REFS)
+    row = {
+        "date": "2026-08-20T10:00:00-05:00",
+        "amount_cents": -100,
+        "line_code": "#000003",
+        "statement_line": None,
+    }
+    rows = peek_rows([row], REFS)
     assert rows and str(rows[0][1]) == "—"
 
 

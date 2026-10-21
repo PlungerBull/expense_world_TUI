@@ -31,6 +31,7 @@ from tests.unit.helpers import (
     hashtag_refusal,
     import_part,
     in_order,
+    line_code_of,
     refusal_text,
     render_text,
     run_app,
@@ -101,6 +102,8 @@ TXN = {
     "hashtag_ids": ["h1"],
     "description": "receta",
     "bank_line_id": "bl1",
+    "line_code": line_code_of("bl1"),
+    "statement_line": None,
 }
 
 
@@ -893,8 +896,10 @@ def _bank_line(part_count: int) -> dict:
     """A bank line as the engine reads it (contract: GET /v1/bank-lines/{bank_line_id})."""
     return {
         "id": "bl1",
+        "line_code": line_code_of("bl1"),
         "account_id": "acc1",
         "operation_code": None,
+        "statement_line": None,
         "net_cents": -10000 if part_count > 1 else -4250,
         "part_count": part_count,
         "parts": [
@@ -1033,8 +1038,10 @@ NULL_CLEARS = {"reconciliation_id", "title", "operation_code"}
 
 BANK_LINE = {
     "id": "bl1",
+    "line_code": line_code_of("bl1"),
     "account_id": "acc1",
     "operation_code": "47391026",
+    "statement_line": None,
     "part_count": 1,
     "net_cents": -4250,
     "parts": [
@@ -1044,6 +1051,8 @@ BANK_LINE = {
             "title": "FARMACIA",
             "amount_cents": 4250,
             "transaction_type": 1,
+            "line_code": line_code_of("bl1"),
+            "statement_line": None,
         }
     ],
 }

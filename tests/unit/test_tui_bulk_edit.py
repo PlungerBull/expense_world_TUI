@@ -34,6 +34,7 @@ from tests.unit.helpers import (
     fake_ledger,
     hashtag_refusal,
     in_order,
+    line_code_of,
     list_ready,
     refusal_text,
     render_text,
@@ -54,6 +55,8 @@ ITEMS = [
         "account_id": "acc1",
         "category_id": "pend",
         "hashtag_ids": [],
+        "line_code": f"#{i:06d}",
+        "statement_line": None,
     }
     for i, title in enumerate(["EDO SUSHI BAR", "DLC*RIDES", "MAR DE COLAS"], start=1)
 ]
@@ -993,6 +996,8 @@ def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> 
         "category_id": "pend",
         "hashtag_ids": ["hp"],
         "bank_line_id": line,
+        "line_code": line_code_of(line),
+        "statement_line": None,
         "reconciliation_id": recon,
     }
 

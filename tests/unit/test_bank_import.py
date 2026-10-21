@@ -44,7 +44,7 @@ from expense.bank_import.parse import (
 )
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, import_part
+from tests.unit.helpers import error_response, import_part, line_code_of
 
 CARD_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]
 ACCOUNT_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
@@ -479,7 +479,12 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
                     "ledger_net_cents": -15000,
                     "unmatched_rows": [],
                     "unclaimed_lines": [
-                        {"bank_line_id": "bl-3", "net_cents": -5000, "parts": [t3]}
+                        {
+                            "bank_line_id": "bl-3",
+                            "line_code": line_code_of("bl-3"),
+                            "net_cents": -5000,
+                            "parts": [t3],
+                        }
                     ],
                 },
                 {
@@ -489,7 +494,12 @@ def test_day_mismatches_keep_both_signed_totals_and_name_the_leg():
                     "ledger_net_cents": 0,
                     "unmatched_rows": [1, 3],
                     "unclaimed_lines": [
-                        {"bank_line_id": "bl-4", "net_cents": -10000, "parts": [t4a, t4b]},
+                        {
+                            "bank_line_id": "bl-4",
+                            "line_code": line_code_of("bl-4"),
+                            "net_cents": -10000,
+                            "parts": [t4a, t4b],
+                        },
                     ],
                 },
                 {
@@ -551,8 +561,18 @@ def test_a_day_with_equal_totals_keeps_its_unclaimed_line():
                     "ledger_net_cents": -2590,
                     "unmatched_rows": [],
                     "unclaimed_lines": [
-                        {"bank_line_id": "bl-5", "net_cents": 5000, "parts": [plus]},
-                        {"bank_line_id": "bl-6", "net_cents": -5000, "parts": [minus]},
+                        {
+                            "bank_line_id": "bl-5",
+                            "line_code": line_code_of("bl-5"),
+                            "net_cents": 5000,
+                            "parts": [plus],
+                        },
+                        {
+                            "bank_line_id": "bl-6",
+                            "line_code": line_code_of("bl-6"),
+                            "net_cents": -5000,
+                            "parts": [minus],
+                        },
                     ],
                 }
             ]

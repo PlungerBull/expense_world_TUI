@@ -238,7 +238,14 @@ def test_hashtags_manage_reads_the_whole_list_once(monkeypatch):
 
 def _ledger_rows(n: int) -> list[dict]:
     return [
-        {"id": f"t{i}", "title": f"Txn {i}", "amount_cents": -100 - i, "date": "2026-07-01"}
+        {
+            "id": f"t{i}",
+            "title": f"Txn {i}",
+            "amount_cents": -100 - i,
+            "date": "2026-07-01",
+            "line_code": f"#{i + 1:06d}",
+            "statement_line": None,
+        }
         for i in range(n)
     ]
 

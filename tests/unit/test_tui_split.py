@@ -43,6 +43,7 @@ from tests.unit.helpers import (
     archived_words,
     cursor_page,
     import_part,
+    line_code_of,
     render_text,
     run_app,
     wait_for,
@@ -89,6 +90,8 @@ def _tx(
         "category_id": category,
         "hashtag_ids": tags if tags is not None else ["h-pend"],
         "bank_line_id": line,
+        "line_code": line_code_of(line),
+        "statement_line": None,
         "version": 1,
     }
 
@@ -123,8 +126,10 @@ def bank_line(line: str) -> dict:
     """`GET /bank-lines/{id}` for one of `LINES`: the line with every part."""
     return {
         "id": line,
+        "line_code": line_code_of(line),
         "account_id": "acc1",
         "operation_code": None,
+        "statement_line": None,
         "net_cents": NET[line],
         "part_count": len(LINES[line]),
         "parts": [_as_part(tx) for tx in LINES[line]],

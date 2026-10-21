@@ -751,6 +751,9 @@ TRANSACTION_RESPONSE = {
     "hashtag_ids": [],
     "reconciliation_id": None,
     "bank_line_id": "66666666-6666-6666-6666-666666666666",
+    "line_code": "#000042",
+    "operation_code": None,
+    "statement_line": "SIG-202603-029",
     "created_at": "2026-04-24T10:00:00Z",
     "updated_at": "2026-04-24T10:00:00Z",
     "version": 1,
@@ -825,8 +828,10 @@ def test_transaction_reads_pass_the_bank_line_through(configured):
 
 BANK_LINE_RESPONSE = {
     "id": "66666666-6666-6666-6666-666666666666",
+    "line_code": "#000042",
     "account_id": "acct-id",
     "operation_code": None,
+    "statement_line": "SIG-202603-029",
     "net_cents": -10000,
     "part_count": 2,
     # Each part the transaction response, unsigned: a magnitude and its type.

@@ -71,21 +71,9 @@ half a group.
 
 ## Tasks
 
-Drafted 2026-10-21; wait for the owner's approval. Tasks 1 and 2 draw nothing; tasks 3 and 4
-wait for the picks above.
+Approved by the owner 2026-10-21. Screen 2 is picked A: a group whose rows differ stops the
+import before anything is written. Tasks 3 and 4 wait for the screen 1 pick.
 
-1. **The unit fixtures and the live contract tests know both fields.** Every transaction and
-   bank-line fixture carries `line_code` (`#` and six digits) and `statement_line` (`null` or a
-   value), and the import's `unclaimed_lines` fixtures carry `line_code`; the drift script passes.
-   New live contract tests: a batch `line_group` makes one line whose parts read one `line_code`,
-   kept by a split; sending `line_code` on any create or `PUT` is `422` `UNKNOWN_FIELD`;
-   `statement_line` round-trips on create, batch and `PUT` (written onto every part, `null`
-   clears it); a second live line with the same value is `409` `STATEMENT_LINE_EXISTS` and two in
-   one batch are `422` `DUPLICATE_IN_REQUEST`; a group whose items differ on it is `422`
-   `LINE_GROUP_FIELDS_DIFFER`; the opening balance, the split and the bank upload refuse it as
-   `UNKNOWN_FIELD`; in a completed reconciliation a set one is `LOCKED` and an empty one fills.
-   The practice user's data outlives a reseed, so every statement line a test writes is unique
-   to its run. Passes the engine's check 1.
 2. **No request carries `line_code`.** A unit guard fails when any request body the app builds
    holds the key. Passes the engine's check 3.
 3. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
@@ -93,7 +81,8 @@ wait for the picks above.
    items of one `line_group` in one `POST /transactions/batch`, each carrying the
    `statement_line`. A chunk never cuts a group, and the row-by-row retry after a refused chunk
    retries a group as one batch, never row by row. A group whose rows differ on account, date or
-   title behaves as picked screen 2 draws. The dry run, and its `--json`, show the groups as
+   title stops the import before anything is written, on the dry run and on `--apply` alike, as
+   screen 2 A draws. The dry run, and its `--json`, show the groups as
    picked screen 1 draws. A re-run of an imported sheet still counts every row as already there,
    groups included: checked live first — if the engine answers a re-sent group with
    `STATEMENT_LINE_EXISTS` instead of `ID_EXISTS` on its own id, stop and report it, since that
