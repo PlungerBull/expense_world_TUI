@@ -74,8 +74,6 @@ half a group.
 Approved by the owner 2026-10-21. Screen 2 is picked A: a group whose rows differ stops the
 import before anything is written. Tasks 3 and 4 wait for the screen 1 pick.
 
-2. **No request carries `line_code`.** A unit guard fails when any request body the app builds
-   holds the key. Passes the engine's check 3.
 3. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
    `COD_EECC` column is read (blank is none); rows sharing one become one movement, sent as the
    items of one `line_group` in one `POST /transactions/batch`, each carrying the

@@ -8,6 +8,7 @@ fixture named `configured` behind.
 import socket
 from pathlib import Path
 
+import httpx
 import pytest
 
 from expense import config as config_module
@@ -50,6 +51,46 @@ def _block_real_network(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
     monkeypatch.setattr(socket.socket, "connect", _fake_connect)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_line_code_in_requests(monkeypatch):
+    """Fail EVERY test whose requests carry `line_code` in a body, at any depth.
+
+    The engine mints a line's `line_code` and refuses it on every write as
+    `422` `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), and
+    every row the app reads carries it, so a read row passed straight back as a
+    body would send it. Each write the app makes reaches one of these, all of
+    which call `helpers.refuse_line_code` before the request goes out:
+
+    - `httpx.Client.send`, wrapped here: the real `ExpenseClient` under respx
+      (the sheet import, the reads, test_http), since respx answers below it;
+    - `helpers.FakeClient.post`/`.put`, including a function a test assigns in
+      their place (see `FakeClient.__getattribute__`);
+    - test_batch_write's scripted `_Client`, and any other class with its own
+      `post`/`put`, which calls it there (test_suite_hygiene.py
+      `test_every_fake_engine_refuses_line_code`).
+
+    The check raises, which stops the request; the leak is also recorded, and
+    checked here after the test, because the app may catch the raise and carry on.
+    """
+    real_send = httpx.Client.send
+
+    def send(self, request, **kwargs):
+        helpers.refuse_line_code(request.method, request.url.path, helpers.sent_json(request))
+        return real_send(self, request, **kwargs)
+
+    monkeypatch.setattr(httpx.Client, "send", send)
+    helpers.LINE_CODE_LEAKS.clear()
+    yield
+    leaks = list(helpers.LINE_CODE_LEAKS)
+    helpers.LINE_CODE_LEAKS.clear()
+    if leaks:
+        pytest.fail(
+            "a request body carries line_code, which the engine mints and refuses on every "
+            "write (422 UNKNOWN_FIELD):\n" + "\n".join(leaks),
+            pytrace=False,
+        )
 
 
 @pytest.fixture(autouse=True)

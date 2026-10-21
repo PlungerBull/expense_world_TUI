@@ -7,7 +7,9 @@ test files pay no TUI import cost.
 """
 
 import asyncio
+import functools
 import io
+import json
 import re
 import zlib
 from collections.abc import Callable
@@ -375,6 +377,83 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
 
 
 # ---------------------------------------------------------------------------
+# No request carries line_code
+# ---------------------------------------------------------------------------
+
+#: The key no request body may hold: the engine mints every line's `line_code` and
+#: refuses it on every write as `422` `UNKNOWN_FIELD`
+#: (contract: "Transactions (Ledger)", "Bank lines").
+MINTED_KEY = "line_code"
+
+#: Every request a test sent with the key in its body, as "METHOD path sends … at …".
+#: `refuse_line_code` adds to it; conftest's autouse `_no_line_code_in_requests` empties
+#: it before each test and fails the test after it when it is not empty, so a leak the
+#: app catches and swallows still fails the test that made it.
+LINE_CODE_LEAKS: list[str] = []
+
+
+class LineCodeLeak(AssertionError):
+    """A request body holds the key `line_code`."""
+
+
+def line_code_paths(body: Any, where: str = "body") -> list[str]:
+    """Every place `body` holds the key `line_code`, at any depth:
+    `body.line_code`, `body.transactions[2].line_code`, `body.parts[0].line_code`, …"""
+    if isinstance(body, dict):
+        found = [f"{where}.{MINTED_KEY}"] if MINTED_KEY in body else []
+        for key, value in body.items():
+            found += line_code_paths(value, f"{where}.{key}")
+        return found
+    if isinstance(body, list | tuple):
+        return [p for i, item in enumerate(body) for p in line_code_paths(item, f"{where}[{i}]")]
+    return []
+
+
+def refuse_line_code(method: str, path: str, body: Any) -> None:
+    """Record and raise `LineCodeLeak` when `body` holds `line_code` anywhere.
+
+    Called before the request goes out, by every fake engine the suite has:
+    `FakeClient` (and any function a test puts in place of its `post`/`put`),
+    the real `httpx.Client.send` under respx (conftest), and test_batch_write's
+    scripted client."""
+    found = line_code_paths(body)
+    if not found:
+        return
+    leak = f"{method} {path} sends {MINTED_KEY} at {', '.join(found)}"
+    LINE_CODE_LEAKS.append(leak)
+    raise LineCodeLeak(
+        f"{leak}: the engine mints it and refuses it on every write (422 UNKNOWN_FIELD)"
+    )
+
+
+def sent_json(request: httpx.Request) -> Any:
+    """The JSON body of an outgoing httpx request, or None when it has none."""
+    try:
+        content = request.content
+    except httpx.RequestNotRead:
+        return None
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except ValueError:
+        return None
+
+
+def _refusing_line_code(method: str, send: Callable) -> Callable:
+    """`send` (a `post`/`put`), checked by `refuse_line_code` before it runs.
+    The body is the `json_body` argument, by keyword or second positional."""
+
+    @functools.wraps(send)
+    def checked(path: str, *args: Any, **kwargs: Any) -> Any:
+        body = kwargs["json_body"] if "json_body" in kwargs else (args[0] if args else None)
+        refuse_line_code(method, path, body)
+        return send(path, *args, **kwargs)
+
+    return checked
+
+
+# ---------------------------------------------------------------------------
 # TUI fakes and waits
 # ---------------------------------------------------------------------------
 
@@ -394,7 +473,17 @@ class FakeClient:
     Writes answer `{}` unless `write_responses[path]` says otherwise — needed
     because `run_write`'s `on_response` reads the engine's own body (`complete`
     carries a `warnings` envelope).
+
+    `post` and `put` are read through `__getattribute__`, which hands back the
+    method checked by `refuse_line_code` — so a function a test assigns to
+    `client.post` or `client.put` is checked too, before it runs.
     """
+
+    def __getattribute__(self, name: str) -> Any:
+        attr = object.__getattribute__(self, name)
+        if name in ("post", "put"):
+            return _refusing_line_code(name.upper(), attr)
+        return attr
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, Any]] = []

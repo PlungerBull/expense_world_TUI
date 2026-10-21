@@ -1236,6 +1236,16 @@ make rows fit that do not. Width has **no** floor of any kind.
 - **`fake_client` (conftest) patches the lazy-import seams only** —
   `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on
   `client.calls` / `.posts` / `.puts` ordering.
+- **No request body carries `line_code`, at any depth** — the engine mints it and refuses
+  it on every write (contract: "Transactions (Ledger)", "Bank lines"). The autouse
+  `_no_line_code_in_requests` in [conftest.py](../tests/unit/conftest.py) fails any unit
+  test whose request holds it, even when the app swallows the refusal: it checks
+  `httpx.Client.send` (respx), `FakeClient.post`/`.put` and any function a test puts in
+  their place. [test_no_line_code.py](../tests/unit/test_no_line_code.py) trips it. Any
+  other class in `tests/unit` with its own `post` or `put` is a fake engine: it subclasses
+  `FakeClient` or calls `helpers.refuse_line_code` in each, as
+  `test_every_fake_engine_refuses_line_code` in
+  [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) checks.
 - **The typed surface is pinned** by
   [test_command_surface.py](../tests/unit/test_command_surface.py) (CLAUDE.md "Testing
   conventions").

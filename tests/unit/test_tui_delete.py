@@ -250,7 +250,7 @@ LEDGER = [
         "category_id": "pend",
         "hashtag_ids": [],
         "bank_line_id": f"bl{i}",
-        "line_code": f"#{i:06d}",
+        "line_code": line_code_of(f"bl{i}"),
         "statement_line": None,
     }
     for i in range(1, 26)

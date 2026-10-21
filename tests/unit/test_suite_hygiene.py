@@ -15,6 +15,7 @@ This test keeps a timed pause from landing silently.
 simulating latency, not test waits.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -168,3 +169,106 @@ def test_whole_list_fakes_serve_the_engine_shape():
         for m in _BARE_LIST_FAKE.finditer(path.read_text())
     ]
     assert not offenders, f"serve these lists as whole([...]) from helpers.py: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# Guard: every fake engine refuses `line_code`
+# ---------------------------------------------------------------------------
+#
+# The engine mints `line_code` and refuses it on every write
+# (contract: "Transactions (Ledger)", "Bank lines"). Read by AST, not by regex,
+# so a class's own `post`/`put` and its bases are what is checked, wherever
+# they sit in the file.
+
+_VERBS = ("post", "put")
+
+
+def _base_names(node: ast.ClassDef) -> set[str]:
+    names = set()
+    for base in node.bases:
+        if isinstance(base, ast.Name):
+            names.add(base.id)
+        elif isinstance(base, ast.Attribute):
+            names.add(base.attr)
+    return names
+
+
+def _fake_client_kin(trees: list[ast.Module]) -> set[str]:
+    """`FakeClient` and every class in `trees` that derives from it, at any depth."""
+    kin = {"FakeClient"}
+    classes = [node for tree in trees for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+    grew = True
+    while grew:
+        grew = False
+        for node in classes:
+            if node.name not in kin and _base_names(node) & kin:
+                kin.add(node.name)
+                grew = True
+    return kin
+
+
+def _callee_name(call: ast.Call) -> str | None:
+    callee = call.func
+    return callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
+
+
+def _calls_refuse_line_code(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    calls = (node for node in ast.walk(func) if isinstance(node, ast.Call))
+    return any(_callee_name(call) == "refuse_line_code" for call in calls)
+
+
+def _unchecked_fakes(rel: str, tree: ast.Module, kin: set[str]) -> list[str]:
+    """Each `post`/`put` of a class in `tree` that is neither `FakeClient` kin
+    (whose `__getattribute__` checks them) nor calls `refuse_line_code` itself."""
+    hits = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef) or node.name in kin:
+            continue
+        for item in node.body:
+            if (
+                isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+                and item.name in _VERBS
+                and not _calls_refuse_line_code(item)
+            ):
+                hits.append(f"{rel}:{item.lineno}: {node.name}.{item.name}")
+    return hits
+
+
+def test_every_fake_engine_refuses_line_code():
+    """A class with its own `post` or `put` is a fake engine: the app's writes
+    reach it instead of `httpx`, so conftest's `_no_line_code_in_requests` sees
+    them only if it is `FakeClient` kin or calls `helpers.refuse_line_code`
+    (docs/tui.md "Test conventions")."""
+    paths = sorted(TESTS_DIR.glob("*.py"))
+    trees = {path.name: ast.parse(path.read_text()) for path in paths}
+    kin = _fake_client_kin(list(trees.values()))
+    hits = [hit for name, tree in trees.items() for hit in _unchecked_fakes(name, tree, kin)]
+    assert not hits, (
+        "these fake engines answer writes without the line_code check: subclass "
+        "helpers.FakeClient, or call helpers.refuse_line_code(method, path, json_body) "
+        f"first in each post/put: {hits}"
+    )
+
+
+def test_fake_engine_guard_trips():
+    def hits(source: str) -> list[str]:
+        tree = ast.parse(source)
+        return _unchecked_fakes("x.py", tree, _fake_client_kin([tree]))
+
+    for source in (
+        "class C:\n    def post(self, path, json_body=None):\n        return {}\n",
+        "class C:\n    def put(self, path, json_body=None):\n        return {}\n",
+        "class C(Other):\n    def post(self, path, json_body=None):\n        check(json_body)\n",
+        "class C:\n    def post(self, p, b=None):\n        refuse_line_code('POST', p, b)\n"
+        "    def put(self, p, b=None):\n        return {}\n",
+    ):
+        assert hits(source), source
+    for source in (
+        "class C(FakeClient):\n    def post(self, path, json_body=None):\n        return {}\n",
+        "class L(helpers.FakeClient):\n    pass\n"
+        "class C(L):\n    def put(self, path, json_body=None):\n        return {}\n",
+        "class C:\n    def post(self, p, b=None):\n        refuse_line_code('POST', p, b)\n",
+        "class C:\n    def post(self, p, b=None):\n        h.refuse_line_code('POST', p, b)\n",
+        "class C:\n    def get(self, path):\n        return {}\n",
+    ):
+        assert not hits(source), source

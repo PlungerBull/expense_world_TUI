@@ -16,6 +16,7 @@ from expense.batch_write import (
     post_transaction_batch,
 )
 from expense.errors import EngineConnectionError, EngineError, engine_words, format_error
+from tests.unit.helpers import refuse_line_code
 
 
 class _Client:
@@ -26,6 +27,7 @@ class _Client:
         self.calls: list[tuple[str, dict]] = []
 
     def post(self, path, json_body=None):
+        refuse_line_code("POST", path, json_body)
         self.calls.append((path, json_body))
         if self.answers:
             answer = self.answers.pop(0)
