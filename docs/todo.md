@@ -45,33 +45,6 @@ its opening balance first.`
 cursor that stays let a second `t` undo a slip. The extra line names the key that fixes the
 refusal, as the other refusals do.
 
-### The sheet import's split line, and a sheet without `COD_EECC`
-Asked 2026-10-21 · Blocks: [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) task 3
-
-You picked one count line on the dry run (`9 split transactions (30 rows) come in as one
-movement each.`). Three details it leaves open:
-
-1. A sheet with no split groups at all: **A** no line, or **B** `0 split transactions come in as
-   one movement each.`
-2. A sheet with exactly one group: **A** `1 split transaction (3 rows) comes in as one
-   movement.`, or **B** the same words as for many, `1 split transactions (3 rows) come in as one
-   movement each.`
-3. A sheet with no `COD_EECC` column: **A** it imports as today, every row its own transaction
-   with no statement line, or **B** it is refused as a missing column.
-
-**Recommended:** 1 A · 2 A · 3 A. A line saying nothing is noise, one group reads as English,
-and `COD_EECC` is optional like `NOTAS`.
-
-### The spec's first done-check after picking the count line
-Asked 2026-10-21 · Blocks: the acceptance check of [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md)
-
-The spec's check 1, and its line "The dry run shows each group as one movement with its parts",
-expect the list (screen 1 A). With the count line you picked, the dry run shows no parts.
-- **A.** Reword both to "the dry run says 9 split transactions come in as one movement each".
-- **B.** Keep them; the list comes back.
-
-**Recommended:** A, because it matches your pick.
-
 ### The dry run cannot tell a reused account
 Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) task 3
 

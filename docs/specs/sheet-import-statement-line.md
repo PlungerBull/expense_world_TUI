@@ -28,7 +28,7 @@ and on every movement after it; the sheet has no ID column and the import sends 
 - **Each movement's `COD_EECC` is sent with it,** so the engine keeps it as the statement line.
   Rows with an empty `COD_EECC` (mirror rows, rows with no statement) come in as movements of
   their own with no statement line.
-- The dry run shows each group as one movement with its parts.
+- The dry run says how many split transactions come in as one movement each.
 - No screen shows the ID or the statement line (owner, 2026-10-21).
 
 `COD_EECC` is not the bank's operation number: the sheet has no column for it, and bank uploads
@@ -36,7 +36,7 @@ write it on later (contract: POST /v1/transactions/import, "Matching").
 
 ## How the owner knows it is done
 
-1. The dry run shows each of the 9 split groups as one movement with its parts.
+1. The dry run says 9 split transactions come in as one movement each.
 2. After the import, the ledger shows each split group as one split transaction, and the engine
    holds each coded row's `COD_EECC` and an ID on every movement.
 3. A sheet with two rows sharing a `COD_EECC` on different accounts or dates is refused at the
@@ -77,18 +77,19 @@ Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 **Tasks 3 and 4 are parked** until the engine answers
 [a-replayed-id-answers-id-exists-first.md](../to-engine/a-replayed-id-answers-id-exists-first.md):
 a coded row sent again answers `STATEMENT_LINE_EXISTS`, not `ID_EXISTS` on its own id, so a
-re-run would count every coded row as failed. Task 3 also waits on the owner's answers in
-[todo.md](../todo.md) "Waiting on you".
+re-run would count every coded row as failed.
 
 3. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
-   `COD_EECC` column is read (blank is none); rows sharing one become one movement, sent as the
+   `COD_EECC` column is read (blank is none; a sheet without the column imports as before, every
+   row its own movement); rows sharing one become one movement, sent as the
    items of one `line_group` in one `POST /transactions/batch`, each carrying the
    `statement_line`. A chunk never cuts a group, and the row-by-row retry after a refused chunk
    retries a group as one batch, never row by row. A group whose rows differ on account, date or
    title is skipped whole, as screen 2 B draws: its rows count under the skip reason
    `split-mismatch`, a line names the code and the rows that differ, and the rest imports; once
    the sheet is fixed, a re-run brings the group in. The dry run shows the groups as screen 1 B
-   draws, one count line (`9 split transactions (30 rows) come in as one movement each.`), and
+   draws, one count line (`9 split transactions (30 rows) come in as one movement each.`; for one
+   group `1 split transaction (3 rows) comes in as one movement.`; no line when there is none), and
    the `Parsed` line says how many movements the rows make; its `--json` carries the same
    counts. A re-run of an imported sheet still counts every row as already there,
    groups included: checked live first — if the engine answers a re-sent group with
