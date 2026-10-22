@@ -1,8 +1,7 @@
 # Turn an account into a person, and back
 
-**Status: draft (owner, 2026-10-21).** The engine half is the engine repo's spec
-`account-kind-conversion.md`; the TUI half
-waits for it to land.
+**Status: approved (owner, 2026-10-22).** The engine half is the engine repo's spec
+`account-kind-conversion.md`, shipped 2026-10-21; this is the TUI half.
 
 ---
 
@@ -36,8 +35,8 @@ action, useful again whenever an account was created as the wrong kind.
 2. The same person turns back into a bank account the same way.
 3. A bank account with an opening balance is refused with the engine's reason, and nothing
    changes.
-4. Importing the sheet, converting ALEJO PEN to a person, then running the import's dry run
-   again shows ALEJO PEN as reused, not as a new account, and no row fails.
+4. Importing the sheet, converting ALEJO PEN to a person, then running the import again with
+   `--apply` creates no account (`Accounts: created 0`), and no row fails.
 
 ## Catching up with the engine
 
@@ -60,13 +59,13 @@ seeded by a `SALDO INICIAL` row cannot become a person until that opening balanc
 needs nothing here: the sheet's only opening balance is PARDO's, which stays a bank account
 ([before-the-official-import.md](before-the-official-import.md)).
 
-**Questions for the owner:** the screens, in todo.md "How an account becomes a person on screen",
-and "The dry run cannot tell a reused account" there, on the owner's check 4 above.
+**Questions for the owner:** none open.
 
 ## Tasks
 
-Drafted 2026-10-21; wait for the owner's approval. Task 1 draws nothing; task 2 waits for the
-picks; task 3 waits for the answer on check 4.
+Approved by the owner 2026-10-22, who picks 1 A · 2 A · 4 B · 5 B in
+[expense-world-account-to-person.html](../mockups/expense-world-account-to-person.html), and
+checks the import re-run on `--apply`: the dry run stays offline.
 
 1. **The live contract tests know both routes.** A real account with transactions becomes a
    person (`POST /accounts/{id}/make-person`): `200`, `is_person` true, balance, name, currency
@@ -77,17 +76,24 @@ picks; task 3 waits for the answer on check 4.
    `make-person` (and it goes through once the opening balance is deleted), and
    `ACCOUNT_ARCHIVED` on both for an archived account and an archived person, checked first. An
    unknown id is `404`. A replay with the same idempotency key does not flip it twice.
-2. **Manage ▸ Accounts turns an account into a person and back,** as the picked screens draw,
-   through the two routes, and shows `KIND_UNCHANGED`, `HAS_OPENING_BALANCE` and
-   `ACCOUNT_ARCHIVED` in the engine's words (with the app's line, if screen 4 B is picked); Home
-   shows it in its new group. Unit tests: both directions, the cursor after, each refusal.
-   [tui.md](../tui.md) says what the key or the line does. Passes the owner's checks 1 to 3 and
-   the engine's check 1.
+2. **Manage ▸ Accounts turns an account into a person and back,** as the picked screens draw:
+   `t Make person` on a bank account's row, `t Make bank` on a person's, sent at once with no
+   question through the two routes (screen 1 A); the cursor stays on the account in its new
+   place, with `Now a person.` or `Now a bank account.` (2 A); on an archived row `t` leaves the
+   footer and does nothing (5 B). Every refusal shows in the engine's words; `HAS_OPENING_BALANCE`
+   adds the app's line `Press e and empty its opening balance first.` (4 B), and
+   `KIND_UNCHANGED` and `ACCOUNT_ARCHIVED`, met only from a list read before the account changed,
+   add none. Home shows the account in its new group. Unit tests: both directions, the cursor
+   after, `t` gone on an archived row, each refusal. [tui.md](../tui.md) says what `t` does and
+   gives the new line its row in the refusal-hint table; the comment in
+   [create_forms.py](../../expense/tui/screens/create_forms.py) saying an account's type never
+   changes after creation is corrected. Passes the owner's checks 1 to 3 and the engine's
+   check 1.
 3. **The sheet import finds people.** It lists existing accounts with
    `GET /accounts?include_people=true&include_archived=true`, so a person account of the same
    name and currency is reused and never created again. Unit test: a re-run after a conversion
-   creates no account and fails no row; the check the owner reads, on the dry run or on
-   `--apply`, follows the answer on check 4. Passes the owner's check 4 and the engine's check 2.
+   creates no account and fails no row, and `--apply` says `Accounts: created 0`; the dry run
+   is unchanged. Passes the owner's check 4 and the engine's check 2.
 
 ## Reply to the engine
 
@@ -98,5 +104,7 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
   [caught-up-54fd1012f7d60abc.md](../to-engine/caught-up-54fd1012f7d60abc.md), whose version,
   `54fd1012f7d60abc`, is the one the owner quotes for the next catch-up.
 - **Done when, checked:** the two engine's checks above, with the tester's results.
-- **Contract problems found:** what the build and the tester's run find.
+- **Contract problems found:** what the build and the tester's run find, and one silence: the
+  contract does not say what becomes of an account's reconciliations when it becomes a person,
+  while a client offers reconciliations only on real accounts.
 - **Asks this closes:** none.

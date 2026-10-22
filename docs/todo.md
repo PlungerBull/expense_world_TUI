@@ -27,40 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### How an account becomes a person on screen [UI]
-Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md)
-
-Every option is drawn in
-[mockups/expense-world-account-to-person.html](mockups/expense-world-account-to-person.html):
-one letter for each of screens 1, 2, 4 and 5; every refusal drawn is in the engine's real words.
-Screen 1 is how you turn ALEJO PEN into a person:
-- **A.** A key on Manage ▸ Accounts, `t Make person` (`t Make bank` on a person). It works at once, like `a` for archive.
-- **B.** The `type` line on the account's Edit form (`e`) becomes a choice, as on New account.
-
-Screen 2 (only with 1 A) is where the cursor goes after: **A** it follows the account to its new
-place, or **B** it goes back to the first row. Screen 4 is a bank account with an opening balance,
-refused: **A** the engine's words alone, or **B** with one line of the app's, `Press e and empty
-its opening balance first.` Screen 5 (only with 1 A) is `t` on an archived account: **A** the key
-stays and the engine says to unarchive it first, or **B** the key leaves the footer on that row.
-
-**Recommended:** 1 A · 2 A · 4 B · 5 A. Turning is undone as easily as archiving, so the key and a
-cursor that stays let a second `t` undo a slip. The extra line names the key that fixes the
-refusal, as the other refusals do. The engine's words on an archived account already say what to
-do, and hiding the key would copy an engine rule into the app.
-
-### The dry run cannot tell a reused account
-Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) task 3
-
-The spec's check 4 reads "running the import's dry run again shows ALEJO PEN as reused". The dry
-run never talks to the engine: it lists every account the sheet names, without saying which
-already exist. Only `--apply` says it, as counts (`Accounts: created 0, reused 31`).
-- **A.** Check it on `--apply`: the re-run says `created 0` and no row fails.
-- **B.** The dry run starts reading the engine and marks each account `new` or `reused` (a
-  mockup follows).
-
-**Recommended:** A, because the official import runs once onto an empty ledger, and the dry run
-keeps working with the engine off.
-
 ### The Edit form when nothing on an archived line can change
 Asked 2026-10-18 · Blocks: nothing (it is reachable only from a list read before the account was archived)
 
