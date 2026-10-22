@@ -61,15 +61,3 @@ again in CI.
   owner wants it.
 
 ## Tasks
-
-3. **The shared agent files say what to run instead.** The orchestrator makes this change,
-   since `~/.claude/agents/` is Claude config; the reviewer reads it. `builder.md` and
-   `reviewer.md` already say not to run the full suite, and `librarian.md` already says to run
-   the docs-link guard test.
-   - `builder.md` and `reviewer.md` add that the guard blocks a whole-suite run where the repo
-     has one, and that `--lf --lfnf=none` reruns only the last failures.
-   - `librarian.md` says it runs only the docs-link guard test file, never the suite.
-   - `tester.md` doesn't change.
-
-   **Passes if:** the three files say this and nothing else changed in them, and nothing in them
-   is false for todo_world's repos, which have no tests gate.
