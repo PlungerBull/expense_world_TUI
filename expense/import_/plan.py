@@ -3,11 +3,12 @@
 Transaction ids are uuid5 over stable row content, so re-running the same sheet
 yields the same ids — an accidental second --apply can't create duplicates.
 Category/hashtag names are deduplicated case-insensitively to match the engine's
-case-insensitive uniqueness.
+case-insensitive uniqueness. Rows sharing a ``COD_EECC`` (``ParsedRow.statement_line``)
+are grouped into one movement, its parts (``SplitGroup``).
 """
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 from expense.import_ import mapping
@@ -31,6 +32,21 @@ class AccountSpec:
     source_name: str
 
 
+@dataclass(frozen=True)
+class SplitGroup:
+    """Two or more rows sharing one ``COD_EECC``: one movement, a part per row.
+
+    ``name`` is the ``line_group`` its rows are sent under: the first row's
+    transaction id, so it is unique in the request and never longer than the
+    engine takes (contract: POST /v1/transactions/batch, "Line groups"), however
+    long the code is.
+    """
+
+    statement_line: str
+    lines: tuple[int, ...]
+    name: str
+
+
 @dataclass
 class ImportPlan:
     rows: list[ParsedRow]
@@ -41,6 +57,27 @@ class ImportPlan:
     openings: list[OpeningRow] = field(default_factory=list)
     opening_ids: dict[int, str] = field(default_factory=dict)  # row.line -> uuid
     skipped: list[SkippedRow] = field(default_factory=list)
+    groups: list[SplitGroup] = field(default_factory=list)  # in sheet order
+    #: Why each held-back group waits, in sheet order: a line per field its rows
+    #: differ on (``SIG-202603-029: line 3120 is 2026-03-14, line 3122 is
+    #: 2026-03-15.``), or one naming its unreadable rows (``SIG-202603-029: line
+    #: 3122 can't be read, so lines 3120, 3121 wait for it.``).
+    split_mismatches: list[str] = field(default_factory=list)
+
+    @property
+    def split_rows(self) -> int:
+        """How many of ``rows`` are parts of a split transaction."""
+        return sum(len(group.lines) for group in self.groups)
+
+    @property
+    def movements(self) -> int:
+        """How many movements ``rows`` make: one per split transaction, one per
+        other row."""
+        return len(self.rows) - self.split_rows + len(self.groups)
+
+    def group_of(self) -> dict[int, SplitGroup]:
+        """row.line -> the split transaction it is a part of."""
+        return {line: group for group in self.groups for line in group.lines}
 
 
 def stable_row_key(row: ParsedRow | OpeningRow) -> str:
@@ -112,6 +149,90 @@ def _distinct_ci(names: Iterable[str]) -> list[str]:
     return list(seen.values())
 
 
+#: How a split transaction's rows must agree, each with how a value reads in a
+#: mismatch line. The engine refuses a line group whose items differ on account,
+#: date or title (contract: POST /v1/transactions/batch, "Line groups"), so a
+#: group that does is input the sheet has to fix, caught before anything is sent.
+_GROUP_FIELDS: tuple[tuple[Callable[[ParsedRow], object], Callable[[ParsedRow], str]], ...] = (
+    (lambda r: account_key(r.account, r.currency), lambda r: f"{r.account} [{r.currency}]"),
+    (lambda r: r.date_iso, lambda r: r.date_iso),
+    (lambda r: r.title, lambda r: f'"{r.title}"'),
+)
+
+
+def _mismatches(code: str, rows: list[ParsedRow]) -> list[str]:
+    """One line per field the rows of `code` differ on, naming the first row and
+    every row whose value is not the first row's; none when they agree."""
+    lines: list[str] = []
+    first = rows[0]
+    for key, shown in _GROUP_FIELDS:
+        differ = [row for row in rows[1:] if key(row) != key(first)]
+        if differ:
+            said = ", ".join(f"line {row.line} is {shown(row)}" for row in [first, *differ])
+            lines.append(f"{code}: {said}.")
+    return lines
+
+
+#: The one parse skip that does not hold a split transaction back: a zero-amount
+#: part is no movement at all, so the rest of its group goes without it.
+_DROPPED_PART = "zero-amount"
+
+
+def _waiting(code: str, unread: list[int], waiting: list[int]) -> str:
+    """The line naming a split transaction's unreadable rows and the rows that
+    wait for them."""
+    read = ", ".join(str(line) for line in unread)
+    held = ", ".join(str(line) for line in waiting)
+    cause = f"line {read} can't be read" if len(unread) == 1 else f"lines {read} can't be read"
+    wait = f"line {held} waits" if len(waiting) == 1 else f"lines {held} wait"
+    them = "it" if len(unread) == 1 else "them"
+    return f"{code}: {cause}, so {wait} for {them}."
+
+
+def _group_rows(
+    parsed: list[ParsedRow], skipped: list[SkippedRow]
+) -> tuple[list[ParsedRow], list[list[ParsedRow]], list[SkippedRow], list[str]]:
+    """Split `parsed` by `statement_line`: the rows kept, the kept groups of two
+    or more rows, and the rows of a group held back, as ``split-mismatch``, with
+    the lines saying why.
+
+    A group is held back whole when the parse skipped one of its rows for any
+    reason but a zero amount (the rest waits for that row, so the movement never
+    lands without it), or when its rows differ on account, date or title. A
+    zero-amount part is dropped and the rest goes; a group left with one row is
+    that row alone, still carrying its statement line.
+    """
+    by_code: dict[str, list[ParsedRow]] = {}
+    for row in parsed:
+        if row.statement_line is not None:
+            by_code.setdefault(row.statement_line, []).append(row)
+    unread: dict[str, list[int]] = {}
+    for skip in skipped:
+        if skip.statement_line is not None and skip.reason != _DROPPED_PART:
+            unread.setdefault(skip.statement_line, []).append(skip.line)
+    dropped: set[int] = set()
+    groups: list[list[ParsedRow]] = []
+    skips: list[SkippedRow] = []
+    mismatches: list[str] = []
+    for code, rows in sorted(
+        by_code.items(), key=lambda kv: min([kv[1][0].line, *unread.get(kv[0], [])])
+    ):
+        if code in unread:
+            said = [_waiting(code, sorted(unread[code]), [row.line for row in rows])]
+        elif len(rows) < 2:
+            continue
+        else:
+            said = _mismatches(code, rows)
+        if said:
+            mismatches.extend(said)
+            dropped.update(row.line for row in rows)
+            skips.extend(SkippedRow(row.line, "split-mismatch", code) for row in rows)
+        else:
+            groups.append(rows)
+    kept = [row for row in parsed if row.line not in dropped]
+    return kept, groups, skips, mismatches
+
+
 def build_plan(
     parsed: list[ParsedRow],
     openings: list[OpeningRow],
@@ -123,15 +244,24 @@ def build_plan(
     with no entry keeps the derived one, and an entry matching no leg is unused.
     """
     renames = dict(account_names or {})
-    skips = list(skipped)
+    kept, grouped, group_skips, mismatches = _group_rows(parsed, skipped)
+    skips = [*skipped, *group_skips]
     rows: list[ParsedRow] = []
     tx_ids: dict[int, str] = {}
     # No content-dedup here, deliberately: stable_row_key embeds row.line, so
     # ids are line-keyed and always unique — identical content on two lines
     # imports twice.
-    for row in parsed:
+    for row in kept:
         tx_ids[row.line] = tx_id_for(row)
         rows.append(row)
+    groups = [
+        SplitGroup(
+            statement_line=str(parts[0].statement_line),
+            lines=tuple(row.line for row in parts),
+            name=tx_ids[parts[0].line],
+        )
+        for parts in grouped
+    ]
 
     # Opening balances: the engine enforces one active opening per account, so
     # a sheet with two SALDO INICIAL rows for the same (account, currency)
@@ -187,4 +317,6 @@ def build_plan(
         openings=kept_openings,
         opening_ids=opening_ids,
         skipped=skips,
+        groups=groups,
+        split_mismatches=mismatches,
     )

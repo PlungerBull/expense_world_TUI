@@ -25,8 +25,12 @@ operation code, a sealed period) fails that row, in the engine's words for it.
 
 **A line group goes whole or not at all.** Items sharing a `line_group` are the
 parts of one bank line, and the engine names a line's ledger refusals on its
-first item (contract: POST /v1/transactions/batch, "Line groups"). A refused part
-fails every part of its group, so no line lands with a part missing.
+first item (contract: POST /v1/transactions/batch, "Line groups"). A chunk never
+cuts a group: a group goes in the chunk of its first item, and starts a new
+chunk when the current one has no room for it. A group longer than the chunk
+size is a chunk of its own, and one longer than the engine takes is refused by
+the engine, whole, in its own words. A refused part fails every part of its
+group, so no line lands with a part missing.
 
 **A refusal that names no row fails the whole chunk.** A `401`, `403` or `5xx`,
 or a `409`/`422` with any key that is no item of the send (`transactions` itself,
@@ -188,11 +192,43 @@ def post_transaction_batch(
     """
     require_sendable_chunk_size(chunk_size)
     outcome = BatchOutcome(results=[RowResult.UNSENT] * len(items))
-    for chunk_index, offset in enumerate(range(0, len(items), chunk_size)):
-        span = list(range(offset, min(offset + chunk_size, len(items))))
+    for chunk_index, span in enumerate(_chunks(items, chunk_size)):
         if not _post_chunk(client, items, span, chunk_index, outcome, error_text):
             return outcome  # every later chunk stays UNSENT
     return outcome
+
+
+def _chunks(items: list[dict], chunk_size: int) -> list[list[int]]:
+    """The places of `items` each chunk sends, in order, never cutting a
+    `line_group`.
+
+    Each line goes whole: an item of its own, or every item of a group, in the
+    place of the group's first item. A chunk takes lines while it has room for
+    them; a line that does not fit starts the next chunk, and one longer than
+    `chunk_size` is a chunk alone. With no groups this is `chunk_size` items a
+    chunk, in order.
+    """
+    lines: dict[object, list[int]] = {}
+    for pos, item in enumerate(items):
+        name = _group_name(item)
+        lines.setdefault(pos if name is None else name, []).append(pos)
+    chunks: list[list[int]] = []
+    chunk: list[int] = []
+    for line in lines.values():
+        if chunk and len(chunk) + len(line) > chunk_size:
+            chunks.append(chunk)
+            chunk = []
+        chunk.extend(line)
+    if chunk:
+        chunks.append(chunk)
+    return chunks
+
+
+def _group_name(item: dict) -> str | None:
+    """The `line_group` an item names, trimmed as the engine trims it, or None
+    (contract: POST /v1/transactions/batch, "Line groups")."""
+    name = item.get("line_group")
+    return name.strip() if isinstance(name, str) and name.strip() else None
 
 
 def _post_chunk(
@@ -312,9 +348,9 @@ def _line_groups(sent: list[dict]) -> list[list[int]]:
     An item with no `line_group` is a line of its own and in no group here."""
     groups: dict[str, list[int]] = {}
     for pos, item in enumerate(sent):
-        name = item.get("line_group")
-        if isinstance(name, str) and name.strip():
-            groups.setdefault(name.strip(), []).append(pos)
+        name = _group_name(item)
+        if name is not None:
+            groups.setdefault(name, []).append(pos)
     return list(groups.values())
 
 

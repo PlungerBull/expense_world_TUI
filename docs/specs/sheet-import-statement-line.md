@@ -79,22 +79,6 @@ Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22, who picks
 1 A · 2 A in [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html).
 
-4. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
-   `COD_EECC` column is read (blank is none; a sheet without the column imports as before, every
-   row its own movement); rows sharing one become one movement, sent as the items of one
-   `line_group` in one `POST /transactions/batch`, each carrying the `statement_line`. A chunk
-   never cuts a group. A group whose rows differ on account, date or title is skipped whole, as
-   screen 2 B draws: its rows count under the skip reason `split-mismatch`, a line names the code
-   and the rows that differ, and the rest imports; once the sheet is fixed, a re-run brings the
-   group in. The dry run shows the groups as screen 1 B draws, one count line
-   (`9 split transactions (30 rows) come in as one movement each.`; for one group
-   `1 split transaction (3 rows) comes in as one movement.`; no line when there is none), and the
-   `Parsed` line says how many movements the rows make; its `--json` carries the same counts. A
-   re-run of an imported sheet counts every row as already there, groups included, and an edited
-   row carrying a statement line already in the ledger is refused `STATEMENT_LINE_EXISTS`. Unit
-   tests: the grouping, a blank code, a chunk boundary inside a group, the re-run, each
-   split-mismatch; a live contract test imports a small sheet with one group, then runs it again.
-   Passes the owner's checks 1 to 3 and the engine's checks 2 and 4.
 5. **The import shows the new refusals in the engine's words:** `STATEMENT_LINE_EXISTS`,
    `DUPLICATE_IN_REQUEST` and `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, and
    `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED`, each against its sheet lines.

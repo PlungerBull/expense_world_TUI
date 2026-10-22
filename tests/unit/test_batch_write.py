@@ -309,7 +309,8 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     client = _Client([_conflict(1, field="statement_line", reason="STATEMENT_LINE_EXISTS"), {}])
     outcome = post_transaction_batch(client, _grouped(5, {"g1": [1, 2, 4]}))
 
-    assert _ids(client) == [["id0", "id1", "id2", "id3", "id4"], ["id0", "id3"]]
+    # the group's parts go together, in the place of its first item
+    assert _ids(client) == [["id0", "id1", "id2", "id4", "id3"], ["id0", "id3"]]
     assert outcome.results == [
         RowResult.CREATED,
         RowResult.FAILED,
@@ -319,6 +320,49 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     ]
     assert outcome.errors[1] == outcome.errors[2] == outcome.errors[4]
     assert "statement_line: stand-in field words" in outcome.errors[2]
+
+
+def test_a_chunk_never_cuts_a_group():
+    """A group that does not fit in the chunk's room starts the next chunk
+    (contract: POST /v1/transactions/batch, "Line groups")."""
+    client = _Client()
+    outcome = post_transaction_batch(client, _grouped(5, {"g": [2, 3]}), chunk_size=3)
+
+    assert _ids(client) == [["id0", "id1"], ["id2", "id3", "id4"]]
+    assert outcome.results == [RowResult.CREATED] * 5
+
+
+def test_a_group_goes_in_the_chunk_of_its_first_item():
+    client = _Client()
+    post_transaction_batch(client, _grouped(5, {"g": [1, 4]}), chunk_size=3)
+
+    assert _ids(client) == [["id0", "id1", "id4"], ["id2", "id3"]]
+
+
+def test_a_group_longer_than_the_chunk_size_is_a_chunk_of_its_own():
+    client = _Client()
+    post_transaction_batch(client, _grouped(6, {"g": [1, 2, 3, 4]}), chunk_size=2)
+
+    assert _ids(client) == [["id0"], ["id1", "id2", "id3", "id4"], ["id5"]]
+
+
+def test_a_group_longer_than_the_engine_takes_is_refused_by_the_engine_whole():
+    """Never cut: it goes as one send, and the engine's refusal of the list
+    fails every part in its own words (contract: POST /v1/transactions/batch)."""
+    n = ENGINE_BATCH_MAX + 1
+    too_many = _refusal(
+        "VALIDATION_ERROR",
+        422,
+        "Invalid input.",
+        {"transactions": ("List should have at most 500 items.", "OUT_OF_RANGE")},
+    )
+    client = _Client([too_many])
+    outcome = post_transaction_batch(client, _grouped(n, {"g": list(range(n))}))
+
+    assert client.sizes == [n]
+    assert outcome.results == [RowResult.FAILED] * n
+    (failure,) = outcome.failures
+    assert failure.whole_chunk and len(failure.indices) == n
 
 
 def test_a_refused_part_fails_its_group_and_no_other_line():

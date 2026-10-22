@@ -10,6 +10,14 @@ other refused row reports its sheet line, and the rest go again and land.
 Re-runs after a partial run or with appended sheet rows converge instead of
 silently dropping.
 
+A row's ``COD_EECC`` goes as its `statement_line`, and the rows of a split
+transaction (`plan.SplitGroup`) go as the items of one `line_group`, so the
+engine makes them the parts of one bank line
+(contract: POST /v1/transactions/batch, "Line groups"). A split transaction is
+sent whole or not at all: the plan holds back a group missing a row the parse
+could not read (a zero-amount part is no movement, and is only dropped), and
+a group with a row whose resource was not created stays here unsent.
+
 Everything this module reports is the engine's words alone (`errors.engine_text`):
 the import is typed and printed, so no line of the app's (a key to press, a
 screen to open) is added to them.
@@ -214,7 +222,9 @@ def _missing_dep(row: ParsedRow, res: ResolveResult) -> str | None:
     return None
 
 
-def build_tx_payload(row: ParsedRow, tx_id: str, res: ResolveResult) -> dict:
+def build_tx_payload(
+    row: ParsedRow, tx_id: str, res: ResolveResult, line_group: str | None = None
+) -> dict:
     payload: dict = {
         "id": tx_id,
         "title": row.title,
@@ -226,6 +236,10 @@ def build_tx_payload(row: ParsedRow, tx_id: str, res: ResolveResult) -> dict:
     }
     if row.description is not None:
         payload["description"] = row.description
+    if row.statement_line is not None:
+        payload["statement_line"] = row.statement_line
+    if line_group is not None:
+        payload["line_group"] = line_group
     return payload
 
 
@@ -366,18 +380,31 @@ def apply_plan(
 
     items: list[dict] = []
     line_by_id: dict[str, int] = {}
+    group_of = plan.group_of()
+    missing = {row.line: _missing_dep(row, res) for row in plan.rows}
     for row in plan.rows:
-        missing = _missing_dep(row, res)
-        if missing is not None:
+        group = group_of.get(row.line)
+        why = missing[row.line]
+        if why is not None:
             # Its dependency's create POST failed (recorded in resolve_failures);
             # this row can't reference a row that doesn't exist.
             result.tx_failed += 1
+            result.failures.append((-1, f"sheet line {row.line}: not sent — {why} was not created"))
+            continue
+        blocker = next((line for line in group.lines if missing[line]), None) if group else None
+        if blocker is not None:
+            # A split transaction goes whole or not at all.
+            result.tx_failed += 1
             result.failures.append(
-                (-1, f"sheet line {row.line}: not sent — {missing} was not created")
+                (
+                    -1,
+                    f"sheet line {row.line}: not sent — sheet line {blocker}, "
+                    "of the same split transaction, was not sent",
+                )
             )
             continue
         tx_id = plan.tx_ids[row.line]
-        items.append(build_tx_payload(row, tx_id, res))
+        items.append(build_tx_payload(row, tx_id, res, group.name if group else None))
         line_by_id[tx_id] = row.line
     outcome = post_transaction_batch(client, items, chunk_size=chunk_size, error_text=engine_text)
     _fold_outcome(outcome, items, line_by_id, result)  # raises an account-wide refusal

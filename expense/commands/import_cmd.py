@@ -22,6 +22,35 @@ from expense.import_.reader import ImportFileError, read_workbook
 from expense.jsonout import emit_json
 
 
+def _skipped_json(plan: plan_mod.ImportPlan) -> dict:
+    return {
+        "skipped": [{"line": s.line, "reason": s.reason, "detail": s.detail} for s in plan.skipped],
+        "split_mismatches": plan.split_mismatches,
+    }
+
+
+def _render_skipped(plan: plan_mod.ImportPlan) -> None:
+    """The `Skipped N row(s) — …` line, and under it a line per field a skipped
+    split transaction's rows differ on. Nothing when no row is skipped."""
+    if not plan.skipped:
+        return
+    counts = Counter(s.reason for s in plan.skipped)
+    detail = ", ".join(f"{reason}: {n}" for reason, n in sorted(counts.items()))
+    typer.echo(f"Skipped {len(plan.skipped)} row(s) — {detail}")
+    for line in plan.split_mismatches:
+        typer.echo(f"  {line}")
+
+
+def _split_line(plan: plan_mod.ImportPlan) -> str | None:
+    """How many split transactions come in, and from how many rows; None for none."""
+    groups = len(plan.groups)
+    if groups == 0:
+        return None
+    if groups == 1:
+        return f"1 split transaction ({plan.split_rows} rows) comes in as one movement."
+    return f"{groups} split transactions ({plan.split_rows} rows) come in as one movement each."
+
+
 # sanctioned exception — see commands.md "Sanctioned exceptions": import's
 # --json (plan and result below) is client-composed; the pipeline aggregates
 # many engine calls, so there is no single engine response to pass through.
@@ -30,9 +59,10 @@ def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
         emit_json(
             {
                 "valid_rows": len(plan.rows),
-                "skipped": [
-                    {"line": s.line, "reason": s.reason, "detail": s.detail} for s in plan.skipped
-                ],
+                "movements": plan.movements,
+                "split_transactions": len(plan.groups),
+                "split_rows": plan.split_rows,
+                **_skipped_json(plan),
                 "accounts": [
                     {"name": a.name, "currency": a.currency, "source_name": a.source_name}
                     for a in plan.accounts
@@ -53,11 +83,12 @@ def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
         )
         return
 
-    typer.echo(f"Parsed {len(plan.rows)} transactions to import.")
-    if plan.skipped:
-        counts = Counter(s.reason for s in plan.skipped)
-        detail = ", ".join(f"{reason}: {n}" for reason, n in sorted(counts.items()))
-        typer.echo(f"Skipped {len(plan.skipped)} row(s) — {detail}")
+    movements = "movement" if plan.movements == 1 else "movements"
+    typer.echo(f"Parsed {len(plan.rows)} transactions to import, as {plan.movements} {movements}.")
+    _render_skipped(plan)
+    split = _split_line(plan)
+    if split is not None:
+        typer.echo(split)
 
     typer.echo(f"\nAccounts to ensure ({len(plan.accounts)}):")
     for spec in sorted(plan.accounts, key=lambda s: (s.name.casefold(), s.currency)):
@@ -155,11 +186,14 @@ def _check_account_names(
             )
 
 
-def _render_result(result: apply_mod.ApplyResult, *, json_output: bool) -> None:
+def _render_result(
+    plan: plan_mod.ImportPlan, result: apply_mod.ApplyResult, *, json_output: bool
+) -> None:
     res = result.resolve
     if json_output:
         emit_json(
             {
+                **_skipped_json(plan),
                 "accounts_created": res.accounts_created,
                 "accounts_reused": res.accounts_reused,
                 "categories_created": res.categories_created,
@@ -214,7 +248,10 @@ def run_import(
         "--chunk-size",
         min=1,
         max=ENGINE_BATCH_MAX,
-        help="Transactions per batch request.",
+        help=(
+            "Transactions per batch request. A split transaction larger than this "
+            "goes whole, as one bigger request."
+        ),
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit the plan/result as JSON."),
     account_name: list[str] = typer.Option(
@@ -252,6 +289,16 @@ def run_import(
     the flag reuses the renamed account; passing it again for the same leg
     replaces the saved name. A leg the sheet does not have, or two legs landing
     on one ledger account, is a usage error and nothing is saved.
+
+    Rows sharing a COD_EECC (the bank statement line they were checked
+    against) come in as one movement, a split transaction with a part per row,
+    and every row keeps its COD_EECC as its statement line; a row with a blank
+    one comes in alone with none, and so does every row of a sheet without the
+    column. The rows of a split transaction must share account, date and title,
+    and every one must be readable: a group that does not, or that has a row
+    skipped for any reason but a zero amount, is skipped whole as
+    split-mismatch, a line naming its code and why, and the rest imports. A
+    zero-amount row is only dropped from its group.
 
     Re-running --apply is safe for unchanged and appended sheets: transaction
     ids derive from each row's content plus its line number, so already-imported
@@ -295,12 +342,14 @@ def run_import(
     # The settings read above, not a second read: the file may be a pipe.
     cfg = config_module.require(saved_cfg)
     verbose = get_verbose(ctx)
+    if not json_output:
+        _render_skipped(plan)  # before the writes: the rest imports without them
     # Batches of up to `chunk_size` rows can take a while on a cold/slow engine;
     # give the read timeout plenty of headroom beyond the 60s default.
     with ExpenseClient(cfg, verbose=verbose, timeout_read=300.0) as client:
         res = apply_mod.resolve_or_create(client, plan)
         result = apply_mod.apply_plan(client, plan, res, chunk_size=chunk_size)
 
-    _render_result(result, json_output=json_output)
+    _render_result(plan, result, json_output=json_output)
     if result.tx_failed > 0 or result.resolve.resolve_failures:
         raise typer.Exit(code=1)

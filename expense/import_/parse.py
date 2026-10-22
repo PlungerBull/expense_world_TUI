@@ -37,6 +37,10 @@ class ParsedRow:
     currency: str
     account: str
     description: str | None
+    #: The row's ``COD_EECC``: the bank statement line it was checked against,
+    #: or None when the cell is blank or the sheet has no such column. Rows
+    #: sharing one are the parts of one movement (``plan.build_plan``).
+    statement_line: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,7 +49,9 @@ class OpeningRow:
 
     Detected by title (case/whitespace-insensitive). Category and hashtag are
     deliberately absent: the engine assigns the @Opening system category, and
-    spreadsheets typically leave those cells blank on opening rows.
+    spreadsheets typically leave those cells blank on opening rows. So is the
+    statement line: the opening-balance endpoint takes none
+    (contract: POST /v1/accounts/{account_id}/opening-balance).
     """
 
     line: int
@@ -61,6 +67,9 @@ class SkippedRow:
     line: int
     reason: str
     detail: str = ""
+    #: The row's ``COD_EECC``, when the parse skipped it: a split transaction
+    #: missing one of its rows waits for it (``plan.build_plan``).
+    statement_line: str | None = None
 
 
 #: Titles that mark a row as an opening balance, normalized via
@@ -175,6 +184,11 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
             return None
         return raw.cells[i]
 
+    statement_line = _clean(cell("statement_line"))
+
+    def skip(reason: str, detail: str = "") -> SkippedRow:
+        return SkippedRow(raw.line, reason, detail, statement_line)
+
     title = _clean(cell("title"))
     account = _clean(cell("account"))
     category = _clean(cell("category"))
@@ -182,33 +196,33 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
     currency_raw = _clean(cell("currency"))
 
     if title is None:
-        return SkippedRow(raw.line, "missing-title")
+        return skip("missing-title")
     opening = is_opening_title(title) or is_opening_category(category)
     if account is None:
-        return SkippedRow(raw.line, "missing-account")
+        return skip("missing-account")
     # Opening rows skip the category/hashtag requirement — the engine assigns
     # the @Opening system category, and sheets leave those cells blank.
     if not opening and category is None:
-        return SkippedRow(raw.line, "missing-category")
+        return skip("missing-category")
     if not opening and hashtag is None:
-        return SkippedRow(raw.line, "missing-hashtag")
+        return skip("missing-hashtag")
     if currency_raw is None:
-        return SkippedRow(raw.line, "missing-currency")
+        return skip("missing-currency")
 
     currency = currency_raw.upper()
     if currency not in mapping.VALID_CURRENCIES:
-        return SkippedRow(raw.line, "unknown-currency", currency)
+        return skip("unknown-currency", currency)
 
     date_iso = to_iso_date(cell("date"))
     if date_iso is None:
-        return SkippedRow(raw.line, "bad-date", str(cell("date")))
+        return skip("bad-date", str(cell("date")))
 
     try:
         amount_cents = amount_to_cents(cell("amount"))
     except (InvalidOperation, ValueError, TypeError):
-        return SkippedRow(raw.line, "bad-amount", str(cell("amount")))
+        return skip("bad-amount", str(cell("amount")))
     if amount_cents == 0:
-        return SkippedRow(raw.line, "zero-amount")
+        return skip("zero-amount")
 
     if opening:
         return OpeningRow(
@@ -230,6 +244,7 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
         currency=currency,
         account=account,
         description=_clean(cell("description")),
+        statement_line=statement_line,
     )
 
 
