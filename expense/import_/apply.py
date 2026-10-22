@@ -3,13 +3,12 @@
 Accounts/categories/hashtags are created FIRST (so they have ids); transactions
 then reference those ids. The batch endpoint is atomic: a refused chunk writes
 none of its rows (contract: POST /v1/transactions/batch, "No partial success").
-A 422 keys every refused item `transactions.<index>.<field>`
-(contract: POST /v1/transactions/batch, "Error shape"), and a 409 keys it the
-same way (contract: POST /v1/transactions/batch). A chunk refused either way is retried
-row-by-row (singleton batches): a row refused only because its own id is taken
+The shared batch writer ([batch_write.py](../batch_write.py)) reads every row a
+refused chunk names: a row refused only because its own id is taken
 (`ID_EXISTS`, an earlier run's write) is skipped as already imported, every
-other refused row reports its sheet line, and the rest still land. Re-runs after
-a partial run or with appended sheet rows converge instead of silently dropping.
+other refused row reports its sheet line, and the rest go again and land.
+Re-runs after a partial run or with appended sheet rows converge instead of
+silently dropping.
 
 Everything this module reports is the engine's words alone (`errors.engine_text`):
 the import is typed and printed, so no line of the app's (a key to press, a
@@ -61,11 +60,10 @@ class ResolveResult:
 class ApplyResult:
     resolve: ResolveResult
     tx_created: int = 0
-    tx_skipped_existing: int = 0  # rows whose singleton retry drew ID_EXISTS on their own id
+    tx_skipped_existing: int = 0  # rows refused ID_EXISTS on their own id: already in
     tx_failed: int = 0
     opening_created: int = 0
-    # seeds already written: ID_EXISTS on its own transaction_id, or OPENING_BALANCE_EXISTS
-    # where the account's opening_balance_transaction_id is the import's own id
+    # seeds already written: refused ID_EXISTS on their own transaction_id
     opening_skipped_existing: int = 0
     opening_failed: int = 0
     # (chunk_index, message) — messages carry sheet line numbers so a failed
@@ -241,48 +239,17 @@ def build_opening_payload(row: OpeningRow, transaction_id: str) -> dict:
     return payload
 
 
-def _seed_landed(
-    client: ExpenseClient, account_id: str, err: EngineError, transaction_id: str
-) -> bool:
-    """True when the refused seed `transaction_id` is already the account's
-    opening balance: refused for its own id (`ID_EXISTS` on `transaction_id`), or
-    for the account already having one (`OPENING_BALANCE_EXISTS` on `account_id`)
-    that `GET /accounts/{id}` names by `opening_balance_transaction_id`
-    (contract: "Bank Accounts", "Opening balance").
-
-    A read that fails, for any reason, is False: the seed is reported as failed,
-    in the words of the refusal it drew.
-    """
-    if is_own_id_replay(err, "transaction_id"):
-        return True
-    if not (
-        err.code == "CONFLICT" and (err.reasons or {}).get("account_id") == "OPENING_BALANCE_EXISTS"
-    ):
-        return False
-    try:
-        account = client.get(f"/accounts/{account_id}")
-    except (EngineError, EngineConnectionError):
-        return False
-    return isinstance(account, dict) and (
-        account.get("opening_balance_transaction_id") == transaction_id
-    )
-
-
 def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyResult) -> bool:
     """POST each opening balance to /accounts/{id}/opening-balance.
 
-    This seed already landed — counted as already-present, mirroring the
-    singleton-batch semantics — when the engine refuses it only because its own
-    `transaction_id` is taken (`ID_EXISTS`), or because the account already has
-    an opening balance (`OPENING_BALANCE_EXISTS`) and that one is this seed: the
-    account names it by `opening_balance_transaction_id`
-    (contract: POST /v1/accounts/{account_id}/opening-balance)
-    (contract: "Bank Accounts", "Opening balance"). A re-sent seed draws
-    `OPENING_BALANCE_EXISTS`, so the account is read to tell the two apart. Any
-    other refusal is a failure, and so is a read of the account that fails.
-    Returns False when a connection
-    error stopped the run (remaining openings are counted failed). An
-    account-wide refusal (`errors.refuses_every_write`) propagates, ending the run.
+    A seed refused only because its own `transaction_id` is taken (`ID_EXISTS`)
+    already landed, and counts as already present: a create sent again answers
+    that before any other refusal, an existing opening balance included
+    (contract: "Base Conventions", "Which refusal comes first on a create")
+    (contract: POST /v1/accounts/{account_id}/opening-balance). Any other refusal
+    is a failure. Returns False when a connection error stopped the run
+    (remaining openings are counted failed). An account-wide refusal
+    (`errors.refuses_every_write`) propagates, ending the run.
     """
     for pos, row in enumerate(plan.openings):
         account_key = (row.account.strip().casefold(), row.currency)
@@ -306,7 +273,7 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
         except EngineError as err:
             if refuses_every_write(err):
                 raise
-            if _seed_landed(client, account_id, err, plan.opening_ids[row.line]):
+            if is_own_id_replay(err, "transaction_id"):
                 result.opening_skipped_existing += 1
             else:
                 result.opening_failed += 1
@@ -363,8 +330,7 @@ def _fold_outcome(
         rows = [items[i] for i in failure.indices]
         where = _line_range(rows, line_by_id)
         if len(rows) == 1:
-            # the singleton fallback found this row — name its id too, as it
-            # always has, so a duplicate title is still unambiguous
+            # one row: name its id too, so a duplicate title is still unambiguous
             where = f"{where}, id {rows[0]['id']}"
         result.failures.append((failure.chunk_index, f"{where}: {failure.message}"))
 

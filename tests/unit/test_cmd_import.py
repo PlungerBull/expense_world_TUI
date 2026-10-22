@@ -352,66 +352,33 @@ def test_opening_any_other_409_is_a_failure(configured, key, reason):
     ]
 
 
-def _account_holding(opening_id) -> httpx.Response:
-    return httpx.Response(
-        200,
-        json={
-            "id": "acc-pen",
-            "name": "BCP PEN",
-            "currency_code": "PEN",
-            "opening_balance_transaction_id": opening_id,
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    ("account_read", "landed"),
-    [
-        pytest.param(lambda own_id: _account_holding(own_id), True, id="own"),
-        pytest.param(lambda own_id: _account_holding("someone-elses-seed"), False, id="other"),
-        pytest.param(lambda own_id: _account_holding(None), False, id="none"),
-        pytest.param(
-            lambda own_id: error_response(404, "NOT_FOUND", "Account not found."),
-            False,
-            id="refused",
-        ),
-    ],
-)
 @respx.mock
-def test_opening_balance_exists_counts_only_when_the_account_holds_this_seed(
-    configured, account_read, landed
-):
-    """A re-sent seed draws `OPENING_BALANCE_EXISTS`, the same refusal as a
-    different opening balance, so the account is read: already present only when
-    its `opening_balance_transaction_id` is this seed's own id
-    (contract: "Bank Accounts", "Opening balance"). Another id, none, or a read
-    that fails is a failure, in the words of the refusal."""
+def test_opening_balance_exists_is_a_failure_and_reads_no_account(configured):
+    """A seed sent again answers `ID_EXISTS` on its own `transaction_id` before
+    the account is read (contract: POST /v1/accounts/{account_id}/opening-balance),
+    so `OPENING_BALANCE_EXISTS` means another opening balance is on the account: a
+    failure in the engine's words, and the account is not read."""
     plan = plan_mod.build_plan([], [_orow(2)], [])
-    own_id = plan.opening_ids[2]
     _seeded_account()
     respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
         return_value=_opening_refusal("account_id", "OPENING_BALANCE_EXISTS")
     )
-    read = respx.get(f"{BASE}/v1/accounts/acc-pen").mock(return_value=account_read(own_id))
+    read = respx.get(f"{BASE}/v1/accounts/acc-pen")
 
     cfg = config_module.ensure_loaded()
     with ExpenseClient(cfg) as client:
         res = apply_mod.resolve_or_create(client, plan)
         result = apply_mod.apply_plan(client, plan, res)
 
-    assert read.call_count == 1
-    if landed:
-        assert (result.opening_skipped_existing, result.opening_failed) == (1, 0)
-        assert result.failures == []
-    else:
-        assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
-        assert result.failures == [
-            (
-                -1,
-                "sheet line 2 (opening balance): CONFLICT — stand-in\n"
-                "  account_id: stand-in field words",
-            )
-        ]
+    assert read.call_count == 0
+    assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
+    assert result.failures == [
+        (
+            -1,
+            "sheet line 2 (opening balance): CONFLICT — stand-in\n"
+            "  account_id: stand-in field words",
+        )
+    ]
 
 
 @respx.mock
@@ -489,6 +456,27 @@ def _conflict(key: str = "transactions.0.id", reason: str = "ID_EXISTS") -> http
     )
 
 
+def _all_taken(request: httpx.Request) -> httpx.Response:
+    """A batch sent again whole: `409` `ID_EXISTS` on every item's id
+    (contract: POST /v1/transactions/batch)."""
+    sent = json.loads(request.content)["transactions"]
+    keys = [f"transactions.{i}.id" for i in range(len(sent))]
+    return error_response(
+        409,
+        "CONFLICT",
+        f"{len(keys)} of these ids are already taken.",
+        dict.fromkeys(keys, "A transaction with this id already exists."),
+        dict.fromkeys(keys, "ID_EXISTS"),
+    )
+
+
+def _sent_ids(route) -> list[list[str]]:
+    return [
+        [item["id"] for item in json.loads(call.request.content)["transactions"]]
+        for call in route.calls
+    ]
+
+
 def _refused(index: int, field: str, message: str, reason: str) -> httpx.Response:
     """The batch 422: each refused item field keyed `transactions.<index>.<field>`,
     its reason under the same key (contract: POST /v1/transactions/batch)."""
@@ -529,7 +517,7 @@ def test_batch_409_is_non_fatal(configured):
     assert result.tx_created == 0
     assert result.tx_skipped_existing == 1
     assert result.tx_failed == 0
-    assert batch_route.call_count == 2  # batch 409 → singleton retry 409
+    assert batch_route.call_count == 1  # the 409 settles the row: nothing goes again
 
 
 @pytest.mark.parametrize(
@@ -558,12 +546,62 @@ def test_batch_409_other_than_a_replay_is_a_failure(configured, key, reason):
 
     assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
     ((_, message),) = result.failures
-    assert message.endswith(f"CONFLICT — id exists\n  {key}: stand-in field words")
+    # a row's refusal is keyed by its field alone; one naming no row keeps its key
+    field = key.removeprefix("transactions.0.")
+    assert message.endswith(f"CONFLICT — id exists\n  {field}: stand-in field words")
 
 
 @respx.mock
-def test_chunk_409_falls_back_to_per_row_and_imports_new_rows(configured):
-    """Appending rows to an already-imported sheet must import the new rows."""
+def test_a_chunk_mixing_imported_and_new_rows_sends_the_new_ones_once_more(configured):
+    """Appending rows to an already-imported sheet must import the new rows: the
+    409 names the imported one, and the new one goes again alone, under a new
+    idempotency key since the body differs."""
+    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
+    _seeded_account()
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
+        side_effect=[_conflict(), httpx.Response(201, json={"created": []})]
+    )
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res)
+
+    assert result.tx_skipped_existing == 1
+    assert result.tx_created == 1
+    assert result.tx_failed == 0
+    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[3]]]
+    first, second = (c.request.headers["X-Idempotency-Key"] for c in batch_route.calls)
+    assert first != second
+
+
+@respx.mock
+def test_a_re_run_of_an_imported_sheet_costs_one_request_per_chunk(configured):
+    """Every row already in: each chunk's one request is refused `ID_EXISTS` on
+    every item, and nothing goes again."""
+    plan = _plan([_prow(line, amount_cents=-100 * line) for line in range(2, 7)])
+    _seeded_account()
+    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
+    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
+    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=_all_taken)
+
+    cfg = config_module.ensure_loaded()
+    with ExpenseClient(cfg) as client:
+        res = apply_mod.resolve_or_create(client, plan)
+        result = apply_mod.apply_plan(client, plan, res, chunk_size=2)
+
+    assert batch_route.call_count == 3  # five rows in chunks of two
+    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 5, 0)
+    assert result.failures == []
+
+
+@respx.mock
+def test_a_refused_row_beside_an_imported_one_reports_its_sheet_line(configured):
+    """The engine answers what the request shows first: the zero amount on the
+    new row (step 1), then, sent again alone, the imported row's taken id (step 2)
+    (contract: "Base Conventions", "Which refusal comes first on a create")."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
         accounts=[
@@ -580,47 +618,7 @@ def test_chunk_409_falls_back_to_per_row_and_imports_new_rows(configured):
     respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_conflict(), _conflict(), httpx.Response(201, json={"created": []})]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_skipped_existing == 1
-    assert result.tx_created == 1
-    assert result.tx_failed == 0
-    assert batch_route.call_count == 3  # one batch + two singletons
-    singleton_sizes = [
-        len(json.loads(c.request.content)["transactions"]) for c in batch_route.calls
-    ][1:]
-    assert singleton_sizes == [1, 1]
-
-
-@respx.mock
-def test_per_row_fallback_reports_non_409_failure(configured):
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _mock_existing(
-        accounts=[
-            {
-                "id": "acc-pen",
-                "name": "BCP PEN",
-                "currency_code": "PEN",
-                "opening_balance_transaction_id": None,
-            }
-        ],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _conflict(),
-            _conflict(),
-            _zero(),
-        ]
+        side_effect=[_zero(1), _conflict()]
     )
 
     cfg = config_module.ensure_loaded()
@@ -630,19 +628,20 @@ def test_per_row_fallback_reports_non_409_failure(configured):
 
     assert result.tx_skipped_existing == 1
     assert result.tx_failed == 1
+    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
     failed_id = plan.tx_ids[3]
-    # sheet-line context prefixed, engine text via format_error
+    # sheet-line context prefixed, then the engine's words for that row
     assert result.failures == [
         (
             0,
             f"sheet line 3, id {failed_id}: VALIDATION_ERROR — Invalid input.\n"
-            "  transactions.0.amount_cents: Must not be zero.",
+            "  amount_cents: Must not be zero.",
         )
     ]
 
 
 @respx.mock
-def test_per_row_fallback_connection_error_stops_run(configured):
+def test_a_connection_error_on_a_second_send_stops_the_run(configured):
     plan = _plan([_prow(line, amount_cents=-100 * line) for line in (2, 3, 4, 5)])
     _mock_existing(
         accounts=[
@@ -659,11 +658,7 @@ def test_per_row_fallback_connection_error_stops_run(configured):
     respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _conflict(),
-            httpx.Response(201, json={"created": []}),
-            httpx.ConnectError("down"),
-        ]
+        side_effect=[_conflict(), httpx.ConnectError("down")]
     )
 
     cfg = config_module.ensure_loaded()
@@ -671,17 +666,17 @@ def test_per_row_fallback_connection_error_stops_run(configured):
         res = apply_mod.resolve_or_create(client, plan)
         result = apply_mod.apply_plan(client, plan, res, chunk_size=2)
 
-    assert result.tx_created == 1  # first singleton landed
-    assert result.tx_failed == 3  # unsent tail of chunk 0 + the never-sent chunk 1
-    assert result.tx_skipped_existing == 0
-    assert batch_route.call_count == 3  # batch, singleton 201, singleton ConnectError
+    assert result.tx_skipped_existing == 1  # the first send named it
+    assert result.tx_created == 0
+    assert result.tx_failed == 3  # the row sent again + the never-sent chunk 1
+    assert batch_route.call_count == 2  # the chunk, then its new row alone
     assert len(result.failures) == 1
     assert "CONNECTION_ERROR: could not reach engine" in result.failures[0][1]
     assert "rows from sheet line 3 on were not sent" in result.failures[0][1]
 
 
 @respx.mock
-def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
+def test_a_chunk_422_isolates_its_bad_row(configured):
     """One invalid row must not sink its whole chunk, and must name its sheet line."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
@@ -699,11 +694,7 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
     respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
     batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _zero(index=1),
-            httpx.Response(201, json={"created": []}),
-            _zero(),
-        ]
+        side_effect=[_zero(index=1), httpx.Response(201, json={"created": []})]
     )
 
     cfg = config_module.ensure_loaded()
@@ -713,7 +704,7 @@ def test_chunk_422_falls_back_to_per_row_isolating_bad_rows(configured):
 
     assert result.tx_created == 1  # the valid row still landed
     assert result.tx_failed == 1
-    assert batch_route.call_count == 3  # one batch + two singletons
+    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
     assert "sheet line 3" in result.failures[0][1]
 
 
@@ -736,13 +727,7 @@ def test_row_failure_keeps_engine_fields_detail(configured):
     )
     respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
     respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _conflict(),
-            _conflict(),
-            _zero(),
-        ]
-    )
+    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=[_zero(1), _conflict()])
 
     cfg = config_module.ensure_loaded()
     with ExpenseClient(cfg) as client:
@@ -752,15 +737,14 @@ def test_row_failure_keeps_engine_fields_detail(configured):
     assert result.tx_failed == 1
     message = result.failures[0][1]
     assert "sheet line 3" in message  # the row is findable in the workbook
-    assert "transactions.0.amount_cents: Must not be zero." in message  # fields preserved
+    assert "\n  amount_cents: Must not be zero." in message  # fields preserved
 
 
 @respx.mock
 def test_an_unknown_hashtag_names_its_sheet_line(configured):
     """The engine keys an unknown hashtag on its item (`transactions.<index>.hashtag_ids`)
     and reports it with the other item failures; the chunk is refused whole, the
-    singleton retry lands the good row, and the refused one is named by its
-    sheet line."""
+    good row goes again and lands, and the refused one is named by its sheet line."""
     plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
     _mock_existing(
         accounts=[
@@ -781,7 +765,6 @@ def test_an_unknown_hashtag_names_its_sheet_line(configured):
         side_effect=[
             _refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"),
             httpx.Response(201, json={"created": []}),
-            _refused(0, "hashtag_ids", unknown, "INVALID_REFERENCE"),
         ]
     )
 
@@ -793,7 +776,7 @@ def test_an_unknown_hashtag_names_its_sheet_line(configured):
     assert result.tx_created == 1 and result.tx_failed == 1
     ((_, message),) = result.failures
     assert message.startswith(f"sheet line 3, id {plan.tx_ids[3]}: ")
-    assert f"transactions.0.hashtag_ids: {unknown}" in message
+    assert f"\n  hashtag_ids: {unknown}" in message
 
 
 @respx.mock
@@ -824,7 +807,7 @@ def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(c
         result = apply_mod.apply_plan(client, plan, res)
 
     assert result.tx_failed == 2
-    assert batch_route.call_count == 1  # every row would 403 identically — no fallback
+    assert batch_route.call_count == 1  # every row would 403 identically — not sent again
     assert result.failures == [(0, "sheet lines 2-3: FORBIDDEN — nope")]
 
 
@@ -1333,7 +1316,7 @@ def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
 
     assert result.exit_code == 1
     assert result.output == _SETTINGS_MISSING_HUMAN
-    assert _writes() == ["/v1/transactions/batch"]  # no row-by-row retry, no second chunk
+    assert _writes() == ["/v1/transactions/batch"]  # nothing sent again, no second chunk
 
 
 def test_fold_outcome_raises_a_refusal_stopped_run_and_folds_nothing():
@@ -1343,7 +1326,7 @@ def test_fold_outcome_raises_a_refusal_stopped_run_and_folds_nothing():
     items = [{"id": "a"}, {"id": "b"}]
     outcome = BatchOutcome(
         results=[RowResult.FAILED, RowResult.UNSENT],
-        failures=[BatchFailure((0,), "refused", 0)],
+        failures=[BatchFailure((0,), "refused", 0, refusal, whole_chunk=True)],
         stop_chunk_index=0,
         refusal=refusal,
     )

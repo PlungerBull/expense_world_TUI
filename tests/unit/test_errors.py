@@ -735,6 +735,9 @@ def test_only_its_own_id_taken_is_a_replay(err, replay):
 
 
 def test_a_replay_with_a_second_reason_is_a_refusal():
+    """A create sent again answers `ID_EXISTS` alone, before any other refusal
+    (contract: "Base Conventions", "Which refusal comes first on a create"), so a
+    taken id beside another reason is no replay of the app's own write."""
     from expense.errors import is_own_id_replay
 
     err = EngineError(
@@ -746,6 +749,25 @@ def test_a_replay_with_a_second_reason_is_a_refusal():
         reasons={"id": "ID_EXISTS", "name": "NAME_EXISTS"},
     )
     assert not is_own_id_replay(err, "id")
+
+
+@pytest.mark.parametrize(
+    ("key", "collection", "field"),
+    [
+        ("transactions.3.amount_cents", "transactions", "amount_cents"),
+        ("rows.0.date", "rows", "date"),
+        ("parts.1.hashtag_ids", "parts", "hashtag_ids"),
+        ("parts.1", "parts", None),
+        ("parts", "parts", None),
+        ("parts.x.amount_cents", "parts", None),
+        ("rows.3.date", "parts", None),
+        ("category_id", "transactions", None),
+    ],
+)
+def test_key_field_reads_the_field_an_item_key_names(key, collection, field):
+    from expense.errors import key_field
+
+    assert key_field(key, collection) == field
 
 
 @pytest.mark.parametrize(

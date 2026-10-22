@@ -57,7 +57,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Input, Label, Static
 
 from expense import reads
-from expense.errors import EngineError, app_lines, format_error, key_index
+from expense.errors import EngineError, app_lines, format_error, key_field, key_index
 from expense.formatting import (
     bank_line_part_count,
     format_cents,
@@ -367,9 +367,9 @@ def part_key(key: object) -> str:
     index = key_index(key, "parts")
     if index is None:
         return str(key)
-    bits = str(key).split(".", 2)
-    if len(bits) == 3:
-        return f"part {index + 1} ({FIELD_WORDS.get(bits[2], bits[2])})"
+    field = key_field(key, "parts")
+    if field is not None:
+        return f"part {index + 1} ({FIELD_WORDS.get(field, field)})"
     return f"part {index + 1}"
 
 

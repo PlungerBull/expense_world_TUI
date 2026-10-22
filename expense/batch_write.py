@@ -2,39 +2,45 @@
 
 `POST /transactions/batch` is all-or-nothing: one bad row in a chunk and none
 of the chunk is written
-(contract: POST /v1/transactions/batch, "No partial success"). The singleton
-retry — shared by `expense import sheet` and the TUI's LOG bar rather than kept in
-two copies — re-posts the refused chunk one row per batch, so the good rows
-land and the bad one is named on its own.
+(contract: POST /v1/transactions/batch, "No partial success"). This module,
+shared by `expense import sheet` and the TUI's LOG bar rather than kept in two
+copies, turns that into partial progress: a refused chunk's named rows are set
+aside and the rest go again as one batch, until a batch lands or no row is left.
 
-**Why it is needed although the engine names the failing row** (a 422 from
-that endpoint carries flat `fields` keys `transactions.<index>.<field>`, the
-same grammar a schema-level rejection uses
-(contract: POST /v1/transactions/batch, "Error shape"), for every item field,
-`hashtag_ids` included (contract: POST /v1/transactions/batch)). Better
-diagnostics cannot replace this pass, because its job is not diagnosis — it is
-**partial progress out of an atomic endpoint**. A 409 names its row too
-(`transactions.<index>.id` for a taken id, `transactions.<index>.operation_code`
-for a taken operation code (contract: POST /v1/transactions/batch)), and still refuses the
-whole chunk; even a fully-named 422 leaves the good rows unwritten
-(contract: POST /v1/transactions/batch, "No partial success"). That is
-the engine behaving as specified — batch is all or nothing by design — so the
-client is the right place to decide that a partly-valid import should still
-make progress.
+**The engine names every row it refuses.** A batch is judged in four steps and
+answers with the first step that refuses it, naming every item that step
+refuses, one `fields` entry per item and field, keyed `transactions.<i>.<field>`
+by the item's place in the request (contract: POST /v1/transactions/batch)
+(contract: POST /v1/transactions/batch, "Error shape"). So one refused send
+settles every row it names, and the rows it does not name go again: a chunk
+costs one request, plus one for each send that drops rows.
+
+**A taken id is not a failure.** Ids are client-minted, so a row refused only
+because its own id is taken (`ID_EXISTS` on `transactions.<i>.id`) is already in
+the ledger, and a create sent again answers that before any other refusal
+(contract: "Base Conventions", "Which refusal comes first on a create"). That is
+what makes a retry after a half-written save safe, and a re-run converge: nothing
+can be written twice. Every other refusal of a row (a zero amount, a taken
+operation code, a sealed period) fails that row, in the engine's words for it.
+
+**A line group goes whole or not at all.** Items sharing a `line_group` are the
+parts of one bank line, and the engine names a line's ledger refusals on its
+first item (contract: POST /v1/transactions/batch, "Line groups"). A refused part
+fails every part of its group, so no line lands with a part missing.
+
+**A refusal that names no row fails the whole chunk.** A `401`, `403` or `5xx`,
+or a `409`/`422` with any key that is no item of the send (`transactions` itself,
+`category_id`, `X-Idempotency-Key`, an index past the end of the send) or with no
+key at all, would fail every row alike: the chunk's unsettled rows are one
+failure, nothing is sent again, and later chunks still go. An account-wide refusal
+(`errors.refuses_every_write`) fails its chunk the same way and stops the run.
 
 **The result is index-aligned with the items handed in**, and carries no
-vocabulary of its own. That is the whole point of the split: the importer maps
-an index to a sheet line, the LOG bar maps it to a staged row, and neither
-phrasing leaks into the other. The refusals' words are the caller's choice too
-(`error_text`): the engine's alone by default, as the importer prints them; the
-LOG bar adds the app's line saying what to do.
-
-**A replayed id is not a failure.** Ids are client-minted, so a row refused only
-because its own id is taken (`ID_EXISTS` on `transactions.0.id` of its singleton
-batch, `errors.is_own_id_replay`) is already in the ledger — which is what makes
-a retry after a half-written save safe: nothing can be written twice. Every
-other 409 (a taken operation code, `CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`) is
-a refusal, reported like a 422.
+vocabulary of its own: the importer maps an index to a sheet line, the LOG bar
+maps it to a staged row, and neither phrasing leaks into the other. The
+refusals' words are the caller's choice too (`error_text`): the engine's alone
+by default, as the importer prints them; the LOG bar adds the app's line saying
+what to do.
 """
 
 from collections.abc import Callable
@@ -46,6 +52,8 @@ from expense.errors import (
     EngineError,
     engine_text,
     is_own_id_replay,
+    key_field,
+    key_index,
     refuses_every_write,
 )
 from expense.http import ExpenseClient
@@ -54,18 +62,22 @@ from expense.http import ExpenseClient
 #: refused whole with a 422 on `transactions` (contract: POST /v1/transactions/batch).
 ENGINE_BATCH_MAX = 500
 
-#: Rows per atomic batch. Kept under `ENGINE_BATCH_MAX` to bound how much a
-#: singleton retry has to re-post when one row in a chunk is bad.
+#: Rows per atomic batch. Kept under `ENGINE_BATCH_MAX` to bound how much one
+#: refused chunk has to send again.
 CHUNK_SIZE = 200
 
 BATCH_PATH = "/transactions/batch"
+
+#: The list a batch item's refusal is keyed under, `transactions.<i>.<field>`
+#: (contract: POST /v1/transactions/batch, "Error shape").
+ITEMS_KEY = "transactions"
 
 
 class RowResult(StrEnum):
     """What became of one item, index-aligned with the request list."""
 
     CREATED = "created"  # the engine accepted it
-    EXISTED = "existed"  # 409 ID_EXISTS on its own id — the row IS in
+    EXISTED = "existed"  # 409 ID_EXISTS on its own id alone: the row IS in
     FAILED = "failed"  # any other refusal of this row
     UNSENT = "unsent"  # the run stopped before it went
 
@@ -74,15 +86,20 @@ class RowResult(StrEnum):
 class BatchFailure:
     """One refusal, and every item it covers.
 
-    Grouping is not cosmetic. A chunk-level 401/403/5xx refuses the whole chunk
-    for one reason, and saying it once per row would be five copies of the same
-    sentence; a singleton retry, by contrast, names exactly one row. Callers
+    A refusal of one row covers that row alone, and `error` is the engine's
+    refusal as it reads for that row: its own `fields` and `reasons`, keyed by
+    the field without the `transactions.<i>.` place it had in the request. Two
+    rows refused alike carry the same `message`. A refusal that names no row
+    (`whole_chunk`) covers every row of its chunk still unsent, said once rather
+    than once per row; its `error` is the refusal as the engine sent it. Callers
     that want it flat read `BatchOutcome.errors`.
     """
 
     indices: tuple[int, ...]
     message: str
     chunk_index: int
+    error: EngineError
+    whole_chunk: bool = False
 
 
 @dataclass
@@ -143,10 +160,6 @@ def require_sendable_chunk_size(chunk_size: int) -> None:
         )
 
 
-#: The key a singleton batch's own id is refused under
-#: (contract: "Base Conventions", "Client-supplied UUIDs") (contract: POST /v1/transactions/batch).
-SINGLETON_ID_KEY = "transactions.0.id"
-
 ErrorText = Callable[[Exception], str]
 
 
@@ -157,14 +170,17 @@ def post_transaction_batch(
     chunk_size: int = CHUNK_SIZE,
     error_text: ErrorText = engine_text,
 ) -> BatchOutcome:
-    """POST `items` in atomic chunks, falling back to one row per batch on 409/422.
+    """POST `items` in atomic chunks; a refused chunk sends its unnamed rows again.
 
     Never raises for an engine-side outcome: every item comes back with a
     `RowResult`, so the caller renders a summary instead of a traceback. A
-    connection error stops the run (`stopped`) with the remaining items
-    marked `UNSENT` — they were never sent, so they are safe to retry. So does
-    an account-wide refusal (`errors.refuses_every_write`): its chunk is failed
-    as one group with no row-by-row fallback, and no later chunk goes out.
+    connection error stops the run (`stopped`) with the rows not yet settled
+    marked `UNSENT` — no send of them landed, so they are safe to retry. So does
+    an account-wide refusal (`errors.refuses_every_write`): the rows of its
+    chunk still unsettled fail as one group, and no later chunk goes out.
+
+    Each send is its own request with its own idempotency key, since a send
+    that drops rows carries a different body.
 
     A `chunk_size` below 1 or above `ENGINE_BATCH_MAX` is a programming error
     and raises `ValueError` before anything is sent. `error_text` turns each
@@ -172,81 +188,152 @@ def post_transaction_batch(
     """
     require_sendable_chunk_size(chunk_size)
     outcome = BatchOutcome(results=[RowResult.UNSENT] * len(items))
-    if not items:
-        return outcome
-
     for chunk_index, offset in enumerate(range(0, len(items), chunk_size)):
-        chunk = items[offset : offset + chunk_size]
-        span = tuple(range(offset, offset + len(chunk)))
-        try:
-            client.post(BATCH_PATH, json_body={"transactions": chunk})
-        except EngineError as err:
-            if refuses_every_write(err):
-                _fail_and_stop(outcome, span, err, chunk_index, error_text)
-                return outcome  # every later chunk stays UNSENT
-            if err.status in (409, 422):
-                if not _post_singletons(client, chunk, offset, chunk_index, outcome, error_text):
-                    return outcome  # the fallback stopped the run
-                continue
-            # 401/403/5xx would fail identically per row — don't hammer.
-            for index in span:
-                outcome.results[index] = RowResult.FAILED
-            outcome.failures.append(BatchFailure(span, error_text(err), chunk_index))
-            continue
-        except EngineConnectionError as err:
-            outcome.stop_error = error_text(err)
-            outcome.stop_chunk_index = chunk_index
-            return outcome  # this chunk and every later one stay UNSENT
-        for index in span:
-            outcome.results[index] = RowResult.CREATED
+        span = list(range(offset, min(offset + chunk_size, len(items))))
+        if not _post_chunk(client, items, span, chunk_index, outcome, error_text):
+            return outcome  # every later chunk stays UNSENT
     return outcome
 
 
-def _fail_and_stop(
-    outcome: BatchOutcome,
-    indices: tuple[int, ...],
-    err: EngineError,
-    chunk_index: int,
-    error_text: ErrorText,
-) -> None:
-    """Fail `indices` as one group on an account-wide refusal, and stop the run."""
-    for index in indices:
-        outcome.results[index] = RowResult.FAILED
-    outcome.failures.append(BatchFailure(indices, error_text(err), chunk_index))
-    outcome.stop_chunk_index = chunk_index
-    outcome.refusal = err
-
-
-def _post_singletons(
+def _post_chunk(
     client: ExpenseClient,
-    chunk: list[dict],
-    offset: int,
+    items: list[dict],
+    pending: list[int],
     chunk_index: int,
     outcome: BatchOutcome,
     error_text: ErrorText,
 ) -> bool:
-    """Re-post a 409'd/422'd chunk one row per batch so the bad row names itself.
+    """Send one chunk's `pending` rows until a send lands or none is left.
 
     Returns False when a connection error or an account-wide refusal stopped the
-    run; the chunk's unsent tail and every later chunk keep their `UNSENT` default.
+    run; the rows still pending keep their `UNSENT` default.
     """
-    for pos, item in enumerate(chunk):
-        index = offset + pos
+    while pending:
+        sent = [items[i] for i in pending]
         try:
-            client.post(BATCH_PATH, json_body={"transactions": [item]})
+            client.post(BATCH_PATH, json_body={ITEMS_KEY: sent})
         except EngineError as err:
             if refuses_every_write(err):
-                _fail_and_stop(outcome, (index,), err, chunk_index, error_text)
+                _fail_whole(outcome, pending, err, chunk_index, error_text)
+                outcome.stop_chunk_index = chunk_index
+                outcome.refusal = err
                 return False
-            if is_own_id_replay(err, SINGLETON_ID_KEY):
-                outcome.results[index] = RowResult.EXISTED
-            else:
+            named = _named_rows(err, len(sent))
+            if not named:
+                _fail_whole(outcome, pending, err, chunk_index, error_text)
+                return True
+            settled = _settle(named, _line_groups(sent))
+            for pos, row_err in sorted(settled.items()):
+                index = pending[pos]
+                if row_err is None:
+                    outcome.results[index] = RowResult.EXISTED
+                    continue
                 outcome.results[index] = RowResult.FAILED
-                outcome.failures.append(BatchFailure((index,), error_text(err), chunk_index))
+                outcome.failures.append(
+                    BatchFailure((index,), error_text(row_err), chunk_index, row_err)
+                )
+            pending = [index for pos, index in enumerate(pending) if pos not in settled]
+            continue
         except EngineConnectionError as err:
             outcome.stop_error = error_text(err)
             outcome.stop_chunk_index = chunk_index
             return False
-        else:
+        for index in pending:
             outcome.results[index] = RowResult.CREATED
+        return True
     return True
+
+
+def _fail_whole(
+    outcome: BatchOutcome,
+    pending: list[int],
+    err: EngineError,
+    chunk_index: int,
+    error_text: ErrorText,
+) -> None:
+    """Fail every row of `pending` as one refusal that names no row."""
+    for index in pending:
+        outcome.results[index] = RowResult.FAILED
+    outcome.failures.append(
+        BatchFailure(tuple(pending), error_text(err), chunk_index, err, whole_chunk=True)
+    )
+
+
+def _named_rows(err: EngineError, size: int) -> dict[int, EngineError] | None:
+    """Each row a `409`/`422` names, by its place in the send, with the engine's
+    refusal as it reads for that row; None when the refusal names no row.
+
+    A row's refusal keeps the engine's code, message and status, and its own
+    `fields` and `reasons` keyed by the field alone: the `transactions.<i>.` place
+    is the send's, not the row's, and a row sent again sits elsewhere. A refusal
+    with any key that is not one of the send's items (`transactions` itself, a
+    header, a key of no item, an index past the end of the send), or with no key
+    at all, is about the whole send, and names no row.
+    """
+    if err.status not in (409, 422):
+        return None
+    named: dict[int, tuple[dict, dict]] = {}
+    for slot, entries in enumerate((err.fields or {}, err.reasons or {})):
+        for key, value in entries.items():
+            pos = key_index(key, ITEMS_KEY)
+            if pos is None or pos >= size:
+                return None
+            named.setdefault(pos, ({}, {}))[slot][_row_key(key)] = value
+    if not named:
+        return None
+    return {pos: _row_refusal(err, fields, reasons) for pos, (fields, reasons) in named.items()}
+
+
+def _row_key(key: str) -> str:
+    """`transactions.<i>.<field>` as the row reads it: `<field>`. A key naming
+    the item itself, with no field, stays whole."""
+    return key_field(key, ITEMS_KEY) or key
+
+
+def _row_refusal(err: EngineError, fields: dict, reasons: dict) -> EngineError:
+    """`err` as it reads for one row: the engine's code, message and status, the
+    row's own `fields` and `reasons`, and a body that holds exactly those."""
+    row_fields = fields or None
+    row_reasons = reasons or None
+    body = {
+        "error": {
+            "code": err.code,
+            "message": err.message,
+            "fields": row_fields,
+            "reasons": row_reasons,
+        }
+    }
+    return EngineError(err.code, err.message, row_fields, err.status, body, reasons=row_reasons)
+
+
+def _line_groups(sent: list[dict]) -> list[list[int]]:
+    """The places in `sent` of each `line_group`'s items, its first item first,
+    in request order (contract: POST /v1/transactions/batch, "Line groups").
+    An item with no `line_group` is a line of its own and in no group here."""
+    groups: dict[str, list[int]] = {}
+    for pos, item in enumerate(sent):
+        name = item.get("line_group")
+        if isinstance(name, str) and name.strip():
+            groups.setdefault(name.strip(), []).append(pos)
+    return list(groups.values())
+
+
+def _settle(
+    named: dict[int, EngineError], groups: list[list[int]]
+) -> dict[int, EngineError | None]:
+    """What a refused send settles, by place: None for a row already in the
+    ledger, its refusal for a row that fails.
+
+    A row named only `ID_EXISTS` on its own id is in. Any other named row fails,
+    and so does every part of its `line_group` the send did not name, with the
+    refusal of the group's first named part: a line lands whole or not at all.
+    """
+    settled: dict[int, EngineError | None] = {
+        pos: None if is_own_id_replay(row_err, "id") else row_err for pos, row_err in named.items()
+    }
+    for group in groups:
+        refusals = [settled[pos] for pos in group if settled.get(pos) is not None]
+        if refusals:
+            for pos in group:
+                settled.setdefault(pos, refusals[0])
+    return settled

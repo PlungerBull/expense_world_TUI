@@ -79,21 +79,6 @@ Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22, who picks
 1 A · 2 A in [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html).
 
-3. **A refused batch reads every item it names.** A batch answers in four steps, each naming
-   every item it refuses (contract: POST /v1/transactions/batch). When a chunk is refused, its
-   rows named `ID_EXISTS` on their own `transactions.<i>.id` count as already there, its rows
-   named by any other refusal count as failed with the engine's words, and the rest go again
-   as one batch, until a batch lands or nothing is left. A refusal naming no item fails the whole
-   chunk. A `line_group` named on its first item fails every item of the group. The one-row
-   retry goes, and so does the sheet import's read-back of an account after
-   `OPENING_BALANCE_EXISTS`, since a re-sent seed now answers `ID_EXISTS` on `transaction_id`
-   (contract: "Base Conventions", "Which refusal comes first on a create"). The LOG bar and the
-   sheet import share this through the batch writer. Unit tests: a chunk naming several taken
-   ids, a chunk naming a request refusal then a ledger refusal on the next send, a group named on
-   its first item, a refusal with no item, the re-run of a whole imported sheet costing one
-   request per chunk plus one per send that drops rows. A live contract test: a landed batch
-   sent again names every item's id, and a re-sent opening balance and split answer
-   `ID_EXISTS`. The docs that say "one request per row" or "one-row batch" say what it does now.
 4. **The sheet import groups by `COD_EECC` and sends it as `statement_line`.** The sheet's
    `COD_EECC` column is read (blank is none; a sheet without the column imports as before, every
    row its own movement); rows sharing one become one movement, sent as the items of one
@@ -112,16 +97,20 @@ Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22,
    Passes the owner's checks 1 to 3 and the engine's checks 2 and 4.
 5. **The import shows the new refusals in the engine's words:** `STATEMENT_LINE_EXISTS`,
    `DUPLICATE_IN_REQUEST` and `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, and
-   `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED`, each against its sheet lines. Unit tests: one per
-   reason. [commands.md](../commands.md) says what the import does with `COD_EECC`.
+   `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED`, each against its sheet lines.
+   `LINE_CODES_EXHAUSTED` holds for the rest of the run, so it stops the run once, as
+   `SETTINGS_MISSING` does, instead of failing one row per send. Unit tests: one per reason. [commands.md](../commands.md) says what the import does with `COD_EECC`.
 6. **Refused rows show one line per error.** The sheet import's `Failures` and the LOG bar's
    lines under the table, as screens 1 A and 2 A of
    [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html) draw: one
    line per kind of error, the engine's words whole, then the rows it hit (`rows 3, 5, 7`, or
    `row 2` for one; the sheet import's rows are its sheet lines). Two refusals are one kind when
    the engine's words for the row are the same. A refusal of a whole chunk or run, with no row,
-   keeps its own line. Unit tests for each screen, one row and many, two kinds. Passes the
-   engine's check 5.
+   keeps its own line. A split transaction refused for one of its rows fails whole: that row shows
+   the engine's words, and its other rows show on a line of the app's own,
+   `Part of a split transaction refused for another row.`, then their rows (owner's pick,
+   2026-10-22). Unit tests for each screen, one row and many, two kinds, a split with one row
+   refused. Passes the engine's check 5.
 
 ## Reply to the engine
 

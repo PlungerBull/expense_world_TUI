@@ -239,7 +239,9 @@ def is_own_id_replay(err: Exception, key: str) -> bool:
     carries it: `id` on a create (contract: "Base Conventions", "Client-supplied
     UUIDs"), `transaction_id` on an opening balance
     (contract: POST /v1/accounts/{account_id}/opening-balance), `transactions.<i>.id`
-    in a batch (contract: POST /v1/transactions/batch).
+    in a batch (contract: POST /v1/transactions/batch), which the batch writer
+    reads per item, as `id`. A create sent again answers it alone, before any
+    other refusal (contract: "Base Conventions", "Which refusal comes first on a create").
     """
     return (
         isinstance(err, EngineError)
@@ -287,6 +289,17 @@ def key_index(key: object, collection: str) -> int | None:
     if len(bits) >= 2 and bits[0] == collection and bits[1].isdigit():
         return int(bits[1])
     return None
+
+
+def key_field(key: object, collection: str) -> str | None:
+    """The field a refusal's key names on an item of a list the request sent:
+    `<collection>.<i>.<field>` gives `field`; `<collection>.<i>`, which names the
+    item alone, and any other key give None. The one reader of an item key's
+    field, beside `key_index` for its place."""
+    if key_index(key, collection) is None:
+        return None
+    bits = str(key).split(".", 2)
+    return bits[2] if len(bits) == 3 else None
 
 
 def format_error(err: Exception, *, on_list: bool = False) -> str:

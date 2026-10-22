@@ -1,4 +1,4 @@
-"""The shared batch poster — one atomic chunk, then row by row when it is refused.
+"""The shared batch poster — one atomic chunk, then its unnamed rows again when it is refused.
 
 The TUI's LOG bar and the `.xlsx` importer share this one copy (docs/decisions.md
 "What a half-written batch means"). These tests are its own spec;
@@ -45,35 +45,71 @@ def _items(n: int) -> list[dict]:
     return [{"id": f"id{i}", "title": f"row {i}"} for i in range(n)]
 
 
-def _conflict(
-    index: int = 0, field: str = "id", reason: str = "ID_EXISTS", message: str = "id exists"
-) -> EngineError:
-    """The engine's batch 409, keyed by item index: `transactions.<i>.id` for a
-    taken id, `transactions.<i>.operation_code` for a taken operation code
-    (contract: "Error reasons"). The system-category refusals the batch can draw
-    are keyed `category_id` (pass `index=None`)."""
-    key = field if index is None else f"transactions.{index}.{field}"
+def _refusal(code: str, status: int, message: str, entries: dict[str, tuple[str, str]]):
+    """A batch refusal naming `entries`: key -> (field words, reason)."""
     return EngineError(
-        "CONFLICT", message, {key: "stand-in field words"}, 409, {}, reasons={key: reason}
-    )
-
-
-def _invalid(
-    index: int = 0, field: str = "amount_cents", reason: str = "ZERO_AMOUNT"
-) -> EngineError:
-    """The engine's batch 422: every refused item field keyed
-    `transactions.<index>.<field>`, with its reason under the same key
-    (contract: POST /v1/transactions/batch) (contract: "Error reasons")."""
-    key = f"transactions.{index}.{field}"
-    message = {"amount_cents": "Must not be zero.", "hashtag_ids": "Some hashtag IDs are invalid."}
-    return EngineError(
-        "VALIDATION_ERROR",
-        "Invalid input.",
-        {key: message.get(field, "Invalid.")},
-        422,
+        code,
+        message,
+        {key: words for key, (words, _) in entries.items()},
+        status,
         {},
-        reasons={key: reason},
+        reasons={key: reason for key, (_, reason) in entries.items()},
     )
+
+
+def _taken(*indices: int) -> EngineError:
+    """Step 2 of a batch: `409` `ID_EXISTS` on every item whose id is taken
+    (contract: POST /v1/transactions/batch)."""
+    message = (
+        "A transaction with id 'x' already exists."
+        if len(indices) == 1
+        else f"{len(indices)} of these ids are already taken."
+    )
+    return _refusal(
+        "CONFLICT",
+        409,
+        message,
+        {
+            f"transactions.{i}.id": ("A transaction with this id already exists.", "ID_EXISTS")
+            for i in indices
+        },
+    )
+
+
+def _conflict(
+    index: int | None = 0, field: str = "id", reason: str = "ID_EXISTS", message: str = "id exists"
+) -> EngineError:
+    """A batch 409 naming one key: `transactions.<i>.<field>` for an item, or
+    `field` alone for a refusal of no item (pass `index=None`), such as the
+    system-category refusals keyed `category_id` (contract: "Error reasons")."""
+    key = field if index is None else f"transactions.{index}.{field}"
+    return _refusal("CONFLICT", 409, message, {key: ("stand-in field words", reason)})
+
+
+_WORDS = {
+    "amount_cents": "Must not be zero.",
+    "hashtag_ids": "Some hashtag IDs are invalid.",
+    "category_id": "Must reference an active category.",
+}
+
+
+def _invalid(*indices: int, field: str = "amount_cents", reason: str = "ZERO_AMOUNT"):
+    """A batch 422 naming each of `indices` on `field`, keyed
+    `transactions.<index>.<field>`, its reason under the same key
+    (contract: POST /v1/transactions/batch) (contract: "Error reasons")."""
+    return _refusal(
+        "VALIDATION_ERROR",
+        422,
+        "Batch validation failed.",
+        {
+            f"transactions.{i}.{field}": (_WORDS.get(field, "Invalid."), reason)
+            for i in indices or (0,)
+        },
+    )
+
+
+def _ids(client: _Client) -> list[list[str]]:
+    return [[item["id"] for item in body["transactions"]] for _, body in client.calls]
 
 
 def test_an_empty_list_makes_no_call_at_all():
@@ -133,113 +169,281 @@ def test_a_chunk_size_above_the_engines_limit_is_refused_before_anything_is_sent
     assert client.calls == []
 
 
-def test_a_422_falls_back_to_one_row_per_batch_and_names_the_bad_one():
-    """The engine refuses the chunk as a whole, so the fallback asks one row at
-    a time — the good rows still land and the bad one reports its own error."""
-    client = _Client([_invalid(index=1), {}, _invalid(), {}])
+def test_a_refused_row_fails_and_the_rest_go_again_as_one_batch():
+    """The engine refuses the chunk naming its bad row; that row fails in the
+    engine's words for it, and the others go again as one batch, and land."""
+    client = _Client([_invalid(1), {}])
     outcome = post_transaction_batch(client, _items(3))
 
-    assert client.sizes == [3, 1, 1, 1]  # the chunk, then each row
+    assert _ids(client) == [["id0", "id1", "id2"], ["id0", "id2"]]
     assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.CREATED]
-    assert "Must not be zero" in outcome.errors[1]
-    assert 0 not in outcome.errors and 2 not in outcome.errors
+    assert outcome.errors == {
+        1: "VALIDATION_ERROR — Batch validation failed.\n  amount_cents: Must not be zero."
+    }
 
 
-def test_an_unknown_hashtag_names_its_own_row():
-    """An unknown hashtag is keyed on its item, `transactions.<index>.hashtag_ids`,
-    and reported with the other item failures in the same 422. The chunk is
-    refused as a whole; the singleton retry lands the good rows and pins the
-    refusal to the item whose hashtag the engine does not know."""
-    chunk_refusal = EngineError(
-        "VALIDATION_ERROR",
-        "Invalid input.",
-        {
-            "transactions.1.hashtag_ids": "Some hashtag IDs are invalid.",
-            "transactions.2.amount_cents": "Must not be zero.",
-        },
-        422,
-        {},
-        reasons={
-            "transactions.1.hashtag_ids": "INVALID_REFERENCE",
-            "transactions.2.amount_cents": "ZERO_AMOUNT",
-        },
-    )
-    client = _Client(
-        [chunk_refusal, {}, _invalid(field="hashtag_ids", reason="INVALID_REFERENCE"), _invalid()]
-    )
+def test_a_chunk_naming_several_taken_ids_counts_each_already_there():
+    """Step 2 names every item whose id is taken; each is in the ledger, and the
+    rows it does not name go again and land."""
+    client = _Client([_taken(0, 2, 3), {}])
+    outcome = post_transaction_batch(client, _items(5))
+
+    assert _ids(client) == [["id0", "id1", "id2", "id3", "id4"], ["id1", "id4"]]
+    assert outcome.results == [
+        RowResult.EXISTED,
+        RowResult.CREATED,
+        RowResult.EXISTED,
+        RowResult.EXISTED,
+        RowResult.CREATED,
+    ]
+    assert outcome.failures == [] and outcome.written == [0, 1, 2, 3, 4]
+
+
+def test_a_request_refusal_then_a_ledger_refusal_then_the_rest_lands():
+    """The four steps answer one at a time: a send refused for what the request
+    shows (step 1) drops its rows, the next is refused by the ledger (step 3)
+    and drops its own, and the third lands. Each failure carries its own words."""
+    ledger = _invalid(0, field="category_id", reason="INVALID_REFERENCE")
+    client = _Client([_invalid(1, 3), ledger, {}])
+    outcome = post_transaction_batch(client, _items(5))
+
+    assert _ids(client) == [
+        ["id0", "id1", "id2", "id3", "id4"],
+        ["id0", "id2", "id4"],
+        ["id2", "id4"],
+    ]
+    assert outcome.results == [
+        RowResult.FAILED,
+        RowResult.FAILED,
+        RowResult.CREATED,
+        RowResult.FAILED,
+        RowResult.CREATED,
+    ]
+    assert "category_id: Must reference an active category." in outcome.errors[0]
+    assert "amount_cents" not in outcome.errors[0]
+    assert outcome.errors[1] == outcome.errors[3]  # refused alike, said alike
+    assert "amount_cents: Must not be zero." in outcome.errors[1]
+    assert [f.indices for f in outcome.failures] == [(1,), (3,), (0,)]
+    assert not any(f.whole_chunk for f in outcome.failures)
+
+
+def test_a_row_refused_carries_its_own_refusal_keyed_by_field():
+    """What a caller groups refusals on: the refusal as it reads for the row,
+    its keys stripped of the place the row had in the send."""
+    client = _Client([_invalid(2, field="hashtag_ids", reason="INVALID_REFERENCE"), {}])
     outcome = post_transaction_batch(client, _items(3))
 
-    assert client.sizes == [3, 1, 1, 1]
-    assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.FAILED]
-    assert "transactions.0.hashtag_ids: Some hashtag IDs are invalid." in outcome.errors[1]
-    assert "Must not be zero" in outcome.errors[2]
-    assert "hashtag" not in outcome.errors[2]
+    (failure,) = outcome.failures
+    assert failure.indices == (2,) and failure.chunk_index == 0
+    assert failure.error is not None
+    assert failure.error.fields == {"hashtag_ids": "Some hashtag IDs are invalid."}
+    assert failure.error.reasons == {"hashtag_ids": "INVALID_REFERENCE"}
+    assert (failure.error.code, failure.error.status) == ("VALIDATION_ERROR", 422)
 
 
-def test_a_replayed_id_counts_as_written_not_failed():
-    """A client-minted id that already exists means the row IS in the ledger.
-    That is what makes a retry after a half-written save safe. The chunk's 409
-    names the row by index; its singleton names it `transactions.0.id`."""
-    client = _Client([_conflict(index=1), _conflict(index=0), {}])
-    outcome = post_transaction_batch(client, _items(2))
+def test_a_rows_refusal_carries_a_body_holding_only_its_own_entries():
+    """The row's body agrees with its `fields` and `reasons`: no other row's
+    entries, and no place in the send."""
+    client = _Client([_invalid(0, 2), {}])
+    outcome = post_transaction_batch(client, _items(3))
 
-    assert outcome.results == [RowResult.EXISTED, RowResult.CREATED]
-    assert outcome.errors == {}
-    assert outcome.written == [0, 1]
+    first, second = (f.error for f in outcome.failures)
+    for row_err in (first, second):
+        assert row_err.raw_body == {
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Batch validation failed.",
+                "fields": {"amount_cents": "Must not be zero."},
+                "reasons": {"amount_cents": "ZERO_AMOUNT"},
+            }
+        }
+
+
+def test_taken_ids_beside_new_rows_then_a_refusal_on_the_next_send():
+    """A replay and a refusal in one chunk: the taken ids settle on the first
+    send, a zero amount on the second, and the rest lands on the third."""
+    client = _Client([_taken(0), _invalid(1), {}])
+    outcome = post_transaction_batch(client, _items(4))
+
+    assert _ids(client) == [["id0", "id1", "id2", "id3"], ["id1", "id2", "id3"], ["id1", "id3"]]
+    assert outcome.results == [
+        RowResult.EXISTED,
+        RowResult.CREATED,
+        RowResult.FAILED,
+        RowResult.CREATED,
+    ]
+
+
+def test_a_re_run_costs_one_request_per_chunk():
+    """Every row already landed: each chunk's one send names all of them, and
+    nothing goes again."""
+    client = _Client([_taken(*range(3)), _taken(*range(3)), _taken(0, 1)])
+    outcome = post_transaction_batch(client, _items(8), chunk_size=3)
+
+    assert client.sizes == [3, 3, 2]  # one request per chunk
+    assert outcome.results == [RowResult.EXISTED] * 8
+
+
+def test_a_chunk_mixing_landed_and_new_rows_costs_one_more_request():
+    client = _Client([_taken(*range(3)), _taken(0), {}, _taken(0, 1)])
+    outcome = post_transaction_batch(client, _items(8), chunk_size=3)
+
+    assert client.sizes == [3, 3, 2, 2]  # the second chunk sends its new rows again
+    assert outcome.count(RowResult.EXISTED) == 6
+    assert outcome.count(RowResult.CREATED) == 2
+
+
+def _grouped(n: int, groups: dict[str, list[int]]) -> list[dict]:
+    """`n` items, those listed under a name carrying it as their `line_group`."""
+    items = _items(n)
+    for name, members in groups.items():
+        for i in members:
+            items[i]["line_group"] = name
+    return items
+
+
+def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
+    """A line's ledger refusal is keyed by its first item; every part of that
+    line fails with it, so no line lands with a part missing
+    (contract: POST /v1/transactions/batch, "Line groups")."""
+    client = _Client([_conflict(1, field="statement_line", reason="STATEMENT_LINE_EXISTS"), {}])
+    outcome = post_transaction_batch(client, _grouped(5, {"g1": [1, 2, 4]}))
+
+    assert _ids(client) == [["id0", "id1", "id2", "id3", "id4"], ["id0", "id3"]]
+    assert outcome.results == [
+        RowResult.CREATED,
+        RowResult.FAILED,
+        RowResult.FAILED,
+        RowResult.CREATED,
+        RowResult.FAILED,
+    ]
+    assert outcome.errors[1] == outcome.errors[2] == outcome.errors[4]
+    assert "statement_line: stand-in field words" in outcome.errors[2]
+
+
+def test_a_refused_part_fails_its_group_and_no_other_line():
+    """A part refused for itself takes its group with it; another group, and a
+    line of its own, go again."""
+    client = _Client([_invalid(3), {}])
+    outcome = post_transaction_batch(client, _grouped(5, {"a": [0, 1], "b": [2, 3]}))
+
+    assert _ids(client)[1] == ["id0", "id1", "id4"]
+    assert outcome.results == [
+        RowResult.CREATED,
+        RowResult.CREATED,
+        RowResult.FAILED,
+        RowResult.FAILED,
+        RowResult.CREATED,
+    ]
 
 
 @pytest.mark.parametrize(
     "refusal",
     [
         _conflict(index=None, field="category_id", reason="CONCURRENT_CHANGE"),
-        _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD"),
-        _conflict(field="operation_code", reason="OPERATION_CODE_EXISTS"),
-        # the row's own key, but not a taken id
-        _conflict(field="id", reason="IDEMPOTENCY_KEY_REUSED"),
-        # a taken id under another key than the row's own
-        _conflict(index=3, field="id", reason="ID_EXISTS"),
-        # no reason at all
+        _conflict(index=None, field="X-Idempotency-Key", reason="IDEMPOTENCY_KEY_REUSED"),
+        _refusal(
+            "VALIDATION_ERROR",
+            422,
+            "Invalid input.",
+            {"transactions": ("List should have at most 500 items.", "OUT_OF_RANGE")},
+        ),
+        # an item key beside a key of no item: the refusal is about the whole send
+        _refusal(
+            "VALIDATION_ERROR",
+            422,
+            "Invalid input.",
+            {
+                "transactions.0.amount_cents": ("Must not be zero.", "ZERO_AMOUNT"),
+                "category_id": ("Invalid.", "INVALID_REFERENCE"),
+            },
+        ),
+        # a place past the end of what was sent
+        _invalid(7),
+        # no key at all
         EngineError("CONFLICT", "id exists", None, 409, {}),
     ],
-    ids=[
-        "concurrent-change",
-        "reserved-name-held",
-        "operation-code",
-        "key-reused",
-        "other-key",
-        "no-reason",
-    ],
+    ids=["no-item-409", "key-reused", "list-itself", "mixed", "out-of-range", "no-key"],
 )
-def test_any_other_409_is_a_refusal_never_written(refusal):
-    """Only a replay of the row's own id counts as written; every other 409 is
-    refused, in the engine's words alone by default."""
-    client = _Client([refusal, refusal, {}])
+def test_a_refusal_naming_no_item_fails_the_whole_chunk_once(refusal):
+    """Nothing in it says which row is wrong, so every row fails alike: one
+    failure for the chunk, nothing sent again, and later chunks still go."""
+    client = _Client([refusal, {}])
+    outcome = post_transaction_batch(client, _items(5), chunk_size=3)
+
+    assert client.sizes == [3, 2]
+    assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.CREATED] * 2
+    (failure,) = outcome.failures
+    assert failure.indices == (0, 1, 2) and failure.whole_chunk
+    assert failure.message == engine_words(refusal) and failure.error is refusal
+    assert not outcome.stopped
+
+
+def test_a_refusal_naming_no_item_after_a_drop_fails_only_what_is_left():
+    client = _Client([_invalid(1), EngineError("FORBIDDEN", "nope", None, 403, {})])
+    outcome = post_transaction_batch(client, _items(3))
+
+    assert client.sizes == [3, 2]
+    assert outcome.results == [RowResult.FAILED] * 3
+    assert [(f.indices, f.whole_chunk) for f in outcome.failures] == [
+        ((1,), False),
+        ((0, 2), True),
+    ]
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        _conflict(field="operation_code", reason="OPERATION_CODE_EXISTS"),
+        _conflict(field="statement_line", reason="STATEMENT_LINE_EXISTS"),
+        # the row's own id, but not taken
+        _conflict(field="id", reason="IDEMPOTENCY_KEY_REUSED"),
+        # its own id taken, and something else wrong with the row
+        _refusal(
+            "CONFLICT",
+            409,
+            "id exists",
+            {
+                "transactions.0.id": ("taken", "ID_EXISTS"),
+                "transactions.0.operation_code": ("taken", "OPERATION_CODE_EXISTS"),
+            },
+        ),
+        # a taken id under the 422 code
+        _refusal(
+            "VALIDATION_ERROR", 422, "Invalid input.", {"transactions.0.id": ("x", "ID_EXISTS")}
+        ),
+    ],
+    ids=["operation-code", "statement-line", "key-reused", "id-and-more", "not-a-conflict"],
+)
+def test_any_other_refusal_of_a_row_is_never_written(refusal):
+    """Only `ID_EXISTS` on the row's own id, alone, counts as written; every
+    other refusal of the row fails it, in the engine's words alone by default."""
+    client = _Client([refusal, {}])
     outcome = post_transaction_batch(client, _items(2))
 
     assert outcome.results == [RowResult.FAILED, RowResult.CREATED]
     assert outcome.written == [1]
-    assert outcome.errors == {0: engine_words(refusal)}
+    assert outcome.errors[0].startswith(f"{refusal.code} — {refusal.message}")
 
 
 def test_the_caller_chooses_the_words_of_a_refusal():
     """The LOG bar passes `format_error`, which adds the app's line under the
     engine's words; the default, the importer's, is the engine's words alone."""
     refusal = _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD")
-    outcome = post_transaction_batch(
-        _Client([refusal, refusal]), _items(1), error_text=format_error
-    )
+    outcome = post_transaction_batch(_Client([refusal]), _items(1), error_text=format_error)
 
     assert outcome.errors == {0: format_error(refusal)}
     assert outcome.errors[0].endswith("rename it on Manage ▸ Categories, then save again.")
 
 
-def test_a_chunk_level_refusal_is_not_retried_row_by_row():
+@pytest.mark.parametrize("status", [401, 403, 500])
+def test_a_chunk_level_refusal_is_not_sent_again(status):
     """401/403/5xx would fail identically for every row — one honest message
-    beats hammering the engine once per row."""
-    client = _Client([EngineError("FORBIDDEN", "nope", None, 403, {})])
+    beats sending the rows again."""
+    client = _Client([EngineError("FORBIDDEN", "nope", None, status, {})])
     outcome = post_transaction_batch(client, _items(3))
 
-    assert client.sizes == [3]  # no fallback
+    assert client.sizes == [3]  # not sent again
     assert outcome.results == [RowResult.FAILED] * 3
     assert len(outcome.failures) == 1  # grouped, not one per row
     assert outcome.failures[0].indices == (0, 1, 2)
@@ -259,8 +463,8 @@ def _settings_missing() -> EngineError:
 
 
 def test_settings_missing_fails_the_chunk_once_and_stops_the_run():
-    """It is a 422, but about the account and not about any row: no row-by-row
-    fallback, no later chunk, and one failure for the chunk it met."""
+    """It is a 422, but about the account and not about any row: nothing sent
+    again, no later chunk, and one failure for the chunk it met."""
     refusal = _settings_missing()
     client = _Client([refusal])
     outcome = post_transaction_batch(client, _items(5), chunk_size=3)
@@ -276,13 +480,13 @@ def test_settings_missing_fails_the_chunk_once_and_stops_the_run():
     assert outcome.unsent == [3, 4]
 
 
-def test_settings_missing_inside_the_fallback_also_stops():
-    client = _Client([_invalid(), {}, _settings_missing()])
-    outcome = post_transaction_batch(client, _items(3))
+def test_settings_missing_on_a_second_send_also_stops():
+    client = _Client([_invalid(1), _settings_missing()])
+    outcome = post_transaction_batch(client, _items(4), chunk_size=3)
 
-    assert client.sizes == [3, 1, 1]  # the third row never went
-    assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.UNSENT]
-    assert [f.indices for f in outcome.failures] == [(1,)]
+    assert client.sizes == [3, 2]  # the second chunk never went
+    assert outcome.results == [RowResult.FAILED] * 3 + [RowResult.UNSENT]
+    assert [(f.indices, f.whole_chunk) for f in outcome.failures] == [((1,), False), ((0, 2), True)]
     assert outcome.stopped and outcome.refusal is not None
 
 
@@ -295,7 +499,7 @@ def test_stopped_is_read_off_what_stopped_the_run():
 
 
 def test_another_refusal_leaves_no_stop_behind():
-    outcome = post_transaction_batch(_Client([_invalid(), _invalid()]), _items(1))
+    outcome = post_transaction_batch(_Client([_invalid()]), _items(1))
     assert not outcome.stopped and outcome.refusal is None
 
 
@@ -311,14 +515,14 @@ def test_a_connection_error_stops_and_leaves_the_tail_unsent():
     assert outcome.unsent == [1, 2]
 
 
-def test_a_connection_error_inside_the_fallback_also_stops():
-    client = _Client(
-        [_invalid(), {}, EngineConnectionError(url="http://x", original=OSError("down"))]
-    )
+def test_a_connection_error_on_a_second_send_also_stops():
+    """The rows sent again never landed, so they stay unsent; the row the first
+    send named keeps its failure."""
+    client = _Client([_invalid(1), EngineConnectionError(url="http://x", original=OSError("down"))])
     outcome = post_transaction_batch(client, _items(3))
 
-    assert outcome.results == [RowResult.CREATED, RowResult.UNSENT, RowResult.UNSENT]
-    assert outcome.stopped
+    assert outcome.results == [RowResult.UNSENT, RowResult.FAILED, RowResult.UNSENT]
+    assert outcome.stopped and outcome.unsent == [0, 2]
 
 
 @pytest.mark.parametrize(

@@ -682,8 +682,8 @@ def _script(client, responses):
     """Give the fake client a per-call answer for POST.
 
     `FakeClient.errors["POST"]` fails *every* POST, which cannot express the
-    interesting case — the batch is refused and one row of it then lands
-    while another does not (batch_write's singleton fallback). Each entry
+    interesting case — the batch is refused naming one row, and the rest then
+    goes again and lands (batch_write). Each entry
     is either an exception to raise or a dict to return, consumed in order; the
     list running dry falls back to the ordinary empty-dict success.
     """
@@ -773,10 +773,9 @@ def test_saved_rows_clear_when_the_next_line_is_staged(fake_client, monkeypatch)
 
 
 def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
-    """The engine refuses the whole batch for one row, the fallback re-posts
-    one row per batch, the first lands and the second does not — and the
-    screen says which is which, because "nothing was written" would be a
-    lie."""
+    """The engine refuses the whole batch naming one row; the other goes again
+    and lands — and the screen says which is which, because "nothing was
+    written" would be a lie."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -784,11 +783,7 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
         _stage_lines(screen, LEDGER_LINE, USD_LINE)
         _script(
             fake_client,
-            [
-                _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
-                {},
-                _refused(0, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
-            ],
+            [_refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"), {}],
         )
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
@@ -811,7 +806,7 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     month you closed — so the engine's refusal is the only thing standing
     between a backdated line and silence. The period's NAME lives in the 422's
     field text and nowhere else, so what this pins is that it survives the
-    chunk → singleton fallback, `format_error`, and the per-row error block,
+    batch writer's per-row reading, `format_error`, and the per-row error block,
     while the row that was fine still ticks.
     """
     _patch(monkeypatch)
@@ -834,8 +829,8 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     async def scenario(pilot, app):
         screen = await _open(app, pilot)
         _stage_lines(screen, LEDGER_LINE, USD_LINE)
-        # the chunk is refused on its second item, row 1 lands alone, row 2 alone is sealed
-        _script(fake_client, [sealed(1), {}, sealed(0)])
+        # the chunk is refused on its second item, sealed; row 1 goes again and lands
+        _script(fake_client, [sealed(1), {}])
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
 
@@ -878,7 +873,7 @@ def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
 
-        assert len(fake_client.posts) == 1  # no row-by-row retry
+        assert len(fake_client.posts) == 1  # nothing sent again
         assert all(not e.saved and e.error is None for e in screen._staged)
         assert app.screen is screen
         assert toasts == [
@@ -910,11 +905,7 @@ def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
         _stage_lines(screen, USD_LINE, LEDGER_LINE)  # the second row carries #CAJA CHICA
         _script(
             fake_client,
-            [
-                _refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"),
-                {},
-                _refused(0, "hashtag_ids", unknown, "INVALID_REFERENCE"),
-            ],
+            [_refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"), {}],
         )
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
@@ -938,11 +929,7 @@ def test_a_retry_re_sends_only_the_rows_without_a_tick(fake_client, monkeypatch)
         _stage_lines(screen, LEDGER_LINE, USD_LINE)
         _script(
             fake_client,
-            [
-                _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
-                {},
-                _refused(0, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
-            ],
+            [_refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"), {}],
         )
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
@@ -974,19 +961,53 @@ def test_a_replayed_row_comes_back_409_and_counts_as_written(fake_client, monkey
         screen = await _open(app, pilot)
         _stage_lines(screen, LEDGER_LINE)
         first_id = screen._staged[0].row_id
-        _script(
-            fake_client,
-            [
-                _conflict("transactions.0.id", "ID_EXISTS"),  # the batch
-                _conflict("transactions.0.id", "ID_EXISTS"),  # its singleton
-            ],
-        )
+        _script(fake_client, [_conflict("transactions.0.id", "ID_EXISTS")])
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
 
         assert screen._staged[0].saved  # ✓, not an error
         assert screen._staged[0].error is None
         assert screen._staged[0].row_id == first_id  # the id never changed
+
+    run_app(scenario)
+
+
+def test_one_save_ticks_a_replayed_row_names_a_refused_one_and_lands_the_rest(
+    fake_client, monkeypatch
+):
+    """The engine answers what the request shows first (a zero amount on row 3),
+    then, sent again without it, the taken id of row 1; row 2 goes a third time
+    and lands. Rows 1 and 2 tick, row 3 carries its refusal: one request per send,
+    never one per row (contract: POST /v1/transactions/batch)."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE)
+        ids = [e.row_id for e in screen._staged]
+        _script(
+            fake_client,
+            [
+                _refused(2, "amount_cents", "Must not be zero.", "ZERO_AMOUNT"),
+                _conflict("transactions.0.id", "ID_EXISTS"),
+                {},
+            ],
+        )
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        sent = [[item["id"] for item in body["transactions"]] for _, _, body in fake_client.calls]
+        assert sent == [ids, ids[:2], ids[1:2]]
+        replayed, landed, refused = screen._staged
+        assert replayed.saved and replayed.error is None
+        assert landed.saved and landed.error is None
+        assert not refused.saved
+        assert refused.error == (
+            "VALIDATION_ERROR — Invalid input.\n  amount_cents: Must not be zero."
+        )
+        out = _text(screen._staged_renderable())
+        assert "✓ 1" in out and "✓ 2" in out and "✓ 3" not in out
+        assert "row 3: " in out
 
     run_app(scenario)
 
@@ -1012,7 +1033,7 @@ def test_any_other_409_is_a_refusal_with_no_tick(fake_client, monkeypatch, reaso
         screen = await _open(app, pilot)
         _stage_lines(screen, LEDGER_LINE)
         refusal = _conflict("category_id", reason)
-        _script(fake_client, [refusal, refusal])  # the batch, then its singleton
+        _script(fake_client, [refusal])  # names no row: the whole batch, sent once
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
 
@@ -1815,8 +1836,9 @@ def test_a_hashtag_refusal_on_the_log_bar_shows_as_sent(
     fake_client, monkeypatch, code, status, reason, line
 ):
     """The row keeps no tick and carries the engine's words whole, then its
-    line if the reason has one: the batch's, then its singleton's refusal."""
+    line if the reason has one. A `422` names the row by its place in the batch,
+    and the row reads it by its field alone; a `409` names no row and reads as sent."""
     err = hashtag_refusal(code, status, reason, item=0)
-    entry = _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE, script=[err, err])
+    entry = _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE, script=[err])
     assert not entry.saved
-    assert entry.error == refusal_text(err, line)
+    assert entry.error == refusal_text(hashtag_refusal(code, status, reason), line)

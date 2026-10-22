@@ -764,10 +764,10 @@ and 7 B in
 creates one.
 
 **"Saved" means the engine holds the row.** The LOG bar ticks a row only when the engine
-created it, or refused it only because the row's own id is taken (`ID_EXISTS` on
-`transactions.0.id` of its one-row batch): a replay of a save whose answer was lost. Every
-other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on the row, which
-keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
+created it, or refused it only because the row's own id is taken (`ID_EXISTS` on its
+`transactions.<i>.id` and nothing else): a replay of a save whose answer was lost. Every
+other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on each row it
+covers, which keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank

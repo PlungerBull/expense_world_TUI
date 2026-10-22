@@ -12,7 +12,7 @@ from datetime import date
 from uuid import uuid4
 
 from expense.bank_import.parse import BankRow
-from expense.errors import key_index
+from expense.errors import key_field, key_index
 
 #: Nothing dated earlier is ever sent. The hand-typed rows the bank files
 #: overlap are aligned to the bank's wording before the first real import
@@ -284,8 +284,7 @@ def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, 
     for key, message in fields.items():
         i = key_index(key, "rows")
         if i is not None and i < len(sent):
-            parts = str(key).split(".", 2)
-            out.append((sent[i].row.line, parts[2] if len(parts) == 3 else None, str(message)))
+            out.append((sent[i].row.line, key_field(key, "rows"), str(message)))
             continue
         out.append((None, str(key), str(message)))
     return out
