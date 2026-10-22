@@ -67,19 +67,6 @@ Approved by the owner 2026-10-22, who picks 1 A · 2 A · 4 B · 5 B in
 [expense-world-account-to-person.html](../mockups/expense-world-account-to-person.html), and
 checks the import re-run on `--apply`: the dry run stays offline.
 
-2. **Manage ▸ Accounts turns an account into a person and back,** as the picked screens draw:
-   `t Make person` on a bank account's row, `t Make bank` on a person's, sent at once with no
-   question through the two routes (screen 1 A); the cursor stays on the account in its new
-   place, with `Now a person.` or `Now a bank account.` (2 A); on an archived row `t` leaves the
-   footer and does nothing (5 B). Every refusal shows in the engine's words; `HAS_OPENING_BALANCE`
-   adds the app's line `Press e and empty its opening balance first.` (4 B), and
-   `KIND_UNCHANGED` and `ACCOUNT_ARCHIVED`, met only from a list read before the account changed,
-   add none. Home shows the account in its new group. Unit tests: both directions, the cursor
-   after, `t` gone on an archived row, each refusal. [tui.md](../tui.md) says what `t` does and
-   gives the new line its row in the refusal-hint table; the comment in
-   [create_forms.py](../../expense/tui/screens/create_forms.py) saying an account's type never
-   changes after creation is corrected. Passes the owner's checks 1 to 3 and the engine's
-   check 1.
 3. **The sheet import finds people.** It lists existing accounts with
    `GET /accounts?include_people=true&include_archived=true`, so a person account of the same
    name and currency is reused and never created again. Unit test: a re-run after a conversion

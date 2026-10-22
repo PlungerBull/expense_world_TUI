@@ -519,6 +519,24 @@ APP_FAULT = (
         ("CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "amount_cents", "ACCOUNT_ARCHIVED", False, None),
         ("VALIDATION_ERROR", "ending_balance_cents", "ACCOUNT_ARCHIVED", True, None),
+        # account-to-person 4 B: an opening balance stops `t`, the same line on and
+        # off a list; the other two refusals of `t` keep the engine's words alone
+        (
+            "CONFLICT",
+            "account_id",
+            "HAS_OPENING_BALANCE",
+            True,
+            "Press e and empty its opening balance first.",
+        ),
+        (
+            "CONFLICT",
+            "account_id",
+            "HAS_OPENING_BALANCE",
+            False,
+            "Press e and empty its opening balance first.",
+        ),
+        ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
+        ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
         # 3A
@@ -693,6 +711,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "CONCURRENT_CHANGE",
         "RESERVED_NAME_HELD",
         "OPENING_BALANCE_EXISTS",
+        "HAS_OPENING_BALANCE",
         "RECONCILIATION_NOT_DRAFT",
         "ID_EXISTS",
         "IDEMPOTENCY_KEY_REUSED",

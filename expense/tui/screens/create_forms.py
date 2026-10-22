@@ -381,9 +381,11 @@ class EditAccountScreen(NewAccountScreen):
         super().__init__()
         self._id = record["id"]
         self._name = record.get("name") or "—"
-        # Both immutable after creation. `currency` the engine rejects outright;
-        # `type` has no update path at all — `is_person` is settable only at the
-        # moment of creation, which is the entire reason `POST /people` exists.
+        # Both read-only here. `currency` never changes after creation; `type`
+        # is no field of the account's update: it changes with `t` on
+        # Manage ▸ Accounts, which sends `make-person` or `make-account`
+        # (contract: POST /v1/accounts/{account_id}/make-person)
+        # (contract: POST /v1/accounts/{account_id}/make-account).
         self._locked = {"currency", "type"}
         self._values = {
             "type": "person" if record.get("is_person") else "bank",

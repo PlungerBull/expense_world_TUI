@@ -643,6 +643,24 @@ other row they end the footer as usual. A built-in category's colour is not chan
 from this app either. Under the list a legend says so: `System categories cannot be renamed
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
+**`t` turns an account into a person and back** (screens 1 A, 2 A, 3, 4 B and 5 B in
+[expense-world-account-to-person.html](mockups/expense-world-account-to-person.html)). On
+Manage ▸ Accounts the footer reads `t Make person` on a bank account's row and
+`t Make bank` on a person's, following the cursor, between `a Archive` and `d Delete`.
+`t` sends `POST /accounts/{id}/make-person` or `POST /accounts/{id}/make-account` at once,
+with no body and no question, through `run_write` as `a` does
+(contract: POST /v1/accounts/{account_id}/make-person)
+(contract: POST /v1/accounts/{account_id}/make-account). The list reads again with the
+cursor on the account in its new place, among the people or the bank accounts, and the
+note says `Now a person.` or `Now a bank account.`, so a second `t` turns it back. While
+one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the footer and does
+nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
+as it was and `t` works again; the "Failed" note is the engine's words whole, and
+`HAS_OPENING_BALANCE` adds `Press e and empty its opening balance first.` (the table in
+"When the engine says no"). Home shows the account under its new group, BANK ACCOUNTS or
+PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read-only:
+`t` is how an account's type changes.
+
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
@@ -720,8 +738,10 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `HAS_TRANSACTIONS` on `category_id` | `d` on Manage ▸ Categories | `Move its transactions to another category first.` |
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
+| `HAS_OPENING_BALANCE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with an opening balance | `Press e and empty its opening balance first.` |
+| `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete or revert; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
@@ -748,8 +768,8 @@ screen that reports a failure through it shows the line. One row is the import d
 `CONCURRENT_CHANGE` on a `rows.<index>` key is picked by `changed_while_running` in
 [bank_import.py](../expense/tui/screens/bank_import.py), which shows its line in place of
 `format_error`'s, since what follows is `⏎ Preview again`. A write sent from a list (every
-`d`, and the ending balance saved at `c` on a reconciliation's batch screen, where `r` reads
-it again) asks for the list's line (`list_refusal_text` in
+`d`, `t` on Manage ▸ Accounts, and the ending balance saved at `c` on a reconciliation's
+batch screen, where `r` reads it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
 resources share; its key (`account_id` or `category_id`) picks the line, and the keys
 `hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The three

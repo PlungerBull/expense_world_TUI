@@ -164,7 +164,11 @@ _APP_FAULT = (
 #: (contract: DELETE /v1/bank-lines/{bank_line_id}),
 #: `ACCOUNT_ARCHIVED`, whose words already say to unarchive the account first
 #: (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
-#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts"),
+#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts")
+#: (contract: POST /v1/accounts/{account_id}/make-person),
+#: `KIND_UNCHANGED`, whose words already say the account is of that kind
+#: (contract: POST /v1/accounts/{account_id}/make-person)
+#: (contract: POST /v1/accounts/{account_id}/make-account),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {
@@ -200,6 +204,10 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "OPENING_BALANCE_EXISTS"): NextStep(
         "It got one meanwhile: close the form and open it again to change it."
     ),
+    # A person carries no opening balance, so `t` on Manage ▸ Accounts cannot
+    # turn an account that has one (contract: POST /v1/accounts/{account_id}/make-person);
+    # emptying its opening line on the Edit form deletes it.
+    ("CONFLICT", "HAS_OPENING_BALANCE"): NextStep("Press e and empty its opening balance first."),
     ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep("Press u to revert it, then d again."),
     ("CONFLICT", "ID_EXISTS"): NextStep(_APP_FAULT),
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),

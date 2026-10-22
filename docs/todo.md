@@ -72,6 +72,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   `grouped_refusals` the sheet import and the LOG bar use (`<field>: <words> rows 1, 2`,
   [formatting.py](../expense/formatting.py)). One helper; merging them changes what the bulk
   edit's toast says, so its wording is the owner's pick first [UI].
+- **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
+  goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
+  and `c` say the list's `press r, then try again` (`list_refusal_text` in
+  [_base.py](../expense/tui/screens/_base.py)). Send `a` through `list_refusal_text` too, which
+  drops `_toggle`'s `error_text` parameter in [accounts.py](../expense/tui/screens/accounts.py);
+  the `_toggle_busy` comment there says "archive toggle" though it guards `t` as well.
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
