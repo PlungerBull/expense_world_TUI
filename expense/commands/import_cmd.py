@@ -30,8 +30,11 @@ def _skipped_json(plan: plan_mod.ImportPlan) -> dict:
 
 
 def _render_skipped(plan: plan_mod.ImportPlan) -> None:
-    """The `Skipped N row(s) — …` line, and under it a line per field a skipped
-    split transaction's rows differ on. Nothing when no row is skipped."""
+    """The `Skipped N row(s) — …` line, and under it why each held-back split
+    transaction waits: a line per field its rows differ on, or one naming its
+    unreadable rows and the rows that wait for them (`SIG-202603-029: line 3122
+    can't be read, so lines 3120, 3121 wait for it.`; `line … waits` for one
+    row, `… for them` for several unreadable). Nothing when no row is skipped."""
     if not plan.skipped:
         return
     counts = Counter(s.reason for s in plan.skipped)

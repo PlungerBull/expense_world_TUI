@@ -534,6 +534,66 @@ def test_settings_missing_on_a_second_send_also_stops():
     assert outcome.stopped and outcome.refusal is not None
 
 
+def _codes_exhausted(*indices: int) -> EngineError:
+    """Every line code given: `422 LIMIT_REACHED` on `transactions.<i>.id` of the
+    first item that needed a new line (contract: POST /v1/transactions/batch, "Line groups")."""
+    return _refusal(
+        "LIMIT_REACHED",
+        422,
+        "No bank line codes are left.",
+        {
+            f"transactions.{i}.id": ("No line code is left for a new line.", "LINE_CODES_EXHAUSTED")
+            for i in indices
+        },
+    )
+
+
+def test_line_codes_exhausted_fails_its_row_once_and_stops_the_run():
+    """It holds for the rest of the run: one request, the named row fails in the
+    engine's words for it, every other row stays unsent, no later chunk goes."""
+    refusal = _codes_exhausted(1)
+    client = _Client([{}, refusal])
+    outcome = post_transaction_batch(client, _items(7), chunk_size=3)
+
+    assert client.sizes == [3, 3]  # the first chunk landed; nothing after the refusal
+    assert outcome.results == [RowResult.CREATED] * 3 + [
+        RowResult.UNSENT,
+        RowResult.FAILED,
+        RowResult.UNSENT,
+        RowResult.UNSENT,
+    ]
+    (failure,) = outcome.failures
+    assert (failure.indices, failure.whole_chunk, failure.chunk_index) == ((4,), False, 1)
+    assert failure.message == (
+        "LIMIT_REACHED — No bank line codes are left.\n  id: No line code is left for a new line."
+    )
+    assert outcome.stopped and outcome.refusal is refusal and outcome.stop_chunk_index == 1
+    assert outcome.unsent == [3, 5, 6]
+
+
+def test_line_codes_exhausted_on_a_groups_first_item_fails_the_group():
+    client = _Client([_codes_exhausted(1)])
+    outcome = post_transaction_batch(client, _grouped(4, {"g": [1, 2]}))
+
+    assert client.sizes == [4]
+    assert outcome.results == [
+        RowResult.UNSENT,
+        RowResult.FAILED,
+        RowResult.FAILED,
+        RowResult.UNSENT,
+    ]
+    assert outcome.refusal is not None
+
+
+def test_line_codes_exhausted_after_a_drop_stops_too():
+    client = _Client([_invalid(0), _codes_exhausted(0)])
+    outcome = post_transaction_batch(client, _items(3))
+
+    assert client.sizes == [3, 2]
+    assert outcome.results == [RowResult.FAILED, RowResult.FAILED, RowResult.UNSENT]
+    assert outcome.refusal is not None
+
+
 def test_stopped_is_read_off_what_stopped_the_run():
     """There is no stop without its cause: a run is stopped exactly when it
     carries the connection error or the account-wide refusal that halted it."""

@@ -117,3 +117,41 @@ def test_a_sheet_with_a_group_lands_one_line_and_a_re_run_finds_every_row(client
                 _safe(client.delete, f"/categories/{category_id}")
             for hashtag_id in res.hashtag_ids.values():
                 _safe(client.delete, f"/hashtags/{hashtag_id}")
+
+
+def test_an_edited_row_whose_statement_line_is_in_the_ledger_fails_on_its_sheet_line(client):
+    """An edited row has a new id, so it is no replay: the engine refuses it
+    `STATEMENT_LINE_EXISTS`, since the row imported before still holds the
+    statement line (contract: POST /v1/transactions/batch, "Line groups"), and the
+    importer names its sheet line."""
+    run = uuid4().hex[:10]
+    code = f"SIG-{run}-009"
+    account, category = f"contract-sheet-{run}", f"contract-{run}"
+
+    def sheet(amount: float) -> SheetData:
+        cells = ["PANADERIA", category, category, "2026-03-20", amount, account, "PEN", code]
+        return SheetData(headers=list(HEADERS), rows=[RawRow(2, cells)])
+
+    written: set[str] = set()
+    resolved: list[apply_mod.ResolveResult] = []
+    try:
+        plan, result = _run(client, sheet(-7.0), resolved)
+        written |= set(plan.tx_ids.values())
+        assert result.tx_created == 1
+
+        plan, result = _run(client, sheet(-8.0), resolved)
+        written |= set(plan.tx_ids.values())
+        assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
+        ((_, message),) = result.failures
+        assert message.startswith(f"sheet line 2, id {plan.tx_ids[2]}: CONFLICT — ")
+        assert f"'{code}'" in message and "statement_line: " in message
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        for res in resolved:
+            for account_id in res.account_ids.values():
+                _safe(client.delete, f"/accounts/{account_id}")
+            for category_id in res.category_ids.values():
+                _safe(client.delete, f"/categories/{category_id}")
+            for hashtag_id in res.hashtag_ids.values():
+                _safe(client.delete, f"/hashtags/{hashtag_id}")

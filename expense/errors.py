@@ -54,15 +54,28 @@ class ConfigInvalidError(Exception):
 # (contract: GET /v1/exchange-rates) (contract: GET /v1/exchange-rates/history).
 SETTINGS_MISSING = "SETTINGS_MISSING"
 
+# The reason a create that needs a new bank line is refused once every line code
+# up to `#999999` has been given (contract: "Transactions (Ledger)", "Bank lines").
+LINE_CODES_EXHAUSTED = "LINE_CODES_EXHAUSTED"
+
 
 def refuses_every_write(err: Exception) -> bool:
-    """True for a refusal about the account, not about the request that drew it.
+    """True for a refusal that every further write of the run would draw too.
 
-    `SETTINGS_MISSING` holds until first-time setup runs, so every further write
-    of the same run would be refused for the same reason. A run of several writes
-    stops on it and reports it once. Matched on the error code alone.
+    Two do. `SETTINGS_MISSING` is about the account, not the request: it holds
+    until first-time setup runs, and is matched on the error code alone.
+    `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED` holds for good: every line code
+    has been given, so no create that needs a new bank line can land, and it is
+    matched on the code and that reason under any key
+    (contract: POST /v1/transactions/batch, "Line groups")
+    (contract: POST /v1/accounts/{account_id}/opening-balance). A run of several
+    writes stops on either and reports it once.
     """
-    return isinstance(err, EngineError) and err.code == SETTINGS_MISSING
+    if not isinstance(err, EngineError):
+        return False
+    if err.code == SETTINGS_MISSING:
+        return True
+    return err.code == "LIMIT_REACHED" and LINE_CODES_EXHAUSTED in (err.reasons or {}).values()
 
 
 def engine_words(err: EngineError) -> str:

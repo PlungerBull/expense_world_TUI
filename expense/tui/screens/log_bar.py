@@ -1055,13 +1055,17 @@ class LogBarScreen(Screen):
         is a replay of an id we already minted (`ID_EXISTS` on that id alone),
         which is exactly what a retry after a half-written save produces.
 
-        A refusal that stopped the run (`outcome.refusal`) is about the account,
-        not about any row: it is said once, as a toast, and no row carries it.
+        A refusal that stopped the run (`outcome.refusal`) holds for every further
+        write (`errors.refuses_every_write`): `SETTINGS_MISSING`, about the
+        account, or `LINE_CODES_EXHAUSTED`, named on the first row that needed a
+        new line. It is said once, as a toast, and no row carries it; a row
+        refused for its own reason earlier in the save keeps that refusal.
         """
         if outcome.refusal is not None:
+            own = {i: f.message for f in outcome.failures if not f.stops_run for i in f.indices}
             for index, result in enumerate(outcome.results):
                 written = result in (RowResult.CREATED, RowResult.EXISTED)
-                self._mark(rows[index], written, None)
+                self._mark(rows[index], written, own.get(index))
             self.notify(format_error(outcome.refusal), title="Failed", severity="error")
             return
         errors = outcome.errors

@@ -388,6 +388,32 @@ def test_handle_errors_propagates_unexpected():
         cmd()
 
 
+def test_refuses_every_write_holds_for_line_codes_exhausted_under_any_key():
+    """Every line code given: no create that needs a new line can land again
+    (contract: "Transactions (Ledger)", "Bank lines")."""
+    for key in ("id", "transaction_id", "transactions.3.id", "rows.0.id"):
+        assert refuses_every_write(
+            EngineError(
+                "LIMIT_REACHED",
+                "No codes.",
+                {key: "x"},
+                422,
+                {},
+                reasons={key: "LINE_CODES_EXHAUSTED"},
+            )
+        )
+    # a create cap is about one resource, not every write
+    assert not refuses_every_write(
+        EngineError("LIMIT_REACHED", "Cap.", {"id": "x"}, 422, {}, reasons={"id": "CAP_REACHED"})
+    )
+    # the reason under another code is not it
+    assert not refuses_every_write(
+        EngineError(
+            "VALIDATION_ERROR", "x", {"id": "x"}, 422, {}, reasons={"id": "LINE_CODES_EXHAUSTED"}
+        )
+    )
+
+
 def test_refuses_every_write_follows_the_code_alone():
     assert refuses_every_write(_settings_missing("reworded", None))
     assert not refuses_every_write(

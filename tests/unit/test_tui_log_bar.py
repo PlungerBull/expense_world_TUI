@@ -893,6 +893,92 @@ def test_settings_missing_is_said_once_not_per_row(fake_client, monkeypatch):
     run_app(scenario)
 
 
+def test_line_codes_exhausted_stops_the_save_and_is_said_once(fake_client, monkeypatch):
+    """The LOG bar shares the batch writer, so it shares its stop: every line code
+    given, the save ends at the one POST, the refusal is one toast in the engine's
+    words, and no row wears a copy of it (contract: "Transactions (Ledger)", "Bank lines")."""
+    _patch(monkeypatch)
+    key = "transactions.0.id"
+    refusal = EngineError(
+        "LIMIT_REACHED",
+        "No bank line codes are left.",
+        {key: "No line code is left for a new line."},
+        422,
+        {},
+        reasons={key: "LINE_CODES_EXHAUSTED"},
+    )
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        monkeypatch.setattr(
+            screen, "notify", lambda message, title="", **kw: toasts.append((title, str(message)))
+        )
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(fake_client, [refusal])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        assert len(fake_client.posts) == 1  # nothing sent again
+        assert all(not e.saved and e.error is None for e in screen._staged)
+        assert toasts == [
+            (
+                "Failed",
+                "LIMIT_REACHED — No bank line codes are left.\n"
+                "  transactions.0.id: No line code is left for a new line.",
+            ),
+            ("Failed", "Some rows were not written."),
+        ]
+
+    run_app(scenario)
+
+
+def test_a_run_stop_keeps_a_rows_own_earlier_refusal(fake_client, monkeypatch):
+    """Row 2 is refused for its own date; row 1, sent again alone, meets the
+    line codes running out. The stop is one toast and on no row; row 2 keeps the
+    engine's words for its own refusal, never swallowed."""
+    _patch(monkeypatch)
+    date_key = "transactions.1.date"
+    own = EngineError(
+        "VALIDATION_ERROR",
+        "Transaction falls inside a sealed reconciliation period.",
+        {date_key: "Period 2026-08-01 to 2026-08-25 is sealed."},
+        422,
+        {},
+        reasons={date_key: "SEALED_PERIOD"},
+    )
+    id_key = "transactions.0.id"
+    stop = EngineError(
+        "LIMIT_REACHED",
+        "No bank line codes are left.",
+        {id_key: "No line code is left for a new line."},
+        422,
+        {},
+        reasons={id_key: "LINE_CODES_EXHAUSTED"},
+    )
+    toasts: list[str] = []
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        monkeypatch.setattr(
+            screen, "notify", lambda message, title="", **kw: toasts.append(str(message))
+        )
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        _script(fake_client, [own, stop])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        first, second = screen._staged
+        assert len(fake_client.posts) == 2
+        assert not first.saved and first.error is None  # never settled: no marker
+        assert not second.saved and second.error is not None
+        assert "Period 2026-08-01 to 2026-08-25 is sealed." in second.error
+        assert "LIMIT_REACHED" not in second.error
+        assert sum("LIMIT_REACHED" in t for t in toasts) == 1
+
+    run_app(scenario)
+
+
 def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
     """A hashtag archived or deleted between staging and saving: the engine keys
     it on its item, `transactions.<index>.hashtag_ids`, with the other item

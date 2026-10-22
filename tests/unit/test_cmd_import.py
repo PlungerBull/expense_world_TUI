@@ -672,7 +672,7 @@ def test_a_connection_error_on_a_second_send_stops_the_run(configured):
     assert batch_route.call_count == 2  # the chunk, then its new row alone
     assert len(result.failures) == 1
     assert "CONNECTION_ERROR: could not reach engine" in result.failures[0][1]
-    assert "rows from sheet line 3 on were not sent" in result.failures[0][1]
+    assert result.failures[0][1].endswith("— sheet lines 3-5 were not sent")
 
 
 @respx.mock
@@ -1350,9 +1350,7 @@ def test_fold_outcome_labels_only_a_connection_stop_a_connection_error():
     apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
 
     assert (result.tx_created, result.tx_failed) == (1, 1)
-    assert result.failures == [
-        (1, "CONNECTION_ERROR: down — rows from sheet line 3 on were not sent")
-    ]
+    assert result.failures == [(1, "CONNECTION_ERROR: down — sheet line 3 was not sent")]
 
     clean = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
     apply_mod._fold_outcome(

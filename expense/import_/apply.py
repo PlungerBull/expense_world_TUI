@@ -119,9 +119,10 @@ def _resolve_each(
     `describe(spec)` and the loop continues, so one bad resource does not abort
     the whole import. An `EngineConnectionError`
     propagates: the engine is unreachable, so nothing further can succeed and a
-    re-run converges once it's back. So does an account-wide refusal
-    (`errors.refuses_every_write`): every later write would draw it too, so the
-    run ends there and the command reports it once.
+    re-run converges once it's back. So does a refusal every later write would
+    draw too (`errors.refuses_every_write`: `SETTINGS_MISSING`, or
+    `LINE_CODES_EXHAUSTED`, which no resource create can draw): the run ends
+    there and the command reports it once.
     """
     index_of = index_of or key_of
     ids: dict = {}
@@ -262,8 +263,10 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
     (contract: "Base Conventions", "Which refusal comes first on a create")
     (contract: POST /v1/accounts/{account_id}/opening-balance). Any other refusal
     is a failure. Returns False when a connection error stopped the run
-    (remaining openings are counted failed). An account-wide refusal
-    (`errors.refuses_every_write`) propagates, ending the run.
+    (remaining openings are counted failed). A refusal every later write would
+    draw too (`errors.refuses_every_write`: `SETTINGS_MISSING`, or
+    `LINE_CODES_EXHAUSTED` on the seed's `transaction_id`) propagates, ending the
+    run.
     """
     for pos, row in enumerate(plan.openings):
         account_key = (row.account.strip().casefold(), row.currency)
@@ -324,12 +327,17 @@ def _fold_outcome(
     phrasing, which only a workbook has. A grouped failure keeps its range
     (`sheet lines 2-3`) so a chunk-level 403 is still reported once.
 
-    An account-wide refusal that stopped the run (`outcome.refusal`) is raised
-    instead of folded, leaving `result` untouched: it ends the run like one on
-    a resource create or an opening balance does, and the command reports it
-    once. The only stop folded here is a connection error.
+    A refusal that stopped the run (`outcome.refusal`) and names no row
+    (`SETTINGS_MISSING`) is raised instead of folded, leaving `result` untouched:
+    it ends the run like one on a resource create or an opening balance does, and
+    the command reports it once. One that names its row (`LINE_CODES_EXHAUSTED`,
+    on the first item that needed a new line) is folded like a connection stop:
+    that row fails against its sheet line in the engine's words, and the rows
+    not sent are named once (`_not_sent`).
     """
-    if outcome.refusal is not None:
+    if outcome.refusal is not None and any(
+        f.whole_chunk and f.error is outcome.refusal for f in outcome.failures
+    ):
         raise outcome.refusal
 
     for row in outcome.results:
@@ -348,15 +356,38 @@ def _fold_outcome(
             where = f"{where}, id {rows[0]['id']}"
         result.failures.append((failure.chunk_index, f"{where}: {failure.message}"))
 
+    stop_chunk = outcome.stop_chunk_index if outcome.stop_chunk_index is not None else -1
+    where = _not_sent(outcome.unsent, items, line_by_id)
     if outcome.stop_error is not None:
-        unsent = [line_by_id[items[i]["id"]] for i in outcome.unsent]
-        where = f"rows from sheet line {min(unsent)} on were not sent" if unsent else "run stopped"
-        result.failures.append(
-            (
-                outcome.stop_chunk_index if outcome.stop_chunk_index is not None else -1,
-                f"CONNECTION_ERROR: {outcome.stop_error} — {where}",
-            )
-        )
+        said = where or "run stopped"
+        result.failures.append((stop_chunk, f"CONNECTION_ERROR: {outcome.stop_error} — {said}"))
+    elif outcome.refusal is not None and where:
+        result.failures.append((stop_chunk, where))
+
+
+def _not_sent(unsent: list[int], items: list[dict], line_by_id: dict[str, int]) -> str:
+    """The sheet lines of the rows a stopped run never sent, as runs of rows
+    next to each other in the sheet's order (`sheet lines 3-5, 9-4188 were not
+    sent`); a row that was settled breaks a run, so no line it names was sent.
+    Empty when every row was settled."""
+    if not unsent:
+        return ""
+    left = set(unsent)
+    runs: list[list[int]] = []
+    for index in range(len(items)):
+        if index not in left:
+            if runs and runs[-1]:
+                runs.append([])
+            continue
+        if not runs:
+            runs.append([])
+        runs[-1].append(line_by_id[items[index]["id"]])
+    spans = [
+        f"{min(run)}" if min(run) == max(run) else f"{min(run)}-{max(run)}" for run in runs if run
+    ]
+    if len(unsent) == 1:
+        return f"sheet line {spans[0]} was not sent"
+    return f"sheet lines {', '.join(spans)} were not sent"
 
 
 def apply_plan(
@@ -407,5 +438,5 @@ def apply_plan(
         items.append(build_tx_payload(row, tx_id, res, group.name if group else None))
         line_by_id[tx_id] = row.line
     outcome = post_transaction_batch(client, items, chunk_size=chunk_size, error_text=engine_text)
-    _fold_outcome(outcome, items, line_by_id, result)  # raises an account-wide refusal
+    _fold_outcome(outcome, items, line_by_id, result)  # raises a run stop naming no row
     return result

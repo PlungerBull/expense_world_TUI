@@ -36,8 +36,15 @@ group, so no line lands with a part missing.
 or a `409`/`422` with any key that is no item of the send (`transactions` itself,
 `category_id`, `X-Idempotency-Key`, an index past the end of the send) or with no
 key at all, would fail every row alike: the chunk's unsettled rows are one
-failure, nothing is sent again, and later chunks still go. An account-wide refusal
-(`errors.refuses_every_write`) fails its chunk the same way and stops the run.
+failure, nothing is sent again, and later chunks still go.
+
+**A refusal every further write would draw stops the run**
+(`errors.refuses_every_write`: `SETTINGS_MISSING`, and `LINE_CODES_EXHAUSTED`).
+Nothing more is sent, and every row not yet settled stays `UNSENT` but the
+ones it names: a refusal naming rows (`LINE_CODES_EXHAUSTED`, on the first item
+that needed a new line) fails those rows, and their groups, in the engine's
+words for each; one naming no row (`SETTINGS_MISSING`) fails the send's rows as
+one group. `outcome.refusal` holds it, for the caller to report once.
 
 **The result is index-aligned with the items handed in**, and carries no
 vocabulary of its own: the importer maps an index to a sheet line, the LOG bar
@@ -48,7 +55,7 @@ what to do.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from expense.errors import (
@@ -97,6 +104,10 @@ class BatchFailure:
     (`whole_chunk`) covers every row of its chunk still unsent, said once rather
     than once per row; its `error` is the refusal as the engine sent it. Callers
     that want it flat read `BatchOutcome.errors`.
+
+    `stops_run` marks a failure the run-stopping refusal (`BatchOutcome.refusal`)
+    made, as against one a row met for its own reason earlier in the run: a
+    caller that says the stop once, apart from the rows, keeps the others.
     """
 
     indices: tuple[int, ...]
@@ -104,6 +115,7 @@ class BatchFailure:
     chunk_index: int
     error: EngineError
     whole_chunk: bool = False
+    stops_run: bool = False
 
 
 @dataclass
@@ -116,15 +128,17 @@ class BatchOutcome:
     stop_error: str | None = None
     stop_chunk_index: int | None = None
     #: The refusal that stopped the run because every further write would draw
-    #: it too (`errors.refuses_every_write`). Its chunk is one `BatchFailure`;
-    #: a caller reports it once, not per row.
+    #: it too (`errors.refuses_every_write`). It fails the rows it names, or the
+    #: send's rows as one `BatchFailure` when it names none; a caller reports it
+    #: once, not per row.
     refusal: EngineError | None = None
 
     @property
     def stopped(self) -> bool:
         """True when the run halted before the end — on a connection error
-        (`stop_error`) or on an account-wide refusal (`refusal`). Everything
-        still `UNSENT` was never sent, so it is safe to retry."""
+        (`stop_error`) or on a refusal every further write would draw
+        (`refusal`). Everything still `UNSENT` was never sent, so it is safe to
+        retry."""
         return self.stop_error is not None or self.refusal is not None
 
     @property
@@ -180,8 +194,9 @@ def post_transaction_batch(
     `RowResult`, so the caller renders a summary instead of a traceback. A
     connection error stops the run (`stopped`) with the rows not yet settled
     marked `UNSENT` — no send of them landed, so they are safe to retry. So does
-    an account-wide refusal (`errors.refuses_every_write`): the rows of its
-    chunk still unsettled fail as one group, and no later chunk goes out.
+    a refusal every further write would draw (`errors.refuses_every_write`): it
+    fails the rows it names, or the send's rows as one group when it names none,
+    and nothing more goes out.
 
     Each send is its own request with its own idempotency key, since a send
     that drops rows carries a different body.
@@ -241,7 +256,7 @@ def _post_chunk(
 ) -> bool:
     """Send one chunk's `pending` rows until a send lands or none is left.
 
-    Returns False when a connection error or an account-wide refusal stopped the
+    Returns False when a connection error or a run-stopping refusal stopped the
     run; the rows still pending keep their `UNSENT` default.
     """
     while pending:
@@ -249,25 +264,23 @@ def _post_chunk(
         try:
             client.post(BATCH_PATH, json_body={ITEMS_KEY: sent})
         except EngineError as err:
+            named = _named_rows(err, len(sent))
             if refuses_every_write(err):
-                _fail_whole(outcome, pending, err, chunk_index, error_text)
+                before = len(outcome.failures)
+                if named:
+                    _settle_named(outcome, pending, sent, named, chunk_index, error_text)
+                else:
+                    _fail_whole(outcome, pending, err, chunk_index, error_text)
+                outcome.failures[before:] = [
+                    replace(failure, stops_run=True) for failure in outcome.failures[before:]
+                ]
                 outcome.stop_chunk_index = chunk_index
                 outcome.refusal = err
                 return False
-            named = _named_rows(err, len(sent))
             if not named:
                 _fail_whole(outcome, pending, err, chunk_index, error_text)
                 return True
-            settled = _settle(named, _line_groups(sent))
-            for pos, row_err in sorted(settled.items()):
-                index = pending[pos]
-                if row_err is None:
-                    outcome.results[index] = RowResult.EXISTED
-                    continue
-                outcome.results[index] = RowResult.FAILED
-                outcome.failures.append(
-                    BatchFailure((index,), error_text(row_err), chunk_index, row_err)
-                )
+            settled = _settle_named(outcome, pending, sent, named, chunk_index, error_text)
             pending = [index for pos, index in enumerate(pending) if pos not in settled]
             continue
         except EngineConnectionError as err:
@@ -278,6 +291,27 @@ def _post_chunk(
             outcome.results[index] = RowResult.CREATED
         return True
     return True
+
+
+def _settle_named(
+    outcome: BatchOutcome,
+    pending: list[int],
+    sent: list[dict],
+    named: dict[int, EngineError],
+    chunk_index: int,
+    error_text: ErrorText,
+) -> set[int]:
+    """Record what a refused send settles (`_settle`): a row already in, or a row
+    failed in the engine's words for it. Returns the settled places in the send."""
+    settled = _settle(named, _line_groups(sent))
+    for pos, row_err in sorted(settled.items()):
+        index = pending[pos]
+        if row_err is None:
+            outcome.results[index] = RowResult.EXISTED
+            continue
+        outcome.results[index] = RowResult.FAILED
+        outcome.failures.append(BatchFailure((index,), error_text(row_err), chunk_index, row_err))
+    return set(settled)
 
 
 def _fail_whole(

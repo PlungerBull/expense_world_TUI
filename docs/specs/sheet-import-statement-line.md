@@ -79,11 +79,6 @@ Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22, who picks
 1 A · 2 A in [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html).
 
-5. **The import shows the new refusals in the engine's words:** `STATEMENT_LINE_EXISTS`,
-   `DUPLICATE_IN_REQUEST` and `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, and
-   `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED`, each against its sheet lines.
-   `LINE_CODES_EXHAUSTED` holds for the rest of the run, so it stops the run once, as
-   `SETTINGS_MISSING` does, instead of failing one row per send. Unit tests: one per reason. [commands.md](../commands.md) says what the import does with `COD_EECC`.
 6. **Refused rows show one line per error.** The sheet import's `Failures` and the LOG bar's
    lines under the table, as screens 1 A and 2 A of
    [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html) draw: one
@@ -105,6 +100,9 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
   [accounts-become-people.md](accounts-become-people.md). `54fd1012f7d60abc` is the version the
   owner quotes for the next catch-up once both replies are handed over.
 - **Done when, checked:** the five engine's checks above, with the tester's results.
-- **Contract problems found:** what the build and the tester's run find.
+- **Contract problems found:** what the build and the tester's run find, and this one from the
+  build: the contract says a statement line is trimmed and compared after trimming, but not
+  whether case counts. The practice engine treats `SIG-x` and `sig-x` as two statement lines
+  (2026-10-22), and the sheet import groups by exact text to match; the contract should say so.
 - **Asks this closes:** "A create whose `id` is already in the ledger answers `ID_EXISTS` on that
   id before any other conflict".
