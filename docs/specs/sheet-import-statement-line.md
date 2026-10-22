@@ -70,16 +70,14 @@ ledger answers `ID_EXISTS` on that id before any other conflict" as asked, and w
 create, before every rule that reads the ledger, and a batch names every item a step refuses, not
 only the first.
 
-**Questions for the owner:** how refused rows show, grouped by reason or one line each, in
-[expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html): one letter
-for screen 1 (the sheet import) and one for screen 2 (the LOG bar).
+**Questions for the owner:** none open.
 
 ## Tasks
 
 Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 [expense-world-sheet-import-groups.html](../mockups/expense-world-sheet-import-groups.html).
-Tasks 3 and 6 are drafted 2026-10-22 from the engine's hand-off and wait for the owner's
-approval; task 6 also waits for the picks above.
+Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22, who picks
+1 A · 2 A in [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html).
 
 3. **A refused batch reads every item it names.** A batch answers in four steps, each naming
    every item it refuses (contract: POST /v1/transactions/batch). When a chunk is refused, its
@@ -116,10 +114,14 @@ approval; task 6 also waits for the picks above.
    `DUPLICATE_IN_REQUEST` and `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, and
    `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED`, each against its sheet lines. Unit tests: one per
    reason. [commands.md](../commands.md) says what the import does with `COD_EECC`.
-6. **Refused rows show as picked.** The sheet import's `Failures` and the LOG bar's lines under
-   the table, as the picked screens of
-   [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html) draw.
-   Unit tests for each screen. Passes the engine's check 5.
+6. **Refused rows show one line per error.** The sheet import's `Failures` and the LOG bar's
+   lines under the table, as screens 1 A and 2 A of
+   [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html) draw: one
+   line per kind of error, the engine's words whole, then the rows it hit (`rows 3, 5, 7`, or
+   `row 2` for one; the sheet import's rows are its sheet lines). Two refusals are one kind when
+   the engine's words for the row are the same. A refusal of a whole chunk or run, with no row,
+   keeps its own line. Unit tests for each screen, one row and many, two kinds. Passes the
+   engine's check 5.
 
 ## Reply to the engine
 
