@@ -1069,6 +1069,65 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
 
 
 @respx.mock
+def test_a_re_run_after_an_account_became_a_person_reuses_it(configured, monkeypatch):
+    """The owner turns ALEJO PEN into a person and runs the sheet again: the
+    engine lists a person only on `include_people=true` and refuses a second
+    account of that name and currency (contract: "People / Person Accounts"),
+    so the import asks for people and archived accounts and reuses the person."""
+    alejo = ["Almuerzo", "WANTS", "Salidas", 44896, -20, "ALEJO PEN", "None", "PEN", -20]
+    monkeypatch.setattr(
+        import_cmd,
+        "read_workbook",
+        lambda path, **k: SheetData(
+            headers=_HEADERS,
+            rows=[RawRow(2, list(_CELLS)), RawRow(3, [*alejo, "None", "None"])],
+        ),
+    )
+    bank = {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN", "is_person": False}
+    person = {"id": "acc-alejo", "name": " alejo pen ", "currency_code": "PEN", "is_person": True}
+
+    def accounts(request: httpx.Request) -> httpx.Response:
+        people = request.url.params.get("include_people") == "true"
+        return httpx.Response(200, json={"items": [bank, person] if people else [bank]})
+
+    list_route = respx.get(f"{BASE}/v1/accounts").mock(side_effect=accounts)
+    respx.get(f"{BASE}/v1/categories").mock(
+        return_value=httpx.Response(200, json={"items": [{"id": "cat", "name": "WANTS"}]})
+    )
+    respx.get(f"{BASE}/v1/hashtags").mock(
+        return_value=httpx.Response(200, json={"items": [{"id": "tag", "name": "Salidas"}]})
+    )
+    create_route = respx.post(f"{BASE}/v1/accounts").mock(
+        return_value=error_response(
+            409,
+            "CONFLICT",
+            "An account named 'ALEJO PEN' already exists in PEN.",
+            {"name": "Taken."},
+            {"name": "NAME_EXISTS"},
+        )
+    )
+    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+
+    assert result.exit_code == 0, result.output
+    assert not create_route.called
+    assert "Accounts:   created 0, reused 2" in result.output
+    assert "Transactions: created 2, already-present 0, failed 0" in result.output
+    assert "Failures" not in result.output and "Resource failures" not in result.output
+    sent = json.loads(batch_route.calls.last.request.content)["transactions"]
+    assert {i["title"]: i["account_id"] for i in sent} == {
+        "Groomers": "acc-pen",
+        "Almuerzo": "acc-alejo",
+    }
+    assert [dict(c.request.url.params) for c in list_route.calls] == [
+        {"include_archived": "true", "include_people": "true"}
+    ]
+
+
+@respx.mock
 def test_apply_reads_the_settings_file_once(configured, monkeypatch):
     """The settings file may be a pipe (docs/runtime.md "Working against the
     live engine"), which gives its contents to the first read only, so

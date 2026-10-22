@@ -67,11 +67,7 @@ Approved by the owner 2026-10-22, who picks 1 A · 2 A · 4 B · 5 B in
 [expense-world-account-to-person.html](../mockups/expense-world-account-to-person.html), and
 checks the import re-run on `--apply`: the dry run stays offline.
 
-3. **The sheet import finds people.** It lists existing accounts with
-   `GET /accounts?include_people=true&include_archived=true`, so a person account of the same
-   name and currency is reused and never created again. Unit test: a re-run after a conversion
-   creates no account and fails no row, and `--apply` says `Accounts: created 0`; the dry run
-   is unchanged. Passes the owner's check 4 and the engine's check 2.
+All three tasks are done; the tester's acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 

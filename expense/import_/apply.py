@@ -116,13 +116,21 @@ class ApplyResult:
 
 
 def _list_all(
-    client: ExpenseClient, resource: str, *, include_archived: bool = False
+    client: ExpenseClient,
+    resource: str,
+    *,
+    include_archived: bool = False,
+    include_people: bool = False,
 ) -> list[dict]:
     """GET every existing row for a resource — one read, the engine returns it whole.
 
-    `include_archived` applies to accounts only — the only archivable resource.
+    `include_archived` and `include_people` apply to accounts only: the engine
+    lists archived accounts and person accounts only when asked (contract:
+    GET /v1/accounts). An account name is unique per currency across real and
+    person accounts (contract: "People / Person Accounts"), so the import asks
+    for both, or a re-run would POST an account that exists and draw a refusal.
     """
-    params = query_params(include_archived=include_archived)
+    params = query_params(include_archived=include_archived, include_people=include_people)
     return items_of(client.get(f"/{resource}", params=params or None))
 
 
@@ -189,7 +197,7 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
 
     # --- accounts: keyed by (name, currency) ---
     amap: dict[tuple[str, str], str] = {}
-    for acc in _list_all(client, "accounts", include_archived=True):
+    for acc in _list_all(client, "accounts", include_archived=True, include_people=True):
         name, cur, aid = acc.get("name"), acc.get("currency_code"), acc.get("id")
         if name and cur and aid:
             amap[(str(name).strip().casefold(), str(cur).upper())] = aid
