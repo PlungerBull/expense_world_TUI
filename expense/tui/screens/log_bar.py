@@ -61,6 +61,7 @@ opens the import door (`bank_import.py`), or says under the bar why a file is
 not a bank export.
 """
 
+from collections.abc import Hashable
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
@@ -78,13 +79,14 @@ from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, Static
 
 from expense import reads
-from expense.batch_write import BatchOutcome, RowResult, post_transaction_batch
+from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_transaction_batch
 from expense.dates import now_local_iso, to_canonical_aware, today_local
-from expense.errors import EngineConnectionError, format_error
+from expense.errors import EngineConnectionError, app_lines, format_error, row_words
 from expense.formatting import (
     format_cents,
     format_hashtag_cell,
     format_short_date,
+    grouped_refusals,
     resolve_name,
     truncate,
 )
@@ -227,6 +229,9 @@ class Staged:
     date: str = ""
     saved: bool = False
     error: str | None = None
+    #: What makes two refused rows one line under the table
+    #: (`batch_write.BatchFailure.kind`); None groups by the `error` text.
+    error_kind: Hashable | None = None
 
     def __post_init__(self) -> None:
         if not self.date:
@@ -494,23 +499,45 @@ def staged_summary(
     return Group(*lines) if lines else Text("")
 
 
-def save_errors(entries: list[Staged], *, palette: Palette | None = None) -> RenderableType:
-    """What the engine refused, row by row, under the table.
+def _said(failure: BatchFailure | None) -> tuple[str | None, Hashable | None]:
+    """What a refused row shows under the table, and its kind
+    (`BatchFailure.kind`): the engine's words for the row (`errors.row_words`)
+    with the app's line saying what to do under them, or a refusal naming no
+    row whole (`format_error`). Nothing for no failure. The bar sends no
+    `line_group`, so no row fails for another."""
+    if failure is None:
+        return None, None
+    if failure.whole_chunk:
+        return failure.message, failure.kind
+    err = failure.error
+    return "\n".join([row_words(err), *app_lines(err)]), failure.kind
 
-    The engine's own message is passed through `format_error` upstream and
-    printed verbatim, with the app's line saying what to do under a refusal
-    that has one — the "engine errors surface cleanly" rule; this only adds
-    the row number, so the sentence can be matched to a line in the list.
+
+def save_errors(entries: list[Staged], *, palette: Palette | None = None) -> RenderableType:
+    """What the engine refused, one line per kind of error, under the table.
+
+    Each line is the engine's words for its rows, whole, then the rows it hit
+    (`row 2`, `rows 4, 6`), as `formatting.grouped_refusals` groups them for
+    the sheet import too; the app's line saying what to do under a refusal that
+    has one follows on the next line — the "engine errors surface cleanly" rule.
+    Rows of one kind (`Staged.error_kind`) share a line; a row with no kind, left
+    unsent by a stopped save, shares one with the rows carrying the same words.
     """
     failed = [(n, e) for n, e in enumerate(entries, start=1) if e.error]
     if not failed:
         return Text("")
+    refusals = [
+        (e.error_kind if e.error_kind is not None else ("text", e.error), e.error or "", [n])
+        for n, e in failed
+    ]
     lines: list[Text] = []
-    for number, entry in failed:
-        line = Text("  ", style="dim")
-        line.append(f"row {number}: ", style="dim")
-        line.append(entry.error or "", style=palette.error if palette else "")
+    for first, rows, rest in grouped_refusals(refusals):
+        line = Text("  ")
+        line.append(first, style=palette.error if palette else "")
+        if rows:
+            line.append(f" {rows}")
         lines.append(line)
+        lines.extend(Text(f"  {more}", style="dim") for more in rest)
     lines.append(Text("  ctrl+s retries just the rows without a ✓.", style="dim"))
     return Group(*lines)
 
@@ -1002,6 +1029,7 @@ class LogBarScreen(Screen):
         self._saving = True
         for entry in self._pending():
             entry.error = None  # a retry starts clean; only the ticks persist
+            entry.error_kind = None
         self._refresh_view()
         self._save(leave_after)
 
@@ -1062,30 +1090,34 @@ class LogBarScreen(Screen):
         refused for its own reason earlier in the save keeps that refusal.
         """
         if outcome.refusal is not None:
-            own = {i: f.message for f in outcome.failures if not f.stops_run for i in f.indices}
+            own = {i: f for f in outcome.failures if not f.stops_run for i in f.indices}
             for index, result in enumerate(outcome.results):
                 written = result in (RowResult.CREATED, RowResult.EXISTED)
-                self._mark(rows[index], written, own.get(index))
+                self._mark(rows[index], written, *_said(own.get(index)))
             self.notify(format_error(outcome.refusal), title="Failed", severity="error")
             return
-        errors = outcome.errors
+        failed = {i: f for f in outcome.failures for i in f.indices}
         for index, result in enumerate(outcome.results):
             entry = rows[index]
             if result in (RowResult.CREATED, RowResult.EXISTED):
                 self._mark(entry, True, None)
             elif result is RowResult.FAILED:
-                self._mark(entry, False, errors.get(index))
+                self._mark(entry, False, *_said(failed.get(index)))
             elif outcome.stopped:
                 self._mark(entry, False, outcome.stop_error)
 
-    def _mark(self, entry: Staged, saved: bool, error: str | None) -> None:
+    def _mark(
+        self, entry: Staged, saved: bool, error: str | None, kind: Hashable | None = None
+    ) -> None:
         entry.saved = saved
         entry.error = error
+        entry.error_kind = kind
         self._refresh_view()
 
     def _stop_save(self, message: str) -> None:
         for entry in self._pending():
             entry.error = message
+            entry.error_kind = None
         self._refresh_view()
 
     def _save_finished(self, leave_after: bool) -> None:

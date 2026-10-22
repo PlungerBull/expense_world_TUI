@@ -6,6 +6,7 @@ through these, so a figure reads the same wherever it appears.
 """
 
 import re
+from collections.abc import Hashable, Iterable
 
 from expense.currencies import MINOR_UNIT_SCALE
 
@@ -403,3 +404,41 @@ def build_range_grid(months: list[dict]) -> dict:
         rows.append(row)
 
     return {"labels": labels, "rows": rows, "totals": totals_rows}
+
+
+def rows_phrase(numbers: Iterable[int]) -> str:
+    """`row 2`, or `rows 4, 6` for several, in ascending order: the rows one
+    line of refusals hit, as a numbered list or a sheet's lines name them."""
+    ordered = sorted(set(numbers))
+    if len(ordered) == 1:
+        return f"row {ordered[0]}"
+    return "rows " + ", ".join(str(n) for n in ordered)
+
+
+def grouped_refusals(
+    refusals: Iterable[tuple[Hashable | None, str, Iterable[int]]],
+) -> list[tuple[str, str, list[str]]]:
+    """One line per kind of refusal, as the sheet import's Failures and the LOG
+    bar's lines under the table both print it.
+
+    `(kind, words, rows)` in, in the order met; `(first, rows, rest)` out, one
+    per kind, in the order each kind was first met: `first` is the first line
+    of the words, `rows` is `rows_phrase` of every row of that kind, printed
+    after `first`, and `rest` the words' other lines, blank ones left out, each
+    printed under it. A kind of None is a line of its own, never joined, which
+    names its rows in its words already, so its `rows` is empty.
+    """
+    lines: dict[object, tuple[str, list[int]]] = {}
+    own: set[object] = set()
+    for kind, words, rows in refusals:
+        key: object = kind
+        if kind is None:
+            key = object()  # a line of its own, never joined
+            own.add(key)
+        lines.setdefault(key, (words, []))[1].extend(rows)
+    grouped = []
+    for key, (words, rows) in lines.items():
+        first, *rest = words.split("\n")
+        hit = "" if key in own or not rows else rows_phrase(rows)
+        grouped.append((first, hit, [line for line in rest if line.strip()]))
+    return grouped

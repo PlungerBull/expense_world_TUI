@@ -92,6 +92,24 @@ def engine_words(err: EngineError) -> str:
     return "\n".join(lines)
 
 
+#: What joins two refused fields of one row on its line: each `field: words`
+#: pair ends in the engine's own full stop, so a mark between them keeps the
+#: pairs apart where a comma or a semicolon would run into it.
+ROW_FIELD_JOINER = " · "
+
+
+def row_words(err: EngineError) -> str:
+    """The engine's words for one refused row of a batch, as a line of refusals
+    grouped by kind shows them: each refused field's name, then its words whole,
+    `category_id: Must not be null.`, two fields joined by ` · ` in the engine's
+    order. The key is the field alone, as the row's refusal holds it (a row's
+    place in a send is no place of the row's). The top-level message only when
+    the refusal names no field, since a refusal naming several rows gives their
+    count there, not words for one row."""
+    pairs = [f"{key}: {text}" for key, text in (err.fields or {}).items()]
+    return ROW_FIELD_JOINER.join(pairs) if pairs else err.message
+
+
 #: The codes whose refusals always name the rule that fired: `fields` and
 #: `reasons` are never null on them, keyed by the thing refused
 #: (contract: "Base Conventions", "`fields` and `reasons` semantics").

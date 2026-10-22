@@ -328,9 +328,9 @@ def test_a_part_whose_category_was_not_created_keeps_its_whole_group_back(config
 
     assert [[item["id"] for item in sent] for sent in _sent(route)] == [[plan.tx_ids[4]]]
     assert (result.tx_created, result.tx_failed) == (1, 2)
-    assert [message for _, message in result.failures] == [
-        "sheet line 2: not sent — sheet line 3, of the same split transaction, was not sent",
-        "sheet line 3: not sent — category 'NEW' was not created",
+    assert [(f.words, f.lines) for f in result.failures] == [
+        ("Part of a split transaction not sent for another row.", (2,)),
+        ("Not sent: category 'NEW' was not created.", (3,)),
     ]
 
 

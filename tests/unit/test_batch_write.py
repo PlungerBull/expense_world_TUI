@@ -124,7 +124,7 @@ def test_a_clean_batch_reports_every_row_created():
     outcome = post_transaction_batch(client, _items(3))
     assert client.sizes == [3]  # one call, not three
     assert outcome.results == [RowResult.CREATED] * 3
-    assert outcome.errors == {} and not outcome.stopped
+    assert outcome.failures == [] and not outcome.stopped
     assert outcome.written == [0, 1, 2]
 
 
@@ -177,9 +177,11 @@ def test_a_refused_row_fails_and_the_rest_go_again_as_one_batch():
 
     assert _ids(client) == [["id0", "id1", "id2"], ["id0", "id2"]]
     assert outcome.results == [RowResult.CREATED, RowResult.FAILED, RowResult.CREATED]
-    assert outcome.errors == {
-        1: "VALIDATION_ERROR — Batch validation failed.\n  amount_cents: Must not be zero."
-    }
+    (failure,) = outcome.failures
+    assert (failure.indices, failure.message) == (
+        (1,),
+        "VALIDATION_ERROR — Batch validation failed.\n  amount_cents: Must not be zero.",
+    )
 
 
 def test_a_chunk_naming_several_taken_ids_counts_each_already_there():
@@ -219,11 +221,12 @@ def test_a_request_refusal_then_a_ledger_refusal_then_the_rest_lands():
         RowResult.FAILED,
         RowResult.CREATED,
     ]
-    assert "category_id: Must reference an active category." in outcome.errors[0]
-    assert "amount_cents" not in outcome.errors[0]
-    assert outcome.errors[1] == outcome.errors[3]  # refused alike, said alike
-    assert "amount_cents: Must not be zero." in outcome.errors[1]
     assert [f.indices for f in outcome.failures] == [(1,), (3,), (0,)]
+    one, three, zero = (f.message for f in outcome.failures)
+    assert "category_id: Must reference an active category." in zero
+    assert "amount_cents" not in zero
+    assert one == three  # refused alike, said alike
+    assert "amount_cents: Must not be zero." in one
     assert not any(f.whole_chunk for f in outcome.failures)
 
 
@@ -318,8 +321,10 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
         RowResult.CREATED,
         RowResult.FAILED,
     ]
-    assert outcome.errors[1] == outcome.errors[2] == outcome.errors[4]
-    assert "statement_line: stand-in field words" in outcome.errors[2]
+    assert sorted(f.indices for f in outcome.failures) == [(1,), (2,), (4,)]
+    messages = {f.message for f in outcome.failures}
+    assert len(messages) == 1  # every part fails in the words of the one refused
+    assert "statement_line: stand-in field words" in messages.pop()
 
 
 def test_a_chunk_never_cuts_a_group():
@@ -467,7 +472,9 @@ def test_any_other_refusal_of_a_row_is_never_written(refusal):
 
     assert outcome.results == [RowResult.FAILED, RowResult.CREATED]
     assert outcome.written == [1]
-    assert outcome.errors[0].startswith(f"{refusal.code} — {refusal.message}")
+    (failure,) = outcome.failures
+    assert failure.indices == (0,)
+    assert failure.message.startswith(f"{refusal.code} — {refusal.message}")
 
 
 def test_the_caller_chooses_the_words_of_a_refusal():
@@ -476,8 +483,10 @@ def test_the_caller_chooses_the_words_of_a_refusal():
     refusal = _conflict(index=None, field="category_id", reason="RESERVED_NAME_HELD")
     outcome = post_transaction_batch(_Client([refusal]), _items(1), error_text=format_error)
 
-    assert outcome.errors == {0: format_error(refusal)}
-    assert outcome.errors[0].endswith("rename it on Manage ▸ Categories, then save again.")
+    assert [(f.indices, f.message) for f in outcome.failures] == [((0,), format_error(refusal))]
+    assert outcome.failures[0].message.endswith(
+        "rename it on Manage ▸ Categories, then save again."
+    )
 
 
 @pytest.mark.parametrize("status", [401, 403, 500])
@@ -491,7 +500,7 @@ def test_a_chunk_level_refusal_is_not_sent_again(status):
     assert outcome.results == [RowResult.FAILED] * 3
     assert len(outcome.failures) == 1  # grouped, not one per row
     assert outcome.failures[0].indices == (0, 1, 2)
-    assert outcome.errors == {i: "FORBIDDEN — nope" for i in range(3)}
+    assert outcome.failures[0].message == "FORBIDDEN — nope"
 
 
 def _settings_missing() -> EngineError:

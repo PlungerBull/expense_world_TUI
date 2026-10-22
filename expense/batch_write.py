@@ -54,7 +54,7 @@ by default, as the importer prints them; the LOG bar adds the app's line saying
 what to do.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
@@ -102,12 +102,15 @@ class BatchFailure:
     the field without the `transactions.<i>.` place it had in the request. Two
     rows refused alike carry the same `message`. A refusal that names no row
     (`whole_chunk`) covers every row of its chunk still unsent, said once rather
-    than once per row; its `error` is the refusal as the engine sent it. Callers
-    that want it flat read `BatchOutcome.errors`.
+    than once per row; its `error` is the refusal as the engine sent it.
 
     `stops_run` marks a failure the run-stopping refusal (`BatchOutcome.refusal`)
     made, as against one a row met for its own reason earlier in the run: a
     caller that says the stop once, apart from the rows, keeps the others.
+
+    `for_part` marks a part of a `line_group` the engine did not name, failed
+    because another part of its group was refused: `error` is that part's
+    refusal, not this row's.
     """
 
     indices: tuple[int, ...]
@@ -116,6 +119,26 @@ class BatchFailure:
     error: EngineError
     whole_chunk: bool = False
     stops_run: bool = False
+    for_part: bool = False
+
+    @property
+    def kind(self) -> Hashable:
+        """Two failures of one kind read the same for their rows, so a caller
+        says them on one line: the same code, `fields` and `reasons`, each the
+        row's own and keyed by field. The top-level message is left out of it,
+        since a refusal naming several items gives their count there. Every
+        part failed for another part is one kind; a refusal naming no row
+        (`whole_chunk`) is a kind of its own."""
+        if self.whole_chunk:
+            return ("whole", self.chunk_index, self.indices)
+        if self.for_part:
+            return SPLIT_PART_KIND
+        err = self.error
+        return (
+            err.code,
+            tuple(sorted((str(k), str(v)) for k, v in (err.fields or {}).items())),
+            tuple(sorted((str(k), str(v)) for k, v in (err.reasons or {}).items())),
+        )
 
 
 @dataclass
@@ -140,11 +163,6 @@ class BatchOutcome:
         (`refusal`). Everything still `UNSENT` was never sent, so it is safe to
         retry."""
         return self.stop_error is not None or self.refusal is not None
-
-    @property
-    def errors(self) -> dict[int, str]:
-        """item index -> message, for callers that report row by row."""
-        return {i: f.message for f in self.failures for i in f.indices}
 
     def count(self, result: RowResult) -> int:
         return sum(1 for r in self.results if r is result)
@@ -179,6 +197,10 @@ def require_sendable_chunk_size(chunk_size: int) -> None:
 
 
 ErrorText = Callable[[Exception], str]
+
+#: The kind of every part failed for another part of its split transaction
+#: (`BatchFailure.kind`).
+SPLIT_PART_KIND = ("part",)
 
 
 def post_transaction_batch(
@@ -303,14 +325,18 @@ def _settle_named(
 ) -> set[int]:
     """Record what a refused send settles (`_settle`): a row already in, or a row
     failed in the engine's words for it. Returns the settled places in the send."""
-    settled = _settle(named, _line_groups(sent))
+    groups = _line_groups(sent)
+    settled = _settle(named, groups)
+    held = _parts_held_back(named, groups)
     for pos, row_err in sorted(settled.items()):
         index = pending[pos]
         if row_err is None:
             outcome.results[index] = RowResult.EXISTED
             continue
         outcome.results[index] = RowResult.FAILED
-        outcome.failures.append(BatchFailure((index,), error_text(row_err), chunk_index, row_err))
+        outcome.failures.append(
+            BatchFailure((index,), error_text(row_err), chunk_index, row_err, for_part=pos in held)
+        )
     return set(settled)
 
 
@@ -407,3 +433,13 @@ def _settle(
             for pos in group:
                 settled.setdefault(pos, refusals[0])
     return settled
+
+
+def _parts_held_back(named: dict[int, EngineError], groups: list[list[int]]) -> set[int]:
+    """The places of the parts `_settle` fails for another part of their group:
+    every part the send did not name, of a group with a part that fails."""
+    held: set[int] = set()
+    for group in groups:
+        if any(pos in named and not is_own_id_replay(named[pos], "id") for pos in group):
+            held.update(pos for pos in group if pos not in named)
+    return held

@@ -39,6 +39,11 @@ def _prow(line: int, **over: object) -> ParsedRow:
     return ParsedRow(**base)  # type: ignore[arg-type]
 
 
+def _said(result: apply_mod.ApplyResult) -> list[tuple[int, str, tuple[int, ...]]]:
+    """Each failure as (chunk, the words its line shows, the sheet lines it covers)."""
+    return [(f.chunk, f.words, f.lines) for f in result.failures]
+
+
 def _plan(rows: list[ParsedRow]) -> plan_mod.ImportPlan:
     return plan_mod.build_plan(rows, [], [])
 
@@ -347,7 +352,7 @@ def test_opening_any_other_409_is_a_failure(configured, key, reason):
         result = apply_mod.apply_plan(client, plan, res)
 
     assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
-    assert result.failures == [
+    assert [(c, w) for c, w, _ in _said(result)] == [
         (-1, f"sheet line 2 (opening balance): CONFLICT — stand-in\n  {key}: stand-in field words")
     ]
 
@@ -372,7 +377,7 @@ def test_opening_balance_exists_is_a_failure_and_reads_no_account(configured):
 
     assert read.call_count == 0
     assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
-    assert result.failures == [
+    assert [(c, w) for c, w, _ in _said(result)] == [
         (
             -1,
             "sheet line 2 (opening balance): CONFLICT — stand-in\n"
@@ -444,8 +449,8 @@ def test_opening_engine_error_reports_sheet_line(configured):
         result = apply_mod.apply_plan(client, plan, res)
 
     assert result.opening_failed == 1
-    ((_, message),) = result.failures
-    assert "sheet line 7" in message and "opening balance" in message
+    ((_, message, lines),) = _said(result)
+    assert "sheet line 7" in message and "opening balance" in message and lines == (7,)
 
 
 def _conflict(key: str = "transactions.0.id", reason: str = "ID_EXISTS") -> httpx.Response:
@@ -545,10 +550,11 @@ def test_batch_409_other_than_a_replay_is_a_failure(configured, key, reason):
         result = apply_mod.apply_plan(client, plan, res)
 
     assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
-    ((_, message),) = result.failures
+    (failure,) = result.failures
     # a row's refusal is keyed by its field alone; one naming no row keeps its key
     field = key.removeprefix("transactions.0.")
-    assert message.endswith(f"CONFLICT — id exists\n  {field}: stand-in field words")
+    assert failure.detail.endswith(f"CONFLICT — id exists\n  {field}: stand-in field words")
+    assert failure.lines == (2,)
 
 
 @respx.mock
@@ -629,15 +635,11 @@ def test_a_refused_row_beside_an_imported_one_reports_its_sheet_line(configured)
     assert result.tx_skipped_existing == 1
     assert result.tx_failed == 1
     assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
-    failed_id = plan.tx_ids[3]
-    # sheet-line context prefixed, then the engine's words for that row
-    assert result.failures == [
-        (
-            0,
-            f"sheet line 3, id {failed_id}: VALIDATION_ERROR — Invalid input.\n"
-            "  amount_cents: Must not be zero.",
-        )
-    ]
+    # the engine's words for that row, against its sheet line
+    assert _said(result) == [(0, "amount_cents: Must not be zero.", (3,))]
+    assert result.failures[0].detail == (
+        "VALIDATION_ERROR — Invalid input.\n  amount_cents: Must not be zero."
+    )
 
 
 @respx.mock
@@ -671,8 +673,8 @@ def test_a_connection_error_on_a_second_send_stops_the_run(configured):
     assert result.tx_failed == 3  # the row sent again + the never-sent chunk 1
     assert batch_route.call_count == 2  # the chunk, then its new row alone
     assert len(result.failures) == 1
-    assert "CONNECTION_ERROR: could not reach engine" in result.failures[0][1]
-    assert result.failures[0][1].endswith("— sheet lines 3-5 were not sent")
+    assert "CONNECTION_ERROR: could not reach engine" in result.failures[0].words
+    assert result.failures[0].words.endswith("— sheet lines 3-5 were not sent")
 
 
 @respx.mock
@@ -705,7 +707,7 @@ def test_a_chunk_422_isolates_its_bad_row(configured):
     assert result.tx_created == 1  # the valid row still landed
     assert result.tx_failed == 1
     assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
-    assert "sheet line 3" in result.failures[0][1]
+    assert result.failures[0].lines == (3,)
 
 
 @respx.mock
@@ -735,9 +737,10 @@ def test_row_failure_keeps_engine_fields_detail(configured):
         result = apply_mod.apply_plan(client, plan, res)
 
     assert result.tx_failed == 1
-    message = result.failures[0][1]
-    assert "sheet line 3" in message  # the row is findable in the workbook
-    assert "\n  amount_cents: Must not be zero." in message  # fields preserved
+    (failure,) = result.failures
+    assert failure.lines == (3,)  # the row is findable in the workbook
+    assert failure.words == "amount_cents: Must not be zero."  # the field, then its words
+    assert "\n  amount_cents: Must not be zero." in failure.detail  # fields preserved
 
 
 @respx.mock
@@ -774,9 +777,9 @@ def test_an_unknown_hashtag_names_its_sheet_line(configured):
         result = apply_mod.apply_plan(client, plan, res)
 
     assert result.tx_created == 1 and result.tx_failed == 1
-    ((_, message),) = result.failures
-    assert message.startswith(f"sheet line 3, id {plan.tx_ids[3]}: ")
-    assert f"\n  hashtag_ids: {unknown}" in message
+    (failure,) = result.failures
+    assert failure.lines == (3,) and failure.words == f"hashtag_ids: {unknown}"
+    assert f"\n  hashtag_ids: {unknown}" in failure.detail
 
 
 @respx.mock
@@ -808,7 +811,7 @@ def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(c
 
     assert result.tx_failed == 2
     assert batch_route.call_count == 1  # every row would 403 identically — not sent again
-    assert result.failures == [(0, "sheet lines 2-3: FORBIDDEN — nope")]
+    assert _said(result) == [(0, "FORBIDDEN — nope", (2, 3))]
 
 
 @respx.mock
@@ -914,8 +917,8 @@ def test_batch_connection_failure_marks_remaining_failed_and_stops(configured):
 
     assert result.tx_created == 1
     assert result.tx_failed == 2  # the failing chunk plus the unsent one
-    assert result.failures and result.failures[0][0] == 1
-    assert "could not reach engine" in result.failures[0][1]
+    assert result.failures and result.failures[0].chunk == 1
+    assert "could not reach engine" in result.failures[0].words
     assert batch_route.call_count == 2  # loop broke; third chunk never sent
 
 
@@ -970,7 +973,7 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
     # the WANTS row (line 2) is skipped pre-flight; the NEEDS row (line 3) lands
     assert result.tx_created == 1
     assert result.tx_failed == 1
-    assert any(c < 0 and "sheet line 2" in m for c, m in result.failures)
+    assert any(c < 0 and lines == (2,) for c, _, lines in _said(result))
     # only the NEEDS row (line 3) reached the batch; the WANTS row never did
     sent = json.loads(batch_route.calls.last.request.content)["transactions"]
     assert [i["id"] for i in sent] == [plan.tx_ids[3]]
@@ -1150,7 +1153,8 @@ def test_apply_json_result_with_failures(configured, monkeypatch):
     assert payload["accounts_reused"] == 1 and payload["accounts_created"] == 0
     assert payload["tx_created"] == 1 and payload["tx_failed"] == 1
     assert payload["failures"][0]["chunk"] == 1
-    assert "could not reach engine" in payload["failures"][0]["error"]
+    assert "could not reach engine" in payload["failures"][0]["words"]
+    assert payload["failures"][0]["lines"] == [3]
 
 
 @respx.mock
@@ -1189,7 +1193,7 @@ def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch
     assert result.exit_code == 1
     assert "Transactions: created 1" in result.output
     assert "failed 1" in result.output
-    assert "chunk 1: CONNECTION_ERROR: could not reach engine" in result.output
+    assert "Failures (1 row):\n  CONNECTION_ERROR: could not reach engine" in result.output
 
 
 @respx.mock
@@ -1239,7 +1243,10 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
     assert result.exit_code == 1
     assert "Resource failures" in result.output
     assert "WANTS" in result.output
-    assert "pre-flight" in result.output  # the dependent row was skipped
+    # the dependent row was skipped, on a line of its own
+    assert "Failures (1 row):\n  Not sent: category 'WANTS' was not created. row 2\n" in (
+        result.output
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1350,7 +1357,7 @@ def test_fold_outcome_labels_only_a_connection_stop_a_connection_error():
     apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
 
     assert (result.tx_created, result.tx_failed) == (1, 1)
-    assert result.failures == [(1, "CONNECTION_ERROR: down — sheet line 3 was not sent")]
+    assert _said(result) == [(1, "CONNECTION_ERROR: down — sheet line 3 was not sent", (3,))]
 
     clean = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
     apply_mod._fold_outcome(

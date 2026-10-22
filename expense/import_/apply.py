@@ -18,11 +18,14 @@ sent whole or not at all: the plan holds back a group missing a row the parse
 could not read (a zero-amount part is no movement, and is only dropped), and
 a group with a row whose resource was not created stays here unsent.
 
-Everything this module reports is the engine's words alone (`errors.engine_text`):
-the import is typed and printed, so no line of the app's (a key to press, a
-screen to open) is added to them.
+Every refusal this module reports is in the engine's words alone
+(`errors.engine_text`, or `errors.row_words` for a refused row): the import is
+typed and printed, so no line of the app's (a key to press, a screen to open)
+is added to them. The app's own lines say only what the engine never saw: a
+row held back, a split transaction's other rows, the rows never sent.
 """
 
+from collections.abc import Hashable
 from dataclasses import dataclass, field
 from uuid import uuid4
 
@@ -40,6 +43,7 @@ from expense.errors import (
     engine_text,
     is_own_id_replay,
     refuses_every_write,
+    row_words,
 )
 from expense.http import ExpenseClient
 from expense.import_.parse import OpeningRow, ParsedRow
@@ -64,6 +68,38 @@ class ResolveResult:
     resolve_failures: list[str] = field(default_factory=list)
 
 
+#: The app's line for the other rows of a split transaction the engine refused
+#: one part of: the transaction fails whole, the refused row shows the engine's
+#: words, and these rows show here.
+SPLIT_PART_REFUSED = "Part of a split transaction refused for another row."
+#: The app's line for the other rows of a split transaction held back because
+#: one part could not be sent: that row shows its own `Not sent:` line.
+SPLIT_PART_NOT_SENT = "Part of a split transaction not sent for another row."
+_PART_NOT_SENT_KIND = ("part not sent",)
+
+
+@dataclass(frozen=True)
+class Failure:
+    """One refusal or stop the import reports, and the sheet lines it covers.
+
+    `kind` decides how it prints. Failures of one kind print as one line:
+    `words`, then the rows they hit (`formatting.rows_phrase`). A kind is a
+    refusal's (`batch_write.BatchFailure.kind`), one resource not created (its
+    rows read `Not sent: category 'NEW' was not created.`), or the other rows
+    of split transactions held back (`SPLIT_PART_NOT_SENT`). A failure with no
+    kind is a line of its own, its `words` as they stand: a stop, the sheet
+    lines never sent, an opening balance. `detail` is the engine's whole answer
+    for these rows, its code and message included, kept for `--json`; empty for
+    a line the app writes.
+    """
+
+    words: str
+    lines: tuple[int, ...] = ()
+    kind: Hashable | None = None
+    chunk: int = -1  # -1: before or beside the batch
+    detail: str = ""
+
+
 @dataclass
 class ApplyResult:
     resolve: ResolveResult
@@ -74,9 +110,9 @@ class ApplyResult:
     # seeds already written: refused ID_EXISTS on their own transaction_id
     opening_skipped_existing: int = 0
     opening_failed: int = 0
-    # (chunk_index, message) — messages carry sheet line numbers so a failed
-    # row can be found in the workbook without bisecting.
-    failures: list[tuple[int, str]] = field(default_factory=list)
+    # what failed, each with the sheet lines it covers, so a failed row can be
+    # found in the workbook without bisecting
+    failures: list[Failure] = field(default_factory=list)
 
 
 def _list_all(
@@ -274,10 +310,10 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
         if account_id is None:
             result.opening_failed += 1
             result.failures.append(
-                (
-                    -1,
+                Failure(
                     f"sheet line {row.line}: opening balance not sent — "
                     f"account {row.account!r} ({row.currency}) was not created",
+                    (row.line,),
                 )
             )
             continue
@@ -294,27 +330,19 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
                 result.opening_skipped_existing += 1
             else:
                 result.opening_failed += 1
-                result.failures.append(
-                    (-1, f"sheet line {row.line} (opening balance): {engine_text(err)}")
-                )
+                words = f"sheet line {row.line} (opening balance): {engine_text(err)}"
+                result.failures.append(Failure(words, (row.line,), detail=engine_text(err)))
         except EngineConnectionError as err:
             result.opening_failed += len(plan.openings) - pos
             result.failures.append(
-                (
-                    -1,
+                Failure(
                     f"CONNECTION_ERROR: {engine_text(err)} — opening balances from "
                     f"sheet line {row.line} on were not sent",
+                    tuple(later.line for later in plan.openings[pos:]),
                 )
             )
             return False
     return True
-
-
-def _line_range(items: list[dict], line_by_id: dict[str, int]) -> str:
-    lines = sorted(line_by_id[item["id"]] for item in items)
-    if lines[0] == lines[-1]:
-        return f"sheet line {lines[0]}"
-    return f"sheet lines {lines[0]}-{lines[-1]}"
 
 
 def _fold_outcome(
@@ -323,9 +351,12 @@ def _fold_outcome(
     """Turn an index-aligned `BatchOutcome` into this importer's vocabulary.
 
     The batch mechanics live in [batch_write.py](../batch_write.py), shared with
-    the TUI's LOG bar; what stays here is the sheet-line
-    phrasing, which only a workbook has. A grouped failure keeps its range
-    (`sheet lines 2-3`) so a chunk-level 403 is still reported once.
+    the TUI's LOG bar; what stays here is the sheet lines, which only a workbook
+    has. Each failure keeps its kind (`BatchFailure.kind`), so the command says
+    one kind of refusal on one line: a row's refusal in the engine's words for
+    it (`errors.row_words`), a split transaction's other parts on the app's line
+    (`SPLIT_PART_REFUSED`), and a refusal naming no row, such as a
+    chunk-level 403, once for its chunk.
 
     A refusal that stopped the run (`outcome.refusal`) and names no row
     (`SETTINGS_MISSING`) is raised instead of folded, leaving `result` untouched:
@@ -349,20 +380,33 @@ def _fold_outcome(
             result.tx_failed += 1
 
     for failure in outcome.failures:
-        rows = [items[i] for i in failure.indices]
-        where = _line_range(rows, line_by_id)
-        if len(rows) == 1:
-            # one row: name its id too, so a duplicate title is still unambiguous
-            where = f"{where}, id {rows[0]['id']}"
-        result.failures.append((failure.chunk_index, f"{where}: {failure.message}"))
+        lines = tuple(line_by_id[items[i]["id"]] for i in failure.indices)
+        if failure.whole_chunk:
+            words = engine_text(failure.error)
+        elif failure.for_part:
+            words = SPLIT_PART_REFUSED
+        else:
+            words = row_words(failure.error)
+        result.failures.append(
+            Failure(
+                words,
+                lines,
+                kind=failure.kind,
+                chunk=failure.chunk_index,
+                detail="" if failure.for_part else engine_text(failure.error),
+            )
+        )
 
     stop_chunk = outcome.stop_chunk_index if outcome.stop_chunk_index is not None else -1
     where = _not_sent(outcome.unsent, items, line_by_id)
+    unsent = tuple(line_by_id[items[i]["id"]] for i in outcome.unsent)
     if outcome.stop_error is not None:
         said = where or "run stopped"
-        result.failures.append((stop_chunk, f"CONNECTION_ERROR: {outcome.stop_error} — {said}"))
+        result.failures.append(
+            Failure(f"CONNECTION_ERROR: {outcome.stop_error} — {said}", unsent, chunk=stop_chunk)
+        )
     elif outcome.refusal is not None and where:
-        result.failures.append((stop_chunk, where))
+        result.failures.append(Failure(where, unsent, chunk=stop_chunk))
 
 
 def _not_sent(unsent: list[int], items: list[dict], line_by_id: dict[str, int]) -> str:
@@ -405,7 +449,10 @@ def apply_plan(
     if not _apply_openings(client, plan, res, result):
         result.tx_failed += len(plan.rows)
         result.failures.append(
-            (-1, "transactions not sent — connection lost while seeding opening balances")
+            Failure(
+                "transactions not sent — connection lost while seeding opening balances",
+                tuple(row.line for row in plan.rows),
+            )
         )
         return result
 
@@ -420,18 +467,16 @@ def apply_plan(
             # Its dependency's create POST failed (recorded in resolve_failures);
             # this row can't reference a row that doesn't exist.
             result.tx_failed += 1
-            result.failures.append((-1, f"sheet line {row.line}: not sent — {why} was not created"))
+            words = f"Not sent: {why} was not created."
+            result.failures.append(Failure(words, (row.line,), kind=("not sent", why)))
             continue
         blocker = next((line for line in group.lines if missing[line]), None) if group else None
         if blocker is not None:
-            # A split transaction goes whole or not at all.
+            # A split transaction goes whole or not at all: its other rows show
+            # on the app's line for a part held back.
             result.tx_failed += 1
             result.failures.append(
-                (
-                    -1,
-                    f"sheet line {row.line}: not sent — sheet line {blocker}, "
-                    "of the same split transaction, was not sent",
-                )
+                Failure(SPLIT_PART_NOT_SENT, (row.line,), kind=_PART_NOT_SENT_KIND)
             )
             continue
         tx_id = plan.tx_ids[row.line]

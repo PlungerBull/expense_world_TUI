@@ -79,11 +79,8 @@ def test_an_edited_row_whose_statement_line_is_in_the_ledger_fails_on_its_sheet_
 
     assert result.exit_code == 1
     assert "Transactions: created 1, already-present 0, failed 1" in result.output
-    assert (
-        f"  chunk 0: sheet line 2, id {plan.tx_ids[2]}: "
-        "CONFLICT — Another bank line already has statement line 'SIG-1'.\n"
-        f"  statement_line: {_TAKEN_WORDS}\n"
-    ) in result.output
+    assert result.output.endswith(f"Failures (1 row):\n  statement_line: {_TAKEN_WORDS} row 2\n")
+    assert plan.tx_ids[2] not in result.output  # no id, no chunk: the row is the sheet's
     assert [[item["id"] for item in sent] for sent in _sent(route)][1] == [plan.tx_ids[3]]
 
 
@@ -96,14 +93,15 @@ def test_a_taken_statement_line_on_a_group_fails_every_part_on_its_sheet_line(co
     result = _apply(plan)
 
     assert (result.tx_created, result.tx_failed) == (1, 2)
-    words = (
+    # the engine names the group's first part; its other part fails with it
+    assert [(f.words, f.lines) for f in result.failures] == [
+        (f"statement_line: {_TAKEN_WORDS}", (2,)),
+        ("Part of a split transaction refused for another row.", (3,)),
+    ]
+    assert result.failures[0].detail == (
         "CONFLICT — Another bank line already has statement line 'SIG-1'.\n"
         f"  statement_line: {_TAKEN_WORDS}"
     )
-    assert result.failures == [
-        (0, f"sheet line 2, id {plan.tx_ids[2]}: {words}"),
-        (0, f"sheet line 3, id {plan.tx_ids[3]}: {words}"),
-    ]
 
 
 # --- DUPLICATE_IN_REQUEST and LINE_GROUP_FIELDS_DIFFER ------------------------
@@ -189,12 +187,8 @@ def test_a_duplicate_statement_line_in_a_send_fails_the_rows_it_names(configured
     result = _apply(plan)
 
     assert (result.tx_created, result.tx_failed) == (2, 1)
-    assert result.failures == [
-        (
-            0,
-            f"sheet line 3, id {plan.tx_ids[3]}: VALIDATION_ERROR — Batch validation failed.\n"
-            "  statement_line: Duplicate statement line within batch.",
-        )
+    assert [(f.words, f.lines) for f in result.failures] == [
+        ("statement_line: Duplicate statement line within batch.", (3,))
     ]
     assert len(_sent(route)[1]) == 2
 
@@ -221,11 +215,10 @@ def test_a_group_whose_statement_lines_differ_fails_every_part(configured):
     result = _apply(plan)
 
     assert (result.tx_created, result.tx_failed) == (1, 2)
-    said = f"VALIDATION_ERROR — Batch validation failed.\n  statement_line: {words}"
-    assert result.failures == [
-        (0, f"sheet line 2, id {plan.tx_ids[2]}: {said}"),
-        (0, f"sheet line 3, id {plan.tx_ids[3]}: {said}"),
-    ]
+    # the engine names both parts, alike: one kind
+    line = f"statement_line: {words}"
+    assert [(f.words, f.lines) for f in result.failures] == [(line, (2,)), (line, (3,))]
+    assert result.failures[0].kind == result.failures[1].kind
 
 
 # --- LINE_CODES_EXHAUSTED -----------------------------------------------------
@@ -248,12 +241,10 @@ def test_line_codes_exhausted_at_the_batch_stops_the_run_once(configured, monkey
     assert result.exit_code == 1
     assert route.call_count == 2  # no third chunk, nothing sent again
     assert "Transactions: created 2, already-present 0, failed 3" in result.output
-    assert (
-        f"  chunk 1: sheet line 4, id {plan.tx_ids[4]}: LIMIT_REACHED — {_EXHAUSTED[0]}\n"
-        f"  id: {_EXHAUSTED[1]}\n"
-        "  chunk 1: sheet lines 5-6 were not sent\n"
-    ) in result.output
-    assert result.output.count("LIMIT_REACHED") == 1
+    assert result.output.endswith(
+        f"Failures (3 rows):\n  id: {_EXHAUSTED[1]} row 4\n  sheet lines 5-6 were not sent\n"
+    )
+    assert plan.tx_ids[4] not in result.output
 
 
 @respx.mock
@@ -266,10 +257,10 @@ def test_line_codes_exhausted_on_a_group_fails_its_parts_and_stops(configured):
 
     assert route.call_count == 1
     assert (result.tx_created, result.tx_failed) == (0, 4)
-    assert [message.split(":")[0] for _, message in result.failures] == [
-        "sheet line 3, id " + plan.tx_ids[3],
-        "sheet line 4, id " + plan.tx_ids[4],
-        "sheet lines 2, 5 were not sent",  # never the failed lines between them
+    assert [(f.words, f.lines) for f in result.failures] == [
+        (f"id: {_EXHAUSTED[1]}", (3,)),
+        ("Part of a split transaction refused for another row.", (4,)),
+        ("sheet lines 2, 5 were not sent", (2, 5)),  # never the failed lines between them
     ]
 
 
@@ -306,10 +297,15 @@ def test_line_codes_exhausted_json_carries_the_row_and_the_unsent(configured, mo
 
     payload = json.loads(result.output)
     assert (payload["tx_created"], payload["tx_failed"]) == (0, 2)
-    assert [f["error"].split(":")[0] for f in payload["failures"]] == [
-        f"sheet line 2, id {_plan(rows).tx_ids[2]}",
-        "sheet line 3 was not sent",
+    assert [(f["chunk"], f["lines"], f["words"]) for f in payload["failures"]] == [
+        (0, [2], f"id: {_EXHAUSTED[1]}"),
+        (0, [3], "sheet line 3 was not sent"),
     ]
+    assert (
+        payload["failures"][0]["detail"]
+        == f"LIMIT_REACHED — {_EXHAUSTED[0]}\n  id: {_EXHAUSTED[1]}"
+    )
+    assert payload["failures"][1]["detail"] == ""
 
 
 def test_the_not_sent_line_names_runs_and_skips_settled_rows():

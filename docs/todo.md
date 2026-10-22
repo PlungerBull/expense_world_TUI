@@ -97,6 +97,15 @@ while still on that line, the hashtags you just added stay.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **The sheet import writes "categorie".** Its `Resource failures` list makes a resource
+  singular by cutting the last letter, so a category reads `categorie 'NEW': LIMIT_REACHED — …`
+  ([apply.py](../expense/import_/apply.py)). Name each resource in the singular directly, with a
+  test.
+- **Rows held back for one missing resource can split over two `Not sent:` lines.** The import
+  matches a sheet's category, account and hashtag names ignoring case and spaces, but a held-back
+  row's line names the resource as its own cell spells it, so rows spelling `NEW` and `new` read
+  two lines for one resource ([apply.py](../expense/import_/apply.py) `_missing_dep`). Name the
+  resource as the import resolves it, with a test.
 - **A non-date in the Edit form's date crashes the app.** On the `⏎` Edit form, and the
   bank-line Edit form that shares its code, `⏎` on a date bar holding a non-date (e.g. `abc`)
   accepts it, and `ctrl+s` raises an uncaught `typer.BadParameter`, so the app exits with a

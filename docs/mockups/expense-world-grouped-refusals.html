@@ -129,6 +129,30 @@ Transactions: created 4153, already-present 0, failed 14
   </div>
 </div>
 
+<div class="pane">
+  <div class="lbl">Screen 3 <span>— the engine's words are often short and general, e.g. <code>Must not be null.</code> for a missing date or a missing category</span></div>
+  <div class="opt var">
+    <div>
+      <div class="oh">A <span>— the field the engine names, then its words, then the rows</span><span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre>Transactions: created 4183, already-present 0, failed 5
+<span class="ab">Failures (5 rows):</span>
+  <span class="n">category_id: Must not be null.</span> rows 12, 40
+  <span class="n">date: Must not be null.</span> row 77
+  <span class="n">amount_cents: Must not be zero.</span> rows 90, 91</pre></div></div>
+      <p class="cap">The field is the engine's own name for it (<code>category_id</code>, <code>date</code>), as the other screens show a refusal. Two errors with the same words stay apart and say what they are about. Applies to the LOG bar too.</p>
+    </div>
+    <div>
+      <div class="oh">B <span>— the words alone, as screens 1 A and 2 A draw</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre>Transactions: created 4183, already-present 0, failed 5
+<span class="ab">Failures (5 rows):</span>
+  <span class="n">Must not be null.</span> rows 12, 40
+  <span class="n">Must not be null.</span> row 77
+  <span class="n">Must not be zero.</span> rows 90, 91</pre></div></div>
+      <p class="cap">Shorter, but the first two lines read the same, and nothing says one is a missing category and the other a missing date.</p>
+    </div>
+  </div>
+</div>
+
 <div class="pick">Reply with one letter per screen, for example <b>1 A · 2 A</b>.</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){

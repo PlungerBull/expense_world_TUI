@@ -77,19 +77,9 @@ only the first.
 Approved by the owner 2026-10-21, who picks 1 B · 2 B in
 [expense-world-sheet-import-groups.html](../mockups/expense-world-sheet-import-groups.html).
 Tasks 3 and 6, from the engine's hand-off, are approved by the owner 2026-10-22, who picks
-1 A · 2 A in [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html).
-
-6. **Refused rows show one line per error.** The sheet import's `Failures` and the LOG bar's
-   lines under the table, as screens 1 A and 2 A of
-   [expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html) draw: one
-   line per kind of error, the engine's words whole, then the rows it hit (`rows 3, 5, 7`, or
-   `row 2` for one; the sheet import's rows are its sheet lines). Two refusals are one kind when
-   the engine's words for the row are the same. A refusal of a whole chunk or run, with no row,
-   keeps its own line. A split transaction refused for one of its rows fails whole: that row shows
-   the engine's words, and its other rows show on a line of the app's own,
-   `Part of a split transaction refused for another row.`, then their rows (owner's pick,
-   2026-10-22). Unit tests for each screen, one row and many, two kinds, a split with one row
-   refused. Passes the engine's check 5.
+1 A · 2 A · 3 A in
+[expense-world-grouped-refusals.html](../mockups/expense-world-grouped-refusals.html). Every task
+is done; the tester's acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 

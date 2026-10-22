@@ -14,6 +14,7 @@ from expense.batch_write import CHUNK_SIZE, ENGINE_BATCH_MAX
 from expense.context import get_verbose
 from expense.currencies import MINOR_UNIT_SCALE
 from expense.errors import handle_errors
+from expense.formatting import grouped_refusals
 from expense.http import ExpenseClient
 from expense.import_ import apply as apply_mod
 from expense.import_ import plan as plan_mod
@@ -210,7 +211,10 @@ def _render_result(
                 "opening_created": result.opening_created,
                 "opening_skipped_existing": result.opening_skipped_existing,
                 "opening_failed": result.opening_failed,
-                "failures": [{"chunk": c, "error": m} for c, m in result.failures],
+                "failures": [
+                    {"chunk": f.chunk, "lines": list(f.lines), "words": f.words, "detail": f.detail}
+                    for f in result.failures
+                ],
             }
         )
         return
@@ -233,10 +237,13 @@ def _render_result(
         f"already-present {result.tx_skipped_existing}, failed {result.tx_failed}"
     )
     if result.failures:
-        typer.echo("Failures:")
-        for chunk_index, message in result.failures:
-            where = "pre-flight" if chunk_index < 0 else f"chunk {chunk_index}"
-            typer.echo(f"  {where}: {message}")
+        rows = result.tx_failed + result.opening_failed
+        typer.echo(f"Failures ({rows} {'row' if rows == 1 else 'rows'}):")
+        refusals = [(f.kind, f.words, f.lines) for f in result.failures]
+        for first, hit, rest in grouped_refusals(refusals):
+            typer.echo(f"  {first} {hit}" if hit else f"  {first}")
+            for line in rest:
+                typer.echo(f"  {line}")
 
 
 @handle_errors

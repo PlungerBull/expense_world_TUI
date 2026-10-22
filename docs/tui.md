@@ -709,8 +709,9 @@ reconciliation draws when completed without its ending balance, the one a system
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the split screen's parts) shows the engine's words whole (`CODE —
-message`, then one `key: …` line per refused field), and for the reasons below a blank
-line and one line of the app's saying what to do. Screens in
+message`, then one `key: …` line per refused field; a LOG bar row the engine names reads
+`key: …` for each refused field, without the code and message, "Saved" below), and for the
+reasons below a blank line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
@@ -768,6 +769,33 @@ created it, or refused it only because the row's own id is taken (`ID_EXISTS` on
 `transactions.<i>.id` and nothing else): a replay of a save whose answer was lost. Every
 other refusal (`CONCURRENT_CHANGE`, `RESERVED_NAME_HELD`, …) is shown on each row it
 covers, which keeps no `✓` (`errors.is_own_id_replay`; [runtime.md](runtime.md) "Bulk writes").
+
+**Refused rows read one line per kind of error** under the table (`save_errors`; screens 2 A
+and 3 A in [expense-world-grouped-refusals.html](mockups/expense-world-grouped-refusals.html)):
+what was refused in the error colour, then the rows it hit, unstyled — `row 2`, or
+`rows 4, 6` for several — and, last and dim, `ctrl+s retries just the rows without a ✓.`
+
+```
+  amount_cents: Must not be zero. row 2
+  date: The date falls inside a completed reconciliation's period. rows 4, 6
+  ctrl+s retries just the rows without a ✓.
+```
+
+- **A row the engine names** shows each refused field's name, as the engine keys it with the
+  row's place in the request taken off, then the engine's words for it (`errors.row_words`);
+  a row refused on two fields joins the pairs with ` · `
+  (`amount_cents: Must not be zero. · date: Must not be null.`), and a refusal naming no
+  field shows its message. Rows refused alike share one line: alike is the same code, fields and
+  reasons as the row reads them (`BatchFailure.kind` in
+  [batch_write.py](../expense/batch_write.py)), never the top-level message, which counts
+  the items a send named. Rows refused alike on two sends of one save share the line too.
+  The app's line saying what to do, when the refusal has one ("When the engine says no"
+  above), follows dim on the next line.
+- **A refusal naming no row** (a `409` keyed `category_id`, a `5xx`) is a line of its own,
+  never joined to another: the engine's words whole, the rows it covers after its first
+  line, its field lines and the app's line under it, dim.
+- **A save the connection stopped** puts its words on every row it left unsent: one line,
+  those rows after it.
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank

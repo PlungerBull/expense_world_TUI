@@ -793,7 +793,9 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
         assert not draft.saved and "Must not be zero." in (draft.error or "")
         out = _text(screen._staged_renderable())
         assert "✓" in out and "1 logged" in out
-        assert "row 2: " in out and "Must not be zero." in out
+        assert (
+            "  amount_cents: Must not be zero. row 2\n" in out
+        )  # the engine's words, then the row
         assert "ctrl+s retries just the rows without a ✓." in out
 
     run_app(scenario)
@@ -841,9 +843,7 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
         # and where it wraps is a width detail, not the assertion
         out = " ".join(_text(screen._staged_renderable()).split())
         assert "1 logged" in out
-        assert "row 2: " in out
-        assert "sealed by completed reconciliation 'August 2026'" in out
-        assert "Revert it to draft to change anything inside it." in out  # the way out survives
+        assert f"date: {sealed_text} row 2" in out  # the way out survives, then the row
 
     run_app(scenario)
 
@@ -1001,7 +1001,7 @@ def test_an_unknown_hashtag_names_its_own_row(fake_client, monkeypatch):
         assert not tagged.saved and unknown in (tagged.error or "")
         out = " ".join(_text(screen._staged_renderable()).split())
         assert "1 logged" in out
-        assert "row 2: " in out and f"hashtag_ids: {unknown}" in out
+        assert f"hashtag_ids: {unknown} row 2" in out
 
     run_app(scenario)
 
@@ -1088,12 +1088,10 @@ def test_one_save_ticks_a_replayed_row_names_a_refused_one_and_lands_the_rest(
         assert replayed.saved and replayed.error is None
         assert landed.saved and landed.error is None
         assert not refused.saved
-        assert refused.error == (
-            "VALIDATION_ERROR — Invalid input.\n  amount_cents: Must not be zero."
-        )
+        assert refused.error == "amount_cents: Must not be zero."
         out = _text(screen._staged_renderable())
         assert "✓ 1" in out and "✓ 2" in out and "✓ 3" not in out
-        assert "row 3: " in out
+        assert "  amount_cents: Must not be zero. row 3\n" in out
 
     run_app(scenario)
 
@@ -1268,8 +1266,121 @@ def test_the_error_block_names_the_row_and_says_what_to_press():
     entry = _stage(LEDGER_LINE)
     entry.error = "SERVER_ERROR — engine exploded"
     out = _text(save_errors([_stage(USD_LINE), entry]))
-    assert "row 2: SERVER_ERROR — engine exploded" in out
+    assert "  SERVER_ERROR — engine exploded row 2\n" in out
     assert "ctrl+s retries just the rows without a ✓." in out
+
+
+_SEALED = "The date falls inside a completed reconciliation's period."
+
+
+def _two_kinds() -> EngineError:
+    """One batch 422 naming rows 1 and 3 for a zero amount and row 2 for a
+    sealed date (contract: POST /v1/transactions/batch)."""
+    entries = {
+        "transactions.1.amount_cents": ("Must not be zero.", "ZERO_AMOUNT"),
+        "transactions.2.date": (_SEALED, "SEALED_PERIOD"),
+        "transactions.3.amount_cents": ("Must not be zero.", "ZERO_AMOUNT"),
+    }
+    return EngineError(
+        "VALIDATION_ERROR",
+        "Batch validation failed.",
+        {key: words for key, (words, _) in entries.items()},
+        422,
+        {},
+        reasons={key: reason for key, (_, reason) in entries.items()},
+    )
+
+
+def test_refused_rows_read_one_line_per_kind_screen_2a(fake_client, monkeypatch):
+    """Screen 2 A: the engine's words, then the rows they hit — `row 3` for one,
+    `rows 2, 4` for several — and the line saying what to press, dim, last."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE, LEDGER_LINE)
+        _script(fake_client, [_two_kinds(), {}])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        out = _text(save_errors(screen._staged))
+        assert out == (
+            "  amount_cents: Must not be zero. rows 2, 4\n"
+            f"  date: {_SEALED} row 3\n"
+            "  ctrl+s retries just the rows without a ✓.\n"
+        )
+
+    run_app(scenario)
+
+
+def test_one_kind_across_two_sends_is_one_line(fake_client, monkeypatch):
+    """Row 2 is refused on the first send, row 4 on the send after it, whose
+    message counts its items: the rows' words are alike, so they share a line."""
+    _patch(monkeypatch)
+    key = "transactions.2.amount_cents"
+    counted = EngineError(
+        "VALIDATION_ERROR",
+        "1 of these items is not valid.",
+        {key: "Must not be zero."},
+        422,
+        {},
+        reasons={key: "ZERO_AMOUNT"},
+    )
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE, NO_CATEGORY_LINE, LEDGER_LINE)
+        first = _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT")
+        _script(fake_client, [first, counted, {}])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        assert [e.saved for e in screen._staged] == [True, False, True, False]
+        out = _text(save_errors(screen._staged))
+        assert out == (
+            "  amount_cents: Must not be zero. rows 2, 4\n"
+            "  ctrl+s retries just the rows without a ✓.\n"
+        )
+
+    run_app(scenario)
+
+
+def test_a_refusal_naming_no_row_keeps_a_line_of_its_own(fake_client, monkeypatch):
+    """Row 2 is refused for its amount; row 1, sent again alone, meets a refusal
+    naming no row. That one reads whole, the row after its first line, and the
+    app's line under it; it never joins row 2's line."""
+    _patch(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        _stage_lines(screen, LEDGER_LINE, USD_LINE)
+        zero = _refused(1, "amount_cents", "Must not be zero.", "ZERO_AMOUNT")
+        _script(fake_client, [zero, _conflict("category_id", "CONCURRENT_CHANGE")])
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+        out = _text(save_errors(screen._staged))
+        assert out == (
+            "  CONFLICT — stand-in row 1\n"
+            "    category_id: stand-in field words\n"
+            "  It changed at the same moment: save again.\n"
+            "  amount_cents: Must not be zero. row 2\n"
+            "  ctrl+s retries just the rows without a ✓.\n"
+        )
+
+    run_app(scenario)
+
+
+def test_a_kind_line_colours_the_words_and_not_the_rows():
+    first, second = _stage(LEDGER_LINE), _stage(USD_LINE)
+    for entry in (first, second):
+        entry.error, entry.error_kind = "Must not be zero.", "zero"
+    line, hint = save_errors([first, second], palette=PALETTE).renderables
+    assert line.plain == "  Must not be zero. rows 1, 2"
+    assert [(line.plain[s.start : s.end], s.style) for s in line.spans] == [
+        ("Must not be zero.", PALETTE.error)
+    ]
+    assert hint.style == "dim"
 
 
 def test_the_error_block_is_empty_when_nothing_failed():
@@ -1923,8 +2034,11 @@ def test_a_hashtag_refusal_on_the_log_bar_shows_as_sent(
 ):
     """The row keeps no tick and carries the engine's words whole, then its
     line if the reason has one. A `422` names the row by its place in the batch,
-    and the row reads it by its field alone; a `409` names no row and reads as sent."""
+    and the row shows the words on its field; a `409` names no row and reads as sent."""
     err = hashtag_refusal(code, status, reason, item=0)
     entry = _save_line(fake_client, monkeypatch, PENDING_AND_REAL_LINE, script=[err])
     assert not entry.saved
-    assert entry.error == refusal_text(hashtag_refusal(code, status, reason), line)
+    if status == 409:
+        assert entry.error == refusal_text(hashtag_refusal(code, status, reason), line)
+    else:
+        assert entry.error == "hashtag_ids: stand-in field words"

@@ -119,32 +119,41 @@ def test_a_sheet_with_a_group_lands_one_line_and_a_re_run_finds_every_row(client
                 _safe(client.delete, f"/hashtags/{hashtag_id}")
 
 
-def test_an_edited_row_whose_statement_line_is_in_the_ledger_fails_on_its_sheet_line(client):
-    """An edited row has a new id, so it is no replay: the engine refuses it
-    `STATEMENT_LINE_EXISTS`, since the row imported before still holds the
-    statement line (contract: POST /v1/transactions/batch, "Line groups"), and the
-    importer names its sheet line."""
+def test_an_edited_split_whose_statement_line_is_in_the_ledger_fails_on_its_sheet_lines(client):
+    """Edited rows have new ids, so they are no replay: the engine refuses the
+    group `STATEMENT_LINE_EXISTS` on its first part, since the line imported
+    before still holds the statement line (contract: POST /v1/transactions/batch, "Line groups").
+    The importer shows the first part's sheet line with the engine's words for
+    it, and the other part's with the app's line for a split transaction's
+    other rows."""
     run = uuid4().hex[:10]
     code = f"SIG-{run}-009"
     account, category = f"contract-sheet-{run}", f"contract-{run}"
 
-    def sheet(amount: float) -> SheetData:
-        cells = ["PANADERIA", category, category, "2026-03-20", amount, account, "PEN", code]
-        return SheetData(headers=list(HEADERS), rows=[RawRow(2, cells)])
+    def sheet(first: float, second: float) -> SheetData:
+        def cells(amount: float) -> list:
+            return ["PANADERIA", category, category, "2026-03-20", amount, account, "PEN", code]
+
+        return SheetData(
+            headers=list(HEADERS), rows=[RawRow(2, cells(first)), RawRow(3, cells(second))]
+        )
 
     written: set[str] = set()
     resolved: list[apply_mod.ResolveResult] = []
     try:
-        plan, result = _run(client, sheet(-7.0), resolved)
+        plan, result = _run(client, sheet(-7.0, -3.0), resolved)
         written |= set(plan.tx_ids.values())
-        assert result.tx_created == 1
+        assert result.tx_created == 2
 
-        plan, result = _run(client, sheet(-8.0), resolved)
+        plan, result = _run(client, sheet(-8.0, -4.0), resolved)
         written |= set(plan.tx_ids.values())
-        assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
-        ((_, message),) = result.failures
-        assert message.startswith(f"sheet line 2, id {plan.tx_ids[2]}: CONFLICT — ")
-        assert f"'{code}'" in message and "statement_line: " in message
+        assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 2)
+        named, part = result.failures
+        assert named.lines == (2,) and named.words.startswith("statement_line: ")
+        assert named.detail.startswith("CONFLICT — ")
+        assert f"'{code}'" in named.detail and "statement_line: " in named.detail
+        assert (part.words, part.lines) == (apply_mod.SPLIT_PART_REFUSED, (3,))
+        assert named.kind != part.kind
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
