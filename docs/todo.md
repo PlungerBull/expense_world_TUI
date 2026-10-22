@@ -97,6 +97,15 @@ while still on that line, the hashtags you just added stay.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
+- **Two ways to group refused rows.** The ledger's bulk edit groups its refusals with its own
+  `group_refusals` (`rows 1, 2: <message>`,
+  [transactions.py](../expense/tui/screens/transactions.py)), apart from the shared
+  `grouped_refusals` the sheet import and the LOG bar use (`<field>: <words> rows 1, 2`,
+  [formatting.py](../expense/formatting.py)). One helper; merging them changes what the bulk
+  edit's toast says, so its wording is the owner's pick first [UI].
+- **A code comment speaks of a "phase".** The `Staged` docstring in
+  [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
+  `saved` means instead.
 - **The sheet import writes "categorie".** Its `Resource failures` list makes a resource
   singular by cutting the last letter, so a category reads `categorie 'NEW': LIMIT_REACHED — …`
   ([apply.py](../expense/import_/apply.py)). Name each resource in the singular directly, with a
@@ -197,7 +206,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
   `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
   and the screen map's split pane still draws the typed line the split screen no longer has;
-  `expense-world-split-screen.html` backs the split screen as built.
+  `expense-world-split-screen.html` backs the split screen as built, and
+  `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
+  commands.md, tui.md and a test docstring).
   Deleting one means removing its links from tui.md and from code and test docstrings in the
   same change.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
@@ -274,7 +285,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md); it waits on
-  [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) and
   [specs/accounts-become-people.md](specs/accounts-become-people.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and

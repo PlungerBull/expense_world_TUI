@@ -781,21 +781,15 @@ what was refused in the error colour, then the rows it hit, unstyled — `row 2`
   ctrl+s retries just the rows without a ✓.
 ```
 
-- **A row the engine names** shows each refused field's name, as the engine keys it with the
-  row's place in the request taken off, then the engine's words for it (`errors.row_words`);
-  a row refused on two fields joins the pairs with ` · `
-  (`amount_cents: Must not be zero. · date: Must not be null.`), and a refusal naming no
-  field shows its message. Rows refused alike share one line: alike is the same code, fields and
-  reasons as the row reads them (`BatchFailure.kind` in
-  [batch_write.py](../expense/batch_write.py)), never the top-level message, which counts
-  the items a send named. Rows refused alike on two sends of one save share the line too.
-  The app's line saying what to do, when the refusal has one ("When the engine says no"
-  above), follows dim on the next line.
+- **A row the engine names** reads in the engine's words for it, and rows refused alike
+  share one line, on two sends of one save too
+  ([runtime.md](runtime.md) "How refused rows read"). The app's line saying what to do, when
+  the refusal has one ("When the engine says no" above), follows dim on the next line.
 - **A refusal naming no row** (a `409` keyed `category_id`, a `5xx`) is a line of its own,
-  never joined to another: the engine's words whole, the rows it covers after its first
-  line, its field lines and the app's line under it, dim.
+  as every surface shows one (same paragraph), with the app's line under it, dim.
 - **A save the connection stopped** puts its words on every row it left unsent: one line,
-  those rows after it.
+  those rows after it. A save a refusal of every further write stopped is said once, in a
+  toast, on no row ([runtime.md](runtime.md) "Bulk writes").
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank

@@ -1,8 +1,9 @@
 # The official import
 
-**Status: every question answered (owner, 2026-10-21); the import waits on two specs, each with
-an engine half:** [sheet-import-statement-line.md](sheet-import-statement-line.md) and
-[accounts-become-people.md](accounts-become-people.md). When the import is done, the why moves
+**Status: every question answered (owner, 2026-10-21); the import waits on one spec with an
+engine half,** [accounts-become-people.md](accounts-become-people.md); the split purchases'
+grouping is built ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
+as one split transaction"). When the import is done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -36,7 +37,7 @@ approved by the owner.
 |---|---|---|
 | 1 | Rename typed rows to the bank's wording once, before the first bank upload? | No: the sheet already carries the statements' wording, and every bank upload renames a matched row anyway (contract: POST /v1/transactions/import, "Matching") (2026-10-21). |
 | 2 | Create the statements' reconciliations at the import? | No. Reconciling is the owner's call, made later; the `COD_EECC` months are its test data (2026-10-21). |
-| 3 | Group the split purchases? | Yes, by their shared `COD_EECC`: [sheet-import-statement-line.md](sheet-import-statement-line.md) (2026-10-21). |
+| 3 | Group the split purchases? | Yes, by their shared `COD_EECC`: built, [decisions.md](../decisions.md) "The sheet import brings a split purchase in as one split transaction" (2026-10-21). |
 | 4 | Classify waiting rows before or after? | None are left in the sheet (2026-10-21). |
 | 5 | Is anything owed on the old Oro card? | No, it has been at zero for a long time; it imports as the sheet has it, showing -691.64 PEN and -88.82 USD (2026-10-21). |
 | 6 | The April `EXTORNO` row? | Gone: the row carries the bank's wording and date (2026-10-21). |

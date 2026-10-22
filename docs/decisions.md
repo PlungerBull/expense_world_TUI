@@ -76,7 +76,7 @@ Decisions whose why lives elsewhere:
 
 ## Split transactions, the pending hashtag and system rows (2026-10-17)
 
-**Decision.** (1) **Each part of a split transaction is its own ledger row** (owner, 2026-10-17): the transaction's title, its own amount, category, hashtags and note. `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part, and the Edit form says so before a part's title, date or account is saved (contract: PUT /v1/transactions/{transaction_id}). (2) **`s` splits a transaction on its own screen: a table of the parts, and `⏎` on a part opens its fields below, one per line, as on the Edit form** (owner, 2026-10-18); `s` on any part opens every part, from one read of the bank line: its parts and the engine's total (contract: GET /v1/bank-lines/{bank_line_id}). The screen shows how much of that total the typed parts leave, red until it is 0, as a guide only: `^s` always sends, and the engine's `SPLIT_TOTAL_MISMATCH` decides whether the parts add up (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). **The title line above the table is the transaction's title, edited in one field and sent with the split in the same write** (owner, 2026-10-18): one write renames every part, and the title is sent only when it differs from the transaction's (contract: POST /v1/transactions/{transaction_id}/split). An emptied title is refused as on the Edit form, so a split never removes a title. (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`: every transaction carries at least one hashtag, so Home has no "(no hashtags)" row, and a screen that tags a row sends only the real hashtags. (4) **The built-in rows keep their names** (owner, 2026-10-16): no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"); a name the engine keeps for a system row is refused with one line, "That name belongs to a system row: pick another." (5) **The spreadsheet import does not group split rows** (owner, 2026-10-16): the sheet comes in one transaction per row.
+**Decision.** (1) **Each part of a split transaction is its own ledger row** (owner, 2026-10-17): the transaction's title, its own amount, category, hashtags and note. `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part, and the Edit form says so before a part's title, date or account is saved (contract: PUT /v1/transactions/{transaction_id}). (2) **`s` splits a transaction on its own screen: a table of the parts, and `⏎` on a part opens its fields below, one per line, as on the Edit form** (owner, 2026-10-18); `s` on any part opens every part, from one read of the bank line: its parts and the engine's total (contract: GET /v1/bank-lines/{bank_line_id}). The screen shows how much of that total the typed parts leave, red until it is 0, as a guide only: `^s` always sends, and the engine's `SPLIT_TOTAL_MISMATCH` decides whether the parts add up (contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). **The title line above the table is the transaction's title, edited in one field and sent with the split in the same write** (owner, 2026-10-18): one write renames every part, and the title is sent only when it differs from the transaction's (contract: POST /v1/transactions/{transaction_id}/split). An emptied title is refused as on the Edit form, so a split never removes a title. (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`: every transaction carries at least one hashtag, so Home has no "(no hashtags)" row, and a screen that tags a row sends only the real hashtags. (4) **The built-in rows keep their names** (owner, 2026-10-16): no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"); a name the engine keeps for a system row is refused with one line, "That name belongs to a system row: pick another." (5) **The spreadsheet import groups split rows by their `COD_EECC`** ("The sheet import brings a split purchase in as one split transaction").
 
 **Rejected.** *One ledger row per split transaction, its parts inside* — a category or hashtag belongs to a part, so one row for all the parts hides what `c` and `h` change; the engine declined a ledger read by bank line too. *Holding `^s` until the parts add up* — a business rule checked in the client, which every client would copy; the engine already refuses and says by how much. *One typed line per part, in the LOG bar's grammar* — a part keeps the transaction's title, account and date, so most of the grammar only led to refusals, and the owner found it hard to read. *Every part's fields in one long form* — the table shows every part at a glance. *Renaming a split transaction from the Edit form after the split* — two writes, and the first can land without the second. *Offering `e` on system categories* — the engine refuses a rename, so the key would only lead to a refusal.
 
@@ -613,3 +613,49 @@ refuse. The engine's refusal already says to unarchive first, so the app adds no
 the owner keeps the screens as they are. *A line naming where to unarchive* — the engine's words
 say it. *A question that unarchives and retries* — it would make unfreezing a side effect of an
 edit. *Listing archived accounts on Reconciliations, read-only* — nothing there can change.
+
+## The sheet import brings a split purchase in as one split transaction (2026-10-22, owner)
+
+**Context.** One bank movement split across categories is several rows in the owner's sheet,
+and the rows checked against a statement carry its line in `COD_EECC` (`SIG-202603-029`), shared
+by the rows of one movement. Imported row by row, each became a movement of its own, and a later
+bank upload added the movement again.
+
+**Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, sent as one
+`line_group` with the code as each part's `statement_line` (contract: POST /v1/transactions/batch, "Line groups");
+a chunk never cuts a group, and the engine keeps the code on the line. (2) **A group goes whole or
+not at all:** a group whose rows differ on account, date or title, or with a row the import cannot
+read, is skipped whole as `split-mismatch` and named under the `Skipped` line, and the rest
+imports; once the sheet is fixed, a re-run brings the group in. A zero-amount row is only
+dropped, since it changes nothing. (3) **The dry run counts the groups in one line**
+(`9 split transactions (30 rows) come in as one movement each.`); the groups are checked in the
+app after the import. (4) **A refused batch is read item by item:** a row named `ID_EXISTS` on
+its own id is already there, a row named by another refusal fails, and the rest go again as one
+batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests
+on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create"),
+which the client asked for: before it, a row sent again answered `STATEMENT_LINE_EXISTS` against
+its own line.
+
+**Rejected.** *Stopping the whole import on a differing group* — one slip in the sheet would
+hold back thousands of good rows. *Letting a group's readable rows in without its unreadable one*
+— the split lands with a part missing, and the fixed row is later refused because its statement
+line is taken. *Listing every group on the dry run* — the owner checks them in the app. *Asking
+the client to tell its own line from another after `STATEMENT_LINE_EXISTS`* — one read per row,
+repeated in every client; the engine changed its order instead. *Re-sending a refused batch row
+by row* — one request per row, now that the engine names every item it refuses.
+
+## Refused rows read one line per kind of error (2026-10-22, owner)
+
+**Decision.** When a save of several rows is refused, the sheet import's `Failures` block and the
+LOG bar's lines under the table read one line per kind of error: the field the engine names, its
+words, then the rows it hit (`date: Must not be null. row 77`, `rows 3, 5, 7`). Rows are one kind
+when the engine's code, fields and reasons for them are the same, never by its top-level message,
+which counts the items. The engine's whole answer stays in the import's `--json`. A split refused
+for one row shows that row's line, and its other rows read `Part of a split transaction refused
+for another row.`; rows the app holds back read `Not sent: …` and `Part of a split transaction
+not sent for another row.`, so "refused" only ever means the engine said no.
+
+**Rejected.** *One line per row* — a refusal that hits many rows repeats itself line after line.
+*The engine's words alone* — its words are often general (`Must not be null.`), so two lines
+could read the same with nothing to say which field each is about. *Grouping by the top-level
+message* — it carries a count, so one kind sent twice would read as two.

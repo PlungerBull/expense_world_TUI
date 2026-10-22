@@ -44,8 +44,9 @@ action, useful again whenever an account was created as the wrong kind.
 **Catches up to contract `fab230c456c2dba2`:** every contract change after `56a43798fc1f2915`
 up to it, the account half of the engine's hand-off "Every bank line carries an engine-given
 code and an optional statement-line reference, and an account can become a person and back"
-(shipped 2026-10-21). Its line-code and statement-line half is
-[sheet-import-statement-line.md](sheet-import-statement-line.md).
+(shipped 2026-10-21). Its line-code and statement-line half is built, up to contract
+`54fd1012f7d60abc` ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
+as one split transaction").
 
 **The engine's checks** — its "Done when" for this half. The tester's acceptance check runs them,
 and the reply reports each result.
@@ -93,9 +94,9 @@ picks; task 3 waits for the answer on check 4.
 Written once the spec is done, into [to-engine/](../to-engine/), for the owner to hand over.
 
 - **Covers:** contract `56a43798fc1f2915` (exclusive) to `fab230c456c2dba2` (inclusive), the
-  account half of the hand-off named above; its other half has its own reply, from
-  [sheet-import-statement-line.md](sheet-import-statement-line.md), whose reply names the
-  version the owner quotes for the next catch-up.
+  account half of the hand-off named above; its other half has its own reply,
+  [caught-up-54fd1012f7d60abc.md](../to-engine/caught-up-54fd1012f7d60abc.md), whose version,
+  `54fd1012f7d60abc`, is the one the owner quotes for the next catch-up.
 - **Done when, checked:** the two engine's checks above, with the tester's results.
 - **Contract problems found:** what the build and the tester's run find.
 - **Asks this closes:** none.
