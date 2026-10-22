@@ -94,8 +94,8 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
 
 - **Covers:** contract `56a43798fc1f2915` (exclusive) to `fab230c456c2dba2` (inclusive), the
   account half of the hand-off named above; its other half has its own reply, from
-  [sheet-import-statement-line.md](sheet-import-statement-line.md). `fab230c456c2dba2` is the
-  version the owner quotes for the next catch-up once both replies are handed over.
+  [sheet-import-statement-line.md](sheet-import-statement-line.md), whose reply names the
+  version the owner quotes for the next catch-up.
 - **Done when, checked:** the two engine's checks above, with the tester's results.
 - **Contract problems found:** what the build and the tester's run find.
 - **Asks this closes:** none.

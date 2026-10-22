@@ -45,6 +45,20 @@ its opening balance first.`
 cursor that stays let a second `t` undo a slip. The extra line names the key that fixes the
 refusal, as the other refusals do.
 
+### How refused rows show: grouped by reason or one line each [UI]
+Asked 2026-10-22 · Blocks: [specs/sheet-import-statement-line.md](specs/sheet-import-statement-line.md) task 6
+
+The engine now names every refused row of a save, and its hand-off says you asked for them
+grouped by reason ("10 rows already exist: 3, 5, 7, …"). Every option is drawn in
+[mockups/expense-world-grouped-refusals.html](mockups/expense-world-grouped-refusals.html): one
+letter for each screen. Screen 1 is the end of the sheet import: **A** one entry per reason, with
+its count and every sheet line it refused, or **B** one line per row, as today. Screen 2 is the
+LOG bar after `ctrl+s`: **A** rows sharing a reason share a line (`rows 4, 6: …`), or **B** one
+line per row, as today. Rows already in the ledger are not refusals and are listed on neither.
+
+**Recommended:** 1 A · 2 A. A refusal that hits many rows reads once, and the sheet lines are all
+you need to find them.
+
 ### The dry run cannot tell a reused account
 Asked 2026-10-21 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) task 3
 

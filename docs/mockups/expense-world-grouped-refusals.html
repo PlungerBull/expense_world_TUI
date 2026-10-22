@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Grouped refusals</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Refused rows · grouped by reason</h1>
+  <p>When the engine refuses several rows of one save, it now names every one of them. These two screens show those rows grouped by the engine's reason, as you asked the engine, or one line per row, as today. A row that is already in the ledger is not a refusal: it counts under <code>already-present</code> (sheet import) or gets its ✓ (LOG bar), and is not listed here. The rows are invented; the reasons are the engine's words.</p>
+  <p>Pick <b>one letter for each screen</b>. Use the button at the top right for a light terminal.</p>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 1 <span>— the end of <code>expense import sheet --apply</code>, 14 rows refused for two reasons</span></div>
+  <div class="opt var">
+    <div>
+      <div class="oh">A <span>— grouped by reason</span><span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre>Accounts:   created 0, reused 31
+Categories: created 0, reused 58
+Hashtags:   created 0, reused 12
+Transactions: created 4153, already-present 0, failed 14
+<span class="ab">Failures (14 rows):</span>
+  <span class="n">10 rows — Must not be a statement line another bank line already has.</span>
+    sheet lines 3, 5, 7, 9, 11, 14, 20, 21, 30, 41
+  <span class="n">4 rows — The date falls inside a completed reconciliation's period.</span>
+    sheet lines 512, 513, 514, 515</pre></div></div>
+      <p class="cap">One entry per reason: how many rows, the engine's words once, then every sheet line it refused. The internal ids go, since the sheet line finds the row.</p>
+    </div>
+    <div>
+      <div class="oh">B <span>— one line per row, as today</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense import sheet Presupuesto.xlsx --apply</span></div><div class="app"><pre>Accounts:   created 0, reused 31
+Categories: created 0, reused 58
+Hashtags:   created 0, reused 12
+Transactions: created 4153, already-present 0, failed 14
+<span class="ab">Failures:</span>
+  chunk 1: sheet line 3, id 3b8f…0: Must not be a statement line another bank line already has.
+  chunk 1: sheet line 5, id 3b8f…1: Must not be a statement line another bank line already has.
+  chunk 1: sheet line 7, id 3b8f…2: Must not be a statement line another bank line already has.
+  chunk 1: sheet line 9, id 3b8f…3: Must not be a statement line another bank line already has.
+  <span class="d">…6 more of the same, one line each</span>
+  chunk 3: sheet line 512, id 9c41…0: The date falls inside a completed reconciliation's period.
+  <span class="d">…3 more of the same, one line each</span></pre></div></div>
+      <p class="cap">Each refused row is a line of its own with its chunk, sheet line and id. Here, 14 lines where A has 4.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 2 <span>— the LOG bar, under the table, after <code>ctrl+s</code> with 3 of 6 rows refused</span></div>
+  <div class="opt var">
+    <div>
+      <div class="oh">A <span>— rows sharing a reason share a line</span><span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="d">row 2:</span> <span class="n">Must not be a statement line another bank line already has.</span>
+  <span class="d">rows 4, 6:</span> <span class="n">The date falls inside a completed reconciliation's period.</span>
+  <span class="d">ctrl+s retries just the rows without a ✓.</span></pre></div></div>
+      <p class="cap">Rows refused for the same reason are named together on one line.</p>
+    </div>
+    <div>
+      <div class="oh">B <span>— one line per row, as today</span></div>
+      <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="d">row 2:</span> <span class="n">Must not be a statement line another bank line already has.</span>
+  <span class="d">row 4:</span> <span class="n">The date falls inside a completed reconciliation's period.</span>
+  <span class="d">row 6:</span> <span class="n">The date falls inside a completed reconciliation's period.</span>
+  <span class="d">ctrl+s retries just the rows without a ✓.</span></pre></div></div>
+      <p class="cap">Each refused row on its own line, even when the reason repeats.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pick">Reply with one letter per screen, for example <b>1 A · 2 A</b>.</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
