@@ -509,6 +509,14 @@ the bar is where the right file gets dropped next.
 
 **Rejected.** *Letting the default parallel run spread them:* they would race on the shared user and the sealed periods.
 
+## The whole unit suite runs once per task, and docs never trigger it (2026-10-22, owner)
+
+**Context.** The unit suite takes about 45 s and a task ran it three or four times: at the builder's stop, again at commit on the same code, and by hand from builders, reviewers and the librarian despite their instructions. Common practice keeps commit-time checks fast, runs the full suite once when the work is done, and keeps CI as the safety net; build tools such as Bazel never re-test code that has not changed since it passed.
+
+**Decision.** The tests gate saves a fingerprint after a green run (the tree with untracked files, the venv's packages and Python version, the pytest command) and skips pytest when the builder's stop or a commit sees the same fingerprint. Every `.md` file and everything under `docs/` are left out of it, the owner's pick, so a docs-only change runs no tests; a doc edit that breaks a test that reads docs (`test_docs_links.py`, parts of `test_claude_hooks.py`) is caught by the librarian's docs-link run or by CI after the push. Anything that stops the fingerprint being computed, read or saved makes pytest run. The guard blocks a builder, reviewer or librarian running the whole suite by hand — enforcement by tooling, since written instructions did not hold — and names what to run instead; a bare `--lf` counts as whole-suite, since after a green run it reruns everything.
+
+**Rejected.** *Running only the tests a change can affect (`pytest-testmon`):* once the gate skips unchanged code the builder's stop is the only full run, and testmon would move it to commit, where a failure costs a round trip, and add a data file that can go stale; revisit past about 90 s. *Running the doc-reading tests on a docs-only change:* a list of doc-reading tests to keep in step, for a check CI already makes. *Keeping docs in the fingerprint:* the orchestrator edits docs between the builder's stop and every commit, so the commit would rerun the suite on nearly every task.
+
 ## The practice engine has one script, run in exact shapes (2026-10-16)
 
 **Context.** Sending a tester just to start or stop the practice engine added an agent round trip to every task that needed the contract live. The start's output carries the practice user's key, which must never reach a file.

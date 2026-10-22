@@ -286,6 +286,9 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md); it waits on
   [specs/accounts-become-people.md](specs/accounts-become-people.md).
+- **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
+  import door; the first real bank import follows the official import. Plan:
+  [file-import-plan.md](file-import-plan.md).
 - **Expense World XP [UI]** — an XP layer over the month: a strip on Home, toasts when something
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
