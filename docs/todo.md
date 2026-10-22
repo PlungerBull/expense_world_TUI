@@ -27,6 +27,31 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine's contract moved to 996986490b68f05e
+Asked 2026-10-22 · Blocks: [specs/accounts-become-people.md](specs/accounts-become-people.md) (its librarian sweep and reply) and every new task
+
+The tester's acceptance check passed everything this spec owns, but the engine's contract
+version moved. This client last caught up to `54fd1012f7d60abc`. The version check prints:
+
+```
+the engine's contract version has changed: saved 54fd1012f7d60abc, engine 996986490b68f05e.
+what the contract changed since 54fd1012f7d60abc, newest first:
+  996986490b68f05e  2026-10-22
+    changed: wording only, no behaviour change. The contract now states that letter case counts in an operation code and in a statement line: after trimming, both are compared letter for letter, so `abc123` and `ABC123` are two operation codes and `SIG-202603-029` and `sig-202603-029` two statement lines. Stated in `POST /transactions` (*Fields*), `PUT /transactions/{id}`, `POST /transactions/batch` (its duplicates within the batch and *Line groups*), `POST /transactions/import` (its duplicate rows and its matching by operation code), and the texts of `OPERATION_CODE_EXISTS`, `STATEMENT_LINE_EXISTS` and `DUPLICATE_IN_REQUEST`.
+    changed: wording only, no behaviour change. `GET /bank-lines/{id}` → *Response fields* describes `operation_code` as the line's operation code, and `POST /transactions` → *Fields*, `POST /transactions/batch` (its duplicates within the batch and *Line groups*), `PUT /transactions/{id}`, `POST /transactions/import` (*Matching*, its backfill, *Concurrency* and *Activity log*) and the text of `OPERATION_CODE_EXISTS` say "operation code" wherever they mean it; "the line's code" now means only `line_code`.
+no fixture claims a field the engine does not serve.
+```
+
+- **A.** Ask the engine coders for one hand-off file from `54fd1012f7d60abc` to
+  `996986490b68f05e`, and catch up as its own spec. This spec waits until then.
+- **B.** Take the new version as is, since both changes are wording only and nothing the app
+  does changes: record it, finish this spec (the docs sweep and its reply to the engine), and
+  thank the engine in that reply for settling letter case, which the last reply asked about.
+
+**Recommended:** B, because the engine itself marks both changes as no behaviour change, the
+app already treats statement lines letter for letter, and a hand-off would hold nothing for
+the app to do.
+
 ### The Edit form when nothing on an archived line can change
 Asked 2026-10-18 · Blocks: nothing (it is reachable only from a list read before the account was archived)
 
