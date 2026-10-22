@@ -67,15 +67,6 @@ Approved by the owner 2026-10-22, who picks 1 A · 2 A · 4 B · 5 B in
 [expense-world-account-to-person.html](../mockups/expense-world-account-to-person.html), and
 checks the import re-run on `--apply`: the dry run stays offline.
 
-1. **The live contract tests know both routes.** A real account with transactions becomes a
-   person (`POST /accounts/{id}/make-person`): `200`, `is_person` true, balance, name, currency
-   and transactions unchanged, `version` up by one, listed among the people by
-   `GET /accounts?include_people=true` and in `/dashboard`'s `people`, `sort_order` the next one
-   at the end of the people; `make-account` turns it back the same way. Refused with `409` on
-   `account_id`, nothing written: `KIND_UNCHANGED` on each route, `HAS_OPENING_BALANCE` on
-   `make-person` (and it goes through once the opening balance is deleted), and
-   `ACCOUNT_ARCHIVED` on both for an archived account and an archived person, checked first. An
-   unknown id is `404`. A replay with the same idempotency key does not flip it twice.
 2. **Manage ▸ Accounts turns an account into a person and back,** as the picked screens draw:
    `t Make person` on a bank account's row, `t Make bank` on a person's, sent at once with no
    question through the two routes (screen 1 A); the cursor stays on the account in its new
