@@ -1075,3 +1075,351 @@ def test_tests_gate_blocks_when_the_suite_hangs(box):
     )
     assert result.returncode == 2
     assert "did not finish within 0.5 s" in result.stderr
+
+
+# tests_gate.py's fingerprint: code it has already passed is not run again
+
+
+_HERMETIC_GIT = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+def _git_env() -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return {**env, **_HERMETIC_GIT}
+
+
+def _git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd,
+        env=_git_env(),
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+class Counted:
+    """The gate in a git repo, running a stub that counts its runs and exits as told."""
+
+    def __init__(self, box: Sandbox, also: str = "") -> None:
+        self.box = box
+        self.runs = box.home / "runs.txt"
+        self.exit_code = box.home / "exit.txt"
+        self.exit_code.write_text("0")
+        code = (
+            f"import sys\n{also}\n"
+            f"open({str(self.runs)!r}, 'a').write('x')\n"
+            f"sys.exit(int(open({str(self.exit_code)!r}).read()))"
+        )
+        self.stub = shlex.join([sys.executable, "-c", code])
+
+    @property
+    def count(self) -> int:
+        return len(self.runs.read_text()) if self.runs.exists() else 0
+
+    def gate(self, payload: dict | None = None, *, repo: Path | None = None, **env: str):
+        env = {"EXPENSE_HOOKS_PYTEST": self.stub, **_HERMETIC_GIT, **env}
+        if repo is not None:
+            env["CLAUDE_PROJECT_DIR"] = str(repo)
+        return self.box.run("tests_gate.py", payload or _stop(False), **env)
+
+    def stamp(self, repo: Path | None = None) -> Path:
+        git_dir = _git(repo or self.box.repo, "rev-parse", "--absolute-git-dir")
+        return Path(git_dir) / "tests-gate-passed"
+
+
+@pytest.fixture
+def counted(box):
+    """`box.repo` as a committed git repo with code, docs and a venv the gate reads."""
+    repo = box.repo
+    _git(repo, "init", "-q")
+    (repo / ".gitignore").write_text(".venv/\n__pycache__/\n")
+    (repo / "app.py").write_text("x = 1\n")
+    (repo / "README.md").write_text("# readme\n")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "guide.md").write_text("guide\n")
+    (repo / "docs" / "data.json").write_text("{}\n")
+    site = repo / ".venv" / "lib" / "python3.12" / "site-packages"
+    (site / "httpx-0.27.0.dist-info").mkdir(parents=True)
+    (repo / ".venv" / "pyvenv.cfg").write_text("home = /x\nversion = 3.12.15\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    return Counted(box)
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        (_stop(False), _stop(False)),
+        (_bash("git commit -m x"), _bash("git commit -m x")),
+        (_stop(False), _bash("git commit -m x")),
+        (_bash("git commit -m x"), _stop(False)),
+    ],
+    ids=["stop-stop", "commit-commit", "stop-then-commit", "commit-then-stop"],
+)
+def test_tests_gate_skips_code_it_has_already_passed(counted, first, second):
+    _allowed(counted.gate(first))
+    _allowed(counted.gate(second))
+    assert counted.count == 1
+
+
+def _edit_tracked(repo: Path) -> None:
+    (repo / "app.py").write_text("x = 2\n")
+
+
+def _add_untracked(repo: Path) -> None:
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "new.py").write_text("y = 1\n")
+
+
+def _stage_code(repo: Path) -> None:
+    (repo / "app.py").write_text("x = 3\n")
+    _git(repo, "add", "app.py")
+
+
+def _delete_tracked(repo: Path) -> None:
+    (repo / "app.py").unlink()
+
+
+def _new_package(repo: Path) -> None:
+    site = repo / ".venv" / "lib" / "python3.12" / "site-packages"
+    (site / "rich-13.0.0.dist-info").mkdir()
+
+
+def _upgrade_package(repo: Path) -> None:
+    site = repo / ".venv" / "lib" / "python3.12" / "site-packages"
+    (site / "httpx-0.27.0.dist-info").rename(site / "httpx-0.28.0.dist-info")
+
+
+def _new_python(repo: Path) -> None:
+    (repo / ".venv" / "pyvenv.cfg").write_text("home = /x\nversion = 3.12.16\n")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        _edit_tracked,
+        _add_untracked,
+        _stage_code,
+        _delete_tracked,
+        _new_package,
+        _upgrade_package,
+        _new_python,
+    ],
+)
+def test_tests_gate_runs_again_after_a_code_change(counted, change):
+    _allowed(counted.gate())
+    change(counted.box.repo)
+    _allowed(counted.gate())
+    assert counted.count == 2
+    _allowed(counted.gate())
+    assert counted.count == 2, "the new code passed, so it is skipped from then on"
+
+
+def test_tests_gate_runs_again_when_the_command_changes(counted):
+    _allowed(counted.gate())
+    other = Counted(counted.box)  # the same counter, a differently spelled command
+    other.stub += " --again"
+    _allowed(other.gate())
+    assert counted.count == 2
+
+
+def test_tests_gate_override_command_is_what_runs(counted):
+    record = counted.box.home / "argv.txt"
+    code = f"import sys; open({str(record)!r}, 'w').write(' '.join(sys.argv[1:]))"
+    _allowed(counted.gate(EXPENSE_HOOKS_PYTEST=shlex.join([sys.executable, "-c", code, "ran"])))
+    assert record.read_text() == "ran"
+
+
+def _edit_root_md(repo: Path) -> None:
+    (repo / "README.md").write_text("# changed\n")
+
+
+def _add_nested_md(repo: Path) -> None:
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "notes.md").write_text("notes\n")
+
+
+def _stage_md(repo: Path) -> None:
+    (repo / "README.md").write_text("# staged\n")
+    (repo / "CHANGES.md").write_text("new\n")
+    _git(repo, "add", "README.md", "CHANGES.md")
+
+
+def _edit_docs_md(repo: Path) -> None:
+    (repo / "docs" / "guide.md").write_text("changed\n")
+
+
+def _edit_docs_other(repo: Path) -> None:
+    (repo / "docs" / "data.json").write_text('{"a": 1}\n')
+
+
+def _add_docs_file(repo: Path) -> None:
+    (repo / "docs" / "mockups").mkdir()
+    (repo / "docs" / "mockups" / "screen.html").write_text("<p>\n")
+
+
+def _delete_doc(repo: Path) -> None:
+    (repo / "README.md").unlink()
+
+
+def _add_ignored(repo: Path) -> None:
+    (repo / "__pycache__").mkdir()
+    (repo / "__pycache__" / "app.pyc").write_text("x")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        _edit_root_md,
+        _add_nested_md,
+        _stage_md,
+        _edit_docs_md,
+        _edit_docs_other,
+        _add_docs_file,
+        _delete_doc,
+        _add_ignored,
+    ],
+)
+def test_tests_gate_ignores_doc_changes(counted, change):
+    _allowed(counted.gate())
+    change(counted.box.repo)
+    _allowed(counted.gate(_bash("git commit -m docs")))
+    assert counted.count == 1
+
+
+def test_tests_gate_saves_the_fingerprint_taken_before_the_run(counted):
+    """Code that changes while the suite runs has not passed, so the next gate runs it."""
+    app = counted.box.repo / "app.py"
+    edit = f"open({str(app)!r}, 'w').write('x = 9\\n')"
+    counted = Counted(counted.box, also=edit)
+    _allowed(counted.gate())
+    assert app.read_text() == "x = 9\n"
+    _allowed(counted.gate())
+    assert counted.count == 2
+    _allowed(counted.gate())
+    assert counted.count == 2
+
+
+def _red(counted: Counted) -> dict[str, str]:
+    counted.exit_code.write_text("1")
+    return {}
+
+
+def _timed_out(counted: Counted) -> dict[str, str]:
+    stub = shlex.join([sys.executable, "-c", "import time; time.sleep(30)"])
+    return {"EXPENSE_HOOKS_PYTEST": stub, "EXPENSE_HOOKS_PYTEST_TIMEOUT": "0.5"}
+
+
+def _not_started(counted: Counted) -> dict[str, str]:
+    return {"EXPENSE_HOOKS_PYTEST": str(counted.box.home / "no-such-pytest")}
+
+
+@pytest.mark.parametrize("failure", [_red, _timed_out, _not_started])
+def test_tests_gate_failed_run_clears_the_fingerprint(counted, failure):
+    _allowed(counted.gate())
+    assert counted.stamp().exists()
+    _edit_tracked(counted.box.repo)
+    assert counted.gate(**failure(counted)).returncode == 2
+    assert not counted.stamp().exists()
+
+
+def test_tests_gate_red_run_saves_no_fingerprint_and_runs_again(counted):
+    counted.exit_code.write_text("1")
+    assert counted.gate().returncode == 2
+    assert not counted.stamp().exists()
+    assert counted.gate().returncode == 2
+    assert counted.count == 2, "a red run is never skipped"
+    counted.exit_code.write_text("0")
+    _allowed(counted.gate())
+    assert counted.count == 3
+
+
+def test_tests_gate_leaves_the_real_index_byte_for_byte_unchanged(counted):
+    repo = counted.box.repo
+    _stage_code(repo)
+    _stage_md(repo)
+    _add_untracked(repo)
+    (repo / "docs" / "guide.md").write_text("unstaged\n")
+    index = Path(_git(repo, "rev-parse", "--absolute-git-dir")) / "index"
+    status = _git(repo, "status")  # `git status` itself may refresh the index, so first
+    before, mtime = index.read_bytes(), index.stat().st_mtime_ns
+    _allowed(counted.gate())
+    _allowed(counted.gate(_bash("git commit -m x")))
+    assert index.read_bytes() == before
+    assert index.stat().st_mtime_ns == mtime
+    assert _git(repo, "status") == status
+
+
+def test_tests_gate_keeps_a_worktrees_fingerprint_in_its_git_dir(counted):
+    main = counted.box.repo
+    tree = counted.box.home / "Documents" / "expense_world_TUI-wt"
+    _git(main, "worktree", "add", "-q", "--detach", str(tree))
+    dot_git = (tree / ".git").read_text()
+    _allowed(counted.gate(repo=tree))
+    stamp = counted.stamp(tree)
+    assert stamp.exists() and stamp.parent != main / ".git"
+    assert stamp.parent.parent == main / ".git" / "worktrees"
+    assert (tree / ".git").is_file() and (tree / ".git").read_text() == dot_git
+    assert not counted.stamp(main).exists(), "the main checkout keeps its own"
+    _allowed(counted.gate(repo=tree))
+    assert counted.count == 1
+    _allowed(counted.gate())
+    assert counted.count == 2, "the main checkout has not passed yet"
+
+
+def test_tests_gate_runs_every_time_outside_a_git_repo(box):
+    gate = Counted(box)
+    _allowed(gate.gate())
+    _allowed(gate.gate())
+    assert gate.count == 2
+
+
+def _undecodable(stamp: Path) -> None:
+    stamp.write_bytes(b"\xff\xfe\x00")
+
+
+def _unreadable(stamp: Path) -> None:
+    stamp.chmod(0)
+
+
+def _a_folder(stamp: Path) -> None:
+    stamp.unlink()
+    stamp.mkdir()
+    (stamp / "inside").write_text("x")  # so neither unlink nor write can replace it
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads files whatever their mode")
+@pytest.mark.parametrize("spoil", [_undecodable, _unreadable, _a_folder])
+def test_tests_gate_runs_pytest_when_the_saved_fingerprint_cannot_be_read(counted, spoil):
+    _allowed(counted.gate())
+    spoil(counted.stamp())
+    _allowed(counted.gate())
+    assert counted.count == 2
+
+
+def test_tests_gate_red_run_still_blocks_when_the_fingerprint_cannot_be_cleared(counted):
+    _allowed(counted.gate())
+    _a_folder(counted.stamp())
+    counted.exit_code.write_text("1")
+    result = counted.gate()
+    assert result.returncode == 2
+    assert result.stderr.startswith('Blocked by CLAUDE.md "Dev loop"')
+    assert "Traceback" not in result.stderr
+    assert counted.count == 2
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads files whatever their mode")
+def test_tests_gate_runs_pytest_when_the_index_cannot_be_copied(counted):
+    index = Path(_git(counted.box.repo, "rev-parse", "--absolute-git-dir")) / "index"
+    _allowed(counted.gate())
+    index.chmod(0)
+    try:
+        _allowed(counted.gate())
+        counted.exit_code.write_text("1")
+        assert counted.gate().returncode == 2
+    finally:
+        index.chmod(0o644)
+    assert counted.count == 3, "no fingerprint, so pytest runs every time"
+    assert not counted.stamp().exists()

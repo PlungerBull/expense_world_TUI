@@ -62,36 +62,6 @@ again in CI.
 
 ## Tasks
 
-1. **The tests gate skips code it has already passed, and ignores docs.** In
-   [.claude/hooks/tests_gate.py](../../.claude/hooks/tests_gate.py): before running, it computes a
-   fingerprint; after a green run it saves that fingerprint (the one computed before the run).
-   When the gate fires again with the same fingerprint, it exits 0 without running pytest. The
-   fingerprint is made of:
-   - the working tree, including untracked files that aren't ignored, **with every doc path
-     left out** (every `*.md` file and everything under `docs/`). It is built in a temporary
-     index file that starts as a copy of the real index (so unchanged files aren't re-read),
-     then `git add -A`, the doc paths dropped, and `git write-tree`; the real index is never
-     touched;
-   - the installed packages (the `*.dist-info` names in the venv's site-packages) and the
-     venv's Python version;
-   - the pytest command.
-
-   It is stored in the folder `git rev-parse --git-dir` names (so a worktree keeps its own, and
-   it is never committed). A red, timed-out or failed-to-start run clears it.
-   **Passes if:** tests in `tests/unit/test_claude_hooks.py` show that:
-   - a second gate run on an unchanged tree doesn't run pytest;
-   - editing a tracked code file, adding an untracked code file, or changing the command makes
-     it run again;
-   - editing, adding or staging a `.md` file anywhere, or any file under `docs/`, doesn't make
-     it run again;
-   - a red run leaves no fingerprint;
-   - the real index is byte-for-byte unchanged after the gate;
-   - the fingerprint lands in the git dir of a worktree, not in a `.git` file;
-   - the `EXPENSE_HOOKS_PYTEST` override still works.
-
-   CLAUDE.md "Dev loop" (the guards entry) and "How work runs" step 2 say the gate skips code it
-   has already passed and that a docs-only change runs no tests.
-
 2. **The guard blocks a hand-run whole suite for builder, reviewer and librarian.** In
    [.claude/hooks/guard.py](../../.claude/hooks/guard.py), with its commands read through
    `_shell.py` and pytest runs found by its existing `_runs_pytest`. The rule applies when the
