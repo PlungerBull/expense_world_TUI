@@ -848,6 +848,237 @@ def test_guard_allows_tool(box, tool, tool_input):
 
 
 # ---------------------------------------------------------------------------
+# guard.py — no hand-run whole unit suite for builder, reviewer and librarian
+# ---------------------------------------------------------------------------
+
+SUITE_GATED = ["builder", "reviewer", "librarian"]
+SUITE = "Dev loop"
+LIVE_8002 = "PYTEST_LIVE=1 EXPENSE_PAT=x EXPENSE_ENGINE_URL=http://127.0.0.1:8002"
+
+
+@pytest.fixture
+def suite_box(box):
+    """A sandbox repo with a unit suite of three test files, and a contract folder, on disk."""
+    unit = box.repo / "tests" / "unit"
+    unit.mkdir(parents=True)
+    for name in ("test_x.py", "test_y.py", "test_z.py"):
+        (unit / name).write_text("def test_a():\n    pass\n")
+    (unit / "helpers.py").write_text("")
+    (box.repo / "tests" / "contract").mkdir()
+    (box.repo / "expense").mkdir()
+    return box
+
+
+WHOLE_SUITE_RUNS = [
+    # no test path at all
+    "pytest",
+    "python -m pytest",
+    ".venv/bin/python -m pytest",
+    "python3 -m pytest -q",
+    "pytest -n 4",
+    "pytest -p xdist --tb short -o x=y",
+    "pytest -x -q -n0",
+    # the suite named outright, however it is written
+    "pytest tests/unit",
+    ".venv/bin/pytest tests/unit -q",
+    ".venv/bin/python -m pytest tests/unit",
+    "pytest tests/unit -n 4",
+    "pytest -n 4 tests/unit",
+    "pytest tests/unit tests/unit/test_x.py",
+    "pytest tests/unit/test_x.py tests/unit",
+    "pytest tests/unit/",
+    "pytest ./tests/unit",
+    "pytest ./tests/unit/",
+    "pytest tests",
+    "pytest tests/",
+    "pytest .",
+    "pytest ./",
+    f"{LIVE_8002} pytest tests/unit tests/contract",
+    "pytest {repo}/tests/unit",
+    "pytest tests/*",
+    # paths that together hold every test file in tests/unit
+    "pytest tests/unit/*",
+    "pytest tests/unit/test_*.py",
+    "pytest tests/unit/test_?.py -n 4",
+    "pytest tests/unit/test_x.py tests/unit/test_y.py tests/unit/test_z.py",
+    "pytest tests/unit/test_[xy].py tests/unit/test_z.py",
+    "pytest tests/unit/test_*.py tests/unit/test_x.py::test_a",
+    "cd tests && pytest unit",
+    "cd tests && pytest .",
+    "ruff check . && pytest tests/unit",
+    "pytest tests/unit 2>&1 | tail -n 5",
+    # options that do not narrow a run, and option values that are no test path
+    "pytest --lf",
+    "pytest tests/unit --lf",
+    "pytest --last-failed",
+    "pytest --lf --lfnf=all",
+    "pytest --lf --lfnf all tests/unit",
+    "pytest --lfnf=none",
+    "pytest --sw",
+    "pytest --stepwise tests/unit",
+    "pytest --sw-skip tests/unit",
+    "pytest -m slow tests/unit",
+    "pytest -k '' tests/unit",
+    "pytest --cov expense",
+    "pytest --rootdir . tests/unit",
+    "pytest -c pyproject.toml",
+    f"{LIVE_8002} pytest --basetemp tests/contract",
+    # a path that does not exist is no test path
+    "pytest tests/unit/test_typo.py",
+    # sets fixtures up, so it is a run
+    "pytest --setup-only tests/unit",
+]
+
+
+@pytest.mark.parametrize("agent", SUITE_GATED)
+@pytest.mark.parametrize("command", WHOLE_SUITE_RUNS)
+def test_guard_blocks_a_hand_run_whole_suite(suite_box, agent, command):
+    result = suite_box.guard("Bash", {"command": command}, agent=agent)
+    _blocked(result, SUITE)
+
+
+def test_guard_whole_suite_message_says_what_to_run_instead(suite_box):
+    reason = suite_box.guard("Bash", {"command": "pytest tests/unit"}, agent="builder").stderr
+    assert "the tests gate runs the whole unit suite when the builder stops and at commit" in (
+        reason
+    )
+    assert "`pytest tests/unit/test_x.py`" in reason
+    assert "`-k <name>`" in reason
+    assert "`--lf --lfnf=none` to rerun the last failures" in reason
+
+
+NARROW_RUNS = [
+    "pytest tests/unit/test_x.py",
+    ".venv/bin/pytest tests/unit/test_x.py -q",
+    "python -m pytest tests/unit/test_x.py",
+    ".venv/bin/python -m pytest tests/unit/test_x.py -n0",
+    "pytest tests/unit/test_x.py tests/unit/test_y.py",
+    "pytest ./tests/unit/test_x.py",
+    "pytest {repo}/tests/unit/test_x.py",
+    "pytest tests/unit/test_x.py -n 4 --tb short -p xdist -o x=y",
+    "pytest tests/unit/test_[xy].py",
+    "pytest tests/unit/test_x*.py tests/unit/test_y.py",
+    "pytest tests/unit/test_x.py::test_a tests/unit/test_y.py tests/unit/test_z.py",
+    "cd tests/unit && pytest test_x.py",
+    # a node id
+    "pytest tests/unit/test_x.py::test_a",
+    "pytest 'tests/unit/test_x.py::test_a[1]'",
+    "pytest tests/unit/test_nothing_here.py::test_a",
+    # a name filter, in each form pytest reads
+    "pytest -k hooks",
+    "pytest tests/unit -k hooks",
+    "pytest tests/unit -khooks",
+    "pytest tests/unit -k=hooks",
+    "pytest tests/unit -vk hooks",
+    "pytest tests/unit -xvkhooks",
+    "python -m pytest tests/unit -k 'guard and not lint'",
+    # the last failures, and only them
+    "pytest --lf --lfnf=none",
+    "pytest tests/unit --lf --lfnf none",
+    "pytest --last-failed --last-failed-no-failures=none",
+    "pytest --last-failed --last-failed-no-failures none tests/unit",
+    "pytest --lfnf=none --lf tests/unit -n0",
+    "pytest --lf --sw --lfnf=none",
+    # the contract suite, with its :8002 target
+    f"{LIVE_8002} pytest tests/contract",
+    f"{LIVE_8002} .venv/bin/pytest tests/contract -n0 -q",
+    # no test run
+    "pytest --version",
+    "pytest --help",
+    "pytest tests/unit --co -q",
+    "pytest --collect-only",
+    "pytest --collectonly tests/unit",
+    "pytest --fixtures",
+    "pytest --funcargs tests/unit",
+    "pytest --markers",
+    "pytest --setup-plan tests/unit",
+    "pytest --setupplan",
+    "pytest --cache-show",
+    "pytest --cache-show 'lastfailed*'",
+    "pytest --cache-show=lastfailed",
+    # reading the suite is not running it
+    "grep -rn pytest tests/unit",
+    "ls tests/unit",
+]
+
+
+@pytest.mark.parametrize("agent", SUITE_GATED)
+@pytest.mark.parametrize("command", NARROW_RUNS)
+def test_guard_lets_a_narrow_run_through(suite_box, agent, command):
+    _allowed(suite_box.guard("Bash", {"command": command}, agent=agent))
+
+
+@pytest.mark.parametrize("agent", SUITE_GATED)
+@pytest.mark.parametrize(
+    "command",
+    [
+        ".venv/bin/pytest tests/contract",
+        "PYTEST_LIVE=1 EXPENSE_PAT=x pytest tests/contract -q",
+        "EXPENSE_ENGINE_URL=http://127.0.0.1:8000 pytest tests/contract",
+    ],
+)
+def test_guard_keeps_the_contract_suite_on_8002_for_gated_roles(suite_box, agent, command):
+    _blocked(suite_box.guard("Bash", {"command": command}, agent=agent), LIVE)
+
+
+@pytest.mark.parametrize("agent", ["tester", None])  # None: the main session
+@pytest.mark.parametrize(
+    "command",
+    ["pytest tests/unit", ".venv/bin/pytest tests/unit -q", "pytest", "python -m pytest --lf"],
+)
+def test_guard_leaves_the_tester_and_main_session_their_whole_suite(suite_box, agent, command):
+    _allowed(suite_box.guard("Bash", {"command": command}, agent=agent))
+
+
+@pytest.mark.parametrize("agent", [["builder"], 3, ""])
+def test_guard_reads_a_non_string_agent_type_as_the_main_session(suite_box, agent):
+    payload = {
+        "cwd": str(suite_box.repo),
+        "tool_name": "Bash",
+        "tool_input": {"command": "pytest tests/unit"},
+        "agent_type": agent,
+    }
+    _allowed(suite_box.run("guard.py", payload))
+
+
+def _load_guard(monkeypatch):
+    import importlib.util
+
+    monkeypatch.syspath_prepend(str(HOOKS))  # guard.py imports `_shell` from its folder
+    spec = importlib.util.spec_from_file_location("_guard_under_test", HOOKS / "guard.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_guard_knows_every_pytest_option_that_takes_a_value(monkeypatch):
+    """The guard's lists of value-taking options match pytest's own parser, built with the
+    plugins installed here (cov, xdist, anyio), so an option value is never read as a test
+    path and a path is never swallowed as a value."""
+    from _pytest.config import get_config
+
+    config = get_config()
+    config.pluginmanager.load_setuptools_entrypoints("pytest11")
+    short: set[str] = set()
+    long: set[str] = set()
+    optional: set[str] = set()
+    for action in config._parser.optparser._actions:
+        if not action.option_strings or action.nargs == 0:
+            continue
+        for option in action.option_strings:
+            if action.nargs == "?":
+                optional.add(option)
+            elif option.startswith("--"):
+                long.add(option)
+            else:
+                short.add(option[1:])
+    guard = _load_guard(monkeypatch)
+    assert set(guard._PYTEST_VALUE_SHORT) == short
+    assert set(guard._PYTEST_VALUE_LONG) == long
+    assert set(guard._PYTEST_OPTIONAL_VALUE) == optional
+
+
+# ---------------------------------------------------------------------------
 # lint_edit.py
 # ---------------------------------------------------------------------------
 

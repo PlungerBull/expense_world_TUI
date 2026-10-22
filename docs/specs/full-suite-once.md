@@ -62,35 +62,6 @@ again in CI.
 
 ## Tasks
 
-2. **The guard blocks a hand-run whole suite for builder, reviewer and librarian.** In
-   [.claude/hooks/guard.py](../../.claude/hooks/guard.py), with its commands read through
-   `_shell.py` and pytest runs found by its existing `_runs_pytest`. The rule applies when the
-   hook input's `agent_type` is `builder`, `reviewer` or `librarian` and a command runs pytest
-   (`pytest`, `.venv/bin/pytest`, `python -m pytest`) on the whole unit suite:
-   - A word counts as a **test path** only if it exists on disk (relative to the command's
-     folder) or contains `::`, so option values such as `-n 4`, `-p xdist`, `--tb short` or
-     `-o x=y` are never mistaken for one.
-   - A run is **whole-suite** when it has no test path, or any of its test paths is `.`,
-     `tests` or `tests/unit` (with or without `./` in front or a trailing slash) — unless it
-     has `-k`, or `--lf`/`--last-failed` together with `--lfnf=none` (or
-     `--last-failed-no-failures none`). A bare `--lf` reruns everything after a green run, and
-     `--sw` with no saved progress starts from the first test, so neither narrows a run on its
-     own.
-
-   It is blocked with a message saying the tests gate runs the whole suite when the builder stops
-   and at commit, and to run a file (`pytest tests/unit/test_x.py`), `-k <name>`, or
-   `--lf --lfnf=none` to rerun the last failures. Still allowed: any file, a node id, `-k`,
-   `--lf --lfnf=none`, `tests/contract` runs, and every pytest run by the tester or by the main
-   session (no `agent_type`).
-   **Passes if:** `tests/unit/test_claude_hooks.py` shows that:
-   - each blocked shape is blocked for each of the three roles, including
-     `pytest tests/unit -n 4`, `pytest tests/unit tests/unit/test_x.py`, a bare `--lf` and a
-     bare `--sw`;
-   - each allowed shape passes;
-   - `pytest tests/unit` passes for the tester and when there is no `agent_type`.
-
-   CLAUDE.md's guard list names the rule.
-
 3. **The shared agent files say what to run instead.** The orchestrator makes this change,
    since `~/.claude/agents/` is Claude config; the reviewer reads it. `builder.md` and
    `reviewer.md` already say not to run the full suite, and `librarian.md` already says to run

@@ -95,6 +95,24 @@ What it blocks:
   (`branch <name>`, `checkout -b/-B/--orphan`, `switch -c/-C/--orphan`, `worktree add`
   without `--detach` or with `-b`); `--no-verify`, `commit -n`, a commit with a `SKIP=`
   env prefix or after an `export SKIP=`; any `core.hooksPath`.
+- **A hand-run whole unit suite** (CLAUDE.md "Dev loop": the tests gate runs it when the
+  builder stops and at commit): for the **builder**, **reviewer** and **librarian**
+  (`agent_type`), a pytest run (`pytest`, `…/pytest`, `python -m pytest`) whose test paths
+  leave the whole suite in. A word is a test path when it is not an option or an option's
+  value (pytest's own value-taking options, `-n 4`, `-p xdist`, `--tb short`, `-o x=y`,
+  `--cov <src>`) and either holds `::` or exists on disk, read against the command's folder
+  (a glob counts as the paths it matches). The run is whole-suite when it has no test path,
+  when one of them is `.`, `tests` or `tests/unit` (with or without `./` in front or a
+  trailing slash, or resolving to the repo, its `tests` or its `tests/unit`), or when its
+  paths other than node ids together hold every test file under `tests/unit`
+  (`tests/unit/*`, `tests/unit/test_*.py`, or every file listed by name), unless it has a
+  non-empty `-k` (`-k x`, `-kx`, `-k=x`, or at the end of a short-flag cluster such as
+  `-vk x`) or `--lf`/`--last-failed` with `--lfnf none`/`--last-failed-no-failures none`
+  (either joined by `=`). A bare `--lf`, `--sw`/`--stepwise` or `-m` does not narrow a run.
+  `--version`, `--help`, `--co`/`--collect-only`, `--fixtures`, `--markers`, `--setup-plan`
+  and `--cache-show` run no tests and pass (`--setup-only` runs fixtures and does not). A
+  file, a node id, `-k`, `--lf --lfnf=none` and `tests/contract` runs pass, as does every
+  run by the tester or the main session (no `agent_type`).
 
 Limits: it is a tripwire against slips, not a sandbox, and reads commands as `_shell.py`
 describes. What passes:
@@ -113,6 +131,10 @@ describes. What passes:
 - a test-engine start whose `*_DB_URL`s name an `expense_world_test` database on another
   host (only the database name is checked);
 - a WebFetch `file://` URL;
+- a whole-suite run whose arguments the guard does not see: `PYTEST_ADDOPTS`, an `@file`
+  of arguments, or `python` options before `-m pytest`;
+- a whole-suite run started through a wrapper `_shell.py` does not step over (`timeout`,
+  `nice`, `uv run`, `xargs`) or under the `py.test` name;
 - what `scripts/practice-engine` itself does: the guard reads the command line, not the
   script, so the script's own text (reviewed like any change) is what keeps it on `:8002`
   and its environment clean (`bash -p`, every inherited variable unset);
@@ -124,7 +146,10 @@ describes. What passes:
 
 It errs the other way too: a word written like an engine path is blocked even as a
 `grep` pattern or `echo` text (`grep -rn '../expense_world_engine' docs`); search for the
-bare name (`grep -rn expense_world_engine docs`) instead. A heredoc body is read as
+bare name (`grep -rn expense_world_engine docs`) instead. A pytest path that does not exist
+(a typo) is no test path, so a builder's run naming only that word is blocked as
+whole-suite; and a command word that starts with `pytest` is read as a pytest run, so for a
+builder `print(pytest.__version__)` in a bare heredoc body is blocked too. A heredoc body is read as
 commands, so a `cd` line in a bare heredoc body moves the folder the guard tracks and the
 rest of the command is read against that folder, often blocked; write the body through
 `"$(cat <<'EOF' … EOF)"`, as CLAUDE.md "Dev loop" gives for commit messages.
@@ -137,6 +162,7 @@ the repo root, and every other check still applies.
 from __future__ import annotations
 
 import glob
+import os
 import re
 import sys
 from pathlib import Path
@@ -156,6 +182,7 @@ from _shell import (
 LIVE = 'CLAUDE.md "Careful running live"'
 STAY = 'CLAUDE.md "Stay inside this repo"'
 BRANCH = 'CLAUDE.md "Dev loop" (single branch, never --no-verify)'
+SUITE = 'CLAUDE.md "Dev loop" (the tests gate runs the whole unit suite)'
 
 # `:8000` after a host-like word (not itself after a `:`, so `12:30:8000` is a time),
 # after a bracketed IPv6 host, or standing bare.
@@ -235,7 +262,9 @@ class Context:
         self.engine = self.repo.parent / "expense_world_engine"
         cwd = data.get("cwd")
         self.cwd = Path(cwd) if isinstance(cwd, str) and cwd else self.repo
-        self.tester = data.get("agent_type") == "tester"
+        agent = data.get("agent_type")
+        self.agent = agent if isinstance(agent, str) else None
+        self.tester = self.agent == "tester"
 
     def resolve(self, raw: str, cwd: Path) -> Path | None:
         """`raw` as an absolute path, if it is written as a path worth checking."""
@@ -662,6 +691,207 @@ def _runs_pytest(seg: Segment) -> bool:
     )
 
 
+# The roles whose hand-run whole unit suite the tests gate already covers.
+_SUITE_GATED = frozenset({"builder", "reviewer", "librarian"})
+# pytest's options that take a value (its own and its plugins': cov, xdist, anyio); a value
+# written as the next word is never a test path. `--cov`, `--debug` and `--cache-show` take
+# one only when the next word is not an option.
+_PYTEST_VALUE_SHORT = frozenset("kmWcporn")
+_PYTEST_VALUE_LONG = frozenset(
+    {
+        "--maxfail",
+        "--pythonwarnings",
+        "--ignore",
+        "--ignore-glob",
+        "--deselect",
+        "--confcutdir",
+        "--import-mode",
+        "--config-file",
+        "--rootdir",
+        "--basetemp",
+        "--durations",
+        "--durations-min",
+        "--override-ini",
+        "--verbosity",
+        "--tb",
+        "--show-capture",
+        "--color",
+        "--code-highlight",
+        "--pdbcls",
+        "--capture",
+        "--pastebin",
+        "--assert",
+        "--junitxml",
+        "--junit-xml",
+        "--junitprefix",
+        "--junit-prefix",
+        "--doctest-report",
+        "--doctest-glob",
+        "--lfnf",
+        "--last-failed-no-failures",
+        "--log-level",
+        "--log-format",
+        "--log-date-format",
+        "--log-cli-level",
+        "--log-cli-format",
+        "--log-cli-date-format",
+        "--log-file",
+        "--log-file-mode",
+        "--log-file-level",
+        "--log-file-format",
+        "--log-file-date-format",
+        "--log-auto-indent",
+        "--log-disable",
+        "--cov-report",
+        "--cov-config",
+        "--cov-fail-under",
+        "--cov-precision",
+        "--cov-context",
+        "--numprocesses",
+        "--maxprocesses",
+        "--max-worker-restart",
+        "--dist",
+        "--tx",
+        "--px",
+        "--rsyncdir",
+        "--rsyncignore",
+        "--testrunuid",
+        "--maxschedchunk",
+        "--anyio-mode",
+    }
+)
+_PYTEST_OPTIONAL_VALUE = frozenset({"--cov", "--debug", "--cache-show"})
+# Options that list or plan without running a test.
+_PYTEST_NO_RUN = frozenset(
+    {
+        "--version",
+        "-V",
+        "--help",
+        "-h",
+        "--co",
+        "--collect-only",
+        "--collectonly",
+        "--fixtures",
+        "--funcargs",
+        "--markers",
+        "--setup-plan",
+        "--setupplan",
+        "--cache-show",
+    }
+)
+_WHOLE_SUITE = frozenset({".", "tests", "tests/unit"})
+
+
+def _pytest_args(seg: Segment) -> list[str]:
+    """The words pytest itself reads: after `pytest`, or after `python -m pytest`."""
+    return seg.words[3:] if _PYTHON.fullmatch(seg.name) else seg.words[1:]
+
+
+def _read_pytest_args(args: list[str]) -> tuple[list[str], bool, bool, str | None]:
+    """pytest's arguments split as its parser reads them: the positional words, whether a
+    non-empty `-k` is given, whether `--lf` is, and the last `--lfnf` value."""
+    positional: list[str] = []
+    keyword = last_failed = False
+    lfnf: str | None = None
+    i = 0
+    while i < len(args):
+        word = args[i]
+        nxt = args[i + 1] if i + 1 < len(args) else None
+        if word == "--":
+            positional += args[i + 1 :]
+            break
+        if word.startswith("--"):
+            name, eq, value = word.partition("=")
+            if name in {"--lf", "--last-failed"}:
+                last_failed = True
+            if name in _PYTEST_VALUE_LONG and not eq:
+                value, i = (nxt or ""), i + 1
+            elif name in _PYTEST_OPTIONAL_VALUE and not eq:
+                if nxt is not None and not nxt.startswith("-"):
+                    i += 1
+            if name in {"--lfnf", "--last-failed-no-failures"}:
+                lfnf = value
+        elif word.startswith("-") and len(word) > 1:
+            for j, ch in enumerate(word[1:], start=1):
+                if ch in _PYTEST_VALUE_SHORT:
+                    value = word[j + 1 :]
+                    if not value:
+                        value, i = (nxt or ""), i + 1
+                    if ch == "k" and value.strip():
+                        keyword = True
+                    break
+        else:
+            positional.append(word)
+        i += 1
+    return positional, keyword, last_failed, lfnf
+
+
+def _test_paths(ctx: Context, words: list[str], cwd: Path) -> list[tuple[str, Path, bool]]:
+    """Each positional word that is a test path, as written and resolved, and whether it is
+    a node id: it holds `::`, or it exists on disk read against `cwd` (a glob gives every
+    path it matches)."""
+    out: list[tuple[str, Path, bool]] = []
+    for word in words:
+        written = word.split("::", 1)[0]
+        try:
+            path = ctx.resolve(written, cwd) or (cwd / written).resolve()
+            if "::" in word or path.exists():
+                out.append((written, path, "::" in word))
+            elif any(ch in written for ch in "*?["):
+                pattern = written if written.startswith("/") else str(cwd / written)
+                for match in glob.glob(pattern)[:1000]:
+                    rel = os.path.relpath(match, cwd)
+                    out.append((rel, Path(match).resolve(), False))
+        except (OSError, RuntimeError, ValueError):
+            continue
+    return out
+
+
+def _covers_the_unit_suite(ctx: Context, paths: list[Path]) -> bool:
+    """`paths` together hold every test file (pytest's `test_*.py`, `*_test.py`) under the
+    repo's `tests/unit`, as `tests/unit/*` or `tests/unit/test_*.py` do."""
+    unit = ctx.repo / "tests" / "unit"
+    try:
+        files = [f.resolve() for f in unit.rglob("*.py") if _is_test_file(f.name)]
+    except OSError:
+        return False
+    return bool(files) and all(any(is_within(f, p) for p in paths) for f in files)
+
+
+def _is_test_file(name: str) -> bool:
+    return name.startswith("test_") or name.endswith("_test.py")
+
+
+def _is_whole_suite_path(ctx: Context, written: str, path: Path) -> bool:
+    while written.startswith("./"):
+        written = written[2:]
+    written = written.rstrip("/") or "."
+    roots = (ctx.repo, ctx.repo / "tests", ctx.repo / "tests" / "unit")
+    return written in _WHOLE_SUITE or any(str(path) == str(root) for root in roots)
+
+
+def _suite_reason(ctx: Context, seg: Segment, cwd: Path) -> str | None:
+    """Why a builder, reviewer or librarian may not run this pytest by hand, if it runs the
+    whole unit suite."""
+    if ctx.agent not in _SUITE_GATED or not _runs_pytest(seg):
+        return None
+    args = _pytest_args(seg)
+    if any(w.partition("=")[0] in _PYTEST_NO_RUN for w in args):
+        return None
+    positional, keyword, last_failed, lfnf = _read_pytest_args(args)
+    if keyword or (last_failed and lfnf == "none"):
+        return None
+    paths = _test_paths(ctx, positional, cwd)
+    whole = not paths or any(_is_whole_suite_path(ctx, w, p) for w, p, _ in paths)
+    if not whole and not _covers_the_unit_suite(ctx, [p for _, p, node in paths if not node]):
+        return None
+    return (
+        f"{SUITE}: the tests gate runs the whole unit suite when the builder stops and at "
+        "commit; run a file (`pytest tests/unit/test_x.py`), `-k <name>`, or "
+        "`--lf --lfnf=none` to rerun the last failures"
+    )
+
+
 def _live_reason(seg: Segment, command: str) -> str | None:
     if seg.name not in _READ_ONLY | {"git", "sed", "echo", "printf", "awk"}:
         if any(_LIVE_ENGINE.search(w) for w in [*seg.words, *seg.env.values()]):
@@ -780,6 +1010,9 @@ def check_bash(ctx: Context, command: str) -> str | None:
                     else "only the tester goes there, to start the test engine"
                 )
                 return f"{STAY}: no agent reads or writes the engine checkout; {who}"
+        reason = _suite_reason(ctx, seg, cwd)
+        if reason:
+            return reason
         if target is not None:
             oldpwd, cwd = cwd, target
     return None
