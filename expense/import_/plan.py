@@ -39,7 +39,7 @@ class SplitGroup:
     ``name`` is the ``line_group`` its rows are sent under: the first row's
     transaction id, so it is unique in the request and never longer than the
     engine takes (contract: POST /v1/transactions/batch, "Line groups"), however
-    long the code is.
+    long the statement line is.
     """
 
     statement_line: str

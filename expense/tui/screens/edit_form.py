@@ -462,7 +462,7 @@ class EditFormScreen(FormScreen):
                 # (contract: PUT /v1/transactions/{transaction_id})
                 payload["description"] = new or ""
             elif key == "operation":
-                # `null` clears the line's code
+                # `null` clears the line's operation code
                 # (contract: PUT /v1/transactions/{transaction_id})
                 payload["operation_code"] = new or None
             elif key == "hashtags":

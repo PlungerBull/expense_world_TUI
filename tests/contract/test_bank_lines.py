@@ -17,7 +17,7 @@ stand on rules only the engine can confirm. Pinned here:
     line in a draft reconciliation selected sends the second part a body built
     before the first `PUT` moved the line, which the engine accepts;
   · a statement imported, split and imported again is every row `matched`, none
-    `new`: by `operation_code`, and by `same_day` for a card row with no code;
+    `new`: by `operation_code`, and by `same_day` for a card row with no operation code;
   · a batch whose two items share a `line_group` makes one line of two parts,
     and a dry-run import of the bank's one row for its total is `matched` on it;
   · `?bank_line_id=` on the list and the count names exactly a line's parts; an
@@ -344,7 +344,7 @@ def test_an_account_move_on_one_part_moves_the_whole_line(client):
 @pytest.mark.parametrize(
     ("code", "rule"),
     [(f"OP-{uuid4().hex[:10]}", "operation_code"), (None, "same_day")],
-    ids=["with-operation-code", "card-row-no-code"],
+    ids=["with-operation-code", "card-row-no-operation-code"],
 )
 def test_a_split_line_is_matched_on_re_import(client, code, rule):
     account = _make_account(client)
@@ -507,7 +507,7 @@ def test_deleting_a_bank_line_deletes_every_part(client, statuses):
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert reason_on(err, "bank_line_id") == "INVALID_FORMAT"
 
-        # The code is free: a new line on the account takes it.
+        # The operation code is free: a new line on the account takes it.
         again = _post_tx(client, account, _noon(zone, 2026, 4, 16), -500, "again")
         written.append(again["id"])
         client.put(f"/transactions/{again['id']}", json_body={"operation_code": code})
@@ -1232,7 +1232,7 @@ def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
     part carrying only the fields changed, and the engine writes date, title
     and operation onto every part, while each part keeps its own amount
     (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied
-    operation sends `null`, which clears the line's code, and an account move
+    operation sends `null`, which clears the line's operation code, and an account move
     carries every part with it (contract: PUT /v1/transactions/{transaction_id})."""
     from expense.reads import fetch_bank_line
     from expense.tui.screens.edit_form import BankLineEditFormScreen

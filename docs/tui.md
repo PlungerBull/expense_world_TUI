@@ -459,7 +459,7 @@ through the shared write path with one idempotency key, carrying only the fields
 The engine writes date, title, operation and account onto every part of the line in that
 write, while the amount stays the part's own
 (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied operation
-sends `operation_code: null`, which clears the line's code
+sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/transactions/{transaction_id}); a changed account also sends
 `reconciliation_id: null` (`unassign_on_move`, as on the ledger's form). Saved, the note
 reads `Saved.` and "no batch" reads its newest ten again, cursor on row 1; a row whose date

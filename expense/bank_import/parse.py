@@ -175,7 +175,7 @@ def parse_operation(value: object) -> str | None:
     to fall through and stringify to `"True"`, and `12345.67` truncated to
     `"12345"`. Either would then be matched against the ledger and written
     onto a transaction as an operation code the bank never issued — and the
-    engine's per-account uniqueness of the code (contract: POST /v1/transactions)
+    engine's per-account uniqueness of the operation code (contract: POST /v1/transactions)
     would make that invented code permanent.
     """
     if value is None or isinstance(value, bool):

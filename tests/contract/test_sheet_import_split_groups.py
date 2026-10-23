@@ -10,7 +10,7 @@ answers `ID_EXISTS` on its own id before anything else
 whose rows differ, or with a row the parse cannot read, is skipped, and comes in
 on a later run once fixed.
 
-Every name and code is fresh per run: the practice user's data outlives a reseed,
+Every name and statement line is fresh per run: the practice user's data outlives a reseed,
 and a statement line is one live line per user. The test undoes what it wrote.
 Gating, target and the real-ledger guard: conftest.py.
 """
@@ -35,7 +35,7 @@ def _safe(call, *args) -> None:
 
 
 def _sheet(run: str, *, fixed: bool) -> SheetData:
-    """Two rows sharing a code, one row alone, two rows sharing another code on
+    """Two rows sharing a statement line, one row alone, two rows sharing another on
     two dates unless `fixed`, and two sharing a third, one of them unreadable
     unless `fixed`."""
     account, category, hashtag = f"contract-sheet-{run}", f"contract-{run}", f"contract-{run}"

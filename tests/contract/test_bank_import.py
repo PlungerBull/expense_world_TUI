@@ -118,7 +118,7 @@ def test_a_leftover_ledger_line_is_reported_on_its_day(client):
                 },
             )
         row = _row(account, "2026-03-09", "")
-        del row["operation_code"]  # a card line: no code, matched by day and total
+        del row["operation_code"]  # a card line: no operation code, matched by day and total
         body = client.post("/transactions/import", json_body={"dry_run": True, "rows": [row]})
         (only,) = body["rows"]
         assert only["outcome"] == "matched" and only["rule"] == "same_day"

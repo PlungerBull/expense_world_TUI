@@ -15,7 +15,7 @@ def swatch(color: object) -> Text:
 
 def operation_cell(code: object) -> str | Text:
     """A bank line's `operation_code` as every reconciliation list shows it:
-    the code, or a dim `—` when the line has none."""
+    the operation code, or a dim `—` when the line has none."""
     return str(code) if code else Text("—", style="dim")
 
 

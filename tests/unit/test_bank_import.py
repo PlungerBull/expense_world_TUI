@@ -447,7 +447,7 @@ def test_a_failed_read_leaves_its_reconciliation_unnamed_and_the_rest_are_read(
         "in-ledger",
         "in-ledger-same-day",
         "took-title",
-        "got-code",
+        "got-operation-code",
         "moves",
         "move-stopped",
         "move-stopped-unnamed",
@@ -627,19 +627,19 @@ def test_a_refusal_names_the_files_line_not_the_engines_index():
 def test_operation_refuses_booleans_and_fractions():
     """`True` must not stringify to "True", nor `12345.67` truncate to
     "12345". Either would be matched against the ledger and then WRITTEN onto
-    a transaction, where the engine's per-account uniqueness of the code
+    a transaction, where the engine's per-account uniqueness of the operation code
     (contract: POST /v1/transactions) makes the invented code permanent."""
     assert parse_operation(True) is None
     assert parse_operation(False) is None
     assert parse_operation(12345.67) is None
     assert parse_operation(float("nan")) is None
     assert parse_operation(float("inf")) is None
-    # a whole number that merely arrived as a float is still a code
+    # a whole number that merely arrived as a float is still an operation code
     assert parse_operation(4330935.0) == "04330935"
 
 
 def test_a_row_whose_operation_cell_is_junk_imports_without_a_code():
-    """Refusing the code must not refuse the row — it just falls through to
+    """Refusing the operation code must not refuse the row — it just falls through to
     the content rules like every pre-column ledger row does."""
     rows, bad = parse_bank_sheet(
         _sheet(ACCOUNT_HEADERS, ["11/09/2026", "TRAN.CEL.BM.", "S/", -60, True])

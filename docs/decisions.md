@@ -630,8 +630,8 @@ by the rows of one movement. Imported row by row, each became a movement of its 
 bank upload added the movement again.
 
 **Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, sent as one
-`line_group` with the code as each part's `statement_line` (contract: POST /v1/transactions/batch, "Line groups");
-a chunk never cuts a group, and the engine keeps the code on the line. (2) **A group goes whole or
+`line_group` with the `COD_EECC` as each part's `statement_line` (contract: POST /v1/transactions/batch, "Line groups");
+a chunk never cuts a group, and the engine keeps the statement line on the line. (2) **A group goes whole or
 not at all:** a group whose rows differ on account, date or title, or with a row the import cannot
 read, is skipped whole as `split-mismatch` and named under the `Skipped` line, and the rest
 imports; once the sheet is fixed, a re-run brings the group in. A zero-amount row is only

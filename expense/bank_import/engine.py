@@ -246,7 +246,7 @@ UNNAMED_RECONCILIATION = "a reconciliation"
 def row_reason(p: Placed, names: dict[str, str]) -> tuple[bool, str]:
     """(in the ledger after the import, the reason) of one answered row.
 
-    A matched row is modified when the apply writes the bank's code, title
+    A matched row is modified when the apply writes the bank's operation code, title
     or day onto its line; a move a completed reconciliation stops wins over
     the rest, named from `names` (reconciliation id → name)."""
     if p.outcome == "new":

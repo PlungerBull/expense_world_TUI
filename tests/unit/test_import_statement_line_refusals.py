@@ -118,7 +118,7 @@ def _items_for(rows) -> list[dict]:
 
 
 def test_the_import_never_sends_one_statement_line_on_two_lines(configured):
-    """Rows sharing a code are one `line_group`, compared as the engine compares
+    """Rows sharing a statement line are one `line_group`, compared as the engine compares
     them, after trimming and case-sensitively, so `DUPLICATE_IN_REQUEST` on
     `statement_line` has nothing to refuse (contract: POST /v1/transactions/batch)."""
     items = _items_for(
@@ -141,7 +141,7 @@ def test_the_import_never_sends_one_statement_line_on_two_lines(configured):
     assert all(len(held) == 1 for held in codes.values())  # one statement line per line
     assert set(lines) == {"SIG-1", "sig-1", "SIG-2"}
     (case_variant,) = [item for item in items if item["statement_line"] == "sig-1"]
-    assert "line_group" not in case_variant  # a code of its own, not a part of SIG-1
+    assert "line_group" not in case_variant  # a statement line of its own, not a part of SIG-1
 
 
 def test_a_groups_parts_carry_one_account_date_title_and_statement_line(configured):
@@ -154,7 +154,7 @@ def test_a_groups_parts_carry_one_account_date_title_and_statement_line(configur
             _raw(2, "SIG-1", Cuenta="BCP PEN"),
             _raw(3, "SIG-1", Cuenta=" bcp pen "),
             _raw(4, "SIG-1"),
-            _raw(5, "sig-1"),  # another code: never a part of SIG-1
+            _raw(5, "sig-1"),  # another statement line: never a part of SIG-1
         ]
     )
 

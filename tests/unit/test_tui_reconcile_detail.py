@@ -152,7 +152,7 @@ def test_checklist_colors_come_from_palette():
     table = CheckList(rows, checked=["l1"])._build()  # app-less, PALETTE palette
     marks, ops, amounts = table.columns[0]._cells, table.columns[3]._cells, table.columns[4]._cells
     assert marks[0].style == PALETTE.success and marks[1].style == "dim"  # [x] vs [ ]
-    assert ops[0].style == "dim"  # the — of a line with no code
+    assert ops[0].style == "dim"  # the — of a line with no operation code
     assert amounts[0].style == PALETTE.error  # -2,500.00
     assert amounts[1].style == PALETTE.success  # +56.20
 

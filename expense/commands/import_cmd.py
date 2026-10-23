@@ -307,7 +307,7 @@ def run_import(
     column. The rows of a split transaction must share account, date and title,
     and every one must be readable: a group that does not, or that has a row
     skipped for any reason but a zero amount, is skipped whole as
-    split-mismatch, a line naming its code and why, and the rest imports. A
+    split-mismatch, a line naming its statement line and why, and the rest imports. A
     zero-amount row is only dropped from its group.
 
     Re-running --apply is safe for unchanged and appended sheets: transaction

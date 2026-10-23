@@ -1133,7 +1133,7 @@ def test_an_emptied_field_never_sends_null_where_the_engine_refuses_it(
     whatever the form sends holds `null` only on a field `null` clears. An
     emptied date commits today, an emptied title or amount is refused, an empty
     account or category picks the first name, an emptied operation clears the
-    code and an emptied note sends `""`."""
+    operation code and an emptied note sends `""`."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
 
     _patch(monkeypatch)

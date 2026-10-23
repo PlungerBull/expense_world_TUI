@@ -668,7 +668,7 @@ def test_blocking_windows_takes_only_this_accounts_periods():
 
 def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
     """2d: date · title · operation · amount, the signed `net_cents`, a dim `—`
-    for no code; a split purchase is one row with its title alone and its
+    for no operation code; a split purchase is one row with its title alone and its
     total; `!` on the rows inside a month's dates."""
     from expense.tui.screens.reconciliations import blocking_windows, unfiled_rows
 
@@ -682,7 +682,7 @@ def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
         ["!", "2026-03-10", "FARMACIA", "48201764", "-100.00"],
         ["", "2026-01-04", "NETFLIX", "47391026", "-44.90"],
     ]
-    assert rows[0][1][3].style == "dim"  # no code: a dim em dash
+    assert rows[0][1][3].style == "dim"  # no operation code: a dim em dash
 
 
 def test_a_split_purchase_reads_as_one_row_and_nothing_marks_it_split():
