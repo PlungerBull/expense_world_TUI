@@ -1155,9 +1155,14 @@ save invalidates what it wrote to.
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
 one copy for the edit form, the create/edit forms, the new-reconciliation form, Setup and the
 split screen's fields, whose keys differ as "The split screen's own keys" above says):
-`⏎` saves the field and moves on (saving the form on the last field), `ctrl+s` saves the
-form, `esc` cancels. `tab` moves to the next field and `shift+tab` to the previous, on
-every field, whether or not a suggestion list is open. `FormScreen` is declared
+`⏎` saves the field and moves one line on, to the next field that can change; when no field
+ahead can change (on the last field, or with only read-only fields after it) it saves the form
+as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class
+in a screen's MRO on one `⏎`, so a form whose handler overrides an inherited one calls it
+itself and prevents the message's default, and one `⏎` moves one line (guarded by
+`test_a_forms_own_enter_handler_stops_the_ones_under_it`). `ctrl+s` saves the form, `esc`
+cancels. `tab` moves to the next field and `shift+tab` to the previous, on every field,
+whether or not a suggestion list is open. `FormScreen` is declared
 `inherit_bindings=False`, so Textual's focus-cycling `tab` never applies and the bar
 keeps focus; Screen's hidden `ctrl+c` copy key is declared again in `form_bindings`.
 Plain `↑`/`↓` walk the suggestion list when the field has a non-empty one and move to the
@@ -1166,7 +1171,8 @@ advertised: macOS claims `⌃↑` (Mission Control) and `⌃↓` (Application Wi
 terminal sees them. Every field move skips read-only fields and stops at either end.
 On a read-only field, where the bar sits only when every field is read-only, the bar
 (`FormBar`) takes nothing typed, pasted or deleted, and `⏎` keeps nothing and moves on as
-from any line, so nothing ever lands on a read-only line.
+from any line (with nothing ahead to change, it saves), so nothing ever lands on a read-only
+line.
 The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
 **`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
 that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.

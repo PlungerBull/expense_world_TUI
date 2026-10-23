@@ -1,8 +1,8 @@
 """Create forms — new hashtag / category / account.
 
 A lightweight bar-cycle form (same look as Log): cycle fields with the input
-bar, pick choices from a suggestion list, `ctrl+s` (or enter on the last field)
-POSTs. Reached with `n` on the Manage list screens.
+bar, pick choices from a suggestion list, `ctrl+s` (or enter with no field
+ahead that can change) POSTs. Reached with `n` on the Manage list screens.
 
 New account covers both kinds: its first field is TYPE (`bank` / `person`,
 prefilled `bank`), and a `person` picks `POST /people` instead of
@@ -476,6 +476,10 @@ class EditAccountScreen(NewAccountScreen):
         self.notify(message, title="Failed", severity="error")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Textual calls the handler of every class in the MRO; this one calls the
+        # bar form's itself, so the message stops here and `⏎` moves one line
+        if event is not None:
+            event.prevent_default()
         key = self._key
         if key not in ("opening", "as_of"):
             super().on_input_submitted(event)

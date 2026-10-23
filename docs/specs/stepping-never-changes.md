@@ -51,24 +51,18 @@ locked.
 
 Approved by the owner on 2026-10-23.
 
-1. **CATEGORY on a transaction in @Pendiente.** Waits for the owner's pick: Question 3 in
-   [mockups/expense-world-enter-and-esc.html](../mockups/expense-world-enter-and-esc.html). The
-   Edit form's category list leaves the system categories out (`load_quickadd_refs` in
-   `expense/reads.py`), so on a row in @Pendiente the highlight falls on the first category and
-   `⏎` moves the row out of @Pendiente. A: @Pendiente is in the list, as on the bulk `c` pick
-   ([decisions.md](../decisions.md) "(7) `@Pendiente` is pickable"), and the highlight starts on
-   it. B: it stays out, nothing is highlighted, and `⏎` keeps @Pendiente. C: as now.
-   **Recommended:** A. Passes if: on a row in @Pendiente, `⏎` through every line then `ctrl+s`
-   sends nothing, and [tui.md](../tui.md) "Stepping past ACCOUNT or CATEGORY keeps them" says
-   what the pick says.
-4. **`⏎` saves when no line ahead can change.** `FormScreen._advance` saves when every field after
-   the current one is read-only. Passes if: unit tests show `⏎` on the only open line of an
-   archived account's "no batch" line sends the save, and the same on Manage ▸ Accounts Edit
-   after a failed opening-balance read; a form with an editable line ahead still moves to it.
-   First, `EditAccountScreen.on_input_submitted` in `expense/tui/screens/create_forms.py` runs
-   with `BarFormScreen`'s own handler on one `⏎` (Textual calls each class's handler unless
-   `prevent_default`), as the bank-line Edit form did, so a real `⏎` there likely moves two lines;
-   the tests press `enter` through the real dispatch and check one line per `⏎`.
-   `⏎` on a locked line goes through `_advance` (`FormBar.Passed`), so the all-locked tests'
-   notices in `tests/unit/test_tui_edit_form.py` (`_type_on_every_line_and_save`) gain the save's
-   own "No changes to save." once `_advance` saves.
+1. **CATEGORY on a transaction in @Pendiente.** The owner's pick (2026-10-23): Question 3 A in
+   [mockups/expense-world-enter-and-esc.html](../mockups/expense-world-enter-and-esc.html).
+   @Pendiente is in the Edit form's category list, in the place the engine lists it, as on the
+   bulk `c` pick ([decisions.md](../decisions.md) "(7) `@Pendiente` is pickable"), and on a row
+   in @Pendiente the highlight starts on it. The list today leaves the system categories out
+   (`load_quickadd_refs` in `expense/reads.py`); @Opening stays out. Passes if: on a row in
+   @Pendiente, `⏎` through every line then `ctrl+s` sends nothing; picking @Pendiente on a
+   categorised row sends its id; @Opening is never offered; [tui.md](../tui.md) "Stepping past
+   ACCOUNT or CATEGORY keeps them" says so.
+2. **The save's busy hint stays while it is sent.** On the Edit form, the date, title, amount,
+   account and category branches of `on_input_submitted` refresh the view after `_advance()`; now
+   that `_advance` can save, that refresh replaces the save's "Saving…" hint while the PUT is in
+   flight (an archived account's "no batch" line with only its title open). Passes if: a unit
+   test on that line shows the busy hint stays until the answer, as `edit_form.py`'s
+   `if not self._submitting` keeps it elsewhere.

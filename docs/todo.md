@@ -73,6 +73,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   the hint still reads `YYYY-MM-DD · enter to accept, or type a date`, though the bar takes
   nothing typed (`FormBar` in [_form.py](../expense/tui/screens/_form.py)). What the hint says
   there is the owner's pick, from a mockup.
+- **The NAME hint on the account forms says "enter to save" [UI].** On Manage ▸ Accounts New and
+  Edit, `⏎` on NAME moves to the next line, but its hint reads `enter to save`
+  ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
+  wording is the owner's pick.
+- **`⏎` on an empty colour line on an Edit form shows the colour as gone.** The summary then
+  reads `— (optional)`, though the save leaves `color` out and the engine keeps it
+  ([create_forms.py](../expense/tui/screens/create_forms.py)). Stepping past a line should not
+  change what it shows; this goes with "The colour line on an edit screen starts on the colour
+  the row already has" below.
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),

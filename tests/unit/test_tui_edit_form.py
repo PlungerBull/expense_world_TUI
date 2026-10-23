@@ -1524,15 +1524,49 @@ def test_an_archived_lines_empty_operation_code_is_filled_once(fake_client, monk
         assert screen._key == "title"
         _enter(screen, "FARMACIA")
         assert screen._key == "operation"
-        _enter(screen, "47391026")
-        assert screen._key == "operation"  # nothing editable after it
         screen._values.update(date="2026-06-21", amount=-1, account="acc2")
-        screen.action_submit()
+        _enter(screen, "47391026")  # nothing editable after it: `⏎` saves
         await wait_for(pilot, lambda: fake_client.puts)
 
     _open_line(UNNAMED_LINE, monkeypatch, steps)
     assert fake_client.puts == [
         ("/transactions/p1", {"title": "FARMACIA", "operation_code": "47391026"})
+    ]
+
+
+def test_enter_on_an_archived_lines_only_open_line_saves(fake_client, monkeypatch):
+    """Spec check 4: the empty operation code is the line's only open line, so
+    with no line ahead that can change, a real `⏎` there sends the save."""
+
+    async def steps(screen, pilot, app):
+        assert screen._locked == {"date", "title", "amount", "account"}
+        assert screen._key == "operation"
+        await pilot.press(*"47391026")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open_line({**ARCHIVED_LINE, "operation_code": None}, monkeypatch, steps)
+    assert fake_client.puts == [("/transactions/p1", {"operation_code": "47391026"})]
+
+
+def test_enter_on_an_archived_lines_title_moves_one_line_to_its_code(fake_client, monkeypatch):
+    """With an editable line ahead, `⏎` moves to it and sends nothing: one line
+    per press, through Textual's dispatch; the code's `⏎` then saves both."""
+
+    async def steps(screen, pilot, app):
+        assert screen._key == "title"
+        await pilot.press(*"farmacia")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._key == "operation"
+        assert fake_client.calls == []
+        await pilot.press(*"47391026")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open_line(UNNAMED_LINE, monkeypatch, steps)
+    assert fake_client.puts == [
+        ("/transactions/p1", {"title": "farmacia", "operation_code": "47391026"})
     ]
 
 
@@ -1578,8 +1612,9 @@ def _count_commits(monkeypatch, form) -> list:
 
 async def _type_on_every_line_and_save(screen, pilot):
     """On a form whose every line is read-only: type, paste, delete and `⏎` on
-    the line the bar opens on, then `ctrl+s`. Returns the summary before and
-    after, as drawn."""
+    the line the bar opens on, then `ctrl+s`. With no line ahead that can change,
+    each `⏎` saves as `ctrl+s` does. Returns the summary before and after, as
+    drawn."""
     bar = screen.query_one("#bar", Input)
     before = render_text(screen._summary_renderable(), width=60)
     opened_on, shown = screen._key, bar.value
@@ -1591,7 +1626,7 @@ async def _type_on_every_line_and_save(screen, pilot):
     assert bar.value == shown
     await pilot.press("enter")
     await pilot.pause()
-    assert screen._key == opened_on  # nothing editable ahead: it stays
+    assert screen._key == opened_on  # nothing editable ahead: it stays and saves
     assert screen._values == screen._original
     await pilot.press(*"abc", "enter")
     after = render_text(screen._summary_renderable(), width=60)
@@ -1606,7 +1641,7 @@ def test_nothing_typed_lands_on_an_archived_line_with_title_and_code(
 ):
     """The owner's pick A: the form opens, every line read-only, showing what the
     line holds. Typing and `⏎` on the line the bar opens on change no line, and
-    `ctrl+s` sends nothing."""
+    neither `⏎` nor `ctrl+s` sends anything."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
 
     notices = _record_notices(monkeypatch)
@@ -1642,7 +1677,7 @@ def test_nothing_typed_lands_on_an_archived_line_with_title_and_code(
     assert "xyz" not in after and "abc" not in after
     assert commits == []  # `⏎` on a read-only line runs no field's commit
     assert fake_client.puts == [] and not fake_client.calls
-    assert notices == [("", "No changes to save.")]
+    assert notices == [("", "No changes to save.")] * 3  # two `⏎`, then `ctrl+s`
 
 
 def test_the_transaction_form_holds_no_reachable_read_only_line(fake_client, monkeypatch):
@@ -1675,7 +1710,7 @@ def test_the_transaction_form_holds_no_reachable_read_only_line(fake_client, mon
     run_app(scenario)
     assert commits == []
     assert fake_client.puts == [] and not fake_client.calls
-    assert notices == [("", "No changes to save.")]
+    assert notices == [("", "No changes to save.")] * 3  # two `⏎`, then `ctrl+s`
 
 
 # ---- stepping through the form never changes it --------------------------------

@@ -680,6 +680,34 @@ def _navigate(steps):
     run_app(scenario)
 
 
+def test_a_forms_own_enter_handler_stops_the_ones_under_it():
+    """Textual runs the `on_input_submitted` of every class in a screen's MRO on
+    one `⏎` unless the message's default is prevented. A form whose handler
+    overrides one it inherits calls that one itself, so it must prevent the
+    default, or one `⏎` commits twice and moves two lines."""
+    import inspect
+
+    from expense.tui.screens import create_forms, edit_form, reconciliations, setup, split
+    from expense.tui.screens._form import FormScreen
+
+    assert create_forms and edit_form and reconciliations and setup and split  # all loaded
+
+    def every(cls):
+        for sub in cls.__subclasses__():
+            yield sub
+            yield from every(sub)
+
+    overriding = []
+    for form in every(FormScreen):
+        handler = form.__dict__.get("on_input_submitted")
+        if handler is None:
+            continue
+        if any("on_input_submitted" in base.__dict__ for base in form.__mro__[1:]):
+            overriding.append(form.__name__)
+            assert "event.prevent_default()" in inspect.getsource(handler), form.__name__
+    assert {"EditAccountScreen", "BankLineEditFormScreen"} <= set(overriding)
+
+
 def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     """tab → next editable field, shift+tab → previous; both stop at the ends."""
     _navigate(

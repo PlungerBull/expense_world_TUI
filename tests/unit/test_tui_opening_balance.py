@@ -321,6 +321,58 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
     assert fake_client.requests == [("PUT", "/accounts/acc-sue")]
 
 
+# ---- ⏎ moves one line, and saves when no line ahead can change -----------------
+
+
+@pytest.mark.parametrize(
+    "record, lines",
+    [
+        (EFECTIVO, ["name", "color", "opening", "as_of"]),
+        (SUELDO, ["name", "color", "opening", "as_of"]),
+        (ELIANA, ["name", "color"]),
+    ],
+    ids=["no-opening", "read-opening", "person"],
+)
+def test_each_enter_moves_one_line_and_the_last_saves(fake_client, reads_log, record, lines):
+    """Real `⏎` presses through Textual's dispatch: the form's own handler and the
+    bar form's under it run once per press, so each moves exactly one line (TYPE
+    and CURRENCY are read-only and skipped), and nothing is sent until the last."""
+
+    async def body(pilot, app, screen):
+        visited = []
+        for _ in lines[:-1]:
+            visited.append(screen._key)
+            await pilot.press("enter")
+            await pilot.pause()
+            assert fake_client.calls == []
+        visited.append(screen._key)
+        assert visited == lines
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(record, body)
+    assert fake_client.requests == [("PUT", f"/accounts/{record['id']}")]
+
+
+def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log):
+    """OPENING and AS OF are read-only once their read fails, so COLOR has no line
+    ahead that can change: `⏎` there sends the save, with the colour typed."""
+    reads_log.error = EngineError("NOT_FOUND", "Transaction not found.", None, 404, {})
+
+    async def body(pilot, app, screen):
+        assert screen._key == "name"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._key == "color"
+        await pilot.press(*"green")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _form(SUELDO, body)
+    assert fake_client.puts == [("/accounts/acc-sue", {"name": "Sueldo Soles", "color": "#5ab87a"})]
+    assert ("Saved.", {}) in notes
+
+
 # ---- 4 · emptying the amount and saving -----------------------------------------------
 
 

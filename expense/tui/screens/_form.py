@@ -1,9 +1,9 @@
 """FormScreen — the shared bar-cycle form core.
 
 One input bar cycles through a field sequence; a suggestion list under it
-offers picks; a summary table mirrors progress; `ctrl+s` (or enter on the
-last field) submits via `run_write`. Subclasses supply the field sequence,
-labels/hints, suggestion pools, commit handlers, and the submit request:
+offers picks; a summary table mirrors progress; `ctrl+s` (or enter when no
+field ahead can change) submits via `run_write`. Subclasses supply the field
+sequence, labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
 locked fields, edit mode), NewReconciliationScreen (dynamic sequence),
 SetupScreen (first-time setup: the engine address and key, then a profile),
@@ -235,10 +235,14 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self._advance()
 
     def _advance(self) -> None:
-        if self._current >= len(self._sequence()) - 1:
+        """`⏎`'s move: on to the next field that can change, or, when no field
+        ahead can (the last field, or only read-only ones after it), the save
+        `ctrl+s` runs."""
+        following = self._step(1)
+        if following == self._current:
             self.action_submit()
         else:
-            self._current = self._step(1)
+            self._current = following
             self._refresh_bar()
             self._refresh_view()
 
