@@ -27,30 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### `⏎` on an empty account or category on the Edit form
-Asked 2026-10-18 · Blocks: nothing (the form works either way) · **[UI]** Question 1 in
-[mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)
-
-On the `⏎` Edit form, pressing `⏎` on the ACCOUNT or CATEGORY line with nothing typed picks the
-first name in the list. So stepping through the form with `⏎` can move a transaction to another
-account, or change its category, without your meaning to.
-- **A.** Landing on the line, the highlight starts on the account or category the transaction
-  has, so `⏎` keeps it.
-- **B.** It picks the first name in the list, as now.
-
-**Recommended:** A, because stepping past a line should never change it.
-
-### `esc` after adding hashtags on a split part
-Asked 2026-10-18 · Blocks: nothing (the screen works either way) · **[UI]** Question 2 in
-[mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)
-
-On a split part's HASHTAGS line, `⏎` on a name adds that hashtag at once. If you then press `esc`
-while still on that line, the hashtags you just added stay.
-- **A.** They stay, since each was added with `⏎`.
-- **B.** They go, like any typing not yet left.
-
-**Recommended:** A, because `⏎` is how you say "keep this" everywhere else on the screen.
-
 ---
 
 ## Backlog
@@ -89,21 +65,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
   `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
   does; the message it shows is wording the owner picks first.
-- **In a bar form, `⏎` does not save when no editable field lies ahead.** `FormScreen._advance`
-  in [_form.py](../expense/tui/screens/_form.py) saves only on the last field of the sequence,
-  so when the fields after the current one are all read-only, `⏎` does nothing and only `ctrl+s`
-  saves, against [tui.md](tui.md) "The bar forms' keys". It shows on the "no batch" Edit form of
-  an archived account's line with only its operation code (or title) still empty, and on Manage ▸
-  Accounts Edit after a failed opening-balance read. The fix saves when no editable field is
-  ahead.
-- **A read-only field can take typing when every field is read-only.** On the "no batch" Edit
-  form of an archived account's line whose title and operation code are both set, the bar opens
-  on DATE (`_first_editable` in [_form.py](../expense/tui/screens/_form.py) falls back to the
-  first field), and `⏎` writes the typed text into the summary as `<typed>  read-only`; `ctrl+s`
-  then says "No changes to save.", and nothing is sent. A typed value must not land on a
-  read-only line ([edit_form.py](../expense/tui/screens/edit_form.py) `on_input_submitted`).
-  The owner's pick (2026-10-23): the form still opens, every line read-only, showing what the
-  line holds.
+- **Stepping through a form never changes it**: `⏎` on ACCOUNT or CATEGORY keeps what the
+  transaction has, `esc` keeps a split part's hashtags, nothing lands on a locked line, and `⏎`
+  saves when no line ahead can change ([specs/stepping-never-changes.md](specs/stepping-never-changes.md)).
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
