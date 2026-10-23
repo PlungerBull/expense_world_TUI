@@ -430,3 +430,10 @@ def test_parse_amount_refuses_non_finite_decimals():
     form field must warn on an unreadable amount, not crash."""
     for text in ("nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"):
         assert parse_amount(text) is None
+
+
+def test_parse_amount_refuses_an_amount_whose_cents_overflow():
+    """`1e999999` is a finite Decimal, but times 100 it overflows the decimal
+    context, which raises: unreadable, never a crash."""
+    for text in ("1e999999", "-1e999999", "1E+999999999"):
+        assert parse_amount(text) is None

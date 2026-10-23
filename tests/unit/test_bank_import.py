@@ -7,10 +7,12 @@ response shape is the contract's (contract: POST /v1/transactions/import).
 """
 
 import httpx
+import openpyxl
 import pytest
 import respx
 
 from expense import config as config_module
+from expense.bank_import import flow as flow_module
 from expense.bank_import.engine import (
     IMPORT_FLOOR,
     AnswerCounts,
@@ -33,6 +35,7 @@ from expense.bank_import.flow import (
     FileLine,
     Prepared,
     file_lines,
+    read_bank_file,
     reconciliation_names,
 )
 from expense.bank_import.parse import (
@@ -162,6 +165,95 @@ def test_parse_sheet_refuses_bad_cells_and_keeps_going():
         ("2026-09-01", "Z", None),
         ("2026-09-01", "W", 0),
     ]
+
+
+#: Cells `Decimal` reads as numbers that are not amounts, as text and as the
+#: float a numeric cell holds.
+NOT_FINITE = [
+    "nan",
+    "NaN",
+    "inf",
+    "-inf",
+    "Infinity",
+    float("nan"),
+    float("inf"),
+    float("-inf"),
+]
+
+
+@pytest.mark.parametrize("amount", NOT_FINITE, ids=repr)
+def test_a_nan_or_inf_amount_refuses_its_row_and_the_rest_are_read(amount):
+    rows, bad = parse_bank_sheet(
+        _sheet(
+            CARD_HEADERS,
+            ("2026-09-01", "BEFORE", "S/", -1),
+            ("2026-09-01", "ODD", "S/", amount),
+            ("2026-09-01", "AFTER", "S/", 2),
+        )
+    )
+    assert [(r.title, r.amount_cents) for r in rows] == [("BEFORE", -100), ("AFTER", 200)]
+    assert [(b.line, b.reason, b.amount_cents) for b in bad] == [
+        (3, f'"{amount}" is not an amount', None)
+    ]
+
+
+@pytest.mark.parametrize(
+    "amount,cents",
+    [
+        ("13,853.20", 1385320),  # a comma groups thousands, as on the typed fields
+        ("-1,311.97", -131197),
+        ("13.853,20", None),  # a comma after the dot is not read as 13.85
+        ("-13.853,20", None),
+        ("-12.50,", None),
+        ("1e999999", None),  # its cents overflow: refused, not raised
+        (" ", None),
+        (True, None),
+    ],
+)
+def test_the_amount_cell_is_read_as_the_typed_fields_read_one(amount, cents):
+    rows, bad = parse_bank_sheet(_sheet(CARD_HEADERS, ("2026-09-01", "X", "S/", amount)))
+    if cents is None:
+        assert rows == [] and [b.reason for b in bad] == [f'"{amount}" is not an amount']
+    else:
+        assert bad == [] and [r.amount_cents for r in rows] == [cents]
+
+
+def _bank_xlsx(tmp_path, *amounts) -> str:
+    """A real BCP-shaped workbook: sheet `data`, one row per amount."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "data"
+    ws.append(CARD_HEADERS)
+    for i, amount in enumerate(amounts):
+        ws.append(["2026-09-01", f"ROW {i + 2}", "S/", amount])
+    path = tmp_path / "bank.xlsx"
+    wb.save(path)
+    return str(path)
+
+
+@pytest.mark.parametrize("amount", ["nan", "NaN", "inf", "-inf", "Infinity", "13.853,20"])
+def test_a_bank_file_with_an_unreadable_amount_text_reads_its_other_rows(tmp_path, amount):
+    """Through the door's own reader, openpyxl and all: the text cell refuses
+    its line and every other line is read."""
+    rows, bad = read_bank_file(_bank_xlsx(tmp_path, -10.5, amount, "13,853.20"))
+    assert [(r.line, r.amount_cents) for r in rows] == [(2, -1050), (4, 1385320)]
+    assert [(b.line, b.reason) for b in bad] == [(3, f'"{amount}" is not an amount')]
+
+
+@pytest.mark.parametrize("amount", [float("nan"), float("inf"), float("-inf")], ids=repr)
+def test_a_bank_file_with_a_nan_or_inf_number_cell_reads_its_other_rows(monkeypatch, amount):
+    """openpyxl's writer cannot store a float NaN, so the workbook read is
+    stood in for; everything after it is the door's own reader."""
+    sheet = _sheet(
+        CARD_HEADERS,
+        ("2026-09-01", "BEFORE", "S/", -1),
+        ("2026-09-01", "ODD", "S/", amount),
+        ("2026-09-01", "AFTER", "S/", 2),
+    )
+    monkeypatch.setattr(flow_module, "read_workbook", lambda path, **k: sheet)
+    rows, bad = read_bank_file("bank.xlsx")
+    assert [r.title for r in rows] == ["BEFORE", "AFTER"]
+    assert [(b.line, b.reason) for b in bad] == [(3, f'"{amount}" is not an amount')]
 
 
 def test_parse_sheet_refuses_both_rows_of_a_repeated_operation_number():

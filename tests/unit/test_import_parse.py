@@ -72,10 +72,45 @@ def test_serial_to_iso_known_dates():
         (3500, 350000),
         ("-4.99", -499),
         (0, 0),
+        ("13,853.20", 1385320),  # a comma groups thousands, as on the typed fields
+        ("-1,311.97", -131197),
     ],
 )
 def test_amount_to_cents(value, expected):
     assert amount_to_cents(value) == expected
+
+
+#: Cells that are not amounts. `Decimal` reads the non-finite ones as numbers,
+#: as text and as the float a numeric cell holds; a comma after the dot is a
+#: decimal comma, never read as 13.85; `1e999999`'s cents overflow.
+NOT_AMOUNTS = [
+    "nan",
+    "NaN",
+    "inf",
+    "-inf",
+    "Infinity",
+    float("nan"),
+    float("inf"),
+    float("-inf"),
+    "13.853,20",
+    "-12.50,",
+    "1e999999",
+    "abc",
+    True,
+    None,
+]
+
+
+@pytest.mark.parametrize("value", NOT_AMOUNTS, ids=repr)
+def test_amount_to_cents_refuses_what_is_not_an_amount(value):
+    assert amount_to_cents(value) is None
+
+
+@pytest.mark.parametrize("value", NOT_AMOUNTS, ids=repr)
+def test_a_row_whose_amount_is_not_one_is_skipped_and_the_rest_parse(value):
+    parsed, _, skipped = parse_sheet(_sheet([_row(2), _row(3, Monto=value), _row(4, Monto=12)]))
+    assert [(p.line, p.amount_cents) for p in parsed] == [(2, -4400), (4, 1200)]
+    assert [(s.line, s.reason, s.detail) for s in skipped] == [(3, "bad-amount", str(value))]
 
 
 def test_build_column_index_missing_required():

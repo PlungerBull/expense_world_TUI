@@ -56,15 +56,6 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-2. **The importers read amounts as the typed fields do.** In `parse_amount` of
-   [bank_import/parse.py](../../expense/bank_import/parse.py), and the sheet import's
-   `amount_to_cents` ([import_/parse.py](../../expense/import_/parse.py)). The bank reader turns
-   `13.853,20` into 13.85, as task 1's reader did, and a sheet text cell reading `inf` crashes the
-   sheet import with an uncaught `OverflowError` (found by task 1's builder). Passes if: unit
-   tests show `nan`, `NaN`, `inf`, `-inf` and `Infinity` each refused as not an amount by both
-   importers, with no exception, and a file holding one such row imports the others; the bank
-   reader refuses `13.853,20` as task 1's does and reads `13,853.20` as today; one rule, not two
-   copies, if the readers can share it.
 3. **A split part holding only #Pendiente drops.** In
    [split.py](../../expense/tui/screens/split.py). Passes if: a unit test with real key presses
    opens a new part, leaves it with only the pending hashtag, and finds it gone from the table

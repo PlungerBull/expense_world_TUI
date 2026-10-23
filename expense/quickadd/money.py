@@ -31,7 +31,12 @@ def parse_amount(text: str) -> int | None:
         # raises. A form field must warn on an unreadable amount, not crash, so
         # they leave here as None like every other thing that isn't a number.
         return None
-    return int((value * MINOR_UNIT_SCALE).to_integral_value(rounding=ROUND_HALF_UP))
+    try:
+        return int((value * MINOR_UNIT_SCALE).to_integral_value(rounding=ROUND_HALF_UP))
+    except ArithmeticError:
+        # `1e999999` is a finite Decimal, but its cents overflow the decimal
+        # context: unreadable, not a crash.
+        return None
 
 
 def amount_to_text(cents: int) -> str:

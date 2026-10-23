@@ -89,6 +89,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit, `⏎` on NAME moves to the next line, but its hint reads `enter to save`
   ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
   wording is the owner's pick.
+- **A huge amount reads, then crashes what prints it.** `parse_amount`
+  ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
+  importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
+  repr) raises `ValueError`. The bound belongs to the engine: read the live contract for the
+  largest amount it takes, and if it states none, it becomes an engine ask; the client never
+  invents one.
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),

@@ -8,11 +8,10 @@ per-row rates.
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from expense.currencies import MINOR_UNIT_SCALE
 from expense.import_ import mapping
 from expense.import_.reader import RawRow, SheetData
+from expense.quickadd.money import parse_amount
 
 EXCEL_EPOCH = date(1899, 12, 30)
 
@@ -168,13 +167,20 @@ def to_iso_date(value: object) -> str | None:
         return None
 
 
-def amount_to_cents(value: object) -> int:
-    """Signed decimal -> signed integer cents, float-artifact safe.
+def amount_to_cents(value: object) -> int | None:
+    """An amount cell -> signed integer cents, or None when it is not an amount.
 
-    ``-132.80000000000001`` -> ``-13280``.
+    The one reader of an amount cell, for this import and the bank import
+    (expense/bank_import/parse.py). A cell goes through the typed fields' own
+    reader, ``parse_amount``, as its text: a number cell's text is its value
+    (``-132.80000000000001`` -> ``-13280``, float-artifact safe via Decimal),
+    and a text cell reads as typed — ``13,853.20`` is 1385320, while
+    ``13.853,20``, ``nan``, ``inf`` and ``Infinity`` (as text or as a float
+    cell) are not amounts. A blank cell is not one either.
     """
-    cents = Decimal(str(value)) * MINOR_UNIT_SCALE
-    return int(cents.to_integral_value(rounding=ROUND_HALF_UP))
+    if value is None:
+        return None
+    return parse_amount(str(value))
 
 
 def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | SkippedRow:
@@ -217,9 +223,8 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
     if date_iso is None:
         return skip("bad-date", str(cell("date")))
 
-    try:
-        amount_cents = amount_to_cents(cell("amount"))
-    except (InvalidOperation, ValueError, TypeError):
+    amount_cents = amount_to_cents(cell("amount"))
+    if amount_cents is None:
         return skip("bad-amount", str(cell("amount")))
     if amount_cents == 0:
         return skip("zero-amount")

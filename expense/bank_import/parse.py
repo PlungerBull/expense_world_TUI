@@ -10,17 +10,18 @@ Columns are matched by header name, case- and whitespace-insensitively, using
 expense/import_/mapping.py's own `normalize_header` — one tolerant mapping
 covers both bank files, and a second bank's export is a label added here, not
 a module. That normaliser is *imported*, not copied, so the two importers
-cannot drift apart on a header like `Numero  de  Operacion`.
+cannot drift apart on a header like `Numero  de  Operacion`. The amount cell
+is read by the sheet import's `amount_to_cents` for the same reason: one
+reader of an amount cell, itself the typed fields' reader.
 """
 
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
-from decimal import ROUND_HALF_UP, Decimal
 
-from expense.currencies import MINOR_UNIT_SCALE, SUPPORTED_CURRENCIES
+from expense.currencies import SUPPORTED_CURRENCIES
 from expense.import_.mapping import match_headers
-from expense.import_.parse import to_iso_date
+from expense.import_.parse import amount_to_cents, to_iso_date
 from expense.import_.reader import SheetData
 
 #: The bank's sheet name, matched case-insensitively by the reader.
@@ -155,18 +156,6 @@ def parse_currency(value: object) -> str | None:
     return code
 
 
-def parse_amount(value: object) -> int | None:
-    """Signed decimal → signed cents, float-artifact safe; None when unreadable."""
-    if value is None or (isinstance(value, str) and not value.strip()):
-        return None
-    try:
-        text = str(value).strip().replace(",", "")
-        cents = Decimal(text) * MINOR_UNIT_SCALE
-    except (ArithmeticError, ValueError):
-        return None
-    return int(cents.to_integral_value(rounding=ROUND_HALF_UP))
-
-
 def parse_operation(value: object) -> str | None:
     """The bank's number as text, zero-padded back to 8 when a cell lost its
     leading zeros to a numeric type. Blank → None.
@@ -219,7 +208,7 @@ def parse_bank_sheet(sheet: SheetData) -> tuple[list[BankRow], list[BadRow]]:
         date_iso = parse_date(cell("date"))
         title = " ".join(str(cell("title") or "").split()) or None
         currency = parse_currency(cell("currency"))
-        amount = parse_amount(cell("amount"))
+        amount = amount_to_cents(cell("amount"))
 
         if date_iso is None:
             reason = f'"{cell("date")}" is not a date'

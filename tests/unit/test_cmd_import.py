@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import httpx
+import openpyxl
 import pytest
 import respx
 from typer.testing import CliRunner
@@ -1015,6 +1016,57 @@ def test_dry_run_writes_nothing(configured, monkeypatch):
     assert result.exit_code == 0
     assert "Dry run" in result.output
     assert not respx.calls  # nothing hit the engine
+
+
+def _sheet_xlsx(tmp_path, *amounts: object) -> str:
+    """A real workbook, one `_CELLS` row per amount, from line 2 on."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Data"
+    ws.append(_HEADERS)
+    for amount in amounts:
+        cells = list(_CELLS)
+        cells[_HEADERS.index("Monto")] = amount
+        ws.append(cells)
+    path = tmp_path / "sheet.xlsx"
+    wb.save(path)
+    return str(path)
+
+
+@respx.mock
+@pytest.mark.parametrize("amount", ["nan", "NaN", "inf", "-inf", "Infinity", "13.853,20"])
+def test_a_text_amount_that_is_not_one_skips_its_row_and_the_rest_import(
+    configured, tmp_path, amount
+):
+    """openpyxl and all: the text cell is one `bad-amount` row, never a crash."""
+    result = runner.invoke(
+        cli_app, ["import", "sheet", _sheet_xlsx(tmp_path, -44, amount, "13,853.20"), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["valid_rows"] == 2
+    assert payload["skipped"] == [{"line": 3, "reason": "bad-amount", "detail": amount}]
+    assert not respx.calls
+
+
+@respx.mock
+@pytest.mark.parametrize("amount", [float("nan"), float("inf"), float("-inf")], ids=repr)
+def test_a_nan_or_inf_number_cell_skips_its_row_and_the_rest_import(
+    configured, monkeypatch, amount
+):
+    """openpyxl's writer cannot store a float NaN, so the workbook read is
+    stood in for; everything after it is the command's own."""
+    odd = list(_CELLS)
+    odd[_HEADERS.index("Monto")] = amount
+    rows = [RawRow(2, list(_CELLS)), RawRow(3, odd), RawRow(4, list(_CELLS))]
+    monkeypatch.setattr(
+        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=_HEADERS, rows=rows)
+    )
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
+    assert result.exit_code == 0, result.output
+    assert "Parsed 2 transactions to import" in result.output
+    assert "Skipped 1 row(s) — bad-amount" in result.output
+    assert not respx.calls
 
 
 @respx.mock

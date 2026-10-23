@@ -103,7 +103,13 @@ decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13
 `1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
 `-12.50,`) is unreadable, never read as 13.85: each form field refuses it with its own note and
 the cursor stays (the box stays open), and on the LOG bar it is no amount, so `↵` refuses the
-line with `the line has no amount`.
+line with `the line has no amount`. `nan`, `inf`, `Infinity` and an amount whose cents overflow
+(`1e999999`) are unreadable too. The two importers read an amount cell through the same reader,
+by `amount_to_cents` in [import_/parse.py](../expense/import_/parse.py): a text cell as typed, a
+number cell as its value, so a cell that is not an amount (`13.853,20`, `nan`, `inf`, as text or
+as a number) refuses its own row and the rest of the file is read — the bank file's line is
+`Couldn't read the row` (§2 "Each row's mark and reason"), the sheet's is `bad-amount`
+([commands.md](commands.md) "`expense import sheet`").
 
 **Async / workers.** Textual runs on asyncio; the engine client is synchronous, and
 stays that way. It is called inside a Textual worker (`@work(thread=True)`) so the UI
@@ -532,7 +538,7 @@ import, `✗` (error colour, bold) that it is left out. The reason stands alone 
 | ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
 | ✗ | `Closed period` | the engine's `sealed`: inside a closed period, never created |
 | ✗ | `Before 2026` | dated before 2026-01-01: never sent |
-| ✗ | `Couldn't read the row` | a line the parser refused: never sent |
+| ✗ | `Couldn't read the row` | a line the parser refused: never sent. An amount cell is read as the typed fields read one ("One reader for every typed amount"), so `13.853,20`, `nan` or `inf` refuses its line, never the file |
 
 Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
 reconciliation's id only, so the preview's worker reads each distinct one once by its id
