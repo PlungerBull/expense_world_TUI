@@ -61,8 +61,4 @@ transaction sent, so the ask
 [a-line-move-answers-what-it-moved.md](../to-engine/a-line-move-answers-what-it-moved.md) goes
 to the engine, and the item leaves this spec for [todo.md](../todo.md); its check 6 is not part
 of this spec's acceptance check.
-7. **The sheet import's report reads right.** In
-   [import_/apply.py](../../expense/import_/apply.py). Passes if: unit tests show a category
-   failure reading `category 'NEW': …` (and account, hashtag likewise), and rows spelling `NEW`
-   and `new` for one missing category held back on one `Not sent:` line, named as the import
-   resolves it.
+Every other task is done; the acceptance check follows.

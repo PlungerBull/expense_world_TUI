@@ -66,6 +66,10 @@ class ResolveResult:
     # left out of the *_ids maps, so its dependent transactions are skipped
     # pre-flight rather than crashing on a KeyError.
     resolve_failures: list[str] = field(default_factory=list)
+    # Each resource not created, as its failure names it (`category 'NEW'`),
+    # keyed by its kind and the key its *_ids map would hold: every row needing
+    # it names it alike, however its own cell spells it.
+    not_created: dict[tuple[str, Hashable], str] = field(default_factory=dict)
 
 
 #: The app's line for the other rows of a split transaction the engine refused
@@ -137,6 +141,7 @@ def _list_all(
 def _resolve_each(
     client: ExpenseClient,
     resource: str,
+    noun: str,
     wanted,
     *,
     existing: dict,
@@ -144,10 +149,12 @@ def _resolve_each(
     payload_of,
     describe,
     index_of=None,
-) -> tuple[dict, int, int, list[str]]:
+) -> tuple[dict, int, int, list[str], dict]:
     """Resolve each wanted spec against `existing` (reuse) or POST it (create).
 
-    Returns (key → id, created, reused, failures). The one copy of the
+    Returns (key → id, created, reused, failures, key → name of each spec not
+    created), both maps keyed by `index_of`. A spec is named `noun` (the
+    resource in the singular) then `describe(spec)`. The one copy of the
     resolve-or-POST loop the three resource blocks below share. `existing`
     is mutated so a duplicate spec reuses the row created for the first one;
     `payload_of(spec)` is the create body beyond the minted `id`.
@@ -159,8 +166,8 @@ def _resolve_each(
     hashtags (the sheet cell is the engine name) and diverge for accounts,
     whose engine name may carry a currency suffix the sheet never had.
 
-    A per-spec `EngineError` (422/409/5xx-after-retries) is collected via
-    `describe(spec)` and the loop continues, so one bad resource does not abort
+    A per-spec `EngineError` (422/409/5xx-after-retries) is collected under the
+    spec's name and the loop continues, so one bad resource does not abort
     the whole import. An `EngineConnectionError`
     propagates: the engine is unreachable, so nothing further can succeed and a
     re-run converges once it's back. So does a refusal every later write would
@@ -172,6 +179,7 @@ def _resolve_each(
     ids: dict = {}
     created = reused = 0
     failures: list[str] = []
+    not_created: dict = {}
     for spec in wanted:
         key = key_of(spec)
         if key in existing:
@@ -184,12 +192,14 @@ def _resolve_each(
             except EngineError as err:
                 if refuses_every_write(err):
                     raise
-                failures.append(f"{resource[:-1]} {describe(spec)}: {engine_text(err)}")
+                named = f"{noun} {describe(spec)}"
+                failures.append(f"{named}: {engine_text(err)}")
+                not_created[index_of(spec)] = named
                 continue
             existing[key] = nid
             ids[index_of(spec)] = nid
             created += 1
-    return ids, created, reused, failures
+    return ids, created, reused, failures, not_created
 
 
 def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
@@ -201,9 +211,10 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         name, cur, aid = acc.get("name"), acc.get("currency_code"), acc.get("id")
         if name and cur and aid:
             amap[(str(name).strip().casefold(), str(cur).upper())] = aid
-    res.account_ids, res.accounts_created, res.accounts_reused, af = _resolve_each(
+    res.account_ids, res.accounts_created, res.accounts_reused, af, an = _resolve_each(
         client,
         "accounts",
+        "account",
         plan.accounts,
         existing=amap,
         key_of=lambda s: (s.name.strip().casefold(), s.currency),
@@ -212,6 +223,7 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         describe=lambda s: f"{s.name!r} ({s.currency})",
     )
     res.resolve_failures.extend(af)
+    res.not_created.update({("account", key): named for key, named in an.items()})
 
     # --- categories: case-insensitive; no color is sent, so a created one takes
     # the engine's default (contract: POST /v1/categories) ---
@@ -220,9 +232,10 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         name, cid = cat.get("name"), cat.get("id")
         if name and cid:
             cmap[str(name).strip().casefold()] = cid
-    res.category_ids, res.categories_created, res.categories_reused, cf = _resolve_each(
+    res.category_ids, res.categories_created, res.categories_reused, cf, cn = _resolve_each(
         client,
         "categories",
+        "category",
         plan.categories,
         existing=cmap,
         key_of=lambda n: n.strip().casefold(),
@@ -230,6 +243,7 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         describe=repr,
     )
     res.resolve_failures.extend(cf)
+    res.not_created.update({("category", key): named for key, named in cn.items()})
 
     # --- hashtags: case-insensitive, no color ---
     hmap: dict[str, str] = {}
@@ -237,9 +251,10 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         name, hid = tag.get("name"), tag.get("id")
         if name and hid:
             hmap[str(name).strip().casefold()] = hid
-    res.hashtag_ids, res.hashtags_created, res.hashtags_reused, hf = _resolve_each(
+    res.hashtag_ids, res.hashtags_created, res.hashtags_reused, hf, hn = _resolve_each(
         client,
         "hashtags",
+        "hashtag",
         plan.hashtags,
         existing=hmap,
         key_of=lambda n: n.strip().casefold(),
@@ -247,8 +262,17 @@ def resolve_or_create(client: ExpenseClient, plan: ImportPlan) -> ResolveResult:
         describe=repr,
     )
     res.resolve_failures.extend(hf)
+    res.not_created.update({("hashtag", key): named for key, named in hn.items()})
 
     return res
+
+
+def _not_created(res: ResolveResult, noun: str, key: Hashable, spelled: str) -> str:
+    """The resource of kind `noun` under `key` that was not created, named as its
+    create failure names it (`ResolveResult.not_created`), so rows spelling it
+    `NEW` and `new` name it alike; `spelled` (the row's own cell) only for a key
+    no create was tried for."""
+    return res.not_created.get((noun, key), f"{noun} {spelled}")
 
 
 def _missing_dep(row: ParsedRow, res: ResolveResult) -> str | None:
@@ -258,12 +282,15 @@ def _missing_dep(row: ParsedRow, res: ResolveResult) -> str | None:
     POST failed is absent from the maps, so its dependent rows are skipped
     pre-flight instead of raising `KeyError` mid-batch.
     """
-    if (row.account.strip().casefold(), row.currency) not in res.account_ids:
-        return f"account {row.account!r} ({row.currency})"
-    if row.category.strip().casefold() not in res.category_ids:
-        return f"category {row.category!r}"
-    if row.hashtag.strip().casefold() not in res.hashtag_ids:
-        return f"hashtag {row.hashtag!r}"
+    account = (row.account.strip().casefold(), row.currency)
+    if account not in res.account_ids:
+        return _not_created(res, "account", account, f"{row.account!r} ({row.currency})")
+    category = row.category.strip().casefold()
+    if category not in res.category_ids:
+        return _not_created(res, "category", category, repr(row.category))
+    hashtag = row.hashtag.strip().casefold()
+    if hashtag not in res.hashtag_ids:
+        return _not_created(res, "hashtag", hashtag, repr(row.hashtag))
     return None
 
 
@@ -317,10 +344,10 @@ def _apply_openings(client: ExpenseClient, plan: ImportPlan, res, result: ApplyR
         account_id = res.account_ids.get(account_key)
         if account_id is None:
             result.opening_failed += 1
+            account = _not_created(res, "account", account_key, f"{row.account!r} ({row.currency})")
             result.failures.append(
                 Failure(
-                    f"sheet line {row.line}: opening balance not sent — "
-                    f"account {row.account!r} ({row.currency}) was not created",
+                    f"sheet line {row.line}: opening balance not sent — {account} was not created",
                     (row.line,),
                 )
             )

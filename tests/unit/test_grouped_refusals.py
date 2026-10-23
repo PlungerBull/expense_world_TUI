@@ -327,3 +327,87 @@ def test_rows_held_back_read_one_line_per_missing_resource(configured, monkeypat
         f"  {SPLIT_PART_NOT_SENT} row 4\n"
     )
     assert SPLIT_PART_REFUSED not in result.output
+
+
+def _refuse_every_create() -> None:
+    """Every account, category and hashtag create is refused, as one the
+    engine has no room for is."""
+    refused = error_response(409, "LIMIT_REACHED", "No room for another.")
+    for resource in ("accounts", "categories", "hashtags"):
+        respx.post(f"{BASE}/v1/{resource}").mock(return_value=refused)
+
+
+@respx.mock
+def test_each_resource_not_created_is_named_in_the_singular(configured, monkeypatch):
+    """`Resource failures` names an account, a category and a hashtag each in the
+    singular, in the text output and in `--json`; each row held back for one
+    reads that name too."""
+    rows = [
+        _raw(2, Cuenta="Nueva"),
+        _raw(3, CATEGORY="NEW"),
+        _raw(4, HASHTAG="Nuevo"),
+    ]
+    _use_sheet(monkeypatch, rows)
+    _seeded()
+    _refuse_every_create()
+    route = respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=[_ok()])
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+    as_json = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--json"])
+
+    assert result.exit_code == 1
+    assert route.call_count == 0  # no row could be sent
+    said = [
+        "account 'Nueva' (PEN): LIMIT_REACHED — No room for another.",
+        "category 'NEW': LIMIT_REACHED — No room for another.",
+        "hashtag 'Nuevo': LIMIT_REACHED — No room for another.",
+    ]
+    assert "Resource failures (3):\n" + "".join(f"  {line}\n" for line in said) in result.output
+    assert "categorie" not in result.output
+    assert result.output.endswith(
+        "Failures (3 rows):\n"
+        "  Not sent: account 'Nueva' (PEN) was not created. row 2\n"
+        "  Not sent: category 'NEW' was not created. row 3\n"
+        "  Not sent: hashtag 'Nuevo' was not created. row 4\n"
+    )
+    assert json.loads(as_json.output)["resolve_failures"] == said
+
+
+@respx.mock
+def test_one_missing_name_spelled_two_ways_reads_one_line(configured, monkeypatch):
+    """The import matches `NEW`, ` new ` and `New` as one category, so the rows
+    held back for it share one line, naming it as the import resolved it: the
+    sheet's first spelling, the one its create was refused under. An account
+    spelled two ways reads the same, its opening balance included."""
+    rows = [
+        _raw(2, CATEGORY="NEW"),
+        _raw(3, CATEGORY=" new "),
+        _raw(4, CATEGORY="New"),
+        _raw(5, Cuenta="Nueva"),
+        _raw(6, Cuenta="NUEVA "),
+        _raw(7, Descripcion="SALDO INICIAL", Cuenta="nueva", Monto=500),
+    ]
+    _use_sheet(monkeypatch, rows)
+    _seeded()
+    _refuse_every_create()
+    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=[_ok()])
+
+    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
+    as_json = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--json"])
+
+    assert result.exit_code == 1
+    assert "Resource failures (2):\n" in result.output
+    assert result.output.endswith(
+        "Failures (6 rows):\n"
+        "  sheet line 7: opening balance not sent — account 'Nueva' (PEN) was not created\n"
+        "  Not sent: category 'NEW' was not created. rows 2, 3, 4\n"
+        "  Not sent: account 'Nueva' (PEN) was not created. rows 5, 6\n"
+    )
+    words = [(f["words"], f["lines"]) for f in json.loads(as_json.output)["failures"]]
+    assert words[1:] == [
+        ("Not sent: category 'NEW' was not created.", [2]),
+        ("Not sent: category 'NEW' was not created.", [3]),
+        ("Not sent: category 'NEW' was not created.", [4]),
+        ("Not sent: account 'Nueva' (PEN) was not created.", [5]),
+        ("Not sent: account 'Nueva' (PEN) was not created.", [6]),
+    ]

@@ -110,6 +110,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   ask [a-line-move-answers-what-it-moved.md](to-engine/a-line-move-answers-what-it-moved.md): the
   answer to a move names only the transaction sent
   ([transactions.py](../expense/tui/screens/transactions.py) `bulk_receipt`).
+- **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
+  names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
+  leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
+  the test in [test_grouped_refusals.py](../tests/unit/test_grouped_refusals.py).
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
