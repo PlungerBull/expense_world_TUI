@@ -114,6 +114,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
   the test in [test_grouped_refusals.py](../tests/unit/test_grouped_refusals.py).
+- **The "no batch" `?` card lists `esc Back` twice.** Seen by the acceptance check of
+  2026-10-23 ([reconciliations.py](../expense/tui/screens/reconciliations.py)); one row, with a
+  test.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
