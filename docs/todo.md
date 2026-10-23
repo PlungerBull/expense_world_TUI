@@ -259,8 +259,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
   owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
-  [specs/before-the-official-import.md](specs/before-the-official-import.md); it waits on
-  [specs/accounts-become-people.md](specs/accounts-become-people.md).
+  [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

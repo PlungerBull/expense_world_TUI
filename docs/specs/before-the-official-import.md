@@ -1,8 +1,8 @@
 # The official import
 
-**Status: every question answered (owner, 2026-10-21); the import waits on one spec with an
-engine half,** [accounts-become-people.md](accounts-become-people.md); the split purchases'
-grouping is built ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
+**Status: every question answered (owner, 2026-10-21).** Turning sheet accounts into people
+is built ([decisions.md](../decisions.md) "An account becomes a person, and back, with one
+key"); the split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
 as one split transaction"). When the import is done, the why moves
 to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -45,7 +45,7 @@ approved by the owner.
 | 8 | Is the sheet frozen after the import? | The app is the record; the sheet is not imported again (2026-10-21). |
 | 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
 | — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account leg") (2026-10-17). |
-| — | People | Imported as bank accounts, then turned into people in the app: [accounts-become-people.md](accounts-become-people.md) (2026-10-21). |
+| — | People | Imported as bank accounts, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21). |
 
 ## Steps
 

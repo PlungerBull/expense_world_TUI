@@ -659,6 +659,27 @@ the client to tell its own line from another after `STATEMENT_LINE_EXISTS`* — 
 repeated in every client; the engine changed its order instead. *Re-sending a refused batch row
 by row* — one request per row, now that the engine names every item it refuses.
 
+## An account becomes a person, and back, with one key (2026-10-22, owner)
+
+**Context.** The owner's sheet records loans the way the app does: every movement with a person
+is mirrored in an account named after that person, and its balance is the debt (ALEJO, ALONSO,
+LC, ALEX, LIDIA, MATILDE, CARLOS and KORAKUEN; twelve accounts once split by currency). The sheet
+import creates every sheet account as a bank account.
+
+**Decision.** (1) **The owner turns an account into a person in the app,** not in the import:
+`t` on Manage ▸ Accounts sends make-person or make-account at once, with no question, since it
+is reversible and keeps the account's id, name, currency, balance and transactions
+(contract: POST /v1/accounts/{account_id}/make-person). The cursor stays on the account in its
+new group, and the note says what it became, so a second `t` turns it back. (2) **A refusal is
+the engine's words,** and `HAS_OPENING_BALANCE` adds what to do: empty the opening balance with
+`e` first, since a person cannot carry one. (3) **The sheet import finds people and archived
+accounts too** when it matches by name and currency, so a re-run after a conversion reuses the
+person instead of creating the name again and failing its rows.
+
+**Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with
+the sheet, while a plain account action also fixes any account created as the wrong kind.
+*Asking before `t`* — nothing is lost, and `t` again undoes it.
+
 ## Refused rows read one line per kind of error (2026-10-22, owner)
 
 **Decision.** When a save of several rows is refused, the sheet import's `Failures` block and the
