@@ -5,6 +5,8 @@ Edit-only: creating is the LOG bar's — see
 PUT, and the suggestion pickers.
 """
 
+import threading
+
 import pytest
 from rich.text import Text
 from textual.widgets import Input, Static
@@ -1568,6 +1570,52 @@ def test_enter_on_an_archived_lines_title_moves_one_line_to_its_code(fake_client
     assert fake_client.puts == [
         ("/transactions/p1", {"title": "farmacia", "operation_code": "47391026"})
     ]
+
+
+@pytest.mark.parametrize("refused", [False, True], ids=["saved", "refused"])
+def test_the_saves_busy_hint_stays_while_it_is_sent(fake_client, monkeypatch, refused):
+    """The line's only open line is its empty title, so a real `⏎` there saves:
+    while the engine's answer is held back, the hint under the bar reads
+    `Saving…`, not the title's hint. Once the answer arrives the form goes on
+    as before: a save closes it, a refusal brings the title's hint back."""
+    notices = _record_notices(monkeypatch)
+    asked, release = threading.Event(), threading.Event()
+    answer = fake_client.put
+
+    def held(path, json_body=None):
+        asked.set()
+        release.wait(timeout=5)
+        return answer(path, json_body)
+
+    fake_client.put = held
+    if refused:
+        fake_client.errors["PUT"] = EngineError("VALIDATION", "Refused.", None, 422, {})
+
+    async def steps(screen, pilot, app):
+        hint = screen.query_one("#hint", Static)
+        assert screen._locked == {"date", "operation", "amount", "account"}
+        assert screen._key == "title"
+        await pilot.press(*"farmacia")
+        try:
+            await pilot.press("enter")
+            await wait_for(pilot, asked.is_set)  # the PUT is in flight
+            await pilot.pause()
+            assert str(hint.content) == "Saving…"
+        finally:
+            release.set()
+        await wait_for(pilot, lambda: notices)
+        if refused:
+            await wait_for(pilot, lambda: not screen._submitting)
+            assert screen.is_attached and screen._key == "title"
+            assert str(hint.content) == "free text · enter to save"
+        else:
+            await wait_for(pilot, lambda: not screen.is_attached)
+
+    _open_line({**UNNAMED_LINE, "operation_code": "47391026"}, monkeypatch, steps)
+    assert fake_client.puts == [("/transactions/p1", {"title": "farmacia"})]
+    assert notices[0][0] == ("Failed" if refused else "")
+    if not refused:
+        assert notices == [("", "Saved.")]
 
 
 def test_an_archived_lines_filled_code_reopens_read_only(fake_client, monkeypatch):

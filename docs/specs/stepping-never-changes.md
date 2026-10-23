@@ -51,9 +51,4 @@ locked.
 
 Approved by the owner on 2026-10-23.
 
-2. **The save's busy hint stays while it is sent.** On the Edit form, the date, title, amount,
-   account and category branches of `on_input_submitted` refresh the view after `_advance()`; now
-   that `_advance` can save, that refresh replaces the save's "Saving…" hint while the PUT is in
-   flight (an archived account's "no batch" line with only its title open). Passes if: a unit
-   test on that line shows the busy hint stays until the answer, as `edit_form.py`'s
-   `if not self._submitting` keeps it elsewhere.
+Every task is done; the acceptance check follows.

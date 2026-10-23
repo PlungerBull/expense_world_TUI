@@ -248,7 +248,10 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     # ---- render --------------------------------------------------------------
     def _refresh_view(self) -> None:
-        self.query_one("#hint", Static).update(self._hint_line(self._key))
+        # a save in flight keeps its busy hint until the engine answers: `_advance`
+        # can save, and a handler may refresh after it
+        if not self._submitting:
+            self.query_one("#hint", Static).update(self._hint_line(self._key))
         self.query_one("#suggest", Static).update(self._suggest_renderable())
         self.query_one("#summary", Static).update(self._summary_renderable())
 

@@ -248,8 +248,7 @@ class EditFormScreen(FormScreen):
 
     def _set_split_part(self) -> None:
         self._split_part = True
-        if not self._submitting:  # a save in flight keeps its busy hint
-            self._refresh_view()
+        self._refresh_view()  # a save in flight keeps its busy hint (`_refresh_view`)
 
     @work(thread=True, exclusive=True)
     def _load_entities(self) -> None:
