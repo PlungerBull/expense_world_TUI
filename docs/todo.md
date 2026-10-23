@@ -49,15 +49,6 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **The sheet import writes "categorie".** Its `Resource failures` list makes a resource
-  singular by cutting the last letter, so a category reads `categorie 'NEW': LIMIT_REACHED — …`
-  ([apply.py](../expense/import_/apply.py)). Name each resource in the singular directly, with a
-  test.
-- **Rows held back for one missing resource can split over two `Not sent:` lines.** The import
-  matches a sheet's category, account and hashtag names ignoring case and spaces, but a held-back
-  row's line names the resource as its own cell spells it, so rows spelling `NEW` and `new` read
-  two lines for one resource ([apply.py](../expense/import_/apply.py) `_missing_dep`). Name the
-  resource as the import resolves it, with a test.
 - **A non-date in the Edit form's date crashes the app.** On the `⏎` Edit form, and the
   bank-line Edit form that shares its code, `⏎` on a date bar holding a non-date (e.g. `abc`)
   accepts it, and `ctrl+s` raises an uncaught `typer.BadParameter`, so the app exits with a
@@ -74,11 +65,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit, `⏎` on NAME moves to the next line, but its hint reads `enter to save`
   ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
   wording is the owner's pick.
-- **`⏎` on an empty colour line on an Edit form shows the colour as gone.** The summary then
-  reads `— (optional)`, though the save leaves `color` out and the engine keeps it
-  ([create_forms.py](../expense/tui/screens/create_forms.py)). Stepping past a line should not
-  change what it shows; this goes with "The colour line on an edit screen starts on the colour
-  the row already has" below.
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
@@ -99,19 +85,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
-- **Two wordings in "no batch".** The owner's picks (2026-10-18): the `?` card's line for `⏎`
-  reads "Edit the row: its date, title, operation, amount or account"; and `c`'s question counts
-  in written English, "1 ticked row" for one and "5 ticked rows" otherwise
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py)). Tests follow.
-- **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
-  part (the engine's rule), so the note says `2 rows → BCP Oro PEN · 2 left their
-  reconciliation`, not the count of rows selected (the owner's pick, 2026-10-18). The count is the
-  engine's: if its answer does not say what moved, it becomes an engine ask, never one read per
-  part ([transactions.py](../expense/tui/screens/transactions.py)).
-- **A bank file cell reading `nan` or `inf` crashes the import.** `parse_amount` turns the
-  amount into cents outside its `try`, so `nan` raises `ValueError` and `inf` or `Infinity`
-  raise `OverflowError` instead of refusing the row as not an amount
-  ([parse.py](../expense/bank_import/parse.py)). Refuse it, with a test.
 - **Leftovers in the import door.** The apply still builds `day_mismatches` the screen after
   importing no longer shows; `reason_cell` picks a row's style by comparing the reason's words
   (a kind on `FileLine` would not); `Placed.rule` and `Placed.sealed_by` are read but used only
@@ -157,10 +130,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
   runs whole, though no test leaves one when run alone; find which pair of tests does it
   ([test_bank_lines.py](../tests/contract/test_bank_lines.py)).
-- **A split part holding only the pending hashtag never drops.** A part whose only content is
-  `#Pendiente` is not empty, so it stays when its fields close, shows `—` in every cell and is
-  sent as an id alone, which the engine refuses ([split.py](../expense/tui/screens/split.py)).
-  It should drop like an empty part, with a test.
 - **Three more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
@@ -213,15 +182,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **An amount typed with a dot for thousands is misread.** `parse_amount` drops every comma, so
-  `13.853,20` is saved as 13.85 on every amount field. The owner chose (2026-10-15): every amount
-  field refuses an amount whose comma comes after its dot, with the field's usual "can't read
-  that" note ([quickadd/money.py](../expense/quickadd/money.py)).
-- **The colour line on an edit screen starts on the colour the row already has.** Every other
-  line starts on its current value; the colour line starts on the first swatch (a category) or
-  on nothing (an account), so `enter` there turns a category blue and shows an account's colour
-  as gone ([create_forms.py](../expense/tui/screens/create_forms.py)). Owner's pick
-  (2026-10-15): it starts on the current colour, so `enter` keeps it.
+- **Right amounts, no crashes, and the picks already made**: a dot-before-comma amount refused,
+  `nan`/`inf` in a bank file, a split part holding only #Pendiente, the colour line, two "no
+  batch" wordings, the note after `b`, the sheet import's report
+  ([specs/right-amounts-no-crashes.md](specs/right-amounts-no-crashes.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
