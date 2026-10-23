@@ -27,43 +27,27 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The LOG bar's note for a signed amount it can't read
-Asked 2026-10-23 · Blocks: nothing (the line is refused either way)
+### Amounts follow your number format
+Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
-On the LOG bar, `tottus -13.853,20 $BCP PEN` is refused, as you chose, but the note reads "the
-line has no amount — a number needs a sign to be one", though `-13.853,20` has its sign.
-- **A.** Keep the note as it is.
-- **B.** For a signed number it can't read, the note says so: "can't read -13.853,20 as an
-  amount".
+You asked to work as normal apps do: the app reads your Mac's region by default, and an
+optional setting on your account wins when it is set, so every device agrees. Your Mac's region
+is English (Peru): dot for decimals, comma for thousands, as your bank files write them. Under
+it, `1,5` is not a number (a comma marks thousands, three digits after it), so it is refused
+instead of saved as 15.00. The account setting is an ask to the engine. One choice is yours:
+- **A.** Your format is used for amounts you type and for every amount the app shows.
+- **B.** Only for amounts you type; the app keeps showing `13,853.20`.
 
-**Recommended:** B, because the note should name what is wrong with what you typed.
+**Recommended:** A, because that is what normal apps do: one format, both ways.
 
-### A comma used for decimals, with no dot
-Asked 2026-10-23 · Blocks: nothing (today's reading stays until you pick)
+### Split transactions on a screen of their own [UI]
+Asked 2026-10-23 · Blocks: the "no batch" `?` card's line on a split row
 
-Every amount field drops every comma as a thousands mark, so `1,5` is saved as 15.00 and
-`-13,85` as -1,385.00, with no warning: a comma typed as the decimal mark makes the amount 10 or
-100 times too big. `1,000` must keep reading as one thousand.
-- **A.** Refuse an amount where a comma is followed by anything but exactly three digits:
-  `1,5` and `-13,85` are refused with the field's usual note; `1,000` and `13,853.20` read as
-  today.
-- **B.** Keep today's reading.
-
-**Recommended:** A, because a wrong amount saved silently is worse than one refused.
-
-### The `?` card's `⏎` line on a split transaction in "no batch"
-Asked 2026-10-23 · Blocks: nothing (the line reads as you picked)
-
-In Reconciliations ▸ "no batch", the `?` card now says for `⏎`: "Edit the row: its date, title,
-operation, amount or account", on every row. On a split transaction the amount can't be changed
-there: its form shows the parts' amounts read-only.
-- **A.** Keep one line for every row, as picked.
-- **B.** A split transaction gets its own line: "Edit the row: its date, title, operation or
-  account".
-- **C.** Drop "amount" from the line on every row.
-
-**Recommended:** B, because the card should say what `⏎` really does on the row under the
-cursor.
+You asked whether split transactions should have their own screen, since they are more complex
+than one row. Drawn in
+[mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
+one screen for a split transaction, opened from everywhere (A), or the split screen gaining the
+line's fields while `⏎` on the ledger still edits one part (B).
 
 ---
 
@@ -72,12 +56,6 @@ cursor.
 Open work. Items with a spec link it; the rest are not yet a spec. Bigger items link their plan doc, which is deleted when the work
 ships (its why moves to [decisions.md](decisions.md)).
 
-- **Two ways to group refused rows.** The ledger's bulk edit groups its refusals with its own
-  `group_refusals` (`rows 1, 2: <message>`,
-  [transactions.py](../expense/tui/screens/transactions.py)), apart from the shared
-  `grouped_refusals` the sheet import and the LOG bar use (`<field>: <words> rows 1, 2`,
-  [formatting.py](../expense/formatting.py)). One helper; merging them changes what the bulk
-  edit's toast says, so its wording is the owner's pick first [UI].
 - **`a` on Manage ▸ Accounts reads its refusals as a form does.** `a` is sent from a list but
   goes through `format_error`, so a `CONCURRENT_CHANGE` on it says `save again`, where `t`, `d`
   and `c` say the list's `press r, then try again` (`list_refusal_text` in
@@ -87,26 +65,6 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **A non-date in the Edit form's date crashes the app.** On the `⏎` Edit form, and the
-  bank-line Edit form that shares its code, `⏎` on a date bar holding a non-date (e.g. `abc`)
-  accepts it, and `ctrl+s` raises an uncaught `typer.BadParameter`, so the app exits with a
-  traceback ([edit_form.py](../expense/tui/screens/edit_form.py) stores the text unchecked;
-  [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
-  `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
-  does; the message it shows is wording the owner picks first.
-- **The DATE hint on a form with every line read-only [UI].** On the "no batch" Edit form of an
-  archived account's line whose title and operation code are both set, the bar sits on DATE and
-  the hint still reads `YYYY-MM-DD · enter to accept, or type a date`, though the bar takes
-  nothing typed (`FormBar` in [_form.py](../expense/tui/screens/_form.py)). What the hint says
-  there is the owner's pick, from a mockup.
-- **"enter to save" hints on lines where `⏎` moves on [UI].** Manage ▸ Accounts NAME
-  ([create_forms.py](../expense/tui/screens/create_forms.py) around line 257), Categories NAME
-  (around line 219), the Edit form's TITLE ([edit_form.py](../expense/tui/screens/edit_form.py)
-  around line 121) and a new reconciliation's NAME
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 734) say `enter to
-  save`, but `⏎` there moves to the next line. The account's COLOR hint, `optional · empty enter
-  to skip` (around line 261), goes with it: `⏎` keeps a colour the line holds. Question 4 in
-  [mockups/expense-world-wording-picks.html](mockups/expense-world-wording-picks.html).
 - **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
   part, so the note reads `2 rows → BCP Oro PEN · 2 left their reconciliation` (the owner's pick,
   2026-10-18); the Edit form's "It left its reconciliation" has the same gap. Waits on the engine
@@ -250,6 +208,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
+- **Notes and hints that say what is true, and the bulk pick as a screen**: the non-date note,
+  the DATE hint on an all-locked line, the "enter to save" hints, the bulk edit's refused rows,
+  the bulk pick as a full screen, the LOG bar's note for an amount it can't read
+  ([specs/wording-and-the-bulk-pick.md](specs/wording-and-the-bulk-pick.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
@@ -259,10 +221,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   is earned, a monthly chapter recap, a Character screen, and a one-time role on each account and
   some categories. Sketch: [mockups/expense-world-xp-system.html](mockups/expense-world-xp-system.html),
   not approved, nothing built; XP prices are placeholders. Needs a spec from the owner.
-- **`PickerModal` carries rows but is still a modal.** A surface carrying rows should be a
-  pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
-  `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
-  replacement needs drawing.
 - **A superseded read can paint on a reconciliation's checklist.** A read started mid-burst of
   `space` ticks can still reach `_populate` after the last tick's answer empties the queue, when
   its worker passed the `is_cancelled` check just before the newer load cancelled it
