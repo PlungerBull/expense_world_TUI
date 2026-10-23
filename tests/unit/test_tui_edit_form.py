@@ -9,6 +9,7 @@ import threading
 
 import pytest
 from rich.text import Text
+from textual import events
 from textual.widgets import Input, Static
 
 from expense.errors import EngineConnectionError, EngineError
@@ -1670,8 +1671,9 @@ async def _type_on_every_line_and_save(screen, pilot):
     assert bar.value == shown  # the bar takes nothing typed
     await pilot.press("backspace", "ctrl+u")
     assert bar.value == shown  # nor deletes anything
-    bar._on_paste(type("Paste", (), {"text": "pasted", "stop": lambda self: None})())
-    assert bar.value == shown
+    bar.post_message(events.Paste("pasted"))
+    await pilot.pause()
+    assert bar.value == shown  # nor anything pasted
     await pilot.press("enter")
     await pilot.pause()
     assert screen._key == opened_on  # nothing editable ahead: it stays and saves
