@@ -24,8 +24,9 @@ open. A field is kept when you leave it, whichever key leaves it, and shows in
 the table at once; `⏎` on NOTE goes back to the table, cursor on the part, and
 `esc` goes back keeping every field already left and every hashtag already
 added with `⏎`, only the one being typed going back to what it was. `⏎` on
-`+ add a part` adds an empty part and opens it on AMOUNT. A part left with
-nothing in it drops again.
+`+ add a part` adds an empty part and opens it on AMOUNT. A part added here
+and left with nothing in it, or with only the pending hashtag, drops again
+(`part_empty`); a part read from the line never drops, whatever is emptied.
 
 **Re-split.** The screen opens a transaction with one `GET /bank-lines/{id}`
 read: on a part of a split transaction the table opens with the line's
@@ -121,24 +122,21 @@ RULE_WIDTH = 78
 class Part:
     """One part in the table. `amount_cents` None until one is typed;
     `category_id` None files the part under `@Pendiente`; `hashtag_ids` as
-    picked or as the engine holds them, the pending hashtag among them."""
+    picked or as the engine holds them, the pending hashtag among them;
+    `read` True for a part read from the line, which never drops."""
 
     amount_cents: int | None = None
     category_id: str | None = None
     hashtag_ids: tuple[str, ...] = ()
     note: str | None = None
-
-    @property
-    def empty(self) -> bool:
-        """Nothing typed in it: it drops when its fields close."""
-        return self == Part()
+    read: bool = False
 
 
 def part_from_engine(item: dict, refs: QuickAddRefs) -> Part:
     """A part the engine holds, as `GET /bank-lines/{id}` lists it: a
     magnitude and its `transaction_type`, signed by `signed_cents`. The
     `@Pendiente` category is what a part naming none means, so it reads as
-    none."""
+    none. Marked `read`, so it stays whatever is emptied."""
     pending_category = refs.pending[0] if refs.pending else None
     category = item.get("category_id")
     return Part(
@@ -146,6 +144,7 @@ def part_from_engine(item: dict, refs: QuickAddRefs) -> Part:
         category_id=None if category == pending_category else category,
         hashtag_ids=tuple(str(t) for t in item.get("hashtag_ids") or ()),
         note=item.get("description") or None,
+        read=True,
     )
 
 
@@ -155,6 +154,16 @@ def real_hashtags(part: Part, refs: QuickAddRefs | None) -> list[str]:
     under the pending hashtag (contract: POST /v1/transactions/{transaction_id}/split)."""
     pending = refs.pending_hashtag_id if refs else None
     return hashtags_to_send(part.hashtag_ids, pending, pending_alone=False)
+
+
+def part_empty(part: Part, refs: QuickAddRefs | None) -> bool:
+    """A part added on this screen with nothing in it the split would send: no
+    amount, category or note, and no hashtag but the pending one, which the
+    table never shows. Such a part drops when its fields close; a part read
+    from the line never does."""
+    if part.read:
+        return False
+    return replace(part, hashtag_ids=tuple(real_hashtags(part, refs))) == Part()
 
 
 def part_payload(part: Part, refs: QuickAddRefs | None, *, part_id: str) -> dict:
@@ -622,14 +631,14 @@ class SplitScreen(FormScreen):
 
     def _close_fields(self) -> None:
         """Back to the table, the cursor on the part or the TITLE line; a part
-        with nothing in it drops."""
+        added here with nothing in it, or only the pending hashtag, drops."""
         index = self._editing
         if self._title_open:
             self._title_open = False
             self._cursor = TITLE_ROW
         elif index is not None:
             self._editing = None
-            if self._parts[index].empty:
+            if part_empty(self._parts[index], self._refs):
                 del self._parts[index]
             self._cursor = min(index, len(self._parts))
         else:

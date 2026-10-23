@@ -360,8 +360,10 @@ keeping every field already left and every hashtag already added with `⏎`; onl
 being typed goes back to what it was (Question 2 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)).
 **`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
-A part left with nothing in it, by `esc` or `⏎` through its fields, drops again, the cursor
-back on `+ add a part`.
+A part added there and left with nothing in it, by `esc` or `⏎` through its fields, drops
+again, the cursor back on `+ add a part`; a part holding only #Pendiente counts as empty, since
+the table never shows it and the split sends no hashtag for it (`part_empty`). A part read from
+the line never drops this way, whatever is emptied; `ctrl+x` drops it.
 **`⏎` on the TITLE line** opens one field below (screen 4), under the dim rule and
 `TITLE · changes it on every part` (`TITLE` bold, the rest dim): `▌ TITLE` in the accent with
 the input after it, opening on the title as it is. While it is open the TITLE line reads

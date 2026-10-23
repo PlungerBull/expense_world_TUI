@@ -56,10 +56,6 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-3. **A split part holding only #Pendiente drops.** In
-   [split.py](../../expense/tui/screens/split.py). Passes if: a unit test with real key presses
-   opens a new part, leaves it with only the pending hashtag, and finds it gone from the table
-   and from what `ctrl+s` sends; a part with an amount and #Pendiente stays.
 4. **The colour line starts on the row's own colour.** In
    [create_forms.py](../../expense/tui/screens/create_forms.py). Passes if: unit tests with real
    key presses show, on a category's and an account's Edit screen, the highlight on the row's

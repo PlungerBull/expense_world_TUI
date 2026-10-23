@@ -28,6 +28,7 @@ from expense.tui.screens.split import (
     Part,
     SplitScreen,
     count_line,
+    part_empty,
     part_from_engine,
     part_key,
 )
@@ -518,7 +519,7 @@ def test_esc_in_the_fields_keeps_the_fields_left_and_drops_only_the_one_typed(en
         await pilot.pause()
         assert app.screen is screen
         assert screen._editing is None and screen._cursor == 0
-        assert screen._parts[0] == Part(-5500, "c-com", ("h-casa",), "verduras")
+        assert screen._parts[0] == Part(-5500, "c-com", ("h-casa",), "verduras", read=True)
 
     run_app(scenario, size=SIZE)
     assert engine.posts == []
@@ -644,6 +645,108 @@ def test_a_part_left_with_nothing_typed_drops_again(engine, leave):
         assert app.screen is screen
 
     run_app(scenario, size=SIZE)
+
+
+@pytest.mark.parametrize("leave", ["escape", "fields"], ids=["esc", "enter-through"])
+def test_a_part_left_with_only_the_pending_hashtag_drops_as_an_empty_one(engine, leave):
+    """Spec check 3: a new part given only #Pendiente, every cell `—`, drops
+    when its fields close, by `esc` or `⏎` through them, and `ctrl+s` sends
+    the two parts the line holds, never an id alone."""
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "down", "enter")
+        await pilot.pause()
+        await _field(pilot, screen, "")  # AMOUNT
+        await _field(pilot, screen, "")  # CATEGORY
+        await _field(pilot, screen, "pendiente")  # HASHTAGS: adds it, stays
+        assert screen._parts[2] == Part(hashtag_ids=("h-pend",))
+        if leave == "escape":
+            await pilot.press("escape")
+        else:
+            await _field(pilot, screen, "")  # HASHTAGS: moves on
+            await _field(pilot, screen, "")  # NOTE: back to the table
+        await pilot.pause()
+        assert screen._editing is None
+        assert len(screen._parts) == 2
+        assert screen._cursor == 2  # back on `+ add a part`
+        lines = _lines(screen, "#parts")
+        assert [line.split()[0] for line in lines[1:3]] == ["1", "2"]
+        assert lines[3].strip() == "+  add a part"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: engine.posts)
+
+    run_app(scenario, size=SIZE)
+    assert _sent(engine) == [
+        {
+            "amount_cents": -6000,
+            "category_id": "c-com",
+            "hashtag_ids": ["h-casa"],
+            "description": "verduras",
+        },
+        {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"},
+    ]
+
+
+def test_a_new_part_with_an_amount_and_the_pending_hashtag_stays_and_is_sent(engine):
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "t1")
+        await _add_part(pilot, screen, "-100", "", "pendiente")
+        assert screen._parts == [Part(amount_cents=-10000, hashtag_ids=("h-pend",))]
+        assert _lines(screen, "#parts")[1].split() == ["1", "-100.00", "—", "—"]
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: engine.posts)
+
+    run_app(scenario, size=SIZE)
+    assert _sent(engine) == [{"amount_cents": -10000}]
+
+
+@pytest.mark.parametrize(
+    ("part", "empty"),
+    [
+        (Part(), True),
+        (Part(hashtag_ids=("h-pend",)), True),
+        (Part(amount_cents=-100, hashtag_ids=("h-pend",)), False),
+        (Part(category_id="c-com", hashtag_ids=("h-pend",)), False),
+        (Part(note="x", hashtag_ids=("h-pend",)), False),
+        (Part(hashtag_ids=("h-casa",)), False),
+        (Part(read=True), False),
+        (Part(hashtag_ids=("h-pend",), read=True), False),
+    ],
+)
+def test_a_part_is_empty_with_nothing_in_it_but_the_pending_hashtag(part, empty):
+    refs = QuickAddRefs([], [], [], {}, {}, {}, pending_hashtag=("h-pend", "Pendiente"))
+    assert part_empty(part, refs) is empty
+
+
+def test_a_part_read_from_the_line_never_drops_whatever_is_emptied(engine):
+    """A part the line holds under `@Pendiente` with only #Pendiente and no
+    note, its amount cleared and `⏎` through its fields, stays in the table
+    and in what `ctrl+s` sends."""
+    pending = import_part("p2", -4000, line="bl-9", category_id="c-pend", hashtag_ids=("h-pend",))
+    engine.get_responses["/bank-lines/bl-9"] = {
+        **bank_line("bl-9"),
+        "parts": [_as_part(PART_1), pending],
+    }
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "enter")  # part 2
+        await pilot.pause()
+        assert screen._editing == 1 and screen._key == "amount"
+        for _ in range(4):  # AMOUNT cleared, then CATEGORY, HASHTAGS, NOTE
+            await _field(pilot, screen, "")
+        assert screen._editing is None
+        assert screen._parts[1] == Part(hashtag_ids=("h-pend",), read=True)
+        lines = _lines(screen, "#parts")
+        assert lines[2].split()[0] == "2"
+        assert lines[3].strip() == "+  add a part"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: engine.posts)
+
+    run_app(scenario, size=SIZE)
+    assert len(engine.posts[0][1]["parts"]) == 2
+    assert _sent(engine)[1] == {}
 
 
 # ---- the table's keys and the split ---------------------------------------------
