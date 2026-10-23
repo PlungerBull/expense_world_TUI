@@ -1,7 +1,7 @@
 # Stepping through a form never changes it
 
-**Status: drafted by the orchestrator on 2026-10-23 from the owner's three picks that day; the
-tasks wait for the owner's approval.** The picks are drawn in
+**Status: approved by the owner on 2026-10-23; the loop runs its tasks.** Drafted by the
+orchestrator from the owner's three picks that day. The picks are drawn in
 [mockups/expense-world-enter-and-esc.html](../mockups/expense-world-enter-and-esc.html) (both A).
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -49,7 +49,7 @@ locked.
 
 ## Tasks
 
-Drafted by the orchestrator; waiting for the owner's approval.
+Approved by the owner on 2026-10-23.
 
 1. **ACCOUNT and CATEGORY start on the current value.** On the Edit form and the bank-line Edit
    form, landing on ACCOUNT or CATEGORY puts the highlight on the transaction's own one, so `⏎`
