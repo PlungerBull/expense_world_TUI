@@ -215,7 +215,12 @@ class _PanelList(CursorList):
     `check_action` allows it."""
 
     BINDINGS = [
-        Binding("enter", "edit_row", "Edit", tooltip="Edit the row: its date or its account"),
+        Binding(
+            "enter",
+            "edit_row",
+            "Edit",
+            tooltip="Edit the row: its date, title, operation, amount or account",
+        ),
         Binding("enter", "select", "Open"),
     ]
     #: The `?` card lists these only while `check_action` allows them (help.py).
@@ -1217,9 +1222,10 @@ class ReconciliationDetailScreen(
         # No ≥1-assigned pre-guard: the engine 422s an empty complete and
         # run_write toasts its message (thin wrapper).
         n = len(self._list.checked) if self._list else 0
+        rows = "row" if n == 1 else "rows"
         self._confirm(
             "Complete reconciliation?",
-            f"Locks amount/account/title/date on the {n} ticked rows.",
+            f"Locks amount/account/title/date on the {n} ticked {rows}.",
             lambda: self._status_action(
                 "POST",
                 f"/reconciliations/{self._id}/complete",

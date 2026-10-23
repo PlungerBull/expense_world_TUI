@@ -1100,8 +1100,8 @@ tick drops the ticks queued behind it, shows `Couldn't update` with the engine's
 reads the reconciliation and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
 `Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks
-amount/account/title/date on the N ticked rows.` (N the rows ticked), `u` reverts, `d`
-deletes the reconciliation, `r` reads it again, `esc` goes back.
+amount/account/title/date on the N ticked rows.` (N the rows ticked, and `1 ticked row` for
+one), `u` reverts, `d` deletes the reconciliation, `r` reads it again, `esc` goes back.
 **`c` needs the ending balance**: the engine completes no reconciliation without it
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The

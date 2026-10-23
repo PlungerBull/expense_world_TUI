@@ -983,7 +983,9 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
             await _cursor_on(pilot, screen, key)
             assert _enter_label(app) == "Edit", key
             assert "enter" in _footer_keys(app), key
-            assert _card_enter_rows(screen) == ["Edit the row: its date or its account"], key
+            assert _card_enter_rows(screen) == [
+                "Edit the row: its date, title, operation, amount or account"
+            ], key
         await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, BankLineEditFormScreen))

@@ -873,6 +873,50 @@ def test_completed_is_read_only(fake_client, monkeypatch):
     run_app(scenario)
 
 
+@pytest.mark.parametrize(
+    ("ticked", "count"),
+    [(1, "1 ticked row"), (2, "2 ticked rows"), (5, "5 ticked rows")],
+)
+def test_cs_question_counts_the_ticked_rows_in_written_english(
+    fake_client, monkeypatch, ticked, count
+):
+    """`c` asks before completing, and its count reads as English: `1 ticked
+    row` for one, `N ticked rows` otherwise. Nothing is sent by asking."""
+    _patch(monkeypatch)
+    batch = [
+        bank_line_row(
+            f"b{i}",
+            [
+                _part(
+                    f"tb{i}", -100 * (i + 1), line=f"b{i}", day="2026-04-14", title="X", recon="r1"
+                )
+            ],
+            net_cents=-100 * (i + 1),
+            account_id="acc1",
+        )
+        for i in range(ticked)
+    ]
+
+    def fake_fetch(cfg, **k):
+        return cursor_page(batch if k.get("reconciliation") == "r1" else [])
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        assert len(screen._list.checked) == ticked
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        texts = [str(s.visual) for s in app.screen.query(Static)]
+        assert texts[0] == "Complete reconciliation?"
+        assert texts[1] == f"Locks amount/account/title/date on the {count}."
+        assert fake_client.posts == []
+
+    run_app(scenario)
+
+
 def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
     """No draft-only pre-guard: the DELETE reaches the engine
     and its 409 message toasts."""
@@ -1389,7 +1433,7 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
         texts = [str(s.visual) for s in app.screen.query(Static)]
         assert texts[0] == "Complete reconciliation?"
-        assert texts[1] == "Locks amount/account/title/date on the 1 ticked rows."
+        assert texts[1] == "Locks amount/account/title/date on the 1 ticked row."
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
         assert fake_client.posts == [(COMPLETE_PATH, None)]

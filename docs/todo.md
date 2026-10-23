@@ -51,6 +51,20 @@ Every amount field drops every comma as a thousands mark, so `1,5` is saved as 1
 
 **Recommended:** A, because a wrong amount saved silently is worse than one refused.
 
+### The `?` card's `⏎` line on a split transaction in "no batch"
+Asked 2026-10-23 · Blocks: nothing (the line reads as you picked)
+
+In Reconciliations ▸ "no batch", the `?` card now says for `⏎`: "Edit the row: its date, title,
+operation, amount or account", on every row. On a split transaction the amount can't be changed
+there: its form shows the parts' amounts read-only.
+- **A.** Keep one line for every row, as picked.
+- **B.** A split transaction gets its own line: "Edit the row: its date, title, operation or
+  account".
+- **C.** Drop "amount" from the line on every row.
+
+**Recommended:** B, because the card should say what `⏎` really does on the row under the
+cursor.
+
 ---
 
 ## Backlog

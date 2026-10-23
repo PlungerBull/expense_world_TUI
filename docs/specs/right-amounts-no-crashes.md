@@ -56,9 +56,6 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-5. **Two "no batch" wordings.** In
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py). Passes if: unit tests pin
-   the `?` card's `⏎` line and `c`'s question for 1 and for 5 ticked rows; tui.md matches.
 6. **The note after `b` counts what moved.** In
    [transactions.py](../../expense/tui/screens/transactions.py). First read the live contract
    (contract: PUT /v1/transactions/{transaction_id}) for whether the answer says which rows a
