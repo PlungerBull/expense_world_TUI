@@ -672,7 +672,11 @@ is reversible and keeps the account's id, name, currency, balance and transactio
 (contract: POST /v1/accounts/{account_id}/make-person). The cursor stays on the account in its
 new group, and the note says what it became, so a second `t` turns it back. (2) **A refusal is
 the engine's words,** and `HAS_OPENING_BALANCE` adds what to do: empty the opening balance with
-`e` first, since a person cannot carry one. (3) **The sheet import finds people and archived
+`e` first, since a person cannot carry one. A person never has reconciliations either, since a
+reconciliation checks the ledger against a bank statement and a person sends none (owner,
+2026-10-22): `HAS_RECONCILIATION` adds `On Reconciliations, press d on each of its
+reconciliations; a completed one needs u first.`, because the engine's words cannot say that a
+completed one goes back to draft before it is deleted. (3) **The sheet import finds people and archived
 accounts too** when it matches by name and currency, so a re-run after a conversion reuses the
 person instead of creating the name again and failing its rows.
 
