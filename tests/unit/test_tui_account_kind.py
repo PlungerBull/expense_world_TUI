@@ -283,6 +283,14 @@ _OPENING_WORDS = (
 )
 _OPENING_FIELD = "Must be an account without an opening balance: a person cannot carry one."
 _ARCHIVED_WORDS = "The account is archived. Unarchive it first."
+_RECON_WORDS = (
+    "The account has a reconciliation, which a person account cannot have. "
+    "Delete its reconciliations first."
+)
+_RECON_FIELD = "Must be an account without reconciliations: a person cannot have one."
+_RECON_LINE = (
+    "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
+)
 
 REFUSALS = [
     # cursor row, route, the engine's message, field words, reason, the whole note
@@ -296,6 +304,14 @@ REFUSALS = [
         f"  account_id: {_OPENING_FIELD}\n"
         "\n"
         "Press e and empty its opening balance first.",
+    ),
+    (
+        "a-alejo",
+        "make-person",
+        _RECON_WORDS,
+        _RECON_FIELD,
+        "HAS_RECONCILIATION",
+        f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}\n\n{_RECON_LINE}",
     ),
     (
         "a-alejo",
@@ -329,14 +345,14 @@ REFUSALS = [
 @pytest.mark.parametrize(
     ("ident", "route", "message", "field", "reason", "shown"),
     REFUSALS,
-    ids=["opening-balance", "already-person", "already-bank", "archived"],
+    ids=["opening-balance", "reconciliation", "already-person", "already-bank", "archived"],
 )
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
     """The "Failed" note is the engine's words whole; only `HAS_OPENING_BALANCE`
-    adds the app's line, chosen by its reason. Nothing changes, and `t` sends
-    again."""
+    and `HAS_RECONCILIATION` add the app's line, chosen by the reason. Nothing
+    changes, and `t` sends again."""
     rows = _rows()
     _stub_list(monkeypatch, rows)
     seen: dict = {}
@@ -362,6 +378,71 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
     assert seen["notes"] == [("Failed", shown)]
     assert seen["same"]
     assert sent.call_count == 2
+
+
+# ---- person-reconciliations 1 A · refused until its reconciliations go ------
+
+
+def test_an_account_with_a_reconciliation_stays_bank_until_they_are_deleted(
+    configured, monkeypatch
+):
+    """Screen 1 A of expense-world-person-reconciliations.html: `t Make person`
+    on a bank account with a reconciliation, draft or completed, is refused
+    with the engine's words and the app's line on how, and the account stays a
+    bank account where it was (contract: POST /v1/accounts/{account_id}/make-person,
+    "Refusals"). Once its reconciliations are deleted the engine no longer
+    refuses, and `t` makes it a person."""
+    rows = _rows()
+    _stub_list(monkeypatch, rows)
+    turn = _turns(rows, "a-alejo", True)
+    answers = iter(
+        [
+            lambda _request: error_response(
+                409,
+                "CONFLICT",
+                _RECON_WORDS,
+                {"account_id": _RECON_FIELD},
+                {"account_id": "HAS_RECONCILIATION"},
+            ),
+            turn,
+        ]
+    )
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen, notes = await _open(pilot, app, monkeypatch, "a-alejo")
+        listing = screen.query_one(CursorList)
+        before = (listing, listing.cursor_index, dict(screen._by_id))
+        await pilot.press("t")
+        await wait_for(pilot, lambda: notes)
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+        await pilot.pause()
+        listing = screen.query_one(CursorList)
+        seen["same"] = before == (listing, listing.cursor_index, screen._by_id)
+        seen["refused"] = list(notes)
+        seen["kind"] = screen.selected_record()["is_person"]
+        seen["footer"] = _footer(screen)
+        await pilot.press("t")  # its reconciliations are deleted meanwhile
+        await wait_for(pilot, lambda: ("", "Now a person.") in notes)
+        await wait_for(pilot, lambda: not screen._toggle_busy)
+        await pilot.pause()
+        seen["after"] = screen.selected_record()
+        seen["after_footer"] = _footer(screen)
+
+    with respx.mock() as engine:
+        sent = engine.post(f"{ENGINE_URL}/v1/accounts/a-alejo/make-person").mock(
+            side_effect=lambda request: next(answers)(request)
+        )
+        run_app(scenario, size=SIZE)
+    assert seen["refused"] == [
+        ("Failed", f"CONFLICT — {_RECON_WORDS}\n  account_id: {_RECON_FIELD}\n\n{_RECON_LINE}")
+    ]
+    assert seen["same"]
+    assert seen["kind"] is False
+    assert "t Make person" in seen["footer"]
+    assert sent.call_count == 2
+    assert seen["after"]["id"] == "a-alejo" and seen["after"]["is_person"] is True
+    assert "t Make bank" in seen["after_footer"]
 
 
 # ---- 3 · Home shows it in its new group --------------------------------------

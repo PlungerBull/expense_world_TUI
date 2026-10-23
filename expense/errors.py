@@ -169,6 +169,8 @@ _APP_FAULT = (
 #: `KIND_UNCHANGED`, whose words already say the account is of that kind
 #: (contract: POST /v1/accounts/{account_id}/make-person)
 #: (contract: POST /v1/accounts/{account_id}/make-account),
+#: `PERSON_ACCOUNT`, whose words already say a person cannot have it
+#: (contract: POST /v1/reconciliations, "A person account never has reconciliations"),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {
@@ -208,6 +210,12 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     # turn an account that has one (contract: POST /v1/accounts/{account_id}/make-person);
     # emptying its opening line on the Edit form deletes it.
     ("CONFLICT", "HAS_OPENING_BALANCE"): NextStep("Press e and empty its opening balance first."),
+    # A person never has reconciliations, so `t` cannot turn an account with
+    # one, draft or completed, until each is deleted, a completed one after its
+    # revert (contract: POST /v1/accounts/{account_id}/make-person, "Refusals").
+    ("CONFLICT", "HAS_RECONCILIATION"): NextStep(
+        "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
+    ),
     ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep("Press u to revert it, then d again."),
     ("CONFLICT", "ID_EXISTS"): NextStep(_APP_FAULT),
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),

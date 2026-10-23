@@ -629,6 +629,56 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     assert [a[0] for a in screen._suggestions] == ["acc2"]
 
 
+def test_a_new_reconciliation_on_a_person_shows_the_engine_words_alone(fake_client, monkeypatch):
+    """The browse was read before its account became a person, so `n` still
+    offers it: the engine refuses the create (contract: POST /v1/reconciliations,
+    "A person account never has reconciliations"). The "Failed" note is the
+    engine's words and its field's words under them, with no line of the app's;
+    the form stays open with what was typed, and nothing is handed back."""
+    from expense.errors import EngineError
+
+    err = EngineError(
+        "VALIDATION_ERROR",
+        "Account validation failed.",
+        {"account_id": "Person accounts cannot have reconciliations."},
+        422,
+        {},
+        reasons={"account_id": "PERSON_ACCOUNT"},
+    )
+    fake_client.errors["POST"] = err
+    notices: list = []
+    monkeypatch.setattr(
+        NewReconciliationScreen,
+        "notify",
+        lambda self, message, title="", **kw: notices.append((title, str(message))),
+    )
+    handed: list = []
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen(account_id="acc1", account_name="ALEJO PEN")
+        await app.push_screen(screen, handed.append)
+        _enter(screen, "October 2026")  # name
+        _enter(screen, "2026-10-01")  # date_start
+        _enter(screen, "2026-10-31")  # date_end
+        _enter(screen, "1250.00")  # begin
+        typed = dict(screen._values)
+        _enter(screen, "")  # end → submits
+        await wait_for(pilot, lambda: notices and not screen._submitting)
+        assert notices == [
+            (
+                "Failed",
+                "VALIDATION_ERROR — Account validation failed.\n"
+                "  account_id: Person accounts cannot have reconciliations.",
+            )
+        ]
+        assert notices[0][1] == refusal_text(err, None)
+        assert app.screen is screen and screen._values == typed
+
+    run_app(scenario)
+    assert [path for path, _body in fake_client.posts] == ["/reconciliations"]
+    assert handed == []
+
+
 # ---- the "no batch" list (`u`) ----------------------------------------------
 # Reconciliation work stays
 # in the reconciliation view, so `u` swaps the LOWER PANE of this screen — it

@@ -68,13 +68,7 @@ Approved by the owner 2026-10-22, who picks A in
 the engine's words, then `On Reconciliations, press d on each of its reconciliations; a completed
 one needs u first.`
 
-3. **`t` and a new reconciliation show the new refusals.** `t Make person` refused with
-   `HAS_RECONCILIATION` shows the engine's words whole, with the app's line from pick A, and
-   the list stays as it was; a new reconciliation refused with `PERSON_ACCOUNT` shows the engine's
-   words, with no line of the app's. [tui.md](../tui.md) "When the engine says no" gives both
-   their rows, and its `t` paragraph names the new refusal. Unit tests: each refusal, and `t`
-   working once the fake engine no longer refuses. Passes the owner's checks 1 to 3 and the
-   engine's check 2.
+All three tasks are done; the tester's acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 

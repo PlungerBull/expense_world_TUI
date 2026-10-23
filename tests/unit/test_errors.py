@@ -537,6 +537,17 @@ APP_FAULT = (
         ),
         ("CONFLICT", "account_id", "KIND_UNCHANGED", True, None),
         ("CONFLICT", "account_id", "ACCOUNT_ARCHIVED", True, None),
+        # person-reconciliations 1 A: a reconciliation stops `t`, with the line on
+        # how; a new reconciliation on a person keeps the engine's words alone
+        (
+            "CONFLICT",
+            "account_id",
+            "HAS_RECONCILIATION",
+            True,
+            "On Reconciliations, press d on each of its reconciliations; "
+            "a completed one needs u first.",
+        ),
+        ("VALIDATION_ERROR", "account_id", "PERSON_ACCOUNT", False, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
         # 3A
@@ -712,6 +723,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "RESERVED_NAME_HELD",
         "OPENING_BALANCE_EXISTS",
         "HAS_OPENING_BALANCE",
+        "HAS_RECONCILIATION",
         "RECONCILIATION_NOT_DRAFT",
         "ID_EXISTS",
         "IDEMPOTENCY_KEY_REUSED",

@@ -657,7 +657,13 @@ one is in flight, `t` and `a` do nothing. On an archived row `t` leaves the foot
 nothing, a person's too; on an empty list it is off, as `a` is. A refusal leaves the list
 as it was and `t` works again; the "Failed" note is the engine's words whole, and
 `HAS_OPENING_BALANCE` adds `Press e and empty its opening balance first.` (the table in
-"When the engine says no"). Home shows the account under its new group, BANK ACCOUNTS or
+"When the engine says no"). A person never has reconciliations, so `t Make person` on an
+account with one, draft or completed, is refused with `HAS_RECONCILIATION` until each is
+deleted (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"), and the note adds
+`On Reconciliations, press d on each of its reconciliations; a completed one needs u first.`
+(screen 1 A in
+[expense-world-person-reconciliations.html](mockups/expense-world-person-reconciliations.html)).
+Home shows the account under its new group, BANK ACCOUNTS or
 PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read-only:
 `t` is how an account's type changes.
 
@@ -723,7 +729,8 @@ below).
 `LIMIT_REACHED` names the rule that fired in `reasons`, keyed by the thing refused
 (contract: "Base Conventions", "`fields` and `reasons` semantics"); so do the
 `VALIDATION_ERROR` an opening balance draws when asked to move or given a hashtag, the one a
-reconciliation draws when completed without its ending balance, the one a system category
+reconciliation draws when completed without its ending balance, the one a new
+reconciliation draws on a person account, the one a system category
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the split screen's parts) shows the engine's words whole (`CODE —
@@ -739,6 +746,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `SYSTEM_CATEGORY` | `d` on a category, should the engine find it a system one (Manage offers no `d` on `@Pendiente` or `@Opening`) | `System categories cannot be renamed or deleted.` |
 | `SYSTEM_HASHTAG` | `d` on a hashtag, should the engine find it the pending one (Manage offers no `d` on it) | `The pending hashtag cannot be renamed or deleted.` |
 | `HAS_OPENING_BALANCE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with an opening balance | `Press e and empty its opening balance first.` |
+| `HAS_RECONCILIATION` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a reconciliation, draft or completed | `On Reconciliations, press d on each of its reconciliations; a completed one needs u first.` |
+| `PERSON_ACCOUNT` (a `VALIDATION_ERROR`) on `account_id` | a new reconciliation started from a screen read before its account became a person (contract: POST /v1/reconciliations, "A person account never has reconciliations") | none: the engine's words already say a person cannot have reconciliations, and the form stays open with what was typed |
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
