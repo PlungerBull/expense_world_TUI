@@ -20,6 +20,9 @@ confirm. Pinned here:
   · one statement line is one bank line: a second live line with it is `409`
     `STATEMENT_LINE_EXISTS`, on a create, a batch item and a `PUT`; two lines with it
     in one batch are `422` `DUPLICATE_IN_REQUEST`; a deleted line frees it;
+  · letter case counts: `SIG-…` and `sig-…` are two statement lines on two bank
+    lines, and `ABC…` and `abc…` two operation codes on one account, each read back
+    as sent; only the exact same value again is `409`, nothing written;
   · the items of one `line_group` differing on `statement_line` are `422`
     `LINE_GROUP_FIELDS_DIFFER` on each item, nothing written;
   · the opening balance, the split (a part, and beside `parts`) and the bank upload
@@ -347,6 +350,86 @@ def test_a_line_group_differing_on_statement_line_is_refused(client, second_send
         assert _live_ids(client, account) == set()
     finally:
         _cleanup(client, [first["id"], second["id"]], account)
+
+
+# ---- letter case counts -------------------------------------------------------
+
+
+def _upper_fragment() -> str:
+    """Upper-case hex no earlier run of this suite has written; the caller's prefix
+    holds letters, so the value's lower-case form always differs from it."""
+    return uuid4().hex[:12].upper()
+
+
+def test_a_statement_line_in_another_letter_case_is_another_line(client, statuses):
+    """Two statement lines are compared letter for letter, so `SIG-…` and `sig-…`
+    are two statement lines: each creates its own bank line and reads back as sent,
+    and only the exact same statement line again is `409` `STATEMENT_LINE_EXISTS`,
+    nothing written (contract: POST /v1/transactions, "Case counts")."""
+    zone = _zone(client)
+    account = _make_account(client)
+    date = _noon(zone, 2026, 4, 14)
+    upper = f"SIG-{_upper_fragment()}"
+    first = _tx_body(account, date, -1000, statement_line=upper)
+    second = _tx_body(account, date, -2000, statement_line=upper.lower())
+    again = [_tx_body(account, date, -3000, statement_line=v) for v in (upper, upper.lower())]
+    written = [b["id"] for b in (first, second, *again)]
+    try:
+        lines = []
+        for body in (first, second):
+            made = client.post("/transactions", json_body=body)
+            assert statuses[-1] == 201
+            lines.append(made["bank_line_id"])
+        assert lines[0] != lines[1]
+        for body, line in zip((first, second), lines, strict=True):
+            sent = body["statement_line"]
+            assert client.get(f"/transactions/{body['id']}")["statement_line"] == sent
+            assert client.get(f"/bank-lines/{line}")["statement_line"] == sent
+
+        for body in again:
+            err = _refused(lambda body=body: client.post("/transactions", json_body=body))
+            assert (err.status, err.code) == (409, "CONFLICT")
+            assert reason_on(err, "statement_line") == "STATEMENT_LINE_EXISTS"
+        assert _live_ids(client, account) == {first["id"], second["id"]}
+    finally:
+        _cleanup(client, written, account)
+
+
+def test_an_operation_code_in_another_letter_case_is_another_code(client, statuses):
+    """Two operation codes are compared letter for letter, so `ABC…` and `abc…` on
+    one account are two operation codes: each creates its own bank line and reads
+    back as sent, and only the exact same operation code again on that account is
+    `409` `OPERATION_CODE_EXISTS`, nothing written
+    (contract: POST /v1/transactions, "Case counts")."""
+    zone = _zone(client)
+    account = _make_account(client)
+    date = _noon(zone, 2026, 4, 15)
+    upper = f"ABC{_upper_fragment()}"
+    first = _tx_body(account, date, -1000, operation_code=upper)
+    second = _tx_body(account, date, -2000, operation_code=upper.lower())
+    again = [_tx_body(account, date, -3000, operation_code=v) for v in (upper, upper.lower())]
+    written = [b["id"] for b in (first, second, *again)]
+    try:
+        lines = []
+        for body in (first, second):
+            made = client.post("/transactions", json_body=body)
+            assert statuses[-1] == 201
+            assert made["account_id"] == account
+            lines.append(made["bank_line_id"])
+        assert lines[0] != lines[1]
+        for body, line in zip((first, second), lines, strict=True):
+            sent = body["operation_code"]
+            assert client.get(f"/transactions/{body['id']}")["operation_code"] == sent
+            read = client.get(f"/bank-lines/{line}")
+            assert (read["operation_code"], read["account_id"]) == (sent, account)
+
+        for body in again:
+            err = _refused(lambda body=body: client.post("/transactions", json_body=body))
+            assert (err.status, err.code) == (409, "CONFLICT")
+            assert reason_on(err, "operation_code") == "OPERATION_CODE_EXISTS"
+        assert _live_ids(client, account) == {first["id"], second["id"]}
+    finally:
+        _cleanup(client, written, account)
 
 
 # ---- the writes that take no statement line -----------------------------------

@@ -50,13 +50,7 @@ operation codes, which the contract was just as silent about.
 
 Approved by the owner 2026-10-22. None draws a screen.
 
-3. **The live contract suite pins the stated rule.** With `SIG-…` on a live line, a create with
-   the same statement line in lower case lands on a different bank line, and with `ABC…` live on
-   an account, the same operation code in lower case on that account lands too; all four read
-   back as sent from `GET /transactions/{id}` and `GET /bank-lines/{id}`. The exact same values
-   again are refused `409` with `STATEMENT_LINE_EXISTS` on `statement_line` and
-   `OPERATION_CODE_EXISTS` on `operation_code`, writing nothing. Each new test cites the contract
-   part stating the rule. Passes if the tests pass against `:8002`.
+All three tasks are done; the tester's acceptance check and the librarian's sweep follow.
 
 ## Reply to the engine
 
