@@ -323,16 +323,18 @@ the screen opens with the cursor on the first part, or on `+ add a part` when th
 accent in the table. They are the bar form's (`FormScreen` in
 [_form.py](../expense/tui/screens/_form.py)), behaving as on the Edit form: the field the
 cursor is on reads `▌ CATEGORY` in the accent with its input after it; AMOUNT and NOTE open on
-what the part holds, CATEGORY and HASHTAGS open empty and are picked afresh. On CATEGORY and
-HASHTAGS the shared suggestion list ([picker.py](../expense/tui/widgets/picker.py), the Edit
-form's names, `matching`) shows under the field once something is typed, and `↑↓` move in it
-while it is open. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
+what the part holds; CATEGORY and HASHTAGS open with the bar empty and no list (unlike the
+Edit form's ACCOUNT and CATEGORY, whose list opens on the row's own, "Stepping past ACCOUNT or
+CATEGORY keeps them" above). On CATEGORY and HASHTAGS the shared suggestion list
+([picker.py](../expense/tui/widgets/picker.py), the Edit form's names, `matching`) shows under
+the field once something is typed, and `↑↓` move in it while it is open. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
 table row at once: an amount that is not a number, or a name that matches nothing, is not
 kept, a toast says why (the Edit form's words) and the cursor stays. A field left empty clears
 the amount or the note, and keeps the category and the hashtags the part holds. `⏎` on
 HASHTAGS with a name typed adds that hashtag and stays for another; with nothing typed it
 moves on. `⏎` on NOTE goes back to the table, the cursor on that part. `esc` goes back too,
-keeping every field already left; only the field being typed goes back to what it was.
+keeping every field already left and every hashtag already added with `⏎`; only the field
+being typed goes back to what it was.
 **`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
 A part left with nothing in it, by `esc` or `⏎` through its fields, drops again, the cursor
 back on `+ add a part`.
@@ -1119,8 +1121,9 @@ field or the part under the cursor, or adds one, `ctrl+x` drops the part under i
 the TITLE line or `+ add a part`), `ctrl+s` sends the split, `esc` leaves at once with nothing
 sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In a part's fields the
 input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥` and `shift+tab`
-move fields, `ctrl+s` sends, `esc` goes back to the table; the footer reads
-`esc Back to the parts  ^s Split  ⇥ Field`. In the title's one field, `⏎` keeps it, `ctrl+s`
+move fields, `ctrl+s` sends, `esc` goes back to the table keeping what `⏎` added (each
+hashtag added with `⏎` on HASHTAGS stays on the part), only the line being typed dropped; the
+footer reads `esc Back to the parts  ^s Split  ⇥ Field`. In the title's one field, `⏎` keeps it, `ctrl+s`
 sends, `esc` goes back, and the footer reads `esc Back to the parts  ^s Split`. `esc` is two
 bindings, `check_action` showing one. There is no `?`: the split screen is a bar form
 (`FormScreen`), and forms take no `HelpBindingMixin`, so there is no `?` card; in the fields

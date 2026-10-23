@@ -61,9 +61,6 @@ Approved by the owner on 2026-10-23.
    **Recommended:** A. Passes if: on a row in @Pendiente, `⏎` through every line then `ctrl+s`
    sends nothing, and [tui.md](../tui.md) "Stepping past ACCOUNT or CATEGORY keeps them" says
    what the pick says.
-2. **Pin `esc` keeping a split part's hashtags.** Passes if: a unit test adds two hashtags with
-   `⏎` on a part's HASHTAGS line, presses `esc`, and finds both on the part in the table and in
-   what `ctrl+s` sends; [tui.md](../tui.md)'s split screen keys say `esc` keeps what `⏎` added.
 3. **Nothing lands on a locked line.** On an Edit form where every line is read-only, typing and
    `⏎` change no line. Passes if: a unit test on an archived account's line with title and
    operation both set types text and presses `⏎`, and the summary shows no typed value and

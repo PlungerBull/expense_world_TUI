@@ -524,6 +524,56 @@ def test_esc_in_the_fields_keeps_the_fields_left_and_drops_only_the_one_typed(en
     assert engine.posts == []
 
 
+def test_esc_on_hashtags_keeps_each_hashtag_added_with_enter_and_drops_the_one_typed(engine):
+    """Question 2 A of expense-world-enter-and-esc.html: on a part's HASHTAGS,
+    each typed name and `⏎` adds that hashtag at once; `esc` while still on the
+    line goes back to the table with both kept, and only the half-typed `via`
+    is dropped, so `viaje` is never added. `ctrl+s` sends both."""
+    engine.get_responses["/hashtags"] = whole(
+        [
+            *HASHTAGS,
+            {"id": "h-merc", "name": "mercado", "system_key": None},
+            {"id": "h-viaje", "name": "viaje", "system_key": None},
+        ]
+    )
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "enter", "tab", "tab")  # part 2, on HASHTAGS
+        assert screen._editing == 1 and screen._key == "hashtags"
+        await pilot.press(*"casa", "enter")
+        await pilot.press(*"mercado", "enter")
+        assert screen._key == "hashtags"  # each `⏎` with a name stays for another
+        await pilot.press(*"via")
+        assert screen.query_one("#bar", Input).value == "via"
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.screen is screen
+        assert screen._editing is None and screen._cursor == 1
+        assert not screen.query_one("#part-fields").display
+        assert screen._parts[1].hashtag_ids == ("h-casa", "h-merc")
+        assert _lines(screen, "#parts")[2].split() == [
+            "2",
+            "-40.00",
+            "HOGAR",
+            "#casa",
+            "#mercado",
+            "lejía",
+            "y",
+            "papel",
+        ]
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: engine.posts)
+
+    run_app(scenario, size=SIZE)
+    assert _sent(engine)[1] == {
+        "amount_cents": -4000,
+        "category_id": "c-hog",
+        "hashtag_ids": ["h-casa", "h-merc"],
+        "description": "lejía y papel",
+    }
+
+
 def test_a_category_or_hashtag_that_matches_nothing_is_not_kept(engine):
     """As on the Edit form: the field says so and the cursor stays; an amount
     that is not a number likewise."""

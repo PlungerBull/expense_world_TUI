@@ -22,9 +22,10 @@ is on, `↑↓`, `⏎` or `⇥` move between fields, and on CATEGORY and HASHTAG
 suggestion list (`picker.py`) shows as you type, `↑↓` moving in it while it is
 open. A field is kept when you leave it, whichever key leaves it, and shows in
 the table at once; `⏎` on NOTE goes back to the table, cursor on the part, and
-`esc` goes back keeping every field already left, only the one being typed
-going back to what it was. `⏎` on `+ add a part` adds an empty part and opens
-it on AMOUNT. A part left with nothing in it drops again.
+`esc` goes back keeping every field already left and every hashtag already
+added with `⏎`, only the one being typed going back to what it was. `⏎` on
+`+ add a part` adds an empty part and opens it on AMOUNT. A part left with
+nothing in it drops again.
 
 **Re-split.** The screen opens a transaction with one `GET /bank-lines/{id}`
 read: on a part of a split transaction the table opens with the line's
@@ -508,8 +509,9 @@ class SplitScreen(FormScreen):
 
     def _bar_value(self, key: str) -> str:
         """Amount and note open on what the part holds; category and hashtags
-        open empty and are picked afresh, as on the Edit form. TITLE opens on
-        the title as last kept."""
+        open empty, with no list until something is typed, and `⏎` with
+        nothing typed keeps what the part holds. TITLE opens on the title as
+        last kept."""
         if key == "title":
             return self._title or ""
         part = self._part
@@ -709,7 +711,8 @@ class SplitScreen(FormScreen):
 
     def action_back(self) -> None:
         """`esc` in the fields: back to the table, the field being typed as it
-        was — the title as last kept."""
+        was — the title as last kept. What `⏎` already kept stays, each
+        hashtag added on HASHTAGS among it."""
         self._close_fields()
 
     def action_drop_part(self) -> None:
