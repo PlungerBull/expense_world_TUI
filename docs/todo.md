@@ -99,11 +99,14 @@ ships (its why moves to [decisions.md](decisions.md)).
   the hint still reads `YYYY-MM-DD · enter to accept, or type a date`, though the bar takes
   nothing typed (`FormBar` in [_form.py](../expense/tui/screens/_form.py)). What the hint says
   there is the owner's pick, from a mockup.
-- **The NAME hint on the account forms says "enter to save" [UI].** On Manage ▸ Accounts New and
-  Edit, `⏎` on NAME moves to the next line, but its hint reads `enter to save`
-  ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
-  account's COLOR hint, `optional · empty enter to skip` (around line 261), goes with it: `⏎`
-  there keeps a colour the line holds. The wording is the owner's pick.
+- **"enter to save" hints on lines where `⏎` moves on [UI].** Manage ▸ Accounts NAME
+  ([create_forms.py](../expense/tui/screens/create_forms.py) around line 257), Categories NAME
+  (around line 219), the Edit form's TITLE ([edit_form.py](../expense/tui/screens/edit_form.py)
+  around line 121) and a new reconciliation's NAME
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py) around line 734) say `enter to
+  save`, but `⏎` there moves to the next line. The account's COLOR hint, `optional · empty enter
+  to skip` (around line 261), goes with it: `⏎` keeps a colour the line holds. Question 4 in
+  [mockups/expense-world-wording-picks.html](mockups/expense-world-wording-picks.html).
 - **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
   part, so the note reads `2 rows → BCP Oro PEN · 2 left their reconciliation` (the owner's pick,
   2026-10-18); the Edit form's "It left its reconciliation" has the same gap. Waits on the engine
@@ -114,9 +117,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
   the test in [test_grouped_refusals.py](../tests/unit/test_grouped_refusals.py).
-- **The "no batch" `?` card lists `esc Back` twice.** Seen by the acceptance check of
-  2026-10-23 ([reconciliations.py](../expense/tui/screens/reconciliations.py)); one row, with a
-  test.
+- **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
+  Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
+  once every row is loaded; on a 30-row terminal it clips its last line
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py)). One row per key that works,
+  with a test.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
