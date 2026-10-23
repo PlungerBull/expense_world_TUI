@@ -620,6 +620,37 @@ def test_load_quickadd_refs_names_the_opening_category_by_its_system_key(configu
 
 
 @respx.mock
+def test_the_pick_list_holds_pendiente_where_the_engine_lists_it_never_opening(configured):
+    """`pickable_categories` — the Edit form's CATEGORY and the ledger's bulk
+    `c` — keeps the engine's order with @Pendiente in its place, found by its
+    system key (a user category only named like it is an ordinary one), and
+    leaves @Opening out; the quick-add pool still leaves both out."""
+    respx.get(f"{BASE}/v1/accounts").mock(return_value=_list_body([]))
+    respx.get(f"{BASE}/v1/categories").mock(
+        return_value=_list_body(
+            [
+                {"id": "c1", "name": "AUTO", "is_system": False},
+                {"id": "cp", "name": "Por revisar", "is_system": True, "system_key": "pending"},
+                {"id": "co", "name": "Apert", "is_system": True, "system_key": "opening_balance"},
+                {"id": "c2", "name": "@Pendiente", "is_system": False, "system_key": None},
+                {"id": "c3", "name": "COMIDA", "is_system": False},
+            ]
+        )
+    )
+    respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body([]))
+
+    refs = load_quickadd_refs(config_module.ensure_loaded())
+
+    assert refs.pickable_categories == [
+        ("c1", "AUTO"),
+        ("cp", "Por revisar"),
+        ("c2", "@Pendiente"),
+        ("c3", "COMIDA"),
+    ]
+    assert refs.categories == [("c1", "AUTO"), ("c2", "@Pendiente"), ("c3", "COMIDA")]
+
+
+@respx.mock
 def test_load_quickadd_refs_reads_every_hashtag_in_one_call(configured):
     """56 hashtags against the old default page of 50 lost 6 tags to the
     picker. The engine now returns the list whole: one read, no paging."""

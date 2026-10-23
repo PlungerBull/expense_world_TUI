@@ -580,10 +580,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if kind == "category":
             # @Pendiente is pickable here on purpose: sending rows back to
             # pending is how a wrong bulk pick is undone
-            pool = list(refs.categories)
-            if refs.pending is not None:
-                pool.append(refs.pending)
-            return pool
+            return list(refs.pickable_categories)
         if kind == "account":
             return [(i, n) for i, n, *_ in refs.accounts]
         return list(refs.hashtags)

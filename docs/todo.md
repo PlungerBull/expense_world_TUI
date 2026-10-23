@@ -225,9 +225,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   on nothing (an account), so `enter` there turns a category blue and shows an account's colour
   as gone ([create_forms.py](../expense/tui/screens/create_forms.py)). Owner's pick
   (2026-10-15): it starts on the current colour, so `enter` keeps it.
-- **The bulk `c` pick lists categories in the engine's order.** `_picker_options` moves
-  `@Pendiente` to the end ([transactions.py](../expense/tui/screens/transactions.py)); the
-  owner's pick (2026-10-15) is the order the engine sends, unchanged.
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI

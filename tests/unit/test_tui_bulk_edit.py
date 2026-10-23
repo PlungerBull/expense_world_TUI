@@ -67,6 +67,8 @@ ACCOUNTS = [("acc1", "BCP Signature PEN", "PEN"), ("acc2", "BCP Oro PEN", "PEN")
 CATEGORIES = [("kor", "KORAKUEN"), ("hog", "HOGAR")]
 HASHTAGS = [("h1", "COMIDA"), ("h2", "CAJA CHICA"), ("h3", "CAJAS")]
 PENDING = ("pend", "@Pendiente")
+# the pick list as `pickable_categories` gives it: @Pendiente where the engine lists it
+PICKABLE = [CATEGORIES[0], PENDING, CATEGORIES[1]]
 NAMES = dict([(i, n) for i, n, _c in ACCOUNTS] + CATEGORIES + [PENDING])
 REFS = QuickAddRefs(
     accounts=ACCOUNTS,
@@ -76,6 +78,7 @@ REFS = QuickAddRefs(
     category_names=dict(CATEGORIES + [PENDING]),
     hashtag_names=dict(HASHTAGS),
     pending=PENDING,
+    pickable_categories=PICKABLE,
 )
 FILTER = LedgerFilter("category", "pend", "@Pendiente")
 
@@ -267,6 +270,38 @@ def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
         assert [name for _, name in modal._pool] == ENGINE_ORDER_NAMES
         shown = render_text(modal.query_one("#candidates").render(), width=160)
         assert in_order(shown, ENGINE_ORDER_NAMES)
+
+    run_app(scenario, size=(160, 30))
+
+
+def test_the_category_picker_shows_the_engines_order_pendiente_in_it(fake_client, monkeypatch):
+    """`c` lists the categories as `GET /categories` returned them, through the
+    shared reference read: @Pendiente in the engine's place (the Edit form's
+    CATEGORY offers the same list) and @Opening never."""
+    _stub_ledger(monkeypatch)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", load_quickadd_refs)
+    monkeypatch.setattr(
+        "expense.reads.fetch_accounts", lambda *a, **k: whole(ENGINE_ORDER_ACCOUNTS)
+    )
+    rows = [
+        {"id": "kor", "name": "KORAKUEN", "is_system": False},
+        {"id": "pend", "name": "@Pendiente", "is_system": True, "system_key": "pending"},
+        {"id": "open", "name": "@Opening", "is_system": True, "system_key": "opening_balance"},
+        {"id": "hog", "name": "HOGAR", "is_system": False},
+    ]
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole(rows))
+    monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
+    names = ["KORAKUEN", "@Pendiente", "HOGAR"]
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        modal = app.screen
+        assert [name for _, name in modal._pool] == names
+        shown = render_text(modal.query_one("#candidates").render(), width=160)
+        assert in_order(shown, names) and "@Opening" not in shown
 
     run_app(scenario, size=(160, 30))
 
@@ -916,6 +951,7 @@ TAGGED_REFS = QuickAddRefs(
     hashtag_names=dict([*HASHTAGS, PENDING_TAG]),
     pending=PENDING,
     pending_hashtag=PENDING_TAG,
+    pickable_categories=PICKABLE,
 )
 ON_PENDING = [{**it, "hashtag_ids": ["hp"]} for it in ITEMS]
 

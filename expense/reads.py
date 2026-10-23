@@ -12,7 +12,7 @@ file, and `fetch_me` calls it on every read.
 """
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
 from expense import config as config_module
@@ -659,6 +659,24 @@ def _pending_of(categories: list[dict]) -> tuple[str, str] | None:
     return (row["id"], row.get("name") or PENDING_FALLBACK_NAME) if row else None
 
 
+def pickable_categories(categories: list[dict]) -> list[tuple[str, str]]:
+    """`(id, name)` of every category a picked category may be, in the order
+    the engine lists them: each user category and @Pendiente, never @Opening
+    or another system row. @Pendiente is found by its system key, never its
+    name. Picking it sends a row back to waiting for a category, and a row
+    already there starts its pick on it. One copy for the Edit form's CATEGORY
+    and the ledger's bulk `c`."""
+    out: list[tuple[str, str]] = []
+    for c in categories:
+        if not isinstance(c.get("id"), str):
+            continue
+        if c.get("system_key") == PENDING_SYSTEM_KEY:
+            out.append((c["id"], c.get("name") or PENDING_FALLBACK_NAME))
+        elif not c.get("is_system"):
+            out.append((c["id"], c.get("name") or "(unnamed)"))
+    return out
+
+
 # The engine's stable key for the built-in pending hashtag, the hashtag a
 # transaction written with no hashtag carries. The engine creates it the first
 # time it needs it, so a user may have none yet; lookup is by this key, never
@@ -765,6 +783,11 @@ class QuickAddRefs:
     # archived account's transactions change only their categorisation; the
     # edit form reads it to show the frozen fields read-only.
     archived_accounts: frozenset[str] = frozenset()
+    # `(id, name)` of the categories a pick offers, @Pendiente among them where
+    # the engine lists it and @Opening never (`pickable_categories`): the Edit
+    # form's CATEGORY and the ledger's bulk `c`. `categories` stays the
+    # quick-add pool, which leaves @Pendiente out.
+    pickable_categories: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def pending_hashtag_id(self) -> str | None:
@@ -817,7 +840,8 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
       the archived ids (`archived_accounts`).
     * **System categories are excluded** from the pool — `@Opening` is the
       engine's own bookkeeping, and `@Pendiente` is what an *empty* category
-      means, so neither is something a typed line names.
+      means, so neither is something a typed line names. The pick lists
+      (`pickable_categories`) take @Pendiente back in.
     * **One read each, and it is every row** — the engine returns these lists
       whole, so no tag is invisible to the picker or unmatchable from a typed
       line.
@@ -840,4 +864,5 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         opening=_opening_of(cats),
         pending_hashtag=pending_hashtag_of(tags),
         archived_accounts=archived_ids(accts),
+        pickable_categories=pickable_categories(cats),
     )

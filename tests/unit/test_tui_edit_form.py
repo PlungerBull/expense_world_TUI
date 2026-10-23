@@ -1730,11 +1730,11 @@ ON_THIRD = {**TXN, "account_id": "acc3", "category_id": "cat2"}
 LINE_ON_THIRD = {**BANK_LINE, "account_id": "acc3"}
 
 
-def _open_stepping(form, monkeypatch, steps):
+def _open_stepping(form, monkeypatch, steps, categories=STEP_CATEGORIES):
     """Open `form()` over the step lists and run `steps(screen, pilot)`; returns
     the notices it raised."""
     _patch(monkeypatch)
-    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: STEP_CATEGORIES)
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: categories)
     notices = _record_notices(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1888,3 +1888,88 @@ def test_arrows_still_choose_another_and_an_erased_bar_returns_to_the_own_one(
     _open_stepping(
         lambda: EditFormScreen(record=ON_THIRD, resource="transactions"), monkeypatch, steps
     )
+
+
+# ---- @Pendiente is in the CATEGORY list, where the engine lists it --------------
+# Question 3 A of expense-world-enter-and-esc.html: the Edit form's category list is
+# the bulk `c` pick's (`reads.pickable_categories`), so a row in @Pendiente starts on
+# it and a row can be sent back there; @Opening is never offered. The engine lists
+# @Pendiente between two user categories here, so its place is the engine's.
+PENDING_CAT = {"id": "catP", "name": "@Pendiente", "is_system": True, "system_key": "pending"}
+WITH_PENDING_CATEGORIES = {
+    "items": [
+        STEP_CATEGORIES["items"][0],
+        PENDING_CAT,
+        *STEP_CATEGORIES["items"][1:],
+    ]
+}
+IN_PENDING = {**ON_THIRD, "category_id": "catP"}
+
+
+def _open_with_pending(record, monkeypatch, steps):
+    return _open_stepping(
+        lambda: EditFormScreen(record=record, resource="transactions"),
+        monkeypatch,
+        steps,
+        categories=WITH_PENDING_CATEGORIES,
+    )
+
+
+def test_a_row_in_pendiente_starts_on_it_and_enter_through_every_line_sends_nothing(
+    fake_client, monkeypatch
+):
+    """CATEGORY lists @Pendiente in the engine's place, highlighted; `⏎` on every
+    line, the note's `⏎` saving, then `ctrl+s`: nothing changed, nothing sent."""
+
+    async def steps(screen, pilot):
+        for _ in screen._sequence():
+            if screen._key == "category":
+                names = [name for _id, name in screen._suggestions]
+                assert names == ["Mascotas", "@Pendiente", "Salud", "Hogar"]
+                assert _highlighted(screen) == "@Pendiente"
+            await pilot.press("enter")
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert screen._values == screen._original
+        assert screen._values["category"] == "catP"
+
+    notices = _open_with_pending(IN_PENDING, monkeypatch, steps)
+    assert fake_client.puts == [] and not fake_client.calls
+    assert notices == [("", "No changes to save.")] * 2
+
+
+def test_picking_pendiente_on_a_categorised_row_sends_its_id(fake_client, monkeypatch):
+    """Typing `pend` highlights @Pendiente; `⏎` takes it and the save sends its id,
+    the row going back to waiting for a category."""
+
+    async def steps(screen, pilot):
+        await _enter_to(screen, pilot, "category")
+        assert _highlighted(screen) == "Salud"
+        await pilot.press(*"pend")
+        assert [name for _id, name in screen._suggestions] == ["@Pendiente"]
+        await pilot.press("enter")
+        assert screen._display["category"] == "@Pendiente"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open_with_pending(ON_THIRD, monkeypatch, steps)
+    assert fake_client.puts == [("/transactions/tx1", {"category_id": "catP"})]
+
+
+def test_opening_is_never_offered_on_category(fake_client, monkeypatch):
+    """@Opening is not in the list, empty or filtered, and typing its name
+    matches nothing: `⏎` refuses and the line stays."""
+
+    async def steps(screen, pilot):
+        await _enter_to(screen, pilot, "category")
+        assert "catO" not in [ent[0] for ent in screen._suggestions]
+        assert "@Opening" not in render_text(screen._suggest_renderable(), width=60)
+        await pilot.press(*"open")
+        assert screen._suggestions == []
+        await pilot.press("enter")
+        assert screen._key == "category"
+        assert screen._values["category"] == "cat2"
+
+    notices = _open_with_pending(ON_THIRD, monkeypatch, steps)
+    assert ("", "No category matches “open”.") in notices
+    assert fake_client.puts == []

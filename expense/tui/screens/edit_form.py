@@ -6,6 +6,9 @@ existing entities only. Their bar opens empty, the list in its usual order;
 on ACCOUNT and CATEGORY the highlight starts on the line's own account or
 category whenever the bar is empty and the list holds it, so `⏎` with nothing
 typed keeps it and stepping through the form changes nothing (`_recompute`).
+The category list is the one the ledger's bulk `c` offers, in the engine's
+order: @Pendiente is in it, so a row in @Pendiente starts on it and a row can
+be sent back there; @Opening never is (`reads.pickable_categories`).
 Typing filters the list and highlights its first match; `↑↓` choose another.
 
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)); this screen
@@ -254,8 +257,8 @@ class EditFormScreen(FormScreen):
 
         try:
             cfg = config_module.ensure_loaded()
-            # the fetch + shaping is shared with the LOG bar, so both
-            # quick-add surfaces suggest from exactly the same pool
+            # the fetch + shaping is shared with the LOG bar; CATEGORY offers
+            # the pick list, @Pendiente in it, as the ledger's bulk `c` does
             refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             self.app.call_from_thread(self.notify, format_error(exc), severity="error")
@@ -264,7 +267,7 @@ class EditFormScreen(FormScreen):
         self.app.call_from_thread(
             self._set_entities,
             refs.accounts,
-            refs.categories,
+            refs.pickable_categories,
             refs.hashtags,
             maps,
             refs.opening,

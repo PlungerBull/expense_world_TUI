@@ -241,7 +241,11 @@ edit form the ACCOUNT and CATEGORY lines open with the bar empty and the whole l
 usual order, the highlight on the row's own account or category, so `⏎` with nothing typed
 keeps it and moves on: `⏎` on every line and then `ctrl+s` send nothing and say
 `No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
-another, and a bar emptied again puts the highlight back on the row's own. A value the list
+another, and a bar emptied again puts the highlight back on the row's own. CATEGORY's list
+is the one the ledger's `c` offers (`pickable_categories` in [reads.py](../expense/reads.py)):
+`@Pendiente` is in it, where the engine lists it, so on a row in `@Pendiente` the highlight
+starts on it and `⏎` keeps it, and picking it on another row sends that row back to waiting
+for a category (Question 3 A of the same mockup); `@Opening` is never in it. A value the list
 does not hold leaves the highlight on the first entry. The "no batch" Edit form's ACCOUNT
 works the same (`_recompute` in [edit_form.py](../expense/tui/screens/edit_form.py)).
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
@@ -326,8 +330,10 @@ cursor is on reads `▌ CATEGORY` in the accent with its input after it; AMOUNT 
 what the part holds; CATEGORY and HASHTAGS open with the bar empty and no list (unlike the
 Edit form's ACCOUNT and CATEGORY, whose list opens on the row's own, "Stepping past ACCOUNT or
 CATEGORY keeps them" above). On CATEGORY and HASHTAGS the shared suggestion list
-([picker.py](../expense/tui/widgets/picker.py), the Edit form's names, `matching`) shows under
-the field once something is typed, and `↑↓` move in it while it is open. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
+([picker.py](../expense/tui/widgets/picker.py), `matching`) shows under
+the field once something is typed, and `↑↓` move in it while it is open. CATEGORY offers the
+user categories only, unlike the Edit form's list, which holds `@Pendiente`: a part left with
+no category is filed under `@Pendiente`. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
 table row at once: an amount that is not a number, or a name that matches nothing, is not
 kept, a toast says why (the Edit form's words) and the cursor stays. A field left empty clears
 the amount or the note, and keeps the category and the hashtags the part holds. `⏎` on

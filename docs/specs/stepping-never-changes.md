@@ -51,15 +51,6 @@ locked.
 
 Approved by the owner on 2026-10-23.
 
-1. **CATEGORY on a transaction in @Pendiente.** The owner's pick (2026-10-23): Question 3 A in
-   [mockups/expense-world-enter-and-esc.html](../mockups/expense-world-enter-and-esc.html).
-   @Pendiente is in the Edit form's category list, in the place the engine lists it, as on the
-   bulk `c` pick ([decisions.md](../decisions.md) "(7) `@Pendiente` is pickable"), and on a row
-   in @Pendiente the highlight starts on it. The list today leaves the system categories out
-   (`load_quickadd_refs` in `expense/reads.py`); @Opening stays out. Passes if: on a row in
-   @Pendiente, `⏎` through every line then `ctrl+s` sends nothing; picking @Pendiente on a
-   categorised row sends its id; @Opening is never offered; [tui.md](../tui.md) "Stepping past
-   ACCOUNT or CATEGORY keeps them" says so.
 2. **The save's busy hint stays while it is sent.** On the Edit form, the date, title, amount,
    account and category branches of `on_input_submitted` refresh the view after `_advance()`; now
    that `_advance` can save, that refresh replaces the save's "Saving…" hint while the PUT is in
