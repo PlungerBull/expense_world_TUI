@@ -245,10 +245,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Right amounts, no crashes, and the picks already made**: a dot-before-comma amount refused,
-  `nan`/`inf` in a bank file, a split part holding only #Pendiente, the colour line, two "no
-  batch" wordings, the note after `b`, the sheet import's report
-  ([specs/right-amounts-no-crashes.md](specs/right-amounts-no-crashes.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI

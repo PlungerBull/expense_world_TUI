@@ -4,7 +4,7 @@ Raised 2026-10-23.
 
 ## Why
 
-A client moving transactions to another account (`PUT /transactions/{id}` with `account_id`,
+A client moving transactions to another account (`PUT /v1/transactions/{id}` with `account_id`,
 plus `reconciliation_id: null` when the row is assigned) tells the person what the write did,
 for example `2 rows → BCP Oro PEN · 2 left their reconciliation`.
 
@@ -17,14 +17,14 @@ The same happens when a person selects both parts of one line and moves them: th
 writes nothing, because "A part that already has the value sent is not written", but it still
 answers 200 like a real move. The client counts it twice.
 
-The only way for the client to know is to read the line (`GET /bank-lines/{id}`) before or after
+The only way for the client to know is to read the line (`GET /v1/bank-lines/{id}`) before or after
 each move. That adds a round trip per row and can race with other writes. Only the engine knows
 which parts its write changed, and every client that shows the outcome of a move needs the same
 answer.
 
 ## The ask
 
-1. **The `PUT /transactions/{id}` answer says which parts the write changed.** It keeps the
+1. **The `PUT /v1/transactions/{id}` answer says which parts the write changed.** It keeps the
    transaction named by `{id}` as it is today, and adds the line's parts that this write changed,
    `{id}` included when it changed. Each part comes as a transaction, or at least as its `id`.
 2. **Each changed part says whether this write took it out of a reconciliation:** it was assigned

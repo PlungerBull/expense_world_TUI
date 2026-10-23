@@ -105,13 +105,14 @@ decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13
 `1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
 `-12.50,`) is unreadable, never read as 13.85: each form field refuses it with its own note and
 the cursor stays (the box stays open), and on the LOG bar it is no amount, so `↵` refuses the
-line with `the line has no amount`. `nan`, `inf`, `Infinity` and an amount whose cents overflow
-(`1e999999`) are unreadable too. The two importers read an amount cell through the same reader,
-by `amount_to_cents` in [import_/parse.py](../expense/import_/parse.py): a text cell as typed, a
-number cell as its value, so a cell that is not an amount (`13.853,20`, `nan`, `inf`, as text or
-as a number) refuses its own row and the rest of the file is read — the bank file's line is
-`Couldn't read the row` (§2 "Each row's mark and reason"), the sheet's is `bad-amount`
-([commands.md](commands.md) "`expense import sheet`").
+line with `the line has no amount — a number needs a sign to be one`. `nan`, `inf`, `Infinity`
+and an amount whose cents overflow (`1e999999`) are unreadable too. The two importers read an
+amount cell through the same reader, by `amount_to_cents` in
+[import_/parse.py](../expense/import_/parse.py): a text cell as typed, a number cell as its
+value, so a cell that is not an amount (`13.853,20`, `nan`, `inf`, as text or as a number)
+refuses its own row and the rest of the file is read — in a bank file as
+`Couldn't read the row` (§2 "Each row's mark and reason"), in the sheet as
+[commands.md](commands.md) "`expense import sheet`" says.
 
 **Async / workers.** Textual runs on asyncio; the engine client is synchronous, and
 stays that way. It is called inside a Textual worker (`@work(thread=True)`) so the UI
@@ -373,9 +374,9 @@ being typed goes back to what it was (Question 2 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)).
 **`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
 A part added there and left with nothing in it, by `esc` or `⏎` through its fields, drops
-again, the cursor back on `+ add a part`; a part holding only #Pendiente counts as empty, since
-the table never shows it and the split sends no hashtag for it (`part_empty`). A part read from
-the line never drops this way, whatever is emptied; `ctrl+x` drops it.
+again, the cursor back on `+ add a part`; a part holding only the pending hashtag counts as
+empty, since the table never shows it and the split sends no hashtag for it (`part_empty`). A
+part read from the line never drops this way, whatever is emptied; `ctrl+x` drops it.
 **`⏎` on the TITLE line** opens one field below (screen 4), under the dim rule and
 `TITLE · changes it on every part` (`TITLE` bold, the rest dim): `▌ TITLE` in the accent with
 the input after it, opening on the title as it is. While it is open the TITLE line reads
@@ -552,7 +553,7 @@ import, `✗` (error colour, bold) that it is left out. The reason stands alone 
 | ✗ | `Not moved: <reconciliation> is reconciled` | `matched`, and a completed reconciliation stops the move to the bank's day (`redate_blocked_by`), whatever else the apply writes |
 | ✗ | `Closed period` | the engine's `sealed`: inside a closed period, never created |
 | ✗ | `Before 2026` | dated before 2026-01-01: never sent |
-| ✗ | `Couldn't read the row` | a line the parser refused: never sent. An amount cell is read as the typed fields read one ("One reader for every typed amount"), so `13.853,20`, `nan` or `inf` refuses its line, never the file |
+| ✗ | `Couldn't read the row` | a line the parser refused, an amount cell that is not an amount among them ("One reader for every typed amount"): never sent, and the rest of the file is read |
 
 Every `✗` reason is in the warning style (`PALETTE.warning`). The answer carries the stopping
 reconciliation's id only, so the preview's worker reads each distinct one once by its id

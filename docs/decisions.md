@@ -246,6 +246,14 @@ Decisions whose why lives elsewhere:
 
 **Rejected.** Leaving `@Pendiente` out of the Edit form's list with nothing highlighted (pick 3 B): the Edit form and the bulk pick would offer different lists, and the Edit form could never send a row back to waiting. Dropping the hashtags on `esc` (pick 2 B): it would undo what `⏎` already kept.
 
+## One reader for every amount, refusing what it cannot read for sure (2026-10-23, owner)
+
+**Context.** `13.853,20` was saved as 13.85: the amount reader dropped every comma, and the bank importer kept its own copy of that reader. A `nan` or `inf` cell crashed both importers.
+
+**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field and in both importers (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"). (2) **Both importers read an amount cell with the typed fields' reader**, so a rule lands everywhere at once; `nan`, `inf` and an overflowing amount refuse their row and the rest of the file imports. (3) **A split part added on the screen and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (4) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
+
+**Rejected.** Reading `13.853,20` as thirteen thousand: whether a dot or a comma marks the decimals is a guess, and a guess that is wrong saves a wrong amount silently. Letting an emptied saved part drop: it would take a part out of a split without the person asking.
+
 ## One key per job — `j k h l , .` deleted, and the month window moves to `pgdn`/`pgup` (2026-08-27)
 
 **Decision.** No aliases: `j`/`k`/`h`/`l`/`,`/`.` are not bound — a widget alias silently outranks a screen binding, so aliases make letters unusable as commands. `pgdn`/`pgup` mean "the next window of data": on the ledger they grow the list, on Home they slide the month window (`pgdn` goes older). `[`/`]` are bound nowhere. Guards: `test_no_duplicate_movement_key_aliases`, `test_square_brackets_are_not_bound_anywhere` ([test_tui_help.py](../tests/unit/test_tui_help.py)).
