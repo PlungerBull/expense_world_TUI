@@ -61,10 +61,6 @@ Approved by the owner on 2026-10-23.
    **Recommended:** A. Passes if: on a row in @Pendiente, `⏎` through every line then `ctrl+s`
    sends nothing, and [tui.md](../tui.md) "Stepping past ACCOUNT or CATEGORY keeps them" says
    what the pick says.
-3. **Nothing lands on a locked line.** On an Edit form where every line is read-only, typing and
-   `⏎` change no line. Passes if: a unit test on an archived account's line with title and
-   operation both set types text and presses `⏎`, and the summary shows no typed value and
-   `ctrl+s` sends nothing.
 4. **`⏎` saves when no line ahead can change.** `FormScreen._advance` saves when every field after
    the current one is read-only. Passes if: unit tests show `⏎` on the only open line of an
    archived account's "no batch" line sends the save, and the same on Manage ▸ Accounts Edit
@@ -73,3 +69,6 @@ Approved by the owner on 2026-10-23.
    with `BarFormScreen`'s own handler on one `⏎` (Textual calls each class's handler unless
    `prevent_default`), as the bank-line Edit form did, so a real `⏎` there likely moves two lines;
    the tests press `enter` through the real dispatch and check one line per `⏎`.
+   `⏎` on a locked line goes through `_advance` (`FormBar.Passed`), so the all-locked tests'
+   notices in `tests/unit/test_tui_edit_form.py` (`_type_on_every_line_and_save`) gain the save's
+   own "No changes to save." once `_advance` saves.

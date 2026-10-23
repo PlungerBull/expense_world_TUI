@@ -17,6 +17,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, Static
 
@@ -48,7 +49,8 @@ def form_bindings(
       so they are never advertised; they work wherever those system shortcuts
       are off.
 
-    Every field move skips read-only fields and stops at either end.
+    Every field move skips read-only fields and stops at either end. On a
+    read-only field (only when every field is), the bar takes nothing (`FormBar`).
     Guarded by `test_form_navigation_keys_are_not_advertised`.
     """
     return [
@@ -62,6 +64,32 @@ def form_bindings(
         Binding("ctrl+down", "field(1)", "Next field", show=False),
         Binding("ctrl+c,super+c", "screen.copy_text", "Copy selected text", show=False),
     ]
+
+
+class FormBar(Input):
+    """The bar forms' one input bar. While the field under it is read-only
+    (`read_only()`, asked at each key), nothing typed, pasted or deleted
+    changes the bar, and `⏎` posts `Passed` in place of `Submitted`: no
+    field's commit runs, so nothing lands on a read-only line, and the form
+    moves on as from any line (`FormScreen.on_form_bar_passed`)."""
+
+    class Passed(Message):
+        """`⏎` on a read-only field."""
+
+    def __init__(self, *, read_only, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._read_only = read_only
+
+    def replace(self, text: str, start: int, end: int) -> None:
+        # every edit of the bar's text (typing, paste, delete, cut) goes through here
+        if not self._read_only():
+            super().replace(text, start, end)
+
+    async def action_submit(self) -> None:
+        if self._read_only():
+            self.post_message(self.Passed())
+        else:
+            await super().action_submit()
 
 
 class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
@@ -140,7 +168,8 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         heading = self._heading()
         if heading is not None:
             yield Static(heading, id="form-head")
-        yield Horizontal(Label("", id="field"), Input(id="bar"), id="inputbar")
+        bar = FormBar(id="bar", read_only=lambda: self._key in self._locked)
+        yield Horizontal(Label("", id="field"), bar, id="inputbar")
         yield Static("", id="hint")
         yield Static("", id="suggest")
         yield Static("", id="summary")
@@ -199,6 +228,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self._current = self._step(delta)
         self._refresh_bar()
         self._refresh_view()
+
+    def on_form_bar_passed(self, event: FormBar.Passed) -> None:
+        """`⏎` on a read-only field keeps nothing and moves on."""
+        event.stop()
+        self._advance()
 
     def _advance(self) -> None:
         if self._current >= len(self._sequence()) - 1:

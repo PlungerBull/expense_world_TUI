@@ -633,7 +633,9 @@ editable, with its look and hint as on any row, the form opens on it, and its fi
 saved; opened again once filled, it is read-only like the rest. The "no batch" Edit form
 follows the same rule on a line of an archived account, which only a list read before the
 account was archived still shows: `date`, `title`, `operation`, `amount` and `account` are
-read-only, but a title or operation still empty, filled once. The form learns which
+read-only, but a title or operation still empty, filled once. With both set, every line is
+read-only: the form still opens, on `date`, showing what the line holds, and nothing typed lands
+on a line ("The bar forms' keys" below). The form learns which
 accounts are archived from the `GET /accounts` it already makes for its suggestions
 (`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that read fails,
 the form is as on any row and the engine judges the save ("When the engine says no" below).
@@ -1162,6 +1164,9 @@ Plain `↑`/`↓` walk the suggestion list when the field has a non-empty one an
 previous/next field when it has none. `ctrl+↑`/`ctrl+↓` also move fields but are never
 advertised: macOS claims `⌃↑` (Mission Control) and `⌃↓` (Application Windows) before the
 terminal sees them. Every field move skips read-only fields and stops at either end.
+On a read-only field, where the bar sits only when every field is read-only, the bar
+(`FormBar`) takes nothing typed, pasted or deleted, and `⏎` keeps nothing and moves on as
+from any line, so nothing ever lands on a read-only line.
 The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
 **`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
 that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.

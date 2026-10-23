@@ -68,6 +68,11 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Stepping through a form never changes it**: `⏎` on ACCOUNT or CATEGORY keeps what the
   transaction has, `esc` keeps a split part's hashtags, nothing lands on a locked line, and `⏎`
   saves when no line ahead can change ([specs/stepping-never-changes.md](specs/stepping-never-changes.md)).
+- **The DATE hint on a form with every line read-only [UI].** On the "no batch" Edit form of an
+  archived account's line whose title and operation code are both set, the bar sits on DATE and
+  the hint still reads `YYYY-MM-DD · enter to accept, or type a date`, though the bar takes
+  nothing typed (`FormBar` in [_form.py](../expense/tui/screens/_form.py)). What the hint says
+  there is the owner's pick, from a mockup.
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),

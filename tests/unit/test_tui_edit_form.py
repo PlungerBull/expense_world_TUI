@@ -1562,6 +1562,122 @@ def test_an_archived_split_line_freezes_its_fields_too(fake_client, monkeypatch)
     _open_line(split, monkeypatch, steps)
 
 
+def _count_commits(monkeypatch, form) -> list:
+    """Every run of `form`'s commit handler (`on_input_submitted`), recorded
+    before it runs."""
+    commits: list = []
+    commit = form.__dict__["on_input_submitted"]
+
+    def counted(self, event):
+        commits.append(self._key)
+        return commit(self, event)
+
+    monkeypatch.setattr(form, "on_input_submitted", counted)
+    return commits
+
+
+async def _type_on_every_line_and_save(screen, pilot):
+    """On a form whose every line is read-only: type, paste, delete and `⏎` on
+    the line the bar opens on, then `ctrl+s`. Returns the summary before and
+    after, as drawn."""
+    bar = screen.query_one("#bar", Input)
+    before = render_text(screen._summary_renderable(), width=60)
+    opened_on, shown = screen._key, bar.value
+    await pilot.press(*"xyz")
+    assert bar.value == shown  # the bar takes nothing typed
+    await pilot.press("backspace", "ctrl+u")
+    assert bar.value == shown  # nor deletes anything
+    bar._on_paste(type("Paste", (), {"text": "pasted", "stop": lambda self: None})())
+    assert bar.value == shown
+    await pilot.press("enter")
+    await pilot.pause()
+    assert screen._key == opened_on  # nothing editable ahead: it stays
+    assert screen._values == screen._original
+    await pilot.press(*"abc", "enter")
+    after = render_text(screen._summary_renderable(), width=60)
+    await pilot.press("ctrl+s")
+    await pilot.pause()
+    return before, after
+
+
+@pytest.mark.parametrize("split", [False, True], ids=["whole", "split"])
+def test_nothing_typed_lands_on_an_archived_line_with_title_and_code(
+    fake_client, monkeypatch, split
+):
+    """The owner's pick A: the form opens, every line read-only, showing what the
+    line holds. Typing and `⏎` on the line the bar opens on change no line, and
+    `ctrl+s` sends nothing."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    notices = _record_notices(monkeypatch)
+    commits = _count_commits(monkeypatch, BankLineEditFormScreen)
+    line = ARCHIVED_LINE
+    if split:
+        line = {
+            **ARCHIVED_LINE,
+            "part_count": 2,
+            "net_cents": -10000,
+            "parts": [
+                {**BANK_LINE["parts"][0], "amount_cents": 6000},
+                {**BANK_LINE["parts"][0], "id": "p2", "amount_cents": 4000},
+            ],
+        }
+
+    async def steps(screen, pilot, app):
+        assert screen._locked == set(screen._sequence())
+        assert screen._key == "date"
+        assert screen.query_one("#bar", Input).value == "2026-06-20"
+        return await _type_on_every_line_and_save(screen, pilot)
+
+    before, after = _open_line(line, monkeypatch, steps)
+    assert after == before
+    rows = [row.rstrip() for row in after.splitlines()[: 4 if split else 5]]
+    assert rows == [
+        "date       2026-06-20  read-only",
+        "title      FARMACIA  read-only",
+        "operation  47391026  read-only",
+        *([] if split else ["amount     -42.50  read-only"]),
+        "account    Old bank  read-only",
+    ]
+    assert "xyz" not in after and "abc" not in after
+    assert commits == []  # `⏎` on a read-only line runs no field's commit
+    assert fake_client.puts == [] and not fake_client.calls
+    assert notices == [("", "No changes to save.")]
+
+
+def test_the_transaction_form_holds_no_reachable_read_only_line(fake_client, monkeypatch):
+    """On a transaction of an archived account the bar never reaches a locked
+    line (the note is never locked, so some line is always open); were every
+    line read-only, the shared bar takes nothing typed there either."""
+    _patch_archived(monkeypatch)
+    notices = _record_notices(monkeypatch)
+    commits = _count_commits(monkeypatch, EditFormScreen)
+
+    async def scenario(pilot, app):
+        for record in (ON_ARCHIVED, {**OPENING, "account_id": "accX"}):
+            screen = EditFormScreen(record=record, resource="transactions")
+            await app.push_screen(screen)
+            await _wait_loaded(screen, pilot)
+            for key in ("shift+tab", "up", "ctrl+up", "tab", "tab", "tab", "down", "ctrl+down"):
+                await pilot.press(key)
+                assert screen._key not in screen._locked
+            app.pop_screen()
+            await pilot.pause()
+        screen = EditFormScreen(record=ON_ARCHIVED, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen._locked |= set(screen._sequence())
+        screen._current = screen._first_editable()
+        screen._refresh_bar()
+        before, after = await _type_on_every_line_and_save(screen, pilot)
+        assert after == before
+
+    run_app(scenario)
+    assert commits == []
+    assert fake_client.puts == [] and not fake_client.calls
+    assert notices == [("", "No changes to save.")]
+
+
 # ---- stepping through the form never changes it --------------------------------
 # ACCOUNT and CATEGORY open with the bar empty and the highlight on the line's own
 # account or category, so `⏎` with nothing typed keeps it (Question 1 A of
