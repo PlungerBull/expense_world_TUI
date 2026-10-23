@@ -61,10 +61,4 @@ transaction sent, so the ask
 [a-line-move-answers-what-it-moved.md](../to-engine/a-line-move-answers-what-it-moved.md) goes
 to the engine, and the item leaves this spec for [todo.md](../todo.md); its check 6 is not part
 of this spec's acceptance check.
-1. **The drift script reads the sheet import's own `--json` keys as engine fields.** The
-   acceptance check of 2026-10-23 passed everything but `scripts/check_fixture_drift.py`:
-   `tests/unit/test_cmd_import.py` line 1048 asserts `line` and `reason` on `expense import sheet
-   --json`'s `skipped` entries, which the client builds, and the script reports them as fields
-   the engine no longer has. Passes if: the drift script against the practice engine exits clean,
-   by naming the client's own keys in its `KNOWN_LOCAL` with a note on what they are, and the test
-   still pins them.
+Every other task is done; the acceptance check runs again.

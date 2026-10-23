@@ -105,6 +105,10 @@ KNOWN_LOCAL = frozenset(
         # aggregates many engine calls), so its shape is ours, not the engine's.
         # `source_name` is the raw sheet CUENTA behind a derived account name.
         "source_name",
+        # a `skipped` entry's sheet line number and why the row was left out
+        # (`bad-amount`, ...); the import's own row checks write them, not the engine
+        "line",
+        "reason",
         # Textual widget geometry, faked by the adaptive-rows tests so
         # `fit_rows` can be measured without an event loop
         "content_size",
