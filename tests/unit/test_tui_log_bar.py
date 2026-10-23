@@ -487,6 +487,41 @@ def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypa
     run_app(scenario)
 
 
+def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, monkeypatch):
+    """Typed key by key: `-13.853,20` is not read as -13.85. The line stays in
+    the bar, refused for having no amount, and nothing is staged or sent; the
+    same figure written `-13,853.20` stages and saves as -13,853.20."""
+    _patch(monkeypatch)
+    refused = "tottus -13.853,20 $BCP PEN"
+    fixed = "tottus -13,853.20 $BCP PEN"
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await pilot.press(*refused)
+        await wait_for(pilot, lambda: _bar(screen).value == refused)
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._staged == []
+        assert _bar(screen).value == refused
+        assert screen._refused is not None
+        out = _text(screen._suggest_renderable(), width=160)
+        assert "not staged" in out
+        assert "the line has no amount" in out
+
+        await pilot.press("ctrl+a", "ctrl+k")
+        assert _bar(screen).value == ""
+        await pilot.press(*fixed, "enter")
+        await wait_for(pilot, lambda: len(screen._staged) == 1)
+        assert screen._staged[0].parsed.amount_cents == -1385320
+        await pilot.press("ctrl+s")
+        await _save_settled(pilot, screen, fake_client)
+
+    run_app(scenario)
+    [(path, body)] = fake_client.posts
+    assert path == "/transactions/batch"
+    assert [row["amount_cents"] for row in body["transactions"]] == [-1385320]
+
+
 def test_a_line_with_no_category_stages_and_reads_as_pendiente(fake_client, monkeypatch):
     _patch(monkeypatch)
 

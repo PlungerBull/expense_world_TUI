@@ -585,6 +585,8 @@ def test_a_category_or_hashtag_that_matches_nothing_is_not_kept(engine):
         await pilot.press("enter")
         await _field(pilot, screen, "sesenta")
         assert screen._key == "amount"
+        await _field(pilot, screen, "-13.853,20")  # a comma after the dot: never -13.85
+        assert screen._key == "amount" and screen._parts[0].amount_cents != -1385
         await _field(pilot, screen, "-60")
         await _field(pilot, screen, "zzz")
         assert screen._key == "category" and screen._parts[0].category_id is None
@@ -594,6 +596,7 @@ def test_a_category_or_hashtag_that_matches_nothing_is_not_kept(engine):
 
     run_app(scenario, size=SIZE)
     assert notes == [
+        "Amount: a signed decimal, e.g. -99.92",
         "Amount: a signed decimal, e.g. -99.92",
         "No category matches “zzz”.",
         "No hashtag matches “zzz”.",

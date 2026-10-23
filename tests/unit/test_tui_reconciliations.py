@@ -137,6 +137,37 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
     run_app(scenario)
 
 
+def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_client, monkeypatch):
+    """`9.580,00` is not read as 9.58: begin and end each give their note and
+    the cursor stays; the same figures written `9,580.00` and `9460` send."""
+    _patch(monkeypatch)
+    notes: list[str] = []
+
+    async def scenario(pilot, app):
+        screen = NewReconciliationScreen(account_id="acc1", account_name="BCP PEN")
+        await app.push_screen(screen)
+        screen.notify = lambda message, **kw: notes.append(message)
+        _enter(screen, "April 2026")  # name
+        _enter(screen, "2026-04-01")
+        _enter(screen, "2026-04-30")
+        _enter(screen, "9.580,00")  # begin
+        assert screen._key == "begin" and "begin" not in screen._values
+        _enter(screen, "9,580.00")
+        _enter(screen, "9.460,00")  # end
+        assert screen._key == "end" and not fake_client.posts
+        _enter(screen, "9460")  # end → submits
+        await wait_for(pilot, lambda: fake_client.posts)
+
+    run_app(scenario)
+    assert notes[:2] == [
+        "Begin balance: a signed decimal, e.g. 9580.00",
+        "End balance: a signed decimal, e.g. 9460.00",
+    ]
+    [(_path, body)] = fake_client.posts
+    assert body["beginning_balance_cents"] == 958000
+    assert body["ending_balance_cents"] == 946000
+
+
 def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
     """A period's ends are calendar days on the wire (contract: "Date inputs"): the
     typed text goes out unconverted, and any shape the engine would 422 is

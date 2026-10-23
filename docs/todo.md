@@ -27,6 +27,30 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The LOG bar's note for a signed amount it can't read
+Asked 2026-10-23 · Blocks: nothing (the line is refused either way)
+
+On the LOG bar, `tottus -13.853,20 $BCP PEN` is refused, as you chose, but the note reads "the
+line has no amount — a number needs a sign to be one", though `-13.853,20` has its sign.
+- **A.** Keep the note as it is.
+- **B.** For a signed number it can't read, the note says so: "can't read -13.853,20 as an
+  amount".
+
+**Recommended:** B, because the note should name what is wrong with what you typed.
+
+### A comma used for decimals, with no dot
+Asked 2026-10-23 · Blocks: nothing (today's reading stays until you pick)
+
+Every amount field drops every comma as a thousands mark, so `1,5` is saved as 15.00 and
+`-13,85` as -1,385.00, with no warning: a comma typed as the decimal mark makes the amount 10 or
+100 times too big. `1,000` must keep reading as one thousand.
+- **A.** Refuse an amount where a comma is followed by anything but exactly three digits:
+  `1,5` and `-13,85` are refused with the field's usual note; `1,000` and `13,853.20` read as
+  today.
+- **B.** Keep today's reading.
+
+**Recommended:** A, because a wrong amount saved silently is worse than one refused.
+
 ---
 
 ## Backlog

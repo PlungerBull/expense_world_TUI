@@ -1454,7 +1454,7 @@ def test_esc_on_the_box_sends_nothing(fake_client, monkeypatch):
     run_app(scenario)
 
 
-@pytest.mark.parametrize("typed", ["13.853.20", "abc", ""])
+@pytest.mark.parametrize("typed", ["13.853.20", "13.853,20", "abc", ""])
 def test_a_balance_typed_wrong_keeps_the_box_open(fake_client, monkeypatch, typed):
     """Screen 2: the New Reconciliation form's note for a badly typed balance;
     the box stays open with what was typed, and nothing is sent."""

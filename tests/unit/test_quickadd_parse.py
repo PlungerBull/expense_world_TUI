@@ -44,6 +44,27 @@ def test_parse_amount(text, expected):
     assert parse_amount(text) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("13853.20", 1385320),
+        ("13,853.20", 1385320),  # a comma before the dot groups thousands
+        ("-1,311.97", -131197),
+        ("1,000", 100000),  # a comma with no dot groups thousands too
+        ("-99.92", -9992),
+    ],
+)
+def test_a_thousands_comma_is_dropped(text, expected):
+    assert parse_amount(text) == expected
+
+
+@pytest.mark.parametrize("text", ["13.853,20", "-1.234,5", "+1.000,00", "1,234.5,6"])
+def test_a_comma_after_the_dot_is_unreadable(text):
+    """`13.853,20` writes its decimals after a comma; dropping that comma as a
+    thousands comma would read 13.85, so the amount is refused, not guessed."""
+    assert parse_amount(text) is None
+
+
 def test_amount_to_text_roundtrips():
     assert amount_to_text(-9992) == "-99.92"
     assert parse_amount(amount_to_text(-123456)) == -123456
@@ -68,6 +89,17 @@ def test_amount_to_text_roundtrips():
 )
 def test_amount_shapes(line, expected):
     assert _p(line).amount_cents == expected
+
+
+def test_a_comma_after_the_dot_leaves_the_line_with_no_amount():
+    """`-13.853,20` is no amount, so it stays a title word and the line has
+    none, as any other unreadable signed number does; a later amount still
+    reads."""
+    result = _p("tottus -13.853,20")
+    assert result.amount_cents is None
+    assert result.title == "tottus -13.853,20"
+    assert "amount" in result.missing
+    assert _p("tottus -13.853,20 -13853.20").amount_cents == -1385320
 
 
 def test_first_sign_wins():

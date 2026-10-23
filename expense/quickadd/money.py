@@ -10,8 +10,16 @@ from expense.currencies import MINOR_UNIT_SCALE
 
 
 def parse_amount(text: str) -> int | None:
-    """`-99.92` → -9992 cents. None if unparseable. Sign is explicit."""
-    text = text.strip().replace(",", "")
+    """`-99.92` → -9992 cents. None if unparseable. Sign is explicit.
+
+    A comma groups thousands (`-1,311.97`) and is dropped. A comma after the
+    dot (`13.853,20`) is a decimal comma: dropping it would read 13.85, so
+    that amount is unreadable rather than guessed.
+    """
+    text = text.strip()
+    if "," in text.partition(".")[2]:
+        return None
+    text = text.replace(",", "")
     if not text:
         return None
     try:

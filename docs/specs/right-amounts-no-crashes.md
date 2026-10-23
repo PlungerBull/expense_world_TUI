@@ -56,16 +56,15 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-1. **Refuse an amount with a dot before its comma.** In `parse_amount`
-   ([quickadd/money.py](../../expense/quickadd/money.py)), the shared amount reader. Passes if:
-   unit tests show `13.853,20` refused and `13853.20`, `13,853.20`, `-99.92` and `1,000` read as
-   today; each amount field (LOG bar, Edit form, split, opening balance) shows its usual note on
-   the refused amount, through real key presses on at least the LOG bar and the Edit form; the
-   sheet and bank importers, if they use the same reader, are checked and said in the report.
-2. **`nan` and `inf` refuse the row.** In `parse_amount` of
-   [bank_import/parse.py](../../expense/bank_import/parse.py). Passes if: unit tests show `nan`,
-   `NaN`, `inf`, `-inf` and `Infinity` each refused as not an amount, with no exception, and a
-   file holding one such row imports the others.
+2. **The importers read amounts as the typed fields do.** In `parse_amount` of
+   [bank_import/parse.py](../../expense/bank_import/parse.py), and the sheet import's
+   `amount_to_cents` ([import_/parse.py](../../expense/import_/parse.py)). The bank reader turns
+   `13.853,20` into 13.85, as task 1's reader did, and a sheet text cell reading `inf` crashes the
+   sheet import with an uncaught `OverflowError` (found by task 1's builder). Passes if: unit
+   tests show `nan`, `NaN`, `inf`, `-inf` and `Infinity` each refused as not an amount by both
+   importers, with no exception, and a file holding one such row imports the others; the bank
+   reader refuses `13.853,20` as task 1's does and reads `13,853.20` as today; one rule, not two
+   copies, if the readers can share it.
 3. **A split part holding only #Pendiente drops.** In
    [split.py](../../expense/tui/screens/split.py). Passes if: a unit test with real key presses
    opens a new part, leaves it with only the pending hashtag, and finds it gone from the table

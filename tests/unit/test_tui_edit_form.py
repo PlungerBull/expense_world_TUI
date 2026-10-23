@@ -586,6 +586,37 @@ def test_edit_form_rejects_zero_and_unknown_account(fake_client, monkeypatch):
     run_app(scenario)
 
 
+def test_edit_form_refuses_an_amount_with_a_comma_after_its_dot(fake_client, monkeypatch):
+    """Typed key by key on AMOUNT: `13.853,20` is not read as 13.85. The field
+    gives its note and the cursor stays; `13853.20` then saves 13,853.20."""
+    _patch(monkeypatch)
+    notes: list[tuple[str, object]] = []
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=TXN, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        screen.notify = lambda message, **kw: notes.append((message, kw.get("severity")))
+        bar = screen.query_one("#bar", Input)
+        await pilot.press("enter", "enter")  # date, title: kept
+        await pilot.pause()
+        assert screen._key == "amount"
+        await pilot.press("ctrl+a", "ctrl+k", *"13.853,20", "enter")
+        await pilot.pause()
+        assert screen._key == "amount" and bar.value == "13.853,20"
+        assert screen._values["amount"] == -4250
+        await pilot.press("ctrl+a", "ctrl+k", *"13853.20", "enter")
+        await pilot.pause()
+        assert screen._key != "amount"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert notes[0] == ("Amount: a signed decimal, e.g. -99.92", "error")
+    assert [m for m, sev in notes if sev == "error"] == [notes[0][0]]  # once, then saved
+    assert fake_client.puts == [("/transactions/tx1", {"amount_cents": 1385320})]
+
+
 def test_edit_form_refuses_an_emptied_title_and_stays(fake_client, monkeypatch):
     """`⏎` on an emptied title says `Title is required.` as an error toast and
     the cursor stays on TITLE; the split screen's title field says the same

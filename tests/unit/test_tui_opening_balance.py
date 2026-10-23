@@ -184,6 +184,8 @@ def test_screen_2_an_unreadable_amount_or_day_stays_on_its_line(fake_client, not
     async def body(pilot, app, screen):
         _type(screen, "opening", "lots")
         assert screen._key == "opening" and "opening" not in screen._values
+        _type(screen, "opening", "-1.234,5")  # a comma after the dot: never -1.23
+        assert screen._key == "opening" and "opening" not in screen._values
         _type(screen, "opening", "350.00")
         _type(screen, "as_of", "01/01/2026")
         assert screen._key == "as_of" and "as_of" not in screen._values
@@ -192,6 +194,7 @@ def test_screen_2_an_unreadable_amount_or_day_stays_on_its_line(fake_client, not
 
     _form(EFECTIVO, body)
     assert [m for m, _ in notes] == [
+        "Opening: a signed decimal, e.g. -350.00",
         "Opening: a signed decimal, e.g. -350.00",
         "As of: use YYYY-MM-DD.",
         "As Of is required.",

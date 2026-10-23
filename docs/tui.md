@@ -95,6 +95,16 @@ engine reads live in [reads.py](../expense/reads.py), the formatters in
 plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 [_form.py](../expense/tui/screens/_form.py).
 
+**One reader for every typed amount.** `parse_amount` in
+[quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
+form, the split screen, an account's opening balance, a new reconciliation's two balances and
+the reconciliation's `Ending balance first` box. It takes a signed decimal with a dot for its
+decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13,853.20`,
+`1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
+`-12.50,`) is unreadable, never read as 13.85: each form field refuses it with its own note and
+the cursor stays (the box stays open), and on the LOG bar it is no amount, so `↵` refuses the
+line with `the line has no amount`.
+
 **Async / workers.** Textual runs on asyncio; the engine client is synchronous, and
 stays that way. It is called inside a Textual worker (`@work(thread=True)`) so the UI
 never blocks. Read screens subclass `SectionScreen` and override `fetch()` (runs in
