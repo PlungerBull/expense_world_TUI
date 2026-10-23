@@ -67,7 +67,9 @@ Approved by the owner 2026-10-22, who picks 1 A · 2 A · 4 B · 5 B in
 [expense-world-account-to-person.html](../mockups/expense-world-account-to-person.html), and
 checks the import re-run on `--apply`: the dry run stays offline.
 
-All three tasks are done; the tester's acceptance check and the librarian's sweep follow.
+All three tasks are done, and the tester's acceptance check passed everything this spec owns.
+Its librarian sweep and reply wait for [case-counts-in-codes.md](case-counts-in-codes.md) to
+record contract `996986490b68f05e`, which the check found moved.
 
 ## Reply to the engine
 
@@ -75,8 +77,9 @@ Written once the spec is done, into [to-engine/](../to-engine/), for the owner t
 
 - **Covers:** contract `56a43798fc1f2915` (exclusive) to `fab230c456c2dba2` (inclusive), the
   account half of the hand-off named above; its other half has its own reply,
-  [caught-up-54fd1012f7d60abc.md](../to-engine/caught-up-54fd1012f7d60abc.md), whose version,
-  `54fd1012f7d60abc`, is the one the owner quotes for the next catch-up.
+  [caught-up-54fd1012f7d60abc.md](../to-engine/caught-up-54fd1012f7d60abc.md). The version the
+  owner quotes for the next catch-up is the newest one, `996986490b68f05e`, from
+  [case-counts-in-codes.md](case-counts-in-codes.md).
 - **Done when, checked:** the two engine's checks above, with the tester's results.
 - **Contract problems found:** what the build and the tester's run find, and one silence: the
   contract does not say what becomes of an account's reconciliations when it becomes a person,
