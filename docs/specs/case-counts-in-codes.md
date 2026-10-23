@@ -1,6 +1,6 @@
 # Letter case counts in an operation code and a statement line
 
-**Status: draft (orchestrator, 2026-10-22), for the owner's approval.** A catch-up spec: it folds
+**Status: approved (owner, 2026-10-22).** A catch-up spec: it folds
 in the engine's hand-off "The contract states that letter case counts in an operation code and a
 statement line" (shipped 2026-10-22). Nothing on screen changes.
 
@@ -48,14 +48,8 @@ operation codes, which the contract was just as silent about.
 
 ## Tasks
 
-Drafted 2026-10-22; wait for the owner's approval. None draws a screen.
+Approved by the owner 2026-10-22. None draws a screen.
 
-1. **The app holds contract `996986490b68f05e`.** Recorded with the drift script's
-   `--record-version` against the practice engine. Passes if
-   [scripts/engine-contract-version](../../scripts/engine-contract-version) holds
-   `996986490b68f05e` and nothing else, the drift script against `:8002` reports no change and no
-   fixture key the engine does not serve, and the live contract-citation test passes. The
-   engine's check 1 and the owner's check 1.
 2. **A unit test pins exact comparison in both importers.** Sheet rows whose `COD_EECC` differ
    only in case (`SIG-1`, `sig-1`) make two statement lines, never one group; a bank file holding
    operations `abc123` and `ABC123` keeps both rows, neither refused as appearing twice. Passes if
