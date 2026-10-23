@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Enter and esc on the forms</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+  .cur{background:var(--accent);color:var(--pad)}
+  .sel{color:var(--accent);font-weight:700}
+  .bad{color:var(--neg);font-weight:700}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Enter and esc on the forms</h1>
+  <p>Two small questions about what a key does. <b>Question 1</b> is the Edit form (<code>⏎</code> on a ledger row): what <code>⏎</code> does on the ACCOUNT or CATEGORY line when you type nothing. <b>Question 2</b> is the split screen (<code>s</code> on a ledger row): what <code>esc</code> does to the hashtags you just added on a part.</p>
+  <p>The rows are invented. Use the button at the top right for a light terminal.</p>
+</div>
+
+<!-- ============ QUESTION 1 ============ -->
+<div class="pane"><div class="lbl">Question 1 · ⏎ on an empty ACCOUNT line <span>— the same goes for CATEGORY</span></div>
+<p class="blurb">You open <b>Tottus Jockey Plaza -100.00</b> to fix its title. You fix it, then press <code>⏎</code> to step down through the form. When you land on ACCOUNT, the bar is empty and the list shows every account. The transaction is on <b>Sueldo Soles</b>.</p>
+
+<div class="opt"><div class="var"><div class="oh">Today · <span>landing on ACCOUNT</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">ACCOUNT         </span><span class="a">▍</span>
+     <span class="cur">Cuenta Digital Dólares    </span>
+     Sueldo Soles
+     VISA Infinite Sapphire PEN
+     VISA Infinite Sapphire USD
+   <span class="d">pick an existing account · ↑↓ highlight · enter select</span>
+
+   date      2026-10-11
+   title     Tottus — semana
+   amount    <span class="n">-100.00</span>
+   <span class="b">account   </span>Sueldo Soles
+   category  COMIDA
+   hashtags  #casa
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The highlight sits on the <b>first</b> account in the list, not on the one the transaction has. Now you press <code>⏎</code> to keep going…</p></div></div>
+
+<div class="opt"><div class="var"><div class="oh">A · <span>the highlight starts on the account it has, so ⏎ keeps it</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">ACCOUNT         </span><span class="a">▍</span>
+     Cuenta Digital Dólares
+     <span class="cur">Sueldo Soles              </span>
+     VISA Infinite Sapphire PEN
+     VISA Infinite Sapphire USD
+   <span class="d">pick an existing account · ↑↓ highlight · enter select</span>
+
+   date      2026-10-11
+   title     Tottus — semana
+   amount    <span class="n">-100.00</span>
+   <span class="b">account   </span>Sueldo Soles
+   category  COMIDA
+   hashtags  #casa
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Landing on ACCOUNT, the highlight is already on <b>Sueldo Soles</b>. <code>⏎</code> keeps it and moves to CATEGORY; to change it you type or press ↑↓. CATEGORY works the same, starting on COMIDA. <b>Recommended:</b> stepping past a line never changes it.</p></div>
+
+<div class="var"><div class="oh">B · <span>as today: ⏎ takes the first account</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CATEGORY        </span><span class="a">▍</span>
+     <span class="cur">@Pendiente                </span>
+     COMIDA
+     HOGAR
+     HOSPEDAJE
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+   date      2026-10-11
+   title     Tottus — semana
+   amount    <span class="n">-100.00</span>
+   account   <span class="bad">Cuenta Digital Dólares</span>   <span class="d">← was Sueldo Soles</span>
+   <span class="b">category  </span>COMIDA
+   hashtags  #casa
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">After <code>⏎</code> on ACCOUNT, the transaction now sits on <b>Cuenta Digital Dólares</b>, and you are on CATEGORY, where one more <code>⏎</code> makes it <b>@Pendiente</b>. <code>^s</code> would save both changes. To keep the account you have to type its name, or use <code>⇥</code> instead of <code>⏎</code>.</p></div></div>
+</div>
+
+<!-- ============ QUESTION 2 ============ -->
+<div class="pane"><div class="lbl">Question 2 · esc right after adding hashtags on a split part</div>
+<p class="blurb">You are splitting <b>Tottus Jockey Plaza -100.00</b>. On part 2, on its HASHTAGS line, you type <code>cas</code> and <code>⏎</code> (adds #casa), then <code>lim</code> and <code>⏎</code> (adds #limpieza). The bar is empty again, waiting for a third. Now you press <code>esc</code>.</p>
+
+<div class="opt"><div class="var"><div class="oh">Before esc · <span>two hashtags added, still on the HASHTAGS line</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
+
+   <span class="d">      amount    category       hashtags            note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa               verduras
+   <span class="sel">▌ 2   -40.00    HOGAR          #casa #limpieza     </span>
+   <span class="d">  +  add a part</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+   <span class="b">PART 2</span>
+     <span class="d">AMOUNT</span>    -40.00
+     <span class="d">CATEGORY</span>  HOGAR
+   <span class="a">▌</span> <span class="sel">HASHTAGS</span>  #casa #limpieza  ▍
+     <span class="d">NOTE</span>
+
+ <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Each <code>⏎</code> put the hashtag on the part straight away; the table already shows both.</p></div></div>
+
+<div class="opt"><div class="var"><div class="oh">A · <span>they stay</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
+
+   <span class="d">      amount    category       hashtags            note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa               verduras
+   <span class="cur">  2   -40.00    HOGAR          #casa #limpieza                                </span>
+   <span class="d">  +  add a part</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Back on the table, part 2 keeps <b>#casa #limpieza</b>. <code>esc</code> only throws away what is half-typed in the bar. <b>Recommended:</b> <code>⏎</code> already said “keep this”, as everywhere else on the screen.</p></div>
+
+<div class="var"><div class="oh">B · <span>they go</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+
+   <span class="d">TITLE</span>      Tottus Jockey Plaza<span class="d">                          same on every part</span>
+
+   <span class="d">      amount    category       hashtags            note</span>
+     1  <span class="n"> -60.00</span>    COMIDA         #casa               verduras
+   <span class="cur">  2   -40.00    HOGAR          —                                              </span>
+   <span class="d">  +  add a part</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Back on the table, part 2's hashtags are back to what they were before you opened the line (here, none). To keep them you would leave the line with an empty <code>⏎</code> or <code>⇥</code> first, then <code>esc</code>.</p></div></div>
+</div>
+
+<div class="pick"><b>To answer:</b> one letter for each question.<br><b>Recommended:</b> 1 A · 2 A.</div>
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

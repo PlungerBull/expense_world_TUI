@@ -27,30 +27,22 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The Edit form when nothing on an archived line can change
-Asked 2026-10-18 · Blocks: nothing (it is reachable only from a list read before the account was archived)
-
-In Reconciliations ▸ "no batch", `⏎` on a line of an account archived after the list was read
-opens its Edit form with every line read-only (date, title, operation, amount, account), since
-an archived account's lines don't change. Nothing can be saved there.
-- **A.** Open it as now, every line read-only.
-- **B.** Don't open it; a note says the account is archived.
-
-**Recommended:** A, because it is rare, nothing is sent, and it shows what the line holds.
-
 ### `⏎` on an empty account or category on the Edit form
-Asked 2026-10-18 · Blocks: nothing (the form works either way)
+Asked 2026-10-18 · Blocks: nothing (the form works either way) · **[UI]** Question 1 in
+[mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)
 
 On the `⏎` Edit form, pressing `⏎` on the ACCOUNT or CATEGORY line with nothing typed picks the
 first name in the list. So stepping through the form with `⏎` can move a transaction to another
 account, or change its category, without your meaning to.
-- **A.** `⏎` with nothing typed keeps the account or category the transaction has.
+- **A.** Landing on the line, the highlight starts on the account or category the transaction
+  has, so `⏎` keeps it.
 - **B.** It picks the first name in the list, as now.
 
 **Recommended:** A, because stepping past a line should never change it.
 
 ### `esc` after adding hashtags on a split part
-Asked 2026-10-18 · Blocks: nothing (the screen works either way)
+Asked 2026-10-18 · Blocks: nothing (the screen works either way) · **[UI]** Question 2 in
+[mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)
 
 On a split part's HASHTAGS line, `⏎` on a name adds that hashtag at once. If you then press `esc`
 while still on that line, the hashtags you just added stay.
@@ -109,9 +101,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   on DATE (`_first_editable` in [_form.py](../expense/tui/screens/_form.py) falls back to the
   first field), and `⏎` writes the typed text into the summary as `<typed>  read-only`; `ctrl+s`
   then says "No changes to save.", and nothing is sent. A typed value must not land on a
-  read-only line ([edit_form.py](../expense/tui/screens/edit_form.py) `on_input_submitted`);
-  what the form shows when nothing can change is the question "The Edit form when nothing on an
-  archived line can change" above.
+  read-only line ([edit_form.py](../expense/tui/screens/edit_form.py) `on_input_submitted`).
+  The owner's pick (2026-10-23): the form still opens, every line read-only, showing what the
+  line holds.
 - **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
   `GET /accounts` without `include_archived`
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
