@@ -5,6 +5,8 @@ its total, and a tick is one `PUT` of `reconciliation_id` on one of its parts
 (contract: GET /v1/bank-lines)
 (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
 
+import threading
+
 import httpx
 import pytest
 import respx
@@ -722,7 +724,13 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
 def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
     """A burst of toggles sends one PUT per toggle, in the order pressed —
     including a re-toggle of the same row (l1 out, then back in) — and reads
-    the list again once, after the last."""
+    the list again once, after the last.
+
+    The engine holds its first answer until all three ticks are at the screen,
+    one sent and two queued behind it: each `Toggled` reaches the screen through
+    the checklist's container, and an answer that comes back before the next
+    tick arrives empties the queue, which reads again by design ("once every
+    tick sent is answered")."""
     _patch(monkeypatch)
     reads: list = []
     from expense import reads as reads_module
@@ -734,6 +742,14 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
         return fake(cfg, **k)
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", counting)
+    release = threading.Event()
+    real_put = fake_client.put
+
+    def held(path, json_body=None):
+        release.wait(timeout=5)
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = held
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -741,12 +757,18 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
         await _wait_list(screen, pilot)
         loaded = len(reads)
         first = screen._list
-        screen._list._cursor = 0
-        screen._list.action_toggle()  # l1 → out
-        screen._list._cursor = 2
-        screen._list.action_toggle()  # l2 → in
-        screen._list._cursor = 0
-        screen._list.action_toggle()  # l1 → back in
+        try:
+            screen._list._cursor = 0
+            screen._list.action_toggle()  # l1 → out
+            screen._list._cursor = 2
+            screen._list.action_toggle()  # l2 → in
+            screen._list._cursor = 0
+            screen._list.action_toggle()  # l1 → back in
+            # the burst is at the screen: one tick in flight, two queued
+            await wait_for(pilot, lambda: len(screen.writes_unanswered()) == 3)
+            assert fake_client.puts == []
+        finally:
+            release.set()
         await wait_for(pilot, lambda: len(fake_client.puts) == 3)
         await wait_for(pilot, lambda: screen._list is not first)
         await pilot.pause()

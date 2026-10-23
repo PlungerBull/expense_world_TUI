@@ -272,6 +272,13 @@ ships (its why moves to [decisions.md](decisions.md)).
   pushed screen (the bulk `c`/`b`/`h` picks). The other modals (`HelpModal`, `PromptModal`,
   `DiscardStagedModal`, `ConfirmModal`) are short questions and stay modals. **[UI]** — the
   replacement needs drawing.
+- **A superseded read can paint on a reconciliation's checklist.** A read started mid-burst of
+  `space` ticks can still reach `_populate` after the last tick's answer empties the queue, when
+  its worker passed the `is_cancelled` check just before the newer load cancelled it
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `_load_txns`, `_populate`).
+  The stale read paints and spends `_land_on`, so the fresh read after it lands the cursor on row
+  1, not on the line ticked last. Narrow window, not yet reproduced. The fix lets `_populate`
+  paint only the newest load, with a test that holds the old read past the cancel.
 
 ---
 
