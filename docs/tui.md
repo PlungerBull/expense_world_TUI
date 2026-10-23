@@ -246,8 +246,9 @@ is the one the ledger's `c` offers (`pickable_categories` in [reads.py](../expen
 `@Pendiente` is in it, where the engine lists it, so on a row in `@Pendiente` the highlight
 starts on it and `⏎` keeps it, and picking it on another row sends that row back to waiting
 for a category (Question 3 A of the same mockup); `@Opening` is never in it. A value the list
-does not hold leaves the highlight on the first entry. The "no batch" Edit form's ACCOUNT
-works the same (`_recompute` in [edit_form.py](../expense/tui/screens/edit_form.py)).
+does not hold leaves the highlight on the first entry, and there `⏎` with nothing typed takes
+that entry. The "no batch" Edit form's ACCOUNT works the same (`_recompute` in
+[edit_form.py](../expense/tui/screens/edit_form.py)).
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds
@@ -330,17 +331,18 @@ cursor is on reads `▌ CATEGORY` in the accent with its input after it; AMOUNT 
 what the part holds; CATEGORY and HASHTAGS open with the bar empty and no list (unlike the
 Edit form's ACCOUNT and CATEGORY, whose list opens on the row's own, "Stepping past ACCOUNT or
 CATEGORY keeps them" above). On CATEGORY and HASHTAGS the shared suggestion list
-([picker.py](../expense/tui/widgets/picker.py), `matching`) shows under
-the field once something is typed, and `↑↓` move in it while it is open. CATEGORY offers the
-user categories only, unlike the Edit form's list, which holds `@Pendiente`: a part left with
-no category is filed under `@Pendiente`. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in the
-table row at once: an amount that is not a number, or a name that matches nothing, is not
+([picker.py](../expense/tui/widgets/picker.py), `matching`) shows under the field once
+something is typed, and `↑↓` move in it while it is open. CATEGORY offers the user categories
+only, unlike the Edit form's list, which holds `@Pendiente`: a part left with no category is
+filed under `@Pendiente`. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in
+the table row at once: an amount that is not a number, or a name that matches nothing, is not
 kept, a toast says why (the Edit form's words) and the cursor stays. A field left empty clears
 the amount or the note, and keeps the category and the hashtags the part holds. `⏎` on
 HASHTAGS with a name typed adds that hashtag and stays for another; with nothing typed it
 moves on. `⏎` on NOTE goes back to the table, the cursor on that part. `esc` goes back too,
 keeping every field already left and every hashtag already added with `⏎`; only the field
-being typed goes back to what it was.
+being typed goes back to what it was (Question 2 A of
+[expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)).
 **`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
 A part left with nothing in it, by `esc` or `⏎` through its fields, drops again, the cursor
 back on `+ add a part`.
@@ -640,9 +642,9 @@ saved; opened again once filled, it is read-only like the rest. The "no batch" E
 follows the same rule on a line of an archived account, which only a list read before the
 account was archived still shows: `date`, `title`, `operation`, `amount` and `account` are
 read-only, but a title or operation still empty, filled once. With both set, every line is
-read-only: the form still opens, on `date`, showing what the line holds, and nothing typed lands
-on a line ("The bar forms' keys" below). The form learns which
-accounts are archived from the `GET /accounts` it already makes for its suggestions
+read-only: the form still opens, on `date`, showing what the line holds, and nothing typed
+lands on a line ("The bar forms' keys" below). The form learns which accounts are archived
+from the `GET /accounts` it already makes for its suggestions
 (`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that read fails,
 the form is as on any row and the engine judges the save ("When the engine says no" below).
 
@@ -1124,18 +1126,18 @@ returns the bar to quick-add on the same keystroke.
 
 **The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): the bar
 form's keymap (`form_bindings`) with the table's keys, each shown only where it works
-(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the title's
-field or the part under the cursor, or adds one, `ctrl+x` drops the part under it (nothing on
-the TITLE line or `+ add a part`), `ctrl+s` sends the split, `esc` leaves at once with nothing
-sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In a part's fields the
-input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥` and `shift+tab`
-move fields, `ctrl+s` sends, `esc` goes back to the table keeping what `⏎` added (each
-hashtag added with `⏎` on HASHTAGS stays on the part), only the line being typed dropped; the
-footer reads `esc Back to the parts  ^s Split  ⇥ Field`. In the title's one field, `⏎` keeps it, `ctrl+s`
-sends, `esc` goes back, and the footer reads `esc Back to the parts  ^s Split`. `esc` is two
-bindings, `check_action` showing one. There is no `?`: the split screen is a bar form
-(`FormScreen`), and forms take no `HelpBindingMixin`, so there is no `?` card; in the fields
-the input takes `?` as a character.
+(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the
+title's field or the part under the cursor, or adds one, `ctrl+x` drops the part under it
+(nothing on the TITLE line or `+ add a part`), `ctrl+s` sends the split, `esc` leaves at once
+with nothing sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In a part's
+fields the input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥` and
+`shift+tab` move fields, `ctrl+s` sends, `esc` goes back to the table keeping what `⏎` added
+(each hashtag added with `⏎` on HASHTAGS stays on the part), only the line being typed
+dropped; the footer reads `esc Back to the parts  ^s Split  ⇥ Field`. In the title's one
+field, `⏎` keeps it, `ctrl+s` sends, `esc` goes back, and the footer reads
+`esc Back to the parts  ^s Split`. `esc` is two bindings, `check_action` showing one. There
+is no `?`: the split screen is a bar form (`FormScreen`), and forms take no
+`HelpBindingMixin`, so there is no `?` card; in the fields the input takes `?` as a character.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It

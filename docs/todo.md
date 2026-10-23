@@ -65,9 +65,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   [dates.py](../expense/dates.py) raises; [_form.py](../expense/tui/screens/_form.py)
   `action_submit` does not catch it). The fix checks the date at `⏎`, as the amount field
   does; the message it shows is wording the owner picks first.
-- **Stepping through a form never changes it**: `⏎` on ACCOUNT or CATEGORY keeps what the
-  transaction has, `esc` keeps a split part's hashtags, nothing lands on a locked line, and `⏎`
-  saves when no line ahead can change ([specs/stepping-never-changes.md](specs/stepping-never-changes.md)).
 - **The DATE hint on a form with every line read-only [UI].** On the "no batch" Edit form of an
   archived account's line whose title and operation code are both set, the bar sits on DATE and
   the hint still reads `YYYY-MM-DD · enter to accept, or type a date`, though the bar takes
