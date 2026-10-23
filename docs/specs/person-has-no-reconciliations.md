@@ -68,14 +68,6 @@ Approved by the owner 2026-10-22, who picks A in
 the engine's words, then `On Reconciliations, press d on each of its reconciliations; a completed
 one needs u first.`
 
-2. **The live contract suite knows both refusals.** `POST /reconciliations` on a person is `422`
-   `PERSON_ACCOUNT` on `account_id`, nothing written; on an archived person it is still
-   `INVALID_REFERENCE`. `make-person` on an account with a draft reconciliation, and on one with
-   a completed reconciliation, is `409` `HAS_RECONCILIATION` on `account_id`, `version`
-   unchanged; after the draft is deleted, or the completed one reverted and deleted, it is `200`.
-   An account with both an opening balance and a reconciliation answers `HAS_OPENING_BALANCE`. A
-   person turned back with `make-account` can start a reconciliation again (`201`). Each test
-   cites the contract part stating its rule. Passes if the tests pass against `:8002`.
 3. **`t` and a new reconciliation show the new refusals.** `t Make person` refused with
    `HAS_RECONCILIATION` shows the engine's words whole, with the app's line from pick A, and
    the list stays as it was; a new reconciliation refused with `PERSON_ACCOUNT` shows the engine's

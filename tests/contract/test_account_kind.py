@@ -18,16 +18,24 @@ What it pins, in the order the app meets it:
 2. Each refusal is `409` `CONFLICT` keyed on `account_id`, and nothing is written (the
    `version` re-read is unchanged): `KIND_UNCHANGED` on each route for an account
    already of that kind, `HAS_OPENING_BALANCE` on `make-person` for an account with an
-   opening balance (it goes through once that transaction is deleted), and
-   `ACCOUNT_ARCHIVED` on both routes for an archived account and an archived person,
-   returned first when another refusal also applies (contract: POST
-   /v1/accounts/{account_id}/archive).
-3. An unknown id is `404` on both routes.
-4. A `make-person` sent again under the same `X-Idempotency-Key` is replayed: the same
+   opening balance (it goes through once that transaction is deleted, and comes before
+   `HAS_RECONCILIATION`), `HAS_RECONCILIATION` on `make-person` for an account with a
+   draft or a completed reconciliation (it goes through once the draft is deleted, or
+   the completed one reverted and deleted), and `ACCOUNT_ARCHIVED` on both routes for an
+   archived account and an archived person, returned first when another refusal also
+   applies (contract: POST /v1/accounts/{account_id}/archive).
+3. A person never has reconciliations: `POST /reconciliations` on one is `422`
+   `VALIDATION_ERROR` with `PERSON_ACCOUNT` on `account_id`, writing nothing, and an
+   archived person answers `INVALID_REFERENCE` there instead; turned back with
+   `make-account`, it starts one again (`201`) (contract: "People / Person Accounts",
+   "Person rules").
+4. An unknown id is `404` on both routes.
+5. A `make-person` sent again under the same `X-Idempotency-Key` is replayed: the same
    answer, and the account flipped once (contract: "Base Conventions", "Idempotency").
 
-Every account is fresh per run (named by its UUID) and deleted at the end, with its
-transactions. Gating, target resolution and the real-ledger guard live in conftest.py.
+Every account and reconciliation is fresh per run (named by its UUID) and deleted at the
+end, with its transactions. Gating, target resolution and the real-ledger guard live in
+conftest.py.
 """
 
 from types import SimpleNamespace
@@ -100,6 +108,32 @@ def _make_transaction(client, tx_id: str, account_id: str, amount: int) -> None:
             "date": "2026-03-10T12:00:00Z",
         },
     )
+
+
+def _make_reconciliation(client, recon_id: str, account_id: str, **extra) -> dict:
+    return client.post(
+        "/reconciliations",
+        json_body={
+            "id": recon_id,
+            "account_id": account_id,
+            "name": f"contract-kind-recon-{recon_id[:8]}",
+            "date_start": "2026-04-01",
+            "date_end": "2026-04-30",
+            "beginning_balance_cents": 958000,
+            **extra,
+        },
+    )
+
+
+def _reconciliation_ids(client, account_id: str) -> set[str]:
+    listed = client.get("/reconciliations", params={"account_id": account_id})
+    return {item["id"] for item in listed["items"]}
+
+
+def _assert_still_real(client, account_id: str, version: int) -> None:
+    after = client.get(f"/accounts/{account_id}")
+    assert after["version"] == version
+    assert after["is_person"] is False
 
 
 def _transaction_ids(client, account_id: str) -> set[str]:
@@ -241,6 +275,152 @@ def test_an_account_with_an_opening_balance_cannot_become_a_person(client):
     finally:
         _safe_delete(client, f"/transactions/{opening_id}")
         _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_an_account_with_a_draft_reconciliation_cannot_become_a_person(client):
+    """A live draft is `HAS_RECONCILIATION`, writing nothing; a deleted one does not
+    count (contract: POST /v1/accounts/{account_id}/make-person, "Refusals")."""
+    account_id = str(uuid4())
+    recon_id = str(uuid4())
+
+    try:
+        _make_account(client, account_id)
+        _make_reconciliation(client, recon_id, account_id)
+        version = client.get(f"/accounts/{account_id}")["version"]
+
+        err = _refused(lambda: client.post(f"/accounts/{account_id}/make-person"))
+        _assert_refusal(err, "HAS_RECONCILIATION")
+        _assert_still_real(client, account_id, version)
+
+        client.delete(f"/reconciliations/{recon_id}")
+        person = client.post(f"/accounts/{account_id}/make-person")
+        assert person["is_person"] is True
+        assert person["version"] == version + 1
+    finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_an_account_with_a_completed_reconciliation_cannot_become_a_person(client):
+    """A completed reconciliation is `HAS_RECONCILIATION` too, and so is the draft its
+    revert leaves; only once that draft is deleted does the account become a person
+    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals")."""
+    account_id = str(uuid4())
+    recon_id = str(uuid4())
+    tx_id = str(uuid4())
+
+    try:
+        _make_account(client, account_id)
+        _make_transaction(client, tx_id, account_id, -1200)
+        _make_reconciliation(client, recon_id, account_id, ending_balance_cents=956800)
+        client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon_id})
+        assert client.post(f"/reconciliations/{recon_id}/complete")["status"] == 2
+        version = client.get(f"/accounts/{account_id}")["version"]
+
+        err = _refused(lambda: client.post(f"/accounts/{account_id}/make-person"))
+        _assert_refusal(err, "HAS_RECONCILIATION")
+        _assert_still_real(client, account_id, version)
+
+        assert client.post(f"/reconciliations/{recon_id}/revert")["status"] == 1
+        err = _refused(lambda: client.post(f"/accounts/{account_id}/make-person"))
+        _assert_refusal(err, "HAS_RECONCILIATION")
+        _assert_still_real(client, account_id, version)
+
+        client.delete(f"/reconciliations/{recon_id}")
+        person = client.post(f"/accounts/{account_id}/make-person")
+        assert person["is_person"] is True
+        assert person["version"] == version + 1
+    finally:
+        _safe_post(client, f"/reconciliations/{recon_id}/revert")
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/transactions/{tx_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_an_opening_balance_is_refused_before_a_reconciliation(client):
+    """With both an opening balance and a reconciliation, `make-person` answers
+    `HAS_OPENING_BALANCE`, the earlier refusal; with the opening balance deleted, the
+    reconciliation still refuses it (contract: POST
+    /v1/accounts/{account_id}/make-person, "Refusals")."""
+    account_id = str(uuid4())
+    opening_id = str(uuid4())
+    recon_id = str(uuid4())
+
+    try:
+        _make_account(client, account_id)
+        client.post(
+            f"/accounts/{account_id}/opening-balance",
+            json_body={
+                "transaction_id": opening_id,
+                "amount_cents": 50000,
+                "date": "2026-01-01T00:00:00Z",
+            },
+        )
+        _make_reconciliation(client, recon_id, account_id)
+        version = client.get(f"/accounts/{account_id}")["version"]
+
+        err = _refused(lambda: client.post(f"/accounts/{account_id}/make-person"))
+        _assert_refusal(err, "HAS_OPENING_BALANCE")
+        _assert_still_real(client, account_id, version)
+
+        client.delete(f"/transactions/{opening_id}")
+        version = client.get(f"/accounts/{account_id}")["version"]
+        err = _refused(lambda: client.post(f"/accounts/{account_id}/make-person"))
+        _assert_refusal(err, "HAS_RECONCILIATION")
+        _assert_still_real(client, account_id, version)
+    finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_delete(client, f"/transactions/{opening_id}")
+        _safe_delete(client, f"/accounts/{account_id}")
+
+
+def test_a_person_cannot_start_a_reconciliation(client, statuses):
+    """`POST /reconciliations` on a person is `422` `VALIDATION_ERROR` keyed on
+    `account_id` alone with `PERSON_ACCOUNT`, and nothing is written: the person lists
+    no reconciliation and the sent id reads `404`. An archived person answers
+    `INVALID_REFERENCE` there, like any archived account (contract: POST
+    /v1/reconciliations, "A person account never has reconciliations"). Turned back
+    with `make-account`, the account starts one again, under the very id refused,
+    which proves the refusal wrote nothing (contract: "People / Person Accounts",
+    "Person rules")."""
+    person_id = str(uuid4())
+    converted_id = str(uuid4())
+    recon_id = str(uuid4())
+
+    def refused_on(account_id: str) -> EngineError:
+        return _refused(lambda: _make_reconciliation(client, recon_id, account_id))
+
+    try:
+        _make_person(client, person_id)
+        _make_account(client, converted_id)
+        client.post(f"/accounts/{converted_id}/make-person")
+
+        for target in (person_id, converted_id):
+            err = refused_on(target)
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR"), target
+            assert isinstance(err.fields, dict) and set(err.fields) == {"account_id"}
+            assert err.reasons == {"account_id": "PERSON_ACCOUNT"}, target
+            assert _reconciliation_ids(client, target) == set(), target
+            missing = _refused(lambda: client.get(f"/reconciliations/{recon_id}"))
+            assert missing.status == 404, target
+
+        client.post(f"/accounts/{person_id}/archive")
+        err = refused_on(person_id)
+        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
+        assert err.reasons == {"account_id": "INVALID_REFERENCE"}
+
+        # Turned back into a bank account, it is reconciled again.
+        client.post(f"/accounts/{converted_id}/make-account")
+        created = _make_reconciliation(client, recon_id, converted_id)
+        assert statuses[-1] == 201
+        assert created["id"] == recon_id
+        assert created["account_id"] == converted_id
+        assert _reconciliation_ids(client, converted_id) == {recon_id}
+    finally:
+        _safe_delete(client, f"/reconciliations/{recon_id}")
+        _safe_post(client, f"/accounts/{person_id}/unarchive")
+        _safe_delete(client, f"/accounts/{person_id}")
+        _safe_delete(client, f"/accounts/{converted_id}")
 
 
 def test_an_archived_account_keeps_its_kind_whatever_else_applies(client):
