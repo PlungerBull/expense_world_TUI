@@ -104,6 +104,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
   account's COLOR hint, `optional · empty enter to skip` (around line 261), goes with it: `⏎`
   there keeps a colour the line holds. The wording is the owner's pick.
+- **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
+  part, so the note reads `2 rows → BCP Oro PEN · 2 left their reconciliation` (the owner's pick,
+  2026-10-18); the Edit form's "It left its reconciliation" has the same gap. Waits on the engine
+  ask [a-line-move-answers-what-it-moved.md](to-engine/a-line-move-answers-what-it-moved.md): the
+  answer to a move names only the transaction sent
+  ([transactions.py](../expense/tui/screens/transactions.py) `bulk_receipt`).
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's

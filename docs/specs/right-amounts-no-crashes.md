@@ -56,12 +56,11 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-6. **The note after `b` counts what moved.** In
-   [transactions.py](../../expense/tui/screens/transactions.py). First read the live contract
-   (contract: PUT /v1/transactions/{transaction_id}) for whether the answer says which rows a
-   move took. Passes if: it does, and a unit test shows `b` on one part of a two-part split
-   noting `2 rows`, and how many left their reconciliation; or it does not, and the builder
-   reports so, for an engine ask in [to-engine/](../to-engine/) instead of code.
+Item 6, the note after `b`, waits on the engine: its answer to a move names only the
+transaction sent, so the ask
+[a-line-move-answers-what-it-moved.md](../to-engine/a-line-move-answers-what-it-moved.md) goes
+to the engine, and the item leaves this spec for [todo.md](../todo.md); its check 6 is not part
+of this spec's acceptance check.
 7. **The sheet import's report reads right.** In
    [import_/apply.py](../../expense/import_/apply.py). Passes if: unit tests show a category
    failure reading `category 'NEW': …` (and account, hashtag likewise), and rows spelling `NEW`
