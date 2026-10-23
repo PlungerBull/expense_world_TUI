@@ -76,7 +76,7 @@
 </div>
 
 <!-- ============ QUESTION 1 ============ -->
-<div class="pane"><div class="lbl">Question 1 · the <code>?</code> card on a split transaction <span>— Reconciliations ▸ an account ▸ u “no batch” ▸ ?</span></div>
+<div class="pane"><div class="lbl">Question 1 · the <code>?</code> card on a split transaction <span>— not picked: see the split transaction screen · Reconciliations ▸ an account ▸ u “no batch” ▸ ?</span></div>
 <p class="blurb">On Reconciliations you open <b>Sueldo Soles</b> and press <code>u</code>: its rows that are in no batch. The cursor is on <b>TOTTUS JOCKEY PLAZA -100.00</b>, a transaction split into two parts (-60.00 and -40.00). You press <code>?</code>. The card says <code>⏎</code> lets you edit “its date, title, operation, <b>amount</b> or account”. But on a split transaction <code>⏎</code> opens a form with no amount line: the parts' amounts are shown read-only, and you change them by splitting it again in the ledger. On UBER *TRIP, never split, <code>⏎</code> does offer the amount.</p>
 <div class="opt wide"><div class="var"><div class="oh">Today · <span>the <code>?</code> card, cursor on TOTTUS JOCKEY PLAZA</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  Sueldo Soles</span>
 <span class="d"></span>
@@ -207,7 +207,7 @@
 </div>
 
 <!-- ============ QUESTION 2 ============ -->
-<div class="pane"><div class="lbl">Question 2 · the note when DATE is not a date <span>— the Edit form, ⏎ on a ledger row</span></div>
+<div class="pane"><div class="lbl">Question 2 · the note when DATE is not a date <span>— picked: D · the Edit form, ⏎ on a ledger row</span></div>
 <p class="blurb">You open <b>Tottus Jockey Plaza -100.00</b> and type <code>abc</code> on DATE. Today <code>⏎</code> takes it, and <code>^s</code> then closes the app with an error. The fix checks the date at <code>⏎</code>, as AMOUNT already does: the bar keeps what you typed and a note says what's wrong. AMOUNT's note on this form reads <code>Amount: a signed decimal, e.g. -99.92</code>. The app's other two dates already have one: New reconciliation's dates say <code>Date Start: use YYYY-MM-DD.</code> and the account's opening balance says <code>As of: use YYYY-MM-DD.</code> This form reads a day written <code>2026-10-23</code>, with or without a time (<code>2026-10-23 14:30</code>); it does not read the LOG bar's short forms such as <code>hoy</code> or <code>18/8</code>. The same note goes on the “no batch” Edit form, which shares the code.</p>
 <div class="opt"><div class="var"><div class="oh">Today · <span><code>abc</code> typed on DATE</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
@@ -358,7 +358,7 @@
 </div>
 
 <!-- ============ QUESTION 3 ============ -->
-<div class="pane"><div class="lbl">Question 3 · the DATE hint when nothing can change <span>— “no batch” ▸ ⏎ on an archived account's row</span></div>
+<div class="pane"><div class="lbl">Question 3 · the DATE hint when nothing can change <span>— picked: B · “no batch” ▸ ⏎ on an archived account's row</span></div>
 <p class="blurb">The account <b>BCP Ahorros Soles</b> is archived, and its row <b>TOTTUS JOCKEY PLAZA -150.00</b> already has a title and an operation number. On an archived account none of these five lines can change, so the form shows every line read-only. The bar sits on DATE, and its hint still says “type a date”, but typing does nothing, <code>⇥</code> goes nowhere, and <code>⏎</code> answers <code>No changes to save.</code> You only reach this when the “no batch” list was read before the account was archived.</p>
 <div class="opt"><div class="var"><div class="oh">A · <span>keep today's hint</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
 
@@ -412,7 +412,7 @@
 </div>
 
 <!-- ============ QUESTION 4 ============ -->
-<div class="pane"><div class="lbl">Question 4a · the NAME hint on Manage ▸ Accounts <span>— New (n) and Edit (e)</span></div>
+<div class="pane"><div class="lbl">Question 4a · the NAME hint on Manage ▸ Accounts <span>— picked: A · New (n) and Edit (e)</span></div>
 <p class="blurb">NAME's hint says <code>enter to save</code>, but <code>⏎</code> on NAME doesn't save: it moves to the next line (CURRENCY on New, COLOR on Edit). New and Edit share the hint.</p>
 <div class="opt"><div class="var"><div class="oh">Today · <span>New, on NAME</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
 
@@ -506,7 +506,7 @@
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The same on New. Like CURRENCY's hint, <code>PEN or USD</code>, it leaves <code>⏎</code> unsaid.</p></div></div>
 </div>
 
-<div class="pane"><div class="lbl">Question 4b · the COLOR hint on Manage ▸ Accounts <span>— New (n) and Edit (e)</span></div>
+<div class="pane"><div class="lbl">Question 4b · the COLOR hint on Manage ▸ Accounts <span>— picked: A · New (n) and Edit (e)</span></div>
 <p class="blurb">COLOR's hint says <code>optional · empty enter to skip</code>. On Edit the line opens with the highlight on the account's own colour, so <code>⏎</code> keeps it; nothing is skipped. On New nothing is highlighted, so <code>⏎</code> leaves it empty, and as COLOR is New's last line, it creates the account.</p>
 <div class="opt"><div class="var"><div class="oh">Today · <span>Edit, on COLOR</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  <span class="b">Edit</span>
 
@@ -648,7 +648,7 @@
 </div>
 
 <!-- ============ QUESTION 5 ============ -->
-<div class="pane"><div class="lbl">Question 5 · the note after a bulk edit with refused rows <span>— the ledger ▸ space to select ▸ b, c or h</span></div>
+<div class="pane"><div class="lbl">Question 5 · the note after a bulk edit with refused rows <span>— picked: A · the ledger ▸ space to select ▸ b, c or h</span></div>
 <p class="blurb">On <b>Ledger ▸ @Pendiente</b> you select Uber, Taxi Satelital and Cine Plaza (rows 1, 2, 3) and press <code>b</code> to move them to <b>BCP Oro PEN</b>. Uber and Cine Plaza are in a completed reconciliation, so the engine refuses those two; Taxi Satelital moves and leaves the list. The note groups the two refusals into one line. The LOG bar and <code>expense import sheet</code> group theirs another way: the engine's words for the field first, then the rows, <code>account_id: … rows 1, 3</code>. The engine's words here are the ones the app's tests use.</p>
 <div class="opt wide"><div class="var"><div class="oh">Today · <span>after the write</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Ledger  ▸  <span class="b">@Pendiente</span>
 
@@ -727,7 +727,7 @@
 </div>
 
 <!-- ============ QUESTION 6 ============ -->
-<div class="pane"><div class="lbl">Question 6 · the bulk pick as a full screen <span>— the ledger ▸ space to select ▸ c, b or h</span></div>
+<div class="pane"><div class="lbl">Question 6 · the bulk pick as a full screen <span>— picked: B · the ledger ▸ space to select ▸ c, b or h</span></div>
 <p class="blurb">With three rows selected on <b>Ledger ▸ @Pendiente</b>, <code>c</code> (category), <code>b</code> (account) and <code>h</code> (hashtags) open a pop-up over the ledger. The app's rule is that anything with rows to choose from is a full screen, and pop-ups are only for short questions such as “Delete this transaction?”. Every design keeps today's keys: type to narrow, <code>↑↓</code> to move, <code>⏎</code> picks, <code>esc</code> cancels; on hashtags <code>⏎</code> adds a tag, an empty <code>⏎</code> applies them, and <code>⌫</code> on an empty bar drops the last one. Drawn for <code>c</code> and <code>h</code>; <code>b</code> is <code>c</code> with the accounts.</p>
 <div class="opt wide"><div class="var"><div class="oh">Today · <span><code>c</code>: a pop-up</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Ledger  ▸  @Pendiente</span>
 <span class="d"></span>
@@ -888,10 +888,9 @@
  <span class="a">esc</span> Cancel</pre></div></div><p class="cap">The same, for hashtags.</p></div></div>
 </div>
 
-<div class="pick"><b>To answer:</b> one letter per question, e.g. <code>1 B · 2 D · 3 B · 4a A · 4b A · 5 A · 6 B</code>.
+<div class="pick"><b>Picked (2026-10-23):</b> 2 D · 3 B · 4a A · 4b A · 5 A · 6 B.
 <ul>
-<li><b>Recommended:</b> 1 B · 2 D · 3 B · 4a A · 4b A · 5 A · 6 B.</li>
-<li>Any wording drawn here is yours to change: say the words you want instead of a letter.</li>
+<li><b>Question 1</b> is not picked: you asked for split transactions on a screen of their own, drawn in <code>expense-world-split-transaction-screen.html</code>; the <code>?</code> card's line follows from that pick.</li>
 </ul></div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
