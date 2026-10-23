@@ -243,6 +243,28 @@ def test_a_group_goes_as_one_line_group_each_part_carrying_the_statement_line(co
 
 
 @respx.mock
+def test_codes_differing_only_in_case_are_two_statement_lines(configured):
+    """Case counts in a statement line (contract: POST /v1/transactions, "Case counts")."""
+    plan = _plan([_raw(2, "SIG-1"), _raw(3, "sig-1"), _raw(4, "SIG-1")])
+    _seeded()
+    route = respx.post(f"{BASE}/v1/transactions/batch").mock(
+        return_value=httpx.Response(201, json={"created": []})
+    )
+
+    result = _apply(plan)
+
+    (group,) = plan.groups
+    assert (group.statement_line, group.lines) == ("SIG-1", (2, 4))
+    (sent,) = _sent(route)
+    by_line = {plan.tx_ids[line]: line for line in (2, 3, 4)}
+    assert [by_line[item["id"]] for item in sent] == [2, 4, 3]
+    assert [item["statement_line"] for item in sent] == ["SIG-1", "SIG-1", "sig-1"]
+    assert {item["line_group"] for item in sent[:2]} == {plan.tx_ids[2]}
+    assert "line_group" not in sent[2]
+    assert result.tx_created == 3
+
+
+@respx.mock
 def test_a_chunk_boundary_inside_a_group_moves_the_group_to_the_next_chunk(configured):
     plan = _plan([_raw(2), _raw(3, "SIG-1"), _raw(4, "SIG-1"), _raw(5)])
     _seeded()

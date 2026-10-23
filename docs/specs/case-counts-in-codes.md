@@ -50,10 +50,6 @@ operation codes, which the contract was just as silent about.
 
 Approved by the owner 2026-10-22. None draws a screen.
 
-2. **A unit test pins exact comparison in both importers.** Sheet rows whose `COD_EECC` differ
-   only in case (`SIG-1`, `sig-1`) make two statement lines, never one group; a bank file holding
-   operations `abc123` and `ABC123` keeps both rows, neither refused as appearing twice. Passes if
-   both tests pass and fail when the comparison is case-folded.
 3. **The live contract suite pins the stated rule.** With `SIG-…` on a live line, a create with
    the same statement line in lower case lands on a different bank line, and with `ABC…` live on
    an account, the same operation code in lower case on that account lands too; all four read

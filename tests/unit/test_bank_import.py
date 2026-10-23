@@ -178,6 +178,19 @@ def test_parse_sheet_refuses_both_rows_of_a_repeated_operation_number():
     assert (bad[0].date_iso, bad[0].title, bad[0].amount_cents) == ("2026-09-11", "C", -300)
 
 
+def test_parse_sheet_keeps_operation_numbers_that_differ_only_in_case():
+    """Case counts in an operation code (contract: POST /v1/transactions, "Case counts")."""
+    rows, bad = parse_bank_sheet(
+        _sheet(
+            ACCOUNT_HEADERS,
+            ("11/09/2026", "A", "S/", -1, "abc123"),
+            ("11/09/2026", "B", "S/", -2, "ABC123"),
+        )
+    )
+    assert [(r.title, r.operation_code) for r in rows] == [("A", "abc123"), ("B", "ABC123")]
+    assert bad == []
+
+
 def test_missing_columns_are_named():
     try:
         parse_bank_sheet(_sheet(["Fecha", "Monto"]))
