@@ -192,10 +192,11 @@ def test_arrowing_into_an_optional_color_list_highlights_and_enter_picks(fake_cl
 
 
 def test_a_required_color_line_still_highlights_when_empty(fake_client):
-    """Edit Category keeps COLOR required, and its first swatch highlighted."""
+    """Edit Category keeps COLOR required: holding no colour, its first swatch is
+    highlighted."""
 
     async def scenario(pilot, app):
-        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
+        screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": None})
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("tab")
@@ -207,7 +208,8 @@ def test_a_required_color_line_still_highlights_when_empty(fake_client):
 
 def test_edit_category_keeps_color_required_and_never_sends_null(fake_client):
     """The engine refuses `color: null` on PUT (contract: PUT /v1/categories/{category_id}):
-    Edit category keeps COLOR required, and its body always carries a colour."""
+    Edit category keeps COLOR required, and its body never carries a null; the
+    category's own colour is left out, so the engine keeps it."""
 
     async def scenario(pilot, app):
         screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#b07cd9"})
@@ -220,7 +222,7 @@ def test_edit_category_keeps_color_required_and_never_sends_null(fake_client):
         await wait_for(pilot, lambda: fake_client.puts)
         path, body = fake_client.puts[0]
         assert path == "/categories/c1"
-        assert body == {"name": "Ocio y viajes", "color": "#b07cd9"}
+        assert body == {"name": "Ocio y viajes"}
         assert None not in body.values()
 
     run_app(scenario)
@@ -267,6 +269,226 @@ def test_edit_category_with_no_color_cannot_save_a_null(fake_client):
     screen = EditCategoryScreen({"id": "c1", "name": "Ocio", "color": None})
     assert "color" not in screen._payload()
     assert None not in screen._payload().values()
+
+
+# ---------------------------------------------------------------------------
+# the Edit screens' COLOR line starts on the row's own colour
+# ---------------------------------------------------------------------------
+#
+# Stepping through a form never changes it (decisions.md): `enter` down every
+# line of a category's or an account's Edit screen keeps its colour. A save
+# with nothing changed is the form's usual one, the name alone, so the colour is
+# never sent and the engine keeps it; the summary goes on showing it.
+
+
+def _green_category() -> EditCategoryScreen:
+    return EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#5ab87a"})
+
+
+def _account(color, *, is_person=False) -> EditAccountScreen:
+    return EditAccountScreen(
+        {
+            "id": "abc",
+            "name": "Sueldo",
+            "currency_code": "PEN",
+            "color": color,
+            "is_person": is_person,
+            "opening_balance_transaction_id": None,
+        }
+    )
+
+
+def _summary_color(screen) -> str:
+    """The summary's colour row (drawn from the form's state, so it reads the
+    same once the save has closed the screen)."""
+    text = render_text(screen._summary_renderable(), width=80)
+    return next(line for line in text.splitlines() if line.startswith("color"))
+
+
+async def _open(pilot, app, screen):
+    await app.push_screen(screen)
+    await wait_for(pilot, lambda: bool(screen.query("#bar")))
+
+
+async def _enter_until_color(pilot, screen):
+    """`enter` with nothing typed, line by line, until the bar is on COLOR;
+    one press per line at most, so a form that never gets there fails."""
+    for _ in range(len(screen._sequence()) + 1):
+        if screen._key == "color":
+            return
+        await pilot.press("enter")
+        await pilot.pause()
+    pytest.fail(f"enter never reached COLOR: the bar is on {screen._key}")
+
+
+async def _enter_until_saved(pilot, screen):
+    """`enter` on, line by line, until the save (the last line's) closes it;
+    one press per line at most, so a form that never saves fails."""
+    for _ in range(len(screen._sequence()) + 1):
+        if not screen.is_attached:
+            return
+        await pilot.press("enter")
+        await pilot.pause()
+    await wait_for(pilot, lambda: not screen.is_attached, message="enter never saved the form")
+
+
+_PATHS = {EditCategoryScreen: "/categories/c1", EditAccountScreen: "/accounts/abc"}
+
+
+@pytest.mark.parametrize(
+    "make",
+    [_green_category, lambda: _account("#5ab87a"), lambda: _account("#5ab87a", is_person=True)],
+    ids=["category", "bank-account", "person"],
+)
+def test_enter_down_every_line_keeps_the_rows_colour_and_never_sends_it(fake_client, make):
+    screen = make()
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        assert _highlighted(screen) == ["██ green"]  # the row's own swatch
+        assert "██ green" in _summary_color(screen)
+        await _enter_until_saved(pilot, screen)
+
+    run_app(scenario)
+    assert screen._values["color"] == "#5ab87a"
+    assert "██ green" in _summary_color(screen)
+    assert fake_client.requests == [("PUT", _PATHS[type(screen)])]
+    assert fake_client.puts[0][1] == {"name": screen._values["name"]}  # no colour
+
+
+@pytest.mark.parametrize(
+    "make",
+    [_green_category, lambda: _account("#5ab87a", is_person=True)],
+    ids=["category", "person"],
+)
+def test_another_swatch_picked_with_the_arrows_is_sent(fake_client, make):
+    screen = make()
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        await pilot.press("down")  # from green, one on: red
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ red"]
+        await pilot.press("enter")  # COLOR is the last line: it saves
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert fake_client.puts == [
+        (_PATHS[type(screen)], {"name": screen._values["name"], "color": "#d96a5a"})
+    ]
+
+
+def test_an_account_with_no_colour_starts_on_nothing_and_enter_skips_it(fake_client):
+    screen = _account(None)
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        assert screen._suggestions and _highlighted(screen) == []
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._key == "opening" and "color" not in screen._values
+        assert "—  (optional)" in _summary_color(screen)
+        await _enter_until_saved(pilot, screen)
+
+    run_app(scenario)
+    assert fake_client.puts == [("/accounts/abc", {"name": "Sueldo"})]
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: EditCategoryScreen({"id": "c1", "name": "Ocio", "color": "#123456"}),
+        lambda: _account("#123456"),
+    ],
+    ids=["category", "account"],
+)
+def test_a_colour_no_swatch_shows_is_kept_and_never_sent(fake_client, make):
+    """A colour from outside the palette (the sheet import's, say) highlights no
+    swatch and `enter` keeps it, even where COLOR is required; the summary shows
+    it, and the save leaves it out of the body."""
+    screen = make()
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        assert screen._suggestions and _highlighted(screen) == []
+        assert "#123456" in _summary_color(screen)
+        await _enter_until_saved(pilot, screen)
+
+    run_app(scenario)
+    assert screen._values["color"] == "#123456"
+    assert "#123456" in _summary_color(screen)
+    assert fake_client.puts == [(_PATHS[type(screen)], {"name": screen._values["name"]})]
+
+
+def test_after_the_account_half_saves_the_old_colour_picked_again_is_sent(fake_client, monkeypatch):
+    """green → red: the account's PUT lands, the opening balance is refused and
+    the form stays open. Red is now the account's own, so picking green again is
+    a change: the next save sends it, with the opening balance."""
+    screen = _account("#5ab87a")
+    monkeypatch.setattr(EditAccountScreen, "notify", lambda self, message, **kw: None)
+    fake_client.errors["POST"] = EngineError("CONFLICT", "it got one meanwhile", None, 409, {})
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        await pilot.press("down")  # green → red
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.press(*"350")
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.press(*"2026-01-01")
+        await pilot.press("enter")  # the last line: saves both halves
+        await wait_for(pilot, lambda: len(fake_client.calls) == 2)
+        await wait_for(pilot, lambda: not screen._submitting)
+        assert screen.is_attached and screen._account_saved
+        fake_client.errors.clear()
+        for _ in range(len(screen._sequence())):
+            if screen._key == "color":
+                break
+            await pilot.press("shift+tab")
+            await pilot.pause()
+        assert screen._key == "color"
+        assert _highlighted(screen) == ["██ red"]
+        await pilot.press("up")  # red → green, the colour the form opened on
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ green"]
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    run_app(scenario)
+    assert fake_client.requests == [
+        ("PUT", "/accounts/abc"),
+        ("POST", "/accounts/abc/opening-balance"),
+        ("PUT", "/accounts/abc"),
+        ("POST", "/accounts/abc/opening-balance"),
+    ]
+    assert [body for _path, body in fake_client.puts] == [
+        {"name": "Sueldo", "color": "#d96a5a"},
+        {"name": "Sueldo", "color": "#5ab87a"},
+    ]
+
+
+def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
+    screen = _green_category()
+
+    async def scenario(pilot, app):
+        await _open(pilot, app, screen)
+        await _enter_until_color(pilot, screen)
+        await pilot.press("p", "u")
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ purple"]
+        await pilot.press("backspace", "backspace")
+        await pilot.pause()
+        assert _highlighted(screen) == ["██ green"]
+
+    run_app(scenario)
 
 
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):

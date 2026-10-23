@@ -56,12 +56,6 @@ owner made on 2026-10-15 and 2026-10-18 that are not built yet.
 
 Approved by the owner on 2026-10-23. One task per item above, in order.
 
-4. **The colour line starts on the row's own colour.** In
-   [create_forms.py](../../expense/tui/screens/create_forms.py). Passes if: unit tests with real
-   key presses show, on a category's and an account's Edit screen, the highlight on the row's
-   swatch, `⏎` through every line sending nothing, and the summary still showing the colour; an
-   account with no colour starts on nothing and `⏎` skips it; a colour outside the swatches is
-   kept and never sent; [tui.md](../tui.md) says so.
 5. **Two "no batch" wordings.** In
    [reconciliations.py](../../expense/tui/screens/reconciliations.py). Passes if: unit tests pin
    the `?` card's `⏎` line and `c`'s question for 1 and for 5 ticked rows; tui.md matches.

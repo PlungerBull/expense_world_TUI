@@ -105,9 +105,20 @@ class BarFormScreen(FormScreen):
             ]
         else:
             self._suggestions = []
-        # An optional line left empty highlights nothing: its `enter` skips, so no
-        # swatch may look picked. Typing, or `↑`/`↓` into the list, highlights.
-        self._suggest_idx = -1 if (not needle and not self._field_required(f)) else 0
+        if needle:
+            self._suggest_idx = 0
+        elif f.kind == "color" and f.key in self._values:
+            # A colour line starts on the colour it holds (on an Edit screen, the
+            # row's own), so `enter` keeps it; a colour no swatch shows highlights
+            # nothing, and `enter` keeps that too.
+            held = self._values[f.key]
+            self._suggest_idx = next(
+                (i for i, (v, _) in enumerate(self._suggestions) if v == held), -1
+            )
+        else:
+            # An optional line left empty highlights nothing: its `enter` skips, so
+            # no swatch may look picked. Typing, or `↑`/`↓` into the list, highlights.
+            self._suggest_idx = 0 if self._field_required(f) else -1
 
     # ---- commit ----------------------------------------------------------
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -124,8 +135,7 @@ class BarFormScreen(FormScreen):
             self._advance()
             return
         # choice / color
-        if self._suggest_idx < 0:  # an optional line, empty and untouched: skip it
-            self._values.pop(f.key, None)
+        if self._suggest_idx < 0:  # empty, nothing highlighted: keep what the line holds
             self._advance()
             return
         picked = self._suggestions[self._suggest_idx] if self._suggestions else None
@@ -280,6 +290,15 @@ class NewAccountScreen(BarFormScreen):
         return payload
 
 
+def _edit_payload(values: dict, original_color: str | None) -> dict:
+    """A Manage Edit form's body: the name, and the colour only when it is not
+    the row's own, so a colour no swatch shows is never sent back."""
+    payload = {"name": values["name"]}
+    if values.get("color") and values["color"] != original_color:
+        payload["color"] = values["color"]
+    return payload
+
+
 # --------------------------------------------------------------------------- #
 # Edit forms — same bar-form, prefilled, PUT instead of POST. Reached with `e`
 # on a Manage list row (ResourceListScreen). Currency is immutable
@@ -309,7 +328,11 @@ class EditHashtagScreen(NewHashtagScreen):
 
 class EditCategoryScreen(NewCategoryScreen):
     """Edit keeps a colour required: the category always has one, and an edit
-    never sends `color: null` (contract: PUT /v1/categories/{category_id})."""
+    never sends `color: null` (contract: PUT /v1/categories/{category_id}).
+
+    COLOR starts on the category's own colour, so `enter` keeps it; the save
+    sends the colour only when another swatch was picked, so a colour no swatch
+    shows stays as it is."""
 
     BINDINGS = form_bindings("Save")
     FIELDS = [
@@ -324,15 +347,13 @@ class EditCategoryScreen(NewCategoryScreen):
         if record.get("color"):
             self._values["color"] = record["color"]
         self.crumb = ("Manage", "Categories", record.get("name") or "—", "Edit")
+        self._original_color = record.get("color")
 
     def _submit_request(self) -> tuple[str, str, dict, str]:
         return ("PUT", f"/categories/{self._id}", self._payload(), "Saving…")
 
     def _payload(self) -> dict:
-        payload = {"name": self._values["name"]}
-        if self._values.get("color"):
-            payload["color"] = self._values["color"]
-        return payload
+        return _edit_payload(self._values, self._original_color)
 
     def _done(self) -> None:
         self.notify("Saved.")
@@ -394,6 +415,7 @@ class EditAccountScreen(NewAccountScreen):
         }
         if record.get("color"):
             self._values["color"] = record["color"]
+        self._original_color = record.get("color")
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
         # The account half as last saved: once it matches, a save sends only
         # the opening balance.
@@ -540,10 +562,7 @@ class EditAccountScreen(NewAccountScreen):
         return ("PUT", f"/accounts/{self._id}", self._payload(), "Saving…")
 
     def _payload(self) -> dict:
-        payload = {"name": self._values["name"]}
-        if self._values.get("color"):
-            payload["color"] = self._values["color"]
-        return payload
+        return _edit_payload(self._values, self._original_color)
 
     def action_submit(self) -> None:
         if self._submitting:
@@ -612,7 +631,10 @@ class EditAccountScreen(NewAccountScreen):
         if account is not None:
 
             def account_saved() -> None:
-                self._account_sent = account
+                # the colour it sent is now the account's own: picking the old
+                # one again is a change, and the next save sends it
+                self._original_color = account.get("color", self._original_color)
+                self._account_sent = _edit_payload(account, self._original_color)
                 self._account_saved = True
                 if opening is None:
                     self._done()

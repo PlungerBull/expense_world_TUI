@@ -78,7 +78,9 @@ expense/tui/
                     #   the engine gives its default (contract: POST /v1/categories).
                     #   While an optional line is empty no swatch is highlighted;
                     #   typing or ↑/↓ highlights one, and enter then picks it.
-                    #   Edit category keeps it required, so a PUT never sends null
+                    #   Edit category keeps it required, so a PUT never sends null;
+                    #   on an Edit screen the line starts on the row's own colour
+                    #   ("Stepping past COLOR keeps it", §2)
     modals.py       # ConfirmModal, PickerModal, DiscardStagedModal (the LOG bar's one
                     #   confirmation), and PromptBox — one line typed in a box —
                     #   under PromptModal (text) and AmountPromptModal (a signed
@@ -265,6 +267,16 @@ for a category (Question 3 A of the same mockup); `@Opening` is never in it. A v
 does not hold leaves the highlight on the first entry, and there `⏎` with nothing typed takes
 that entry. The "no batch" Edit form's ACCOUNT works the same (`_recompute` in
 [edit_form.py](../expense/tui/screens/edit_form.py)).
+**Stepping past COLOR keeps it** on the Edit screens of Manage ▸ Categories and Manage ▸
+Accounts. The line opens with the bar empty and the highlight on the row's own swatch, so `⏎`
+with nothing typed keeps it and the summary goes on showing it; typing filters and highlights
+the first match, `↑↓` choose another, and a bar emptied again puts the highlight back on the
+row's own. An account with no colour opens on nothing, and `⏎` skips the line (`—
+(optional)`). A colour no swatch shows (the engine's own, on a row created with none) highlights
+nothing and `⏎` keeps it, on a category too, where COLOR is required; the summary shows it as
+its hex. The save sends `color` only when another swatch was picked, so `⏎` down every line
+saves the name alone and the engine keeps the colour (`_edit_payload` in
+[create_forms.py](../expense/tui/screens/create_forms.py)).
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds

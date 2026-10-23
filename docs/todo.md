@@ -88,7 +88,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The NAME hint on the account forms says "enter to save" [UI].** On Manage ▸ Accounts New and
   Edit, `⏎` on NAME moves to the next line, but its hint reads `enter to save`
   ([create_forms.py](../expense/tui/screens/create_forms.py) around lines 209 and 247). The
-  wording is the owner's pick.
+  account's COLOR hint, `optional · empty enter to skip` (around line 261), goes with it: `⏎`
+  there keeps a colour the line holds. The wording is the owner's pick.
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's
@@ -100,6 +101,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
   so an archived account and its reconciliations are not listed ([tui.md](tui.md)); only the
   acceptance check of 2026-10-18 saw it live. A unit test should hold it.
+- **A test docstring says the sheet import brings a colour.**
+  [test_tui_create_forms.py](../tests/unit/test_tui_create_forms.py) around line 409 says "(the
+  sheet import's, say)"; the import sends no colour, and the colour no swatch shows is the
+  engine's own on a row created with none, as [tui.md](tui.md) "Stepping past COLOR keeps it"
+  says.
 - **A comment cites a decisions.md heading in the wrong case.**
   [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
   heading in [decisions.md](decisions.md) is "The ledger fills the window".
