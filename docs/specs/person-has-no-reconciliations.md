@@ -1,6 +1,6 @@
 # A person account never has reconciliations
 
-**Status: draft (orchestrator, 2026-10-22), for the owner's approval.** A catch-up spec: it folds
+**Status: approved (owner, 2026-10-22).** A catch-up spec: it folds
 in the engine's hand-off "A person account never has reconciliations" (shipped 2026-10-22).
 
 ---
@@ -27,8 +27,8 @@ The app already offers reconciliations only on bank accounts.
 
 ## How the owner knows it is done
 
-1. A bank account with a draft reconciliation is refused by `t`, with the engine's reason (and
-   the line picked in the mockup), and stays a bank account.
+1. A bank account with a draft reconciliation is refused by `t`, with the engine's reason and
+   the app's line from pick A, and stays a bank account.
 2. After that draft is deleted on Reconciliations, `t` makes it a person.
 3. The same with a completed reconciliation: refused, then `u` and `d` on it, then `t` works.
 
@@ -59,20 +59,15 @@ word. The contract's "Base Conventions" already says clients switch on `code` an
 never on wording, and the texts may be reworded; the app shows the engine's words as they arrive,
 which the engine confirms is right. Nothing to do here.
 
-**Questions for the owner:** the refusal on `t`, A or B, in
-[expense-world-person-reconciliations.html](../mockups/expense-world-person-reconciliations.html).
+**Questions for the owner:** none open.
 
 ## Tasks
 
-Drafted 2026-10-22; wait for the owner's approval. Tasks 1 and 2 draw nothing; task 3 waits for
-the pick.
+Approved by the owner 2026-10-22, who picks A in
+[expense-world-person-reconciliations.html](../mockups/expense-world-person-reconciliations.html):
+the engine's words, then `On Reconciliations, press d on each of its reconciliations; a completed
+one needs u first.`
 
-1. **The app holds contract `3eec27cc7b11e663`.** Recorded with the drift script's
-   `--record-version` against the practice engine. Any live contract test the two new refusals
-   break is fixed to the new rule in the same task. Passes if
-   [scripts/engine-contract-version](../../scripts/engine-contract-version) holds
-   `3eec27cc7b11e663`, the drift script against `:8002` reports no change and no fixture key the
-   engine does not serve, and the whole live contract suite passes. The engine's check 1.
 2. **The live contract suite knows both refusals.** `POST /reconciliations` on a person is `422`
    `PERSON_ACCOUNT` on `account_id`, nothing written; on an archived person it is still
    `INVALID_REFERENCE`. `make-person` on an account with a draft reconciliation, and on one with
@@ -82,7 +77,7 @@ the pick.
    person turned back with `make-account` can start a reconciliation again (`201`). Each test
    cites the contract part stating its rule. Passes if the tests pass against `:8002`.
 3. **`t` and a new reconciliation show the new refusals.** `t Make person` refused with
-   `HAS_RECONCILIATION` shows the engine's words whole, with the line picked in the mockup, and
+   `HAS_RECONCILIATION` shows the engine's words whole, with the app's line from pick A, and
    the list stays as it was; a new reconciliation refused with `PERSON_ACCOUNT` shows the engine's
    words, with no line of the app's. [tui.md](../tui.md) "When the engine says no" gives both
    their rows, and its `t` paragraph names the new refusal. Unit tests: each refusal, and `t`
