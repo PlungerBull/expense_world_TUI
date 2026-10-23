@@ -51,4 +51,10 @@ locked.
 
 Approved by the owner on 2026-10-23.
 
-Every task is done; the acceptance check follows.
+1. **The drift script reads a test's paste event as engine fields.** The acceptance check of
+   2026-10-23 failed on `scripts/check_fixture_drift.py`: `tests/unit/test_tui_edit_form.py`
+   line 1673 builds a stand-in paste event, `type("Paste", (), {"text": ..., "stop": ...})`, and
+   the script reports `text` and `stop` as fields the engine no longer has. Passes if: the test
+   pastes through Textual's real `events.Paste` (the reviewer's note on task 3), still proving a
+   paste lands nothing on a locked line, and the drift script against the practice engine exits
+   clean.
