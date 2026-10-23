@@ -642,9 +642,16 @@ its own id is already there, a row named by another refusal fails, and the rest 
 batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests
 on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create"),
 which the client asked for: before it, a row sent again answered `STATEMENT_LINE_EXISTS` against
-its own line.
+its own line. (5) **Letter case counts in a `COD_EECC`:** rows group by its exact text,
+trimmed, so `SIG-1` and `sig-1` are two statement lines, as the engine compares them
+(contract: POST /v1/transactions, "Case counts"). This is the owner's rule for every match
+(2026-10-22): a field a person types, a name, is matched without regard to case; a field from
+the bank or a program, an operation code or a statement line, is matched exactly. A bank file's
+operation numbers are compared the same way.
 
-**Rejected.** *Stopping the whole import on a differing group* — one slip in the sheet would
+**Rejected.** *Folding case in a statement line or an operation code* — they come from a
+program, not a person, and a client that folded them would merge two lines the engine keeps
+apart. *Stopping the whole import on a differing group* — one slip in the sheet would
 hold back thousands of good rows. *Letting a group's readable rows in without its unreadable one*
 — the split lands with a part missing, and the fixed row is later refused because its statement
 line is taken. *Listing every group on the dry run* — the owner checks them in the app. *Asking
