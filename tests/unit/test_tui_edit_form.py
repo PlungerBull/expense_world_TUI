@@ -1560,3 +1560,180 @@ def test_an_archived_split_line_freezes_its_fields_too(fake_client, monkeypatch)
         assert screen._locked == {"date", "title", "operation", "account"}
 
     _open_line(split, monkeypatch, steps)
+
+
+# ---- stepping through the form never changes it --------------------------------
+# ACCOUNT and CATEGORY open with the bar empty and the highlight on the line's own
+# account or category, so `⏎` with nothing typed keeps it (Question 1 A of
+# expense-world-enter-and-esc.html). The row sits on the third account and the
+# second category, so a highlight left on the first entry would move it.
+STEP_CATEGORIES = {
+    "items": [
+        {"id": "cat1", "name": "Mascotas", "is_system": False},
+        {"id": "cat2", "name": "Salud", "is_system": False},
+        {"id": "cat3", "name": "Hogar", "is_system": False},
+        *CATEGORIES["items"][1:],
+    ]
+}
+ON_THIRD = {**TXN, "account_id": "acc3", "category_id": "cat2"}
+LINE_ON_THIRD = {**BANK_LINE, "account_id": "acc3"}
+
+
+def _open_stepping(form, monkeypatch, steps):
+    """Open `form()` over the step lists and run `steps(screen, pilot)`; returns
+    the notices it raised."""
+    _patch(monkeypatch)
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: STEP_CATEGORIES)
+    notices = _record_notices(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = form()
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        await steps(screen, pilot)
+
+    run_app(scenario)
+    return notices
+
+
+async def _enter_to(screen, pilot, key):
+    """Press `⏎` until the cursor is on `key`, nothing typed on the way."""
+    while screen._key != key:
+        await pilot.press("enter")
+
+
+def _highlighted(screen) -> str:
+    return screen._suggestions[screen._suggest_idx][1]
+
+
+def test_enter_through_every_line_then_ctrl_s_sends_nothing(fake_client, monkeypatch):
+    """`⏎` on every line, the note's `⏎` saving, then `ctrl+s`: nothing changed,
+    so nothing is sent and both saves say so."""
+
+    async def steps(screen, pilot):
+        visited = []
+        for _ in screen._sequence():
+            visited.append(screen._key)
+            await pilot.press("enter")
+        assert visited == TXN_FIELDS
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert screen._values == screen._original
+
+    notices = _open_stepping(
+        lambda: EditFormScreen(record=ON_THIRD, resource="transactions"), monkeypatch, steps
+    )
+    assert fake_client.puts == [] and not fake_client.calls
+    assert notices == [("", "No changes to save.")] * 2
+
+
+SPLIT_LINE_ON_THIRD = {
+    **LINE_ON_THIRD,
+    "part_count": 2,
+    "net_cents": -10000,
+    "parts": [
+        {**BANK_LINE["parts"][0], "amount_cents": 6000},
+        {**BANK_LINE["parts"][0], "id": "p2", "amount_cents": 4000},
+    ],
+}
+
+
+@pytest.mark.parametrize("line", [LINE_ON_THIRD, SPLIT_LINE_ON_THIRD], ids=["whole", "split"])
+def test_enter_through_every_line_of_the_bank_line_form_sends_nothing(
+    fake_client, monkeypatch, line
+):
+    """One line per `⏎`, none skipped; `⏎` on ACCOUNT, the last line, saves, and
+    with nothing changed nothing is sent."""
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    async def steps(screen, pilot):
+        visited = []
+        for _ in screen._sequence():
+            visited.append(screen._key)
+            if screen._key == "account":
+                assert _highlighted(screen) == "Ahorros"
+            await pilot.press("enter")
+        assert visited == screen._sequence()
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert screen._values == screen._original
+        assert screen._values["account"] == "acc3"
+
+    notices = _open_stepping(lambda: BankLineEditFormScreen(line=line), monkeypatch, steps)
+    assert fake_client.puts == [] and not fake_client.calls
+    assert notices == [("", "No changes to save.")] * 2
+
+
+@pytest.mark.parametrize(
+    ("key", "own_id", "own_name"), [("account", "acc3", "Ahorros"), ("category", "cat2", "Salud")]
+)
+def test_an_untouched_entity_line_starts_on_its_own_value_and_enter_keeps_it(
+    fake_client, monkeypatch, key, own_id, own_name
+):
+    """The list stays in its order, every entry shown; the highlight is on the
+    row's own one, and `⏎` keeps it and moves on."""
+
+    async def steps(screen, pilot):
+        await _enter_to(screen, pilot, key)
+        assert screen.query_one("#bar", Input).value == ""
+        pool = screen._accounts if key == "account" else screen._categories
+        assert screen._suggestions == pool  # the usual order, nothing filtered
+        assert _highlighted(screen) == own_name
+        shown = render_text(screen._suggest_renderable(), width=60)
+        assert own_name in shown
+        await pilot.press("enter")
+        assert screen._values[key] == own_id
+        assert screen._display[key] == own_name
+        assert screen._key != key  # moved on
+
+    _open_stepping(
+        lambda: EditFormScreen(record=ON_THIRD, resource="transactions"), monkeypatch, steps
+    )
+
+
+def test_typing_a_name_then_enter_still_picks_the_typed_one(fake_client, monkeypatch):
+    """Typing filters the list and highlights its first match; `⏎` takes it."""
+
+    async def steps(screen, pilot):
+        await _enter_to(screen, pilot, "account")
+        await pilot.press(*"usd")
+        assert [e[1] for e in screen._suggestions] == ["BCP USD"]
+        await pilot.press("enter")
+        assert screen._values["account"] == "acc2"
+        assert screen._key == "category"
+        await pilot.press(*"hog")
+        assert _highlighted(screen) == "Hogar"
+        await pilot.press("enter")
+        assert screen._values["category"] == "cat3"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    _open_stepping(
+        lambda: EditFormScreen(record=ON_THIRD, resource="transactions"), monkeypatch, steps
+    )
+    path, body = fake_client.puts[0]
+    assert path == "/transactions/tx1"
+    assert body["account_id"] == "acc2" and body["category_id"] == "cat3"
+
+
+def test_arrows_still_choose_another_and_an_erased_bar_returns_to_the_own_one(
+    fake_client, monkeypatch
+):
+    async def steps(screen, pilot):
+        await _enter_to(screen, pilot, "category")
+        assert _highlighted(screen) == "Salud"
+        await pilot.press(*"mas")
+        assert _highlighted(screen) == "Mascotas"
+        await pilot.press("backspace", "backspace", "backspace")
+        assert screen.query_one("#bar", Input).value == ""
+        assert _highlighted(screen) == "Salud"  # empty again: back on the row's own
+        await pilot.press("down")
+        assert _highlighted(screen) == "Hogar"
+        await pilot.press("enter")
+        assert screen._values["category"] == "cat3"
+
+    _open_stepping(
+        lambda: EditFormScreen(record=ON_THIRD, resource="transactions"), monkeypatch, steps
+    )

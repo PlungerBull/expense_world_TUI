@@ -2,7 +2,11 @@
 
 One input bar cycles through fields; a summary fills below. Entity fields
 (account/category/hashtags) show a live-filtered suggestion list — pick
-existing entities only.
+existing entities only. Their bar opens empty, the list in its usual order;
+on ACCOUNT and CATEGORY the highlight starts on the line's own account or
+category whenever the bar is empty and the list holds it, so `⏎` with nothing
+typed keeps it and stepping through the form changes nothing (`_recompute`).
+Typing filters the list and highlights its first match; `↑↓` choose another.
 
 **Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)); this screen
 is reached by `⏎` on an existing row. Why the edit form stays: an
@@ -335,7 +339,7 @@ class EditFormScreen(FormScreen):
             return amount_to_text(self._values[key])
         if key in ("date", "title", "note"):
             return str(self._values.get(key, "") or "")
-        return ""  # entity fields re-pick from scratch
+        return ""  # entity fields open empty; `_recompute` places the highlight
 
     # ---- suggestions -----------------------------------------------------
     def _recompute_suggestions(self, text: str) -> None:
@@ -356,6 +360,11 @@ class EditFormScreen(FormScreen):
             pool = []
         self._suggestions = pool
         self._suggest_idx = 0
+        if key in ("account", "category") and not needle:
+            # an empty bar starts on what the line holds, so `⏎` keeps it
+            ids = [ent[0] for ent in pool]
+            if self._values.get(key) in ids:
+                self._suggest_idx = ids.index(self._values[key])
 
     def _picked(self):
         return self._suggestions[self._suggest_idx] if self._suggestions else None
@@ -568,6 +577,10 @@ class BankLineEditFormScreen(EditFormScreen):
         return super()._bar_value(key)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Textual calls the handler of every class in the MRO; this one calls the
+        # Edit form's itself, so the message stops here and `⏎` moves one line
+        if event is not None:
+            event.prevent_default()
         if self._key != "operation":
             super().on_input_submitted(event)
             return

@@ -235,6 +235,15 @@ The one refusal that does stop them is `SETTINGS_MISSING`
 selected with the refused one.
 A row stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
+**Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
+[expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the `⏎`
+edit form the ACCOUNT and CATEGORY lines open with the bar empty and the whole list in its
+usual order, the highlight on the row's own account or category, so `⏎` with nothing typed
+keeps it and moves on: `⏎` on every line and then `ctrl+s` send nothing and say
+`No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
+another, and a bar emptied again puts the highlight back on the row's own. A value the list
+does not hold leaves the highlight on the first entry. The "no batch" Edit form's ACCOUNT
+works the same (`_recompute` in [edit_form.py](../expense/tui/screens/edit_form.py)).
 **A move takes a row out of its reconciliation.** The engine refuses an account change on
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds

@@ -51,12 +51,16 @@ locked.
 
 Approved by the owner on 2026-10-23.
 
-1. **ACCOUNT and CATEGORY start on the current value.** On the Edit form and the bank-line Edit
-   form, landing on ACCOUNT or CATEGORY puts the highlight on the transaction's own one, so `⏎`
-   with nothing typed keeps it; typing filters the list as now. Passes if: unit tests show `⏎`
-   through every line of an Edit form then `ctrl+s` sends nothing; `⏎` on an untouched ACCOUNT
-   keeps the account; typing then `⏎` still picks the typed one; a row in @Pendiente starts on
-   @Pendiente; [tui.md](../tui.md) says it.
+1. **CATEGORY on a transaction in @Pendiente.** Waits for the owner's pick: Question 3 in
+   [mockups/expense-world-enter-and-esc.html](../mockups/expense-world-enter-and-esc.html). The
+   Edit form's category list leaves the system categories out (`load_quickadd_refs` in
+   `expense/reads.py`), so on a row in @Pendiente the highlight falls on the first category and
+   `⏎` moves the row out of @Pendiente. A: @Pendiente is in the list, as on the bulk `c` pick
+   ([decisions.md](../decisions.md) "(7) `@Pendiente` is pickable"), and the highlight starts on
+   it. B: it stays out, nothing is highlighted, and `⏎` keeps @Pendiente. C: as now.
+   **Recommended:** A. Passes if: on a row in @Pendiente, `⏎` through every line then `ctrl+s`
+   sends nothing, and [tui.md](../tui.md) "Stepping past ACCOUNT or CATEGORY keeps them" says
+   what the pick says.
 2. **Pin `esc` keeping a split part's hashtags.** Passes if: a unit test adds two hashtags with
    `⏎` on a part's HASHTAGS line, presses `esc`, and finds both on the part in the table and in
    what `ctrl+s` sends; [tui.md](../tui.md)'s split screen keys say `esc` keeps what `⏎` added.
@@ -68,3 +72,7 @@ Approved by the owner on 2026-10-23.
    the current one is read-only. Passes if: unit tests show `⏎` on the only open line of an
    archived account's "no batch" line sends the save, and the same on Manage ▸ Accounts Edit
    after a failed opening-balance read; a form with an editable line ahead still moves to it.
+   First, `EditAccountScreen.on_input_submitted` in `expense/tui/screens/create_forms.py` runs
+   with `BarFormScreen`'s own handler on one `⏎` (Textual calls each class's handler unless
+   `prevent_default`), as the bank-line Edit form did, so a real `⏎` there likely moves two lines;
+   the tests press `enter` through the real dispatch and check one line per `⏎`.

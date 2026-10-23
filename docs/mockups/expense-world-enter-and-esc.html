@@ -124,7 +124,7 @@
 <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
 
    <span class="b">CATEGORY        </span><span class="a">▍</span>
-     <span class="cur">@Pendiente                </span>
+     <span class="cur">AUTO                      </span>
      COMIDA
      HOGAR
      HOSPEDAJE
@@ -138,7 +138,7 @@
    hashtags  #casa
    note
 
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">After <code>⏎</code> on ACCOUNT, the transaction now sits on <b>Cuenta Digital Dólares</b>, and you are on CATEGORY, where one more <code>⏎</code> makes it <b>@Pendiente</b>. <code>^s</code> would save both changes. To keep the account you have to type its name, or use <code>⇥</code> instead of <code>⏎</code>.</p></div></div>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">After <code>⏎</code> on ACCOUNT, the transaction now sits on <b>Cuenta Digital Dólares</b>, and you are on CATEGORY, where one more <code>⏎</code> makes it <b>AUTO</b>. <code>^s</code> would save both changes. To keep the account you have to type its name, or use <code>⇥</code> instead of <code>⏎</code>.</p></div></div>
 </div>
 
 <!-- ============ QUESTION 2 ============ -->
@@ -210,7 +210,75 @@
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Back on the table, part 2's hashtags are back to what they were before you opened the line (here, none). To keep them you would leave the line with an empty <code>⏎</code> or <code>⇥</code> first, then <code>esc</code>.</p></div></div>
 </div>
 
-<div class="pick"><b>To answer:</b> one letter for each question.<br><b>Recommended:</b> 1 A · 2 A.</div>
+<!-- ============ QUESTION 3 ============ -->
+<div class="pane"><div class="lbl">Question 3 · CATEGORY on a transaction still in @Pendiente <span>— picked: 1 A and 2 A</span></div>
+<p class="blurb">With 1 A, landing on CATEGORY highlights the category the transaction has. But a transaction still waiting for a category is in <b>@Pendiente</b>, and today the Edit form's category list never shows @Pendiente (the bulk <code>c</code> pick does). So there is nothing to highlight. <b>Uber a casa -18.50</b> is in @Pendiente; you step down to CATEGORY.</p>
+
+<div class="opt"><div class="var"><div class="oh">A · <span>@Pendiente is in the list, highlighted</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CATEGORY        </span><span class="a">▍</span>
+     <span class="cur">@Pendiente                </span>
+     AUTO
+     COMIDA
+     HOGAR
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+   date      2026-10-20
+   title     Uber a casa
+   amount    <span class="n">-18.50</span>
+   account   Sueldo Soles
+   <span class="b">category  </span>@Pendiente
+   hashtags  #Pendiente
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The list holds @Pendiente in the place the engine lists it, the same list the bulk <code>c</code> pick shows. <code>⏎</code> keeps it, like any other category. You can also pick @Pendiente to send a row back to waiting. <b>Recommended:</b> the same rule everywhere, and the Edit form and the bulk pick offer the same list.</p></div>
+
+<div class="var"><div class="oh">B · <span>@Pendiente not in the list, nothing highlighted</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CATEGORY        </span><span class="a">▍</span>
+     AUTO
+     COMIDA
+     HOGAR
+     HOSPEDAJE
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+   date      2026-10-20
+   title     Uber a casa
+   amount    <span class="n">-18.50</span>
+   account   Sueldo Soles
+   <span class="b">category  </span>@Pendiente
+   hashtags  #Pendiente
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Nothing is highlighted until you press ↓ or type. <code>⏎</code> with nothing chosen keeps @Pendiente. You can't send a row back to @Pendiente from this form, only from the bulk <code>c</code> pick.</p></div>
+
+<div class="var"><div class="oh">C · <span>as today: the first category is highlighted</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">CATEGORY        </span><span class="a">▍</span>
+     <span class="cur">AUTO                      </span>
+     COMIDA
+     HOGAR
+     HOSPEDAJE
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+   date      2026-10-20
+   title     Uber a casa
+   amount    <span class="n">-18.50</span>
+   account   Sueldo Soles
+   <span class="b">category  </span>@Pendiente
+   hashtags  #Pendiente
+   note
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap"><code>⏎</code> takes <b>AUTO</b> and the row leaves @Pendiente. Stepping past this line changes it, which is what 1 A removes everywhere else.</p></div></div>
+</div>
+
+<div class="pick"><b>To answer:</b> one letter for question 3 (1 and 2 are picked: A and A).<br><b>Recommended:</b> 3 A.</div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
