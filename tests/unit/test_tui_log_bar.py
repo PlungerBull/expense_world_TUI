@@ -489,8 +489,8 @@ def test_state5_a_line_with_no_account_is_refused_in_place(fake_client, monkeypa
 
 def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, monkeypatch):
     """Typed key by key: `-13.853,20` is not read as -13.85. The line stays in
-    the bar, refused for having no amount, and nothing is staged or sent; the
-    same figure written `-13,853.20` stages and saves as -13,853.20."""
+    the bar, refused with a note naming `-13.853,20`, and nothing is staged or
+    sent; the same figure written `-13,853.20` stages and saves as -13,853.20."""
     _patch(monkeypatch)
     refused = "tottus -13.853,20 $BCP PEN"
     fixed = "tottus -13,853.20 $BCP PEN"
@@ -506,7 +506,9 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
         assert screen._refused is not None
         out = _text(screen._suggest_renderable(), width=160)
         assert "not staged" in out
-        assert "the line has no amount" in out
+        assert "can't read -13.853,20 as an amount" in out
+        assert "needs a sign" not in out
+        assert fake_client.posts == []
 
         await pilot.press("ctrl+a", "ctrl+k")
         assert _bar(screen).value == ""
@@ -520,6 +522,29 @@ def test_an_amount_with_a_comma_after_its_dot_is_refused_in_place(fake_client, m
     [(path, body)] = fake_client.posts
     assert path == "/transactions/batch"
     assert [row["amount_cents"] for row in body["transactions"]] == [-1385320]
+
+
+def test_a_line_with_no_signed_number_keeps_the_needs_a_sign_note(fake_client, monkeypatch):
+    """Typed key by key: `tottus 38 $BCP PEN` has a number but no sign, so `↵`
+    refuses it with the note that says a number needs a sign; nothing is sent."""
+    _patch(monkeypatch)
+    line = "tottus 38 $BCP PEN"
+
+    async def scenario(pilot, app):
+        screen = await _open(app, pilot)
+        await pilot.press(*line)
+        await wait_for(pilot, lambda: _bar(screen).value == line)
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen._staged == []
+        assert _bar(screen).value == line
+        out = _text(screen._suggest_renderable(), width=160)
+        assert "not staged" in out
+        assert "the line has no amount — a number needs a sign to be one" in out
+        assert "can't read" not in out
+        assert fake_client.posts == []
+
+    run_app(scenario)
 
 
 def test_a_line_with_no_category_stages_and_reads_as_pendiente(fake_client, monkeypatch):

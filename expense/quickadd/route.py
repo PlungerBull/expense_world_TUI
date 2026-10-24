@@ -56,6 +56,11 @@ def route(parsed: ParsedLine, today: date_cls) -> Routing:
         # problems when there is one.
         if any(u.kind == field for u in parsed.unresolved):
             continue
+        # A signed number the amount reader refused has its sign, so "needs a
+        # sign" would be wrong: the note names the token instead.
+        if field == "amount" and parsed.unreadable_amount is not None:
+            reasons.append(f"can't read {parsed.unreadable_amount} as an amount")
+            continue
         reasons.append(_MISSING_PHRASE[field])
 
     for token in parsed.unresolved:

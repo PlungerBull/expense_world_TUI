@@ -11,6 +11,8 @@ the other under @Pendiente.
 
 from datetime import date
 
+import pytest
+
 from expense.quickadd.parse import Span, Unresolved, parse
 from expense.quickadd.route import (
     LEDGER,
@@ -77,6 +79,28 @@ def test_a_number_without_a_sign_is_not_an_amount():
     result = _route("gaste 38 $BCP PEN @korakuen")
     assert result.target == REFUSED
     assert "the line has no amount — a number needs a sign to be one" in result.reasons
+
+
+@pytest.mark.parametrize(
+    ("line", "token"),
+    [
+        ("tottus -13.853,20 $BCP PEN", "-13.853,20"),
+        ("bonus +1.000,00 $BCP PEN", "+1.000,00"),
+        ("tottus -$13.853,20 $BCP PEN", "-$13.853,20"),  # named as typed
+        ("tottus -1.2.3 -13.853,20 $BCP PEN", "-1.2.3"),  # the first one is named
+    ],
+)
+def test_a_signed_number_it_cannot_read_is_named(line, token):
+    """The number has its sign, so the note names what it could not read
+    instead of saying a number needs a sign."""
+    result = _route(line)
+    assert result.target == REFUSED
+    assert result.reasons == (f"can't read {token} as an amount",)
+
+
+def test_a_readable_amount_after_an_unreadable_one_routes_to_the_ledger():
+    """A later amount still reads, so the line has one and nothing is refused."""
+    assert _route("tottus -13.853,20 -13853.20 $BCP PEN").reasons == ()
 
 
 def test_an_ambiguous_name_says_how_many_it_matched():

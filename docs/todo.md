@@ -240,8 +240,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Notes and hints that say what is true, and the bulk pick as a screen**: the LOG bar's note
-  for an amount it can't read
+- **Notes and hints that say what is true, and the bulk pick as a screen**: its tasks are done;
+  the acceptance check and the doc sweep remain
   ([specs/wording-and-the-bulk-pick.md](specs/wording-and-the-bulk-pick.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).

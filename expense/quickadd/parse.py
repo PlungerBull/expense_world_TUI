@@ -81,6 +81,9 @@ class ParsedLine:
     spans: tuple[Span, ...]
     unresolved: tuple[Unresolved, ...]
     missing: tuple[str, ...]
+    # The first signed, amount-shaped token `parse_amount` could not read
+    # (`-13.853,20`), as typed; it stays a title word. None when there is none.
+    unreadable_amount: str | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -196,6 +199,7 @@ def parse(
     hashtag_ids: list[str] = []
     iso: str | None = None
     bad_date = False
+    unreadable_amount: str | None = None
 
     index = 0
     while index < len(words):
@@ -253,6 +257,8 @@ def parse(
                 spans.append(Span("amount", start, end, text))
                 index += 1
                 continue
+            if unreadable_amount is None:
+                unreadable_amount = text
 
         if iso is None and not bad_date:
             found, looked = parse_date(text, today)
@@ -287,6 +293,7 @@ def parse(
         spans=tuple(sorted(spans, key=lambda s: s.start)),
         unresolved=tuple(unresolved),
         missing=tuple(k for k in REQUIRED if values[k] is None),
+        unreadable_amount=unreadable_amount,
     )
 
 

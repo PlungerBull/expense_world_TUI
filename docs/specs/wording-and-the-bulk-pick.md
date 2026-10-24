@@ -49,7 +49,4 @@ a style of its own, and its pick is a pop-up though it carries rows.
 
 Approved by the owner on 2026-10-24. One task per item above, in order.
 
-6. **The LOG bar names an amount it can't read.** In
-   [quickadd/](../../expense/quickadd/). Passes if: a unit test with real key presses shows
-   `tottus -13.853,20 $BCP PEN` refused with a note naming `-13.853,20`, and a line with no
-   signed number still gets today's note.
+Every task is done; the tester's acceptance check and the librarian's sweep remain.

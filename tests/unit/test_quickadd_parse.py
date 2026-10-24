@@ -99,7 +99,15 @@ def test_a_comma_after_the_dot_leaves_the_line_with_no_amount():
     assert result.amount_cents is None
     assert result.title == "tottus -13.853,20"
     assert "amount" in result.missing
+    assert result.unreadable_amount == "-13.853,20"
     assert _p("tottus -13.853,20 -13853.20").amount_cents == -1385320
+
+
+@pytest.mark.parametrize("line", ["recibo 2450", "coca-cola", "tottus -38.60", "apparka"])
+def test_no_unreadable_amount_when_none_was_typed(line):
+    """Only a signed, amount-shaped token the reader refused is recorded: an
+    unsigned number, a mid-word sign and a readable amount are not."""
+    assert _p(line).unreadable_amount is None
 
 
 def test_first_sign_wins():
