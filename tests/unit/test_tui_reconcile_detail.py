@@ -27,6 +27,7 @@ from tests.unit.helpers import (
     bank_line_row,
     cursor_page,
     import_part,
+    put_answer,
     refusal_text,
     render_text,
     run_app,
@@ -347,7 +348,9 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
             )
         )
         mock.get(f"{ENGINE_URL}/v1/reconciliations").mock(httpx.Response(200, json=whole([DRAFT])))
-        route = mock.put(f"{ENGINE_URL}/v1/transactions/t2a").mock(httpx.Response(200, json={}))
+        ticked = [{**p, "reconciliation_id": "r1", "version": 2} for p in FARMACIA["parts"]]
+        answer = put_answer(ticked[0], ticked)
+        route = mock.put(f"{ENGINE_URL}/v1/transactions/t2a").mock(httpx.Response(200, json=answer))
         run_app(scenario)
     assert route.call_count == 1
     request = route.calls.last.request

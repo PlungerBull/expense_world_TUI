@@ -21,8 +21,10 @@ from tests.unit.helpers import (
     LINE_CODE_LEAKS,
     FakeClient,
     LineCodeLeak,
+    import_part,
     line_code_of,
     line_code_paths,
+    put_answer,
 )
 
 CODE = line_code_of("bl1")
@@ -136,8 +138,9 @@ def test_the_real_client_refuses_it_before_it_reaches_respx():
 
 @respx.mock
 def test_the_real_client_sends_a_clean_body():
+    titled = {**import_part("t1", -4200, line="bl1", title="x"), "version": 2}
     route = respx.put(f"{ENGINE_URL}/v1/transactions/t1").mock(
-        return_value=httpx.Response(200, json={})
+        return_value=httpx.Response(200, json=put_answer(titled, [titled]))
     )
     cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
     with ExpenseClient(cfg) as client:

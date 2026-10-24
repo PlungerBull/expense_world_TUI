@@ -39,6 +39,11 @@ stand on rules only the engine can confirm. Pinned here:
     with nothing split, and the same split without it goes through;
   · a line is reconciled whole: `reconciliation_id` sent on one part puts every
     part in the reconciliation, and `null` on one part takes every part out;
+  · a `PUT` answers with `changed_parts`, each part whose line fields it changed
+    and whether it left its reconciliation: one part of a 60 + 40 line moved out
+    of a draft lists both, both left; the other part sent the account it already
+    has, or a body of `category_id` alone, lists none; a one-part line lists
+    itself, left only when it was assigned; a replay answers the same;
   · `DELETE /bank-lines/{id}` deletes every part in one write, after which the
     line and its parts read `404` and its `operation_code` is free; a line in a
     completed reconciliation is `409` `IN_COMPLETED_RECONCILIATION` on
@@ -68,11 +73,13 @@ real-ledger guard: conftest.py.
 """
 
 from datetime import datetime
+from types import SimpleNamespace
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from expense import http as http_module
 from expense.config import Config
 from expense.errors import EngineError
 from expense.formatting import signed_cents
@@ -458,6 +465,116 @@ def test_reconciling_one_part_assigns_and_unassigns_the_whole_line(client):
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/reconciliations/{recon}")
         _safe(client.delete, f"/accounts/{account}")
+
+
+def _changed(answer: dict) -> list[tuple[str, bool]]:
+    """`changed_parts` of a `PUT /transactions/{id}` answer as `(id, left_reconciliation)`."""
+    return [(e["transaction"]["id"], e["left_reconciliation"]) for e in answer["changed_parts"]]
+
+
+def _assert_parts_read_back(client, answer: dict, named: str) -> None:
+    """Each `changed_parts` entry is its part exactly as `GET /transactions/{id}` reads it
+    after the write, and the named part's entry repeats the top-level transaction."""
+    top = {k: v for k, v in answer.items() if k != "changed_parts"}
+    for entry in answer["changed_parts"]:
+        part = entry["transaction"]
+        assert part == client.get(f"/transactions/{part['id']}")
+        if part["id"] == named:
+            assert part == top
+
+
+def test_a_move_answers_with_every_part_it_changed(client, monkeypatch):
+    """`changed_parts` lists each part of the line whose line fields the write changed,
+    `left_reconciliation` on each, in the order `?bank_line_id=` lists the line. One part
+    of a 60 + 40 line in a draft reconciliation moved with `reconciliation_id: null`
+    lists both parts, both left; the other part sent the account it already has lists
+    none; a body changing only `category_id` lists none while `version` still bumps;
+    and a replay under the same key answers exactly as the first send
+    (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
+    zone = _zone(client)
+    home = _make_account(client)
+    away = _make_account(client)
+    groceries = _make_category(client)
+    recon = _make_reconciliation(client, home)
+    written: list[str] = []
+    try:
+        original = _post_tx(client, home, _noon(zone, 2026, 4, 11), -10000, "FARMACIA")
+        written.append(original["id"])
+        one, two = _split(client, original["id"], [-6000, -4000], written)
+        listed = client.get("/transactions", params={"bank_line_id": original["bank_line_id"]})
+        order = [t["id"] for t in listed["items"]]
+        assert sorted(order) == sorted([one["id"], two["id"]])
+        client.put(f"/transactions/{one['id']}", json_body={"reconciliation_id": recon})
+
+        # One part moved out of the draft: both parts listed, both left it.
+        moved = client.put(
+            f"/transactions/{one['id']}",
+            json_body={"account_id": away, "reconciliation_id": None},
+        )
+        assert _changed(moved) == [(tx_id, True) for tx_id in order]
+        _assert_parts_read_back(client, moved, one["id"])
+
+        # The other part sent the account the line already has: nothing changed.
+        again = client.put(
+            f"/transactions/{two['id']}",
+            json_body={"account_id": away, "reconciliation_id": None},
+        )
+        assert again["changed_parts"] == []
+
+        # Only the category: no line field changed, but the part's version bumps.
+        before = client.get(f"/transactions/{one['id']}")["version"]
+        recategorised = client.put(
+            f"/transactions/{one['id']}", json_body={"category_id": groceries}
+        )
+        assert recategorised["changed_parts"] == []
+        assert recategorised["version"] == before + 1
+
+        # A replay under the same key answers exactly as the first send did.
+        key = uuid4()
+        monkeypatch.setattr(http_module, "uuid", SimpleNamespace(uuid4=lambda: key))
+        first = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
+        replayed = client.put(f"/transactions/{one['id']}", json_body={"account_id": home})
+        monkeypatch.undo()
+        assert _changed(first) == [(tx_id, False) for tx_id in order]
+        assert replayed == first
+    finally:
+        monkeypatch.undo()
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/categories/{groceries}")
+        _safe(client.delete, f"/accounts/{away}")
+        _safe(client.delete, f"/accounts/{home}")
+
+
+@pytest.mark.parametrize("assigned", [True, False], ids=["in-a-draft", "in-none"])
+def test_a_one_part_line_moved_lists_itself(client, assigned):
+    """A line of one part moved to another account lists that part alone, flagged
+    `left_reconciliation` only when it was in a reconciliation before the write
+    (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
+    zone = _zone(client)
+    home = _make_account(client)
+    away = _make_account(client)
+    recon = _make_reconciliation(client, home)
+    written: list[str] = []
+    try:
+        tx = _post_tx(client, home, _noon(zone, 2026, 4, 12), -4200, "UBER *TRIP")
+        written.append(tx["id"])
+        if assigned:
+            client.put(f"/transactions/{tx['id']}", json_body={"reconciliation_id": recon})
+
+        moved = client.put(
+            f"/transactions/{tx['id']}",
+            json_body={"account_id": away, "reconciliation_id": None},
+        )
+        assert _changed(moved) == [(tx["id"], assigned)]
+        _assert_parts_read_back(client, moved, tx["id"])
+    finally:
+        for tx_id in written:
+            _safe(client.delete, f"/transactions/{tx_id}")
+        _safe(client.delete, f"/reconciliations/{recon}")
+        _safe(client.delete, f"/accounts/{away}")
+        _safe(client.delete, f"/accounts/{home}")
 
 
 def test_deleting_a_bank_line_deletes_every_part(client, statuses):

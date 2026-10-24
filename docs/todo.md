@@ -27,6 +27,38 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine moved past the catch-up
+Asked 2026-10-24 · Blocks: [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md) and every new task
+
+This client last caught up to contract `3eec27cc7b11e663`. The spec catches up to
+`f5cbc6ab4841f0a7`, but the practice engine now publishes `48d909f787839fa8`, two versions
+further on, both dated 2026-10-24. The version check prints:
+
+- `0cd36b98415f5f0c` 2026-10-24 — removed: `statement_line` from every transaction write.
+  `POST /transactions`, each item of `POST /transactions/batch` and `PUT /transactions/{id}` no
+  longer take it: sending it, a value or `null`, is now `422` on `statement_line` with
+  `UNKNOWN_FIELD`, and nothing is written. `statement_line` is read-only, set by the engine.
+  Changed: `STATEMENT_LINE_EXISTS` is no longer declared or sent by any operation.
+- `48d909f787839fa8` 2026-10-24 — added: `statement_code` on every account response and on
+  `POST /accounts` and `PUT /accounts/{id}`: exactly three capital letters, two live accounts
+  share one only when their currencies differ (`409`, `STATEMENT_CODE_EXISTS`). Changed: a person
+  carries no code (`POST /people` refuses it, `make-person` on an account with a code is `409`
+  with `HAS_STATEMENT_CODE`).
+
+The first one stops the sheet import working as it is: it sends each row's `COD_EECC` as the
+statement line, which the engine now refuses. The part of the spec already done (reading which
+rows a move changed) holds either way.
+- **A.** Ask the engine coders for one hand-off file from `f5cbc6ab4841f0a7` to
+  `48d909f787839fa8`, and widen this catch-up to it: new tasks for the statement line and the
+  statement code, then record `48d909f787839fa8`.
+- **B.** Finish this spec's two remaining tasks now, leaving the version unrecorded, and make the
+  two newer versions a catch-up spec of their own right after.
+- **C.** Record `f5cbc6ab4841f0a7` by hand as the spec's target. The check keeps failing on the
+  two newer versions, and nothing was ever checked against an engine at that version.
+
+**Recommended:** A, because the app is already broken against the current engine (the sheet
+import), and one hand-off and one catch-up is less to track than two.
+
 ### Hand the engine the ask on editing a whole line
 Asked 2026-10-24 · Blocks: saving the split transaction's Edit form in one go
 
@@ -81,7 +113,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Catch up with contract `f5cbc6ab4841f0a7`:** spec
-  [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md), tasks waiting for approval.
+  [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md), tasks approved, in progress.
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add

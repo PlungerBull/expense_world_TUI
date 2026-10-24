@@ -281,6 +281,20 @@ def bank_line_row(
     }
 
 
+def put_answer(named: dict, changed: list[dict], *, left: tuple[str, ...] = ()) -> dict:
+    """A `PUT /transactions/{id}` answer: the part named, after the write, plus
+    `changed_parts`, one entry per part in `changed` (each the part after the write,
+    in the line's list order), `left_reconciliation` true for the ids in `left`
+    (contract: PUT /v1/transactions/{transaction_id}, "Response"). `changed` is `[]`
+    for a body that changed no line field."""
+    return {
+        **named,
+        "changed_parts": [
+            {"transaction": part, "left_reconciliation": part["id"] in left} for part in changed
+        ],
+    }
+
+
 #: `GET /accounts?include_people=true` in an order no client could derive:
 #: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
 #: the way the engine lists people after every real account (contract: GET

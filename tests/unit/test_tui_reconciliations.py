@@ -22,6 +22,7 @@ from tests.unit.helpers import (
     cursor_page,
     import_part,
     in_order,
+    put_answer,
     refusal_text,
     render_text,
     run_app,
@@ -1210,8 +1211,10 @@ def test_saving_carries_one_idempotency_key(configured, monkeypatch):
         read = engine.get(url__startswith=f"{ENGINE_URL}/v1/bank-lines").mock(
             httpx.Response(200, json={})
         )
+        farm = next(line for line in UNFILED if line["id"] == "bl-farm")
+        titled = [{**p, "title": "FARMACIA CENTRAL", "version": 2} for p in farm["parts"]]
         route = engine.put(f"{ENGINE_URL}/v1/transactions/bl-farm-p1").mock(
-            httpx.Response(200, json={})
+            httpx.Response(200, json=put_answer(titled[0], titled))
         )
         run_app(scenario)
     assert route.call_count == 1

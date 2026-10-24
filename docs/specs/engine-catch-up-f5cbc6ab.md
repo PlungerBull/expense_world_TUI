@@ -2,7 +2,7 @@
 
 **Catches up to contract `9dd1358d455f9e47` → `f5cbc6ab4841f0a7`** (from `3eec27cc7b11e663`).
 **Status: drafted by the orchestrator on 2026-10-24 from the engine's hand-off of that day; the
-tasks wait for the owner's approval.** The owner picked catching up next (2026-10-24). When
+owner approved the tasks on 2026-10-24.** The owner picked catching up next (2026-10-24). When
 done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -40,16 +40,12 @@ no part, not even the one named.
 
 ## Tasks
 
-Drafted by the orchestrator; waiting for the owner's approval.
+Drafted by the orchestrator; approved by the owner on 2026-10-24.
 
-1. **Read `changed_parts` and record the contract.** The unit fixtures of `PUT
-   /v1/transactions/{id}` answers carry `changed_parts`. A live contract test covers the
-   engine's checks: one part of a 60 + 40 line moved out of a draft lists both parts with
-   `left_reconciliation: true`; the same `account_id` on the other part lists none; a one-part
-   line lists itself, flagged only when it was assigned; only `category_id` lists none; a replay
-   answers the same (compare the parsed JSON). The new version is recorded with `--record-version`.
-   Passes if: the drift script exits clean against `:8002`; the new live tests pass there; the
-   unit suite passes.
+1. **Record the contract.** The unit fixtures of `PUT /v1/transactions/{id}` answers carry
+   `changed_parts` and the live contract tests of the engine's checks pass; what is left is
+   recording the version, which waits on the owner's answer to "The engine moved past the
+   catch-up" in [todo.md](../todo.md). Passes if: the drift script exits clean against `:8002`.
 2. **The note after `b` counts `changed_parts`.** In
    [transactions.py](../../expense/tui/screens/transactions.py) (`bulk_receipt` and its caller).
    The row count is the number of distinct parts listed across the answers, and the "left" count
