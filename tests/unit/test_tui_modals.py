@@ -2,7 +2,7 @@
 
 Regression armor for the Textual 8.x collapse — `width: auto` on #modal inside
 `align: center middle` measured to 0, so the box shrank to an empty border and
-every modal (the archive/delete confirm, the bulk-edit picker) went
+every modal (the archive/delete confirm, the Engine URL and Token prompts) went
 invisible. app.tcss now sets a definite width; this test fails loudly if a
 future Textual bump (or a stray edit) reintroduces the collapse. Asserting the
 *screen* was pushed is not enough — the old tests did that and still passed
@@ -13,7 +13,6 @@ import pytest
 
 from expense.tui.screens.modals import (
     ConfirmModal,
-    PickerModal,
     PromptModal,
 )
 from tests.unit.helpers import run_app, wait_for
@@ -21,7 +20,6 @@ from tests.unit.helpers import run_app, wait_for
 _MODALS = [
     lambda: ConfirmModal("Archive account?", "Archive BCP USD."),
     lambda: PromptModal("Rename", "New name"),
-    lambda: PickerModal("CATEGORY for 3 rows", [("c1", "KORAKUEN")]),
 ]
 
 

@@ -48,6 +48,7 @@ __all__ = [
     "CursorOptionList",
     "Row",
     "RowInput",
+    "list_table",
     "page_indicator",
 ]
 
@@ -78,6 +79,44 @@ class Row(NamedTuple):
 
 # Row builders return plain tuples; the widget coerces them at its boundary.
 RowInput = Row | tuple
+
+
+def _cell(value: object) -> object:
+    # pass Rich renderables (e.g. a Text swatch) through; stringify the rest.
+    return value if isinstance(value, (str, Text)) else str(value)
+
+
+def list_table(
+    headers: Sequence[str],
+    rows: Iterable[RowInput],
+    *,
+    align_right: Iterable[int] = (),
+    flex: Mapping[int, int] | None = None,
+    cursor: int | None = None,
+    edge: bool = True,
+) -> Table:
+    """The table a `CursorList` draws, for `rows` as given: one column per
+    header, right-aligned where `align_right` says, `flex` as `CursorList`
+    takes it, each row in its base style and the row at index `cursor` (None:
+    no row) as the cursor. Also the ledger's rows drawn where no list is, over
+    the bulk pick's bar (`changed_rows` in screens/transactions.py), so they
+    read in the ledger's own columns; `edge=False` drops the blank line above
+    the header and below the last row, for a table under a caption."""
+    right = set(align_right)
+    ratios = dict(flex or {})
+    t = Table(box=box.SIMPLE, expand=True, pad_edge=False, show_edge=edge)
+    for i, header in enumerate(headers):
+        t.add_column(
+            header,
+            justify="right" if i in right else "left",
+            no_wrap=True,
+            ratio=ratios.get(i),
+        )
+    for r, item in enumerate(rows):
+        row = Row.coerce(item)
+        style = CURSOR_STYLE if r == cursor else row.base_style
+        t.add_row(*[_cell(c) for c in row.cells], style=style)
+    return t
 
 
 class CursorList(WindowedList):
@@ -245,27 +284,17 @@ class CursorList(WindowedList):
             return None
         return super().page_status
 
-    @staticmethod
-    def _cell(value: object) -> object:
-        # pass Rich renderables (e.g. a Text swatch) through; stringify the rest.
-        return value if isinstance(value, (str, Text)) else str(value)
-
     def _build(self) -> RenderableType:
         if not self._rows:
             return Text("  " + self._empty, style="dim")
-        t = Table(box=box.SIMPLE, expand=True, pad_edge=False)
-        for i, header in enumerate(self._headers):
-            t.add_column(
-                header,
-                justify="right" if i in self._align else "left",
-                no_wrap=True,
-                ratio=self._flex.get(i),
-            )
         start, window = self._window()
-        for r, row in enumerate(window, start=start):
-            style = CURSOR_STYLE if r == self._cursor else row.base_style
-            t.add_row(*[self._cell(c) for c in row.cells], style=style)
-        return t
+        return list_table(
+            self._headers,
+            window,
+            align_right=self._align,
+            flex=self._flex,
+            cursor=self._cursor - start,
+        )
 
     def _cursor_moved(self) -> None:
         self.post_message(self.Highlighted(self, self.cursor_key, self._cursor))

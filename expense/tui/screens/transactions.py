@@ -13,7 +13,9 @@ the same list over the engine's own `?category_id=` / `?account_id=`, with the
 legend saying what the filter is and how many rows it holds. `space` selects
 rows, `a` selects every loaded row, and one key changes the category (`c`), the bank
 account (`b`) or the hashtags (`h`) of the selection — or of the cursor row
-when nothing is selected. Each opens `PickerModal`; the write is one
+when nothing is selected. Each opens the bulk pick (`BulkPickScreen` in
+bulk_pick.py), a full screen listing the rows it changes over its bar,
+at most five and then `+ N more` (`changed_rows`); the write is one
 `PUT /transactions/{id}` per row, in order — an account move adds
 `reconciliation_id: null` to each row whose account changes, so it leaves its
 reconciliation, and a hashtag pick that names a real hashtag drops the pending
@@ -53,6 +55,7 @@ filtered ledger is back to Home, never to the unfiltered ledger).
 from collections.abc import Hashable
 from typing import NamedTuple
 
+from rich.console import RenderableType
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
@@ -96,18 +99,23 @@ from expense.tui.screens._base import (
     transaction_delete_message,
 )
 from expense.tui.screens._growing import GrowingRead, read_first
+from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
-from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.split import SplitScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
-from expense.tui.widgets.cursor_list import CursorList
+from expense.tui.widgets.cursor_list import CursorList, list_table
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
 #: The free-text columns and their share of the width left after Amount, Date,
 #: Account and Cat take their natural size. The cells are handed to
 #: the table whole and cut by it at the column edge, never pre-truncated.
 _FLEX = {0: 3, 1: 3, 6: 2}
+#: Amount, the one right-aligned column.
+_ALIGN_RIGHT = {2}
+
+#: How many rows the bulk pick lists over its bar; the rest read `+ N more`.
+PICK_ROWS_SHOWN = 5
 
 #: The selection marker, drawn in the title cell's two-column gutter so the
 #: column header and every unselected row keep their alignment.
@@ -171,6 +179,19 @@ def mark_selected(rows: list, selected: set) -> list:
             cells[0] = _GUTTER + str(cells[0])
             marked.append((key, cells, *rest))
     return marked
+
+
+def changed_rows(rows: list, *, shown: int = PICK_ROWS_SHOWN) -> RenderableType:
+    """The rows a bulk key changes, as the bulk pick lists them over its bar:
+    the ledger's own columns, header and title gutter (`list_table`,
+    `mark_selected` with nothing marked), the first `shown` of them, then a dim
+    `+ N more` under their titles for the rest. Pure."""
+    listed = mark_selected(rows[:shown], set())
+    rest = len(rows) - shown
+    if rest > 0:
+        more = [f"{_GUTTER}+ {rest} more", *[""] * (len(_HEADERS) - 1)]
+        listed.append((None, more, "dim"))
+    return list_table(_HEADERS, listed, align_right=_ALIGN_RIGHT, flex=_FLEX, edge=False)
 
 
 def legend_text(filter: LedgerFilter | None, loaded: int, total: int | None, selected: int) -> str:
@@ -360,7 +381,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         listing = CursorList(
             _HEADERS,
             mark_selected(self._rows, self._selected),
-            align_right={2},
+            align_right=_ALIGN_RIGHT,
             flex=_FLEX,
             empty=empty,
             page_size=self.measure_list_rows(),
@@ -607,16 +628,14 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
     def _open_picker(self, kind: str) -> None:
         targets = self._targets()
-        count = len(targets)
-        rows = "row" if count == 1 else "rows"
-        title = f"{kind.upper()} for {count} {rows}"
-        note = f"replaces every tag on the {count} {rows}" if kind == "hashtags" else ""
         options = self._picker_options(kind)
         if not options:
             self.notify(f"There is nothing to pick — no {kind} exists yet.", severity="warning")
             return
-        modal = PickerModal(title, options, note=note, multi=(kind == "hashtags"))
-        self.app.push_screen(modal, lambda picked: self._apply_pick(kind, targets, picked))
+        chosen = set(targets)
+        rows = changed_rows([row for row in self._rows if row[0] in chosen])
+        pick = BulkPickScreen(kind, len(targets), options, rows=rows, crumb=self.crumb)
+        self.app.push_screen(pick, lambda picked: self._apply_pick(kind, targets, picked))
 
     def _apply_pick(self, kind: str, targets: list, picked: object) -> None:
         if picked is None or self._bulk_busy:

@@ -6,21 +6,25 @@ selection, else goes back. A fake client stands in for the engine, so the
 PUTs are asserted, never sent.
 """
 
+import dataclasses
+
 import pytest
 from rich.text import Text
 from textual.content import Content
+from textual.screen import ModalScreen
 
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
 from expense.reads import AccountIndex, QuickAddRefs, load_quickadd_refs
 from expense.tui.screens.accounts import AccountsScreen
+from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import moved_parts
-from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
     SELECTED_MARK,
     LedgerFilter,
     TransactionsScreen,
     bulk_receipt,
+    changed_rows,
     legend_text,
     mark_selected,
     refusal_notes,
@@ -123,6 +127,11 @@ def _answer_moves(fake_client, rows: list[dict], *, left: tuple[str, ...] = ()) 
         fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(
             moved, [moved], left=left
         )
+
+
+def _hint(screen) -> str:
+    """The hint under the pick screen's bar, as drawn."""
+    return render_text(screen.query_one("#hint").content, width=200).strip()
 
 
 def _plain(note: str) -> str:
@@ -262,8 +271,8 @@ def test_c_writes_one_put_per_selected_row_then_reloads(fake_client, monkeypatch
         await pilot.press("space", "down", "down", "space")
         await wait_for(pilot, lambda: screen._selected == {"t1", "t3"})
         await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-        assert app.screen._title == "CATEGORY for 2 rows"
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        assert app.screen.crumb == ("Ledger", "@Pendiente", "Category for 2 rows")
         await pilot.press("k", "o", "r", "enter")
         await wait_for(pilot, lambda: len(fake_client.puts) == 2)
         assert fake_client.puts == [
@@ -283,8 +292,8 @@ def test_with_nothing_selected_the_keys_act_on_the_cursor_row(fake_client, monke
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("down", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
-        assert app.screen._title == "ACCOUNT for 1 row"
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        assert app.screen.crumb[-1] == "Account for 1 row"
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [
@@ -310,10 +319,10 @@ def test_the_account_picker_shows_the_engines_order(fake_client, monkeypatch):
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         modal = app.screen
         assert [name for _, name in modal._pool] == ENGINE_ORDER_NAMES
-        shown = render_text(modal.query_one("#candidates").render(), width=160)
+        shown = render_text(modal.query_one("#suggest").content, width=160)
         assert in_order(shown, ENGINE_ORDER_NAMES)
 
     run_app(scenario, size=(160, 30))
@@ -342,10 +351,10 @@ def test_the_category_picker_shows_the_engines_order_pendiente_in_it(fake_client
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("c")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         modal = app.screen
         assert [name for _, name in modal._pool] == names
-        shown = render_text(modal.query_one("#candidates").render(), width=160)
+        shown = render_text(modal.query_one("#suggest").content, width=160)
         assert in_order(shown, names) and "@Opening" not in shown
 
     run_app(scenario, size=(160, 30))
@@ -374,7 +383,7 @@ def test_b_offers_no_archived_account_so_no_body_names_one(fake_client, monkeypa
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         assert [name for _, name in app.screen._pool] == ENGINE_ORDER_NAMES
         await pilot.press("a", "l", "f", "a", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
@@ -392,9 +401,9 @@ def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("space", "h")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         modal = app.screen
-        assert modal._multi and "replaces every tag" in modal._note
+        assert modal._multi and "replaces every tag" in _hint(modal)
         # `com` + ↵ picks COMIDA and clears the input; `caj` narrows to two,
         # ↓ takes CAJAS; ↵ on the empty input applies both
         await pilot.press("c", "o", "m", "enter")
@@ -435,7 +444,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
@@ -482,7 +491,7 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
@@ -526,7 +535,7 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
@@ -608,7 +617,7 @@ def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
         )
         await _open(app, pilot, screen)
         await pilot.press("a", key)
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press(*typed, "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t2"]
@@ -649,7 +658,7 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: bool(toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -700,7 +709,7 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: len(puts) == 2)
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -736,7 +745,7 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
         monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: len(fake_client.puts) == 3)
         assert fake_client.puts == [
@@ -763,7 +772,7 @@ def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
         monkeypatch.setattr(screen, "notify", lambda message, **kw: toasts.append(str(message)))
         await _open(app, pilot, screen)
         await pilot.press("space", "b")  # t1, on acc1, back onto acc1
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("s", "i", "g", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [("/transactions/t1", {"account_id": "acc1"})]
@@ -806,7 +815,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
         )
         await _open(app, pilot, screen)
         await pilot.press("space", "down", "space", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         # every toast of the run is in once the refusal's is: one call puts them up
         await wait_for(pilot, lambda: any(title == "Refused" for title, _m in toasts))
@@ -852,7 +861,7 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         refused = next(m for t, m in toasts if t == "Refused")
@@ -872,7 +881,7 @@ def test_esc_cancels_the_picker_and_writes_nothing(fake_client, monkeypatch):
         screen = TransactionsScreen(filter=FILTER)
         await _open(app, pilot, screen)
         await pilot.press("space", "c")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         await pilot.pause()
@@ -907,13 +916,13 @@ def test_esc_clears_the_selection_then_goes_back_with_the_filter_kept(monkeypatc
     run_app(scenario, size=(120, 30))
 
 
-# ---- the picker on its own ------------------------------------------------------
+# ---- the pick screen on its own ---------------------------------------------------
 
 
 def test_picker_single_mode_narrows_and_moves():
     async def scenario(pilot, app):
         results: list = []
-        modal = PickerModal("CATEGORY for 1 row", [("a", "HOGAR"), ("b", "KORAKUEN")])
+        modal = BulkPickScreen("category", 1, [("a", "HOGAR"), ("b", "KORAKUEN")], rows=Text(""))
         app.push_screen(modal, results.append)
         await wait_for(pilot, lambda: app.screen is modal)
         assert [i for i, _ in modal._pool] == ["a", "b"]
@@ -926,7 +935,7 @@ def test_picker_single_mode_narrows_and_moves():
 def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
     async def scenario(pilot, app):
         results: list = []
-        modal = PickerModal("HASHTAGS for 2 rows", [("h1", "COMIDA")], multi=True)
+        modal = BulkPickScreen("hashtags", 2, [("h1", "COMIDA")], rows=Text(""))
         app.push_screen(modal, results.append)
         await wait_for(pilot, lambda: app.screen is modal)
         await pilot.press("enter")  # empty: not "clear every tag"
@@ -947,6 +956,196 @@ def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
         await wait_for(pilot, lambda: results == [None])
 
     run_app(scenario, size=(100, 30))
+
+
+# ---- the pick screen over the ledger ---------------------------------------------
+# Drawn in docs/mockups/expense-world-wording-picks.html, Question 6: a full screen, the
+# rows it changes over the bar in the ledger's columns, five at most.
+
+
+def _rows_shown(screen) -> str:
+    """`the N rows it changes` and the rows under it, as drawn."""
+    caption = screen.query_one("#pick-caption").content
+    return render_text(caption, screen.query_one("#pick-rows").content, width=160)
+
+
+def _suggested(screen) -> str:
+    return render_text(screen.query_one("#suggest").content, width=160)
+
+
+SEVEN = [
+    {**ITEMS[0], "id": f"r{i}", "title": f"ROW {i}", "amount_cents": -100 * i} for i in range(1, 8)
+]
+
+
+@pytest.mark.parametrize(
+    ("key", "crumb", "label", "hint", "names"),
+    [
+        (
+            "c",
+            "Category for 2 rows",
+            "CATEGORY",
+            "type to narrow · ↑↓ highlight · enter picks it for the 2 rows · esc cancels",
+            ["KORAKUEN", "@Pendiente", "HOGAR"],
+        ),
+        (
+            "b",
+            "Account for 2 rows",
+            "ACCOUNT",
+            "type to narrow · ↑↓ highlight · enter picks it for the 2 rows · esc cancels",
+            ["BCP Signature PEN", "BCP Oro PEN"],
+        ),
+        (
+            "h",
+            "Hashtags for 2 rows",
+            "HASHTAGS",
+            "replaces every tag on the 2 rows · enter adds · empty enter applies"
+            " · ⌫ drops the last",
+            ["COMIDA", "CAJA CHICA", "CAJAS"],
+        ),
+    ],
+    ids=["category", "account", "hashtags"],
+)
+def test_a_bulk_key_opens_a_full_screen_listing_the_rows_over_the_bar(
+    fake_client, monkeypatch, key, crumb, label, hint, names
+):
+    """`c`, `b` and `h` push a full screen, not a pop-up: the crumb adds what it
+    picks and for how many rows, the selected rows read in the ledger's columns
+    under `the 2 rows it changes`, then the bar, its hint and the whole list.
+    `esc` goes back to the ledger with nothing sent and the selection kept."""
+    _stub_ledger(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "down", "down", "space", key)
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        pick = app.screen
+        assert not isinstance(pick, ModalScreen)
+        assert pick.crumb == ("Ledger", "@Pendiente", crumb)
+        shown = _rows_shown(pick)
+        assert shown.splitlines()[0].strip() == "the 2 rows it changes"
+        assert in_order(shown, ["Title", "Description", "Amount", "Date", "Account", "Cat"])
+        assert in_order(shown, ["EDO SUSHI BAR", "-10.00", "MAR DE COLAS", "-30.00"])
+        assert "DLC*RIDES" not in shown and "more" not in shown
+        assert str(pick.query_one("#field").content) == label
+        assert _hint(pick) == hint
+        assert in_order(_suggested(pick), names)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        await pilot.pause()
+        assert fake_client.puts == [] and screen._selected == {"t1", "t3"}
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_past_five_rows_the_rest_read_plus_n_more(fake_client, monkeypatch):
+    """`a` on seven rows, then `c`: the first five rows show, then `+ 2 more`;
+    the pick still writes all seven."""
+    _stub_ledger(monkeypatch, SEVEN)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("a", "c")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        shown = _rows_shown(app.screen)
+        assert shown.splitlines()[0].strip() == "the 7 rows it changes"
+        assert in_order(shown, [f"ROW {i}" for i in range(1, 6)] + ["+ 2 more"])
+        assert "ROW 6" not in shown and "ROW 7" not in shown
+        await pilot.press("h", "o", "g", "enter")
+        await wait_for(pilot, lambda: len(fake_client.puts) == 7)
+        assert fake_client.puts == [
+            (f"/transactions/r{i}", {"category_id": "hog"}) for i in range(1, 8)
+        ]
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_changed_rows_lists_five_then_counts_the_rest():
+    """Pure: five rows or fewer read whole; a sixth turns into `+ 1 more`."""
+    rows = tx_mod.transaction_rows(SEVEN, {}, {}, {})
+    five = render_text(changed_rows(rows[:5]), width=160)
+    assert "ROW 5" in five and "more" not in five
+    six = render_text(changed_rows(rows[:6]), width=160)
+    assert in_order(six, ["ROW 5", "+ 1 more"]) and "ROW 6" not in six
+
+
+def test_typing_narrows_the_list_and_arrows_move_the_highlight(fake_client, monkeypatch):
+    """`caj` leaves CAJA CHICA and CAJAS; `↓` moves to CAJAS and `↑` back;
+    `⏎` on the category screen picks the highlighted one for every row."""
+    _stub_ledger(monkeypatch)
+    categories = [("c1", "CAJA CHICA"), ("c2", "CAJAS"), ("c3", "COMIDA")]
+    refs = dataclasses.replace(REFS, pickable_categories=categories)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: refs)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "c")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        pick = app.screen
+        await pilot.press("c", "a", "j")
+        await wait_for(pilot, lambda: [n for _i, n in pick._pool] == ["CAJA CHICA", "CAJAS"])
+        assert "COMIDA" not in _suggested(pick)
+        await pilot.press("down", "down", "up", "down")  # stops at the end
+        assert pick._idx == 1
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t1", {"category_id": "c2"})]
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_h_collects_picks_under_the_list_and_backspace_drops_the_last(fake_client, monkeypatch):
+    """`⏎` adds a tag to `picked` under the list, `⌫` on the empty bar drops the
+    last one, an empty `⏎` applies what is left."""
+    _stub_ledger(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "h")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        pick = app.screen
+
+        def picked() -> str:
+            return render_text(pick.query_one("#summary").content, width=160).strip()
+
+        assert picked() == "picked    (none yet)"
+        await pilot.press("c", "o", "m", "enter")
+        await wait_for(pilot, lambda: picked() == "picked    #COMIDA")
+        assert "COMIDA" not in _suggested(pick)  # a picked tag leaves the list
+        await pilot.press("c", "a", "j", "a", "s", "enter")
+        await wait_for(pilot, lambda: picked() == "picked    #COMIDA #CAJAS")
+        await pilot.press("backspace")
+        await wait_for(pilot, lambda: picked() == "picked    #COMIDA")
+        assert fake_client.puts == []
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: fake_client.puts)
+        assert fake_client.puts == [("/transactions/t1", {"hashtag_ids": ["h1"]})]
+        await wait_for(pilot, lambda: app.screen is screen)
+
+    run_app(scenario, size=(160, 40))
+
+
+def test_the_pick_screen_footer_offers_esc_only(fake_client, monkeypatch):
+    """The footer reads `esc Cancel`, as the mockup draws it; `↑↓` work unadvertised."""
+    _stub_ledger(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        shown = {
+            key: active.binding.description
+            for key, active in app.screen.active_bindings.items()
+            if active.binding.show
+        }
+        assert shown == {"escape": "Cancel"}
+
+    run_app(scenario, size=(160, 40))
 
 
 # ---- refused rows read one note per kind --------------------------------------
@@ -1069,7 +1268,7 @@ def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, mon
         await pilot.press("space", "down", "space", "down", "space")
         await wait_for(pilot, lambda: screen._selected == {"t1", "t2", "t3"})
         await pilot.press("b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: len(app._notifications) == 2)
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -1109,7 +1308,7 @@ def test_b_met_by_a_5xx_reads_whole_on_one_note(fake_client, monkeypatch):
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: bool(toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -1146,7 +1345,7 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
         )
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: toasts)
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -1199,7 +1398,7 @@ def _pick_tags(fake_client, monkeypatch, typed, *, settle):
         )
         await _open(app, pilot, screen)
         await pilot.press("h")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         modal = app.screen
         for text in typed:
             before = len(modal._picked)
@@ -1341,14 +1540,14 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
         listing.set_cursor(listing.index_of(cursor))
         await pilot.pause()
         await pilot.press(key)
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         title = "row" if len(select) <= 1 else "rows"
-        assert app.screen._title.endswith(f"for {max(len(select), 1)} {title}")
+        assert app.screen.crumb[-1].endswith(f"for {max(len(select), 1)} {title}")
         reads = len(calls)
         seen.update(reads=reads, sent=len(fake_client.calls))
         for text in typed:
             await pilot.press(*text, "enter")
-        await wait_for(pilot, lambda: not isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: not isinstance(app.screen, BulkPickScreen))
         # the fresh read recounts: the second count, and its list settled
         await wait_for(pilot, lambda: len(counts) == 2 and not screen._bulk_busy)
         await wait_for(pilot, lambda: list_ready(app) and len(screen._rows) == len(PURCHASE))
@@ -1480,7 +1679,7 @@ def test_b_counts_only_the_answers_that_landed(fake_client, monkeypatch):
             listing.set_cursor(listing.index_of(row))
             await pilot.press("space")
         await pilot.press("b")
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)

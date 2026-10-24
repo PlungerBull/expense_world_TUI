@@ -13,9 +13,10 @@ import pytest
 from textual.widgets import Footer
 from textual.widgets._footer import FooterKey
 
+from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.help import screen_inventory
-from expense.tui.screens.modals import ConfirmModal, PickerModal
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.split import SplitScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
@@ -290,7 +291,7 @@ def test_the_bulk_keys_and_enter_still_work_on_an_archived_accounts_row(engine, 
         screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-old")
         await pilot.press(key)
-        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
         await pilot.press(*typed, "enter")
         if key == "h":
             await pilot.press("enter")  # `enter` on the emptied input applies the marks

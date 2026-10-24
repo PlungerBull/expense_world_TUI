@@ -32,10 +32,12 @@ expense/tui/
                     #   window/cursor/page arithmetic both list widgets stand on
                     #   + page_indicator() — `rows 21-40 of 133 · page 2 of 7`
     cursor_list.py  # CursorList — arrow-key list, window + growing modes
+                    #   + list_table() — the table it draws, which the bulk pick
+                    #   also draws the ledger's rows with
                     #   + CursorOptionList — the home menu
     checklist.py    # CheckList — the reconciliation tick-list, one bank line per row
-    picker.py       # suggestion_list() — the scrolling name list both quick-add
-                    #   surfaces drop under their input
+    picker.py       # suggestion_list() — the scrolling name list the quick-add
+                    #   surfaces and the bulk pick drop under their input
   screens/
     _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
@@ -44,6 +46,8 @@ expense/tui/
     home.py         # four months × categories, balances today, then every screen
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk
                     #   edits; `s` splits and `d` deletes the cursor row
+    bulk_pick.py    # BulkPickScreen — what `c`/`b`/`h` open: the rows they change
+                    #   over one bar and its suggestion list; writes nothing itself
     accounts.py     categories.py  hashtags.py
     reconciliations.py               # full lifecycle
     system.py       # Config / Auth screens
@@ -81,7 +85,7 @@ expense/tui/
                     #   Edit category keeps it required, so a PUT never sends null;
                     #   on an Edit screen the line starts on the row's own colour
                     #   ("Stepping past COLOR keeps it", §2)
-    modals.py       # ConfirmModal, PickerModal, DiscardStagedModal (the LOG bar's one
+    modals.py       # ConfirmModal, DiscardStagedModal (the LOG bar's one
                     #   confirmation), and PromptBox — one line typed in a box —
                     #   under PromptModal (text) and AmountPromptModal (a signed
                     #   amount, read by the shared money parser)
@@ -243,7 +247,7 @@ crumb reads `Ledger ▸ @Pendiente`, the panel is titled for the filter, the fet
 engine's own `?category_id=` / `?account_id=`, and the legend says `filter: category
 @Pendiente · 20 of 57 loaded · 3 selected`. `space` selects rows (a `●` in the title gutter,
 the row in the accent), `a` selects every loaded row or clears them, and `c` / `b` / `h` open
-`PickerModal` over the selection — or over the cursor row when nothing is selected —
+the bulk pick for the selection — or for the cursor row when nothing is selected —
 to set the category, move to an account, or **replace** the hashtag set. The write is
 one `PUT /transactions/{id}` per row, in order, on one client, then the list reads fresh
 from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
@@ -255,6 +259,30 @@ The one refusal that does stop them is `SETTINGS_MISSING`
 selected with the refused one.
 A row stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
+
+**The bulk pick is a full screen** ([bulk_pick.py](../expense/tui/screens/bulk_pick.py),
+Question 6 B of [expense-world-wording-picks.html](mockups/expense-world-wording-picks.html)),
+not a pop-up: it carries rows. Its crumb adds `Category for 3 rows` (`Account for …`,
+`Hashtags for …`; `1 row` for one) to the ledger's. On top, dim, `the 3 rows it changes`, and
+under it those rows in the ledger's own columns, title gutter and amount colours
+(`changed_rows` in [transactions.py](../expense/tui/screens/transactions.py), drawn by
+`list_table` in [cursor_list.py](../expense/tui/widgets/cursor_list.py), the table `CursorList`
+draws), at most five, then a dim `+ N more` under their titles. Then one bar, `CATEGORY`,
+`ACCOUNT` or `HASHTAGS`, its hint, and the list under it in the engine's order, drawn
+and filtered as on the Edit form's entity lines (`suggestion_list` and `matching` in
+[picker.py](../expense/tui/widgets/picker.py)). Typing narrows the list and highlights its
+first match, `↑↓` move the highlight, and `esc` goes back to the ledger with nothing sent
+and the selection as it was; the footer is `esc Cancel` alone. On `CATEGORY` and `ACCOUNT`
+the hint reads `type to narrow · ↑↓ highlight · enter picks it for the 3 rows · esc cancels`,
+and `⏎` picks the highlighted name for every row (with nothing typed, the first); a bar that
+matches nothing says `Nothing matches “…”.` and stays. On `HASHTAGS` it reads
+`replaces every tag on the 3 rows · enter adds · empty enter applies · ⌫ drops the last`:
+`⏎` on a typed name adds the highlighted tag to the `picked` line under the list
+(`picked    #casa`; `(none yet)` before the first) and empties the bar, a picked tag leaves
+the list, `⌫` on the
+empty bar drops the last pick, and `⏎` on the empty bar applies; with nothing picked it says
+`Pick at least one tag, or esc to leave the rows as they are.` rather than clear every tag.
+The screen writes nothing: the ledger sends its `PUT`s with the pick, as above.
 **Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
 [expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the `⏎`
 edit form the ACCOUNT and CATEGORY lines open with the bar empty and the whole list in its
@@ -1031,8 +1059,7 @@ is drawn the same way everywhere: the terminal's own foreground and background, 
 — colour-free, so correct on any ground by construction. The shared constant is
 `CURSOR_STYLE` in [windowed.py](../expense/tui/widgets/windowed.py) (re-exported from
 `cursor_list.py`); `CursorList` / `CheckList` apply it to their Rich table rows,
-`suggestion_list` to the picked name, the LOG bar to its staged row and the field modal to
-its candidate, and `CursorOptionList` (the home menu) applies it to the finished strip,
+`suggestion_list` to the picked name, the LOG bar to its staged row, and `CursorOptionList` (the home menu) applies it to the finished strip,
 because the theme gives the block cursor no colour of its own and the CSS path drops
 `reverse`.
 
@@ -1081,7 +1108,8 @@ them — they are hand-written into the `?` card
 **The ledger's selection keys** ([transactions.py](../expense/tui/screens/transactions.py)):
 `space` selects / unselects the cursor row without moving it (`↓` then `space` is the
 rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` open the
-picker for category / account / hashtags, `esc` clears the selection if there is one,
+bulk pick for category / account / hashtags (§2 "The bulk pick is a full screen": type to
+narrow, `↑↓`, `⏎` picks, `esc Cancel`), `esc` clears the selection if there is one,
 else goes back to the screen that opened the ledger. `s` and `d` never follow the
 selection: they are off while one exists, while a bulk write runs, and on an archived
 account's row (§2 "`s` splits the cursor row into parts", "On an archived account's row the

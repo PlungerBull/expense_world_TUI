@@ -81,7 +81,7 @@ Screen {
     padding: 0 1 0 0;
 }
 /* EVERY Input, not just the bar's: Textual's own default is
-   `border: tall $border-blurred`, and #prompt/#picker inside the modals are
+   `border: tall $border-blurred`, and #prompt inside the prompt boxes is
    not matched by an `#inputbar` selector — they would be the only vertical
    lines on screen. */
 Input {
@@ -118,6 +118,16 @@ Input {
 /* a form's line over the bar (FormScreen._heading): the Edit form on a bank line */
 #form-head {
     padding: 1 3 0 3;
+    height: auto;
+}
+/* the bulk pick (bulk_pick.py): `the 3 rows it changes` in the form's gutter,
+   and under it those rows over the bar, their header one column further in */
+#pick-caption {
+    padding: 1 3 0 3;
+    height: auto;
+}
+#pick-rows {
+    padding: 0 3 0 4;
     height: auto;
 }
 /* the split screen (split.py): the line every part keeps, the title, the
@@ -170,7 +180,7 @@ Input {
 }
 
 /* modal screens — center the #modal box (else it collapses top-left) */
-ConfirmModal, PromptBox, PickerModal, HelpModal, DiscardStagedModal {
+ConfirmModal, PromptBox, HelpModal, DiscardStagedModal {
     align: center middle;
 }
 /* The dim scrim. `black`, NOT `$background`, and that is

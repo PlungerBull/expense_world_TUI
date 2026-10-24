@@ -49,13 +49,6 @@ a style of its own, and its pick is a pop-up though it carries rows.
 
 Approved by the owner on 2026-10-24. One task per item above, in order.
 
-5. **The bulk pick as a full screen.** `PickerModal`
-   ([modals.py](../../expense/tui/screens/modals.py)) gives way to a pushed screen as pick 6 B
-   draws it; the rows above the bar show at most 5, the rest as "+ N more" (the owner's pick,
-   2026-10-24). Passes if: unit tests with real key presses show `c`, `b` and `h` opening it with
-   the rows above the bar, filtering as you type, `⏎` picking (and `h`'s multi-pick: `⏎` adds,
-   empty `⏎` applies, `⌫` drops the last), `esc` leaving with nothing sent; the writes as today;
-   [tui.md](../tui.md) matches.
 6. **The LOG bar names an amount it can't read.** In
    [quickadd/](../../expense/quickadd/). Passes if: a unit test with real key presses shows
    `tottus -13.853,20 $BCP PEN` refused with a note naming `-13.853,20`, and a line with no

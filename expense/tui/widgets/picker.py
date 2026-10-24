@@ -1,19 +1,21 @@
-"""The suggestion list both quick-add surfaces drop under their input.
+"""The suggestion list the quick-add surfaces and the bulk pick drop under their input.
 
-The LOG bar and the bar-cycle edit form offer different things from different
-sources — the bar picks a span out of a parsed line, the form picks a field's
-entity — but under the input they draw the same widget: a scrolling window of
+The LOG bar, the bar-cycle edit form and the ledger's bulk pick offer different
+things from different sources — the bar picks a span out of a parsed line, the
+form picks a field's entity, the bulk pick a category, account or hashtags for
+the rows it changes — but under the input they draw the same widget: a scrolling window of
 at most `PICKER_WINDOW` names, the cursor kept near the middle, and a dim
 `↑ n more` / `↓ n more` when the pool runs past the edge.
 
-Both draw through this one copy of that arithmetic: the window is a named
+All draw through this one copy of that arithmetic: the window is a named
 constant and the cursor is `CURSOR_STYLE`. The label is the only thing that
-genuinely differs — one appends a currency, the other whatever third field the
-entity tuple carries — so the caller formats the labels and this draws them.
+genuinely differs — the bar appends a currency, the form whatever third field
+the entity tuple carries, the bulk pick the name alone — so the caller formats
+the labels and this draws them.
 
-What a field's list holds is `matching`'s: the edit form and the split
-screen's part fields fill their lists through it, so a typed name finds the
-same entities on both.
+What a field's list holds is `matching`'s: the edit form, the split screen's
+part fields and the bulk pick fill their lists through it, so a typed name
+finds the same entities on each.
 """
 
 from collections.abc import Collection, Sequence
