@@ -27,17 +27,11 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand the engine two things
-Asked 2026-10-24 · Blocks: every new task (the contract moved from `3eec27cc7b11e663` to
-`f5cbc6ab4841f0a7`; the loop stays stopped until it is caught up)
+### Hand the engine the ask on editing a whole line
+Asked 2026-10-24 · Blocks: saving the split transaction's Edit form in one go
 
-You picked catching up next. Only you can carry these to the engine coders:
-1. The message asking for one hand-off file covering contract `3eec27cc7b11e663` to
-   `f5cbc6ab4841f0a7` (the `changed_parts` answer on a move).
-2. The ask [one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md),
-   copied as is into the engine repo's `docs/from-tui/`.
-
-When the hand-off file lands in [from-engine/](from-engine/), it becomes the catch-up spec.
+Copy [one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md) as
+is into the engine repo's `docs/from-tui/`. Only you can carry it.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -52,15 +46,23 @@ instead of saved as 15.00. The account setting is an ask to the engine. One choi
 
 **Recommended:** A, because that is what normal apps do: one format, both ways.
 
-### Split transactions on a screen of their own [UI]
-Asked 2026-10-23 · Blocks: the "no batch" `?` card's line on a split row
+### Split transactions: your Edit form with its parts [UI]
+Asked 2026-10-24 · Blocks: the "no batch" `?` card's line on a split row
 
-You asked whether split transactions should have their own screen, since they are more complex
-than one row. Drawn in
+Your design is drawn in
 [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
-one screen for a split transaction, opened from everywhere (A), or the split screen gaining the
-line's fields while `⏎` on the ledger still edits one part (B). Saving that form in one go
-needs the engine ask [one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md).
+`⏎` on any part opens the Edit form with the shared fields on top and every part below (amount,
+category, hashtags, note), parts added and dropped there; a reconciliation's list shows the
+transaction as one line, as today. Two picks are open:
+1. In the "no batch" list: **A.** `⏎` opens this form and `d` deletes, as today; **B.** only
+   looking, changes and deletes from the ledger. **Recommended:** A, because the usual fix there
+   is a wrong date or account, and you chose `⏎` there on 2026-10-17.
+2. The `s` key (the Split screen) now that `⏎` edits the parts: **A.** `s` opens the same Edit
+   form; **B.** `s` stays as today; **C.** `s` goes. **Recommended:** A, so there is one place to
+   change parts.
+
+Saving the form in one go needs the engine ask
+[one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md).
 
 ---
 
@@ -78,12 +80,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **The note after `b` counts what moved.** `b` on one part of a split transaction moves every
-  part, so the note reads `2 rows → BCP Oro PEN · 2 left their reconciliation` (the owner's pick,
-  2026-10-18); the Edit form's "It left its reconciliation" has the same gap. Waits on the engine
-  ask [a-line-move-answers-what-it-moved.md](to-engine/a-line-move-answers-what-it-moved.md): the
-  answer to a move names only the transaction sent
-  ([transactions.py](../expense/tui/screens/transactions.py) `bulk_receipt`).
+- **Catch up with contract `f5cbc6ab4841f0a7`:** spec
+  [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md), tasks waiting for approval.
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add

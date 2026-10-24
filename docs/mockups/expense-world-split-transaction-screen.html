@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="dark light" />
-<title>A screen for split transactions</title>
+<title>Editing a split transaction</title>
 <style>
   :root{
     --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
@@ -70,20 +70,16 @@
 <body>
 <button class="theme" type="button">light / dark</button>
 <div class="head">
-  <h1>A screen for split transactions</h1>
-  <p>Your idea (2026-10-23): <b>“split transactions should have their own menus, since they are a bit more complex.”</b> A split transaction is one bank line in several parts. Today you change it in three different places, and each lets you change something the other two don't. This page shows those three places <b>as they are today</b>, then two ways to give a split transaction one screen of its own.</p>
-  <p>Every screen is drawn from the app's real code. The transaction is invented: <b>Tottus Jockey Plaza -100.00</b> on <b>Sueldo Soles</b>, 2026-10-11, operation 47391026, split into <b>-60.00 COMIDA</b> (#casa, “verduras”) and <b>-40.00 HOGAR</b> (“lejía y papel”). Use the button at the top right for a light terminal.</p>
+  <h1>Editing a split transaction</h1>
+  <p>Your design, drawn: <b>the parts stay rows in the ledger, and <code>⏎</code> on any part opens the same Edit form as any transaction</b>. On top, what every part shares; below, every part with its own amount, category, hashtags and note, and the line adding them up. Parts are added and dropped in the form. A transaction never split opens the same form, with one part. The reconciliation screens keep showing a split transaction as one line.</p>
+  <p>The parts of the design you settled are drawn without options. <b>One question is left</b>: what you can do on a line in the “no batch” list. The screens that stay as they are today are drawn from the app's own code, so they look exactly as they do now.</p>
+  <p>The transaction is invented: <b>Tottus Jockey Plaza -100.00</b> on <b>Sueldo Soles</b>, 2026-10-11, operation 47391026, split into <b>-60.00 COMIDA</b> (#casa, “verduras”) and <b>-40.00 HOGAR</b> (“lejía y papel”). Use the button at the top right for a light terminal.</p>
 </div>
-<div class="pane"><div class="lbl">Your question · <span>“shouldn't we be unable to edit transactions in a reconciliation, or only some columns?”</span></div>
-<p class="blurb">Short answer: <b>“only some columns” is already the rule, and the engine keeps it.</b> What changes with where the transaction sits:</p>
-<p class="blurb"><b>In no reconciliation</b> (the rows Reconciliations ▸ an account ▸ <code>u</code> lists as “no batch”): everything can change — date, title, operation, amount, account, category, hashtags, note. It can be split again and deleted.</p>
-<p class="blurb"><b>In a draft reconciliation:</b> everything can still change, from the ledger. (A reconciliation's own screen has no <code>⏎</code>: there you only tick rows in and out with <code>space</code>.) Moving it to another account takes it out of the reconciliation, and the app says <code>Saved. It left its reconciliation.</code></p>
-<p class="blurb"><b>In a completed reconciliation:</b> the engine locks <b>amount, account, title and date</b>. These are the words the app shows when you press <code>c</code> to complete one: <code>Locks amount/account/title/date on the N ticked rows.</code> Category, hashtags and note still change. A delete is refused until you revert the reconciliation to draft with <code>u</code>. It can be split again as long as the total stays the same, but a new title is refused. The operation number is not in that list: whether it locks is to check against the contract.</p>
-<p class="blurb"><b>What the app does today on a completed reconciliation's row:</b> it greys nothing out. The Edit form shows every line as changeable, and only when you save does the engine refuse, with its own words. Lines are greyed out today only on an opening balance and on a transaction of an archived account. <b>In option A below</b>, a locked line shows the way those do: dimmed, marked <code>read-only</code>, and the cursor skips it (screen A5). For that, the screen has to know the line sits in a completed reconciliation before you type, so the engine would have to say so when the app reads the line. Whether it already does is to check against the contract. If it doesn't, that becomes a request to the engine.</p>
-</div>
-<div class="pane"><div class="lbl">Today · three places for one split transaction <span>— the ledger's ⏎, the ledger's s, and “no batch” ⏎</span></div>
-<p class="blurb">The ledger shows each part as its own row. From there <code>⏎</code> and <code>s</code> open two different screens. In Reconciliations, “no batch” shows the whole transaction as one row, and <code>⏎</code> opens a third.</p>
-<div class="opt wide"><div class="var"><div class="oh">The ledger · <span>both parts, cursor on part 1</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
+
+<!-- ============ 1 · THE LEDGER ============ -->
+<div class="pane"><div class="lbl">1 · The ledger <span>— the parts stay rows, as today</span></div>
+<p class="blurb">Nothing changes here. Each part is its own row, with its own amount, category, hashtags and note. <code>⏎</code> on either row opens the Edit form below.</p>
+<div class="opt wide"><div class="var"><div class="oh">The ledger · <span>both parts, cursor on part 1 · as today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Transactions</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -93,12 +89,20 @@
     <span class="d">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span>
     <span class="rev">  Tottus Jockey Plaza         verduras                     -60.00   2026-10-11   Sueldo Soles   COMIDA   casa             </span>
       Tottus Jockey Plaza         lejía y papel                <span class="n">-40.00</span>   2026-10-11   Sueldo Soles   HOGAR    Pendiente
+      Uber                        al aeropuerto                <span class="n">-42.00</span>   2026-10-12   Sueldo Soles   TAXI     Pendiente
+      Cine Plaza                  con Ana                      <span class="n">-28.00</span>   2026-08-30   Sueldo Soles   OCIO     salidas
 
 
-     <span class="d">no filter · 2 of 2 loaded</span>
+     <span class="d">no filter · 4 of 4 loaded</span>
 
- <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">Each part is a row. <code>⏎ Open</code> edits the row under the cursor; <code>s Split</code> opens the split screen.</p></div></div>
-<div class="opt wide"><div class="var"><div class="oh">(a) ⏎ on part 1 · <span>the Edit form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+ <span class="a">⏎</span> Open  <span class="a">space</span> Select  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">+</span> Add  <span class="a">a</span> All/none  <span class="a">c</span> Category  <span class="a">b</span> Account  <span class="a">h</span> Hashtags  <span class="a">s</span> Split  <span class="a">d</span> Delete</pre></div></div><p class="cap">The ledger as it is today. Uber and Cine Plaza were never split.</p></div></div>
+</div>
+
+<!-- ============ 2 · THE EDIT FORM ============ -->
+<div class="pane"><div class="lbl">2 · ⏎ on a part · the Edit form, with its parts <span>— Ledger ▸ ⏎ on Tottus Jockey Plaza</span></div>
+<p class="blurb">The same Edit form as today: one bar on top, a hint under it, and a summary below. The summary now has two parts. On top are the lines every part shares: <b>date, title and account</b>, the three the ledger's Edit form shows today. Below is a table with one line per part: its <b>amount, category, hashtags and note</b>. Under the table is the line adding the parts up, as the <code>Split</code> screen (<code>s</code> in the ledger) shows it today. The table shows every part, so it doesn't matter which part you pressed <code>⏎</code> on.</p>
+<p class="blurb"><b>Moving around:</b> <code>⏎</code> and <code>⇥</code> go down the form one line at a time, from DATE to TITLE, ACCOUNT, then part 1's four fields, then part 2's, as today. The bar names the part: <code>PART 1 AMOUNT</code>. The part you are on is marked <code>▌ 1</code> in the table. <code>⏎</code> on the last part's NOTE saves, as <code>⏎</code> on NOTE does today. <b>Adding and dropping:</b> <code>^n</code> adds an empty part at the end and puts the bar on its AMOUNT. <code>^x</code> drops the part the bar is on. Letters go into the bar, so these two keys are control keys: <code>^x</code> is the key that drops a part on the <code>Split</code> screen today, and <code>n</code> is “New” across the app. <code>^x</code> shows only on a part's line, and only while there are two parts or more.</p>
+<div class="opt wide"><div class="var"><div class="oh">2a · ⏎ on part 1 · <span>the form opens on DATE</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -109,34 +113,13 @@
 
 
 
-   <span class="b">date      </span>2026-10-11
-   title     Tottus Jockey Plaza
-   amount    <span class="n">-60.00</span>
-   account   Sueldo Soles
-   category  COMIDA
-   hashtags  #casa
-   note      verduras
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Part 1's own amount, category, hashtags and note, plus date, title and account. On those three the hint adds “changes every part of the transaction”. There is <b>no operation line</b>: the operation number can't be changed from the ledger. Part 2 isn't shown.</p></div><div class="var"><div class="oh">(b) s on either part · <span>the split screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
-
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">same on every part</span>
+   <span class="b">date     </span>2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
 
    <span class="d">      amount    category       hashtags        note</span>
-   <span class="rev">  1   -60.00    COMIDA         #casa           verduras     </span>
+     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
      2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
 
    2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
 
@@ -149,38 +132,260 @@
 
 
 
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Split  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Every part in one table: each one's amount, category, hashtags and note. The title can change. The date and account sit on the top line, <b>shown but not changeable</b> here. No operation number.</p></div></div>
-<div class="opt wide"><div class="var"><div class="oh">(b) ⏎ on part 1 · <span>its fields open below</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><p class="cap">Date, title and account keep today's hint, <code>changes every part of the transaction</code>. The amount is no longer a line under the title: it is now in the part's line, with its category, hashtags and note.</p></div><div class="var"><div class="oh">2b · ⇥ three times · <span>on part 1's amount</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="d">2026-10-11  ·  Sueldo Soles  ·  </span><span class="n">-100.00</span><span class="d"> PEN  ·  every part keeps this date and account</span>
+   <span class="ab">PART 1 AMOUNT    </span>-60<span class="a">▍</span>
 
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">same on every part</span>
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
 
    <span class="d">      amount    category       hashtags        note</span>
    <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
      2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
 
    2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
 
-   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
-   <span class="b">PART 1</span>
-   <span class="a">▌</span> <span class="ab">AMOUNT    </span>-60<span class="a">▍</span>
-     <span class="d">CATEGORY  </span>COMIDA
-     <span class="d">HASHTAGS  </span>#casa
-     <span class="d">NOTE      </span>verduras
 
 
 
 
 
 
- <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Split  <span class="a">⇥</span> Field</pre></div></div><p class="cap"><code>⏎</code> on a part opens its four fields under the table; <code>⏎</code> on NOTE goes back to the table. <code>^s</code> sends the whole split.</p></div><div class="var"><div class="oh">(c) Reconciliations ▸ Sueldo Soles ▸ u ▸ ⏎ · <span>the “no batch” Edit form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The bar names the part and the field. Part 1 is marked in the table. Its hint is today's AMOUNT hint. <code>^x Drop part</code> joins the footer while the bar is on a part.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">2c · ^n, then -15 ⏎ · <span>a third part, the total not matching yet</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 3 CATEGORY  </span><span class="a">▍</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     <span class="rev">@Pendiente  </span>
+     COMIDA
+     HOGAR
+     SALUD
+     TAXI
+     OCIO
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+   <span class="ab">▌ 3   -15.00    —              —</span>
+
+   3 parts  ·  <span class="n">-115.00</span> of <span class="n">-100.00</span>  ·  <span class="n">15.00 left</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap"><code>^n</code> added part 3, empty, and put the bar on its AMOUNT. <code>-15</code> and <code>⏎</code> moved it to its CATEGORY. The parts now come to -115.00 against the transaction's -100.00, and the line says so in red, with the <code>Split</code> screen's words today. As there, it never stops a save: <code>^s</code> sends, and the engine says whether the parts add up. To make them add up you would lower part 1 to -45.00.</p></div><div class="var"><div class="oh">2d · ^x on part 3 · <span>dropped, the total matching again</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 2 CATEGORY  </span><span class="a">▍</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     @Pendiente
+     COMIDA
+     <span class="rev">HOGAR       </span>
+     SALUD
+     TAXI
+     OCIO
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
+   <span class="ab">▌ 2   -40.00    HOGAR          —               lejía y papel</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap"><code>^x</code> dropped part 3 at once, with no question: nothing is sent until you save, and <code>esc</code> leaves the form with nothing changed. The bar moved up to the same line on the part above, PART 2 CATEGORY, its list starting on HOGAR, part 2's own category, as the Edit form's CATEGORY does today. With two parts left, <code>^x</code> stays; with one, it leaves the footer.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">2e · ⏎ on Cine Plaza · <span>a transaction never split: one part</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">DATE             </span>2026-08-30<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   <span class="b">date     </span>2026-08-30
+   title    Cine Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-28.00</span>    OCIO           #salidas        con Ana
+
+
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><p class="cap">The same form, with one line in the table. With one part there is nothing to add up, so there is no line under the table, and the hints don't say “changes every part”. Its amount is the transaction's own, and changing it changes the transaction, as today. <code>^n</code> adds a second part: the transaction becomes a split one, and the line adding up appears, against the -28.00 it holds now.</p></div><div class="var"><div class="oh">2f · ^n on Cine Plaza · <span>it becomes a split transaction</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 2 AMOUNT    </span><span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   date     2026-08-30
+   title    Cine Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-28.00</span>    OCIO           #salidas        con Ana
+   <span class="ab">▌ 2        —    —              —</span>
+
+   2 parts  ·  <span class="n">-28.00</span> of <span class="n">-28.00</span>  <span class="p">✓</span>
+
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Part 2 is empty and the bar is on its amount. The line adding up appears, the total is what the transaction holds. An empty part left as it is when you save is dropped, as on the <code>Split</code> screen today.</p></div></div>
+</div>
+
+<!-- ============ 3 · COMPLETED RECONCILIATION ============ -->
+<div class="pane"><div class="lbl">3 · A part in a completed reconciliation <span>— the locked lines shown before you type</span></div>
+<p class="blurb">When you complete a reconciliation, the app asks <code>Complete reconciliation?</code> and says <code>Locks amount/account/title/date on the N ticked rows.</code> In the form, those lines show the way an opening balance's locked lines show today: dimmed, marked <code>read-only</code>, and the bar skips them. Category, hashtags and note can still change. The form opens on the first line that can change, here part 1's amount.</p>
+<div class="opt wide"><div class="var"><div class="oh">3a · Tottus Jockey Plaza in a completed reconciliation · <span>split</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span>-60<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+
+
+
+
+
+
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Date, title and account are read-only. <b>The parts' amounts stay changeable</b>, and parts can still be added and dropped. The app's own notes say that the engine lets a transaction in a completed reconciliation be split again, as long as the total stays -100.00. What it refuses there is a new title. The amount that stays locked is the transaction's total, which is what the bank shows.</p></div><div class="var"><div class="oh">3b · Cine Plaza in a completed reconciliation · <span>never split</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY  </span><span class="a">▍</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     @Pendiente
+     COMIDA
+     HOGAR
+     SALUD
+     TAXI
+     <span class="rev">OCIO        </span>
+
+   <span class="d">date     2026-08-30  read-only</span>
+   <span class="d">title    Cine Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   </span><span class="d">-28.00</span><span class="ab">    OCIO           #salidas        con Ana</span>
+   <span class="d">amount  read-only</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><p class="cap">With one part, its amount is the transaction's total, so it is read-only too: dimmed in its cell, with a dim <code>amount  read-only</code> under the table. The form opens on its category.</p></div></div>
+</div>
+
+<!-- ============ 4 · RECONCILIATION SCREENS ============ -->
+<div class="pane"><div class="lbl">4 · A reconciliation's list <span>— already so today: one line for a split transaction, and only ticking</span></div>
+<p class="blurb"><b>Already so today, nothing changes.</b> A reconciliation lists the bank's lines in the bank's columns only (date, title, operation, amount), so Tottus Jockey Plaza is one line with its total, -100.00, and nothing on it says it is split. On this screen you only tick: <code>space</code> puts the line under the cursor in or out of this reconciliation, every part with it. <code>⏎</code> does nothing on a line. <code>c</code>, <code>u</code> and <code>d</code> complete, revert or delete the whole reconciliation, never a line. Once completed, the list is read-only: <code>read-only while completed · u revert to edit · r refresh · esc back</code>. To change a line, you go to the ledger, or to “no batch” while it is in no reconciliation (question 1 below).</p>
+<div class="opt wide"><div class="var"><div class="oh">Reconciliations ▸ Sueldo Soles ▸ ⏎ on Octubre 2026 · <span>a draft · as today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>15,398.40<span class="d">    end </span>21,621.20<span class="d">    diff </span><span class="n">-167.00</span><span class="d">    status </span><span class="w">draft</span>
+
+           Date               Title                        Operation             Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="p">[x]</span>     2026-10-14         Netflix.com                  48213907              <span class="n">-44.90</span>
+   <span class="p">[x]</span>     2026-10-05         Haber planilla               00731552            <span class="p">6,519.00</span>
+   <span class="d">[ ]</span>     2026-10-12         Uber                         <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> [ ]     2026-10-11         Tottus Jockey Plaza          47391026             -100.00 </span>
+   <span class="d">[ ]</span>     2026-10-08         Taxi Satelital               48172390              <span class="n">-25.00</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Tottus Jockey Plaza, one line with its total and the cursor on it. <code>space</code> ticks the whole transaction in; no screen shows half of it ticked.</p></div></div>
+</div>
+
+<!-- ============ QUESTION 1 · NO BATCH ============ -->
+<div class="pane"><div class="lbl">Question 1 · what you can do on a line in “no batch” <span>— Reconciliations ▸ Sueldo Soles ▸ u</span></div>
+<p class="blurb">The “no batch” list shows the account's lines that are in no reconciliation, newest first, one line per transaction in the bank's columns, as today. Today, on a line there, <code>⏎</code> opens an Edit form with the bank's columns only, a split transaction's parts shown but not changeable, and <code>d</code> deletes after a question. There is no ticking on this list today: a line goes into a reconciliation by ticking it on that reconciliation's own list (section 4).</p>
+<div class="opt wide"><div class="var"><div class="oh">A · <span>as today: ⏎ and d, and ⏎ opens the new form</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+   Account                                                   Cur                          Balance
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="a">▸</span> Sueldo Soles                                            PEN                        <span class="p">12,450.00</span>
+   Cuenta Digital Dólares                                    USD                           <span class="p">820.15</span>
+
+  In no batch · Sueldo Soles   ·   4 of 4 loaded · newest first   ·   ! blocks a batch's close
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+         Date                Title                                   Operation             Amount
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="w">!</span>     2026-10-12          Uber                                    <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> !     2026-10-11          Tottus Jockey Plaza                     47391026             -100.00 </span>
+   <span class="w">!</span>     2026-10-08          Taxi Satelital                          48172390              <span class="n">-25.00</span>
+         2026-08-30          Cine Plaza                              <span class="d">—</span>                     <span class="n">-28.00</span>
+
+
+ <span class="a">⏎</span> Edit  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div><p class="cap">The list as today. <code>d</code> asks <code>Delete this transaction and its 2 parts?</code>, as today, and only <code>y</code> deletes.</p></div><div class="var"><div class="oh">A · <span>⏎ on Tottus Jockey Plaza</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Edit</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
@@ -189,7 +394,7 @@
    <span class="ab">DATE             </span>2026-10-11<span class="a">▍</span>
 
 
-   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date · </span><span class="a">changes every part of the transaction</span>
 
 
 
@@ -198,261 +403,49 @@
    operation  47391026
    account    Sueldo Soles
 
-   <span class="b">Parts</span><span class="d">  read-only</span>
-   <span class="d">             -60.00</span>
-   <span class="d">             -40.00</span>
-   <span class="d">           ────────</span>
-   <span class="d">total       -100.00</span>
-   <span class="d">the parts must add up to the total · s in the ledger splits it again to change them</span>
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The bank's columns: date, title, operation, account. The parts' amounts are <b>read-only</b>, and there is no category, hashtags or note. Its date hint does <b>not</b> say it changes every part, though it does.</p></div></div>
-<div class="opt"><div class="var"><div class="oh">Side by side · <span>what each place lets you change on a split transaction</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">the three places</span></div><div class="app"><pre><span class="ab">                            ledger ⏎            ledger s            "no batch" ⏎        </span>
-<span class="ab">                            Edit                Split               Edit                </span>
-  <span class="d">date                      </span>yes · every part    <span class="d">shown only          </span>yes · every part    
-  <span class="d">title                     </span>yes · every part    yes · every part    yes · every part    
-  <span class="d">operation                 </span><span class="d">not shown           </span><span class="d">not shown           </span>yes · every part    
-  <span class="d">account                   </span>yes · every part    <span class="d">shown only          </span>yes · every part    
-  <span class="d">amount                    </span>this part           each part           <span class="d">read-only           </span>
-  <span class="d">category, hashtags, note  </span>this part           each part           <span class="d">not shown           </span>
-  <span class="d">add or drop a part        </span><span class="d">no                  </span>yes                 <span class="d">no                  </span></pre></div></div><p class="cap">Each place lets you change something the other two don't, and none lets you change everything: the operation number only in (c), the parts only in (b), date and account in (a) and (c) but not (b).</p></div></div>
-</div>
-<div class="pane"><div class="lbl">A · one screen for a split transaction, opened from everywhere <span>— ⏎ on any part, in the ledger or in “no batch”, and s</span></div>
-<p class="blurb"><code>⏎</code> on any part of a split transaction, in the ledger or in “no batch”, opens one screen: the line's four shared fields on top (date, title, operation, account), each saying it changes every part; below, the parts table as the split screen has it today, with <code>+ add a part</code>, <code>^x</code> to drop a part and the total line. <code>^s</code> saves everything at once. <code>s</code> opens the same screen. A row never split keeps today's Edit form on <code>⏎</code>, in the ledger and in “no batch”; <code>s</code> on it opens this screen with an empty table, as the split screen does today.</p>
-<div class="opt wide"><div class="var"><div class="oh">A1 · ⏎ on part 1 in the ledger<span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split transaction</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="d">DATE       </span>2026-10-11                                   <span class="d">changes every part</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
-
-   <span class="d">      amount    category       hashtags        note</span>
-   <span class="rev">  1   -60.00    COMIDA         #casa           verduras     </span>
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The cursor starts on the part you pressed <code>⏎</code> on. <code>↑↓</code> move from DATE down through the parts to <code>+ add a part</code>. The heading is the transaction as it is saved; the lines under it are what you change.</p></div><div class="var"><div class="oh">A2 · ⏎ on DATE</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split transaction</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="ab">▌DATE       2026-10-11</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
-
    <span class="d">      amount    category       hashtags        note</span>
      1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
      2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
 
    2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
 
-   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
-   <span class="b">DATE</span><span class="d"> · changes it on every part</span>
-   <span class="a">▌</span> <span class="ab">DATE      </span>2026-10-18<span class="a">▍</span>
 
-
-
-
-
-
- <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Save</pre></div></div><p class="cap">One field opens below, as TITLE's does on the split screen today. <code>⏎</code> keeps the new date and goes back up; <code>esc</code> leaves it as it was. TITLE, OPERATION and ACCOUNT work the same way, and ACCOUNT offers the account list as the Edit form does.</p></div></div>
-<div class="opt wide"><div class="var"><div class="oh">A3 · ⏎ on a part</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split transaction</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><p class="cap">The Edit form of section 2, with the parts and the same keys. As the “no batch” form does today, it keeps its heading (the transaction as saved) and its OPERATION line. Saved, you are back in “no batch”, which reads its newest lines again; a line whose new date or account took it out of the list is gone.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">B · <span>only looking: no ⏎, no d</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Sueldo Soles</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
 
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
+  Reconciliations — pick an account
 
-   <span class="d">DATE       </span>2026-10-11                                   <span class="d">changes every part</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
+   Account                                                   Cur                          Balance
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="a">▸</span> Sueldo Soles                                            PEN                        <span class="p">12,450.00</span>
+   Cuenta Digital Dólares                                    USD                           <span class="p">820.15</span>
 
-   <span class="d">      amount    category       hashtags        note</span>
-   <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
-   <span class="b">PART 1</span>
-   <span class="a">▌</span> <span class="ab">AMOUNT    </span>-60<span class="a">▍</span>
-     <span class="d">CATEGORY  </span>COMIDA
-     <span class="d">HASHTAGS  </span>#casa
-     <span class="d">NOTE      </span>verduras
+  In no batch · Sueldo Soles   ·   4 of 4 loaded · newest first   ·   ! blocks a batch's close
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+         Date                Title                                   Operation             Amount
+  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────────────── </span>
+   <span class="w">!</span>     2026-10-12          Uber                                    <span class="d">—</span>                     <span class="n">-42.00</span>
+  <span class="rev"> !     2026-10-11          Tottus Jockey Plaza                     47391026             -100.00 </span>
+   <span class="w">!</span>     2026-10-08          Taxi Satelital                          48172390              <span class="n">-25.00</span>
+         2026-08-30          Cine Plaza                              <span class="d">—</span>                     <span class="n">-28.00</span>
 
 
-
- <span class="a">esc</span> Back to the parts  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The part's fields open below, exactly as on the split screen today.</p></div><div class="var"><div class="oh">A4 · Reconciliations ▸ Sueldo Soles ▸ u ▸ ⏎ on the row</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Split transaction</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="rev">DATE       2026-10-11                                   changes every part</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
-
-   <span class="d">      amount    category       hashtags        note</span>
-     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The same screen. Only the crumb says where you came from, and the cursor starts on DATE, since “no batch” shows the whole transaction as one row. After saving you are back in “no batch”.</p></div></div>
-<div class="opt wide"><div class="var"><div class="oh">A5 · the same transaction in a completed reconciliation</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split transaction</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="d">DATE       2026-10-11  read-only</span>
-   <span class="d">TITLE      Tottus Jockey Plaza  read-only</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    Sueldo Soles  read-only</span>
-
-   <span class="d">      amount    category       hashtags        note</span>
-   <span class="rev">  1   -60.00    COMIDA         #casa           verduras     </span>
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Date, title and account are dimmed and marked <code>read-only</code>, as the Edit form shows an opening balance's locked lines, and the cursor skips them. Category, hashtags and note can still change. The operation number is drawn changeable: whether a completed reconciliation locks it is to check against the contract. The parts' amounts are drawn changeable because the engine lets such a transaction be split again while the total stays the same; this is to check against the contract too.</p></div></div>
-<p class="blurb"><b>What one save sends — to check against the contract</b> (the practice engine was not running, so this was not checked). The engine has two writes today. The split (<code>POST /v1/transactions/{id}/split</code>) carries the parts and the title. The Edit form's save (<code>PUT /v1/transactions/{id}</code>) on one part carries date, operation and account, and the engine writes them onto every part. A save in A that changes a part <i>and</i> the date, operation or account would need both writes, one after the other, and if the second were refused, half would be saved. If the split can't also take date, operation and account, the complete answer is a request to the engine: let the split take them, so one save is one write. Two more points to check: the split gives each part a new identity, so a save that only changes one part's category replaces both parts, and it is unknown whether the parts stay in their reconciliation when that happens. And A5 needs the engine to say, when the app reads the line, that it sits in a completed reconciliation.</p>
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div><p class="cap">The same list, without <code>⏎ Edit</code> and <code>d</code>. To change or delete a line, you find it in the ledger and use <code>⏎</code> or <code>d</code> there. To put it in a reconciliation, you tick it on that reconciliation's list, as today.</p></div></div>
+<p class="blurb"><b>Why A is recommended:</b> the usual fix for a line in no batch is a wrong date or a wrong account, made right where you find it, and you chose <code>⏎</code> there on 2026-10-17.</p>
+<p class="cap"><b>Your pick:</b> A or B.</p>
 </div>
-<div class="pane"><div class="lbl">B · the split screen gains the line's fields, but ⏎ on the ledger still edits one part <span>— s and “no batch” ⏎ open the new screen</span></div>
-<p class="blurb">The split screen becomes A's screen (date, title, operation and account on top, the parts below), reached by <code>s</code> in the ledger and by <code>⏎</code> on a split row in “no batch”. <code>⏎</code> on a part in the ledger keeps today's Edit form for that one part. The engine questions are the same as in A.</p>
-<div class="opt wide"><div class="var"><div class="oh">B1 · ⏎ on part 1 in the ledger · <span>as today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
 
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="ab">DATE             </span>2026-10-11<span class="a">▍</span>
-
-
-   <span class="d">YYYY-MM-DD · enter to accept, or type a date · </span><span class="a">changes every part of the transaction</span>
-
-
-
-   <span class="b">date      </span>2026-10-11
-   title     Tottus Jockey Plaza
-   amount    <span class="n">-60.00</span>
-   account   Sueldo Soles
-   category  COMIDA
-   hashtags  #casa
-   note      verduras
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Unchanged: the Edit form on one part.</p></div><div class="var"><div class="oh">B2 · s on part 1</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Split</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="d">DATE       </span>2026-10-11                                   <span class="d">changes every part</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
-
-   <span class="d">      amount    category       hashtags        note</span>
-   <span class="rev">  1   -60.00    COMIDA         #casa           verduras     </span>
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The split screen with the line's four fields on top: the same as A1, under today's name <code>Split</code>.</p></div></div>
-<div class="opt wide"><div class="var"><div class="oh">B3 · Reconciliations ▸ Sueldo Soles ▸ u ▸ ⏎ on the row</div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Split</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">Tottus Jockey Plaza</span><span class="d">  ·  </span><span class="n">-100.00</span><span class="d"> PEN</span>
-
-   <span class="rev">DATE       2026-10-11                                   changes every part</span>
-   <span class="d">TITLE      </span>Tottus Jockey Plaza                          <span class="d">changes every part</span>
-   <span class="d">OPERATION  </span>47391026                                     <span class="d">changes every part</span>
-   <span class="d">ACCOUNT    </span>Sueldo Soles                                 <span class="d">changes every part</span>
-
-   <span class="d">      amount    category       hashtags        note</span>
-     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
-     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
-   <span class="d">  +  add a part</span>
-
-   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
-
-
-
-
-
-
-
-
-
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⏎</span> Edit  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The same screen as B2, the cursor on DATE, as in A4.</p></div></div>
-<p class="blurb">Fewer changes in the ledger, but the date, title and account can still be changed in two places (B1 and B2), and a part's category in two as well. On the ledger, <code>⏎</code> and <code>s</code> on the same row still open two different screens.</p>
+<!-- ============ ENGINE ============ -->
+<div class="pane"><div class="lbl">What the engine has to answer first <span>— for the app's builders, not a question for you</span></div>
+<p class="blurb">This page shows what you see. Behind it, a few points have to be checked with the engine, and some may become requests to the engine coders before this can be built. <b>One save, one write:</b> today, the parts and the title are sent in one write, and the date, account and operation in another. A save that changes both would need two writes, and if the second were refused, only half would be saved. <b>The parts keep who they are:</b> today, changing a split's parts gives every part a new identity, so changing one part's category would replace every part. <b>Locked before you type:</b> screen 3 needs the engine to say, when the app reads the transaction, that it sits in a completed reconciliation. <b>Down to one part:</b> today a split needs two parts or more, so dropping to one takes several writes. The first, second and fourth are already asked of the engine, in <code>to-engine/one-write-edits-a-whole-bank-line.md</code>. The third is not asked yet.</p>
 </div>
-<div class="pick"><b>To answer:</b> one letter per question, e.g. <code>1 A · 2 A</code>.
+
+<div class="pick"><b>To answer:</b> one letter, e.g. <code>1 A</code>.
 <ul>
-<li><b>Question 1 · the screen:</b> <b>A</b> (one screen, opened from everywhere), <b>B</b> (the split screen gains the line's fields, <code>⏎</code> on the ledger stays as today), or <b>keep today</b> (the three places as they are).</li>
-<li><b>Question 2 · a completed reconciliation's locked lines:</b> <b>A</b> shown <code>read-only</code> before you type (screen A5; it needs the engine to say the line is locked), or <b>B</b> as today: every line looks changeable and the engine refuses at save.</li>
-<li><b>Recommended:</b> 1 A · 2 A. One place to change a split transaction, which shows what you can and can't change before you type.</li>
-<li>The screen's name in the crumb, <code>Split transaction</code>, and every wording drawn here are yours to change: say the words you want instead of a letter.</li>
+<li><b>Question 1 · a line in “no batch”:</b> <b>A</b> (as today: <code>⏎</code> opens the new Edit form, <code>d</code> deletes after the question) or <b>B</b> (only looking; changes and deletes from the ledger). <b>Recommended:</b> 1 A.</li>
+<li>Sections 1 to 4 draw the design you settled, so they ask nothing. If a key (<code>^n</code>, <code>^x</code>), a hint or a line reads wrong to you, say the words you want instead.</li>
 </ul></div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
