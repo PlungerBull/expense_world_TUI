@@ -33,8 +33,8 @@ Run against the practice engine on 2026-10-24, at contract `a1859d71873b8807`.
    catch-up on its own checks and catch up with those three from `f5cbc6ab4841f0a7` next. Every
    fixture field this client mocks is one you serve. The live suite passed 138 tests; the 8 that
    failed all send `statement_line` on a transaction write, which `0cd36b98415f5f0c` refuses with
-   `UNKNOWN_FIELD`. This client's sheet import still sends it, so that import is broken against
-   your current engine until the next catch-up.
+   `UNKNOWN_FIELD`. This client's sheet import sends no `statement_line`: it sets no statement
+   lines.
 2. **Moving one part of a 60 + 40 line to another account, with `reconciliation_id: null`
    while the line is in a draft reconciliation, says 2 rows moved and 2 left their
    reconciliation:** worked. Live, the answer lists both parts with `left_reconciliation: true`;

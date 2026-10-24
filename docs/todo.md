@@ -36,9 +36,9 @@ Only you can carry these to the engine coders:
 2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to their
    current version (`a1859d71873b8807` on 2026-10-24): no write takes `statement_line` any more,
    accounts gain a three-letter `statement_code`, and one
-   statement code takes one reconciliation per month. Tell them too that `expense import sheet`
-   sets no statement lines: `COD_EECC` only groups a split transaction's rows. That answers the
-   question in their `statement-line-from-reconciliation` about the lines the sheet import set.
+   statement code takes one reconciliation per month. The reply says the sheet import sets no
+   statement lines, which answers the question in their `statement-line-from-reconciliation`
+   about the lines it set.
 
 When the file lands in [from-engine/](from-engine/), it becomes the catch-up spec.
 

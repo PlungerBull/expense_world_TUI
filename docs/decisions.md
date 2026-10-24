@@ -659,9 +659,8 @@ order and comes only from a reconciliation. (3) **A group goes whole or not at a
 whose rows differ on account, date or title, or with a row the import cannot read, is skipped
 whole as `split-mismatch` and named under the `Skipped` line, and the rest imports; once the
 sheet is fixed, a re-run brings the group in. A zero-amount row is only dropped, since it
-changes nothing. (4) **The dry run counts the groups in one line**
-(`9 split transactions (18 rows) come in as one movement each.`); the groups are checked in the
-app after the import. (5) **A refused batch is read item by item:** a row named `ID_EXISTS` on
+changes nothing. (4) **The dry run counts the groups in one line** ([commands.md](commands.md) "What it
+prints"); the groups are checked in the app after the import. (5) **A refused batch is read item by item:** a row named `ID_EXISTS` on
 its own id is already there, a row named by another refusal fails, and the rest go again as one
 batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests
 on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create").
@@ -673,7 +672,7 @@ compared the same way.
 
 **Rejected.** *Keeping `COD_EECC` as each line's statement line* — a statement line comes only
 from a reconciliation, and 2,275 hand-typed codes in the ledger would clash with the ones a
-reconciliation makes, since the engine refuses two lines with one statement line. *Folding case
+reconciliation makes. *Folding case
 in a `COD_EECC` or an operation code* — they come from a program, not a person, and a client
 that folded them would merge two movements the engine keeps apart. *Stopping the whole import on
 a differing group* — one slip in the sheet would hold back thousands of good rows. *Letting a

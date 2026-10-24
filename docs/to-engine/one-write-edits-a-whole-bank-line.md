@@ -32,7 +32,7 @@ whole edit as one change.
 ## The ask
 
 1. **`PUT /v1/bank-lines/{bank_line_id}`** edits the line in one atomic write. The body holds any
-   of the line fields `title`, `date`, `account_id`, `operation_code`, `statement_line` and
+   of the line fields `title`, `date`, `account_id`, `operation_code` and
    `reconciliation_id`, under the rules `PUT /v1/transactions/{id}` applies to them today (Line
    fields, Field locking, Archived accounts, Sealed periods, Reconciliations → Assigning
    transactions). It also holds an optional `parts`.
