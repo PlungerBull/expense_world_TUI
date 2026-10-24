@@ -117,12 +117,12 @@ def test_rows_sharing_a_code_are_one_split_transaction():
 def test_no_payload_carries_a_statement_line_for_a_row_or_a_part():
     """`build_tx_payload` sends neither the row's COD_EECC nor a `statement_line`:
     not for a row alone, and not for a group's part."""
-    res = apply_mod.ResolveResult(
-        account_ids={("bcp pen", "PEN"): "acc-pen"},
-        category_ids={"wants": "cat"},
-        hashtag_ids={"casa": "tag"},
-    )
     row = _prow(2, "SIG-1")
+    res = apply_mod.ResolveResult(
+        account_ids={(row.account.casefold(), row.currency): "acc-pen"},
+        category_ids={row.category.casefold(): "cat"},
+        hashtag_ids={row.hashtag.casefold(): "tag"},
+    )
 
     alone = apply_mod.build_tx_payload(row, "tx-2", res)
     part = apply_mod.build_tx_payload(row, "tx-2", res, line_group="tx-2")
