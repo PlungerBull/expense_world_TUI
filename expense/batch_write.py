@@ -62,9 +62,11 @@ from expense.errors import (
     EngineConnectionError,
     EngineError,
     engine_text,
+    is_keyed_refusal,
     is_own_id_replay,
     key_field,
     key_index,
+    refusal_kind,
     refuses_every_write,
 )
 from expense.http import ExpenseClient
@@ -124,21 +126,15 @@ class BatchFailure:
     @property
     def kind(self) -> Hashable:
         """Two failures of one kind read the same for their rows, so a caller
-        says them on one line: the same code, `fields` and `reasons`, each the
-        row's own and keyed by field. The top-level message is left out of it,
-        since a refusal naming several items gives their count there. Every
-        part failed for another part is one kind; a refusal naming no row
-        (`whole_chunk`) is a kind of its own."""
+        says them on one line: the row's own refusal's kind
+        (`errors.refusal_kind`), keyed by field. Every part failed for another
+        part is one kind; a refusal naming no row (`whole_chunk`) is a kind of
+        its own."""
         if self.whole_chunk:
             return ("whole", self.chunk_index, self.indices)
         if self.for_part:
             return SPLIT_PART_KIND
-        err = self.error
-        return (
-            err.code,
-            tuple(sorted((str(k), str(v)) for k, v in (err.fields or {}).items())),
-            tuple(sorted((str(k), str(v)) for k, v in (err.reasons or {}).items())),
-        )
+        return refusal_kind(self.error)
 
 
 @dataclass
@@ -366,7 +362,7 @@ def _named_rows(err: EngineError, size: int) -> dict[int, EngineError] | None:
     header, a key of no item, an index past the end of the send), or with no key
     at all, is about the whole send, and names no row.
     """
-    if err.status not in (409, 422):
+    if not is_keyed_refusal(err):
         return None
     named: dict[int, tuple[dict, dict]] = {}
     for slot, entries in enumerate((err.fields or {}, err.reasons or {})):

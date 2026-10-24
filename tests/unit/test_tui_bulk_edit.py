@@ -8,6 +8,7 @@ PUTs are asserted, never sent.
 
 import pytest
 from rich.text import Text
+from textual.content import Content
 
 import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
@@ -22,6 +23,8 @@ from expense.tui.screens.transactions import (
     bulk_receipt,
     legend_text,
     mark_selected,
+    refusal_notes,
+    refused_row,
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
@@ -38,7 +41,6 @@ from tests.unit.helpers import (
     line_code_of,
     list_ready,
     put_answer,
-    refusal_text,
     render_text,
     run_app,
     wait_for,
@@ -121,6 +123,11 @@ def _answer_moves(fake_client, rows: list[dict], *, left: tuple[str, ...] = ()) 
         fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(
             moved, [moved], left=left
         )
+
+
+def _plain(note: str) -> str:
+    """A refusal note as its toast reads: the markup read, the text alone."""
+    return Content.from_markup(note).plain
 
 
 def _answer_unchanged(fake_client, row: dict) -> None:
@@ -433,7 +440,10 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
         refused = next(m for t, m in toasts if t == "Refused")
-        assert refused.startswith("row 2: ") and "locked" in refused
+        # no field named: whole, its code first, as the LOG bar reads a refusal naming no row
+        assert (
+            _plain(refused) == "CONFLICT — account is locked by a completed reconciliation\nrow 2"
+        )
         assert ("", "2 rows → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
@@ -477,9 +487,9 @@ def test_a_refused_row_note_closes_with_the_next_step(fake_client, monkeypatch):
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
         refused = next(m for t, m in toasts if t == "Refused")
-        assert refused == (
-            "row 2: CONFLICT — Operation code already exists.\n"
-            "  operation_code: Must be unique per account.\n\n"
+        assert _plain(refused) == (
+            "operation_code: Must be unique per account.\n"
+            "row 2\n"
             "That account already has a row with this operation number: "
             "look there for a duplicate."
         )
@@ -520,10 +530,8 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
-        assert [m for t, m in toasts if t == "Refused"] == [
-            f"row 2: VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
-            f"  account_id: {ARCHIVED_FIELD_WORDS}\n"
-            f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}"
+        assert [_plain(m) for t, m in toasts if t == "Refused"] == [
+            f"account_id: {ARCHIVED_FIELD_WORDS} · reconciliation_id: {ARCHIVED_FIELD_WORDS}\nrow 2"
         ]
         assert ("", "2 rows → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -605,9 +613,7 @@ def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t2"]
         refused = next(m for t, m in toasts if t == "Refused")
-        assert refused == (
-            f"row 3: VALIDATION_ERROR — Validation failed.\n  {field}: {words}\n\n{line}"
-        )
+        assert _plain(refused) == f"{field}: {words}\nrow 3\n{line}"
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t3"}
 
@@ -649,12 +655,13 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
         await wait_for(pilot, lambda: not screen._bulk_busy)
 
         assert puts == ["/transactions/t1"]
-        assert toasts == [
+        # about the account, not the row: whole, on a line naming no row, as
+        # the LOG bar says a refusal that stops its save
+        assert [(t, _plain(m)) for t, m in toasts] == [
             (
                 "Refused",
-                "row 1: SETTINGS_MISSING — User settings have not been provisioned.\n"
+                "SETTINGS_MISSING — User settings have not been provisioned.\n"
                 "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
-                "\n"
                 "Hint: First-time setup is not done yet. "
                 "Open System ▸ Auth & profile and press b.",
             )
@@ -807,7 +814,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
         assert len(toasts) == 1
         title, message = toasts[0]
         assert title == "Refused"
-        assert message.startswith("row 1: ") and "Locked by completed reconciliation." in message
+        assert _plain(message) == "account_id: Locked by completed reconciliation.\nrow 1"
         assert screen._selected == {"t1"}
 
     run_app(scenario, size=(120, 30))
@@ -849,7 +856,7 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         refused = next(m for t, m in toasts if t == "Refused")
-        assert refused.startswith("row 1: ") and "Locked by completed reconciliation." in refused
+        assert _plain(refused) == "account_id: Locked by completed reconciliation.\nrow 1"
         # t1 refused, t2 already on acc2: only t3 moved, and it was in none
         assert ("", "1 row → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -942,54 +949,176 @@ def test_picker_refuses_an_empty_multi_pick_and_an_unknown_tag():
     run_app(scenario, size=(100, 30))
 
 
-# ---- refusals collapse by reason ---------------------------------------------
-SEALED_AUG = (
-    "VALIDATION_ERROR — Transaction falls inside a sealed reconciliation period.\n"
-    "  account_id: Period 2026-07-24 to 2026-08-25 is sealed by completed "
-    "reconciliation 'August 2026'. Revert it to draft to change anything inside it."
-)
-SEALED_JUL = SEALED_AUG.replace("2026-07-24 to 2026-08-25", "2026-06-26 to 2026-07-23").replace(
-    "'August 2026'", "'July 2026'"
-)
+# ---- refused rows read one note per kind --------------------------------------
+# the LOG bar's and the sheet import's style (`formatting.grouped_refusals`),
+# Question 5 A of docs/mockups/expense-world-wording-picks.html
 
 
-def test_refusals_collapse_to_one_line_per_reason():
-    """Eight rows refused by two closed periods is two lines, not eight toasts.
-
-    The grouping key is the engine's sentence exactly as it arrived — the period
-    name is inside it and nothing here parses it out.
-    """
-    from expense.tui.screens.transactions import group_refusals
-
-    failed = [(f"t{n}", n, SEALED_AUG) for n in (1, 2, 3, 4, 5)]
-    failed += [(f"t{n}", n, SEALED_JUL) for n in (7, 8, 9)]
-    lines = group_refusals(failed)
-    assert len(lines) == 2
-    assert lines[0].startswith("rows 1, 2, 3, 4, 5: ")
-    assert "'August 2026'" in lines[0]
-    assert lines[1].startswith("rows 7, 8, 9: ") and "'July 2026'" in lines[1]
+def _sealed(period: str) -> EngineError:
+    return EngineError(
+        "VALIDATION_ERROR",
+        "Transaction falls inside a sealed reconciliation period.",
+        {"account_id": f"Period {period} is sealed by completed reconciliation."},
+        422,
+        {},
+        reasons={"account_id": "SEALED_PERIOD"},
+    )
 
 
-def test_one_refusal_still_reads_as_one_row():
-    from expense.tui.screens.transactions import group_refusals
+def test_refusals_collapse_to_one_note_per_kind():
+    """Eight rows refused by two closed periods is two notes, not eight toasts,
+    each the engine's words for the field, then the rows they hit. A kind is
+    the code, fields and reasons as the engine sent them (`errors.refusal_kind`):
+    nothing here reads the period out of the words."""
+    aug, jul = _sealed("2026-07-24 to 2026-08-25"), _sealed("2026-06-26 to 2026-07-23")
+    failed = [(f"t{n}", n, *refused_row(aug)) for n in (1, 2, 3, 4, 5)]
+    failed += [(f"t{n}", n, *refused_row(jul)) for n in (7, 8, 9)]
+    assert [_plain(note) for note in refusal_notes(failed)] == [
+        f"account_id: {aug.fields['account_id']}\nrows 1, 2, 3, 4, 5",
+        f"account_id: {jul.fields['account_id']}\nrows 7, 8, 9",
+    ]
 
-    assert group_refusals([("t2", 2, "nope")]) == ["row 2: nope"]
+
+def test_one_refusal_reads_as_one_row():
+    failed = [("t2", 2, *refused_row(EngineError("CONFLICT", "nope", None, 409, {})))]
+    assert [_plain(note) for note in refusal_notes(failed)] == ["CONFLICT — nope\nrow 2"]
 
 
-def test_a_long_refused_run_stops_listing_numbers_and_counts_them():
-    from expense.tui.screens.transactions import REFUSAL_ROWS_SHOWN, group_refusals
+def test_a_long_refused_run_names_every_row():
+    """As the LOG bar and the sheet import name them: every row, in order."""
+    failed = [(f"t{n}", n, *refused_row(_sealed("2026-08"))) for n in range(1, 13)]
+    (note,) = refusal_notes(failed)
+    assert _plain(note).endswith("\nrows 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12")
 
-    failed = [(f"t{n}", n, SEALED_AUG) for n in range(1, 13)]
-    (line,) = group_refusals(failed)
-    assert f"+{12 - REFUSAL_ROWS_SHOWN} more" in line
+
+def test_a_refusal_naming_no_row_keeps_its_words_and_names_no_row():
+    """A failure of the whole run arrives as `(None, 0, None, words)`: a note of
+    its own, never dressed up as a row; its other lines follow, dim."""
+    (note,) = refusal_notes([(None, 0, None, "could not reach engine\n\nHint: start it.")])
+    assert _plain(note) == "could not reach engine\nHint: start it."
+    assert note.endswith("[dim]Hint: start it.[/]")
 
 
-def test_a_chunk_level_refusal_with_no_row_number_keeps_its_message():
-    """A whole-run failure arrives as `(None, 0, message)` — it must not be
-    dressed up as a row."""
-    from expense.tui.screens.transactions import group_refusals
+def test_a_401_reads_whole_with_its_hint_and_names_its_rows():
+    """A refusal naming no key (`errors.is_keyed_refusal`) never reads as a
+    field's words: its code and message first, the rows under them, then the
+    app's hint, dim; rows that met it share the note."""
+    err = EngineError("UNAUTHORIZED", "Missing or invalid token.", None, 401, {})
+    failed = [(f"t{n}", n, *refused_row(err)) for n in (1, 3)]
+    (note,) = refusal_notes(failed)
+    assert _plain(note) == (
+        "UNAUTHORIZED — Missing or invalid token.\n"
+        "rows 1, 3\n"
+        "Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t)."
+    )
+    assert note.endswith("(press t).[/]") and "[dim]Hint:" in note
 
-    assert group_refusals([(None, 0, "could not reach engine")]) == ["could not reach engine"]
+
+def test_a_lost_connection_names_each_row_it_met_on_one_note():
+    from expense.errors import EngineConnectionError
+
+    lost = EngineConnectionError("http://127.0.0.1:8002", OSError("refused"))
+    failed = [(f"t{n}", n, *refused_row(lost)) for n in (2, 3)]
+    assert [_plain(note) for note in refusal_notes(failed)] == [
+        "could not reach engine at http://127.0.0.1:8002 (is it running?)\nrows 2, 3"
+    ]
+
+
+def test_the_engines_words_show_as_sent_and_in_the_error_colour():
+    """The note is content markup: a bracket in the engine's words is escaped,
+    and what was refused is in the error colour, the rows unstyled."""
+    err = EngineError("VALIDATION_ERROR", "x", {"title": "Not [b]this[/b]."}, 422, {})
+    (note,) = refusal_notes([("t1", 1, *refused_row(err))])
+    content = Content.from_markup(note)
+    assert content.plain == "title: Not [b]this[/b].\nrow 1"
+    first = len("title: Not [b]this[/b].")
+    assert [(span.start, span.end, str(span.style)) for span in content.spans] == [
+        (0, first, "$error")
+    ]
+
+
+def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, monkeypatch):
+    """Question 5 A of docs/mockups/expense-world-wording-picks.html: rows 1, 2
+    and 3 selected, `b` onto BCP Oro PEN, rows 1 and 3 in a completed
+    reconciliation. The receipt counts the row that moved; the refusal is one
+    note under "2 of 3 refused": the field and the engine's words for it, in the
+    error colour, then the rows, unstyled; the engine's first sentence left
+    out, as the LOG bar leaves it out. Read from the app's notifications, as
+    the toasts show them."""
+    _stub_ledger(monkeypatch)
+    _answer_moves(fake_client, [ITEMS[1]])
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith(("/t1", "/t3")):
+            raise EngineError(
+                "VALIDATION_ERROR",
+                "Fields are locked by a completed reconciliation.",
+                {"account_id": "Locked by completed reconciliation."},
+                422,
+                {},
+                reasons={"account_id": "LOCKED"},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        await _open(app, pilot, screen)
+        await pilot.press("space", "down", "space", "down", "space")
+        await wait_for(pilot, lambda: screen._selected == {"t1", "t2", "t3"})
+        await pilot.press("b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: len(app._notifications) == 2)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+        receipt, refused = list(app._notifications)
+        assert (receipt.title, receipt.message) == ("", "1 row → BCP Oro PEN")
+        assert (refused.title, refused.severity) == ("2 of 3 refused", "error")
+        note = Content.from_markup(refused.message) if refused.markup else None
+        assert note is not None
+        assert note.plain == "account_id: Locked by completed reconciliation.\nrows 1, 3"
+        said = len("account_id: Locked by completed reconciliation.")
+        assert [(span.start, span.end, str(span.style)) for span in note.spans] == [
+            (0, said, "$error")
+        ]
+        assert screen._selected == {"t1", "t3"}
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_b_met_by_a_5xx_reads_whole_on_one_note(fake_client, monkeypatch):
+    """`b` on three rows, each `PUT` answered by a `500` naming nothing: one
+    note, the engine's code and message first, then every row it met."""
+    _stub_ledger(monkeypatch)
+
+    def put(path, json_body=None):
+        raise EngineError("INTERNAL_ERROR", "Something went wrong.", None, 500, {})
+
+    fake_client.put = put
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: bool(toasts))
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert [(t, _plain(m)) for t, m in toasts] == [
+            ("3 of 3 refused", "INTERNAL_ERROR — Something went wrong.\nrows 1, 2, 3")
+        ]
+        assert screen._selected == {"t1", "t2", "t3"}
+
+    run_app(scenario, size=(120, 30))
 
 
 def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
@@ -1026,8 +1155,10 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
         assert len(refusals) == 1
         title, message = refusals[0]
         assert title == "3 of 3 refused"
-        assert message.startswith("rows 1, 2, 3: ")
-        assert "'August 2026'" in message
+        assert _plain(message) == (
+            "account_id: Period … is sealed by completed reconciliation 'August 2026'.\n"
+            "rows 1, 2, 3"
+        )
         assert screen._selected == {"t1", "t2", "t3"}  # all stay selected for the retry
 
     run_app(scenario, size=(120, 30))
@@ -1098,14 +1229,15 @@ def test_h_with_the_pending_hashtag_alone_sends_it_alone(fake_client, monkeypatc
 
 @pytest.mark.parametrize(("code", "status", "reason", "line"), HASHTAG_REFUSALS)
 def test_a_hashtag_refusal_on_h_shows_as_sent(fake_client, monkeypatch, code, status, reason, line):
-    """The "Refused" note names the row, then the engine's words whole and
-    its line if the reason has one."""
+    """The "Refused" note gives the engine's words for the field, then the row,
+    then its line if the reason has one."""
     err = hashtag_refusal(code, status, reason)
     fake_client.errors["PUT"] = err
     toasts = _pick_tags(
         fake_client, monkeypatch, ["com"], settle=lambda t: any(x == "Refused" for x, _ in t)
     )
-    assert ("Refused", f"row 1: {refusal_text(err, line)}") in toasts
+    said = "hashtag_ids: stand-in field words\nrow 1" + (f"\n{line}" if line else "")
+    assert [_plain(m) for t, m in toasts if t == "Refused"] == [said]
 
 
 # ---- the bulk keys on parts of a split purchase -----------------------------
@@ -1353,7 +1485,9 @@ def test_b_counts_only_the_answers_that_landed(fake_client, monkeypatch):
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert ("", "2 rows → BCP Oro PEN · 2 left their reconciliation") in toasts
-        assert next(m for t, m in toasts if t == "Refused").startswith("row 2: CONFLICT")
+        assert _plain(next(m for t, m in toasts if t == "Refused")) == (
+            "CONFLICT — Operation code already exists.\nrow 2"
+        )
         assert screen._selected == {"p1"}
 
     run_app(scenario, size=(120, 30))

@@ -20,10 +20,6 @@ a style of its own, and its pick is a pop-up though it carries rows.
 1. **A non-date on the Edit form's DATE is refused at `⏎`** with "Date: use YYYY-MM-DD.", the
    words the app's other date lines use, and never crashes the app (pick 2 D). The same on the
    bank-line Edit form, which shares the form.
-4. **One style for refused rows.** The bulk edit's `group_refusals`
-   ([transactions.py](../../expense/tui/screens/transactions.py)) gives way to the shared
-   `grouped_refusals` ([formatting.py](../../expense/formatting.py)). Passes if: a unit test of
-   `b` on three rows, two refused, shows the shared style; no second grouping helper is left.
 5. **The bulk pick as a full screen.** `PickerModal`
    ([modals.py](../../expense/tui/screens/modals.py)) gives way to a pushed screen as pick 6 B
    draws it; the rows above the bar

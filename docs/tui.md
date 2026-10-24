@@ -248,7 +248,8 @@ to set the category, move to an account, or **replace** the hashtag set. The wri
 one `PUT /transactions/{id}` per row, in order, on one client, then the list reads fresh
 from the newest 10 with the cursor on row 1: on a filtered list the changed rows **leave
 at once**, the toast `3 rows → KORAKUEN` is the receipt, and a refused row (an account
-move a completed reconciliation locks) is named by number and does not stop the others.
+move a completed reconciliation locks) is named by number and does not stop the others,
+in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
 ([runtime.md](runtime.md) "Bulk writes"): the rows after it are never sent, and stay
 selected with the refused one.
@@ -321,7 +322,7 @@ in the categories list the form already reads (`QuickAddRefs.opening` in
 `category` and `hashtags` (`—`) dimmed and marked `read-only`, every field move (`tab`,
 `shift+tab` and the arrows) skips them, and the save never sends them; date, title, amount
 and note save as on any row. `b`, `c` and `h` send such a row like any other, and the engine
-refuses it: its "Refused" note is the engine's words, then the line saying what to do
+refuses it: its "Refused" note is the engine's words for the field, the row, then the line saying what to do
 ("When the engine says no" below), the other rows still go, and the refused row stays
 selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
 @Opening.
@@ -809,7 +810,8 @@ or the pending hashtag draws when sent a new name, and the one a hashtag draws w
 like the pending hashtag. The note it draws (a
 toast, a LOG bar row, the bank import's preview, the split screen's parts) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field; a LOG bar row the engine names reads
-`key: …` for each refused field, without the code and message, "Saved" below), and for the
+`key: …` for each refused field, without the code and message, and so does a ledger row
+refused by `b`, `c` or `h`, "Saved" below), and for the
 reasons below a blank line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
@@ -893,6 +895,24 @@ what was refused in the error colour, then the rows it hit, unstyled — `row 2`
 - **A save the connection stopped** puts its words on every row it left unsent: one line,
   those rows after it. A save a refusal of every further write stopped is said once, in a
   toast, on no row ([runtime.md](runtime.md) "Bulk writes").
+
+**The ledger's bulk edit reads its refused rows the same way** (`b`, `c`, `h`; Question 5 A of
+[expense-world-wording-picks.html](mockups/expense-world-wording-picks.html)), through the same
+grouping (`refusal_notes` in [transactions.py](../expense/tui/screens/transactions.py)): one
+toast per kind of refusal, titled `Refused`, or `2 of 3 refused` when more than one row was
+refused, holding what was refused in the error colour, the rows under it, unstyled, as the list
+numbered them before the write, and the app's line saying what to do, dim. Every row it
+hit is named. A refusal with no field words (a `401`, `404` or `5xx`, or a `409`/`422`
+naming no key; `errors.is_keyed_refusal`) reads whole, as a refusal naming no row: the
+engine's code and message first, the rows it met under them, its field lines and the app's
+line after. A refusal of every further write (`SETTINGS_MISSING`) reads whole too and names no
+row; a lost connection reads in the shared text, the rows it met under it.
+
+```
+2 of 3 refused
+account_id: Locked by completed reconciliation.
+rows 1, 3
+```
 
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank

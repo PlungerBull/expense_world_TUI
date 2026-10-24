@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any
@@ -108,6 +108,34 @@ def row_words(err: EngineError) -> str:
     count there, not words for one row."""
     pairs = [f"{key}: {text}" for key, text in (err.fields or {}).items()]
     return ROW_FIELD_JOINER.join(pairs) if pairs else err.message
+
+
+def is_keyed_refusal(err: EngineError) -> bool:
+    """True for a `409`/`422` that names what it refused by key, in `fields` or
+    `reasons`: the only refusal a row's words (`row_words`) can say. Any other
+    (a `401`, `403`, `404`, `5xx`, or a refusal naming no key) reads whole, its
+    code and message first (`format_error`)."""
+    return err.status in (409, 422) and bool(err.fields or err.reasons)
+
+
+def row_note(err: EngineError) -> str:
+    """What a refused row of several writes shows, as a line of refusals grouped
+    by kind holds it: the engine's words for the row (`row_words`), then the
+    app's lines under them (`app_lines`), one per line. The LOG bar's rows and
+    the ledger's bulk edit both say a refused row this way."""
+    return "\n".join([row_words(err), *app_lines(err)])
+
+
+def refusal_kind(err: EngineError) -> Hashable:
+    """Two refusals of one kind read the same for their rows, so a line of
+    refusals grouped by kind says them once: the same code, `fields` and
+    `reasons`, each keyed by field. The top-level message is left out of it,
+    since a refusal naming several items gives their count there."""
+    return (
+        err.code,
+        tuple(sorted((str(k), str(v)) for k, v in (err.fields or {}).items())),
+        tuple(sorted((str(k), str(v)) for k, v in (err.reasons or {}).items())),
+    )
 
 
 #: The codes whose refusals always name the rule that fired: `fields` and

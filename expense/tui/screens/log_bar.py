@@ -81,7 +81,7 @@ from textual.widgets import Footer, Input, Label, Static
 from expense import reads
 from expense.batch_write import BatchFailure, BatchOutcome, RowResult, post_transaction_batch
 from expense.dates import now_local_iso, to_canonical_aware, today_local
-from expense.errors import EngineConnectionError, app_lines, format_error, row_words
+from expense.errors import EngineConnectionError, format_error, row_note
 from expense.formatting import (
     format_cents,
     format_hashtag_cell,
@@ -501,16 +501,15 @@ def staged_summary(
 
 def _said(failure: BatchFailure | None) -> tuple[str | None, Hashable | None]:
     """What a refused row shows under the table, and its kind
-    (`BatchFailure.kind`): the engine's words for the row (`errors.row_words`)
-    with the app's line saying what to do under them, or a refusal naming no
+    (`BatchFailure.kind`): the engine's words for the row with the app's line
+    saying what to do under them (`errors.row_note`), or a refusal naming no
     row whole (`format_error`). Nothing for no failure. The bar sends no
     `line_group`, so no row fails for another."""
     if failure is None:
         return None, None
     if failure.whole_chunk:
         return failure.message, failure.kind
-    err = failure.error
-    return "\n".join([row_words(err), *app_lines(err)]), failure.kind
+    return row_note(failure.error), failure.kind
 
 
 def save_errors(entries: list[Staged], *, palette: Palette | None = None) -> RenderableType:

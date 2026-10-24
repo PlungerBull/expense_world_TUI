@@ -50,20 +50,30 @@ filtered ledger is back to Home, never to the unfiltered ledger).
 `@Pendiente` is a row on Home, and `⏎` on it is the filter.
 """
 
+from collections.abc import Hashable
 from typing import NamedTuple
 
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
+from textual.markup import escape
 from textual.widget import Widget
 from textual.widgets import Static
 
 from expense import reads
-from expense.errors import format_error, refuses_every_write
+from expense.errors import (
+    EngineError,
+    format_error,
+    is_keyed_refusal,
+    refusal_kind,
+    refuses_every_write,
+    row_note,
+)
 from expense.formatting import (
     bank_line_part_count,
     format_hashtag_cell,
     format_short_date,
+    grouped_refusals,
     resolve_name,
 )
 from expense.reads import (
@@ -176,40 +186,48 @@ def legend_text(filter: LedgerFilter | None, loaded: int, total: int | None, sel
     return " · ".join(parts)
 
 
-#: Row numbers listed in full before a refusal summary starts counting instead.
-REFUSAL_ROWS_SHOWN = 8
+#: A refused row of the bulk edit: its key, its place on the list (0 for none),
+#: its kind and its words, as `refused_row` gives them.
+RefusedRow = tuple[object, int, Hashable | None, str]
 
 
-def group_refusals(failed: list[tuple[object, int, str]]) -> list[str]:
-    """One line per distinct reason — `rows 1, 2, 3: <the engine's message>`.
+def refused_row(exc: Exception) -> tuple[Hashable | None, str]:
+    """The kind and the words of one row's refused write, as
+    `formatting.grouped_refusals` takes them.
 
-    A bulk account move across a sealed month refuses every row it touches for
-    the *same* reason; one toast per row would repeat one sentence N times.
+    A refusal naming what it refused by key (`errors.is_keyed_refusal`) reads
+    in the engine's words for the row, the app's lines under them
+    (`errors.row_note`), and rows refused alike share a kind
+    (`errors.refusal_kind`). A refusal every further write would draw too
+    (`errors.refuses_every_write`) is about the account, not the row: it reads
+    whole (`format_error`) on a line of its own naming no row, as the LOG bar
+    says one. Anything else (a `401`, a `5xx`, a refusal naming no key, a lost
+    connection) reads whole in the shared text, code and message first, as the
+    LOG bar says a refusal naming no row, and rows that met the same words
+    share a line."""
+    if refuses_every_write(exc):
+        return None, format_error(exc)
+    if isinstance(exc, EngineError) and is_keyed_refusal(exc):
+        return refusal_kind(exc), row_note(exc)
+    words = format_error(exc)
+    return ("text", words), words
 
-    Grouping is by the message **as the engine wrote it**, never by anything read
-    out of it. The period's name lives inside that sentence and nothing here goes
-    looking for it: identical refusals collapse because the strings are equal.
-    """
-    order: list[str] = []
-    rows: dict[str, list[int]] = {}
-    for _key, number, message in failed:
-        if message not in rows:
-            order.append(message)
-            rows[message] = []
-        if number:
-            rows[message].append(number)
-    lines = []
-    for message in order:
-        numbers = rows[message]
-        if not numbers:
-            lines.append(message)
-            continue
-        shown = ", ".join(str(n) for n in numbers[:REFUSAL_ROWS_SHOWN])
-        if len(numbers) > REFUSAL_ROWS_SHOWN:
-            shown += f" +{len(numbers) - REFUSAL_ROWS_SHOWN} more"
-        label = "row" if len(numbers) == 1 else "rows"
-        lines.append(f"{label} {shown}: {message}")
-    return lines
+
+def refusal_notes(failed: list[RefusedRow]) -> list[str]:
+    """One note per kind of refusal, not one per row, in the style the LOG bar
+    and the sheet import share (`formatting.grouped_refusals`): what was
+    refused in the error colour, the rows it hit under it (`row 2`, or
+    `rows 1, 3`), then the app's lines, dim. Content markup, with the words
+    escaped, so a bracket in the engine's words shows as the engine sent it."""
+    refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
+    notes = []
+    for first, rows, rest in grouped_refusals(refusals):
+        lines = [f"[$error]{escape(first)}[/]"]
+        if rows:
+            lines.append(rows)
+        lines.extend(f"[dim]{escape(line)}[/]" for line in rest)
+        notes.append("\n".join(lines))
+    return notes
 
 
 def bulk_receipt(count: int, label: str, left: int = 0) -> str:
@@ -637,7 +655,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
         answers: list[dict] = []
-        failed: list[tuple[object, int, str]] = []
+        failed: list[RefusedRow] = []
         unsent: list[object] = []
         try:
             cfg = config_module.ensure_loaded()
@@ -646,12 +664,12 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                     try:
                         answers.append(client.put(f"/transactions/{key}", json_body=body))
                     except Exception as exc:
-                        failed.append((key, numbers.get(key, 0), format_error(exc)))
+                        failed.append((key, numbers.get(key, 0), *refused_row(exc)))
                         if refuses_every_write(exc):
                             unsent = [later for later, _body in writes[sent:]]
                             break
         except Exception as exc:
-            failed.append((None, 0, format_error(exc)))
+            failed.append((None, 0, None, format_error(exc)))
         count, left = moved_parts(answers) if move else (len(answers), 0)
         self.app.call_from_thread(
             self._bulk_finished, len(answers), failed, label, left, unsent, count
@@ -660,7 +678,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
     def _bulk_finished(
         self,
         done: int,
-        failed: list,
+        failed: list[RefusedRow],
         label: str,
         left: int = 0,
         unsent: tuple | list = (),
@@ -673,18 +691,17 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         rows = done if count is None else count
         if rows:
             self.notify(bulk_receipt(rows, label, left))
-        # One toast per distinct reason, not per row — see `group_refusals`.
-        lines = group_refusals(failed)
+        # One toast per kind of refusal, not per row — see `refusal_notes`.
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
-        for line in lines:
-            self.notify(line, title=head, severity="error", timeout=10)
+        for note in refusal_notes(failed):
+            self.notify(note, title=head, severity="error", timeout=10)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key
         # retries exactly it; one past the newest 10 is dropped by `build`.
         # So does a row never sent because an account-wide refusal stopped the
         # run: the retry covers the refused row and every row after it.
-        self._selected = {key for key, _n, _m in failed if key is not None} | set(unsent)
+        self._selected = {key for key, *_ in failed if key is not None} | set(unsent)
         self._reload_fresh()
 
     # ---- single-row doors ----------------------------------------------------
