@@ -35,6 +35,7 @@ from tests.unit.helpers import (
     import_part,
     in_order,
     line_code_of,
+    put_answer,
     refusal_text,
     render_text,
     run_app,
@@ -310,30 +311,66 @@ def _move_and_save(record, account_text, fake_client, monkeypatch, *, settle):
     return notices, seen
 
 
-def test_moving_an_assigned_row_unassigns_it_and_says_so(fake_client, monkeypatch):
-    notices, _seen = _move_and_save(
-        ASSIGNED, "BCP USD", fake_client, monkeypatch, settle=lambda s, n: n
-    )
-    assert fake_client.puts == [
-        ("/transactions/tx1", {"account_id": "acc2", "reconciliation_id": None})
-    ]
-    assert ("", "Saved. It left its reconciliation.") in notices
+#: The other part of TXN's bank line, for the answers that list both parts.
+OTHER_PART = {**TXN, "id": "tx1b", "amount_cents": -1000}
 
 
-def test_moving_an_unassigned_row_still_sends_the_unassign_and_says_saved(fake_client, monkeypatch):
-    """No path sends an account change without `reconciliation_id`; the note
-    speaks only when the row was in a reconciliation."""
-    notices, _seen = _move_and_save(
-        {**TXN, "reconciliation_id": None},
-        "BCP USD",
-        fake_client,
-        monkeypatch,
-        settle=lambda s, n: n,
-    )
+def _moved(part: dict) -> dict:
+    return {**part, "account_id": "acc3", "reconciliation_id": None, "version": 2}
+
+
+@pytest.mark.parametrize(
+    ("record", "answer", "note"),
+    [
+        pytest.param(
+            ASSIGNED,
+            put_answer(_moved(TXN), [_moved(TXN), _moved(OTHER_PART)], left=("tx1", "tx1b")),
+            "Saved. It left its reconciliation.",
+            id="answer-flags-the-row",
+        ),
+        pytest.param(
+            {**TXN, "reconciliation_id": None},
+            put_answer(_moved(TXN), [_moved(TXN), _moved(OTHER_PART)], left=("tx1b",)),
+            "Saved. It left its reconciliation.",
+            id="answer-flags-another-part-the-read-showed-unassigned",
+        ),
+        pytest.param(
+            ASSIGNED,
+            put_answer(_moved(TXN), [_moved(TXN), _moved(OTHER_PART)]),
+            "Saved.",
+            id="answer-lists-parts-flags-none",
+        ),
+        pytest.param(ASSIGNED, put_answer(_moved(TXN), []), "Saved.", id="answer-lists-none"),
+    ],
+)
+def test_the_saved_note_reads_the_engines_answer(fake_client, monkeypatch, record, answer, note):
+    """Typed key by key: `⏎` past date, title and amount, `Ahorros` on ACCOUNT,
+    `ctrl+s`. Every account change sends `reconciliation_id: null`, and the note
+    says the row left its reconciliation only when the answer's `changed_parts`
+    flags a part (contract: PUT /v1/transactions/{transaction_id}, "Response"):
+    never from the row as read before the save, so a row read as assigned whose
+    answer flags none says `Saved.`, and one read as unassigned whose answer flags
+    a part says it left."""
+    _patch(monkeypatch)
+    notices = _record_notices(monkeypatch)
+    fake_client.write_responses["/transactions/tx1"] = answer
+
+    async def scenario(pilot, app):
+        screen = EditFormScreen(record=record, resource="transactions")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await pilot.press("enter", "enter", "enter")  # date, title, amount: kept
+        await wait_for(pilot, lambda: screen._key == "account")
+        await pilot.press(*"Ahorros", "enter")
+        await wait_for(pilot, lambda: screen._key != "account")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: notices)
+
+    run_app(scenario)
     assert fake_client.puts == [
-        ("/transactions/tx1", {"account_id": "acc2", "reconciliation_id": None})
+        ("/transactions/tx1", {"account_id": "acc3", "reconciliation_id": None})
     ]
-    assert ("", "Saved.") in notices
+    assert notices == [("", note)]
 
 
 def test_an_edit_that_keeps_the_account_sends_no_reconciliation_id(fake_client, monkeypatch):
@@ -1407,7 +1444,6 @@ def test_an_account_set_under_the_lock_adds_no_unassign(fake_client, monkeypatch
         screen._current = screen._sequence().index("note")
         _enter(screen, "otra receta")
         await wait_for(pilot, lambda: notices)
-        assert not screen._leaves_reconciliation
 
     run_app(scenario)
     assert fake_client.puts == [("/transactions/tx1", {"description": "otra receta"})]

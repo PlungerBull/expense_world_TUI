@@ -290,10 +290,12 @@ write changed and whether it left its reconciliation
 (contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
 across the answers that landed and those flagged as leaving — `3 rows → BCP USD · 2 left their
 reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
-(`moved_parts` in [transactions.py](../expense/tui/screens/transactions.py)). A row already on
+(`moved_parts` in [edit_form.py](../expense/tui/screens/edit_form.py)). A row already on
 the picked account lists no part, so it is not counted, and a move that changes nothing shows
-no receipt; a refused row is still named. The edit form says `Saved. It left its
-reconciliation.` instead of `Saved.` when its move takes the row out of one.
+no receipt; a refused row is still named. The edit form reads its save's answer the same way
+(`moved_parts`): it says `Saved. It left its reconciliation.` when the answer flags any part as
+leaving, and `Saved.` when `changed_parts` is `[]` or flags none, never judging from the row as
+read before the save.
 **An emptied note empties it.** `⏎` on an emptied NOTE empties the note: the save sends
 `description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
 (contract: PUT /v1/transactions/{transaction_id}). On a row with no note it is no change.
@@ -521,7 +523,8 @@ write, while the amount stays the part's own
 sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/transactions/{transaction_id}); a changed account also sends
 `reconciliation_id: null` (`unassign_on_move`, as on the ledger's form). Saved, the note
-reads `Saved.` and "no batch" reads its newest ten again, cursor on row 1; a row whose date
+is the ledger's form's — `Saved.`, or `Saved. It left its reconciliation.` when the answer
+flags a part as leaving — and "no batch" reads its newest ten again, cursor on row 1; a row whose date
 or account moved it out of the list is gone. A refusal is the engine's words in the
 "Failed" note, with the line saying what to do when it has one (`format_error`), the form
 still open; `esc` sends nothing and keeps the list and its cursor.

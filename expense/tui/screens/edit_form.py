@@ -23,6 +23,9 @@ Reached by `⏎` on a row in Transactions. Sequence:
 Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
 only the changed fields; a changed account also sends `reconciliation_id: null`,
 so the move takes the row out of its reconciliation (`unassign_on_move`).
+Saved, the note says `Saved. It left its reconciliation.` when the engine's
+answer flags a part of the line as leaving one, and `Saved.` otherwise
+(`moved_parts`) (contract: PUT /v1/transactions/{transaction_id}, "Response").
 A hashtag set that names a real hashtag never carries the pending one: the
 moment a real hashtag is added, the pending one leaves the `hashtags` line, and
 the save sends only the real hashtags (`hashtags_to_send`, the same helper for
@@ -148,7 +151,7 @@ _ENGINE_FIELD = {
 }
 
 
-def unassign_on_move(payload: dict, record: dict) -> bool:
+def unassign_on_move(payload: dict, record: dict) -> None:
     """Make an account move take the row out of its reconciliation.
 
     A PUT that changes `account_id` on a row assigned to a draft reconciliation
@@ -159,14 +162,35 @@ def unassign_on_move(payload: dict, record: dict) -> bool:
     row's is not a move and gains nothing, so the row keeps its reconciliation.
     A row in a completed reconciliation is still refused as `LOCKED`.
 
-    Returns True when the row was assigned and this write takes it out — the
-    caller's note says so. Mutates `payload`; shared by the edit form and the
-    ledger's bulk `b`.
+    Whether a part did leave its reconciliation is the engine's answer to say
+    (`moved_parts`). Mutates `payload`; shared by the edit form and the ledger's
+    bulk `b`.
     """
-    if "account_id" not in payload or payload["account_id"] == record.get("account_id"):
-        return False
-    payload["reconciliation_id"] = None
-    return record.get("reconciliation_id") is not None
+    if "account_id" in payload and payload["account_id"] != record.get("account_id"):
+        payload["reconciliation_id"] = None
+
+
+def moved_parts(answers: list[dict]) -> tuple[int, int]:
+    """(parts moved, parts that left their reconciliation) across the answers
+    of one or more `PUT /transactions/{id}`, each part counted once by its id.
+
+    Every answer lists in `changed_parts` each part of the bank line whose line
+    field the write changed, and flags `left_reconciliation` on a part that was
+    in a reconciliation before and is in none or another after
+    (contract: PUT /v1/transactions/{transaction_id}, "Response"). Moving both
+    parts of a line lists both in the first answer and none in the second, so the
+    move counts 2. Shared by the ledger's bulk `b` (its receipt) and the edit
+    form (its note).
+    """
+    moved: set[object] = set()
+    left: set[object] = set()
+    for answer in answers:
+        for entry in answer.get("changed_parts", []):
+            key = entry["transaction"]["id"]
+            moved.add(key)
+            if entry["left_reconciliation"]:
+                left.add(key)
+    return len(moved), len(left)
 
 
 class EditFormScreen(FormScreen):
@@ -181,7 +205,7 @@ class EditFormScreen(FormScreen):
         self._hashtags: list = []
         self._pending_tag: str | None = None
         self._original: dict = {}
-        self._leaves_reconciliation = False
+        self._left_reconciliation = False  # the save's answer flags a part as leaving
         self._split_part = False  # the engine reads this row's bank line as > 1 part
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
@@ -456,7 +480,7 @@ class EditFormScreen(FormScreen):
         if not payload:
             self.notify("No changes to save.")
             return None
-        self._leaves_reconciliation = unassign_on_move(payload, self._record)
+        unassign_on_move(payload, self._record)
         return ("PUT", f"/{self._resource}/{self._record['id']}", payload, "Saving…")
 
     def _edit_payload(self) -> dict:
@@ -484,8 +508,12 @@ class EditFormScreen(FormScreen):
                 payload[engine_field] = new
         return payload
 
+    def _answered(self, body: dict) -> None:
+        # the note reads the engine's answer, never the row as read before the save
+        self._left_reconciliation = moved_parts([body])[1] > 0
+
     def _done(self) -> None:
-        left = self._leaves_reconciliation
+        left = self._left_reconciliation
         self.notify("Saved. It left its reconciliation." if left else "Saved.")
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 

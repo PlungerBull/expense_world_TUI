@@ -46,10 +46,7 @@ no part, not even the one named.
 
 Drafted by the orchestrator; approved by the owner on 2026-10-24.
 
-3. **The Edit form reads `left_reconciliation`.** In
-   [edit_form.py](../../expense/tui/screens/edit_form.py). Passes if: a unit test shows "Saved.
-   It left its reconciliation." when the answer flags a part, and "Saved." when `changed_parts`
-   is `[]` or flags none; the old before-the-save check is gone.
+Every task is done; the acceptance check and the doc sweep follow.
 
 ---
 

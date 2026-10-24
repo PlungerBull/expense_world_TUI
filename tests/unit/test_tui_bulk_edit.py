@@ -13,6 +13,7 @@ import expense.tui.screens.transactions as tx_mod
 from expense.errors import EngineError
 from expense.reads import AccountIndex, QuickAddRefs, load_quickadd_refs
 from expense.tui.screens.accounts import AccountsScreen
+from expense.tui.screens.edit_form import moved_parts
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.transactions import (
     SELECTED_MARK,
@@ -21,7 +22,6 @@ from expense.tui.screens.transactions import (
     bulk_receipt,
     legend_text,
     mark_selected,
-    moved_parts,
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
@@ -801,8 +801,8 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
         await pilot.press("space", "down", "space", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
         await pilot.press("o", "r", "o", "enter")
-        await wait_for(pilot, lambda: not screen._bulk_busy)
-        await pilot.pause()
+        # every toast of the run is in once the refusal's is: one call puts them up
+        await wait_for(pilot, lambda: any(title == "Refused" for title, _m in toasts))
         assert [p for p, _b in fake_client.puts] == ["/transactions/t2"]
         assert len(toasts) == 1
         title, message = toasts[0]

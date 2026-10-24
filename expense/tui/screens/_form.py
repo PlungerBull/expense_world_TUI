@@ -153,6 +153,10 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         """(method, path, payload, busy-hint) for the write; None aborts."""
         return ("POST", f"/{self.RESOURCE}", self._payload(), "Creating…")
 
+    def _answered(self, body: dict) -> None:
+        """The engine's answer to the save (UI thread), before `_done`; a form
+        whose note reads the answer overrides it. The default reads nothing."""
+
     def _done(self) -> None:
         """Success callback (UI thread) — toast + dismiss."""
         raise NotImplementedError
@@ -325,7 +329,12 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         self._submitting = True
         self.query_one("#hint", Static).update(Text(busy, style="dim"))
         self.run_write(
-            method, path, json_body=payload, on_success=self._done, on_error=self._failed
+            method,
+            path,
+            json_body=payload,
+            on_success=self._done,
+            on_error=self._failed,
+            on_response=self._answered,
         )
 
     def _failed(self, message: str) -> None:

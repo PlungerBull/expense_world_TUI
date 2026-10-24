@@ -86,7 +86,7 @@ from expense.tui.screens._base import (
     transaction_delete_message,
 )
 from expense.tui.screens._growing import GrowingRead, read_first
-from expense.tui.screens.edit_form import EditFormScreen, unassign_on_move
+from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
 from expense.tui.screens.modals import PickerModal
 from expense.tui.screens.split import SplitScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
@@ -237,27 +237,6 @@ def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object,
         unassign_on_move(body, by_id.get(key) or {})
         writes.append((key, body))
     return writes
-
-
-def moved_parts(answers: list[dict]) -> tuple[int, int]:
-    """(parts moved, parts that left their reconciliation) across the answers
-    of a move's `PUT`s, each part counted once by its id.
-
-    Every answer lists in `changed_parts` each part of the bank line whose line
-    field the write changed, and flags `left_reconciliation` on a part that was
-    in a reconciliation before and is in none or another after
-    (contract: PUT /v1/transactions/{transaction_id}, "Response"). Moving both
-    parts of a line lists both in the first answer and none in the second, so the
-    move counts 2."""
-    moved: set[object] = set()
-    left: set[object] = set()
-    for answer in answers:
-        for entry in answer.get("changed_parts", []):
-            key = entry["transaction"]["id"]
-            moved.add(key)
-            if entry["left_reconciliation"]:
-                left.add(key)
-    return len(moved), len(left)
 
 
 class TransactionsScreen(LogTransactionMixin, SectionScreen):
@@ -692,7 +671,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         changed nothing (`count` 0) shows no receipt; its refusals still show."""
         self._bulk_busy = False
         rows = done if count is None else count
-        if done and rows:
+        if rows:
             self.notify(bulk_receipt(rows, label, left))
         # One toast per distinct reason, not per row — see `group_refusals`.
         lines = group_refusals(failed)
