@@ -660,7 +660,7 @@ whose rows differ on account, date or title, or with a row the import cannot rea
 whole as `split-mismatch` and named under the `Skipped` line, and the rest imports; once the
 sheet is fixed, a re-run brings the group in. A zero-amount row is only dropped, since it
 changes nothing. (4) **The dry run counts the groups in one line**
-(`9 split transactions (30 rows) come in as one movement each.`); the groups are checked in the
+(`9 split transactions (18 rows) come in as one movement each.`); the groups are checked in the
 app after the import. (5) **A refused batch is read item by item:** a row named `ID_EXISTS` on
 its own id is already there, a row named by another refusal fails, and the rest go again as one
 batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests

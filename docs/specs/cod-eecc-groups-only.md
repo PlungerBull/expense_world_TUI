@@ -38,8 +38,8 @@ statement line.
 
 ## How the owner knows it is done
 
-1. A dry run on the sheet still prints `Parsed 4188 transactions to import, as 4167 movements.`
-   and `9 split transactions (30 rows) come in as one movement each.`
+1. A dry run on the sheet still prints `Parsed 4184 transactions to import, as 4175 movements.`
+   and `9 split transactions (18 rows) come in as one movement each.`
 2. After an import into the practice engine, every split purchase is one transaction with its
    parts, and no imported row shows a statement line.
 3. [commands.md](../commands.md) describes `COD_EECC` as the grouping column only.
