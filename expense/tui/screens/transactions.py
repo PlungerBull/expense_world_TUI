@@ -19,7 +19,9 @@ when nothing is selected. Each opens `PickerModal`; the write is one
 reconciliation, and a hashtag pick that names a real hashtag drops the pending
 one (`hashtags_to_send`) (contract: PUT /v1/transactions/{transaction_id}) — and
 then the list reads fresh from the newest 10, so on a filtered list the changed
-rows leave at once. A refused row is named by its number;
+rows leave at once. The receipt of a move counts the parts the engine's answers
+list as moved (`moved_parts`), nothing read to count them, and a move that
+changes nothing shows no receipt. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
@@ -222,8 +224,8 @@ def bulk_receipt(count: int, label: str, left: int = 0) -> str:
     return receipt
 
 
-def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object, dict, bool]]:
-    """(id, PUT body, leaves its reconciliation) per target row.
+def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object, dict]]:
+    """(id, PUT body) per target row.
 
     Each row gets its own copy of `payload`; an account move adds
     `reconciliation_id: None` only to the rows whose account changes
@@ -232,9 +234,30 @@ def bulk_writes(targets: list, payload: dict, by_id: dict) -> list[tuple[object,
     writes = []
     for key in targets:
         body = dict(payload)
-        leaves = unassign_on_move(body, by_id.get(key) or {})
-        writes.append((key, body, leaves))
+        unassign_on_move(body, by_id.get(key) or {})
+        writes.append((key, body))
     return writes
+
+
+def moved_parts(answers: list[dict]) -> tuple[int, int]:
+    """(parts moved, parts that left their reconciliation) across the answers
+    of a move's `PUT`s, each part counted once by its id.
+
+    Every answer lists in `changed_parts` each part of the bank line whose line
+    field the write changed, and flags `left_reconciliation` on a part that was
+    in a reconciliation before and is in none or another after
+    (contract: PUT /v1/transactions/{transaction_id}, "Response"). Moving both
+    parts of a line lists both in the first answer and none in the second, so the
+    move counts 2."""
+    moved: set[object] = set()
+    left: set[object] = set()
+    for answer in answers:
+        for entry in answer.get("changed_parts", []):
+            key = entry["transaction"]["id"]
+            moved.add(key)
+            if entry["left_reconciliation"]:
+                left.add(key)
+    return len(moved), len(left)
 
 
 class TransactionsScreen(LogTransactionMixin, SectionScreen):
@@ -612,47 +635,65 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             payload = {BULK_FIELDS[kind]: picked}
         self._bulk_busy = True
         self.refresh_bindings()
-        self._bulk_write(bulk_writes(targets, payload, self._by_id), label)
+        self._bulk_write(bulk_writes(targets, payload, self._by_id), label, kind == "account")
 
     # ---- the bulk write -------------------------------------------------------
     @work(thread=True, group="engine-write")
-    def _bulk_write(self, writes: list[tuple[object, dict, bool]], label: str) -> None:
+    def _bulk_write(self, writes: list[tuple[object, dict]], label: str, move: bool) -> None:
         """One PUT per row, in order, on one client; a refused row is kept by
         number and the rest go through — unlike `run_write`'s queue, which
         drops the remainder on the first error, because here every row's
         intent is independent of its neighbours'. An account-wide refusal
         (`errors.refuses_every_write`) is the exception: every later row would
-        draw it too, so the run stops there and the rows after it are never sent."""
+        draw it too, so the run stops there and the rows after it are never sent.
+
+        The receipt counts what landed. A move (`move`) counts the parts the
+        engine says it moved, and those that left their reconciliation, across
+        the answers that came back (`moved_parts`); a category or hashtag pick
+        reaches only the part it names
+        (contract: PUT /v1/transactions/{transaction_id}, "Line fields"), so it
+        counts the writes that landed."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
-        done = left = 0
+        answers: list[dict] = []
         failed: list[tuple[object, int, str]] = []
         unsent: list[object] = []
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
-                for sent, (key, body, leaves) in enumerate(writes, start=1):
+                for sent, (key, body) in enumerate(writes, start=1):
                     try:
-                        client.put(f"/transactions/{key}", json_body=body)
-                        done += 1
-                        left += leaves
+                        answers.append(client.put(f"/transactions/{key}", json_body=body))
                     except Exception as exc:
                         failed.append((key, numbers.get(key, 0), format_error(exc)))
                         if refuses_every_write(exc):
-                            unsent = [later for later, *_ in writes[sent:]]
+                            unsent = [later for later, _body in writes[sent:]]
                             break
         except Exception as exc:
             failed.append((None, 0, format_error(exc)))
-        self.app.call_from_thread(self._bulk_finished, done, failed, label, left, unsent)
+        count, left = moved_parts(answers) if move else (len(answers), 0)
+        self.app.call_from_thread(
+            self._bulk_finished, len(answers), failed, label, left, unsent, count
+        )
 
     def _bulk_finished(
-        self, done: int, failed: list, label: str, left: int = 0, unsent: tuple | list = ()
+        self,
+        done: int,
+        failed: list,
+        label: str,
+        left: int = 0,
+        unsent: tuple | list = (),
+        count: int | None = None,
     ) -> None:
+        """`done` writes landed; the receipt says `count` rows (`done` when
+        not given) and `left` of them left their reconciliation. A move that
+        changed nothing (`count` 0) shows no receipt; its refusals still show."""
         self._bulk_busy = False
-        if done:
-            self.notify(bulk_receipt(done, label, left))
+        rows = done if count is None else count
+        if done and rows:
+            self.notify(bulk_receipt(rows, label, left))
         # One toast per distinct reason, not per row — see `group_refusals`.
         lines = group_refusals(failed)
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"

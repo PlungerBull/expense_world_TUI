@@ -26,7 +26,11 @@ app's notes count what the engine says moved, never the requests sent.
 
 The engine's "Done when", checked against the practice engine:
 
-1. The app holds contract `f5cbc6ab4841f0a7`: the drift script's version check passes.
+1. The drift script's version check passes, with the engine's current version recorded when the
+   spec closes: the engine is past `f5cbc6ab4841f0a7` (at `a1859d71873b8807` on 2026-10-24), and
+   the owner chose on 2026-10-24 to close this spec on its own checks, with every newer version
+   caught up by the next catch-up spec (from `f5cbc6ab4841f0a7`). Live contract tests that fail only because a write no longer takes
+   `statement_line` belong to that spec, not this one.
 2. Moving one part of a 60 + 40 line to another account, with `reconciliation_id: null` while
    the line is in a draft reconciliation, says `2 rows` moved and `2 left their reconciliation`.
 3. Selecting both parts of that line and moving them says `2 rows` moved, not 3 or 4.
@@ -42,17 +46,6 @@ no part, not even the one named.
 
 Drafted by the orchestrator; approved by the owner on 2026-10-24.
 
-1. **Record the contract.** The unit fixtures of `PUT /v1/transactions/{id}` answers carry
-   `changed_parts` and the live contract tests of the engine's checks pass; what is left is
-   recording the version, which waits on the owner's answer to "The engine moved past the
-   catch-up" in [todo.md](../todo.md). Passes if: the drift script exits clean against `:8002`.
-2. **The note after `b` counts `changed_parts`.** In
-   [transactions.py](../../expense/tui/screens/transactions.py) (`bulk_receipt` and its caller).
-   The row count is the number of distinct parts listed across the answers, and the "left" count
-   is the parts listed with `left_reconciliation: true`. Nothing is read before the move to work
-   it out. Passes if: unit tests with real key presses show the spec's three cases (one part of
-   60 + 40 → `2 rows … · 2 left their reconciliation`; both parts selected → `2 rows`; a one-part
-   line in no reconciliation → no "left"); no read of the line or the list is made to count.
 3. **The Edit form reads `left_reconciliation`.** In
    [edit_form.py](../../expense/tui/screens/edit_form.py). Passes if: a unit test shows "Saved.
    It left its reconciliation." when the answer flags a part, and "Saved." when `changed_parts`

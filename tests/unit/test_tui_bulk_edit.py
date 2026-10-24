@@ -21,6 +21,7 @@ from expense.tui.screens.transactions import (
     bulk_receipt,
     legend_text,
     mark_selected,
+    moved_parts,
 )
 from expense.tui.theme import ACCENT
 from expense.tui.widgets.cursor_list import CursorList
@@ -36,6 +37,7 @@ from tests.unit.helpers import (
     in_order,
     line_code_of,
     list_ready,
+    put_answer,
     refusal_text,
     render_text,
     run_app,
@@ -105,6 +107,28 @@ async def _open(app, pilot, screen):
     await pilot.pause()
 
 
+def _moved(row: dict, account: str = "acc2") -> dict:
+    """`row` after a move onto `account`: on it, and in no reconciliation."""
+    return {**row, "account_id": account, "reconciliation_id": None}
+
+
+def _answer_moves(fake_client, rows: list[dict], *, left: tuple[str, ...] = ()) -> None:
+    """Each row of `rows` answers its `PUT` as the engine answers a move of a
+    one-part line: the row after the write, listed alone in `changed_parts`,
+    flagged as leaving its reconciliation when its id is in `left`."""
+    for row in rows:
+        moved = _moved(row)
+        fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(
+            moved, [moved], left=left
+        )
+
+
+def _answer_unchanged(fake_client, row: dict) -> None:
+    """`row` answers its `PUT` with no part changed: the move sent the account
+    it is already on (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
+    fake_client.write_responses[f"/transactions/{row['id']}"] = put_answer(row, [])
+
+
 # ---- pure helpers ----------------------------------------------------------
 
 
@@ -129,6 +153,20 @@ def test_legend_says_filter_count_and_selection():
 def test_bulk_receipt_counts_rows():
     assert bulk_receipt(3, "KORAKUEN") == "3 rows → KORAKUEN"
     assert bulk_receipt(1, "#COMIDA #CAJAS") == "1 row → #COMIDA #CAJAS"
+
+
+def test_moved_parts_counts_each_part_once_across_the_answers():
+    """A part listed by two answers counts once, and so does its flag; an answer
+    that lists nothing adds nothing."""
+    p1 = {"id": "p1"}
+    p2 = {"id": "p2"}
+    first = put_answer(p1, [p1, p2], left=("p1", "p2"))
+    again = put_answer(p2, [p1, p2], left=("p2",))
+    assert moved_parts([first, again]) == (2, 2)
+    assert moved_parts([first, put_answer(p2, [])]) == (2, 2)
+    assert moved_parts([put_answer(p1, [p1, p2], left=("p2",))]) == (2, 1)
+    assert moved_parts([put_answer(p1, []), put_answer(p2, [])]) == (0, 0)
+    assert moved_parts([]) == (0, 0)
 
 
 def test_bulk_receipt_counts_the_rows_that_left_their_reconciliation():
@@ -379,6 +417,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
+    _answer_moves(fake_client, [ITEMS[0], ITEMS[2]])
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
@@ -466,6 +505,7 @@ def test_a_row_on_an_archived_account_is_refused_in_the_engine_words_alone(
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
+    _answer_moves(fake_client, [ITEMS[0], ITEMS[2]])
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
@@ -677,7 +717,11 @@ MIXED = [
 
 
 def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatch):
+    """The receipt counts what the engine's answers list: t1 and t3 moved, t1
+    left its reconciliation; t2 was already on acc2, so its answer lists nothing."""
     _stub_ledger(monkeypatch, MIXED)
+    _answer_moves(fake_client, [MIXED[0], MIXED[2]], left=("t1",))
+    _answer_unchanged(fake_client, MIXED[1])
     toasts: list[str] = []
 
     async def scenario(pilot, app):
@@ -695,14 +739,16 @@ def test_b_unassigns_only_the_rows_whose_account_changes(fake_client, monkeypatc
             ("/transactions/t3", {"account_id": "acc2", "reconciliation_id": None}),
         ]
         await wait_for(pilot, lambda: toasts)
-        # t3 was in no reconciliation, t2 stayed in its own: one left
-        assert toasts[0] == "3 rows → BCP Oro PEN · 1 left its reconciliation"
+        # t3 was in no reconciliation, t2 never moved: two rows, one left
+        assert toasts[0] == "2 rows → BCP Oro PEN · 1 left its reconciliation"
 
     run_app(scenario, size=(120, 30))
 
 
 def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
+    """Nothing moves, and the engine's answer lists no part: no receipt is shown."""
     _stub_ledger(monkeypatch, MIXED)
+    _answer_unchanged(fake_client, MIXED[0])
     toasts: list[str] = []
 
     async def scenario(pilot, app):
@@ -714,8 +760,55 @@ def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
         await pilot.press("s", "i", "g", "enter")
         await wait_for(pilot, lambda: fake_client.puts)
         assert fake_client.puts == [("/transactions/t1", {"account_id": "acc1"})]
-        await wait_for(pilot, lambda: toasts)
-        assert toasts[0] == "1 row → BCP Signature PEN"
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        await pilot.pause()
+        assert toasts == []
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
+    """t1 and t2 onto acc2: t1 is refused by a completed reconciliation, t2 is
+    already there and its answer lists no part. Nothing moved, so no receipt;
+    the refusal still names row 1."""
+    _stub_ledger(monkeypatch, MIXED)
+    _answer_unchanged(fake_client, MIXED[1])
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/t1"):
+            raise EngineError(
+                "VALIDATION_ERROR",
+                "Fields are locked by a completed reconciliation.",
+                {"account_id": "Locked by completed reconciliation."},
+                422,
+                {},
+                reasons={"account_id": "LOCKED", "reconciliation_id": "LOCKED"},
+            )
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("space", "down", "space", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        await pilot.pause()
+        assert [p for p, _b in fake_client.puts] == ["/transactions/t2"]
+        assert len(toasts) == 1
+        title, message = toasts[0]
+        assert title == "Refused"
+        assert message.startswith("row 1: ") and "Locked by completed reconciliation." in message
+        assert screen._selected == {"t1"}
 
     run_app(scenario, size=(120, 30))
 
@@ -740,6 +833,8 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
+    _answer_unchanged(fake_client, MIXED[1])
+    _answer_moves(fake_client, [MIXED[2]])
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
@@ -755,7 +850,8 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         refused = next(m for t, m in toasts if t == "Refused")
         assert refused.startswith("row 1: ") and "Locked by completed reconciliation." in refused
-        assert ("", "2 rows → BCP Oro PEN") in toasts  # t1 never left: nothing to count
+        # t1 refused, t2 already on acc2: only t3 moved, and it was in none
+        assert ("", "1 row → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t1"}
 
@@ -1055,11 +1151,39 @@ ON_PARTS = {
 }
 
 
+def _answer_line_moves(fake_client, rows: list[dict]) -> None:
+    """Each `PUT` answers as the engine answers a move onto acc2: the first on a
+    bank line lists every part of that line after the move, a part that was in a
+    reconciliation flagged as leaving it; a later `PUT` on the same line finds it
+    moved and lists none (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
+    real_put = fake_client.put
+    by_id = {row["id"]: row for row in rows}
+    moved_lines: set[str] = set()
+
+    def put(path, json_body=None):
+        real_put(path, json_body=json_body)
+        named = by_id[path.rsplit("/", 1)[-1]]
+        line = named["bank_line_id"]
+        if line in moved_lines:
+            return put_answer(_moved(named), [])
+        moved_lines.add(line)
+        parts = [row for row in rows if row["bank_line_id"] == line]
+        left = tuple(part["id"] for part in parts if part["reconciliation_id"])
+        return put_answer(_moved(named), [_moved(part) for part in parts], left=left)
+
+    fake_client.put = put
+
+
 def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor: str):
     """The ledger over PURCHASE, the cursor on `cursor`, `select` selected, then
-    `key` and its pick. Returns (the toasts, the ledger reads before the write, the
-    reads after the fresh reload, the cursor's index and key once it is in)."""
+    `key` and its pick; a `b` move is answered as the engine answers it
+    (`_answer_line_moves`). Returns (the toasts, the ledger reads before the write,
+    the reads after the fresh reload, the cursor's index and key once it is in,
+    and what was asked of the engine between the pick and the receipt: the ledger
+    reads and the client's calls)."""
     calls, counts = fake_ledger(monkeypatch, list(PURCHASE))
+    if key == "b":
+        _answer_line_moves(fake_client, PURCHASE)
     monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(NAMES))
     for name in ("load_category_name_map", "load_hashtag_name_map"):
         monkeypatch.setattr(tx_mod, name, lambda: NAMES)
@@ -1069,11 +1193,13 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
 
     async def scenario(pilot, app):
         screen = TransactionsScreen()
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, **kw: seen.setdefault("toasts", []).append(str(message)),
-        )
+
+        def notify(message, **kw):
+            if "toasts" not in seen:  # the receipt: what was asked before it
+                seen["asked"] = (calls[seen["reads"] :], fake_client.calls[seen["sent"] :])
+            seen.setdefault("toasts", []).append(str(message))
+
+        monkeypatch.setattr(screen, "notify", notify)
         await _open(app, pilot, screen)
         listing = screen.query_one(CursorList)
         for row in select:
@@ -1087,6 +1213,7 @@ def _bulk_on_parts(fake_client, monkeypatch, key: str, select: list[str], cursor
         title = "row" if len(select) <= 1 else "rows"
         assert app.screen._title.endswith(f"for {max(len(select), 1)} {title}")
         reads = len(calls)
+        seen.update(reads=reads, sent=len(fake_client.calls))
         for text in typed:
             await pilot.press(*text, "enter")
         await wait_for(pilot, lambda: not isinstance(app.screen, PickerModal))
@@ -1138,3 +1265,95 @@ def test_c_h_b_with_both_parts_selected_send_each_part_its_own_put(fake_client, 
     assert seen["cursor"] == (0, "t-net")
     if key == "b":
         assert seen["toasts"][0] == "2 rows → BCP Oro PEN · 2 left their reconciliation"
+
+
+# ---- b: the receipt counts what the engine says moved ------------------------
+# Each `PUT` answers with `changed_parts`: every part of the line whose line field
+# the write changed, each flagged `left_reconciliation` when it left one
+# (contract: PUT /v1/transactions/{transaction_id}, "Response"). The receipt
+# counts the distinct parts across the answers, and nothing is read to count them.
+
+
+def _asked_nothing_but_the_puts(seen: dict) -> None:
+    """Between the pick and the receipt: no ledger read, no bank-line read, no
+    `GET` of any kind — only the move's `PUT`s."""
+    ledger_reads, client_calls = seen["asked"]
+    assert ledger_reads == []
+    assert [method for method, _path, _body in client_calls] == ["PUT"] * len(client_calls)
+
+
+@pytest.mark.parametrize("select", [[], ["p2"]], ids=["cursor", "selected"])
+def test_b_on_one_part_of_a_reconciled_line_counts_both_parts_and_both_leavings(
+    fake_client, monkeypatch, select
+):
+    """FARMACIA is 60 + 40 in a draft reconciliation. `b` on its second part sends
+    one `PUT`; the engine moves the whole line and lists both parts as leaving
+    their reconciliation, so the receipt says 2 rows and 2 left."""
+    seen = _bulk_on_parts(fake_client, monkeypatch, "b", select, cursor="p2")
+    assert fake_client.puts == [("/transactions/p2", ON_PARTS["b"][1])]
+    assert seen["toasts"][0] == "2 rows → BCP Oro PEN · 2 left their reconciliation"
+    _asked_nothing_but_the_puts(seen)
+
+
+def test_b_on_both_parts_counts_each_part_once(fake_client, monkeypatch):
+    """Both parts selected: two `PUT`s, the first moving the line and listing both
+    parts, the second listing none. The receipt says 2 rows, not 3 or 4."""
+    seen = _bulk_on_parts(fake_client, monkeypatch, "b", ["p1", "p2"], cursor="p1")
+    assert [path for path, _body in fake_client.puts] == ["/transactions/p1", "/transactions/p2"]
+    assert seen["toasts"][0] == "2 rows → BCP Oro PEN · 2 left their reconciliation"
+    _asked_nothing_but_the_puts(seen)
+
+
+def test_b_on_a_one_part_line_in_no_reconciliation_says_nothing_of_leaving(
+    fake_client, monkeypatch
+):
+    """NETFLIX.COM is one part in no reconciliation: its answer lists it, not
+    flagged, so the receipt says 1 row and nothing about leaving one."""
+    seen = _bulk_on_parts(fake_client, monkeypatch, "b", [], cursor="t-net")
+    assert fake_client.puts == [("/transactions/t-net", ON_PARTS["b"][1])]
+    assert seen["toasts"][0] == "1 row → BCP Oro PEN"
+    _asked_nothing_but_the_puts(seen)
+
+
+def test_b_counts_only_the_answers_that_landed(fake_client, monkeypatch):
+    """Both parts selected, the first `PUT` refused: the second moves the line and
+    its answer lists both parts, so the receipt counts them; the refused part is
+    named and stays selected."""
+    _answer_line_moves(fake_client, PURCHASE)
+    answering = fake_client.put
+
+    def put(path, json_body=None):
+        if path.endswith("/p1"):
+            raise EngineError("CONFLICT", "Operation code already exists.", None, 409, {})
+        return answering(path, json_body=json_body)
+
+    fake_client.put = put
+    calls, _counts = fake_ledger(monkeypatch, list(PURCHASE))
+    monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(NAMES))
+    for name in ("load_category_name_map", "load_hashtag_name_map"):
+        monkeypatch.setattr(tx_mod, name, lambda: NAMES)
+    monkeypatch.setattr(tx_mod, "load_quickadd_refs", lambda cfg, **kw: TAGGED_REFS)
+    toasts: list[tuple[str, str]] = []
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        listing = screen.query_one(CursorList)
+        for row in ("p1", "p2"):
+            listing.set_cursor(listing.index_of(row))
+            await pilot.press("space")
+        await pilot.press("b")
+        await wait_for(pilot, lambda: isinstance(app.screen, PickerModal))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert ("", "2 rows → BCP Oro PEN · 2 left their reconciliation") in toasts
+        assert next(m for t, m in toasts if t == "Refused").startswith("row 2: CONFLICT")
+        assert screen._selected == {"p1"}
+
+    run_app(scenario, size=(120, 30))

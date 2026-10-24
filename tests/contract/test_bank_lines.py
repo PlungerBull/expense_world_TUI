@@ -252,7 +252,7 @@ def _ledger_bulk(client, parts: list[dict], payload: dict) -> list[dict]:
 
     by_id = {p["id"]: p for p in parts}
     writes = bulk_writes([p["id"] for p in parts], payload, by_id)
-    return [client.put(f"/transactions/{key}", json_body=body) for key, body, _ in writes]
+    return [client.put(f"/transactions/{key}", json_body=body) for key, body in writes]
 
 
 def test_a_parts_category_and_hashtags_stay_its_own(client):

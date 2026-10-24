@@ -282,11 +282,18 @@ saves the name alone and the engine keeps the colour (`_edit_payload` in
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds
 `reconciliation_id: null` to each row whose account changes, and only to those: a row
-already on the picked account keeps its reconciliation. The receipt then counts the rows
-that left one — `3 rows → BCP USD · 2 left their reconciliation` (`· 1 left its
-reconciliation` for one). The `⏎` edit form does the same when its account changes and
-says `Saved. It left its reconciliation.` instead of `Saved.`; both share
-`unassign_on_move` in [edit_form.py](../expense/tui/screens/edit_form.py).
+already on the picked account keeps its reconciliation. The `⏎` edit form adds
+`reconciliation_id: null` the same way when its account changes; both share `unassign_on_move`
+in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
+engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
+write changed and whether it left its reconciliation
+(contract: PUT /v1/transactions/{transaction_id}, "Response"), and `b` counts the distinct parts
+across the answers that landed and those flagged as leaving — `3 rows → BCP USD · 2 left their
+reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
+(`moved_parts` in [transactions.py](../expense/tui/screens/transactions.py)). A row already on
+the picked account lists no part, so it is not counted, and a move that changes nothing shows
+no receipt; a refused row is still named. The edit form says `Saved. It left its
+reconciliation.` instead of `Saved.` when its move takes the row out of one.
 **An emptied note empties it.** `⏎` on an emptied NOTE empties the note: the save sends
 `description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
 (contract: PUT /v1/transactions/{transaction_id}). On a row with no note it is no change.
@@ -325,8 +332,10 @@ parts, and `b` on one part moves the whole transaction, every part leaving its r
 it, in the engine's one write (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
 The app sends one `PUT` per selected row either way and fans nothing out itself. With every part
 of a split transaction selected, each part gets its own `PUT`; a later one finds the line already moved
-and the engine accepts it as it is, since the `PUT` carries no `version`. The receipt counts the
-rows sent, so `b` on one part reads `1 row → …` however many parts moved.
+and the engine accepts it as it is, since the `PUT` carries no `version`. `b` counts the parts
+the engine says moved, so one part of a 60 + 40 transaction in a draft reconciliation reads
+`2 rows → … · 2 left their reconciliation`, and both parts selected still read `2 rows`; `c` and
+`h` count the rows they wrote.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
 screens 1 to 6 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
 `s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
