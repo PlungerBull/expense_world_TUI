@@ -20,10 +20,6 @@ a style of its own, and its pick is a pop-up though it carries rows.
 1. **A non-date on the Edit form's DATE is refused at `⏎`** with "Date: use YYYY-MM-DD.", the
    words the app's other date lines use, and never crashes the app (pick 2 D). The same on the
    bank-line Edit form, which shares the form.
-3. **The hints say what `⏎` does.** Passes if: unit tests pin "free text · enter to go on" on
-   Manage ▸ Accounts NAME, Categories NAME, the Edit form's TITLE and a new reconciliation's NAME,
-   and "optional · enter keeps it · ↑↓ another swatch" on the account's COLOR on New and Edit;
-   no hint on a line whose `⏎` moves on says "save" (a guard test); [tui.md](../tui.md) matches.
 4. **One style for refused rows.** The bulk edit's `group_refusals`
    ([transactions.py](../../expense/tui/screens/transactions.py)) gives way to the shared
    `grouped_refusals` ([formatting.py](../../expense/formatting.py)). Passes if: a unit test of

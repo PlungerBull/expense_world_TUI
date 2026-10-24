@@ -731,7 +731,7 @@ _R_LABELS = {
     "end": "END BALANCE",
 }
 _R_HINTS = {
-    "name": "e.g. “April 2026” · enter to save",
+    "name": "e.g. “April 2026” · enter to go on",
     "account": "pick a bank account · ↑↓ highlight · enter select",
     "date_start": "YYYY-MM-DD · the statement's first day · it orders the batch",
     "date_end": "YYYY-MM-DD · the statement's last day",

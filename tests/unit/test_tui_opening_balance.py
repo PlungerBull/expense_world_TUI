@@ -132,7 +132,7 @@ def test_screen_1_two_empty_lines_after_colour_and_no_read(fake_client):
         text = _summary(screen)
         assert "opening — (optional)" in text
         assert "as of — (optional)" in text
-        assert _hint(screen) == "enter to save"
+        assert _hint(screen) == "free text · enter to go on"
 
     _form(EFECTIVO, body)
     assert fake_client.calls == []  # null id: nothing to read

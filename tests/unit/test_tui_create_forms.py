@@ -74,7 +74,7 @@ def test_new_category_ctrl_s_on_the_name_line_saves_without_a_color(fake_client)
 
 
 def test_new_category_color_line_reads_optional(fake_client):
-    """Mockup Part 2: the hint and the summary tag are the account form's words."""
+    """Mockup Part 2: the line reads optional, in the hint and the summary tag."""
 
     async def scenario(pilot, app):
         screen = NewCategoryScreen()
@@ -84,8 +84,10 @@ def test_new_category_color_line_reads_optional(fake_client):
         _enter(screen, "Mascotas")
         await pilot.pause()
         assert screen._key == "color"
-        assert str(screen.query_one("#hint", Static).content) == "optional · empty enter to skip"
-        assert screen._hint_for("color") == NewAccountScreen()._hint_for("color")
+        assert (
+            str(screen.query_one("#hint", Static).content)
+            == "optional · enter to save · ↑↓ another swatch"
+        )
         summary = screen.query_one("#summary", Static).content
         assert "—  (optional)" in render_text(summary, width=80)
         assert screen._required() == ("name",)

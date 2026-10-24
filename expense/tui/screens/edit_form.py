@@ -78,7 +78,8 @@ account's line every field is read-only except an empty title or operation
 code, filled once, as above; with both set, every line is read-only and the
 hint under the bar reads `NOTHING_CAN_CHANGE` in place of the field's own.
 
-`enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
+`enter` keeps the field and moves on, and saves only on the last line that can
+change (`FormScreen._advance`) · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the
 account. The keymap is `form_bindings` in _form.py.
@@ -124,7 +125,7 @@ _ENTITY = {"account", "category", "hashtags"}
 _AMOUNTS = {"amount"}
 _HINTS = {
     "date": "YYYY-MM-DD · enter to accept, or type a date",
-    "title": "free text · enter to save",
+    "title": "free text · enter to go on",
     "amount": "signed decimal · − expense / + income · in the account's currency",
     "operation": "optional · the bank's operation number · empty clears it",
     "account": "pick an existing account · ↑↓ highlight · enter select",
@@ -132,6 +133,9 @@ _HINTS = {
     "hashtags": "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)",
     "note": "optional · enter saves · (ctrl+s anytime)",
 }
+#: TITLE's hint when no line after it can change, so `⏎` there saves: an
+#: archived account's bank line with its operation set and its title empty.
+TITLE_SAVES = "free text · enter to save"
 #: The note when DATE holds what the save's reader cannot read; the words the
 #: app's other dates use ("Date Start: use YYYY-MM-DD.", "As of: use YYYY-MM-DD.").
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
@@ -361,6 +365,8 @@ class EditFormScreen(FormScreen):
         return _LABELS[key]
 
     def _hint_for(self, key: str) -> str:
+        if key == "title" and not self._goes_on(key):
+            return TITLE_SAVES
         return _HINTS.get(key, "")
 
     def _hint_line(self, key: str) -> Text:

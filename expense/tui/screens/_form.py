@@ -238,15 +238,21 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         event.stop()
         self._advance()
 
+    def _goes_on(self, key: str) -> bool:
+        """Whether `⏎` on `key` goes on to another field (`_advance`): some field
+        after it can change. When none can, `⏎` there saves, and only then may
+        its hint say so (guard: `test_tui_form_hints.py`)."""
+        seq = self._sequence()
+        return any(k not in self._locked for k in seq[seq.index(key) + 1 :])
+
     def _advance(self) -> None:
         """`⏎`'s move: on to the next field that can change, or, when no field
         ahead can (the last field, or only read-only ones after it), the save
         `ctrl+s` runs."""
-        following = self._step(1)
-        if following == self._current:
+        if not self._goes_on(self._key):
             self.action_submit()
         else:
-            self._current = following
+            self._current = self._step(1)
             self._refresh_bar()
             self._refresh_view()
 

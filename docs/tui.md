@@ -73,7 +73,7 @@ expense/tui/
                     #   bank) that picks POST /accounts vs POST /people; the
                     #   account Edit form carries the opening balance (§2).
                     #   COLOR is optional on New account and New category
-                    #   (hint `optional · empty enter to skip`): a skipped
+                    #   (hints: §4 "The bar forms' keys"): a skipped
                     #   colour is left out of the body, never sent as null, and
                     #   the engine gives its default (contract: POST /v1/categories).
                     #   While an optional line is empty no swatch is highlighted;
@@ -1216,7 +1216,7 @@ save invalidates what it wrote to.
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
 one copy for the edit form, the create/edit forms, the new-reconciliation form, Setup and the
 split screen's fields, whose keys differ as "The split screen's own keys" above says):
-`⏎` saves the field and moves one line on, to the next field that can change; when no field
+`⏎` keeps the field and moves one line on, to the next field that can change; when no field
 ahead can change (on the last field, or with only read-only fields after it) it saves the form
 as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class
 in a screen's MRO on one `⏎`, so a form whose handler overrides an inherited one calls it
@@ -1234,6 +1234,18 @@ On a read-only field, where the bar sits only when every field is read-only, the
 (`FormBar`) takes nothing typed, pasted or deleted, and `⏎` keeps nothing and moves on as
 from any line (with nothing ahead to change, it saves), so nothing ever lands on a read-only
 line.
+**No hint says "save" on a line where `⏎` moves on, and none says "go on" on a line where
+`⏎` saves** (`FormScreen._goes_on`; guard: [test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py),
+which walks every bar form). NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit)
+and the Edit forms' TITLE read `free text · enter to go on`, and a new reconciliation's NAME
+`e.g. “April 2026” · enter to go on`. The account's COLOR, New and Edit, reads
+`optional · enter keeps it · ↑↓ another swatch`, though on New, and on a person's Edit, it is
+the last line and `⏎` there saves. Some lines where `⏎` saves say so: a new category's COLOR
+(`optional · enter to save · ↑↓ another swatch`), the Edit form's NOTE, a new
+reconciliation's END BALANCE, and the "no batch" Edit form's TITLE when it is the one line
+left to change (an archived account's line with its operation set), which reads
+`free text · enter to save`; others, such as Edit category's COLOR (`pick a swatch`) and
+Setup's last line, leave it unsaid.
 The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
 **`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
 that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.

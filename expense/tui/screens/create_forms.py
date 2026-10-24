@@ -41,6 +41,14 @@ _PALETTE = [
     ("#8a8f98", "grey"),
 ]
 _CURRENCIES = [(c, c) for c in SUPPORTED_CURRENCIES]
+#: NAME's hint on Manage ▸ Accounts and Categories, New and Edit: `⏎` there goes
+#: on to the next line, never saves.
+NAME_HINT = "free text · enter to go on"
+#: The account's COLOR, New and Edit: `⏎` keeps what the line holds — the
+#: account's own colour on Edit, no colour on New.
+ACCOUNT_COLOR_HINT = "optional · enter keeps it · ↑↓ another swatch"
+#: A new category's COLOR, its last line: `⏎` there creates the category.
+CATEGORY_COLOR_HINT = "optional · enter to save · ↑↓ another swatch"
 # Bank first: it is the prefilled default, so `enter` on an untouched TYPE field
 # keeps `bank` and adding an ordinary account still costs one keypress.
 _ACCOUNT_TYPES = [("bank", "bank"), ("person", "person")]
@@ -216,8 +224,8 @@ class NewCategoryScreen(BarFormScreen):
     # Colour is optional: a skipped colour is left out of the body, never sent as
     # null, and the engine gives its default (contract: POST /v1/categories).
     FIELDS = [
-        Field("name", "NAME", required=True, hint="enter to save"),
-        Field("color", "COLOR", "color", choices=_PALETTE, hint="optional · empty enter to skip"),
+        Field("name", "NAME", required=True, hint=NAME_HINT),
+        Field("color", "COLOR", "color", choices=_PALETTE, hint=CATEGORY_COLOR_HINT),
     ]
 
     def _payload(self) -> dict:
@@ -254,11 +262,11 @@ class NewAccountScreen(BarFormScreen):
             required=True,
             hint="bank or person · enter keeps bank",
         ),
-        Field("name", "NAME", required=True, hint="enter to save"),
+        Field("name", "NAME", required=True, hint=NAME_HINT),
         Field(
             "currency", "CURRENCY", "choice", choices=_CURRENCIES, required=True, hint="PEN or USD"
         ),
-        Field("color", "COLOR", "color", choices=_PALETTE, hint="optional · empty enter to skip"),
+        Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
     def __init__(self) -> None:

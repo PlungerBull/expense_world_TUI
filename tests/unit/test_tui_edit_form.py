@@ -954,7 +954,7 @@ EVERY_PART = "changes every part of the transaction"
 #: Every field of the form, in its order, with the hint it shows on any row.
 FIELD_HINTS = [
     ("date", "YYYY-MM-DD · enter to accept, or type a date"),
-    ("title", "free text · enter to save"),
+    ("title", "free text · enter to go on"),
     ("amount", "signed decimal · − expense / + income · in the account's currency"),
     ("account", "pick an existing account · ↑↓ highlight · enter select"),
     ("category", "pick an existing category · ↑↓ highlight · enter select"),
@@ -1463,7 +1463,7 @@ def test_an_archived_rows_empty_title_is_filled_once(fake_client, monkeypatch):
         await _wait_loaded(screen, pilot)
         assert screen._locked == {"date", "amount", "account"}
         assert screen._key == "title"
-        assert screen.query_one("#hint", Static).content.plain == "free text · enter to save"
+        assert screen.query_one("#hint", Static).content.plain == "free text · enter to go on"
         assert "title     —  (optional)" in render_text(screen._summary_renderable(), width=60)
         _enter(screen, "Retiro cajero")
         assert screen._key == "category"
@@ -1614,25 +1614,31 @@ def test_an_archived_line_with_title_and_code_says_nothing_can_change(fake_clien
 
 
 @pytest.mark.parametrize(
-    ("line", "key"),
+    ("line", "key", "hint"),
     [
-        ({**ARCHIVED_LINE, "parts": [{**BANK_LINE["parts"][0], "title": None}]}, "title"),
-        ({**ARCHIVED_LINE, "operation_code": None}, "operation"),
-        (UNNAMED_LINE, "title"),
-        (BANK_LINE, "date"),
+        (
+            {**ARCHIVED_LINE, "parts": [{**BANK_LINE["parts"][0], "title": None}]},
+            "title",
+            "free text · enter to save",  # the one line left: `⏎` saves
+        ),
+        ({**ARCHIVED_LINE, "operation_code": None}, "operation", None),
+        (UNNAMED_LINE, "title", "free text · enter to go on"),
+        (BANK_LINE, "date", None),
     ],
     ids=["archived-no-title", "archived-no-operation", "archived-neither", "not-archived"],
 )
-def test_a_line_still_open_keeps_its_own_hint(fake_client, monkeypatch, line, key):
+def test_a_line_still_open_keeps_its_own_hint(fake_client, monkeypatch, line, key, hint):
     """A line with a field left to change, an archived account's line with an
     empty title or operation, or a line whose account is not archived, shows
     the hint of the field the bar sits on, never the read-only one."""
     from expense.tui.screens.edit_form import _HINTS, NOTHING_CAN_CHANGE
 
+    expected = hint or _HINTS[key]
+
     async def steps(screen, pilot, app):
         assert screen._key == key
-        assert screen.query_one("#hint", Static).content.plain == _HINTS[key]
-        assert _HINTS[key] != NOTHING_CAN_CHANGE
+        assert screen.query_one("#hint", Static).content.plain == expected
+        assert expected != NOTHING_CAN_CHANGE
 
     _open_line(line, monkeypatch, steps)
 
