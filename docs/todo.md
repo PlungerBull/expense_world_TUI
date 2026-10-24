@@ -27,16 +27,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine for the next hand-off
+### Hand the engine a reply and ask for the next hand-off
 Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to the engine's current version
 
-You chose to close [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md) on its own
-checks and catch up the engine's two newer versions on their own. Only you can carry the message
-asking the engine coders for one hand-off file covering contract `f5cbc6ab4841f0a7` to their
-current version (`a1859d71873b8807` on 2026-10-24): no write takes `statement_line` any more
-(which `expense import sheet` sends), accounts gain a three-letter `statement_code`, and one
-statement code takes one reconciliation per month. When the file lands in
-[from-engine/](from-engine/), it becomes the catch-up spec.
+Only you can carry these to the engine coders:
+1. The reply [caught-up-f5cbc6ab4841f0a7.md](to-engine/caught-up-f5cbc6ab4841f0a7.md), copied as
+   is into the engine repo's `docs/from-tui/`.
+2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to their
+   current version (`a1859d71873b8807` on 2026-10-24): no write takes `statement_line` any more
+   (which `expense import sheet` sends), accounts gain a three-letter `statement_code`, and one
+   statement code takes one reconciliation per month.
+
+When the file lands in [from-engine/](from-engine/), it becomes the catch-up spec.
 
 ### Hand the engine the ask on editing a whole line
 Asked 2026-10-24 · Blocks: saving the split transaction's Edit form in one go
@@ -91,12 +93,11 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Catch up with contract `f5cbc6ab4841f0a7`:** spec
-  [engine-catch-up-f5cbc6ab.md](specs/engine-catch-up-f5cbc6ab.md), tasks approved, in progress.
 - **Catch up from contract `f5cbc6ab4841f0a7` to the engine's current one:** the sheet import
-  sends `COD_EECC` as `statement_line`, which every write now refuses, so it fails against the
-  current engine; accounts gain `statement_code`, one reconciliation per code per month. Waits on the hand-off file ("Ask the engine for the next
-  hand-off" above).
+  sends `COD_EECC` as `statement_line` ([apply.py](../expense/import_/apply.py)), which every
+  write now refuses, so it fails against the current engine, as do 8 live contract tests that
+  send it; accounts gain `statement_code`, one reconciliation per code per month. Waits on the
+  hand-off file ("Hand the engine a reply and ask for the next hand-off" above).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add

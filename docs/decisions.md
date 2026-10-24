@@ -335,7 +335,7 @@ the bar is where the right file gets dropped next.
 
 ## The TUI sees the response body only where it asks for it (2026-09-20)
 
-**Decision.** `run_write` takes an optional `on_response: Callable[[dict], None]`, called **before** `on_success` and only when the body is a dict ([_base.py](../expense/tui/screens/_base.py)). Opt-in: only reconciliation `complete` uses it, for its `warnings`. Before `on_success`, so "read it, then repaint" needs no extra state.
+**Decision.** `run_write` takes an optional `on_response: Callable[[dict], None]`, called **before** `on_success` and only when the body is a dict ([_base.py](../expense/tui/screens/_base.py)). Opt-in: reconciliation `complete` reads its `warnings`, the gap report and the balance save read the record they answer with, setup reads its bootstrap, and every form save offers it through `FormScreen._answered`, which the edit form uses to read `changed_parts`. Before `on_success`, so "read it, then repaint" needs no extra state.
 
 **Rejected.** *A `body` argument on `on_success`* — every screen pays for one screen's need. *Stashing the body on the mixin* — a later `on_success` could read an earlier write's body. *Re-reading the record after completing* — the warning is computed at the transition and is not on the row.
 
@@ -450,8 +450,13 @@ the bar is where the right file gets dropped next.
 
 **Decision.** Both paths send `reconciliation_id: null` with every account change, so the move goes through and the row leaves its old reconciliation. A row kept on its own account sends no `reconciliation_id` and keeps its reconciliation. A short note says so: `Saved. It left its reconciliation.` in the edit form, `3 rows → BCP USD · 2 left their reconciliation` after `b`. The old reconciliation is on the old account and cannot hold the row any more; reconciling the new account assigns it there in the usual way.
 
+The counts are the engine's: each move's answer lists every part of the bank line it changed and whether each left its reconciliation (contract: PUT /v1/transactions/{transaction_id}, "Response"), and the note counts the distinct parts listed across the answers that landed. A move that changes nothing shows no note. A line field reaches every part of a split transaction, so one request can move several rows, and two requests on one line can list the same rows; only the engine knows what moved.
+
 **Rejected.**
 - Asking each time whether to unassign or to assign into a draft on the new account: a new screen for a choice whose second answer is the normal reconciling flow anyway.
+- Counting the requests sent, or deciding "left" from the rows read before the save: wrong for a split transaction, and a guess where the engine's answer says.
+- Reading the line again after a move to learn what changed: an extra round trip for what the answer already holds.
+- `0 rows → <account>` when nothing moved: a note about nothing; the owner chose silence.
 
 ## Missing settings stop a multi-write run (2026-10-11)
 

@@ -330,14 +330,15 @@ row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
 On a row that is not split, and when that read fails, the form and its hints are as on
 any row; the save is the engine's either way.
 The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected
-parts, and `b` on one part moves the whole transaction, every part leaving its reconciliation with
-it, in the engine's one write (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
-The app sends one `PUT` per selected row either way and fans nothing out itself. With every part
-of a split transaction selected, each part gets its own `PUT`; a later one finds the line already moved
-and the engine accepts it as it is, since the `PUT` carries no `version`. `b` counts the parts
-the engine says moved, so one part of a 60 + 40 transaction in a draft reconciliation reads
-`2 rows → … · 2 left their reconciliation`, and both parts selected still read `2 rows`; `c` and
-`h` count the rows they wrote.
+parts, and `b` on one part moves the whole transaction, every part leaving its reconciliation
+with it, in the engine's one write
+(contract: PUT /v1/transactions/{transaction_id}, "Line fields").
+The app sends one `PUT` per selected row either way and fans nothing out itself. With every
+part of a split transaction selected, each part gets its own `PUT`; a later one finds the line
+already moved and the engine accepts it as it is, since the `PUT` carries no `version`. `b`
+counts the parts the engine says moved, so one part of a 60 + 40 transaction in a draft
+reconciliation reads `2 rows → … · 2 left their reconciliation`, and both parts selected still
+read `2 rows`; `c` and `h` count the rows they wrote.
 **`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
 screens 1 to 6 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
 `s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
@@ -506,8 +507,8 @@ its title, then its signed `net_cents` and the account's currency
 the form reads no line: the day and title off its first part, its `operation_code` and its
 account. A line never split edits `date › title › operation › amount › account`, all
 editable but on an archived account's line ("On an archived account's transaction the Edit
-form shows the read-only lines alone" below), its amount the one part's, signed by `signed_cents` in
-[formatting.py](../expense/formatting.py). A split transaction edits
+form shows the read-only lines alone" below), its amount the one part's, signed by
+`signed_cents` in [formatting.py](../expense/formatting.py). A split transaction edits
 `date › title › operation › account`, and under the summary stands a read-only `Parts`
 section: each part's amount, signed by `signed_cents`, then a rule, then `total` and the
 line's own `net_cents` (`parts_section`; the app adds nothing up), and the dim line `the
@@ -524,10 +525,10 @@ sends `operation_code: null`, which clears the line's operation code
 (contract: PUT /v1/transactions/{transaction_id}); a changed account also sends
 `reconciliation_id: null` (`unassign_on_move`, as on the ledger's form). Saved, the note
 is the ledger's form's — `Saved.`, or `Saved. It left its reconciliation.` when the answer
-flags a part as leaving — and "no batch" reads its newest ten again, cursor on row 1; a row whose date
-or account moved it out of the list is gone. A refusal is the engine's words in the
-"Failed" note, with the line saying what to do when it has one (`format_error`), the form
-still open; `esc` sends nothing and keeps the list and its cursor.
+flags a part as leaving — and "no batch" reads its newest ten again, cursor on row 1; a row
+whose date or account moved it out of the list is gone. A refusal is the engine's words in
+the "Failed" note, with the line saying what to do when it has one (`format_error`), the
+form still open; `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
