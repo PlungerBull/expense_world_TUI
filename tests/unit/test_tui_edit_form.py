@@ -2090,3 +2090,115 @@ def test_opening_is_never_offered_on_category(fake_client, monkeypatch):
     notices = _open_with_pending(ON_THIRD, monkeypatch, steps)
     assert ("", "No category matches “open”.") in notices
     assert fake_client.puts == []
+
+
+# ---- a date the save cannot read is refused at ⏎ ------------------------------
+
+
+def _date_notes(monkeypatch) -> list[tuple[str, object]]:
+    notes: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        EditFormScreen,
+        "notify",
+        lambda self, message, **kw: notes.append((str(message), kw.get("severity"))),
+    )
+    return notes
+
+
+def _keys(text: str) -> list[str]:
+    return ["space" if ch == " " else ch for ch in text]
+
+
+def _date_form(form: str) -> EditFormScreen:
+    from expense.tui.screens.edit_form import BankLineEditFormScreen
+
+    if form == "transaction":
+        return EditFormScreen(record=TXN, resource="transactions")
+    return BankLineEditFormScreen(line=BANK_LINE)
+
+
+FORMS_AND_PATHS = [("transaction", "/transactions/tx1"), ("bank_line", "/transactions/p1")]
+
+
+@pytest.mark.parametrize(("form", "path"), FORMS_AND_PATHS)
+def test_a_non_date_on_date_is_refused_at_enter_and_the_save_never_crashes(
+    fake_client, monkeypatch, form, path
+):
+    """Typed key by key on DATE: `abc` + `⏎` notes `Date: use YYYY-MM-DD.`, the
+    bar keeps `abc` and the cursor stays on DATE; `ctrl+s` then sends nothing and
+    the app goes on running, on the Edit form and on the "no batch" Edit form."""
+    from expense.tui.screens.edit_form import DATE_UNREADABLE
+
+    _patch(monkeypatch)
+    notes = _date_notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = _date_form(form)
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        bar = screen.query_one("#bar", Input)
+        assert screen._key == "date"
+        await pilot.press("ctrl+a", "ctrl+k", *"abc", "enter")
+        await pilot.pause()
+        assert screen._key == "date" and bar.value == "abc"
+        assert screen._values["date"] == "2026-06-20"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: ("No changes to save.", None) in notes)
+        assert app.is_running and app.screen is screen
+
+    run_app(scenario)
+    assert DATE_UNREADABLE == "Date: use YYYY-MM-DD."
+    assert notes == [(DATE_UNREADABLE, "error"), ("No changes to save.", None)]
+    assert fake_client.puts == []
+
+
+@pytest.mark.parametrize(("form", "path"), FORMS_AND_PATHS)
+@pytest.mark.parametrize("typed", ["2026-10-23", "2026-10-23 14:30"])
+def test_a_day_with_or_without_a_time_still_saves(fake_client, monkeypatch, form, path, typed):
+    """A day on DATE, with or without a time, is taken at `⏎` and saved as the
+    save's reader writes it, after a refused `abc` as on a first try."""
+    from expense.dates import to_canonical_aware
+
+    _patch(monkeypatch)
+    notes = _date_notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = _date_form(form)
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await pilot.press("ctrl+a", "ctrl+k", *"abc", "enter")
+        await pilot.pause()
+        await pilot.press("ctrl+a", "ctrl+k", *_keys(typed), "enter")
+        await pilot.pause()
+        assert screen._key == "title"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert notes[0] == ("Date: use YYYY-MM-DD.", "error")
+    assert fake_client.puts == [(path, {"date": to_canonical_aware(typed)})]
+
+
+def test_an_empty_date_still_commits_today(fake_client, monkeypatch):
+    """An emptied DATE and `⏎` is no refusal: it commits today, as before."""
+    from datetime import date
+
+    from expense.dates import to_canonical_aware
+
+    _patch(monkeypatch)
+    notes = _date_notes(monkeypatch)
+
+    async def scenario(pilot, app):
+        screen = _date_form("transaction")
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        await pilot.press("ctrl+a", "ctrl+k", "enter")
+        await pilot.pause()
+        assert screen._key == "title"
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.puts)
+
+    run_app(scenario)
+    assert not [n for n in notes if n[1] == "error"]
+    today = to_canonical_aware(date.today().isoformat())
+    assert fake_client.puts == [("/transactions/tx1", {"date": today})]

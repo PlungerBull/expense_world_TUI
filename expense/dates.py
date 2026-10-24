@@ -103,6 +103,17 @@ def to_canonical_aware(user_input: str) -> str:
     return dt.replace(tzinfo=_local_tz()).isoformat(timespec="seconds")
 
 
+def is_readable_date(text: str) -> bool:
+    """True when `to_canonical_aware` reads `text`: the same reader the save
+    uses, so a form that checks a date at its field takes exactly what the save
+    can send, no more and no less."""
+    try:
+        to_canonical_aware(text)
+    except typer.BadParameter:
+        return False
+    return True
+
+
 _CALENDAR_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 

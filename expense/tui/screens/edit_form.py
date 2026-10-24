@@ -36,8 +36,10 @@ hashtag (contract: PUT /v1/transactions/{transaction_id}).
 engine stores `""` as an empty note and refuses `null` there as `NOT_NULL`
 (contract: PUT /v1/transactions/{transaction_id}). Every field the form sends
 is a value, never `null`, except `operation_code`, which `null` clears, and the
-`reconciliation_id: null` a move adds; an empty date bar commits today, and an
-emptied title is refused (`_title_given`).
+`reconciliation_id: null` a move adds; an empty date bar commits today, a date
+the save's reader (`to_canonical_aware`) cannot read is refused at `⏎` with
+`Date: use YYYY-MM-DD.` and the cursor stays, and an emptied title is refused
+(`_title_given`).
 
 On an opening balance (a row filed under @Opening) account, category and
 hashtags show read-only and are never sent: the engine keeps such a row on its
@@ -90,7 +92,7 @@ from textual import work
 from textual.widgets import Input
 
 from expense import reads
-from expense.dates import to_canonical_aware
+from expense.dates import is_readable_date, to_canonical_aware
 from expense.errors import format_error
 from expense.formatting import (
     bank_line_columns,
@@ -129,6 +131,9 @@ _HINTS = {
     "hashtags": "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)",
     "note": "optional · enter saves · (ctrl+s anytime)",
 }
+#: The note when DATE holds what the save's reader cannot read; the words the
+#: app's other dates use ("Date Start: use YYYY-MM-DD.", "As of: use YYYY-MM-DD.").
+DATE_UNREADABLE = "Date: use YYYY-MM-DD."
 # The fields a part of a split transaction shares with every other part, and
 # what the hint adds on them.
 _EVERY_PART = {"date", "title", "account"}
@@ -401,6 +406,10 @@ class EditFormScreen(FormScreen):
         text = self.query_one("#bar", Input).value.strip()
 
         if key == "date":
+            # read by the save's own reader, so ⏎ takes what `ctrl+s` can send
+            if text and not is_readable_date(text):
+                self.notify(DATE_UNREADABLE, severity="error")
+                return
             self._values["date"] = text or date_cls.today().isoformat()
             self._display["date"] = self._values["date"]
             self._advance()

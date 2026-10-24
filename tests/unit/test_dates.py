@@ -116,3 +116,14 @@ def test_detect_timezone_failure_raises_neutral_error(monkeypatch, tmp_path):
 )
 def test_is_calendar_day_is_the_engines_day_shape(text, ok):
     assert is_calendar_day(text) is ok
+
+
+def test_is_readable_date_takes_what_the_save_reads():
+    """`is_readable_date` answers with `to_canonical_aware`, the save's reader:
+    a day with or without a time, or with an offset, and nothing else."""
+    from expense.dates import is_readable_date
+
+    for good in ["2026-10-23", "2026-10-23 14:30", "2026-10-23T14:30:00", "2026-10-23T14:30:00Z"]:
+        assert is_readable_date(good), good
+    for bad in ["abc", "18/8", "hoy", "2026-13-01", "2026-02-30"]:
+        assert not is_readable_date(bad), bad

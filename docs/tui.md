@@ -301,6 +301,13 @@ read before the save.
 (contract: PUT /v1/transactions/{transaction_id}). On a row with no note it is no change.
 No field the form sends is `null` except `operation_code`, which `null` clears, and the
 `reconciliation_id: null` a move adds.
+**A date the form can't read is refused at `⏎`.** On DATE, on the `⏎` edit form and the
+"no batch" Edit form alike, `⏎` checks the bar with the reader the save uses
+(`is_readable_date` in [dates.py](../expense/dates.py)): a day `2026-10-23`, with or without
+a time (`2026-10-23 14:30`), is taken, and an emptied bar commits today. Anything else, `abc`
+say, notes `Date: use YYYY-MM-DD.` as an error, the words New reconciliation's dates and the
+opening balance's `as of` use; the bar keeps what was typed, the cursor stays on DATE, and the
+line keeps its value, so a `ctrl+s` after it never sends the unread date.
 **An opening balance stays on its account and in @Opening.** The engine refuses to move
 such a row to another account or category, `@Pendiente` included, and accepts every other
 field (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"); screens in
