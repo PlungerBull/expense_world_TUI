@@ -34,9 +34,11 @@ Only you can carry these to the engine coders:
 1. The reply [caught-up-f5cbc6ab4841f0a7.md](to-engine/caught-up-f5cbc6ab4841f0a7.md), copied as
    is into the engine repo's `docs/from-tui/`.
 2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to their
-   current version (`a1859d71873b8807` on 2026-10-24): no write takes `statement_line` any more
-   (which `expense import sheet` sends), accounts gain a three-letter `statement_code`, and one
-   statement code takes one reconciliation per month.
+   current version (`a1859d71873b8807` on 2026-10-24): no write takes `statement_line` any more,
+   accounts gain a three-letter `statement_code`, and one
+   statement code takes one reconciliation per month. Tell them too that `expense import sheet`
+   sets no statement lines: `COD_EECC` only groups a split transaction's rows. That answers the
+   question in their `statement-line-from-reconciliation` about the lines the sheet import set.
 
 When the file lands in [from-engine/](from-engine/), it becomes the catch-up spec.
 
@@ -93,11 +95,13 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Catch up from contract `f5cbc6ab4841f0a7` to the engine's current one:** the sheet import
-  sends `COD_EECC` as `statement_line` ([apply.py](../expense/import_/apply.py)), which every
-  write now refuses, so it fails against the current engine, as do 8 live contract tests that
-  send it; accounts gain `statement_code`, one reconciliation per code per month. Waits on the
-  hand-off file ("Hand the engine a reply and ask for the next hand-off" above).
+- **Catch up from contract `f5cbc6ab4841f0a7` to the engine's current one:** every write now
+  refuses `statement_line`, so the live contract tests that send it fail
+  ([test_line_codes_and_statement_lines.py](../tests/contract/test_line_codes_and_statement_lines.py),
+  [test_bank_lines.py](../tests/contract/test_bank_lines.py)), and the shared batch writer's
+  row refusals in [runtime.md](runtime.md) "Bulk writes" still list a taken statement line;
+  accounts gain `statement_code`, one reconciliation per code per month. Waits on the hand-off
+  file ("Hand the engine a reply and ask for the next hand-off" above).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
@@ -176,7 +180,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   and the screen map's split pane still draws the typed line the split screen no longer has;
   `expense-world-split-screen.html` backs the split screen as built, and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
-  commands.md, tui.md and a test docstring).
+  commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
+  another bank line already has.` line the sheet import can no longer get.
   Deleting one means removing its links from tui.md and from code and test docstrings in the
   same change.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One

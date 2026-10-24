@@ -300,15 +300,15 @@ def run_import(
     replaces the saved name. A leg the sheet does not have, or two legs landing
     on one ledger account, is a usage error and nothing is saved.
 
-    Rows sharing a COD_EECC (the bank statement line they were checked
-    against) come in as one movement, a split transaction with a part per row,
-    and every row keeps its COD_EECC as its statement line; a row with a blank
-    one comes in alone with none, and so does every row of a sheet without the
-    column. The rows of a split transaction must share account, date and title,
-    and every one must be readable: a group that does not, or that has a row
-    skipped for any reason but a zero amount, is skipped whole as
-    split-mismatch, a line naming its statement line and why, and the rest imports. A
-    zero-amount row is only dropped from its group.
+    Rows sharing a COD_EECC come in as one movement, a split transaction with
+    a part per row; a row with a blank or unshared one comes in alone, and so
+    does every row of a sheet without the column. COD_EECC only groups: it is
+    not stored, and no imported row gets a statement line. The rows of a split
+    transaction must share account, date and title, and every one must be
+    readable: a group that does not, or that has a row skipped for any reason
+    but a zero amount, is skipped whole as split-mismatch, a line naming its
+    COD_EECC and why, and the rest imports. A zero-amount row is only dropped
+    from its group.
 
     Re-running --apply is safe for unchanged and appended sheets: transaction
     ids derive from each row's content plus its line number, so already-imported

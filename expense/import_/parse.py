@@ -36,10 +36,10 @@ class ParsedRow:
     currency: str
     account: str
     description: str | None
-    #: The row's ``COD_EECC``: the bank statement line it was checked against,
-    #: or None when the cell is blank or the sheet has no such column. Rows
-    #: sharing one are the parts of one movement (``plan.build_plan``).
-    statement_line: str | None = None
+    #: The row's ``COD_EECC``, trimmed, or None when the cell is blank or the
+    #: sheet has no such column. It only groups: rows sharing one are the parts
+    #: of one movement (``plan.build_plan``), and it is never sent or stored.
+    group_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,8 +49,7 @@ class OpeningRow:
     Detected by title (case/whitespace-insensitive). Category and hashtag are
     deliberately absent: the engine assigns the @Opening system category, and
     spreadsheets typically leave those cells blank on opening rows. So is the
-    statement line: the opening-balance endpoint takes none
-    (contract: POST /v1/accounts/{account_id}/opening-balance).
+    ``COD_EECC``: an opening balance is a movement of its own, never a part.
     """
 
     line: int
@@ -68,7 +67,7 @@ class SkippedRow:
     detail: str = ""
     #: The row's ``COD_EECC``, when the parse skipped it: a split transaction
     #: missing one of its rows waits for it (``plan.build_plan``).
-    statement_line: str | None = None
+    group_code: str | None = None
 
 
 #: Titles that mark a row as an opening balance, normalized via
@@ -190,10 +189,10 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
             return None
         return raw.cells[i]
 
-    statement_line = _clean(cell("statement_line"))
+    group_code = _clean(cell("group_code"))
 
     def skip(reason: str, detail: str = "") -> SkippedRow:
-        return SkippedRow(raw.line, reason, detail, statement_line)
+        return SkippedRow(raw.line, reason, detail, group_code)
 
     title = _clean(cell("title"))
     account = _clean(cell("account"))
@@ -249,7 +248,7 @@ def parse_row(raw: RawRow, index: dict[str, int]) -> ParsedRow | OpeningRow | Sk
         currency=currency,
         account=account,
         description=_clean(cell("description")),
-        statement_line=statement_line,
+        group_code=group_code,
     )
 
 

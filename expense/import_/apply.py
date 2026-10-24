@@ -10,7 +10,7 @@ other refused row reports its sheet line, and the rest go again and land.
 Re-runs after a partial run or with appended sheet rows converge instead of
 silently dropping.
 
-A row's ``COD_EECC`` goes as its `statement_line`, and the rows of a split
+A row's ``COD_EECC`` is never sent: it only groups. The rows of a split
 transaction (`plan.SplitGroup`) go as the items of one `line_group`, so the
 engine makes them the parts of one bank line
 (contract: POST /v1/transactions/batch, "Line groups"). A split transaction is
@@ -308,8 +308,6 @@ def build_tx_payload(
     }
     if row.description is not None:
         payload["description"] = row.description
-    if row.statement_line is not None:
-        payload["statement_line"] = row.statement_line
     if line_group is not None:
         payload["line_group"] = line_group
     return payload

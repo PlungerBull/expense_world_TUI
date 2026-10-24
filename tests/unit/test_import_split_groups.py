@@ -1,9 +1,9 @@
 """`expense import sheet` and `COD_EECC`: rows sharing one come in as one movement.
 
-Each row's `COD_EECC` goes as its `statement_line`, and rows sharing one go as
-the items of one `line_group` (contract: POST /v1/transactions/batch, "Line
-groups"). A group whose rows differ on account, date or title is skipped whole
-as `split-mismatch`, and the rest imports.
+Rows sharing a `COD_EECC` go as the items of one `line_group` (contract: POST
+/v1/transactions/batch, "Line groups"); the code only groups, and no row sends it
+or any `statement_line`. A group whose rows differ on account, date or title is
+skipped whole as `split-mismatch`, and the rest imports.
 """
 
 import json
@@ -62,7 +62,7 @@ def _prow(line: int, code: str | None, **over: object) -> ParsedRow:
         currency="PEN",
         account="BCP PEN",
         description=None,
-        statement_line=code,
+        group_code=code,
     )
     base.update(over)
     return ParsedRow(**base)  # type: ignore[arg-type]
@@ -71,17 +71,17 @@ def _prow(line: int, code: str | None, **over: object) -> ParsedRow:
 # --- reading COD_EECC --------------------------------------------------------
 
 
-def test_cod_eecc_is_each_rows_statement_line_and_blank_is_none():
+def test_cod_eecc_is_each_rows_group_code_and_blank_is_none():
     rows = [_raw(2, "SIG-202603-029"), _raw(3, "  "), _raw(4, None), _raw(5, "None")]
     parsed, _, _ = parse_sheet(_sheet(rows))
 
-    assert [r.statement_line for r in parsed] == ["SIG-202603-029", None, None, None]
+    assert [r.group_code for r in parsed] == ["SIG-202603-029", None, None, None]
 
 
 def test_cod_eecc_is_trimmed():
     parsed, _, _ = parse_sheet(_sheet([_raw(2, "  SIG-202603-029 ")]))
 
-    assert parsed[0].statement_line == "SIG-202603-029"
+    assert parsed[0].group_code == "SIG-202603-029"
 
 
 def test_a_sheet_without_the_column_imports_every_row_alone():
@@ -90,7 +90,7 @@ def test_a_sheet_without_the_column_imports_every_row_alone():
     parsed, openings, skipped = parse_sheet(_sheet(rows, headers))
     plan = plan_mod.build_plan(parsed, openings, skipped)
 
-    assert [r.statement_line for r in parsed] == [None, None]
+    assert [r.group_code for r in parsed] == [None, None]
     assert plan.groups == [] and plan.movements == 2 and plan.skipped == []
 
 
@@ -109,9 +109,27 @@ def test_rows_sharing_a_code_are_one_split_transaction():
     )
 
     (group,) = plan.groups
-    assert (group.statement_line, group.lines) == ("SIG-1", (2, 4, 6))
+    assert (group.group_code, group.lines) == ("SIG-1", (2, 4, 6))
     assert group.name == plan.tx_ids[2]
     assert (len(plan.rows), plan.movements, plan.split_rows) == (5, 3, 3)
+
+
+def test_no_payload_carries_a_statement_line_for_a_row_or_a_part():
+    """`build_tx_payload` sends neither the row's COD_EECC nor a `statement_line`:
+    not for a row alone, and not for a group's part."""
+    res = apply_mod.ResolveResult(
+        account_ids={("bcp pen", "PEN"): "acc-pen"},
+        category_ids={"wants": "cat"},
+        hashtag_ids={"casa": "tag"},
+    )
+    row = _prow(2, "SIG-1")
+
+    alone = apply_mod.build_tx_payload(row, "tx-2", res)
+    part = apply_mod.build_tx_payload(row, "tx-2", res, line_group="tx-2")
+
+    assert "statement_line" not in alone and "statement_line" not in part
+    assert "SIG-1" not in json.dumps(alone) and "SIG-1" not in json.dumps(part)
+    assert part["line_group"] == "tx-2" and "line_group" not in alone
 
 
 def test_the_ids_do_not_depend_on_the_code():
@@ -222,7 +240,7 @@ def _sent(route) -> list[list[dict]]:
 
 
 @respx.mock
-def test_a_group_goes_as_one_line_group_each_part_carrying_the_statement_line(configured):
+def test_a_group_goes_as_one_line_group_and_no_row_sends_a_statement_line(configured):
     plan = _plan([_raw(2, "SIG-1"), _raw(3, "SIG-2"), _raw(4, None), _raw(5, "SIG-1")])
     _seeded()
     route = respx.post(f"{BASE}/v1/transactions/batch").mock(
@@ -236,15 +254,15 @@ def test_a_group_goes_as_one_line_group_each_part_carrying_the_statement_line(co
     assert [by_line[item["id"]] for item in sent] == [2, 5, 3, 4]  # the group's parts together
     group, coded, blank = sent[:2], sent[2], sent[3]
     assert {item["line_group"] for item in group} == {plan.tx_ids[2]}
-    assert {item["statement_line"] for item in group} == {"SIG-1"}
-    assert coded["statement_line"] == "SIG-2" and "line_group" not in coded
-    assert "statement_line" not in blank and "line_group" not in blank
+    assert "line_group" not in coded and "line_group" not in blank
+    # COD_EECC only groups: no part, coded row or blank row sends a statement line
+    assert [item for item in sent if "statement_line" in item] == []
     assert result.tx_created == 4
 
 
 @respx.mock
-def test_codes_differing_only_in_case_are_two_statement_lines(configured):
-    """Case counts in a statement line (contract: POST /v1/transactions, "Case counts")."""
+def test_codes_differing_only_in_case_are_two_movements(configured):
+    """Rows group by the code's exact text, trimmed: case counts."""
     plan = _plan([_raw(2, "SIG-1"), _raw(3, "sig-1"), _raw(4, "SIG-1")])
     _seeded()
     route = respx.post(f"{BASE}/v1/transactions/batch").mock(
@@ -254,11 +272,11 @@ def test_codes_differing_only_in_case_are_two_statement_lines(configured):
     result = _apply(plan)
 
     (group,) = plan.groups
-    assert (group.statement_line, group.lines) == ("SIG-1", (2, 4))
+    assert (group.group_code, group.lines) == ("SIG-1", (2, 4))
     (sent,) = _sent(route)
     by_line = {plan.tx_ids[line]: line for line in (2, 3, 4)}
     assert [by_line[item["id"]] for item in sent] == [2, 4, 3]
-    assert [item["statement_line"] for item in sent] == ["SIG-1", "SIG-1", "sig-1"]
+    assert [item for item in sent if "statement_line" in item] == []
     assert {item["line_group"] for item in sent[:2]} == {plan.tx_ids[2]}
     assert "line_group" not in sent[2]
     assert result.tx_created == 3
@@ -524,7 +542,7 @@ _WAITING_LINES = [
 def test_a_skipped_row_carries_its_code():
     _, _, skipped = parse_sheet(_sheet([_raw(2, "SIG-1", Fecha="not a date")]))
 
-    assert [(s.reason, s.statement_line) for s in skipped] == [("bad-date", "SIG-1")]
+    assert [(s.reason, s.group_code) for s in skipped] == [("bad-date", "SIG-1")]
 
 
 def test_a_part_the_parse_skipped_holds_back_its_group():
@@ -579,7 +597,7 @@ def test_a_zero_amount_part_is_dropped_and_the_rest_goes_as_one_group():
 
 
 @respx.mock
-def test_a_group_left_with_one_row_goes_alone_with_its_statement_line(configured):
+def test_a_group_left_with_one_row_goes_alone(configured):
     plan = _plan([_raw(2, "SIG-1"), _raw(3, "SIG-1", Monto=0)])
     _seeded()
     route = respx.post(f"{BASE}/v1/transactions/batch").mock(
@@ -589,7 +607,7 @@ def test_a_group_left_with_one_row_goes_alone_with_its_statement_line(configured
     result = _apply(plan)
 
     ((item,),) = _sent(route)
-    assert item["statement_line"] == "SIG-1" and "line_group" not in item
+    assert "line_group" not in item and "statement_line" not in item
     assert plan.groups == [] and result.tx_created == 1
 
 
@@ -617,7 +635,8 @@ def test_apply_holds_back_the_group_and_imports_the_rest(configured, monkeypatch
 
     assert result.exit_code == 0, result.output
     assert result.output.splitlines()[:2] == _WAITING_LINES
-    assert [[item.get("statement_line") for item in sent] for sent in _sent(route)] == [[None]]
+    only = _plan(_bad_date_group()).tx_ids[3123]
+    assert [[item["id"] for item in sent] for sent in _sent(route)] == [[only]]
 
 
 @respx.mock
@@ -650,4 +669,4 @@ def test_once_fixed_a_re_run_brings_the_whole_group_in(configured):
     last = _sent(route)[-1]
     assert [item["id"] for item in last] == [fixed.tx_ids[line] for line in (3120, 3121, 3122)]
     assert {item["line_group"] for item in last} == {fixed.tx_ids[3120]}
-    assert {item["statement_line"] for item in last} == {"SIG-202603-029"}
+    assert [item for item in last if "statement_line" in item] == []

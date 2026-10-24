@@ -646,39 +646,40 @@ edit. *Listing archived accounts on Reconciliations, read-only* — nothing ther
 ## The sheet import brings a split purchase in as one split transaction (2026-10-22, owner)
 
 **Context.** One bank movement split across categories is several rows in the owner's sheet,
-and the rows checked against a statement carry its line in `COD_EECC` (`SIG-202603-029`), shared
-by the rows of one movement. Imported row by row, each became a movement of its own, and a later
-bank upload added the movement again.
+and the rows of one movement share a `COD_EECC` (`SIG-202603-029`). The sheet has no column for
+the engine's bank line or the bank's operation number, so `COD_EECC` is the only way to tell from
+it which rows were one movement. Imported row by row, each would become a movement of its own,
+and a later bank upload would add the movement again.
 
 **Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, sent as one
-`line_group` with the `COD_EECC` as each part's `statement_line` (contract: POST /v1/transactions/batch, "Line groups");
-a chunk never cuts a group, and the engine keeps the statement line on the line. (2) **A group goes whole or
-not at all:** a group whose rows differ on account, date or title, or with a row the import cannot
-read, is skipped whole as `split-mismatch` and named under the `Skipped` line, and the rest
-imports; once the sheet is fixed, a re-run brings the group in. A zero-amount row is only
-dropped, since it changes nothing. (3) **The dry run counts the groups in one line**
+`line_group` (contract: POST /v1/transactions/batch, "Line groups"); a chunk never cuts a group.
+(2) **`COD_EECC` only groups; it is stored nowhere** (owner, 2026-10-23): no row the import
+sends carries a statement line. A movement's statement line gives its place in the statement's
+order and comes only from a reconciliation. (3) **A group goes whole or not at all:** a group
+whose rows differ on account, date or title, or with a row the import cannot read, is skipped
+whole as `split-mismatch` and named under the `Skipped` line, and the rest imports; once the
+sheet is fixed, a re-run brings the group in. A zero-amount row is only dropped, since it
+changes nothing. (4) **The dry run counts the groups in one line**
 (`9 split transactions (30 rows) come in as one movement each.`); the groups are checked in the
-app after the import. (4) **A refused batch is read item by item:** a row named `ID_EXISTS` on
+app after the import. (5) **A refused batch is read item by item:** a row named `ID_EXISTS` on
 its own id is already there, a row named by another refusal fails, and the rest go again as one
 batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests
-on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create"),
-which the client asked for: before it, a row sent again answered `STATEMENT_LINE_EXISTS` against
-its own line. (5) **Letter case counts in a `COD_EECC`:** rows group by its exact text,
-trimmed, so `SIG-1` and `sig-1` are two statement lines, as the engine compares them
-(contract: POST /v1/transactions, "Case counts"). This is the owner's rule for every match
-(2026-10-22): a field a person types, a name, is matched without regard to case; a field from
-the bank or a program, an operation code or a statement line, is matched exactly. A bank file's
-operation numbers are compared the same way.
+on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create").
+(6) **Letter case counts in a `COD_EECC`:** rows group by its exact text, trimmed, so `SIG-1`
+and `sig-1` are two movements. This is the owner's rule for every match (2026-10-22): a field a
+person types, a name, is matched without regard to case; a field from the bank or a program, an
+operation code or a statement code, is matched exactly. A bank file's operation numbers are
+compared the same way.
 
-**Rejected.** *Folding case in a statement line or an operation code* — they come from a
-program, not a person, and a client that folded them would merge two lines the engine keeps
-apart. *Stopping the whole import on a differing group* — one slip in the sheet would
-hold back thousands of good rows. *Letting a group's readable rows in without its unreadable one*
-— the split lands with a part missing, and the fixed row is later refused because its statement
-line is taken. *Listing every group on the dry run* — the owner checks them in the app. *Asking
-the client to tell its own line from another after `STATEMENT_LINE_EXISTS`* — one read per row,
-repeated in every client; the engine changed its order instead. *Re-sending a refused batch row
-by row* — one request per row, now that the engine names every item it refuses.
+**Rejected.** *Keeping `COD_EECC` as each line's statement line* — a statement line comes only
+from a reconciliation, and 2,275 hand-typed codes in the ledger would clash with the ones a
+reconciliation makes, since the engine refuses two lines with one statement line. *Folding case
+in a `COD_EECC` or an operation code* — they come from a program, not a person, and a client
+that folded them would merge two movements the engine keeps apart. *Stopping the whole import on
+a differing group* — one slip in the sheet would hold back thousands of good rows. *Letting a
+group's readable rows in without its unreadable one* — the split lands with a part missing.
+*Listing every group on the dry run* — the owner checks them in the app. *Re-sending a refused
+batch row by row* — one request per row, now that the engine names every item it refuses.
 
 ## An account becomes a person, and back, with one key (2026-10-22, owner)
 

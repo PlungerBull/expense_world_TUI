@@ -46,17 +46,5 @@ statement line.
 
 ## Tasks
 
-Drafted 2026-10-23, waiting for the owner's approval.
-
-1. **The import stops sending `COD_EECC`.** Passes if: no payload the import builds carries
-   `statement_line`, for a single row or a group's part (unit tests); grouping, all-or-nothing
-   and the dry-run counts keep their existing tests green; a live contract test imports a
-   two-row group and reads one bank line with two parts and a `null` statement line;
-   [commands.md](../commands.md) "import sheet" says `COD_EECC` groups and is not stored, and
-   drops the `STATEMENT_LINE_EXISTS` lines that belong to the import.
-
-When it ships, the orchestrator updates [decisions.md](../decisions.md) "The sheet import brings a
-split purchase in as one split transaction" (the code is no longer kept on the line), and the
-owner tells the engine coders that the import sets no statement lines. That closes the question
-"what happens to the ones the sheet import already set" in the engine's
-`statement-line-from-reconciliation`.
+Approved by the owner 2026-10-24. No tasks left; the acceptance check and the doc sweep
+remain.

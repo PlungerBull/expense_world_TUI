@@ -1,11 +1,11 @@
-"""`expense import sheet` shows the statement-line and line-code refusals in the
-engine's words, against the sheet lines they hit.
+"""`expense import sheet` and the refusals a bank line draws, against the sheet
+lines they hit.
 
-`STATEMENT_LINE_EXISTS` (a statement line already on a live line), and
-`DUPLICATE_IN_REQUEST` and `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, fail the
-rows they name and the rest go again (contract: POST /v1/transactions/batch,
-"Line groups"). `LIMIT_REACHED` with `LINE_CODES_EXHAUSTED` holds for the rest of
-the run, so it stops the run once.
+The import sends no `statement_line`, and a group's parts share one account,
+date and title, so `LINE_GROUP_FIELDS_DIFFER` has nothing to refuse; should it
+come, it fails the rows it names and the rest go again (contract: POST
+/v1/transactions/batch, "Line groups"). `LIMIT_REACHED` with
+`LINE_CODES_EXHAUSTED` holds for the rest of the run, so it stops the run once.
 """
 
 import json
@@ -22,21 +22,7 @@ from tests.unit.test_import_split_groups import _apply, _plan, _raw, _seeded, _s
 runner = CliRunner()
 cli_app = real_cli_app()
 
-_TAKEN_WORDS = "Must not be a statement line another bank line already has."
 _EXHAUSTED = ("No bank line codes are left.", "No line code is left for a new line.")
-
-
-def _statement_line_taken(*indices: int, value: str = "SIG-1") -> httpx.Response:
-    """Step 4 of a batch: `409` `STATEMENT_LINE_EXISTS` on each line it names,
-    a group keyed by its first item (contract: POST /v1/transactions/batch)."""
-    keys = [f"transactions.{i}.statement_line" for i in indices]
-    return error_response(
-        409,
-        "CONFLICT",
-        f"Another bank line already has statement line '{value}'.",
-        dict.fromkeys(keys, _TAKEN_WORDS),
-        dict.fromkeys(keys, "STATEMENT_LINE_EXISTS"),
-    )
 
 
 def _ok() -> httpx.Response:
@@ -58,53 +44,7 @@ def _exhausted(index: int, key: str = "transactions.{i}.id") -> httpx.Response:
     )
 
 
-# --- STATEMENT_LINE_EXISTS ---------------------------------------------------
-
-
-@respx.mock
-def test_an_edited_row_whose_statement_line_is_in_the_ledger_fails_on_its_sheet_line(
-    configured, monkeypatch
-):
-    """An edited row has a new id, so it is no replay: the engine refuses it for
-    its statement line, which the row imported before still holds."""
-    rows = [_raw(2, "SIG-1", Monto=-99), _raw(3)]
-    plan = _plan(rows)
-    _use_sheet(monkeypatch, rows)
-    _seeded()
-    route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_statement_line_taken(0), _ok()]
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert result.exit_code == 1
-    assert "Transactions: created 1, already-present 0, failed 1" in result.output
-    assert result.output.endswith(f"Failures (1 row):\n  statement_line: {_TAKEN_WORDS} row 2\n")
-    assert plan.tx_ids[2] not in result.output  # no id, no chunk: the row is the sheet's
-    assert [[item["id"] for item in sent] for sent in _sent(route)][1] == [plan.tx_ids[3]]
-
-
-@respx.mock
-def test_a_taken_statement_line_on_a_group_fails_every_part_on_its_sheet_line(configured):
-    plan = _plan([_raw(2, "SIG-1"), _raw(3, "SIG-1"), _raw(4)])
-    _seeded()
-    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=[_statement_line_taken(0), _ok()])
-
-    result = _apply(plan)
-
-    assert (result.tx_created, result.tx_failed) == (1, 2)
-    # the engine names the group's first part; its other part fails with it
-    assert [(f.words, f.lines) for f in result.failures] == [
-        (f"statement_line: {_TAKEN_WORDS}", (2,)),
-        ("Part of a split transaction refused for another row.", (3,)),
-    ]
-    assert result.failures[0].detail == (
-        "CONFLICT — Another bank line already has statement line 'SIG-1'.\n"
-        f"  statement_line: {_TAKEN_WORDS}"
-    )
-
-
-# --- DUPLICATE_IN_REQUEST and LINE_GROUP_FIELDS_DIFFER ------------------------
+# --- LINE_GROUP_FIELDS_DIFFER -------------------------------------------------
 
 
 def _items_for(rows) -> list[dict]:
@@ -117,34 +57,19 @@ def _items_for(rows) -> list[dict]:
     return [item for sent in _sent(route) for item in sent]
 
 
-def test_the_import_never_sends_one_statement_line_on_two_lines(configured):
-    """Rows sharing a statement line are one `line_group`, compared as the engine compares
-    them, after trimming and case-sensitively, so `DUPLICATE_IN_REQUEST` on
-    `statement_line` has nothing to refuse (contract: POST /v1/transactions/batch)."""
+def test_the_import_sends_no_statement_line(configured):
+    """Rows alone, the parts of a group and a code differing only in case: none
+    carries a `statement_line`, so no statement-line refusal can come."""
     items = _items_for(
-        [
-            _raw(2, "SIG-1"),
-            _raw(3, " SIG-1 "),
-            _raw(4, "sig-1"),
-            _raw(5, "SIG-1 "),
-            _raw(6, "SIG-2"),
-        ]
+        [_raw(2, "SIG-1"), _raw(3, " SIG-1 "), _raw(4, "sig-1"), _raw(5, "SIG-2"), _raw(6)]
     )
 
-    lines: dict[str, set[str]] = {}
-    codes: dict[str, set[str]] = {}
-    for item in items:
-        line = item.get("line_group", item["id"])
-        lines.setdefault(item["statement_line"], set()).add(line)
-        codes.setdefault(line, set()).add(item["statement_line"])
-    assert all(len(owners) == 1 for owners in lines.values())  # one line per statement line
-    assert all(len(held) == 1 for held in codes.values())  # one statement line per line
-    assert set(lines) == {"SIG-1", "sig-1", "SIG-2"}
-    (case_variant,) = [item for item in items if item["statement_line"] == "sig-1"]
-    assert "line_group" not in case_variant  # a statement line of its own, not a part of SIG-1
+    assert len(items) == 5
+    assert [item for item in items if "statement_line" in item] == []
+    assert len([item for item in items if "line_group" in item]) == 2
 
 
-def test_a_groups_parts_carry_one_account_date_title_and_statement_line(configured):
+def test_a_groups_parts_carry_one_account_date_and_title(configured):
     """Every field the engine compares across a group is sent byte for byte the
     same on every part, so `LINE_GROUP_FIELDS_DIFFER` has nothing to refuse
     (contract: POST /v1/transactions/batch, "Line groups"): the plan skips a group
@@ -154,50 +79,21 @@ def test_a_groups_parts_carry_one_account_date_title_and_statement_line(configur
             _raw(2, "SIG-1", Cuenta="BCP PEN"),
             _raw(3, "SIG-1", Cuenta=" bcp pen "),
             _raw(4, "SIG-1"),
-            _raw(5, "sig-1"),  # another statement line: never a part of SIG-1
+            _raw(5, "sig-1"),  # another code: never a part of SIG-1
         ]
     )
 
     parts = [item for item in items if "line_group" in item]
-    fields = ("account_id", "date", "title", "statement_line", "line_group")
+    fields = ("account_id", "date", "title", "line_group")
     shared = {tuple(item[f] for f in fields) for item in parts}
     assert len(parts) == 3 and len(shared) == 1
 
 
 @respx.mock
-def test_a_duplicate_statement_line_in_a_send_fails_the_rows_it_names(configured):
-    """Shown in the engine's words should it come: the row named fails on its
-    sheet line, and the rest go again."""
-    plan = _plan([_raw(2, "SIG-1"), _raw(3, "SIG-2"), _raw(4)])
-    _seeded()
-    key = "transactions.1.statement_line"
-    route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            error_response(
-                422,
-                "VALIDATION_ERROR",
-                "Batch validation failed.",
-                {key: "Duplicate statement line within batch."},
-                {key: "DUPLICATE_IN_REQUEST"},
-            ),
-            _ok(),
-        ]
-    )
-
-    result = _apply(plan)
-
-    assert (result.tx_created, result.tx_failed) == (2, 1)
-    assert [(f.words, f.lines) for f in result.failures] == [
-        ("statement_line: Duplicate statement line within batch.", (3,))
-    ]
-    assert len(_sent(route)[1]) == 2
-
-
-@respx.mock
-def test_a_group_whose_statement_lines_differ_fails_every_part(configured):
+def test_a_group_whose_fields_differ_fails_every_part(configured):
     plan = _plan([_raw(2, "SIG-1"), _raw(3, "SIG-1"), _raw(4)])
     _seeded()
-    keys = ["transactions.0.statement_line", "transactions.1.statement_line"]
+    keys = ["transactions.0.date", "transactions.1.date"]
     words = f"Must be the same on every item of line group '{plan.tx_ids[2]}'."
     respx.post(f"{BASE}/v1/transactions/batch").mock(
         side_effect=[
@@ -216,7 +112,7 @@ def test_a_group_whose_statement_lines_differ_fails_every_part(configured):
 
     assert (result.tx_created, result.tx_failed) == (1, 2)
     # the engine names both parts, alike: one kind
-    line = f"statement_line: {words}"
+    line = f"date: {words}"
     assert [(f.words, f.lines) for f in result.failures] == [(line, (2,)), (line, (3,))]
     assert result.failures[0].kind == result.failures[1].kind
 

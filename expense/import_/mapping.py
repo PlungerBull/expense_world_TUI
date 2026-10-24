@@ -31,13 +31,13 @@ FIELD_HEADERS = {
     "account": ("cuenta",),
     "currency": ("moneda",),
     "description": ("notas",),
-    "statement_line": ("cod_eecc",),
+    "group_code": ("cod_eecc",),
 }
 
-#: Every field except ``description`` and ``statement_line`` must be present in
+#: Every field except ``description`` and ``group_code`` must be present in
 #: the header row. A sheet with no ``COD_EECC`` column imports every row as a
-#: movement of its own, with no statement line.
-REQUIRED_FIELDS = frozenset(FIELD_HEADERS) - {"description", "statement_line"}
+#: movement of its own.
+REQUIRED_FIELDS = frozenset(FIELD_HEADERS) - {"description", "group_code"}
 
 #: Currencies the engine accepts — see expense/currencies.py for the
 #: schema-lock provenance.

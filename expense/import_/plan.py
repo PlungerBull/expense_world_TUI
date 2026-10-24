@@ -3,7 +3,7 @@
 Transaction ids are uuid5 over stable row content, so re-running the same sheet
 yields the same ids — an accidental second --apply can't create duplicates.
 Category/hashtag names are deduplicated case-insensitively to match the engine's
-case-insensitive uniqueness. Rows sharing a ``COD_EECC`` (``ParsedRow.statement_line``)
+case-insensitive uniqueness. Rows sharing a ``COD_EECC`` (``ParsedRow.group_code``)
 are grouped into one movement, its parts (``SplitGroup``).
 """
 
@@ -39,10 +39,11 @@ class SplitGroup:
     ``name`` is the ``line_group`` its rows are sent under: the first row's
     transaction id, so it is unique in the request and never longer than the
     engine takes (contract: POST /v1/transactions/batch, "Line groups"), however
-    long the statement line is.
+    long the ``COD_EECC`` is. ``group_code`` is that ``COD_EECC``; it only groups,
+    and is never sent.
     """
 
-    statement_line: str
+    group_code: str
     lines: tuple[int, ...]
     name: str
 
@@ -192,7 +193,7 @@ def _waiting(code: str, unread: list[int], waiting: list[int]) -> str:
 def _group_rows(
     parsed: list[ParsedRow], skipped: list[SkippedRow]
 ) -> tuple[list[ParsedRow], list[list[ParsedRow]], list[SkippedRow], list[str]]:
-    """Split `parsed` by `statement_line`: the rows kept, the kept groups of two
+    """Split `parsed` by `group_code`: the rows kept, the kept groups of two
     or more rows, and the rows of a group held back, as ``split-mismatch``, with
     the lines saying why.
 
@@ -200,16 +201,16 @@ def _group_rows(
     reason but a zero amount (the rest waits for that row, so the movement never
     lands without it), or when its rows differ on account, date or title. A
     zero-amount part is dropped and the rest goes; a group left with one row is
-    that row alone, still carrying its statement line.
+    that row alone.
     """
     by_code: dict[str, list[ParsedRow]] = {}
     for row in parsed:
-        if row.statement_line is not None:
-            by_code.setdefault(row.statement_line, []).append(row)
+        if row.group_code is not None:
+            by_code.setdefault(row.group_code, []).append(row)
     unread: dict[str, list[int]] = {}
     for skip in skipped:
-        if skip.statement_line is not None and skip.reason != _DROPPED_PART:
-            unread.setdefault(skip.statement_line, []).append(skip.line)
+        if skip.group_code is not None and skip.reason != _DROPPED_PART:
+            unread.setdefault(skip.group_code, []).append(skip.line)
     dropped: set[int] = set()
     groups: list[list[ParsedRow]] = []
     skips: list[SkippedRow] = []
@@ -256,7 +257,7 @@ def build_plan(
         rows.append(row)
     groups = [
         SplitGroup(
-            statement_line=str(parts[0].statement_line),
+            group_code=str(parts[0].group_code),
             lines=tuple(row.line for row in parts),
             name=tx_ids[parts[0].line],
         )
