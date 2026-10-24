@@ -693,11 +693,13 @@ saved; opened again once filled, it is read-only like the rest. The "no batch" E
 follows the same rule on a line of an archived account, which only a list read before the
 account was archived still shows: `date`, `title`, `operation`, `amount` and `account` are
 read-only, but a title or operation still empty, filled once. With both set, every line is
-read-only: the form still opens, on `date`, showing what the line holds, and nothing typed
-lands on a line ("The bar forms' keys" below). The form learns which accounts are archived
-from the `GET /accounts` it already makes for its suggestions
-(`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that read fails,
-the form is as on any row and the engine judges the save ("When the engine says no" below).
+read-only: the form still opens, on `date`, showing what the line holds, nothing typed
+lands on a line ("The bar forms' keys" below), and in place of `date`'s own hint the one under
+the bar reads `read-only · its account is archived, so nothing here can change · esc to leave`.
+The form learns which accounts are archived from the `GET /accounts` it already makes for its
+suggestions (`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that
+read fails, the form is as on any row and the engine judges the save ("When the engine says no"
+below).
 
 **Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).

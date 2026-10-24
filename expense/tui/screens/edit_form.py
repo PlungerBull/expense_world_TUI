@@ -75,7 +75,8 @@ and the line's total. The save is the same diffed PUT on one part; the engine
 writes date, title, operation and account onto every part
 (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). On an archived
 account's line every field is read-only except an empty title or operation
-code, filled once, as above.
+code, filled once, as above; with both set, every line is read-only and the
+hint under the bar reads `NOTHING_CAN_CHANGE` in place of the field's own.
 
 `enter` saves & advances · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
@@ -143,6 +144,11 @@ EVERY_PART_NOTE = "changes every part of the transaction"
 # (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts").
 _FROZEN_ON_ARCHIVED = {"date", "title", "amount", "operation", "account"}
 _FILLED_ONCE = {"title", "operation"}
+#: The hint under the bar when every line of the form is read-only: an archived
+#: account's bank line whose title and operation are both set.
+NOTHING_CAN_CHANGE = (
+    "read-only · its account is archived, so nothing here can change · esc to leave"
+)
 # engine field name for each form key
 _ENGINE_FIELD = {
     "date": "date",
@@ -358,6 +364,8 @@ class EditFormScreen(FormScreen):
         return _HINTS.get(key, "")
 
     def _hint_line(self, key: str) -> Text:
+        if self._locked.issuperset(self._sequence()):
+            return Text(NOTHING_CAN_CHANGE, style="dim")
         if not (self._split_part and key in _EVERY_PART):
             return super()._hint_line(key)
         return Text.assemble((f"{self._hint_for(key)} · ", "dim"), (EVERY_PART_NOTE, ACCENT))

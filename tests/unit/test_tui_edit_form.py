@@ -1585,6 +1585,58 @@ def test_an_archived_line_with_title_and_code_has_nothing_to_save(fake_client, m
     assert notices == [("", "No changes to save.")] * 2
 
 
+def test_an_archived_line_with_title_and_code_says_nothing_can_change(fake_client, monkeypatch):
+    """Pick 3 B of expense-world-wording-picks.html: with every line read-only
+    the bar sits on DATE and the hint under it says nothing here can change and
+    `esc` leaves, in place of DATE's own; keys pressed there change neither the
+    line nor the hint, and `esc` leaves."""
+    from expense.tui.screens.edit_form import NOTHING_CAN_CHANGE
+
+    assert NOTHING_CAN_CHANGE == (
+        "read-only · its account is archived, so nothing here can change · esc to leave"
+    )
+
+    async def steps(screen, pilot, app):
+        hint = screen.query_one("#hint", Static)
+        assert screen._locked == set(LINE_FIELDS)
+        assert screen._key == "date"
+        assert hint.content.plain == NOTHING_CAN_CHANGE
+        assert hint.content.style == "dim"
+        await pilot.press("tab", "2", "shift+tab")
+        await pilot.pause()
+        assert screen._key == "date"
+        assert hint.content.plain == NOTHING_CAN_CHANGE
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not screen.is_attached)
+
+    _open_line(ARCHIVED_LINE, monkeypatch, steps)
+    assert fake_client.puts == []
+
+
+@pytest.mark.parametrize(
+    ("line", "key"),
+    [
+        ({**ARCHIVED_LINE, "parts": [{**BANK_LINE["parts"][0], "title": None}]}, "title"),
+        ({**ARCHIVED_LINE, "operation_code": None}, "operation"),
+        (UNNAMED_LINE, "title"),
+        (BANK_LINE, "date"),
+    ],
+    ids=["archived-no-title", "archived-no-operation", "archived-neither", "not-archived"],
+)
+def test_a_line_still_open_keeps_its_own_hint(fake_client, monkeypatch, line, key):
+    """A line with a field left to change, an archived account's line with an
+    empty title or operation, or a line whose account is not archived, shows
+    the hint of the field the bar sits on, never the read-only one."""
+    from expense.tui.screens.edit_form import _HINTS, NOTHING_CAN_CHANGE
+
+    async def steps(screen, pilot, app):
+        assert screen._key == key
+        assert screen.query_one("#hint", Static).content.plain == _HINTS[key]
+        assert _HINTS[key] != NOTHING_CAN_CHANGE
+
+    _open_line(line, monkeypatch, steps)
+
+
 def test_an_archived_lines_empty_operation_code_is_filled_once(fake_client, monkeypatch):
     """A line with no operation code and no title: both stay editable, the form
     opens on the title, and the save sends the two first values alone."""
