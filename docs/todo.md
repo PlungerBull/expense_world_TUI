@@ -27,6 +27,30 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine moved its contract: catch up now?
+Asked 2026-10-24 · Blocks: every new task (the loop stays stopped until this is answered)
+
+The engine changed its contract. This app last caught up to version `3eec27cc7b11e663`; the
+engine is now on `f5cbc6ab4841f0a7`. The check prints this:
+
+```
+f5cbc6ab4841f0a7  2026-10-24
+  changed: wording only, *Reconciliations* → *Assigning transactions*: an assignment change answers as any `PUT /transactions/{id}` does, `changed_parts` included.
+9dd1358d455f9e47  2026-10-23
+  added: `PUT /transactions/{id}` answers with `changed_parts` beside the transaction: every part of its bank line whose line fields (`title`, `date`, `account_id`, `operation_code`, `statement_line`, `reconciliation_id`) this write changed, `{id}` included when it did, each as `{"transaction": <the part as GET /transactions/{id} returns it>, "left_reconciliation": <true | false>}`, in the order `GET /transactions?bank_line_id=<id>` lists the line by default. Always present, `[]` when no part changed: an empty body, a body changing only `amount_cents`, `category_id`, `description` or `hashtag_ids`, or line fields sent with the values the line already has. `left_reconciliation` is `true` when the part was in a reconciliation before the write and is in none or another one after it. The rest of the answer, the writes, the refusals and the version rule are unchanged. Stated in `PUT /transactions/{id}` → *Response*.
+```
+
+In plain words: the engine did what we asked in the ask "Changing a line field answers with every
+part it moved and whether each left its reconciliation". After a move, it now says which rows
+moved and which left their reconciliation, so the note after `b` can count them right. No
+hand-off file came with it.
+- **A.** Ask the engine coders for the hand-off file from `3eec27cc7b11e663` to
+  `f5cbc6ab4841f0a7`, then make catching up the next spec.
+- **B.** Catch up later, after the wording spec.
+
+**Recommended:** A, because the loop can't start any task until the new version is caught up,
+and this change is small.
+
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
@@ -47,7 +71,8 @@ You asked whether split transactions should have their own screen, since they ar
 than one row. Drawn in
 [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
 one screen for a split transaction, opened from everywhere (A), or the split screen gaining the
-line's fields while `⏎` on the ledger still edits one part (B).
+line's fields while `⏎` on the ledger still edits one part (B). Saving that form in one go
+needs the engine ask [one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md).
 
 ---
 
