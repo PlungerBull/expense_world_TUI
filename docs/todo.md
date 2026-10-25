@@ -28,14 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for the hand-off to 76ea2d3a139c816e
-Asked 2026-10-24 · Blocks: the catch-up to `76ea2d3a139c816e` (`PUT /bank-lines/{id}` with `parts`, and the split's removal)
+### Approve tasks 9 to 13 of the current spec
+Asked 2026-10-25 · Blocks: [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md) tasks 9 to 13
 
-The engine shipped "One write edits a whole bank line" as contracts `58d18ab42f4c09a2`,
-`dcda6e2de2883f1a` and `76ea2d3a139c816e`; the last removes `POST /transactions/{id}/split`, so
-the app's Split screen gets `404` until the catch-up. Ask them for one hand-off file from
-`70476c8797566383` to `76ea2d3a139c816e` and copy it into [from-engine/](from-engine/). Only you
-can carry it. The current spec goes on meanwhile, as you chose on 2026-10-24.
+The engine's hand-off now runs to its current contract, so the current spec catches up that far,
+as you chose on 2026-10-25. Its new tasks: the test data and the live contract suite catch up
+(9, 11, 12), the Split screen saves through the engine's new one-write route and looks as today
+(10, first, since the screen fails until then), and the Edit form with its parts saves in one
+go once you pick it (13). Tasks 6 to 8 stay as you approved them.
+- **A.** Approve them as drafted.
+- **B.** Change them: say what.
+
+**Recommended:** A, because they hold only what the engine shipped and you have already settled.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -51,7 +55,7 @@ instead of saved as 15.00. The account setting is an ask to the engine. One choi
 **Recommended:** A, because that is what normal apps do: one format, both ways.
 
 ### Split transactions: your Edit form with its parts [UI]
-Asked 2026-10-24 · Blocks: the "no batch" `?` card's line on a split row
+Asked 2026-10-24 · Blocks: task 13 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md), and the "no batch" `?` card's line on a split row
 
 Your design is drawn in
 [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
@@ -65,8 +69,7 @@ transaction as one line, as today. Two picks are open:
    form; **B.** `s` stays as today; **C.** `s` goes. **Recommended:** A, so there is one place to
    change parts.
 
-Saving the form in one go needs the engine ask "One write edits a whole bank line", which the
-engine coders are building.
+The engine saves the form in one go (contract: PUT /v1/bank-lines/{bank_line_id}).
 
 ---
 
@@ -84,14 +87,10 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Statement lines come from reconciliations** (the catch-up to contract
-  `70476c8797566383`): the current spec, approved 2026-10-24
+- **Statement lines come from reconciliations, and a card statement is one statement** (the
+  catch-up to contract `48ae0b6acb393dfa`): the current spec, tasks 6 to 8 approved 2026-10-24,
+  tasks 9 to 13 waiting on approval
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
-- **Catch up to contract `76ea2d3a139c816e`**: `PUT /bank-lines/{id}` with `parts`, which
-  answers the engine ask "One write edits a whole bank line", and the removal of
-  `POST /transactions/{id}/split`: the Split screen and the live tests that split get `404` until
-  then. It becomes its own catch-up spec once the engine's hand-off lands, right after the
-  current spec.
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
