@@ -28,54 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve tasks 6 to 8 of the current spec, rewritten from your picks
-Asked 2026-10-25 · Blocks: [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md) tasks 6 to 8
-
-Your picks of today put a statement in order on its own screen, so tasks 6 to 8 are rewritten
-around them: 6 is the card statement in the list and its create form (as you picked on
-2026-10-24), 7 is the statement's screen as one list with `Amount PEN` and `Amount USD`, the
-`Starting balance` and `Ending balance` rows, put in order there with `shift+↑↓` and `ctrl+s`,
-and 8 is the same screen for an account with no statement code. Question 5 of
-[mockups/expense-world-statement-screen.html](mockups/expense-world-statement-screen.html)
-(where the account's opening balance line shows) is open in the same mockup, and the
-card-statement mockup's pane 4c now says `u`, `shift+↑↓`, `ctrl+s` and `c` instead of `o`.
-- **A.** Approve them as rewritten, with question 5's recommended answer.
-- **B.** Change them: say what.
-
-**Recommended:** A, because they hold only your picks.
-
-### Hand over four engine asks
-Asked 2026-10-25 · Blocks: tasks 7, 8 and 13 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-Four asks are in [to-engine/](to-engine/), each a file to copy as is into the engine repo's
-`docs/from-tui/`: "The statement read lists every line a statement needs, on any account, oldest
-first" and "A bank line says when it is an account's opening balance" (the statement's screen),
-"A bank line's read says which of its fields a write would refuse" and "The whole-line write takes
-every part edit that PUT /transactions/{id} takes" (the Edit form with its parts). Say when they
-are handed over and they leave the folder.
-- **A.** Hand them over now.
-- **B.** Change one first: say which.
-
-**Recommended:** A, because without them the screens would carry their own copies of the
-engine's rules.
-
-### The Edit form with its parts: four details
-Asked 2026-10-25 · Blocks: task 13 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-Drawn as questions 3 to 6 under "Questions for task 13" at the end of
-[mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
-3. The hint under a part's NOTE when `⏎` goes on to the next part: **A.** `optional · enter to
-   go on`; **B.** `optional · enter goes to part 2`; **C.** `optional`. **Recommended:** A, the
-   words the app already uses where `⏎` moves on.
-4. Where a save the engine refuses shows: **A.** under the parts table, each refused part named
-   by its number; **B.** the pop-up note the Edit form shows today; **C.** A without the dim
-   `Nothing was saved.` **Recommended:** A, since a pop-up loses which part was refused.
-5. An opening balance, and a line on an archived account, where the engine never adds or drops
-   parts: **A.** `^n` and `^x` are not offered and the locked cells are dimmed; **B.** the keys
-   show and the engine says no on save. **Recommended:** A.
-6. Where `s` opens the form: **A.** as `⏎` does, on DATE; **B.** with a new empty part already
-   added. **Recommended:** A, one way in.
-
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
@@ -106,8 +58,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
-  catch-up to contract `48ae0b6acb393dfa`): the current spec, tasks 6 to 8 approved 2026-10-24,
-  tasks 9 to 13 approved 2026-10-25
+  catch-up to contract `48ae0b6acb393dfa`): the current spec, its tasks approved 2026-10-25
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
