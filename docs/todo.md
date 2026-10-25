@@ -28,13 +28,13 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over two engine asks
-Asked 2026-10-25 · Blocks: tasks 14 and 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+### Copy the engine's hand-off into from-engine/
+Asked 2026-10-25 · Blocks: tasks 7, 8 and 13 to 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
-"The reconciliation list reads a card statement as one row" (task 14) and "Saving a card
-statement's form writes both halves' balances in one write" (task 15) are in
-[to-engine/](to-engine/), each a file to copy as is into the engine repo's `docs/from-tui/`. Say
-when they are handed over and they leave the folder.
+The engine coders say their hand-off `statement-line-from-reconciliation.md`, in the engine repo's
+`docs/to-tui/`, now covers every change up to contract `bdc9d3f3a540b7ce`, answering this spec's
+engine asks. Copy it as is into [from-engine/](from-engine/); the current spec then catches up to
+that contract and the loop goes on.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
