@@ -442,6 +442,257 @@
 <b>New words, yours to change:</b> <code>half</code>, <code>both halves</code>, <code>in order</code> / <code>not in order</code>, <code>half completed</code>, <code>no half</code> / <code>no dollar half</code>, <code>lines without a place</code>, <code>place held twice</code>, <code>Create the dollar half too?</code>, <code>Complete the statement?</code>, <code>Put the statement in order first?</code>, <code>Create both</code>, <code>Other half</code>, <code>Order</code> on the key <code>o</code> (the same key as on the statement-order mockup), and the column names <code>Diff PEN</code> / <code>Diff USD</code>.
 </div>
 
+<div class="head" style="margin-top:64px">
+  <h1>Questions for task 6</h1>
+  <p>Three more things a card statement needs, each drawn to pick from. The statement's screen they start from is the one-list screen of <code>expense-world-statement-screen.html</code>. The card, months and lines are the ones above; the engine's words are its real ones, except a first line marked as a stand-in.</p>
+</div>
+<div class="pane">
+<div class="lbl">Task 6 · question 1 · renaming a statement, moving its days, fixing its balances <span>— today no screen does it; the only edit is the ending-balance box</span></div>
+<p class="blurb">The engine renames a statement and moves its days in <b>one save</b>, from either half: both halves of a card take the same name and the same days, every line stays in its half and keeps its place. <b>Each half's balances are its own</b>: the engine writes a balance only to the half the save is sent to. A <b>completed</b> statement can still be renamed, both halves together, but its days and its four balances are locked until <code>u</code> reverts it. <b>The question is where you do it.</b></p>
+<div class="opt wide">
+<div class="var"><div class="oh">A1 · <span>e on the statement's screen opens a small form</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+<span class="rev">   [x]   2026-10-02   FARMACIA              48201764           -100.00              </span>
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">saved · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · e edit name, days and balances · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">e</span> Edit  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>e Edit</code> joins the statement's keys, before <code>d</code>. It opens the form below.</p></div>
+<div class="var"><div class="oh">A2 · <span>the form · a draft statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NAME                </span>Octubre 2026<span class="a">▍</span>
+
+
+   <span class="d">the statement&#x27;s name · both halves take it</span>
+
+   <span class="b">name                </span>Octubre 2026
+   accounts            <span class="d">Signature PEN + Signature USD · SIG</span>
+   date start          2026-09-26
+   date end            2026-10-25
+   begin balance PEN   -1,240.50
+   end balance PEN     -380.70
+   begin balance USD   -60.12
+   end balance USD     -53.88
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Name and days typed once for both halves, then each half's begin and end balance, laid out as on the form that creates them; the accounts are shown, not asked. <code>^s</code> sends only what you changed and goes back to the statement's screen, read again; <code>esc</code> leaves with nothing saved. <b>One save, always:</b> the name, the days and both halves' balances go in one save, so a refused save changes nothing. This waits on the engine taking both halves' balances in one write (asked as “Saving a card statement's form writes both halves' balances in one write”).</p></div>
+<div class="var"><div class="oh">A3 · <span>the form · a completed statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NAME                </span>Octubre 2026<span class="a">▍</span>
+
+
+   <span class="d">the statement&#x27;s name · both halves take it</span>
+
+   <span class="b">name                </span>Octubre 2026
+   accounts            <span class="d">Signature PEN + Signature USD · SIG</span>
+   date start          <span class="d">2026-09-26  locked while completed · u reverts the statement first</span>
+   date end            <span class="d">2026-10-25  locked while completed</span>
+   begin balance PEN   <span class="d">-1,240.50   locked while completed</span>
+   end balance PEN     <span class="d">-380.70     locked while completed</span>
+   begin balance USD   <span class="d">-60.12      locked while completed</span>
+   end balance USD     <span class="d">-53.88      locked while completed</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Only the name can change: the days and the four balances show dim with why, and <code>⇥</code> skips them. The engine renames both halves together, in one save.</p></div>
+<div class="var"><div class="oh">A4 · <span>refused: the new days overlap another statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">DATE START          </span>2026-09-20<span class="a">▍</span>
+
+
+   <span class="d">first day of the statement · both halves take it</span>
+
+   name                Octubre 2026
+   accounts            <span class="d">Signature PEN + Signature USD · SIG</span>
+   <span class="b">date start          </span>2026-09-20
+   date end            2026-10-25
+   begin balance PEN   -1,240.50
+   end balance PEN     -380.70
+   begin balance USD   -60.12
+   end balance USD     -53.88
+
+                              <span class="n">▌</span> <span class="b">Couldn't save</span>
+                              <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
+                              <span class="n">▌</span>   date_start: Overlaps 'Septiembre 2026'
+                              <span class="n">▌</span> (2026-08-26 to 2026-09-25). A day belongs
+                              <span class="n">▌</span> to one statement.
+                              <span class="n">▌</span>   twin.date_start: Overlaps 'Septiembre
+                              <span class="n">▌</span> 2026' (2026-08-26 to 2026-09-25). A day
+                              <span class="n">▌</span> belongs to one statement.
+                              <span class="n">▌</span> 
+                              <span class="n">▌</span> Pick days no other statement of these
+                              <span class="n">▌</span> accounts holds.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Moving the start to 2026-09-20 takes days Septiembre 2026 holds, on both card accounts. The engine names each half it fails on: <code>date_start</code> for the half the app sends the save to (Signature PEN), <code>twin.date_start</code> for the other half (Signature USD). Nothing is saved and the form keeps what you typed. The first line, <code>Validation failed.</code>, is a stand-in until read from the engine; the rest are its words. The last line is the app's.</p></div>
+<div class="var"><div class="oh">A5 · <span>refused: a balance on a statement completed meanwhile</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">END BALANCE USD     </span>-56.87<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · the dollar half&#x27;s closing balance · optional</span>
+
+   name                Octubre 2026
+   accounts            <span class="d">Signature PEN + Signature USD · SIG</span>
+   date start          2026-09-26
+   date end            2026-10-25
+   begin balance PEN   -1,240.50
+   end balance PEN     -380.70
+   begin balance USD   -60.12
+   <span class="b">end balance USD     </span>-56.87
+
+                              <span class="n">▌</span> <span class="b">Couldn't save</span>
+                              <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
+                              <span class="n">▌</span>   ending_balance_cents: Locked while
+                              <span class="n">▌</span> reconciliation is completed.
+                              <span class="n">▌</span> 
+                              <span class="n">▌</span> Press u on the statement to revert it,
+                              <span class="n">▌</span> then try again.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">The statement was completed on another screen while this form was open, and you changed only the dollar half's end balance, so the one save goes to the dollar half. The engine refuses any balance of a completed half, even at the same figure, and saves nothing. The first line is a stand-in, as in A4; the last two lines are the app's, the ones used wherever a completed statement refuses a change. <b>Picked, A:</b> you fix a name, the days or a balance where you see them, in the header of the statement you are checking, next to the other keys that act on it.</p></div>
+<div class="var"><div class="oh">B · <span>e on the statement's row in the list</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Signature PEN</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+    Account                     Cur          Balance
+    <span class="d">────────────────────────────────────────────────────</span>
+  <span class="a">▸</span> Signature PEN               PEN          <span class="n">-512.30</span>
+  <span class="a">▸</span> Signature USD               USD           <span class="n">-61.40</span>
+    Sueldo Soles                PEN        <span class="p">12,450.00</span>
+    Cuenta Digital Dólares      USD           <span class="p">820.15</span>
+
+  Reconciliations · Signature PEN + Signature USD · SIG · <span class="d">oldest → newest</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Period                    Diff PEN   Diff USD   Status          Order
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    Julio 2026       2026-06-26 → 2026-07-25          —    no half   completed       in order</span>
+<span class="d">    Agosto 2026      2026-07-26 → 2026-08-25          —          —   completed       in order</span>
+    Septiembre 2026  2026-08-26 → 2026-09-25          <span class="d">—</span>          <span class="d">—</span>   <span class="w">half completed</span>  <span class="w">not in order</span>
+<span class="rev">    Octubre 2026     2026-09-26 → 2026-10-25          —          —   draft           in order      </span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Close the panel  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">u</span> No batch</pre></div></div><p class="cap"><code>e Edit</code> on the cursor row of the list opens the same form; the statement's screen has no <code>e</code>. Quick for a rename, but away from the lines whose days you are fixing.</p></div>
+<div class="var"><div class="oh">C · <span>no such screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The statement's keys stay as they are. To fix the name or the days you delete the statement (only while both halves are drafts) and create it again with <code>n</code>: every line has to be ticked again and the order put again, and a completed statement cannot be renamed at all.</p></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">Task 6 · question 2 · the delete question for a card statement <span>— d on the statement's screen</span></div>
+<p class="blurb">Today <code>d</code> asks <code>Delete reconciliation?</code> · <code>Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.</code> On a card, the engine deletes <b>both halves in one save</b>, from either half: every line of both is unticked and stays in the ledger, and its place in the order is cleared. It deletes only while both halves are drafts; on a completed one it refuses with its own words, <code>Must be a draft reconciliation.</code>, and <code>u</code> reverts it first. Only <code>y</code> deletes; after it the note says <code>Statement deleted.</code> and the list opens.</p>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>names both halves and what happens to the lines</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="a">──────────────────────────────────────────────</span>
+
+    <span class="ab">Delete the statement?</span>
+
+    Octubre 2026 · both halves, PEN and USD
+    Its 9 lines are unticked and stay in the
+    ledger, and their order is cleared.
+    No screen can bring it back.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="a">──────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap">The count is the lines on the statement, both halves. <b>Picked:</b> you see what you lose, the order you put, and what you keep, the lines, before you say yes.</p></div>
+<div class="var"><div class="oh">B · <span>shorter</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="a">──────────────────────────────────────────────</span>
+
+    <span class="ab">Delete the statement?</span>
+
+    Octubre 2026 · PEN and USD. Its lines stay
+    in the ledger. No screen can bring it back.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="a">──────────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap">Both halves and the lines kept, in two lines; it does not say the order goes.</p></div>
+</div>
+<p class="blurb">An account with no statement code keeps today's question, word for word.</p>
+</div>
+<div class="pane">
+<div class="lbl">Task 6 · question 3 · an account with a statement code but no partner account <span>— Ahorro Soles, a soles savings account with the code AHO and no dollar account under it</span></div>
+<p class="blurb">Ahorro Soles has a statement code, so its statement still has an order and completes only once it is in order, but it is one account in one currency: each statement is one reconciliation, with no other half. Octubre 2026 is a draft whose lines add up but are not in order yet. <b>The question is how its list of statements looks.</b></p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>today's list, unchanged</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Ahorro Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+    Account                     Cur          Balance
+    <span class="d">────────────────────────────────────────────────────</span>
+    Signature PEN               PEN          <span class="n">-512.30</span>
+    Signature USD               USD           <span class="n">-61.40</span>
+  <span class="a">▸</span> Ahorro Soles                PEN         <span class="p">6,480.00</span>
+    Sueldo Soles                PEN        <span class="p">12,450.00</span>
+    Cuenta Digital Dólares      USD           <span class="p">820.15</span>
+
+  Reconciliations · Ahorro Soles · <span class="d">oldest → newest</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Period                        Begin         End       Diff   Status
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+    Agosto 2026      2026-08-01 → 2026-08-31    5,200.00    5,640.00          —   completed
+    Septiembre 2026  2026-09-01 → 2026-09-30    5,640.00    6,015.30          —   completed
+<span class="rev">    Octubre 2026     2026-10-01 → 2026-10-31    6,015.30    6,480.00          —   draft         </span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Close the panel  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div><p class="cap">Name, period, begin, end, diff and status, as for any account today. Nothing on the row says Octubre still needs its order; you find out on its screen.</p></div>
+<div class="var"><div class="oh">B · <span>the card list's columns, with one currency</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Ahorro Soles</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations — pick an account
+
+    Account                     Cur          Balance
+    <span class="d">────────────────────────────────────────────────────</span>
+    Signature PEN               PEN          <span class="n">-512.30</span>
+    Signature USD               USD           <span class="n">-61.40</span>
+  <span class="a">▸</span> Ahorro Soles                PEN         <span class="p">6,480.00</span>
+    Sueldo Soles                PEN        <span class="p">12,450.00</span>
+    Cuenta Digital Dólares      USD           <span class="p">820.15</span>
+
+  Reconciliations · Ahorro Soles · AHO · <span class="d">oldest → newest</span>
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Period                        Diff   Status          Order
+    <span class="d">──────────────────────────────────────────────────────────────────────────────────────</span>
+<span class="d">    Agosto 2026      2026-08-01 → 2026-08-31          —   completed       in order</span>
+<span class="d">    Septiembre 2026  2026-09-01 → 2026-09-30          —   completed       in order</span>
+<span class="rev">    Octubre 2026     2026-10-01 → 2026-10-31          —   draft           not in order  </span>
+
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Close the panel  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">u</span> No batch</pre></div></div><p class="cap">Name, period, diff, status and <code>Order</code>, as on the card's list, with one <code>Diff</code> column. The code shows in the title as on the card's. Begin and end are on the statement's screen. <b>Picked:</b> the order decides whether it can complete, so the row says it, from the engine's counts as on the card; and every account with a statement code gets one list layout.</p></div>
+</div>
+</div>
+
+<div class="pick">
+<b>Picked on 2026-10-25, for task 6:</b>
+<ul>
+<li><b>Question 1 · renaming, moving the days, fixing the balances:</b> A, <code>e Edit</code> on the statement's screen, its form carrying the name, the days and each half's begin and end balance.</li>
+<li><b>Question 2 · the delete question:</b> A, naming both halves and what happens to the lines.</li>
+<li><b>Question 3 · a code but no partner account:</b> B, the card list's columns with one currency.</li>
+</ul>
+<b>New words, yours to change:</b> <code>e Edit</code> on the statement's screen (or on the list, 1 B), the crumb <code>Edit</code>, <code>Save both</code>, <code>the statement's name · both halves take it</code>, <code>signed decimal · the dollar half's closing balance · optional</code>, <code>locked while completed</code>, <code>first day of the statement · both halves take it</code>, <code>locked while completed · u reverts the statement first</code>, the app's line <code>Pick days no other statement of these accounts holds.</code>, <code>Delete the statement?</code> and its text, <code>Statement deleted.</code>, and the column <code>Diff</code> beside <code>Order</code> on a one-currency list.
+</div>
+
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
   var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
