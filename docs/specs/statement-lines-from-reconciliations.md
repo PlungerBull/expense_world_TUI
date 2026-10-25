@@ -89,12 +89,9 @@ Checks 3 and 4 run on the practice engine: the official import has not happened 
 
 ## Tasks
 
-Approved by the owner on 2026-10-24. Task 4 has no screen and runs first.
-Tasks 5 to 8 are **[UI]**: each starts with a mockup in [mockups/](../mockups/) and waits for the
+Approved by the owner on 2026-10-24. Tasks 5 to 8 are **[UI]**: each starts with a mockup in [mockups/](../mockups/) and waits for the
 owner's pick.
 
-4. **Turning an account with a code into a person shows the engine's refusal.** `t` on Manage ▸
-   Accounts shows `HAS_STATEMENT_CODE`'s words as sent (contract: POST /v1/accounts/{account_id}/make-person), with a unit test.
 5. **[UI] The account form's statement-code field**, on bank accounts only: set, change, clear.
 6. **[UI] The statement-order screen**: read the order, arrange the lines (both currencies),
    insert empty slots, send it; reached from a reconciliation, and from a completion refused as

@@ -197,6 +197,8 @@ _APP_FAULT = (
 #: `KIND_UNCHANGED`, whose words already say the account is of that kind
 #: (contract: POST /v1/accounts/{account_id}/make-person)
 #: (contract: POST /v1/accounts/{account_id}/make-account),
+#: `HAS_STATEMENT_CODE`, whose message already names the code and says to clear it
+#: first (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"),
 #: `PERSON_ACCOUNT`, whose words already say a person cannot have it
 #: (contract: POST /v1/reconciliations, "A person account never has reconciliations"),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw

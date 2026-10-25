@@ -51,9 +51,10 @@ def _account(ident: str, name: str, *, person: bool = False, archived: bool = Fa
 
 
 def _rows() -> list[dict]:
-    """Manage ▸ Accounts as screen 1 draws it, plus a second person."""
+    """Manage ▸ Accounts as screen 1 draws it, plus a second person; Sueldo
+    Soles holds a statement code."""
     return [
-        _account("a-sueldo", "Sueldo Soles"),
+        {**_account("a-sueldo", "Sueldo Soles"), "statement_code": "SJN"},
         {**_account("a-efectivo", "Efectivo"), "opening_balance_transaction_id": "t-open"},
         _account("a-alejo", "ALEJO PEN"),
         _account("a-alejo-usd", "ALEJO USD"),
@@ -292,6 +293,11 @@ _RECON_FIELD = "Must be an account without reconciliations: a person cannot have
 _RECON_LINE = (
     "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
 )
+_CODE_WORDS = (
+    "The account has the statement code 'SJN', which a person account cannot carry. "
+    "Clear the code first."
+)
+_CODE_FIELD = "Must be an account without a statement code: a person cannot carry one."
 
 REFUSALS = [
     # cursor row, route, the engine's message, field words, reason, the whole note
@@ -340,33 +346,60 @@ REFUSALS = [
         "ACCOUNT_ARCHIVED",
         f"CONFLICT — {_ARCHIVED_WORDS}\n  account_id: {_ARCHIVED_WORDS}",
     ),
+    (
+        "a-sueldo",
+        "make-person",
+        _CODE_WORDS,
+        _CODE_FIELD,
+        "HAS_STATEMENT_CODE",
+        f"CONFLICT — {_CODE_WORDS}\n  account_id: {_CODE_FIELD}",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
     ("ident", "route", "message", "field", "reason", "shown"),
     REFUSALS,
-    ids=["opening-balance", "reconciliation", "already-person", "already-bank", "archived"],
+    ids=[
+        "opening-balance",
+        "reconciliation",
+        "already-person",
+        "already-bank",
+        "archived",
+        "statement-code",
+    ],
 )
 def test_a_refusal_shows_the_engine_words_and_t_works_again(
     configured, monkeypatch, ident, route, message, field, reason, shown
 ):
     """The "Failed" note is the engine's words whole; only `HAS_OPENING_BALANCE`
-    and `HAS_RECONCILIATION` add the app's line, chosen by the reason. Nothing
-    changes, and `t` sends again."""
+    and `HAS_RECONCILIATION` add the app's line, chosen by the reason; the rest,
+    `HAS_STATEMENT_CODE` among them, show the engine's words alone
+    (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"). Nothing
+    changes: the account keeps its kind (`_by_id` holds `is_person`) and the list
+    is not read again. Nothing
+    but the turn is sent, and `t` sends again."""
     rows = _rows()
-    _stub_list(monkeypatch, rows)
+    reads: list[int] = []
+
+    def read(*_a, **_k):
+        reads.append(1)
+        return whole(list(rows))
+
+    monkeypatch.setattr("expense.reads.fetch_accounts", read)
     seen: dict = {}
 
     async def scenario(pilot, app):
         screen, notes = await _open(pilot, app, monkeypatch, ident)
         listing = screen.query_one(CursorList)
         before = (listing, listing.cursor_key, dict(screen._by_id))
+        read_before = len(reads)
         await pilot.press("t")
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
         listing = screen.query_one(CursorList)
         seen["same"] = before == (listing, listing.cursor_key, screen._by_id)
+        seen["reread"] = len(reads) - read_before
         seen["notes"] = list(notes)
         await pilot.press("t")
         await wait_for(pilot, lambda: len(notes) == 2)
@@ -378,6 +411,7 @@ def test_a_refusal_shows_the_engine_words_and_t_works_again(
         run_app(scenario, size=SIZE)
     assert seen["notes"] == [("Failed", shown)]
     assert seen["same"]
+    assert seen["reread"] == 0
     assert sent.call_count == 2
 
 
