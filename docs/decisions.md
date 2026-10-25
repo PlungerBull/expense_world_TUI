@@ -550,11 +550,21 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 **Context.** The engine sent one hand-off file per change, each with its own contract range, so files overlapped, a version between two files could go unexplained, and a catch-up spec leaned on a file that lived until the spec retired. The engine coders heard nothing back once this client caught up.
 
-**Decision.** The owner asks the engine coders for one hand-off file covering every contract change since the version this client last caught up to ([from-engine/README.md](from-engine/README.md)). The orchestrator turns the waiting files into catch-up specs, grouped as one unless parts are independent; each spec takes the engine's "What the TUI does", "Done when" and declined points, and the hand-off file is deleted, together with every ask in [to-engine/](to-engine/) it answers. Each catch-up spec ends with a reply, written once the spec is done, that tells the engine the version caught up to, how each of its checks went, and any contract problems found ([to-engine/README.md](to-engine/README.md)). That reply's version is the one quoted for the next catch-up.
+**Decision.** The owner asks the engine coders for one hand-off file covering every contract change since the version this client last caught up to ([from-engine/README.md](from-engine/README.md)). The orchestrator turns the waiting files into catch-up specs, grouped as one unless parts are independent; each spec takes the engine's "What the TUI does", "Done when" and declined points, and the hand-off file is deleted. Each catch-up spec ends with a reply, written once the spec is done, that tells the engine the version caught up to, how each of its checks went, and any contract problems found ([to-engine/README.md](to-engine/README.md)). That reply's version is the one quoted for the next catch-up.
 
-**Why.** One range per catch-up leaves no gap and no double work. The spec holding everything makes it stand alone, so the hand-off file adds nothing once the spec exists, and an answered ask left in the outbox would be handed to the engine again. The reply closes the loop: this app is the contract's first real user, and the engine coders learn what held up before the web and iOS clients build on it.
+**Why.** One range per catch-up leaves no gap and no double work. The spec holding everything makes it stand alone, so the hand-off file adds nothing once the spec exists. The reply closes the loop: this app is the contract's first real user, and the engine coders learn what held up before the web and iOS clients build on it.
 
 **Rejected.** *One file per engine change:* overlapping ranges and gaps. *Keeping the hand-off file until the spec retires:* two homes for the same facts.
+
+## An ask leaves the outbox once it is handed over (2026-10-24, owner)
+
+**Context.** An ask stayed in [to-engine/](to-engine/) from the day it was written until a hand-off answered it, so the folder mixed asks still to carry with asks the engine already held, and on 2026-10-24 the owner carried an ask the engine coders had already approved a second time.
+
+**Decision.** An ask is deleted when the owner says it is handed over, as a reply is ([to-engine/README.md](to-engine/README.md)). From then on the engine holds it: its hand-off answers it, and whatever here waits on it (a spec's task, a todo.md item) names it by title. A revised ask is a file in the outbox again until it is handed over.
+
+**Why.** The outbox lists only what the owner still has to carry, so nothing goes to the engine twice. The engine's copy and git history keep the ask's text, and the work waiting on it keeps its title in sight.
+
+**Rejected.** *Keeping each ask until a hand-off answers it:* the folder no longer tells the owner what to carry, and an ask the engine already holds gets carried again.
 
 ## The bank import's preview is one table: a mark and a reason per file row (2026-10-18, owner)
 

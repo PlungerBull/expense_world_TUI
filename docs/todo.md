@@ -7,7 +7,8 @@ the work runs: CLAUDE.md "How work runs (the agent loop)".
 Only the orchestrator edits this file; workers put tasks and questions in their reports. Closed
 items get deleted, not ticked ([decisions.md](decisions.md) "The open-work list holds only open
 work"). Cite items by title. **[UI]** means an HTML mockup in [mockups/](mockups/) must be
-picked before any code. Engine asks live in [to-engine/](to-engine/), one file each.
+picked before any code. Engine asks wait in [to-engine/](to-engine/), one file each, until
+handed over.
 
 ---
 
@@ -27,15 +28,38 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### The engine's contract moved to 58d18ab42f4c09a2
+Asked 2026-10-24 · Blocks: every task of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+This client last caught up to `70476c8797566383`. The version check now reads the engine at
+`58d18ab42f4c09a2` and prints:
+
+```
+58d18ab42f4c09a2  2026-10-24
+  added: `PUT /bank-lines/{id}`, which changes a bank line's `title`, `date`, `account_id`, `operation_code` and `reconciliation_id` on every live part in one write, each optional, taken exactly as `PUT /transactions/{id}` takes it (an explicit `null` only on `title`, `operation_code` and `reconciliation_id`, else `NOT_NULL`). Any other field is `422` (`UNKNOWN_FIELD`), a part's own fields, `parts`, `statement_line` and `statement_place` included. […] a line leaving its reconciliation loses its `statement_place`. Answers `200` with the line as `GET /bank-lines/{id}` returns it after the write, plus `changed_parts` […] and `created_part_ids` and `deleted_part_ids`, both `[]`. […]
+  changed: wording only, *Aggregate exceptions* → *Bank lines* names `PUT /bank-lines/{id}` among the writes that change a line's operation code, account and statement place.
+```
+
+It is a new route, the first part of the engine ask "One write edits a whole bank line"; nothing
+this client already sends changed. Ask the engine coders for one hand-off file from
+`70476c8797566383` to `58d18ab42f4c09a2`.
+- **A.** Go on with the current spec now; the new route becomes its own catch-up spec once their
+  hand-off lands.
+- **B.** Fold the new route into the current spec.
+- **C.** Wait for their hand-off before any task runs.
+
+**Recommended:** A, because the change only adds a route, so the current spec's work is
+unaffected, and the route belongs with the split Edit form it was asked for.
+
 ### Hand the engine two corrected asks on card statements
 Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
 The engine coders reviewed both asks; each now carries their corrections. Copy
 [a-reconciliation-names-its-other-half.md](to-engine/a-reconciliation-names-its-other-half.md)
 and [one-write-completes-a-whole-statement.md](to-engine/one-write-completes-a-whole-statement.md)
-as is into the engine repo's `docs/from-tui/`, over the copies there. Only you can carry them.
-Their copy of "One write edits a whole bank line" is already their approved work, so they may
-delete it; ours stays in [to-engine/](to-engine/) until their hand-off covers it.
+as is into the engine repo's `docs/from-tui/`, over the copies there, then tell the orchestrator
+they are handed over and both leave [to-engine/](to-engine/). Only you can carry them. Their copy
+of "One write edits a whole bank line" is already their approved work, so they may delete it.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -65,8 +89,8 @@ transaction as one line, as today. Two picks are open:
    form; **B.** `s` stays as today; **C.** `s` goes. **Recommended:** A, so there is one place to
    change parts.
 
-Saving the form in one go needs the engine ask
-[one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md).
+Saving the form in one go needs the engine ask "One write edits a whole bank line", which the
+engine coders are building.
 
 ---
 

@@ -12,9 +12,11 @@ internals.
 - **Shape:** `# <the ask, as one sentence>`, the date it was raised, then **Why**, **The ask**,
   **Done when**, and last **What this client removes once it lands** (the client workaround the ask
   retires, in words, no paths into this repo).
-- **Deleted as soon as an engine hand-off covering it arrives**, in the commit that folds that
-  hand-off into a catch-up spec, so an answered ask is never handed over twice. The spec carries
-  what is left to do, and its reply names the ask by title.
+- **Deleted when the owner says it is handed over.** From then on the engine holds it: its
+  hand-off answers it, the catch-up spec built from that hand-off carries what is left to do, and
+  its reply names the ask by title. Whatever here waits on the ask (a spec's task, a todo.md
+  item) names it by title, not by a link. A revised ask is a file here again until it is handed
+  over.
 
 **A reply** — this client caught up with an engine change.
 
@@ -28,5 +30,5 @@ internals.
   the engine for the next catch-up file.
 - **Deleted when the owner says it is handed over.**
 
-**This folder is the list of open asks and unsent replies.** Nothing else lists them. Raising
+**This folder is the list of what the owner still has to hand over.** Nothing else lists it. Raising
 asks is encouraged, not a last resort (CLAUDE.md "Ask the engine to change").
