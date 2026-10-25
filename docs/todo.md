@@ -27,11 +27,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the catch-up spec
-Asked 2026-10-24 · Blocks: [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-The catch-up to contract `70476c8797566383` is drafted with its tasks. Approve or rewrite them.
-
 ### Hand the engine two corrected asks on card statements
 Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
@@ -90,7 +85,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Statement lines come from reconciliations** (the catch-up to contract
-  `70476c8797566383`): a draft spec waiting for the owner's approval
+  `70476c8797566383`): the current spec, approved 2026-10-24
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
