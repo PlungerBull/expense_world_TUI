@@ -27,29 +27,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand the engine a reply and ask for the next hand-off
-Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to `70476c8797566383`
+### Copy the corrected hand-off again
+Asked 2026-10-24 · Blocks: the catch-up spec from `f5cbc6ab4841f0a7` to `70476c8797566383`
 
-This client last caught up to contract `f5cbc6ab4841f0a7`; the engine is at
-`70476c8797566383`, recorded on 2026-10-24 so the wording spec could close. Only you can carry
-these to the engine coders:
-1. The reply [caught-up-f5cbc6ab4841f0a7.md](to-engine/caught-up-f5cbc6ab4841f0a7.md), copied as
-   is into the engine repo's `docs/from-tui/`.
-2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to
-   `70476c8797566383`: no write takes `statement_line`, accounts gain a three-letter
-   `statement_code`, one statement code takes one reconciliation per month, and the engine
-   builds `statement_line` from a statement's order (`statement_place`,
-   `GET`/`PUT /reconciliations/{id}/statement-order`). The reply says the sheet import sets no
-   statement lines, which answers the question in their `statement-line-from-reconciliation`
-   about the lines it set.
-
-When the file lands in [from-engine/](from-engine/), it becomes the next spec.
-
-### Hand the engine the ask on editing a whole line
-Asked 2026-10-24 · Blocks: saving the split transaction's Edit form in one go
-
-Copy [one-write-edits-a-whole-bank-line.md](to-engine/one-write-edits-a-whole-bank-line.md) as
-is into the engine repo's `docs/from-tui/`. Only you can carry it.
+The engine coders corrected their hand-off
+[statement-line-from-reconciliation.md](from-engine/statement-line-from-reconciliation.md) after
+reading this client's reply: the sheet import sends no `statement_line`; only this client's
+live contract tests do. The copy here is the one before that fix (its change 1, "What the TUI
+does" step 2 and "Done when" 2). Copy the engine repo's `docs/to-tui/` version over it, as is.
+Only you can carry it; the catch-up spec is drafted from the corrected file.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -106,8 +92,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   accounts gain `statement_code`, one reconciliation per code per month; the engine builds
   `statement_line` from a statement's order, so `test_bank_lines.py::test_a_bank_line_reads_its_figures`
   fails on the new `statement_place` too (7 live tests in all, against `70476c8797566383`). The
-  next spec once the hand-off file lands ("Hand the engine a reply and ask for the next
-  hand-off" above).
+  next spec, drafted from the hand-off once its corrected copy lands ("Copy the corrected
+  hand-off again" above).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
