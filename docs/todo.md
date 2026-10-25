@@ -28,6 +28,19 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Confirm the Edit form's mockup before it is built
+Asked 2026-10-25 · Blocks: task 2 of [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md)
+
+Task 2 builds the Edit form drawn in
+[mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
+`⏎` or `s` on any part opens one form with the shared fields on top and every part below, one
+save writes it all, and a locked field reads `read-only`. Your picks are 1 A, 2 A, 3 A, 4 A,
+5 A and 6 A, as the spec lists them.
+- **A.** Build it as picked.
+- **B.** Change something first: say what, and the mockup is redrawn for a pick.
+
+**Recommended:** A, because every question on it is answered and the engine is ready.
+
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
