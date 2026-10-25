@@ -27,15 +27,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Copy the corrected hand-off again
-Asked 2026-10-24 · Blocks: the catch-up spec from `f5cbc6ab4841f0a7` to `70476c8797566383`
+### Approve the catch-up spec and answer its question
+Asked 2026-10-24 · Blocks: [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
-The engine coders corrected their hand-off
-[statement-line-from-reconciliation.md](from-engine/statement-line-from-reconciliation.md) after
-reading this client's reply: the sheet import sends no `statement_line`; only this client's
-live contract tests do. The copy here is the one before that fix (its change 1, "What the TUI
-does" step 2 and "Done when" 2). Copy the engine repo's `docs/to-tui/` version over it, as is.
-Only you can carry it; the catch-up spec is drafted from the corrected file.
+The catch-up to contract `70476c8797566383` is drafted with its tasks. Approve or rewrite them,
+and answer its question 1 (the sheet's statement codes at the official import).
+
+### Hand the engine two asks on card statements
+Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Copy [a-reconciliation-names-its-other-half.md](to-engine/a-reconciliation-names-its-other-half.md)
+and [one-write-completes-a-whole-statement.md](to-engine/one-write-completes-a-whole-statement.md)
+as is into the engine repo's `docs/from-tui/`. Only you can carry them.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -84,16 +87,9 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Catch up from contract `f5cbc6ab4841f0a7` to the engine's current one:** every write now
-  refuses `statement_line`, so the live contract tests that send it fail
-  ([test_line_codes_and_statement_lines.py](../tests/contract/test_line_codes_and_statement_lines.py),
-  [test_bank_lines.py](../tests/contract/test_bank_lines.py)), and the shared batch writer's
-  row refusals in [runtime.md](runtime.md) "Bulk writes" still list a taken statement line;
-  accounts gain `statement_code`, one reconciliation per code per month; the engine builds
-  `statement_line` from a statement's order, so `test_bank_lines.py::test_a_bank_line_reads_its_figures`
-  fails on the new `statement_place` too (7 live tests in all, against `70476c8797566383`). The
-  next spec, drafted from the hand-off once its corrected copy lands ("Copy the corrected
-  hand-off again" above).
+- **Statement lines come from reconciliations** (the catch-up to contract
+  `70476c8797566383`): a draft spec waiting for the owner's approval and one answer
+  ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
