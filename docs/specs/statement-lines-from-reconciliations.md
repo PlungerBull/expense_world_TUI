@@ -89,15 +89,10 @@ Checks 3 and 4 run on the practice engine: the official import has not happened 
 
 ## Tasks
 
-Approved by the owner on 2026-10-24. Tasks 1 to 4 have no screen and run first.
+Approved by the owner on 2026-10-24. Tasks 2 to 4 have no screen and run first.
 Tasks 5 to 8 are **[UI]**: each starts with a mockup in [mockups/](../mockups/) and waits for the
 owner's pick.
 
-1. **The live contract suite catches up.** No test sends `statement_line` on a write; the tests
-   that did now pin its `422 UNKNOWN_FIELD` refusal, and the bank-line read pins
-   `statement_place` ([test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py),
-   [test_bank_lines.py](../../tests/contract/test_bank_lines.py)). [runtime.md](../runtime.md)
-   "Bulk writes" no longer lists a taken statement line among a row's refusals.
 2. **Test data carries the new fields.** Unit fixtures give accounts `statement_code` and
    transactions and bank lines `statement_place`; the drift check stays clean.
 3. **Live contract tests for the new rules:** setting, changing and clearing a statement code,
@@ -105,7 +100,7 @@ owner's pick.
    account holding a code); one statement per code per month; the statement order read and
    write and each of their refusals; completing refused until ordered; the statement line built
    on completion, gone on revert, back on completing again; a code change refused when it joins
-   a completed half.
+   a completed half; `statement_place` refused as `UNKNOWN_FIELD` in every request body.
 4. **Turning an account with a code into a person shows the engine's refusal.** `t` on Manage ▸
    Accounts shows `HAS_STATEMENT_CODE`'s words as sent (contract: POST /v1/accounts/{account_id}/make-person), with a unit test.
 5. **[UI] The account form's statement-code field**, on bank accounts only: set, change, clear.

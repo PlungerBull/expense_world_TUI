@@ -25,11 +25,12 @@ stand on rules only the engine can confirm. Pinned here:
     `INVALID_FORMAT` on `bank_line_id`, and a cursor issued under one line's
     filter is `422` `INVALID_CURSOR` on `after` under another;
   · `GET /bank-lines/{id}` reads `id`, `line_code`, `account_id`,
-    `operation_code`, `statement_line`, the signed `net_cents`, `part_count`
-    and `parts`, each part exactly the transaction read by id: an unsplit line
-    is one part at its signed amount, a split 60 + 40 reads `-10000` over two
-    parts in the ledger's order; an unknown id is `404`, a malformed one `422`
-    `INVALID_FORMAT`;
+    `operation_code`, `statement_line`, `statement_place`, the signed
+    `net_cents`, `part_count` and `parts`, each part exactly the transaction
+    read by id: a line in no reconciliation reads a `null` statement line and
+    place, an unsplit line is one part at its signed amount, a split 60 + 40
+    reads `-10000` over two parts in the ledger's order; an unknown id is
+    `404`, a malformed one `422` `INVALID_FORMAT`;
   · the split screen's own path: its body splits, one `fetch_bank_line` reads
     the parts and the total back, the parts read go out again as a re-split,
     and a set that misses the total names parts 1 and 2;
@@ -975,6 +976,11 @@ def test_bank_line_id_lists_and_counts_exactly_a_lines_parts(client):
 
 
 def test_a_bank_line_reads_its_figures(client):
+    """`GET /bank-lines/{id}` serves every field, always present
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). A line in no
+    reconciliation holds no place and reads no statement line: the engine builds one
+    only for a placed line in a completed reconciliation on an account with a
+    statement code (contract: "Transactions (Ledger)", "Bank lines")."""
     zone = _zone(client)
     account = _make_account(client)
     written: list[str] = []
@@ -991,6 +997,7 @@ def test_a_bank_line_reads_its_figures(client):
             "account_id",
             "operation_code",
             "statement_line",
+            "statement_place",
             "net_cents",
             "part_count",
             "parts",
@@ -999,7 +1006,7 @@ def test_a_bank_line_reads_its_figures(client):
         assert line["line_code"] == out["line_code"]
         assert line["account_id"] == account
         assert line["operation_code"] is None
-        assert line["statement_line"] is None
+        assert (line["statement_line"], line["statement_place"]) == (None, None)
         assert (line["net_cents"], line["part_count"]) == (-2500, 1)
         # Each part is exactly the transaction read by id: unsigned, with its type.
         assert line["parts"] == [client.get(f"/transactions/{out['id']}")]

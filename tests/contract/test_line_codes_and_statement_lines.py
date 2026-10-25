@@ -1,11 +1,12 @@
-"""Contract: every bank line's `line_code`, and the `statement_line` a client writes on it.
+"""Contract: every bank line's `line_code`, and the `statement_line` no client writes.
 
 Every bank line carries the engine's short code, `#` and six digits, given at its
-create and never sent by a client; and an optional statement line, the client's
-reference to the bank statement line the movement was checked against (contract:
+create and never sent by a client; and a statement line, the line's code in its bank
+statement, which the engine builds from the account's statement code, its
+reconciliation's month and the line's place, and which no request carries (contract:
 "Transactions (Ledger)", "Bank lines"). The sheet import groups split rows into one
-line and sends each line's statement line, so it stands on rules only the engine can
-confirm. Pinned here:
+line and sends no statement line, so it stands on rules only the engine can confirm.
+Pinned here:
 
   · a batch whose `line_group` holds two items makes one line whose parts read one
     `line_code`, and the next line of the batch takes the next code; a split of that
@@ -14,24 +15,14 @@ confirm. Pinned here:
     `POST /transactions/batch`, each row of `POST /transactions/import`, the
     opening balance, each part of a split and `PUT /transactions/{id}` it is `422`
     `UNKNOWN_FIELD` under its own key, and nothing is written;
-  · `statement_line` round-trips: trimmed on a create, written onto every part of a
-    batch group, written by a `PUT` on one part onto every part of the line, and
-    cleared by `null`; the line read by id reads it too;
-  · one statement line is one bank line: a second live line with it is `409`
-    `STATEMENT_LINE_EXISTS`, on a create, a batch item and a `PUT`; two lines with it
-    in one batch are `422` `DUPLICATE_IN_REQUEST`; a deleted line frees it;
-  · letter case counts: `SIG-…` and `sig-…` are two statement lines on two bank
-    lines, and `ABC…` and `abc…` two operation codes on one account, each read back
-    as sent; only the exact same value again is `409`, nothing written;
-  · the items of one `line_group` differing on `statement_line` are `422`
-    `LINE_GROUP_FIELDS_DIFFER` on each item, nothing written;
-  · the opening balance, the split (a part, and beside `parts`) and the bank upload
-    take no `statement_line`: `422` `UNKNOWN_FIELD`, nothing written;
-  · in a completed reconciliation a set `statement_line` is locked, `422` `LOCKED`
-    whether changed, cleared or resent as it is, while an empty one is filled once.
+  · `statement_line` is in no request body either: on the same writes, beside a
+    split's `parts` too, and on `PUT /transactions/{id}` whether set or `null`, it is
+    `422` `UNKNOWN_FIELD` under its own key, nothing is written, and a line in no
+    reconciliation reads a `null` statement line;
+  · letter case counts: `ABC…` and `abc…` are two operation codes on one account,
+    each read back as sent; only the exact same value again is `409`, nothing
+    written.
 
-Every statement line a test writes carries a fragment of a fresh UUID: the practice
-user's data outlives a reseed, so a value from an earlier run must never collide.
 Each test builds its own account and undoes what it wrote. Gating, target and the
 real-ledger guard: conftest.py.
 """
@@ -79,15 +70,10 @@ def _make_account(client) -> str:
     return new_id
 
 
-def _statement_line() -> str:
-    """A statement line no earlier run of this suite has written."""
-    return f"CT-{uuid4().hex[:12]}"
-
-
 def _tx_body(account_id: str, date: str, amount: int, **extra) -> dict:
     return {
         "id": str(uuid4()),
-        "title": "contract statement line",
+        "title": "contract line fields",
         "amount_cents": amount,
         "account_id": account_id,
         "date": date,
@@ -146,17 +132,18 @@ def test_a_line_group_reads_one_line_code_and_a_split_keeps_it(client):
         _cleanup(client, written, account)
 
 
-def _line_code_writes(account: str, date: str, tx_id: str) -> list[tuple[str, str, dict, str]]:
+def _writes_sending(
+    key: str, value: str, account: str, date: str, tx_id: str
+) -> list[tuple[str, str, dict, str]]:
     """Every write that takes a body naming a transaction or its line, each sending
-    `line_code` where a client field would go: (method, path, body, refused key)."""
-    code = "#000001"
+    `key` where a client field would go: (method, path, body, refused key)."""
     return [
-        ("POST", "/transactions", _tx_body(account, date, -100, line_code=code), "line_code"),
+        ("POST", "/transactions", _tx_body(account, date, -100, **{key: value}), key),
         (
             "POST",
             "/transactions/batch",
-            {"transactions": [_tx_body(account, date, -100, line_code=code)]},
-            "transactions.0.line_code",
+            {"transactions": [_tx_body(account, date, -100, **{key: value})]},
+            f"transactions.0.{key}",
         ),
         (
             "POST",
@@ -169,31 +156,41 @@ def _line_code_writes(account: str, date: str, tx_id: str) -> list[tuple[str, st
                         "account_id": account,
                         "date": date[:10],
                         "amount_cents": -100,
-                        "line_code": code,
+                        key: value,
                     }
                 ],
             },
-            "rows.0.line_code",
+            f"rows.0.{key}",
         ),
         (
             "POST",
             f"/accounts/{account}/opening-balance",
-            {"transaction_id": str(uuid4()), "amount_cents": 100, "date": date, "line_code": code},
-            "line_code",
+            {"transaction_id": str(uuid4()), "amount_cents": 100, "date": date, key: value},
+            key,
         ),
         (
             "POST",
             f"/transactions/{tx_id}/split",
             {
                 "parts": [
-                    {"id": str(uuid4()), "amount_cents": -60, "line_code": code},
+                    {"id": str(uuid4()), "amount_cents": -60, key: value},
                     {"id": str(uuid4()), "amount_cents": -40},
                 ]
             },
-            "parts.0.line_code",
+            f"parts.0.{key}",
         ),
-        ("PUT", f"/transactions/{tx_id}", {"line_code": code}, "line_code"),
+        ("PUT", f"/transactions/{tx_id}", {key: value}, key),
     ]
+
+
+def _ids_in(writes: list[tuple[str, str, dict, str]]) -> list[str]:
+    """Every client id the writes carry, so cleanup reaches whatever one wrote."""
+    ids: list[str] = []
+    for _method, _path, body, _key in writes:
+        for item in [body, *body.get("transactions", []), *body.get("rows", [])]:
+            ids.extend(item[key] for key in ("id", "transaction_id") if key in item)
+        ids.extend(part["id"] for part in body.get("parts", []))
+    return ids
 
 
 def test_line_code_is_in_no_request_body(client):
@@ -205,14 +202,8 @@ def test_line_code_is_in_no_request_body(client):
     account = _make_account(client)
     date = _noon(zone, 2026, 4, 7)
     original = client.post("/transactions", json_body=_tx_body(account, date, -100))
-    writes = _line_code_writes(account, date, original["id"])
-    written = [original["id"]]
-    for _method, _path, body, _key in writes:
-        for item in [body, *body.get("transactions", []), *body.get("rows", [])]:
-            for key in ("id", "transaction_id"):
-                if key in item:
-                    written.append(item[key])
-        written.extend(part["id"] for part in body.get("parts", []))
+    writes = _writes_sending("line_code", "#000001", account, date, original["id"])
+    written = [original["id"], *_ids_in(writes)]
     try:
         for method, path, body, key in writes:
             send = client.post if method == "POST" else client.put
@@ -225,131 +216,59 @@ def test_line_code_is_in_no_request_body(client):
         _cleanup(client, written, account)
 
 
-# ---- statement_line round trip -----------------------------------------------
+# ---- statement_line ----------------------------------------------------------
 
 
-def test_statement_line_round_trips_on_create_batch_and_put(client):
-    """`statement_line` is trimmed and stored on the transaction's line
-    (contract: POST /v1/transactions, "Fields"); a batch group's is written onto
-    every part (contract: POST /v1/transactions/batch, "Line groups"); a `PUT` on
-    one part writes it onto every live part of the line, and `null` clears it
-    (contract: PUT /v1/transactions/{transaction_id}, "Line fields")."""
+def test_statement_line_is_in_no_request_body(client):
+    """No client sends `statement_line`: the engine builds it and it is read-only
+    (contract: "Transactions (Ledger)", "Bank lines"), so every write refuses it as
+    an unknown field (contract: "Unknown request fields"), `422` `UNKNOWN_FIELD`
+    under its own key: a create (contract: POST /v1/transactions, "Forbidden"), a
+    batch item (contract: POST /v1/transactions/batch), an upload row
+    (contract: POST /v1/transactions/import, "Body"), the opening balance
+    (contract: POST /v1/accounts/{account_id}/opening-balance, "Forbidden"), a
+    split's part and beside its `parts`
+    (contract: POST /v1/transactions/{transaction_id}/split, "Forbidden"), and an
+    update, set or `null` (contract: PUT /v1/transactions/{transaction_id}, "Updatable").
+    Nothing is written, and the line, in no reconciliation, reads a `null`
+    `statement_line` and `statement_place`
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
     zone = _zone(client)
     account = _make_account(client)
-    date = _noon(zone, 2026, 4, 8)
-    single_line, group_line, replaced = _statement_line(), _statement_line(), _statement_line()
-    single = _tx_body(account, date, -1500, statement_line=f"  {single_line}  ")
-    group = [
-        _tx_body(account, date, a, line_group="g1", statement_line=group_line)
-        for a in (-6000, -4000)
+    date = _noon(zone, 2026, 4, 11)
+    value = "SIG-202604-001"
+    original = client.post("/transactions", json_body=_tx_body(account, date, -100))
+    writes = _writes_sending("statement_line", value, account, date, original["id"])
+    writes += [
+        (
+            "POST",
+            f"/transactions/{original['id']}/split",
+            {
+                "parts": [
+                    {"id": str(uuid4()), "amount_cents": -60},
+                    {"id": str(uuid4()), "amount_cents": -40},
+                ],
+                "statement_line": value,
+            },
+            "statement_line",
+        ),
+        ("PUT", f"/transactions/{original['id']}", {"statement_line": None}, "statement_line"),
     ]
-    written = [single["id"], *(item["id"] for item in group)]
+    written = [original["id"], *_ids_in(writes)]
     try:
-        made = client.post("/transactions", json_body=single)
-        assert made["statement_line"] == single_line
-        assert client.get(f"/transactions/{single['id']}")["statement_line"] == single_line
-        assert client.get(f"/bank-lines/{made['bank_line_id']}")["statement_line"] == single_line
-
-        one, two = client.post("/transactions/batch", json_body={"transactions": group})["created"]
-        assert [one["statement_line"], two["statement_line"]] == [group_line, group_line]
-        line = one["bank_line_id"]
-        assert client.get(f"/bank-lines/{line}")["statement_line"] == group_line
-
-        edited = client.put(f"/transactions/{one['id']}", json_body={"statement_line": replaced})
-        assert edited["statement_line"] == replaced
-        assert client.get(f"/transactions/{two['id']}")["statement_line"] == replaced
-        assert client.get(f"/bank-lines/{line}")["statement_line"] == replaced
-
-        cleared = client.put(f"/transactions/{two['id']}", json_body={"statement_line": None})
-        assert cleared["statement_line"] is None
-        assert client.get(f"/transactions/{one['id']}")["statement_line"] is None
-        assert client.get(f"/bank-lines/{line}")["statement_line"] is None
+        for method, path, body, key in writes:
+            send = client.post if method == "POST" else client.put
+            err = _refused(lambda send=send, path=path, body=body: send(path, json_body=body))
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR"), (method, path)
+            assert reason_on(err, key) == "UNKNOWN_FIELD", (method, path, err.reasons)
+        assert _live_ids(client, account) == {original["id"]}
+        assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
+        read = client.get(f"/transactions/{original['id']}")
+        assert (read["statement_line"], read["statement_place"]) == (None, None)
+        line = client.get(f"/bank-lines/{original['bank_line_id']}")
+        assert (line["statement_line"], line["statement_place"]) == (None, None)
     finally:
         _cleanup(client, written, account)
-
-
-# ---- one statement line is one bank line --------------------------------------
-
-
-def test_a_statement_line_names_one_live_line(client):
-    """A second live line of the caller's with the same statement line, on any
-    account, is `409` `STATEMENT_LINE_EXISTS` on `statement_line`, nothing written,
-    and a deleted line frees it (contract: POST /v1/transactions, "Fields"). In a
-    batch the item already in the ledger is keyed `transactions.<i>.statement_line`,
-    and two lines with one statement line are `422` `DUPLICATE_IN_REQUEST`
-    (contract: POST /v1/transactions/batch). A `PUT` follows the create's `409`
-    (contract: PUT /v1/transactions/{transaction_id})."""
-    zone = _zone(client)
-    account, other_account = _make_account(client), _make_account(client)
-    date = _noon(zone, 2026, 4, 9)
-    taken, fresh = _statement_line(), _statement_line()
-    first = _tx_body(account, date, -1000, statement_line=taken)
-    second = _tx_body(other_account, date, -1000, statement_line=taken)
-    in_batch = _tx_body(other_account, date, -1000, statement_line=taken)
-    twins = [_tx_body(account, date, a, statement_line=fresh) for a in (-100, -200)]
-    plain = _tx_body(other_account, date, -300)
-    later = _tx_body(other_account, date, -1000, statement_line=taken)
-    written = [b["id"] for b in (first, second, in_batch, *twins, plain, later)]
-    try:
-        client.post("/transactions", json_body=first)
-
-        err = _refused(lambda: client.post("/transactions", json_body=second))
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert reason_on(err, "statement_line") == "STATEMENT_LINE_EXISTS"
-
-        err = _refused(
-            lambda: client.post("/transactions/batch", json_body={"transactions": [in_batch]})
-        )
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert reason_on(err, "transactions.0.statement_line") == "STATEMENT_LINE_EXISTS"
-
-        err = _refused(
-            lambda: client.post("/transactions/batch", json_body={"transactions": twins})
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert reason_on(err, "transactions.1.statement_line") == "DUPLICATE_IN_REQUEST"
-
-        client.post("/transactions", json_body=plain)
-        err = _refused(
-            lambda: client.put(f"/transactions/{plain['id']}", json_body={"statement_line": taken})
-        )
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert reason_on(err, "statement_line") == "STATEMENT_LINE_EXISTS"
-        assert client.get(f"/transactions/{plain['id']}")["statement_line"] is None
-
-        assert _live_ids(client, account) == {first["id"]}
-        assert _live_ids(client, other_account) == {plain["id"]}
-
-        client.delete(f"/transactions/{first['id']}")
-        assert client.post("/transactions", json_body=later)["statement_line"] == taken
-    finally:
-        _cleanup(client, written, account)
-        _safe(client.delete, f"/accounts/{other_account}")
-
-
-@pytest.mark.parametrize("second_sends", ["another", "none"], ids=["differs", "missing"])
-def test_a_line_group_differing_on_statement_line_is_refused(client, second_sends):
-    """The items of one `line_group` share the line's statement line, compared after
-    trimming, and one sent on one item and missing on another differs: every item
-    of the group is `422` `LINE_GROUP_FIELDS_DIFFER` on `statement_line`, nothing
-    written (contract: POST /v1/transactions/batch, "Line groups")."""
-    zone = _zone(client)
-    account = _make_account(client)
-    date = _noon(zone, 2026, 4, 10)
-    first = _tx_body(account, date, -100, line_group="g1", statement_line=_statement_line())
-    second = _tx_body(account, date, -200, line_group="g1")
-    if second_sends == "another":
-        second["statement_line"] = _statement_line()
-    try:
-        err = _refused(
-            lambda: client.post("/transactions/batch", json_body={"transactions": [first, second]})
-        )
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        for key in ("transactions.0.statement_line", "transactions.1.statement_line"):
-            assert reason_on(err, key) == "LINE_GROUP_FIELDS_DIFFER"
-        assert _live_ids(client, account) == set()
-    finally:
-        _cleanup(client, [first["id"], second["id"]], account)
 
 
 # ---- letter case counts -------------------------------------------------------
@@ -359,40 +278,6 @@ def _upper_fragment() -> str:
     """Upper-case hex no earlier run of this suite has written; the caller's prefix
     holds letters, so the value's lower-case form always differs from it."""
     return uuid4().hex[:12].upper()
-
-
-def test_a_statement_line_in_another_letter_case_is_another_line(client, statuses):
-    """Two statement lines are compared letter for letter, so `SIG-…` and `sig-…`
-    are two statement lines: each creates its own bank line and reads back as sent,
-    and only the exact same statement line again is `409` `STATEMENT_LINE_EXISTS`,
-    nothing written (contract: POST /v1/transactions, "Case counts")."""
-    zone = _zone(client)
-    account = _make_account(client)
-    date = _noon(zone, 2026, 4, 14)
-    upper = f"SIG-{_upper_fragment()}"
-    first = _tx_body(account, date, -1000, statement_line=upper)
-    second = _tx_body(account, date, -2000, statement_line=upper.lower())
-    again = [_tx_body(account, date, -3000, statement_line=v) for v in (upper, upper.lower())]
-    written = [b["id"] for b in (first, second, *again)]
-    try:
-        lines = []
-        for body in (first, second):
-            made = client.post("/transactions", json_body=body)
-            assert statuses[-1] == 201
-            lines.append(made["bank_line_id"])
-        assert lines[0] != lines[1]
-        for body, line in zip((first, second), lines, strict=True):
-            sent = body["statement_line"]
-            assert client.get(f"/transactions/{body['id']}")["statement_line"] == sent
-            assert client.get(f"/bank-lines/{line}")["statement_line"] == sent
-
-        for body in again:
-            err = _refused(lambda body=body: client.post("/transactions", json_body=body))
-            assert (err.status, err.code) == (409, "CONFLICT")
-            assert reason_on(err, "statement_line") == "STATEMENT_LINE_EXISTS"
-        assert _live_ids(client, account) == {first["id"], second["id"]}
-    finally:
-        _cleanup(client, written, account)
 
 
 def test_an_operation_code_in_another_letter_case_is_another_code(client, statuses):
@@ -430,139 +315,3 @@ def test_an_operation_code_in_another_letter_case_is_another_code(client, status
         assert _live_ids(client, account) == {first["id"], second["id"]}
     finally:
         _cleanup(client, written, account)
-
-
-# ---- the writes that take no statement line -----------------------------------
-
-
-def test_the_opening_balance_the_split_and_the_upload_take_no_statement_line(client):
-    """`statement_line` is forbidden on the opening balance
-    (contract: POST /v1/accounts/{account_id}/opening-balance), on a split's part and
-    beside its `parts` (contract: POST /v1/transactions/{transaction_id}/split), and
-    on a bank upload's row (contract: POST /v1/transactions/import): each `422`
-    `UNKNOWN_FIELD`, and nothing is written."""
-    zone = _zone(client)
-    account = _make_account(client)
-    date = _noon(zone, 2026, 4, 11)
-    value = _statement_line()
-    original = client.post("/transactions", json_body=_tx_body(account, date, -100))
-    opening_id, import_id = str(uuid4()), str(uuid4())
-    part_ids = [str(uuid4()) for _ in range(4)]
-    refusals = [
-        (
-            f"/accounts/{account}/opening-balance",
-            {
-                "transaction_id": opening_id,
-                "amount_cents": 500,
-                "date": date,
-                "statement_line": value,
-            },
-            "statement_line",
-        ),
-        (
-            f"/transactions/{original['id']}/split",
-            {
-                "parts": [
-                    {"id": part_ids[0], "amount_cents": -60, "statement_line": value},
-                    {"id": part_ids[1], "amount_cents": -40},
-                ]
-            },
-            "parts.0.statement_line",
-        ),
-        (
-            f"/transactions/{original['id']}/split",
-            {
-                "parts": [
-                    {"id": part_ids[2], "amount_cents": -60},
-                    {"id": part_ids[3], "amount_cents": -40},
-                ],
-                "statement_line": value,
-            },
-            "statement_line",
-        ),
-        (
-            "/transactions/import",
-            {
-                "dry_run": False,
-                "rows": [
-                    {
-                        "id": import_id,
-                        "account_id": account,
-                        "date": date[:10],
-                        "amount_cents": -2500,
-                        "statement_line": value,
-                    }
-                ],
-            },
-            "rows.0.statement_line",
-        ),
-    ]
-    try:
-        for path, body, key in refusals:
-            err = _refused(lambda path=path, body=body: client.post(path, json_body=body))
-            assert (err.status, err.code) == (422, "VALIDATION_ERROR"), path
-            assert reason_on(err, key) == "UNKNOWN_FIELD", (path, err.reasons)
-        assert _live_ids(client, account) == {original["id"]}
-        assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
-        assert client.get(f"/transactions/{original['id']}")["statement_line"] is None
-    finally:
-        _cleanup(client, [original["id"], opening_id, import_id, *part_ids], account)
-
-
-# ---- the field lock -----------------------------------------------------------
-
-
-def test_a_set_statement_line_is_locked_and_an_empty_one_fills(client):
-    """While its reconciliation is completed, `statement_line` is read-only: a set
-    one is `422` `LOCKED` whether changed, cleared or resent as it is, and an empty
-    one may be filled, after which it is locked too
-    (contract: PUT /v1/transactions/{transaction_id}, "Field locking")."""
-    zone = _zone(client)
-    account = _make_account(client)
-    recon = str(uuid4())
-    held, filled = _statement_line(), _statement_line()
-    coded = _tx_body(account, _noon(zone, 2026, 4, 12), -1000, statement_line=held)
-    empty = _tx_body(account, _noon(zone, 2026, 4, 13), -2000)
-    try:
-        client.post(
-            "/reconciliations",
-            json_body={
-                "id": recon,
-                "account_id": account,
-                "name": f"contract-sl-{recon[:8]}",
-                "date_start": "2026-04-01",
-                "date_end": "2026-04-30",
-                "beginning_balance_cents": 0,
-                "ending_balance_cents": -3000,
-            },
-        )
-        for body in (coded, empty):
-            client.post("/transactions", json_body=body)
-            client.put(f"/transactions/{body['id']}", json_body={"reconciliation_id": recon})
-        client.post(f"/reconciliations/{recon}/complete")
-
-        for sent in (_statement_line(), None, held):
-            err = _refused(
-                lambda sent=sent: client.put(
-                    f"/transactions/{coded['id']}", json_body={"statement_line": sent}
-                )
-            )
-            assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-            assert reason_on(err, "statement_line") == "LOCKED"
-        assert client.get(f"/transactions/{coded['id']}")["statement_line"] == held
-
-        done = client.put(f"/transactions/{empty['id']}", json_body={"statement_line": filled})
-        assert done["statement_line"] == filled
-        err = _refused(
-            lambda: client.put(
-                f"/transactions/{empty['id']}", json_body={"statement_line": _statement_line()}
-            )
-        )
-        assert reason_on(err, "statement_line") == "LOCKED"
-        assert client.get(f"/transactions/{empty['id']}")["statement_line"] == filled
-    finally:
-        _safe(client.post, f"/reconciliations/{recon}/revert")
-        _safe(client.delete, f"/transactions/{coded['id']}")
-        _safe(client.delete, f"/transactions/{empty['id']}")
-        _safe(client.delete, f"/reconciliations/{recon}")
-        _safe(client.delete, f"/accounts/{account}")
