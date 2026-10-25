@@ -65,7 +65,7 @@
   <p>A <b>statement code</b> is the three capital letters your bank uses for a product: <code>SIG</code> for a credit card, <code>PEN</code> for a soles savings account. It is set on the account. A card is two accounts, one in soles and one in dollars, and <b>both carry the same code</b>. A person never has one.</p>
   <p>The engine builds every <b>statement line</b> from it (<code>SIG-202603-029</code>: the code, the statement's month, the line's place on the paper), and shows it once that month's reconciliation is completed. So the code is the one thing you type; the statement lines come by themselves.</p>
   <p>This page draws the new line on the account form (New and Edit), what the form shows when the engine refuses a code, and whether <b>Manage ▸ Accounts</b> shows it. Every other line of the form is the one you know. The accounts and amounts are invented.</p>
-  <p>Where the engine's words go, the page shows <span class="ph">‹the engine's sentence›</span>. The engine's rules name each refusal but not its exact sentence, so the page does not make one up: the app shows the sentence exactly as the engine sends it.</p>
+  <p>The engine's refusals are its real words, shown whole as every refusal in the app is; where they name a reconciliation, the name is invented.</p>
 </div>
 
 <!-- ================================================================== 1 -->
@@ -389,8 +389,10 @@
    opening         <span class="d">—  (optional)</span>
    as of           <span class="d">—  (optional)</span>
                                               <span class="n">▌</span> <span class="b">Failed</span>
-                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence›</span>
-                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — Request validation
+                                              <span class="n">▌</span> failed.
+                                              <span class="n">▌</span>   statement_code: Must be exactly three
+                                              <span class="n">▌</span> capital letters, A to Z, e.g. 'SIG'.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap">The engine takes exactly three capital letters, A to Z, as sent: <code>sig</code>, <code>SI</code>, <code>SIGN</code> or <code>S1G</code> are all refused. In A the app sends what you typed and shows the engine's answer.</p></div>
 
@@ -439,8 +441,12 @@
    opening         <span class="d">—  (optional)</span>
    as of           <span class="d">—  (optional)</span>
                                               <span class="n">▌</span> <span class="b">Failed</span>
-                                              <span class="n">▌</span> CONFLICT — <span class="ph">‹the engine's sentence›</span>
-                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span> CONFLICT — Another account in PEN already
+                                              <span class="n">▌</span> has the statement code 'SIG'. Two accounts
+                                              <span class="n">▌</span> share a code only when their currencies
+                                              <span class="n">▌</span> differ.
+                                              <span class="n">▌</span>   statement_code: Must not be a statement
+                                              <span class="n">▌</span> code another account in this currency has.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
 <p class="cap">Your old card's soles account, <b>Visa antigua</b>, still says <code>SIG</code>. Two accounts share a code only when their currencies differ, and an archived account still holds its code; only a deleted one lets it go.</p></div>
 
@@ -465,8 +471,12 @@
    opening         <span class="d">—  (optional)</span>
    as of           <span class="d">—  (optional)</span>
                                               <span class="n">▌</span> <span class="b">Failed</span>
-                                              <span class="n">▌</span> CONFLICT — <span class="ph">‹the engine's sentence›</span>
-                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span> CONFLICT — Another account in PEN already
+                                              <span class="n">▌</span> has the statement code 'SIG'. Two accounts
+                                              <span class="n">▌</span> share a code only when their currencies
+                                              <span class="n">▌</span> differ.
+                                              <span class="n">▌</span>   statement_code: Must not be a statement
+                                              <span class="n">▌</span> code another account in this currency has.
                                               <span class="n">▌</span>
                                               <span class="n">▌</span> Another account in this currency has this
                                               <span class="n">▌</span> code: pick another, or clear it there first.
@@ -494,12 +504,18 @@
    opening         <span class="d">—  (optional)</span>
    as of           <span class="d">—  (optional)</span>
                                               <span class="n">▌</span> <span class="b">Failed</span>
-                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence,</span>
-                                              <span class="n">▌</span> <span class="ph">naming both reconciliations and which one</span>
-                                              <span class="n">▌</span> <span class="ph">is completed›</span>
-                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — The statement code would
+                                              <span class="n">▌</span> join a completed reconciliation to another
+                                              <span class="n">▌</span> account's statement.
+                                              <span class="n">▌</span>   statement_code: 'Marzo 2026 USD'
+                                              <span class="n">▌</span> (2026-02-26 to 2026-03-25) would become one
+                                              <span class="n">▌</span> statement with 'Marzo 2026 PEN' under the
+                                              <span class="n">▌</span> statement code 'SIG', and 'Marzo 2026 PEN'
+                                              <span class="n">▌</span> is completed. Revert the completed
+                                              <span class="n">▌</span> reconciliation to draft first, then send the
+                                              <span class="n">▌</span> statement's order again.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">Signature Soles already has <code>SIG</code>, and its statement from 26 February to 25 March is <b>completed</b>. Signature Dólares has a reconciliation over the same days. Giving it <code>SIG</code> would make the two one card statement while one half is already numbered, so the engine refuses. What to do: revert the completed one to draft, set the code, put the whole statement in order again, then complete both. No line from the app: the engine's sentence names the two reconciliations.</p></div>
+<p class="cap">Signature Soles already has <code>SIG</code>, and its statement from 26 February to 25 March is <b>completed</b>. Signature Dólares has a reconciliation over the same days. Giving it <code>SIG</code> would make the two one card statement while one half is already numbered, so the engine refuses. What to do: revert the completed one to draft, set the code, put the whole statement in order again, then complete both. No line from the app: the engine's words name the two reconciliations and say what to do.</p></div>
 
 <div class="var"><div class="oh">3·4 · <span>a code that would give one month two statements</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
@@ -522,11 +538,17 @@
    opening         <span class="d">—  (optional)</span>
    as of           <span class="d">—  (optional)</span>
                                               <span class="n">▌</span> <span class="b">Failed</span>
-                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence,</span>
-                                              <span class="n">▌</span> <span class="ph">naming the two reconciliations that clash›</span>
-                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — Two statements under this
+                                              <span class="n">▌</span> statement code would end in the same month.
+                                              <span class="n">▌</span>   statement_code: 'Marzo 2026 USD'
+                                              <span class="n">▌</span> (2026-03-01 to 2026-03-31) would end in the
+                                              <span class="n">▌</span> same month as 'Marzo 2026 PEN' (2026-02-26
+                                              <span class="n">▌</span> to 2026-03-25) under the statement code
+                                              <span class="n">▌</span> 'SIG'. One statement per code per month: a
+                                              <span class="n">▌</span> card's two halves must cover exactly the
+                                              <span class="n">▌</span> same days.
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">One statement per code per month. Signature Soles (<code>SIG</code>) has a reconciliation from 26 February to 25 March; Signature Dólares has one from 1 to 31 March. Both end in March but over different days, so they cannot be the soles and dollars of one card statement, and the engine refuses the code. A card's two reconciliations cover exactly the same days. No line from the app: the engine's sentence names the pair.</p></div>
+<p class="cap">One statement per code per month. Signature Soles (<code>SIG</code>) has a reconciliation from 26 February to 25 March; Signature Dólares has one from 1 to 31 March. Both end in March but over different days, so they cannot be the soles and dollars of one card statement, and the engine refuses the code. A card's two reconciliations cover exactly the same days. No line from the app: the engine's words name the pair.</p></div>
 </div>
 
 <!-- ================================================================== 4 -->

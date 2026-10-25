@@ -70,7 +70,7 @@
   <p>A <b>statement line</b> such as <code>SIG-202603-007</code> is made by the engine from three things: the account's <b>statement code</b> (<code>SIG</code>), the month the reconciliation ends (March 2026), and the line's <b>place on the paper statement</b> (7). This new screen is where you give each line its place, once per statement, by copying the order of the paper.</p>
   <p>A card statement is <b>two reconciliations</b> over the same days, one in soles and one in dollars, and the paper mixes them. So this screen shows <b>both currencies in one list</b>, and either half opens the same list. Where the paper has a line the ledger doesn't have (a fee of 0.00, say), you leave an <b>empty slot</b>, so the next line keeps the paper's number.</p>
   <p>What you arrange here stays on the screen until you save it with <code>ctrl+s</code>: <b>the whole order is one save</b>, and the engine takes it only when every line has its place. A reconciliation on an account with a statement code <b>can't be completed until its statement is in order</b>; the statement lines then show on its lines.</p>
-  <p>The card, its lines and amounts are invented: <b>Signature Soles</b> (PEN) and <b>Signature Dólares</b> (USD), both with the code <b>SIG</b>, and their reconciliations <b>Marzo 2026</b>, 2026-02-21 → 2026-03-20. <b>The engine's refusals are its real words</b>, shown whole as every refusal in the app is. The lines under them, marked as the app's, are proposals, yours to change. Where the contract gives only a refusal's field words, its general first line (<code>Validation failed.</code>, <code>CONFLICT — …</code>) is drawn as earlier screens show it. Use the button at the top right for a light terminal.</p>
+  <p>The card, its lines and amounts are invented: <b>Signature Soles</b> (PEN) and <b>Signature Dólares</b> (USD), both with the code <b>SIG</b>, and their reconciliations <b>Marzo 2026</b>, 2026-02-21 → 2026-03-20. <b>The engine's refusals are its real words</b>, shown whole as every refusal in the app is. The lines under them, marked as the app's, are proposals, yours to change. Use the button at the top right for a light terminal.</p>
 </div>
 
 <div class="pane"><div class="lbl">1 · Arranging the lines <span>— one list, both currencies · three ways to choose from</span></div>
@@ -431,9 +431,10 @@
   <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
 
                                         <span class="n">▌</span> <span class="b">Couldn&#x27;t save</span>
-                                        <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
-                                        <span class="n">▌</span> places: Leaves out 2 live bank line(s) of the
-                                        <span class="n">▌</span> statement:
+                                        <span class="n">▌</span> VALIDATION_ERROR — The statement&#x27;s order was
+                                        <span class="n">▌</span> refused.
+                                        <span class="n">▌</span>   places: Leaves out 2 live bank line(s) of
+                                        <span class="n">▌</span> the statement:
                                         <span class="n">▌</span> 6c1f0e2a-93b4-4d0e-8f27-5a9b3e4c7d10,
                                         <span class="n">▌</span> e2d84b71-0c5a-4f3e-b9a6-17f2c8d05e93.
                                         <span class="n">▌</span>
@@ -465,8 +466,9 @@
   <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
 
                                         <span class="n">▌</span> <span class="b">Couldn&#x27;t save</span>
-                                        <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
-                                        <span class="n">▌</span> places.5: Must name a live bank line of this
+                                        <span class="n">▌</span> VALIDATION_ERROR — The statement&#x27;s order was
+                                        <span class="n">▌</span> refused.
+                                        <span class="n">▌</span>   places.5: Must name a live bank line of this
                                         <span class="n">▌</span> statement.
                                         <span class="n">▌</span>
                                         <span class="n">▌</span> It changed somewhere else: press r to read the
@@ -562,9 +564,10 @@
 
 
                                         <span class="n">▌</span> <span class="b">Couldn&#x27;t open the statement order</span>
-                                        <span class="n">▌</span> CONFLICT — The account has no statement code,
-                                        <span class="n">▌</span> so its statement has no order.
-                                        <span class="n">▌</span> reconciliation_id: The account has no
+                                        <span class="n">▌</span> CONFLICT — The reconciliation&#x27;s account has no
+                                        <span class="n">▌</span> statement code, so its statement has no order.
+                                        <span class="n">▌</span> Give the account a statement code first.
+                                        <span class="n">▌</span>   reconciliation_id: The account has no
                                         <span class="n">▌</span> statement code, so its statement has no order.
  <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">o</span> Order  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">If the account's statement code was cleared on another screen after this one was read, <code>o</code> opens nothing and says so in the engine's words.</p></div>
 </div>
@@ -587,8 +590,10 @@
   <span class="d">space toggle in/out of this batch · o order · c complete · u revert · d delete · r refresh · esc back</span>
 
                                         <span class="n">▌</span> <span class="b">Couldn&#x27;t complete</span>
-                                        <span class="n">▌</span> VALIDATION_ERROR — Validation failed.
-                                        <span class="n">▌</span> statement_order: 2 line(s) of the statement
+                                        <span class="n">▌</span> VALIDATION_ERROR — Cannot complete
+                                        <span class="n">▌</span> reconciliation until its statement is fully
+                                        <span class="n">▌</span> ordered.
+                                        <span class="n">▌</span>   statement_order: 2 line(s) of the statement
                                         <span class="n">▌</span> have no place; place(s) 4 are each held by
                                         <span class="n">▌</span> more than one line. Send the statement&#x27;s order
                                         <span class="n">▌</span> first (for a card, both halves in one list).
@@ -619,7 +624,9 @@
   <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
 
   <span class="n">▌</span> <span class="b">Completing was refused:</span>
-  <span class="n">▌</span> statement_order: 2 line(s) of the statement have no place; place(s) 4 are each held
+  <span class="n">▌</span> VALIDATION_ERROR — Cannot complete reconciliation until its statement is fully
+  <span class="n">▌</span> ordered.
+  <span class="n">▌</span>   statement_order: 2 line(s) of the statement have no place; place(s) 4 are each held
   <span class="n">▌</span> by more than one line. Send the statement&#x27;s order first (for a card, both halves in
   <span class="n">▌</span> one list).
 

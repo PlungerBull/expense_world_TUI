@@ -50,8 +50,7 @@ of "One write edits a whole bank line" is already their approved work, so they m
 Asked 2026-10-24 · Blocks: task 5 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
 Drawn in [mockups/expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html).
-The engine's own sentences for its refusals show as placeholders until task 3's live tests read
-them; the mockup is updated with them before you pick. Six picks, each drawn as lettered panes:
+Its refusals show the engine's own words. Six picks, each drawn as lettered panes:
 1. Where the line sits: **A** after CURRENCY, bank accounts only. **Recommended:** A, because a
    code is held once per currency, and a person's form stays as today.
 2. Its hint: **A** `optional · three capital letters, e.g. SIG · enter to go on`.
