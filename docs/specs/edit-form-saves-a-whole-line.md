@@ -11,8 +11,7 @@ account, and one save of a card statement writes both halves' balances", shipped
 [statement-lines-from-reconciliations.md](statement-lines-from-reconciliations.md); the owner
 chose on 2026-10-25 to split it in two and to run this spec first.
 
-**Status: task 2 approved by the owner on 2026-10-25; task 1 drafted for approval, and one
-question below.** When done, the why moves to [decisions.md](../decisions.md) and this file is
+**Status: tasks 1 and 2 approved by the owner on 2026-10-25; task 1 runs first.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
 ---
@@ -101,22 +100,11 @@ write would refuse". Where it differs from what was asked, or settles what the a
   line's state closes: a refusal that depends on the value sent (a future date, a taken
   operation code, a move onto an archived account) stays the write's.
 
-## Questions for the owner
-
-1. **What a locked field says.** The engine now gives the reason each field is locked, so the
-   form can say what to do. The picked mockup marks a locked field `read-only` only.
-   - **A.** Keep `read-only`, as picked.
-   - **B.** Add what to do, e.g. `read-only · revert the reconciliation first` or
-     `read-only · unarchive the account first`; the mockup is redrawn for a pick first.
-
-   **Recommended:** A, because it is already picked and task 2 can start; the reason can be
-   added later as its own change.
-
 ---
 
 ## Tasks
 
-Task 2 approved by the owner on 2026-10-25. They run in order: 1, then 2.
+Tasks 1 and 2 approved by the owner on 2026-10-25. They run in order: 1, then 2.
 
 1. **Catch up with the contract's Edit form parts** (no screen): the unit fixtures of bank lines
    carry `edit_limits`; the live contract suite proves `edit_limits` on an ordinary line, a line
@@ -144,7 +132,7 @@ Task 2 approved by the owner on 2026-10-25. They run in order: 1, then 2.
    part's NOTE hint, when `⏎` goes on to the next part, reads `optional · enter to go on`), 4 A
    (a refused save shows under the parts table, each refused part named by its number), 5 A (no
    `^n` or `^x` on an opening balance or a line on an archived account, its locked cells dimmed),
-   6 A (`s` opens the form on DATE, as `⏎` does). A locked field reads as question 1 above picks.
+   6 A (`s` opens the form on DATE, as `⏎` does). A locked field reads `read-only`, as the mockup draws it.
    Proves checks 3 to 6.
 
 ## Reply to the engine

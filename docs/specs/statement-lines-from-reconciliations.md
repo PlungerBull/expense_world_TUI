@@ -12,8 +12,8 @@ and an archived account's line, and what a line's read says is locked) is
 [edit-form-saves-a-whole-line.md](edit-form-saves-a-whole-line.md), which runs first, as the
 owner chose on 2026-10-25.
 
-**Status: tasks 6 and 9 to 12 done; tasks 14, 7, 8 and 15 approved by the owner on 2026-10-25;
-task 16 drafted for approval.** When done, the why moves to [decisions.md](../decisions.md) and
+**Status: tasks 6 and 9 to 12 done; tasks 16, 14, 7, 8 and 15 approved by the owner on
+2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
 ---
@@ -184,8 +184,7 @@ writes both halves' balances in one write". Where it differs from what was asked
 
 ## Tasks
 
-Tasks 7, 8, 14 and 15 approved by the owner on 2026-10-25, as reshaped that day; task 16 drafted
-for approval. They run in this order: 16, 14, 7, 8 and 15. Tasks 7, 8, 14 and 15 are **[UI]**,
+Tasks 7, 8, 14, 15 and 16 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 16, 14, 7, 8 and 15. Tasks 7, 8, 14 and 15 are **[UI]**,
 each picked from its mockup in [mockups/](../mockups/).
 
 16. **Catch up with the contract's statement parts** (no screen): the unit fixtures of bank lines

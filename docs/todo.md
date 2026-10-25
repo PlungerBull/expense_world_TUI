@@ -28,18 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the two catch-up tasks, and how a locked field reads
-Asked 2026-10-25 · Blocks: [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md), then [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-The engine's hand-off now answers every ask the statement work waited on, so it is split in two,
-as you chose: the Edit form spec runs first, then the statement spec. Each starts with one new
-task with no screen, bringing the app up to the new contract and proving it live: task 1 of the
-Edit form spec and task 16 of the statement spec. Approve both, and answer the Edit form spec's
-question 1: a locked field marked `read-only` as you picked (A), or with what to do, e.g.
-`read-only · revert the reconciliation first` (B, the mockup redrawn for a pick first).
-
-**Recommended:** approve both, and A, because it is already picked and the Edit form can start.
-
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
