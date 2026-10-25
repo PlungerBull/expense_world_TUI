@@ -32,12 +32,15 @@ Asked 2026-10-24 · Blocks: [statement-lines-from-reconciliations.md](specs/stat
 
 The catch-up to contract `70476c8797566383` is drafted with its tasks. Approve or rewrite them.
 
-### Hand the engine two asks on card statements
+### Hand the engine two corrected asks on card statements
 Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
-Copy [a-reconciliation-names-its-other-half.md](to-engine/a-reconciliation-names-its-other-half.md)
+The engine coders reviewed both asks; each now carries their corrections. Copy
+[a-reconciliation-names-its-other-half.md](to-engine/a-reconciliation-names-its-other-half.md)
 and [one-write-completes-a-whole-statement.md](to-engine/one-write-completes-a-whole-statement.md)
-as is into the engine repo's `docs/from-tui/`. Only you can carry them.
+as is into the engine repo's `docs/from-tui/`, over the copies there. Only you can carry them.
+Their copy of "One write edits a whole bank line" is already their approved work, so they may
+delete it; ours stays in [to-engine/](to-engine/) until their hand-off covers it.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
