@@ -673,7 +673,10 @@ compared the same way.
 
 **Rejected.** *Keeping `COD_EECC` as each line's statement line* — a statement line comes only
 from a reconciliation, and 2,275 hand-typed codes in the ledger would clash with the ones a
-reconciliation makes. *Folding case
+reconciliation makes. *Creating each month's reconciliations and their statement order at the
+import, read from `COD_EECC`* (owner, 2026-10-24) — reconciling is the owner's call, made later;
+an imported line has no statement line until its month is reconciled and ordered in the app.
+*Folding case
 in a `COD_EECC` or an operation code* — they come from a program, not a person, and a client
 that folded them would merge two movements the engine keeps apart. *Stopping the whole import on
 a differing group* — one slip in the sheet would hold back thousands of good rows. *Letting a
