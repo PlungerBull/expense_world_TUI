@@ -28,15 +28,15 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### Hand the engine a reply and ask for the next hand-off
-Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to `206db22a65774501`
+Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to `70476c8797566383`
 
 This client last caught up to contract `f5cbc6ab4841f0a7`; the engine is at
-`206db22a65774501`, recorded on 2026-10-24 so the wording spec could close. Only you can carry
+`70476c8797566383`, recorded on 2026-10-24 so the wording spec could close. Only you can carry
 these to the engine coders:
 1. The reply [caught-up-f5cbc6ab4841f0a7.md](to-engine/caught-up-f5cbc6ab4841f0a7.md), copied as
    is into the engine repo's `docs/from-tui/`.
 2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to
-   `206db22a65774501`: no write takes `statement_line`, accounts gain a three-letter
+   `70476c8797566383`: no write takes `statement_line`, accounts gain a three-letter
    `statement_code`, one statement code takes one reconciliation per month, and the engine
    builds `statement_line` from a statement's order (`statement_place`,
    `GET`/`PUT /reconciliations/{id}/statement-order`). The reply says the sheet import sets no
@@ -105,7 +105,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   row refusals in [runtime.md](runtime.md) "Bulk writes" still list a taken statement line;
   accounts gain `statement_code`, one reconciliation per code per month; the engine builds
   `statement_line` from a statement's order, so `test_bank_lines.py::test_a_bank_line_reads_its_figures`
-  fails on the new `statement_place` too (7 live tests in all, against `206db22a65774501`). The
+  fails on the new `statement_place` too (7 live tests in all, against `70476c8797566383`). The
   next spec once the hand-off file lands ("Hand the engine a reply and ask for the next
   hand-off" above).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
@@ -184,7 +184,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
   `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
   and the screen map's split pane still draws the typed line the split screen no longer has;
-  `expense-world-split-screen.html` backs the split screen as built, and
+  `expense-world-split-screen.html` backs the split screen as built,
+  `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
+  is open in "Split transactions: your Edit form with its parts", drawn in
+  `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
+  docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
   another bank line already has.` line the sheet import can no longer get.
@@ -246,9 +250,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Notes and hints that say what is true, and the bulk pick as a screen**: its tasks are done;
-  closing it: the acceptance check again, then the librarian's sweep
-  ([specs/wording-and-the-bulk-pick.md](specs/wording-and-the-bulk-pick.md)).
+- **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
+  waiting for the owner's approval and two answers
+  ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI

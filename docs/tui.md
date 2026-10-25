@@ -38,6 +38,8 @@ expense/tui/
     checklist.py    # CheckList — the reconciliation tick-list, one bank line per row
     picker.py       # suggestion_list() — the scrolling name list the quick-add
                     #   surfaces and the bulk pick drop under their input
+    refusal.py      # hanging() — the `! …` line a screen keeps under a refusal
+                    #   (the import door's preview and result, the split screen)
   screens/
     _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
@@ -683,13 +685,13 @@ and unwritten, and Home reads afresh: this month's window, every category folded
 cursor on the first category (`HomeScreen.start_fresh`).
 
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
-picker, the edit form's account field, the ledger's `b` picker, the Reconciliations
+picker, the edit form's account field, the ledger's `b` pick, the Reconciliations
 browse, the new-reconciliation form and the bank import's "Which account is this file?"
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
 first currency leg does. The LOG bar's `$` picker, the edit forms' account field and the
-ledger's `b` picker offer no archived account (`QuickAddRefs.accounts` in
+ledger's `b` pick offer no archived account (`QuickAddRefs.accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
 shows its name, read-only on its Edit form (below).
@@ -1448,5 +1450,5 @@ make rows fit that do not. Width has **no** floor of any kind.
   conventions").
 
 **Known, accepted:** a screen load may open several short-lived clients (Transactions:
-the page and three name maps; the bulk pickers' reference lists load once, on the first
+the page and three name maps; the bulk pick's reference lists load once, on the first
 bulk key) — harmless on loopback.

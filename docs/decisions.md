@@ -347,9 +347,9 @@ the bar is where the right file gets dropped next.
 
 ## Rows in no batch live in the reconciliation view, not in a filtered ledger (2026-09-22)
 
-**Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's bank lines in no reconciliation, one row per line in the bank's columns, newest first ("A split transaction is reconciled and deleted whole"); `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals collapse to one line per distinct engine message** (`rows 1, 2, 3: <message>`).
+**Decision.** (1) **`u` swaps an open account's reconciliation panel** for that account's bank lines in no reconciliation, one row per line in the bank's columns, newest first ("A split transaction is reconciled and deleted whole"); `esc` swaps back. (2) **`⏎` opens the edit form** (wrong date or wrong account is the usual cause) and **`d` deletes after a confirm** that says a delete is final. (3) **A `!` flag** marks a row whose date falls inside a period the screen already holds — a hint, never a ruling. (4) **No "tick all, then complete"**: `space` files rows one at a time so the difference updates before you seal. (5) **The ledger's bulk refusals read one line per kind of error**, as every save of several rows does ("Refused rows read one line per kind of error").
 
-**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *Parsing the period name out of refusals to group them* — the whole message groups them without reading prose.
+**Rejected.** *"Tick all N, then complete"* — a non-zero difference never blocks completion, so one keypress could seal a month that does not add up. *A filtered ledger with an `unreconciled` filter* — reconciliation work belongs in the reconciliation view (owner). *Parsing the period name out of refusals to group them* — rows are grouped by the engine's code, fields and reasons, never by its words.
 
 ## The transaction list pages by cursor (2026-09-23)
 
@@ -627,7 +627,8 @@ reconciliations don't change (contract: POST /v1/accounts/{account_id}/archive).
 `is_archived` from the accounts read each screen already makes and stops offering what the
 engine would refuse: (1) the ledger hides `s` and `d` on such a row and draws the row as any
 other; (2) both Edit forms show its frozen fields read-only, as an opening balance's are, with
-no line saying why; (3) a frozen change sent anyway (a screen opened before the archive) shows
+no line saying why, unless no line of the form can change: then the hint says so, `read-only ·
+its account is archived, so nothing here can change · esc to leave` (owner, 2026-10-24); (3) a frozen change sent anyway (a screen opened before the archive) shows
 the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps
 listing only active accounts. The owner picked each from
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) (screens
@@ -638,8 +639,8 @@ client would meet it. Reading the engine's own flag keeps the rule in the engine
 no judgement of its own, and a failed accounts read only puts the keys back for the engine to
 refuse. The engine's refusal already says to unarchive first, so the app adds nothing to it.
 
-**Rejected.** *Dimming the archived account's rows* and *a line on the Edit form saying why* —
-the owner keeps the screens as they are. *A line naming where to unarchive* — the engine's words
+**Rejected.** *Dimming the archived account's rows* and *a line on the Edit form saying why*
+while some of its lines still change — the owner keeps the screens as they are. *A line naming where to unarchive* — the engine's words
 say it. *A question that unarchives and retries* — it would make unfreezing a side effect of an
 edit. *Listing archived accounts on Reconciliations, read-only* — nothing there can change.
 
@@ -705,10 +706,30 @@ person instead of creating the name again and failing its rows.
 the sheet, while a plain account action also fixes any account created as the wrong kind.
 *Asking before `t`* — nothing is lost, and `t` again undoes it.
 
+## A hint says what `⏎` does there, and a note names what the app can't read (2026-10-24, owner)
+
+**Decision.** (1) **A bar form's hint says "enter to save" only where `⏎` saves**; where it moves
+on it says "enter to go on" (NAME on Manage ▸ Accounts and Categories, the Edit form's TITLE, a
+new reconciliation's NAME, which keeps its example: `e.g. “April 2026” · enter to go on`), and
+the account's COLOR reads `optional · enter keeps it · ↑↓ another swatch`; a guard test walks
+every bar form ([tui.md](tui.md) "The bar forms' keys"). (2) **A non-date on the Edit form's DATE
+is refused at `⏎`** with `Date: use YYYY-MM-DD.`, the words of the app's other dates, on both
+Edit forms. (3) **The LOG bar names a signed amount it can't read**: `tottus -13.853,20 $BCP PEN`
+reads `can't read -13.853,20 as an amount`, and "a number needs a sign" is left to a line with no
+signed number. (4) **The bulk `c`, `b` and `h` pick is a full screen**, the rows it changes
+above its bar ("Home is the month", point 3).
+
+**Why.** A hint or note that says something the screen does not do teaches the wrong key, and
+a typo must never close the app and lose what was typed.
+
+**Rejected.** *Refusing a bad date only at save* — the note would come after the line is left,
+where every other line of the form is checked at `⏎`.
+
 ## Refused rows read one line per kind of error (2026-10-22, owner)
 
-**Decision.** When a save of several rows is refused, the sheet import's `Failures` block and the
-LOG bar's lines under the table read one line per kind of error: the field the engine names, its
+**Decision.** When a save of several rows is refused, the sheet import's `Failures` block, the
+LOG bar's lines under the table and the ledger's bulk `c`, `b` and `h` note read one line per
+kind of error, from one shared helper: the field the engine names, its
 words, then the rows it hit (`date: Must not be null. row 77`, `rows 3, 5, 7`). Rows are one kind
 when the engine's code, fields and reasons for them are the same, never by its top-level message,
 which counts the items. The engine's whole answer stays in the import's `--json`. A split refused
