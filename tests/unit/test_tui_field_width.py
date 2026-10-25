@@ -19,17 +19,21 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import _LABELS
-from expense.tui.screens.reconciliations import _R_LABELS
+from expense.tui.screens.reconciliations import _R_LABELS, NewCardStatementScreen
 from expense.tui.screens.setup import LABELS as SETUP_LABELS
 
 
-def _field_rule() -> tuple[int, int]:
-    """(width, right_padding) parsed from app.tcss's #field rule."""
+def _field_rule(scope: str = "") -> tuple[int, int]:
+    """(width, right_padding) parsed from app.tcss's #field rule, or from the
+    rule a screen's `scope` puts on it, whose padding is the shared rule's."""
     tcss = (Path(tui_pkg.__file__).parent / "app.tcss").read_text()
-    block = re.search(r"#field\s*\{([^}]*)\}", tcss).group(1)
+    block = re.search(r"(?m)^#field\s*\{([^}]*)\}", tcss).group(1)
     width = int(re.search(r"width:\s*(\d+)", block).group(1))
     padding = re.search(r"padding:\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", block)
     right_pad = int(padding.group(2)) if padding else 0
+    if scope:
+        scoped = re.search(rf"(?m)^{scope} #field\s*\{{([^}}]*)\}}", tcss).group(1)
+        width = int(re.search(r"width:\s*(\d+)", scoped).group(1))
     return width, right_pad
 
 
@@ -51,3 +55,19 @@ def test_field_column_fits_every_label():
         f"#field width {width} leaves {content} content cells and clips: "
         + ", ".join(f"{k} {v!r} ({len(v)})" for k, v in clipped.items())
     )
+
+
+def test_the_card_statement_form_fits_a_balance_and_its_currency():
+    """A card statement's form names each balance's currency, `BEGIN BALANCE
+    USD`, so it widens the column on its own screen alone; a currency code is
+    always three letters."""
+    width, right_pad = _field_rule("NewCardStatementScreen")
+    form = NewCardStatementScreen(
+        account=("acc1", "Signature PEN", "PEN"),
+        partner=("acc2", "Signature USD", "USD"),
+        code="SIG",
+    )
+    labels = {key: form._label(key) for key in form._sequence()}
+    clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
+    assert not clipped
+    assert max(len(v) for v in labels.values()) == width - right_pad

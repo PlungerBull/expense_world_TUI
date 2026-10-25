@@ -750,6 +750,38 @@ def account_choices(
     return out
 
 
+def statement_partners(items: list) -> dict[str, tuple[str, str, str, str]]:
+    """Each card account's other half, from an accounts read:
+    `account id → (other id, other name, other currency, statement code)`.
+
+    A card is two bank accounts under one statement code, one per currency
+    (contract: "Bank Accounts", "Statement code"), and a card statement's other
+    half is created on the other account holding the code
+    (contract: POST /v1/reconciliations), which refuses an archived one there.
+    So an archived account is no one's other half and has none, and an account
+    with no code, a person, and an account whose code no other given live
+    account holds, or more than one does, has no entry.
+    """
+    holders: dict[str, list[dict]] = {}
+    for row in items:
+        code = row.get("statement_code")
+        live = not row.get("is_person") and not row.get("is_archived")
+        if code and row.get("id") and live:
+            holders.setdefault(code, []).append(row)
+    partners: dict[str, tuple[str, str, str, str]] = {}
+    for code, rows in holders.items():
+        if len(rows) != 2:
+            continue
+        for mine, other in (rows, rows[::-1]):
+            partners[mine["id"]] = (
+                other["id"],
+                other.get("name") or "(unnamed)",
+                other.get("currency_code") or "?",
+                code,
+            )
+    return partners
+
+
 @dataclass(frozen=True)
 class QuickAddRefs:
     """The reference lists the quick-add grammar matches names against.

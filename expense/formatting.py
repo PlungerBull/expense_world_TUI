@@ -278,6 +278,16 @@ def format_period(item: dict) -> str:
     return f"{item['date_start']} → {item['date_end']}"
 
 
+#: How a card statement's half is named after its currency: a card's soles and
+#: dollar accounts share one statement code (contract: "Bank Accounts", "Statement code").
+_HALF_WORDS = {"PEN": "soles", "USD": "dollar"}
+
+
+def half_name(currency: str) -> str:
+    """`soles half`, `dollar half`; another currency's half by its code, `EUR half`."""
+    return f"{_HALF_WORDS.get(currency, currency)} half"
+
+
 #: A month in which a row had no activity at all. Distinct from `3 unrated`,
 #: which means there *was* activity the engine could not price.
 NO_ACTIVITY_MARK = "—"

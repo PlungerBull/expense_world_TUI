@@ -18,6 +18,11 @@ so `beginning_balance_cents` is required. Both dates are required too
 calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
 the field. POST /reconciliations.
 
+New card statement (NewCardStatementScreen), `n` on a card account: name ›
+date start › date end › this account's begin › end › the other account's begin
+› end, the two accounts stated on a line of their own. One POST /reconciliations
+with `twin` creates both halves (contract: POST /v1/reconciliations).
+
 Working screen (ReconciliationDetailScreen): a checklist of bank lines — the
 batch's, then the account's in its period that are in no batch (draft) — or a
 read-only list of the batch's lines (completed), read from `GET /bank-lines`
@@ -62,6 +67,7 @@ from expense.reads import (
     fetch_all_cursor_pages,
     items_of,
     load_account_name_map,
+    statement_partners,
 )
 from expense.tui.screens._base import (
     AdaptiveRowsMixin,
@@ -75,7 +81,7 @@ from expense.tui.screens._base import (
     screen_fetch_kwargs,
     transaction_delete_message,
 )
-from expense.tui.screens._form import FormScreen
+from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import AmountPromptModal, ConfirmModal
@@ -272,6 +278,8 @@ class ReconciliationsScreen(SectionScreen):
         super().__init__()
         self._recons: list = []  # the open account's reconciliations, engine order
         self._accounts: list = []  # (id, name, currency, balance_cents)
+        # a card account → its other half's (id, name, currency, statement code)
+        self._partners: dict = {}
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
@@ -297,7 +305,7 @@ class ReconciliationsScreen(SectionScreen):
         recons = None
         if self._open_aid is not None:
             recons = items_of(reads.fetch_reconciliations(cfg, account_id=self._open_aid, **kw))
-        return {"recons": recons, "accounts": accounts}
+        return {"recons": recons, "accounts": accounts, "partners": statement_partners(accts)}
 
     def _selected_account(self):
         return self._accounts[self._acct_idx] if self._accounts else None
@@ -354,6 +362,7 @@ class ReconciliationsScreen(SectionScreen):
 
     def build(self, data: dict) -> list[Widget]:
         self._accounts = data["accounts"]
+        self._partners = data["partners"]
         if data["recons"] is None or self._open_account() is None:
             self._open_aid, self._recons = None, []
         else:
@@ -701,7 +710,9 @@ class ReconciliationsScreen(SectionScreen):
     def action_new(self) -> None:
         """`n` — a reconciliation for the open account, or, with no panel open,
         for the account under the cursor. Saved, it opens that account's panel
-        with the cursor on the new one."""
+        with the cursor on the new one. On a card account it is the card
+        statement's form, both halves in one write, and the cursor lands on
+        this account's half."""
         acct = self._open_account() or self._selected_account()
         if not acct:
             self.notify("No account selected.", severity="error")
@@ -714,9 +725,13 @@ class ReconciliationsScreen(SectionScreen):
             self._resume_key = new_id
             self._load()
 
-        self.app.push_screen(
-            NewReconciliationScreen(account_id=acct[0], account_name=acct[1]), saved
+        partner = self._partners.get(acct[0])
+        form = (
+            NewReconciliationScreen(account_id=acct[0], account_name=acct[1])
+            if partner is None
+            else NewCardStatementScreen(account=acct[:3], partner=partner[:3], code=partner[3])
         )
+        self.app.push_screen(form, saved)
 
 
 # --------------------------------------------------------------------------- #
@@ -738,7 +753,12 @@ _R_HINTS = {
     "begin": "signed decimal · your statement's opening balance",
     "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
-_AMOUNTS = {"begin", "end"}
+#: A balance's keys: the reconciliation's own, and on a card statement's form
+#: the other half's too (`twin_…`).
+_BEGINS = {"begin", "twin_begin"}
+_ENDS = {"end", "twin_end"}
+_AMOUNTS = _BEGINS | _ENDS
+_BEGIN_UNREADABLE = "Begin balance: a signed decimal, e.g. 9580.00"
 #: The note for an ending balance the money parser cannot read — the New
 #: Reconciliation form's and the batch screen's ending-balance box.
 _END_UNREADABLE = "End balance: a signed decimal, e.g. 9460.00"
@@ -854,27 +874,27 @@ class NewReconciliationScreen(FormScreen):
                 return
             self._values[key] = self._display[key] = text
             self._advance()
-        elif key == "begin":
+        elif key in _BEGINS:
             cents = parse_amount(text)
             if cents is None:
-                self.notify("Begin balance: a signed decimal, e.g. 9580.00", severity="error")
+                self.notify(_BEGIN_UNREADABLE, severity="error")
                 return
-            self._values["begin"] = cents
-            self._display["begin"] = format_cents(cents)
+            self._values[key] = cents
+            self._display[key] = format_cents(cents)
             self._advance()
-        elif key == "end":
+        elif key in _ENDS:
+            # optional: an empty line leaves it out (`ending_balance_cents` null)
             if text:
                 cents = parse_amount(text)
                 if cents is None:
                     self.notify(_END_UNREADABLE, severity="error")
                     return
-                self._values["end"] = cents
-                self._display["end"] = format_cents(cents)
+                self._values[key] = cents
+                self._display[key] = format_cents(cents)
             else:
-                self._values.pop("end", None)
-                self._display.pop("end", None)
-            self.action_submit()
-            return
+                self._values.pop(key, None)
+                self._display.pop(key, None)
+            self._advance()  # on the last line, the save
         self._refresh_view()
 
     # ---- submit ----------------------------------------------------------
@@ -899,6 +919,100 @@ class NewReconciliationScreen(FormScreen):
         """Dismiss with the new id — minted here, in `_payload` — so the browse
         can land its cursor on the reconciliation just made."""
         self.notify("Reconciliation created.")
+        self.dismiss(self._new_id)
+
+
+class NewCardStatementScreen(NewReconciliationScreen):
+    """A card statement: both halves in one form and one write (pane 2 A of
+    docs/mockups/expense-world-card-statement.html).
+
+    Opened by `n` on a card account, one of the two bank accounts sharing a
+    statement code (`reads.statement_partners`). The name and the days are
+    typed once; then this account's balances, then the other account's, each
+    in its own currency. `^s Create both` sends one `POST /reconciliations`
+    whose `twin` is the other half: its own id, its account and its balances,
+    taking the request's name and days (contract: POST /v1/reconciliations).
+    Both halves are created, or neither is; a refusal is the engine's words
+    in the form's `Failed` note, a `twin.` key naming the other half, and the
+    form stays with what was typed. Saved, it says `Statement created.` and
+    hands back the id of this account's half, as the one-account form does.
+    """
+
+    BINDINGS = form_bindings("Create both")
+    _STATED = frozenset({"accounts"})
+
+    def __init__(self, *, account: tuple, partner: tuple, code: str) -> None:
+        """`account` and `partner` are `(id, name, currency)`: the account the
+        list was opened from, whose half the write's top level is, and the
+        other account holding `code`."""
+        super().__init__(account_id=account[0], account_name=account[1])
+        self._currencies = {"": account[2], "twin_": partner[2]}
+        self._partner_id = partner[0]
+        self._locked = {"accounts"}
+        self._display["accounts"] = f"{account[1]} + {partner[1]} · {code}"
+
+    def _sequence(self) -> list[str]:
+        return [
+            "name",
+            "accounts",
+            "date_start",
+            "date_end",
+            "begin",
+            "end",
+            "twin_begin",
+            "twin_end",
+        ]
+
+    def _required(self) -> tuple[str, ...]:
+        return ("name", "date_start", "date_end", "begin", "twin_begin")
+
+    def _balance(self, key: str) -> tuple[str, str] | None:
+        """`(BEGIN BALANCE|END BALANCE, currency)` for a balance's key, else None."""
+        if key not in _AMOUNTS:
+            return None
+        side = "twin_" if key.startswith("twin_") else ""
+        return _R_LABELS[key.removeprefix("twin_")], self._currencies[side]
+
+    def _label(self, key: str) -> str:
+        balance = self._balance(key)
+        if balance is not None:
+            return f"{balance[0]} {balance[1]}"
+        return "ACCOUNTS" if key == "accounts" else super()._label(key)
+
+    def _summary_label(self, key: str) -> str:
+        balance = self._balance(key)
+        if balance is not None:
+            return f"{balance[0].lower()} {balance[1]}"
+        return super()._summary_label(key)
+
+    def _required_note(self, key: str) -> str:
+        label = self._summary_label(key)
+        return f"{label[:1].upper()}{label[1:]} is required."
+
+    def _hint_for(self, key: str) -> str:
+        balance = self._balance(key)
+        if balance is None:
+            return super()._hint_for(key)
+        half = formatting.half_name(balance[1])
+        if key in _BEGINS:
+            return f"signed decimal · the {half}'s opening balance"
+        last = "" if self._goes_on(key) else " · enter saves"
+        return f"signed decimal · the {half}'s closing balance · optional{last}"
+
+    def _payload(self) -> dict:
+        payload = super()._payload()  # this account's half, its id minted there
+        twin = {
+            "id": str(uuid.uuid4()),
+            "account_id": self._partner_id,
+            "beginning_balance_cents": self._values["twin_begin"],
+        }
+        if self._values.get("twin_end") is not None:
+            twin["ending_balance_cents"] = self._values["twin_end"]
+        payload["twin"] = twin
+        return payload
+
+    def _done(self) -> None:
+        self.notify("Statement created.")
         self.dismiss(self._new_id)
 
 

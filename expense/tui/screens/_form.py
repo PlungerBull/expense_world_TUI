@@ -5,7 +5,8 @@ offers picks; a summary table mirrors progress; `ctrl+s` (or enter when no
 field ahead can change) submits via `run_write`. Subclasses supply the field
 sequence, labels/hints, suggestion pools, commit handlers, and the submit request:
 BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
-locked fields, edit mode), NewReconciliationScreen (dynamic sequence),
+locked fields, edit mode), NewReconciliationScreen (dynamic sequence) and
+NewCardStatementScreen (both halves of a card statement),
 SetupScreen (first-time setup: the engine address and key, then a profile),
 SplitScreen (a part's fields, or the title's one field, under the table of
 parts, its own layout and send).
@@ -132,6 +133,19 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def _required(self) -> tuple[str, ...]:
         return ()
+
+    #: Read-only fields the summary states as plain lines, never dimmed or
+    #: marked `read-only`: a fact the form names, such as the accounts a card
+    #: statement's form creates both halves on.
+    _STATED: frozenset[str] = frozenset()
+
+    def _summary_label(self, key: str) -> str:
+        """A field's name in the summary; the bar label in lower case by default."""
+        return self._label(key).lower()
+
+    def _required_note(self, key: str) -> str:
+        """The note when a required field is empty at save."""
+        return f"{self._label(key).title()} is required."
 
     def _suggests(self, key: str) -> bool:
         """Whether this field drives the suggestion list."""
@@ -300,6 +314,9 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         t.add_column("v")
         for key in seq:
             shown = self._display.get(key)
+            if key in self._STATED:
+                t.add_row(Text(self._summary_label(key)), Text(str(shown or "—")))
+                continue
             locked = key in self._locked
             if locked:
                 value = Text(f"{shown or '—'}  read-only", style="dim")
@@ -308,7 +325,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
             else:
                 tag = "  *" if key in required else "  (optional)"
                 value = Text("—" + tag, style="dim")
-            label = Text(self._label(key).lower(), style="dim" if locked else "")
+            label = Text(self._summary_label(key), style="dim" if locked else "")
             if key == current_key and not locked:
                 label.stylize("bold")
             t.add_row(label, value)
@@ -331,7 +348,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         missing one. Every form's save goes through this one check."""
         for key in self._required():
             if key not in self._values:
-                self.notify(f"{self._label(key).title()} is required.", severity="error")
+                self.notify(self._required_note(key), severity="error")
                 return False
         return True
 

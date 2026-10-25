@@ -80,6 +80,11 @@ Screen {
     content-align: left middle;
     padding: 0 1 0 0;
 }
+/* a card statement's form names each balance's currency: its longest label
+   (BEGIN BALANCE USD, 17) + 1 right padding — guarded by test_tui_field_width.py */
+NewCardStatementScreen #field {
+    width: 18;
+}
 /* EVERY Input, not just the bar's: Textual's own default is
    `border: tall $border-blurred`, and #prompt inside the prompt boxes is
    not matched by an `#inputbar` selector — they would be the only vertical

@@ -1197,11 +1197,33 @@ it; the open account keeps an accent `▸`, and the breadcrumb grows to
 inside the panel; a read that fails toasts and leaves the panel closed. Coming back from
 a reconciliation re-reads that account and lands on the same row. **Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
-saved the panel opens on the new one; `u` swaps the panel to the account's rows in no
+saved the panel opens on the new one (on a card account, the card statement's form below); `u` swaps the panel to the account's rows in no
 batch (panel open only); `d` deletes the cursor row **in that pane only** (a no-op on the
 reconciliation list, where a batch's own delete lives one screen deeper); `esc` retreats
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
+
+**A card statement's create form** (`n` on a card account; pane 2 A of
+[expense-world-card-statement.html](mockups/expense-world-card-statement.html)). A card is
+two bank accounts sharing a statement code, one per currency
+(contract: "Bank Accounts", "Statement code"); the browse finds an account's other half in the
+accounts list it already holds (`statement_partners` in [reads.py](../expense/reads.py)), so
+an account with no code, one whose code no other listed account holds, or one whose other half
+is archived keeps the one-account form: the browse lists no archived account, and the engine
+refuses one as the other half's account. On a card account `n` opens one
+form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line `accounts  Signature PEN +
+Signature USD · SIG` (stated, never edited), `date start`, `date end`, then the open account's
+`begin balance <CUR>` and `end balance <CUR>`, then the other account's. Each balance's hint
+names its half by currency (`signed decimal · the dollar half's opening balance`; `soles half`
+for PEN, `dollar half` for USD, any other by its code, `formatting.half_name`); both begins are
+required, both ends optional. `^s Create both`, or `⏎` on the last line, sends one
+`POST /reconciliations` whose `twin` is the other half, its own id, account and balances,
+taking the request's name and days (contract: POST /v1/reconciliations). Both halves are
+created, or neither is: a refusal is the form's `Failed` note with the engine's words whole,
+one check at a time, a `twin.` key naming the other half (`twin.date_start: Overlaps …`); no
+line of the app's is added (a taken id keeps its app-fault line), and the form stays with
+what was typed. Saved, it says `Statement created.` and, as the one-account form does, the
+panel opens on the open account's reconciliations, the cursor on its new half.
 
 **A reconciliation's batch screen** (`⏎` on one in the panel; screens 2a–2c in
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is its
@@ -1320,8 +1342,8 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
-one copy for the edit form, the create/edit forms, the new-reconciliation form, Setup and the
-split screen's fields, whose keys differ as "The split screen's own keys" above says):
+one copy for the edit form, the create/edit forms, the new-reconciliation and card statement
+forms, Setup and the split screen's fields, whose keys differ as "The split screen's own keys" above says):
 `⏎` keeps the field and moves one line on, to the next field that can change; when no field
 ahead can change (on the last field, or with only read-only fields after it) it saves the form
 as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class

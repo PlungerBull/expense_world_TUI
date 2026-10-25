@@ -28,7 +28,7 @@ from expense.tui.screens.create_forms import (
     NewHashtagScreen,
 )
 from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
-from expense.tui.screens.reconciliations import NewReconciliationScreen
+from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.screens.split import SplitScreen
 from tests.unit.helpers import run_app, wait_for
@@ -246,6 +246,13 @@ SHAPES = {
     NewReconciliationScreen: lambda: [
         NewReconciliationScreen(),
         NewReconciliationScreen(account_id="acc1", account_name="BCP PEN"),
+    ],
+    NewCardStatementScreen: lambda: [
+        NewCardStatementScreen(
+            account=("acc1", "Signature PEN", "PEN"),
+            partner=("acc2", "Signature USD", "USD"),
+            code="SIG",
+        )
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
     SplitScreen: lambda: [SplitScreen(dict(TXN)), _title_open(SplitScreen(dict(TXN)))],

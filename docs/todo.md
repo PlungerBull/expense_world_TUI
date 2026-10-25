@@ -28,20 +28,13 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the reshaped tasks 6, 7, 14 and 15, and hand over two engine asks
-Asked 2026-10-25 · Blocks: tasks 6, 7, 14 and 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+### Hand over two engine asks
+Asked 2026-10-25 · Blocks: tasks 14 and 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
-Your picks of today for task 6 reshape it: 6 is now the card's create form alone (being built);
-the questions, `d`, the way-out line and `u` move to task 7, the one-list screen that shows both
-halves; 14 is the card's list, one row per statement; 15 is `e`, editing a statement's name,
-days and balances. Two asks in [to-engine/](to-engine/) are to copy into the engine repo's
-`docs/from-tui/`: "The reconciliation list reads a card statement as one row" (task 14) and
-"Saving a card statement's form writes both halves' balances in one write" (task 15). Say when
-they are handed over and they leave the folder.
-- **A.** Approve the tasks as reshaped.
-- **B.** Change them: say what.
-
-**Recommended:** A, because they hold only your picks.
+"The reconciliation list reads a card statement as one row" (task 14) and "Saving a card
+statement's form writes both halves' balances in one write" (task 15) are in
+[to-engine/](to-engine/), each a file to copy as is into the engine repo's `docs/from-tui/`. Say
+when they are handed over and they leave the folder.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
