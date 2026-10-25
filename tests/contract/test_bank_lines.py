@@ -25,7 +25,8 @@ all stand on rules only the engine can confirm. Pinned here:
     filter is `422` `INVALID_CURSOR` on `after` under another;
   · `GET /bank-lines/{id}` reads `id`, `line_code`, `account_id`,
     `operation_code`, `statement_line`, `statement_place`, the signed
-    `net_cents`, `part_count` and `parts`, each part exactly the transaction
+    `net_cents`, `part_count`, `is_opening_balance`, `parts` and `edit_limits`,
+    each part exactly the transaction
     read by id: a line in no reconciliation reads a `null` statement line and
     place, an unsplit line is one part at its signed amount, a split 60 + 40
     reads `-10000` over two parts in the ledger's order; an unknown id is
@@ -58,13 +59,14 @@ all stand on rules only the engine can confirm. Pinned here:
     (the batch's lines, and the account's lines in no batch inside the period)
     list a split purchase as one row of its total, and a tick on the one part
     it names moves the whole line in and out;
-  · a line holding an opening balance takes no `parts` (`OPENING_BALANCE_NOT_SPLIT`
-    on `parts`), and a batch `line_group` whose items differ is
-    `LINE_GROUP_FIELDS_DIFFER` on each item's field.
+  · a batch `line_group` whose items differ is `LINE_GROUP_FIELDS_DIFFER` on each
+    item's field.
 
 The whole-line write's own rules (a part kept, added and dropped in one write, the
 total, the locked line fields, a kept part's hashtags, a replay) are in
-test_bank_line_write.py.
+test_bank_line_write.py; `edit_limits` on each kind of line, and the parts of an
+opening balance's line and of an archived account's line, in
+test_bank_line_edit_limits.py.
 
 Not pinned here: `SPLIT_LINE_PARTS_DIVERGE`. No route leaves a line's parts on
 different accounts or dates: a part the whole-line write creates takes the line's
@@ -795,34 +797,6 @@ def test_the_line_list_and_its_count(client):
         _safe(client.delete, f"/accounts/{account}")
 
 
-def test_an_opening_balance_is_not_split(client):
-    """A line holding an opening balance takes no `parts`: `422` on `parts`
-    (`OPENING_BALANCE_NOT_SPLIT`), and nothing is written
-    (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules")."""
-    account = _make_account(client)
-    opening = str(uuid4())
-    written: list[str] = []
-    try:
-        made = client.post(
-            f"/accounts/{account}/opening-balance",
-            json_body={
-                "transaction_id": opening,
-                "amount_cents": 10000,
-                "date": "2026-01-01T00:00:00Z",
-            },
-        )
-        line = made["bank_line_id"]
-        err = _refused(lambda: replace_parts(client, line, [6000, 4000], written))
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR")
-        assert err.reasons == {"parts": "OPENING_BALANCE_NOT_SPLIT"}
-        assert _live_ids(client, account) == {opening}
-        assert client.get(f"/transactions/{opening}")["version"] == made["version"]
-    finally:
-        for tx_id in [*written, opening]:
-            _safe(client.delete, f"/transactions/{tx_id}")
-        _safe(client.delete, f"/accounts/{account}")
-
-
 def test_a_line_group_whose_items_differ_is_line_group_fields_differ(client):
     zone = _zone(client)
     account = _make_account(client)
@@ -1000,7 +974,9 @@ def test_a_bank_line_reads_its_figures(client):
             "statement_place",
             "net_cents",
             "part_count",
+            "is_opening_balance",
             "parts",
+            "edit_limits",
         }
         assert line["id"] == out["bank_line_id"]
         assert line["line_code"] == out["line_code"]

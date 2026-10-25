@@ -31,6 +31,7 @@ from tests.unit.helpers import (
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
     archived_refusal,
+    edit_limits,
     hashtag_refusal,
     import_part,
     in_order,
@@ -985,6 +986,7 @@ def _bank_line(part_count: int) -> dict:
         ]
         if part_count > 1
         else [import_part("tx1", -4250, account_id="acc1", line="bl1")],
+        "edit_limits": edit_limits(),
     }
 
 
@@ -1134,6 +1136,7 @@ BANK_LINE = {
             "statement_place": None,
         }
     ],
+    "edit_limits": edit_limits(),
 }
 
 

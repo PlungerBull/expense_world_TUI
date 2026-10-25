@@ -11,7 +11,7 @@ account, and one save of a card statement writes both halves' balances", shipped
 [statement-lines-from-reconciliations.md](statement-lines-from-reconciliations.md); the owner
 chose on 2026-10-25 to split it in two and to run this spec first.
 
-**Status: tasks 1 and 2 approved by the owner on 2026-10-25; task 1 runs first.** When done, the why moves to [decisions.md](../decisions.md) and this file is
+**Status: task 1 done; task 2 approved by the owner on 2026-10-25, running.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
 ---
@@ -104,18 +104,8 @@ write would refuse". Where it differs from what was asked, or settles what the a
 
 ## Tasks
 
-Tasks 1 and 2 approved by the owner on 2026-10-25. They run in order: 1, then 2.
+Task 2 approved by the owner on 2026-10-25.
 
-1. **Catch up with the contract's Edit form parts** (no screen): the unit fixtures of bank lines
-   carry `edit_limits`; the live contract suite proves `edit_limits` on an ordinary line, a line
-   in a completed reconciliation, a line with a part on an archived account and an opening
-   balance's line, and that a revert and an unarchive clear it; and it proves the whole-line
-   write's `parts` on an opening balance's line and on an archived account's line: the edits it
-   takes in one write with every part id kept, and its refusals
-   (`OPENING_BALANCE_CATEGORY_FIXED`, `OPENING_BALANCE_NOT_TAGGED`, `ACCOUNT_ARCHIVED` on
-   `parts.<i>.amount_cents`, and a part added or left out refused on `parts`). The live test that
-   pins the old whole refusal of `parts` on an opening balance's line
-   ([test_bank_lines.py](../../tests/contract/test_bank_lines.py)) follows the new rules.
 2. **[UI] The Edit form with its parts saves in one write**: line fields and every part in one
    `PUT /bank-lines/{bank_line_id}`, a kept part's hashtags sent only when the owner changed
    them, and no line field on a line in a completed reconciliation unless the owner changed it.

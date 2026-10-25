@@ -262,6 +262,26 @@ def import_part(
     }
 
 
+def edit_limits(
+    *,
+    locked_fields: dict[str, str] | None = None,
+    total_fixed: bool = False,
+    parts_fixed: bool = False,
+    locked_part_fields: dict[str, dict[str, str]] | None = None,
+) -> dict:
+    """A bank line's `edit_limits`, every key present: the line fields a write
+    would refuse with their reasons, whether the total and the parts are fixed,
+    and per part id the part fields a write would refuse
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The default
+    is a line nothing closes."""
+    return {
+        "locked_fields": dict(locked_fields or {}),
+        "total_fixed": total_fixed,
+        "parts_fixed": parts_fixed,
+        "locked_part_fields": {k: dict(v) for k, v in (locked_part_fields or {}).items()},
+    }
+
+
 def bank_line_row(
     line: str,
     parts: list[dict],
@@ -273,7 +293,8 @@ def bank_line_row(
     """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
     reads it: its `parts` (each an `import_part`), its `line_code`,
     `statement_line` and `statement_place` as its parts read them, the engine's
-    signed `net_cents` and `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
+    signed `net_cents` and `part_count`, and the `edit_limits` of a line nothing
+    closes (contract: GET /v1/bank-lines/{bank_line_id})."""
     return {
         "id": line,
         "line_code": line_code_of(line),
@@ -284,6 +305,7 @@ def bank_line_row(
         "net_cents": net_cents,
         "part_count": len(parts),
         "parts": parts,
+        "edit_limits": edit_limits(),
     }
 
 

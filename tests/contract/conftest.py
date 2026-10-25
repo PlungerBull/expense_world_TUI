@@ -237,8 +237,8 @@ def reconciliation_body(account_id: str, start: str, end: str, twin: str | None 
 class Scratch:
     """What one test builds on the practice user, undone in reverse dependency order:
     archived accounts unarchived, reconciliations reverted and deleted (each statement
-    once), transactions deleted, accounts deleted. Every step is best-effort, so a
-    failed test still frees its statement codes."""
+    once), transactions deleted, hashtags, categories and accounts deleted. Every step
+    is best-effort, so a failed test still frees its statement codes."""
 
     def __init__(self, client: ExpenseClient) -> None:
         self.client = client
@@ -246,6 +246,8 @@ class Scratch:
         self.accounts: list[str] = []
         self.reconciliations: list[str] = []
         self.transactions: list[str] = []
+        self.categories: list[str] = []
+        self.hashtags: list[str] = []
 
     def account(self, currency: str = "PEN", code: str | None = None) -> str:
         body = account_body(currency, code)
@@ -264,6 +266,27 @@ class Scratch:
                 "currency_code": currency,
             },
         )
+        return new_id
+
+    def archive(self, account_id: str) -> None:
+        """Archives the account; cleanup unarchives every account it made."""
+        self.client.post(f"/accounts/{account_id}/archive")
+
+    def category(self) -> str:
+        """A new category of the caller's; its id."""
+        new_id = str(uuid4())
+        self.categories.append(new_id)
+        self.client.post(
+            "/categories",
+            json_body={"id": new_id, "name": f"contract-stmt-c-{new_id[:8]}", "color": "#123456"},
+        )
+        return new_id
+
+    def hashtag(self) -> str:
+        """A new hashtag of the caller's; its id."""
+        new_id = str(uuid4())
+        self.hashtags.append(new_id)
+        self.client.post("/hashtags", json_body={"id": new_id, "name": f"contract-h-{new_id[:8]}"})
         return new_id
 
     def reconciliation(self, account_id: str, start: str, end: str) -> str:
@@ -341,6 +364,10 @@ class Scratch:
                 gone.add(answer["twin"]["id"])
         for tx in self.transactions:
             self._quietly(self.client.delete, f"/transactions/{tx}")
+        for hashtag in self.hashtags:
+            self._quietly(self.client.delete, f"/hashtags/{hashtag}")
+        for category in self.categories:
+            self._quietly(self.client.delete, f"/categories/{category}")
         for account in self.accounts:
             self._quietly(self.client.delete, f"/accounts/{account}")
 

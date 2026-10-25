@@ -31,7 +31,7 @@ from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
 from expense.tui.screens.split import SplitScreen
-from tests.unit.helpers import run_app, wait_for
+from tests.unit.helpers import edit_limits, run_app, wait_for
 
 NAME_GOES_ON = "free text · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
@@ -83,6 +83,7 @@ LINE = {
     ],
     "statement_line": None,
     "statement_place": None,
+    "edit_limits": edit_limits(),
 }
 SPLIT_LINE = {**LINE, "part_count": 2, "parts": [*LINE["parts"], {**LINE["parts"][0], "id": "p2"}]}
 

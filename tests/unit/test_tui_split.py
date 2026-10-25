@@ -43,6 +43,7 @@ from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
     cursor_page,
+    edit_limits,
     import_part,
     line_code_of,
     render_text,
@@ -137,6 +138,7 @@ def bank_line(line: str) -> dict:
         "net_cents": NET[line],
         "part_count": len(LINES[line]),
         "parts": [_as_part(tx) for tx in LINES[line]],
+        "edit_limits": edit_limits(),
     }
 
 

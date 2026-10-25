@@ -13,9 +13,11 @@ An archived account's transactions are frozen except for their categorisation
 `hashtag_ids` or `description` goes through; any other field is `422`
 `ACCOUNT_ARCHIVED` on its key, at its current value too, and a mixed `PUT` writes
 nothing; an empty `title` or `operation_code` is filled once; a delete, of a
-transaction or of a bank line, is `409` and a whole-line write with `parts` `422` on
-`parts`, beside every line field sent, all `ACCOUNT_ARCHIVED`; after unarchiving, a
-frozen field, a rewrite of a line's parts and both deletes go through. Moving
+transaction or of a bank line, is `409`, and a whole-line write that adds or drops a
+part is `422` on `parts` and one that changes a kept part's amount on its
+`parts.<i>.amount_cents`, beside every line field sent, all `ACCOUNT_ARCHIVED`; after
+unarchiving, a frozen field, a rewrite of a line's parts and both deletes go through.
+What the whole-line write takes on such a line is in test_bank_line_edit_limits.py. Moving
 another account's row onto it stays `INVALID_REFERENCE`. Its reconciliations'
 freeze is in test_reconciliations_lifecycle.py.
 
@@ -389,13 +391,16 @@ def test_an_archived_accounts_empty_operation_code_is_filled_once(client, book):
 def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchived(client, book):
     """On an archived account, `DELETE /transactions/{id}` is `409` on `transaction_id`
     and `DELETE /bank-lines/{id}` `409` on `bank_line_id`, a split line's part and the
-    line included; a whole-line write with `parts` is `422` on `parts`, beside every
-    line field sent; all `ACCOUNT_ARCHIVED`, and the balance and every row stay as they
-    were
+    line included; a whole-line write that replaces a line's part is `422` on `parts`,
+    and one that changes kept parts' amounts on each `parts.<i>.amount_cents`, beside
+    every line field sent; all `ACCOUNT_ARCHIVED`, and the balance and every row stay as
+    they were
     (contract: POST /v1/accounts/{account_id}/archive, "Its transactions are frozen
-    except for their categorisation"). After `POST /accounts/{id}/unarchive` a frozen
-    field, a rewrite of a line's parts and both deletes go through
-    (contract: POST /v1/accounts/{account_id}/unarchive)."""
+    except for their categorisation")
+    (contract: PUT /v1/bank-lines/{bank_line_id},
+    "A line with a part on an archived account keeps its parts and their amounts").
+    After `POST /accounts/{id}/unarchive` a frozen field, a rewrite of a line's parts
+    and both deletes go through (contract: POST /v1/accounts/{account_id}/unarchive)."""
     account_id = book.account()
     single = book.row(account_id, title="single")
     parts = book.split(book.row(account_id, title="split"), [-600, -400])
@@ -424,10 +429,11 @@ def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchive
         assert err.reasons == {key: "ACCOUNT_ARCHIVED"}, path
 
     kept = [{"id": p["id"], "amount_cents": -500} for p in parts]
+    amounts = {"parts.0.amount_cents", "parts.1.amount_cents"}
     for line_id, body, keys in (
         (single_line, {"parts": [{"id": str(uuid4()), "amount_cents": -1000}]}, {"parts"}),
-        (split_line, {"parts": kept}, {"parts"}),
-        (split_line, {"parts": kept, "date": _now()}, {"parts", "date"}),
+        (split_line, {"parts": kept}, amounts),
+        (split_line, {"parts": kept, "date": _now()}, {*amounts, "date"}),
     ):
         book.rows.extend(p["id"] for p in body["parts"])
         err = _refused(client.put, f"/bank-lines/{line_id}", json_body=body)

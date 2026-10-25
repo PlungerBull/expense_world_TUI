@@ -39,7 +39,7 @@ from expense.reads import (
     query_params,
 )
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import cursor_page, error_response, whole
+from tests.unit.helpers import cursor_page, edit_limits, error_response, whole
 
 # ---------------------------------------------------------------------------
 # format_cents
@@ -900,6 +900,7 @@ BANK_LINE_RESPONSE = {
         },
         {**TRANSACTION_RESPONSE, "id": "tx-two", "amount_cents": 4000},
     ],
+    "edit_limits": edit_limits(),
 }
 
 
