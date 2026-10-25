@@ -69,8 +69,9 @@ expense/tui/
                     #   re-sends only the rest.
     split.py        # the split screen — what `s` on a ledger row opens. A table of
                     #   the parts, the picked part's fields or the title's one field
-                    #   below it (FormScreen), one POST /transactions/{id}/split with
-                    #   the title when it changed; a refusal stays under the parts
+                    #   below it (FormScreen), one PUT /bank-lines/{id} with the
+                    #   line's whole set of parts (built by expense/bank_line_write.py)
+                    #   and the title when it changed; a refusal stays under the parts
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
@@ -440,17 +441,29 @@ empty title, or spaces only, is refused as on the Edit form (`_title_given` in
 [_form.py](../expense/tui/screens/_form.py), one copy for both): the error toast
 `Title is required.`, the field stays open and the TITLE line keeps its title (screen 5), so
 a split never removes a title. `↑↓` do nothing in this one field, and there is no `⇥ Field`.
-`ctrl+s` always sends every part in one `POST /transactions/{id}/split` through `run_write`
-(one idempotency key), by the id of the row `s` was pressed on, each part under a fresh id,
-with only what it holds: its signed `amount_cents`, `category_id`, `description`, and
-`hashtag_ids` through `hashtags_to_send` with `pending_alone=False`, so a part with only the
-pending hashtag sends none. Beside `parts` goes `title`, once for the line, only when the title
-kept differs from the transaction's; the engine writes it onto every part, and with the key
-left out every part keeps the title it has
-(contract: POST /v1/transactions/{transaction_id}/split). Pressed in a part's fields or the
+`ctrl+s` always sends the line's whole set of parts in one `PUT /bank-lines/{id}` through
+`run_write` (one idempotency key, the same on a retry), to the bank line of the row `s` was
+pressed on, the body built by [bank_line_write.py](../expense/bank_line_write.py), the one
+home for every whole-line write: a part read from the line goes under its own id and is
+updated in place, a part added here goes under a fresh id and is created, and a part dropped
+with `ctrl+x` is left out, so the engine deletes it
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). On a transaction never split the table
+holds only new parts, so the line's one transaction is left out and the new parts replace it.
+A part read from the line sends its signed `amount_cents`, and beside it only what changed: a
+new `category_id`, an emptied note as `description: ""`, and `hashtag_ids` only when its set of
+real hashtags changed, since a kept part sent with them is always written, even with the set
+it has
+(contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+A part added here sends only what it holds: its signed `amount_cents`, `category_id`,
+`description`, and `hashtag_ids` through `hashtags_to_send` with `pending_alone=False`, so a
+part with only the pending hashtag sends none. Beside `parts` goes `title`, once for the line,
+only when the title kept differs from the transaction's; the engine writes it onto every part,
+and with the key left out every part keeps the title it has. No other line field goes, and
+never `statement_line` or `statement_place`
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). Pressed in a part's fields or the
 title's, it keeps the field being typed first (an empty title is refused there as on `⏎`)
 and the table comes back. The engine decides whether the parts add up
-(contract: POST /v1/transactions/{transaction_id}/split, "The total is kept"). Split, the screen
+(contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). Split, the screen
 closes and the ledger reads fresh from the newest 10, cursor on row 1.
 **A refused split stays under the parts** until a part or the title changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
@@ -465,7 +478,8 @@ in the table.
 both totals in cents), and every other refusal of the route, `ACCOUNT_ARCHIVED`,
 `OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`,
 `ZERO_AMOUNT`, `INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
-`ID_EXISTS`, `RESERVED_NAME_HELD` and `CONCURRENT_CHANGE`, show this way, and so does `LOCKED` on `title`:
+`ID_EXISTS`, `RESERVED_NAME_HELD`, `SEALED_PERIOD` and `CONCURRENT_CHANGE`, show this way, and so
+does `LOCKED` on `title`:
 a transaction in a completed reconciliation may be split, but a changed title is refused, with
 any part's refusal from the same `422`, and nothing is split (screen 6). A failure that is not
 the engine's answer (the engine out of reach) shows the app's error text there instead.

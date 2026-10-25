@@ -11,9 +11,9 @@ the cursor from the TITLE line through the parts to `+ add a part`.
 it on every part`; `⏎` there puts the new title on the TITLE line and goes
 back to the table, `esc` goes back leaving the title as it was. An empty
 title is refused as on the Edit form (`_title_given` in _form.py), the field
-staying open. The split sends `title` beside `parts` only when it differs
+staying open. The save sends `title` beside `parts` only when it differs
 from the transaction's, so a title left alone is not sent and every part
-keeps the one it has (contract: POST /v1/transactions/{transaction_id}/split).
+keeps the one it has (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
 
 **The fields below.** `⏎` on a part opens its fields under the table, one per
 line: AMOUNT, CATEGORY, HASHTAGS, NOTE, the part marked in the table. They are
@@ -32,23 +32,27 @@ and left with nothing in it, or with only the pending hashtag, drops again
 read: on a part of a split transaction the table opens with the line's
 `parts`, and the total is the line's `net_cents`
 (contract: GET /v1/bank-lines/{bank_line_id}); a line never split has one
-part, its transaction, so the table opens empty.
+part, its transaction, so the table opens empty, and the save, sending only
+new parts, leaves that one out: the new parts replace it
+(contract: PUT /v1/bank-lines/{bank_line_id}, "A live part not sent is deleted").
 
 **The only arithmetic is "left"**: the parts' amounts summed against the
-engine's total. It never stops a send: `ctrl+s` always sends every part in one
-`POST /transactions/{id}/split`, each part under a fresh id, and the engine
-decides whether the parts add up
-(contract: POST /v1/transactions/{transaction_id}/split, "The total is kept").
+engine's total. It never stops a send: `ctrl+s` always sends the line's whole
+set of parts in one `PUT /bank-lines/{id}`, built by `expense/bank_line_write.py`:
+a part read from the line under its own id with only what changed, its
+hashtags only when they changed; a part added here under a fresh id; a part
+dropped left out, so the engine deletes it. The engine decides whether the
+parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total").
 
 **A refusal stays under the parts** until a part or the title changes: the
 engine's words, each `parts.<i>.<field>` key read as `part i+1 (field)` and
-any other key (`title`, `transaction_id`) as sent, the amounts a
+any other key (`title`, `parts`) as sent, the amounts a
 `parts.<i>.amount_cents` key names in the error colour, `Nothing was split.`,
 and the app's line for the refusal's reason, if it has one (`app_lines`).
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from uuid import uuid4
 
 from rich.console import Group, RenderableType
 from rich.text import Text
@@ -59,6 +63,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Input, Label, Static
 
 from expense import reads
+from expense.bank_line_write import kept_part, line_body, new_part
 from expense.errors import EngineError, app_lines, format_error, key_field, key_index
 from expense.formatting import (
     bank_line_part_count,
@@ -122,21 +127,27 @@ RULE_WIDTH = 78
 class Part:
     """One part in the table. `amount_cents` None until one is typed;
     `category_id` None files the part under `@Pendiente`; `hashtag_ids` as
-    picked or as the engine holds them, the pending hashtag among them;
-    `read` True for a part read from the line, which never drops."""
+    picked or as the engine holds them, the pending hashtag among them; `id`
+    the engine's, on a part read from the line, which never drops and is sent
+    under it; None on a part added here."""
 
     amount_cents: int | None = None
     category_id: str | None = None
     hashtag_ids: tuple[str, ...] = ()
     note: str | None = None
-    read: bool = False
+    id: str | None = None
+
+    @property
+    def read(self) -> bool:
+        """Read from the line, so kept under its own id."""
+        return self.id is not None
 
 
 def part_from_engine(item: dict, refs: QuickAddRefs) -> Part:
     """A part the engine holds, as `GET /bank-lines/{id}` lists it: a
     magnitude and its `transaction_type`, signed by `signed_cents`. The
     `@Pendiente` category is what a part naming none means, so it reads as
-    none. Marked `read`, so it stays whatever is emptied."""
+    none. Under its own id, so it stays whatever is emptied."""
     pending_category = refs.pending[0] if refs.pending else None
     category = item.get("category_id")
     return Part(
@@ -144,14 +155,16 @@ def part_from_engine(item: dict, refs: QuickAddRefs) -> Part:
         category_id=None if category == pending_category else category,
         hashtag_ids=tuple(str(t) for t in item.get("hashtag_ids") or ()),
         note=item.get("description") or None,
-        read=True,
+        id=str(item["id"]),
     )
 
 
 def real_hashtags(part: Part, refs: QuickAddRefs | None) -> list[str]:
-    """The part's hashtags the split sends: never the pending one, alone or
-    not, so a part with no real hashtag sends none and the engine files it
-    under the pending hashtag (contract: POST /v1/transactions/{transaction_id}/split)."""
+    """The part's hashtags the save sends: never the pending one, alone or
+    not, so a new part with no real hashtag sends none and the engine puts it
+    on the pending hashtag
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "An id no record holds creates a part").
+    The table shows these, never the pending one."""
     pending = refs.pending_hashtag_id if refs else None
     return hashtags_to_send(part.hashtag_ids, pending, pending_alone=False)
 
@@ -166,32 +179,41 @@ def part_empty(part: Part, refs: QuickAddRefs | None) -> bool:
     return replace(part, hashtag_ids=tuple(real_hashtags(part, refs))) == Part()
 
 
-def part_payload(part: Part, refs: QuickAddRefs | None, *, part_id: str) -> dict:
-    """One entry of the split's `parts`: a fresh id and only what the part
-    holds — its signed amount, `category_id`, `hashtag_ids` and
-    `description`. Sparse by omission, as every create."""
-    body: dict = {"id": part_id}
-    if part.amount_cents is not None:
-        body["amount_cents"] = part.amount_cents
-    if part.category_id is not None:
-        body["category_id"] = part.category_id
-    tags = real_hashtags(part, refs)
-    if tags:
-        body["hashtag_ids"] = tags
-    if part.note:
-        body["description"] = part.note
-    return body
+def part_payload(part: Part, refs: QuickAddRefs | None, held: Mapping | None) -> dict:
+    """One entry of the save's `parts`. A part read from the line goes under
+    its own id with what changed against `held`, the part as the engine holds
+    it (`kept_part`); a part added here under a fresh id with what it holds
+    (`new_part`)."""
+    if held is None:
+        return new_part(
+            amount_cents=part.amount_cents,
+            category_id=part.category_id,
+            description=part.note,
+            hashtag_ids=real_hashtags(part, refs),
+        )
+    return kept_part(
+        held,
+        amount_cents=part.amount_cents,
+        category_id=part.category_id,
+        description=part.note,
+        hashtag_ids=part.hashtag_ids,
+        pending_hashtag_id=refs.pending_hashtag_id if refs else None,
+    )
 
 
-def split_body(parts: list[Part], refs: QuickAddRefs | None, *, title: str | None = None) -> dict:
-    """`POST /transactions/{id}/split`'s body: every part, in table order,
-    each under a fresh id, and `title` beside them when one is given. Left
-    out, every part keeps the transaction's title
-    (contract: POST /v1/transactions/{transaction_id}/split)."""
-    body: dict = {"parts": [part_payload(p, refs, part_id=str(uuid4())) for p in parts]}
-    if title is not None:
-        body["title"] = title
-    return body
+def split_body(
+    parts: list[Part],
+    refs: QuickAddRefs | None,
+    held: Mapping[str, Mapping],
+    *,
+    title: str | None = None,
+) -> dict:
+    """`PUT /bank-lines/{id}`'s body: the line's whole set of parts, in table
+    order, each read part matched to its `held` entry by id, and `title`
+    beside them when one is given. Left out, every part keeps the title it has
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+    entries = [part_payload(p, refs, held.get(p.id) if p.id else None) for p in parts]
+    return line_body(entries, {"title": title} if title is not None else None)
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +470,8 @@ class SplitScreen(FormScreen):
         self._refs: QuickAddRefs | None = None
         self._total: int | None = None
         self._parts: list[Part] = []
+        # each part read from the line, as the engine holds it, by its id
+        self._held: dict[str, dict] = {}
         # TITLE_ROW for the TITLE line, a part, or len(parts) for `+ add a part`
         self._cursor = 0
         self._editing: int | None = None  # the part whose fields are open
@@ -502,7 +526,9 @@ class SplitScreen(FormScreen):
         self._refs = refs
         self._total = whole_number(line.get("net_cents"))
         if bank_line_part_count(line) > 1:
-            self._parts = [part_from_engine(item, refs) for item in line.get("parts") or []]
+            items = [item for item in line.get("parts") or [] if item.get("id")]
+            self._held = {str(item["id"]): item for item in items}
+            self._parts = [part_from_engine(item, refs) for item in items]
         self._cursor = 0
         self._refresh_view()
 
@@ -741,10 +767,10 @@ class SplitScreen(FormScreen):
             self.dismiss(False)
 
     def action_submit(self) -> None:
-        """`ctrl+s`: send every part — always; the engine says whether they add
-        up — and the title when it differs from the transaction's. In the
-        fields, the field being typed is kept first and the table comes
-        back."""
+        """`ctrl+s`: send the line's whole set of parts in one `PUT
+        /bank-lines/{id}` — always; the engine says whether they add up — and
+        the title when it differs from the transaction's. In the fields, the
+        field being typed is kept first and the table comes back."""
         if self._sending or self._refs is None:
             return
         if self._fields_open:
@@ -757,9 +783,9 @@ class SplitScreen(FormScreen):
         self._refresh_view()
         title = self._title if self._title != self._record.get("title") else None
         self.run_write(
-            "POST",
-            f"/transactions/{self._record.get('id')}/split",
-            json_body=split_body(self._parts, self._refs, title=title),
+            "PUT",
+            f"/bank-lines/{self._record.get('bank_line_id')}",
+            json_body=split_body(self._parts, self._refs, self._held, title=title),
             on_success=self._split_done,
             on_failure=self._split_refused,
         )

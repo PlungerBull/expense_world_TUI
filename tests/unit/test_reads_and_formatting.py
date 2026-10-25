@@ -750,9 +750,9 @@ def test_hashtags_to_send_drops_the_pending_hashtag_beside_a_real_one(ids, pendi
     ],
 )
 def test_hashtags_to_send_without_the_pending_one_alone(ids, pending, sent):
-    """`pending_alone=False`, the split's parts: the pending hashtag never goes,
-    alone or not, so a part with no real hashtag sends none
-    (contract: POST /v1/transactions/{transaction_id}/split)."""
+    """`pending_alone=False`, the whole-line write's parts: the pending hashtag
+    never goes, alone or not, so a new part with no real hashtag sends none
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "An id no record holds creates a part")."""
     assert hashtags_to_send(ids, pending, pending_alone=False) == sent
 
 

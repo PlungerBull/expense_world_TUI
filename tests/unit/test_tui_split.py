@@ -1,13 +1,15 @@
 """`s` on the ledger — the split screen: the table of parts, each part's fields
-below, the title's field, the split, the re-split and the refusals.
+below, the title's field, the save, the re-split and the refusals.
 
 Screens: docs/mockups/expense-world-split-screen.html (1 to 6). Every engine
 call goes to one fake engine (`LineClient`), the ledger's reads, the split
-screen's and the split itself, so a test can assert exactly what was read and
-sent. One test sends the split through the real HTTP client against a
-respx-mocked engine, for the idempotency key. The refusals' words are
-stand-ins, except the mismatch sentence, which is the contract's own
-(contract: POST /v1/transactions/{transaction_id}/split, "The total is kept").
+screen's and the save itself, one `PUT /bank-lines/{id}`, so a test can assert
+exactly what was read and sent. Two tests send the save through the real HTTP
+client against a respx-mocked engine, for the idempotency key and its retry.
+The refusals' words are stand-ins, except the mismatch sentence and a part's
+archived words, which are the contract's own
+(contract: PUT /v1/bank-lines/{bank_line_id}, "The total")
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Rules").
 """
 
 import json
@@ -40,8 +42,6 @@ from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
     FakeClient,
-    archived_refusal,
-    archived_words,
     cursor_page,
     import_part,
     line_code_of,
@@ -176,7 +176,11 @@ class LineClient(FakeClient):
 
     def line_reads(self) -> list[str]:
         """The split screen's own reads of a line, `GET /bank-lines/{id}`."""
-        return [path for method, path, _ in self.calls if path.startswith("/bank-lines/")]
+        return [
+            path
+            for method, path, _ in self.calls
+            if method == "GET" and path.startswith("/bank-lines/")
+        ]
 
     def ledger_reads(self) -> list[dict]:
         return [
@@ -261,9 +265,20 @@ def _styles_of(text: Text, needle: str) -> set[str]:
 
 
 def _sent(engine) -> list[dict]:
-    """The one split's parts, without their fresh ids."""
-    ((_path, body),) = engine.posts
+    """The one save's parts, without their ids."""
+    ((_path, body),) = engine.puts
     return [{k: v for k, v in p.items() if k != "id"} for p in body["parts"]]
+
+
+def _ids(engine) -> list[str]:
+    """The one save's part ids, in table order."""
+    ((_path, body),) = engine.puts
+    return [p["id"] for p in body["parts"]]
+
+
+def _fresh(part_id: str) -> bool:
+    """A new part's id: a UUID the app minted, never one the line held."""
+    return part_id not in {"p1", "p2", "t1"} and bool(uuid.UUID(part_id))
 
 
 # ---- `s Split` on the ledger -----------------------------------------------------
@@ -522,10 +537,10 @@ def test_esc_in_the_fields_keeps_the_fields_left_and_drops_only_the_one_typed(en
         await pilot.pause()
         assert app.screen is screen
         assert screen._editing is None and screen._cursor == 0
-        assert screen._parts[0] == Part(-5500, "c-com", ("h-casa",), "verduras", read=True)
+        assert screen._parts[0] == Part(-5500, "c-com", ("h-casa",), "verduras", id="p1")
 
     run_app(scenario, size=SIZE)
-    assert engine.posts == []
+    assert engine.puts == []
 
 
 def test_esc_on_hashtags_keeps_each_hashtag_added_with_enter_and_drops_the_one_typed(engine):
@@ -567,15 +582,14 @@ def test_esc_on_hashtags_keeps_each_hashtag_added_with_enter_and_drops_the_one_t
             "papel",
         ]
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
-    assert _sent(engine)[1] == {
-        "amount_cents": -4000,
-        "category_id": "c-hog",
-        "hashtag_ids": ["h-casa", "h-merc"],
-        "description": "lejía y papel",
-    }
+    assert _ids(engine) == ["p1", "p2"]
+    assert _sent(engine) == [
+        {"amount_cents": -6000},
+        {"amount_cents": -4000, "hashtag_ids": ["h-casa", "h-merc"]},
+    ]
 
 
 def test_a_category_or_hashtag_that_matches_nothing_is_not_kept(engine):
@@ -677,18 +691,11 @@ def test_a_part_left_with_only_the_pending_hashtag_drops_as_an_empty_one(engine,
         assert [line.split()[0] for line in lines[1:3]] == ["1", "2"]
         assert lines[3].strip() == "+  add a part"
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
-    assert _sent(engine) == [
-        {
-            "amount_cents": -6000,
-            "category_id": "c-com",
-            "hashtag_ids": ["h-casa"],
-            "description": "verduras",
-        },
-        {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"},
-    ]
+    assert _ids(engine) == ["p1", "p2"]
+    assert _sent(engine) == [{"amount_cents": -6000}, {"amount_cents": -4000}]
 
 
 def test_a_new_part_with_an_amount_and_the_pending_hashtag_stays_and_is_sent(engine):
@@ -698,7 +705,7 @@ def test_a_new_part_with_an_amount_and_the_pending_hashtag_stays_and_is_sent(eng
         assert screen._parts == [Part(amount_cents=-10000, hashtag_ids=("h-pend",))]
         assert _lines(screen, "#parts")[1].split() == ["1", "-100.00", "—", "—"]
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
     assert _sent(engine) == [{"amount_cents": -10000}]
@@ -713,8 +720,8 @@ def test_a_new_part_with_an_amount_and_the_pending_hashtag_stays_and_is_sent(eng
         (Part(category_id="c-com", hashtag_ids=("h-pend",)), False),
         (Part(note="x", hashtag_ids=("h-pend",)), False),
         (Part(hashtag_ids=("h-casa",)), False),
-        (Part(read=True), False),
-        (Part(hashtag_ids=("h-pend",), read=True), False),
+        (Part(id="p1"), False),
+        (Part(hashtag_ids=("h-pend",), id="p1"), False),
     ],
 )
 def test_a_part_is_empty_with_nothing_in_it_but_the_pending_hashtag(part, empty):
@@ -725,7 +732,8 @@ def test_a_part_is_empty_with_nothing_in_it_but_the_pending_hashtag(part, empty)
 def test_a_part_read_from_the_line_never_drops_whatever_is_emptied(engine):
     """A part the line holds under `@Pendiente` with only #Pendiente and no
     note, its amount cleared and `⏎` through its fields, stays in the table
-    and in what `ctrl+s` sends."""
+    and in what `ctrl+s` sends, under its own id with nothing beside it: the
+    engine, which requires an amount, is the one to answer."""
     pending = import_part("p2", -4000, line="bl-9", category_id="c-pend", hashtag_ids=("h-pend",))
     engine.get_responses["/bank-lines/bl-9"] = {
         **bank_line("bl-9"),
@@ -740,15 +748,15 @@ def test_a_part_read_from_the_line_never_drops_whatever_is_emptied(engine):
         for _ in range(4):  # AMOUNT cleared, then CATEGORY, HASHTAGS, NOTE
             await _field(pilot, screen, "")
         assert screen._editing is None
-        assert screen._parts[1] == Part(hashtag_ids=("h-pend",), read=True)
+        assert screen._parts[1] == Part(hashtag_ids=("h-pend",), id="p2")
         lines = _lines(screen, "#parts")
         assert lines[2].split()[0] == "2"
         assert lines[3].strip() == "+  add a part"
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
-    assert len(engine.posts[0][1]["parts"]) == 2
+    assert _ids(engine) == ["p1", "p2"]
     assert _sent(engine)[1] == {}
 
 
@@ -756,9 +764,10 @@ def test_a_part_read_from_the_line_never_drops_whatever_is_emptied(engine):
 
 
 def test_two_parts_typed_in_the_fields_and_ctrl_s_split_then_the_ledger_reads_fresh(engine):
-    """Spec check 1: -60.00 COMIDA #casa and -40.00 HOGAR, `^s`, and one split
-    goes with both, each under a fresh id; the ledger reads its newest rows
-    again, the cursor on row 1."""
+    """Spec check 1: -60.00 COMIDA #casa and -40.00 HOGAR, `^s`, and one
+    `PUT /bank-lines/{id}` goes with both, each under a fresh id, the line's
+    one transaction left out so the two replace it; the ledger reads its
+    newest rows again, the cursor on row 1."""
 
     async def scenario(pilot, app):
         ledger, screen = await _open_split(pilot, app, "t1")
@@ -777,10 +786,11 @@ def test_two_parts_typed_in_the_fields_and_ctrl_s_split_then_the_ledger_reads_fr
         assert ledger.query_one(CursorList).cursor_index == 0
 
     run_app(scenario, size=SIZE)
-    path, body = engine.posts[0]
-    assert path == "/transactions/t1/split"
+    ((path, body),) = engine.puts
+    assert engine.posts == []
+    assert path == "/bank-lines/bl-1"
     ids = [p["id"] for p in body["parts"]]
-    assert len(set(ids)) == 2 and all(uuid.UUID(i) for i in ids)
+    assert len(set(ids)) == 2 and all(_fresh(i) for i in ids)
     assert _sent(engine) == [
         {
             "amount_cents": -6000,
@@ -819,7 +829,7 @@ def test_a_part_with_only_the_pending_hashtag_sends_none_and_no_category_none(en
         assert _lines(screen, "#parts")[1].split() == ["1", "-70.00", "—", "—"]
         assert _lines(screen, "#parts")[2].split() == ["2", "-30.00", "—", "#casa"]
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
     assert _sent(engine) == [
@@ -840,9 +850,8 @@ def test_ctrl_x_drops_the_part_under_the_cursor(engine):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    assert _sent(engine) == [
-        {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"}
-    ]
+    assert _ids(engine) == ["p2"]  # part 1 left out: the engine deletes it
+    assert _sent(engine) == [{"amount_cents": -4000}]
 
 
 def test_esc_on_the_table_leaves_at_once_with_nothing_sent(engine):
@@ -855,7 +864,7 @@ def test_esc_on_the_table_leaves_at_once_with_nothing_sent(engine):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    assert engine.posts == []
+    assert engine.puts == []
 
 
 def test_ctrl_s_always_sends_even_when_the_parts_do_not_add_up(engine):
@@ -866,14 +875,14 @@ def test_ctrl_s_always_sends_even_when_the_parts_do_not_add_up(engine):
         _ledger, screen = await _open_split(pilot, app, "t1")
         await _add_part(pilot, screen, "-60")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
     assert _sent(engine) == [{"amount_cents": -6000}]
 
 
 def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
-    """`^s` is one logical write: one `POST`, one `X-Idempotency-Key`, through
+    """`^s` is one logical write: one `PUT`, one `X-Idempotency-Key`, through
     the shared write path and the real HTTP client."""
     client = LineClient(list(LEDGER))
     monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: client)
@@ -886,8 +895,8 @@ def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     with respx.mock() as mock:
-        route = mock.post(f"{ENGINE_URL}/v1/transactions/t1/split").mock(
-            httpx.Response(201, json={"parts": []})
+        route = mock.put(f"{ENGINE_URL}/v1/bank-lines/bl-1").mock(
+            httpx.Response(200, json={"id": "bl-1", "parts": []})
         )
         run_app(scenario, size=SIZE)
     assert route.call_count == 1
@@ -896,14 +905,46 @@ def test_the_write_carries_one_idempotency_key(configured, monkeypatch):
     assert [p["amount_cents"] for p in json.loads(request.content)["parts"]] == [-6000, -4000]
 
 
+def test_a_retried_save_goes_again_under_the_same_key_and_the_same_part_ids(
+    configured, monkeypatch
+):
+    """A save the engine answers `503` goes again by itself, the same body
+    under the same `X-Idempotency-Key`: a new part keeps the id minted for the
+    save, so a retry can never make it twice."""
+    client = LineClient(list(LEDGER))
+    monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: client)
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "p1")
+        await _add_part(pilot, screen, "-10")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    with respx.mock() as mock:
+        route = mock.put(f"{ENGINE_URL}/v1/bank-lines/bl-9").mock(
+            side_effect=[
+                httpx.Response(503, json={"error": {"code": "INTERNAL_ERROR", "message": "x"}}),
+                httpx.Response(200, json={"id": "bl-9", "parts": []}),
+            ]
+        )
+        run_app(scenario, size=SIZE)
+    assert route.call_count == 2
+    first, second = (call.request for call in route.calls)
+    assert first.headers["X-Idempotency-Key"] == second.headers["X-Idempotency-Key"]
+    assert first.content == second.content
+    ids = [p["id"] for p in json.loads(first.content)["parts"]]
+    assert ids[:2] == ["p1", "p2"] and _fresh(ids[2])
+
+
 # ---- a transaction already split -------------------------------------------------
 
 
 @pytest.mark.parametrize("key", ["p1", "p2"])
 def test_s_on_either_part_opens_the_table_with_both_parts(engine, key):
     """Spec check 5: the table opens with the line's current parts and the
-    total is the line's `net_cents`, from one `GET /bank-lines/{id}`; `^s`
-    sends the whole new set by the id of the row `s` was pressed on."""
+    total is the line's `net_cents`, from one `GET /bank-lines/{id}`; 60 + 40
+    re-split into 70 + 30 and `^s` send the whole new set to the row's line,
+    each part under its own id with its new amount alone."""
 
     async def scenario(pilot, app):
         ledger, screen = await _open_split(pilot, app, key)
@@ -921,38 +962,81 @@ def test_s_on_either_part_opens_the_table_with_both_parts(engine, key):
 
     run_app(scenario, size=SIZE)
     assert engine.line_reads() == ["/bank-lines/bl-9"]
-    assert engine.posts[0][0] == f"/transactions/{key}/split"
-    assert _sent(engine) == [
-        {
-            "amount_cents": -7000,
-            "category_id": "c-com",
-            "hashtag_ids": ["h-casa"],
-            "description": "verduras",
-        },
-        {"amount_cents": -3000, "category_id": "c-hog", "description": "lejía y papel"},
-    ]
+    assert engine.puts[0][0] == "/bank-lines/bl-9"
+    assert engine.posts == []
+    assert _ids(engine) == ["p1", "p2"]
+    assert _sent(engine) == [{"amount_cents": -7000}, {"amount_cents": -3000}]
 
 
-def test_an_unchanged_re_split_sends_the_parts_as_the_engine_holds_them(engine):
-    """Loaded parts go back as they are: a part waiting for a hashtag sends
-    none, and the pending category none; every part under a fresh id."""
+def test_an_unchanged_re_split_sends_each_part_under_its_own_id_and_its_amount_alone(engine):
+    """Parts read from the line and left alone go back under their own ids
+    with only their signed amount, which the write requires: no category, note
+    or hashtags, since a kept part sent with `hashtag_ids` is always written,
+    even with the set it has
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+    No line field and no statement line or place goes."""
 
     async def scenario(pilot, app):
         _ledger, _screen = await _open_split(pilot, app, "p1")
         await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: engine.posts)
+        await wait_for(pilot, lambda: engine.puts)
 
     run_app(scenario, size=SIZE)
-    assert _sent(engine) == [
-        {
-            "amount_cents": -6000,
-            "category_id": "c-com",
-            "hashtag_ids": ["h-casa"],
-            "description": "verduras",
-        },
-        {"amount_cents": -4000, "category_id": "c-hog", "description": "lejía y papel"},
+    ((path, body),) = engine.puts
+    assert path == "/bank-lines/bl-9" and set(body) == {"parts"}
+    assert body["parts"] == [
+        {"id": "p1", "amount_cents": -6000},
+        {"id": "p2", "amount_cents": -4000},
     ]
-    assert not {p["id"] for p in engine.posts[0][1]["parts"]} & {"p1", "p2"}
+
+
+def test_a_part_added_to_a_split_line_goes_under_a_fresh_id_beside_the_kept_ones(engine):
+    """60 + 40 and a third part of -10.00 HOGAR: the two read parts go under
+    their own ids, amount alone, and the new one under a fresh id with what it
+    holds, created on the line
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "An id no record holds creates a part")."""
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "p1")
+        await _add_part(pilot, screen, "-10", "hogar")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    ids = _ids(engine)
+    assert ids[:2] == ["p1", "p2"] and _fresh(ids[2])
+    assert _sent(engine) == [
+        {"amount_cents": -6000},
+        {"amount_cents": -4000},
+        {"amount_cents": -1000, "category_id": "c-hog"},
+    ]
+
+
+def test_a_kept_part_sends_a_changed_category_and_an_emptied_note_and_nothing_else(engine):
+    """Part 2 moved to COMIDA and its note emptied: it goes under its own id
+    with its amount, the new `category_id` and `description: ""`, which
+    empties a note; its hashtags, untouched, stay out. Part 1, untouched,
+    sends its amount alone, as a kept part does
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+    """
+
+    async def scenario(pilot, app):
+        ledger, screen = await _open_split(pilot, app, "p1")
+        await pilot.press("down", "enter")  # part 2, on AMOUNT
+        await _field(pilot, screen, "-40")  # typed again as it is
+        await _field(pilot, screen, "comida")
+        await _field(pilot, screen, "")  # HASHTAGS: moves on
+        await _field(pilot, screen, "")  # NOTE emptied: back to the table
+        assert screen._editing is None
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app.screen is ledger)
+
+    run_app(scenario, size=SIZE)
+    assert _ids(engine) == ["p1", "p2"]
+    assert _sent(engine) == [
+        {"amount_cents": -6000},
+        {"amount_cents": -4000, "category_id": "c-com", "description": ""},
+    ]
 
 
 def test_a_row_with_no_bank_line_opens_at_its_own_amount_and_reads_no_line(engine):
@@ -1033,7 +1117,7 @@ def test_enter_on_the_title_opens_one_field_below_and_enter_keeps_it(engine):
     assert str(open_line.style) == f"bold {ACCENT}" and not open_line.spans
     assert typing == "▌TITLE      Tottus Jockey Plaza"  # the field holds the new one
     assert kept.startswith(f"TITLE      {NEW_TITLE}") and kept.endswith("same on every part")
-    assert engine.posts == []
+    assert engine.puts == []
 
 
 def test_esc_in_the_title_field_leaves_the_title_as_it_was(engine):
@@ -1053,7 +1137,7 @@ def test_esc_in_the_title_field_leaves_the_title_as_it_was(engine):
         assert screen.query_one("#bar", Input).value == "Tottus Jockey Plaza"
 
     run_app(scenario, size=SIZE)
-    assert engine.posts == []
+    assert engine.puts == []
 
 
 @pytest.mark.parametrize("typed", ["", "   "], ids=["empty", "spaces"])
@@ -1079,13 +1163,13 @@ def test_an_emptied_title_is_refused_as_on_the_edit_form_and_nothing_is_sent(eng
     run_app(scenario, size=SIZE)
     assert notes == [(TITLE_REQUIRED, "error")]
     assert TITLE_REQUIRED == "Title is required."
-    assert engine.posts == []
+    assert engine.puts == []
 
 
 def test_a_changed_title_is_sent_once_beside_the_parts(engine):
     """Spec check 1: the title changed to `Tottus — semana`, two parts and
     `^s` send `title` beside `parts`, once for the line; the engine writes it
-    onto every part (contract: POST /v1/transactions/{transaction_id}/split),
+    onto every part (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"),
     which the live contract test pins. The screen closes and the ledger reads
     fresh."""
 
@@ -1098,8 +1182,8 @@ def test_a_changed_title_is_sent_once_beside_the_parts(engine):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    ((path, body),) = engine.posts
-    assert path == "/transactions/t1/split"
+    ((path, body),) = engine.puts
+    assert path == "/bank-lines/bl-1"
     assert set(body) == {"parts", "title"}
     assert body["title"] == NEW_TITLE  # trimmed, as the Edit form keeps it
     assert all("title" not in part for part in body["parts"])
@@ -1128,7 +1212,7 @@ def test_a_title_that_matches_the_transactions_is_not_sent(engine, retitles):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    ((_path, body),) = engine.posts
+    ((_path, body),) = engine.puts
     assert set(body) == {"parts"}
 
 
@@ -1142,7 +1226,7 @@ def test_ctrl_s_in_the_title_field_keeps_the_title_typed_and_sends_it(engine):
         await wait_for(pilot, lambda: app.screen is ledger)
 
     run_app(scenario, size=SIZE)
-    ((_path, body),) = engine.posts
+    ((_path, body),) = engine.puts
     assert body["title"] == NEW_TITLE and len(body["parts"]) == 2
 
 
@@ -1157,9 +1241,9 @@ def test_ctrl_x_on_the_title_line_drops_nothing(engine):
 
 
 def _locked_with_a_part() -> EngineError:
-    """A `422` naming the locked title and a part's amount together, as the
-    route reports every failure in one answer
-    (contract: POST /v1/transactions/{transaction_id}/split, "Validation")."""
+    """A `422` naming the locked title and a part's amount together: a locked
+    line field is answered beside every refusal of the parts
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")."""
     fields = {
         "title": "stand-in words: the title is locked by a completed reconciliation",
         "parts.1.amount_cents": "stand-in words: must not be zero",
@@ -1180,7 +1264,7 @@ def test_a_locked_title_shows_under_the_parts_with_a_parts_refusal_and_nothing_s
     parts with the part's own line, then `Nothing was split.`; the screen
     stays and the title is still the one typed. The title kept again as it is
     leaves the refusal; changed, the refusal goes."""
-    engine.errors["POST"] = _locked_with_a_part()
+    engine.errors["PUT"] = _locked_with_a_part()
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "p1")
@@ -1206,7 +1290,7 @@ def test_a_locked_title_shows_under_the_parts_with_a_parts_refusal_and_nothing_s
     assert title.startswith(f"TITLE      {NEW_TITLE}")
     assert kept_same
     assert "VALIDATION_ERROR" not in after and "Nothing was split." not in after
-    ((_path, body),) = engine.posts
+    ((_path, body),) = engine.puts
     assert body["title"] == NEW_TITLE
 
 
@@ -1230,7 +1314,7 @@ def test_parts_short_of_the_total_say_what_is_left_and_keep_the_refusal_under_th
     `^s` shows the engine's words under the parts, each `parts.<i>` key read as
     part i+1, the amounts it names in the error colour, `Nothing was split.`;
     the screen stays, and changing a part clears it."""
-    engine.errors["POST"] = _mismatch()
+    engine.errors["PUT"] = _mismatch()
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "t1")
@@ -1263,14 +1347,21 @@ def test_parts_short_of_the_total_say_what_is_left_and_keep_the_refusal_under_th
     assert _styles_of(amounts[0], "20.00") == {PALETTE.error}
     assert PALETTE.error in _styles_of(amounts[1], "-110.00")  # under the cursor too
     assert "VALIDATION_ERROR" not in after and "Nothing was split." not in after
-    assert len(engine.posts) == 1
+    assert len(engine.puts) == 1
 
 
-#: Every other refusal of the split route: (code, status, key, reason, the app's
-#: line under it or None). The line is chosen by the reason alone.
+#: The app's line under a write that met another at the same moment.
+SAVE_AGAIN = "It changed at the same moment: save again."
+
+#: Every other refusal of the whole-line write the screen can meet: (code,
+#: status, key, reason, the app's line under it or None)
+#: (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules")
+#: (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order"). The line is
+#: chosen by the reason and its key.
 OTHER_REFUSALS = [
-    ("VALIDATION_ERROR", 422, "transaction_id", "OPENING_BALANCE_NOT_SPLIT", None),
-    ("VALIDATION_ERROR", 422, "transaction_id", "SPLIT_LINE_PARTS_DIVERGE", None),
+    ("VALIDATION_ERROR", 422, "parts", "OPENING_BALANCE_NOT_SPLIT", None),
+    ("VALIDATION_ERROR", 422, "parts", "SPLIT_LINE_PARTS_DIVERGE", None),
+    ("VALIDATION_ERROR", 422, "parts.0.id", "SEALED_PERIOD", None),
     ("VALIDATION_ERROR", 422, "parts.1.hashtag_ids", "PENDING_HASHTAG_NOT_ALONE", None),
     ("VALIDATION_ERROR", 422, "parts.0.amount_cents", "ZERO_AMOUNT", None),
     ("VALIDATION_ERROR", 422, "parts.0.category_id", "INVALID_REFERENCE", None),
@@ -1294,13 +1385,8 @@ OTHER_REFUSALS = [
         "rename it on Manage ▸ Categories, then save again.",
     ),
     ("CONFLICT", 409, "hashtag_ids", "RESERVED_NAME_HELD", None),
-    (
-        "CONFLICT",
-        409,
-        "transaction_id",
-        "CONCURRENT_CHANGE",
-        "It changed at the same moment: save again.",
-    ),
+    ("CONFLICT", 409, "category_id", "CONCURRENT_CHANGE", SAVE_AGAIN),
+    ("CONFLICT", 409, "hashtag_ids", "CONCURRENT_CHANGE", SAVE_AGAIN),
 ]
 
 
@@ -1314,7 +1400,7 @@ def test_every_other_refusal_shows_the_engine_words_in_the_same_place(
 ):
     words = f"Engine words for {reason}."
     fields = {key: "stand-in field words"}
-    engine.errors["POST"] = EngineError(code, words, fields, status, {}, reasons={key: reason})
+    engine.errors["PUT"] = EngineError(code, words, fields, status, {}, reasons={key: reason})
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "t1")
@@ -1336,13 +1422,23 @@ def test_every_other_refusal_shows_the_engine_words_in_the_same_place(
         assert [row for row in tail[3:] if row] == [line]
 
 
-def test_a_split_on_an_archived_account_shows_the_engine_words_alone(engine):
+def test_a_save_on_an_archived_account_shows_the_engine_words_alone(engine):
     """Screen 3 A of expense-world-archived-account.html: the split screen was
-    opened before the account was archived, and `^s` is refused. Under the
-    parts: the engine's words, its `transaction_id` words, `Nothing was split.`
-    and no line of the app's; the screen stays with the parts as typed."""
-    words = archived_words("split", "transaction")
-    engine.errors["POST"] = archived_refusal(422, words, "transaction_id")
+    opened before the account was archived, and `^s` is refused on every key
+    sent, `parts` here, its words naming the part that is the cause
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). Under the parts:
+    the engine's words, its `parts` words, `Nothing was split.` and no line of
+    the app's; the screen stays with the parts as typed."""
+    words = "Engine words for ACCOUNT_ARCHIVED."
+    part_words = f"Part t1 of this bank line is the cause: {ARCHIVED_FIELD_WORDS}"
+    engine.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR",
+        words,
+        {"parts": part_words},
+        422,
+        {},
+        reasons={"parts": "ACCOUNT_ARCHIVED"},
+    )
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "t1")
@@ -1358,11 +1454,8 @@ def test_a_split_on_an_archived_account_shows_the_engine_words_alone(engine):
     shown = run_app(scenario, size=SIZE)
     lines = [row.strip() for row in shown.splitlines()]
     tail = lines[lines.index(f"VALIDATION_ERROR — {words}") :]
-    assert [row for row in tail[1:] if row] == [
-        f"! transaction_id: {ARCHIVED_FIELD_WORDS}",
-        "Nothing was split.",
-    ]
-    assert len(engine.posts) == 1
+    assert [row for row in tail[1:] if row] == [f"! parts: {part_words}", "Nothing was split."]
+    assert len(engine.puts) == 1
 
 
 def test_part_keys_read_by_number():
@@ -1385,7 +1478,7 @@ def test_a_refused_line_hangs_under_its_own_words():
 
 
 def test_an_engine_out_of_reach_says_so_under_the_parts(engine):
-    engine.errors["POST"] = EngineConnectionError(url="https://x.invalid", original=Exception("no"))
+    engine.errors["PUT"] = EngineConnectionError(url="https://x.invalid", original=Exception("no"))
 
     async def scenario(pilot, app):
         _ledger, screen = await _open_split(pilot, app, "t1")

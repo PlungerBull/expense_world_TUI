@@ -143,13 +143,9 @@ it differs from what was asked:
 ## Tasks
 
 Tasks 6 to 8 approved by the owner on 2026-10-24; tasks 9 to 13 approved 2026-10-25. They run
-in this order: 10, 11, 12, then 6, 7, 8, 13. Tasks 6, 7, 8 and 13 are **[UI]**, each picked from
+in this order: 11, 12, then 6, 7, 8, 13. Tasks 6, 7, 8 and 13 are **[UI]**, each picked from
 its mockup in [mockups/](../mockups/).
 
-10. **The Split screen saves with one `PUT /bank-lines/{bank_line_id}`**, keeping each existing
-    part's id, and nothing in the app calls `POST /transactions/{id}/split`. What the owner sees
-    stays as today, so no mockup; each refusal it handles keeps its unit test, and
-    [tui.md](../tui.md) names the new route.
 11. **The live contract suite catches up on bank lines and transactions.** Every test that splits
     sends the whole-line write instead; new tests for that write (a part kept, added and dropped
     in one write; back to one part; the total kept inside a completed reconciliation; the locked
@@ -227,3 +223,17 @@ Not built in this spec; drafted into a new spec when it is done.
   catches only fields the engine does not serve, never a required one a fixture leaves out.
 - **`FakeClient` answers every write with a bare `{}`**, so the reconciliation create, revert,
   delete and some completes in the unit tests get no `twin`; nothing reads those answers today.
+- **Splitting a line that was never split replaces its one transaction.** The Split screen opens
+  empty on such a line and its save leaves that transaction out, so the engine deletes it and the
+  new parts take fresh ids, as the removed split route did. The whole-line write can keep it as
+  the first part, with its id and history (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts");
+  whether to is the owner's call.
+- **The Split screen keeps two paths the contract rules out**: a row with no `bank_line_id`
+  (it would send `PUT /bank-lines/None`) and a part with no `id` dropped from the table (the save
+  would then delete it), in [split.py](../../expense/tui/screens/split.py); the contract requires
+  both fields, so both paths can go.
+- **Two "did the hashtags change" checks.** The Edit form compares lists in order with the
+  pending hashtag alone (`edit_form.py`), `kept_part` in
+  [bank_line_write.py](../../expense/bank_line_write.py) compares sets; and `kept_part` takes a
+  part's raw hashtags while `new_part` takes them filtered. Task 13 moving the Edit form onto
+  `kept_part` leaves one check.

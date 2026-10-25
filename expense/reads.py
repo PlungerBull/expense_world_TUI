@@ -715,9 +715,10 @@ def hashtags_to_send(
     the LOG bar and the split screen.
 
     `pending_alone=False` drops the pending hashtag even alone, for a sparse
-    create that files a part naming no real hashtag under the pending one by
-    sending none: the split screen's parts
-    (contract: POST /v1/transactions/{transaction_id}/split).
+    create that puts a part naming no real hashtag on the pending one by
+    sending none, and for comparing a kept part's set with the one it holds:
+    the whole-line write's parts (`expense/bank_line_write.py`)
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "An id no record holds creates a part").
     """
     ids = list(ids)
     if pending_id is None:
