@@ -28,13 +28,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Copy the engine's hand-off into from-engine/
-Asked 2026-10-25 · Blocks: tasks 7, 8 and 13 to 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+### Approve the two catch-up tasks, and how a locked field reads
+Asked 2026-10-25 · Blocks: [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md), then [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
-The engine coders say their hand-off `statement-line-from-reconciliation.md`, in the engine repo's
-`docs/to-tui/`, now covers every change up to contract `bdc9d3f3a540b7ce`, answering this spec's
-engine asks. Copy it as is into [from-engine/](from-engine/); the current spec then catches up to
-that contract and the loop goes on.
+The engine's hand-off now answers every ask the statement work waited on, so it is split in two,
+as you chose: the Edit form spec runs first, then the statement spec. Each starts with one new
+task with no screen, bringing the app up to the new contract and proving it live: task 1 of the
+Edit form spec and task 16 of the statement spec. Approve both, and answer the Edit form spec's
+question 1: a locked field marked `read-only` as you picked (A), or with what to do, e.g.
+`read-only · revert the reconciliation first` (B, the mockup redrawn for a pick first).
+
+**Recommended:** approve both, and A, because it is already picked and the Edit form can start.
 
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
@@ -65,8 +69,11 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
+- **The Edit form saves a whole line in one write** (the Edit form's part of the catch-up to
+  contract `bdc9d3f3a540b7ce`): the current spec, runs first
+  ([specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md)).
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
-  catch-up to contract `48ae0b6acb393dfa`): the current spec, its tasks approved 2026-10-25
+  rest of the catch-up to contract `bdc9d3f3a540b7ce`): runs after the Edit form spec
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
@@ -146,7 +153,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   and the screen map's split pane still draws the typed line the split screen no longer has;
   `expense-world-split-screen.html` backs the split screen as built,
   `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
-  is task 13 of the current spec, drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
+  is task 2 of [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md), drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
