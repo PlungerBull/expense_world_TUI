@@ -127,3 +127,9 @@ Written into [to-engine/](../to-engine/) once this spec is done.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The statement order's read does not mark the opening balance.** The screen would have to
+  match the account's `opening_balance_transaction_id` against each line's parts to keep it out
+  of the list; a flag on the read is the complete answer, as an engine ask.
+- **`PUT /bank-lines/{id}` refuses `statement_line` and `statement_place` too** (contract
+  `58d18ab42f4c09a2`); its pin belongs to the catch-up for that route.

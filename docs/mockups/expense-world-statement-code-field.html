@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Statement code field</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .ph{color:var(--warn);font-style:italic}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .opt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:980px){.opt{grid-template-columns:1fr}}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+  .pick ol{margin:6px 0 0;padding-left:22px}
+  .pick li{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>The account's statement code</h1>
+  <p>A <b>statement code</b> is the three capital letters your bank uses for a product: <code>SIG</code> for a credit card, <code>PEN</code> for a soles savings account. It is set on the account. A card is two accounts, one in soles and one in dollars, and <b>both carry the same code</b>. A person never has one.</p>
+  <p>The engine builds every <b>statement line</b> from it (<code>SIG-202603-029</code>: the code, the statement's month, the line's place on the paper), and shows it once that month's reconciliation is completed. So the code is the one thing you type; the statement lines come by themselves.</p>
+  <p>This page draws the new line on the account form (New and Edit), what the form shows when the engine refuses a code, and whether <b>Manage ▸ Accounts</b> shows it. Every other line of the form is the one you know. The accounts and amounts are invented.</p>
+  <p>Where the engine's words go, the page shows <span class="ph">‹the engine's sentence›</span>. The engine's rules name each refusal but not its exact sentence, so the page does not make one up: the app shows the sentence exactly as the engine sends it.</p>
+</div>
+
+<!-- ================================================================== 1 -->
+<div class="pane">
+<div class="lbl">1 · Where the line sits on a new account <span>— n on Manage ▸ Accounts · pick A, B or C</span></div>
+<p class="blurb">Today the form asks <b>type</b>, <b>name</b>, <b>currency</b>, <b>color</b>. The code is optional: <code>enter</code> on an empty line skips it, and the account is created without one. You can give it one later on the Edit form.</p>
+
+<div class="var"><div class="oh">A · <span>after currency, only on a bank account</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · enter to go on</span>
+
+
+
+   type            bank
+   name            Signature Soles
+   currency        PEN
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The code sits right after the currency, because a code is held once per currency: the soles account and the dollars account of one card each say <code>SIG</code>. <code>enter</code> goes on to the colour, the last line, where <code>enter</code> creates the account.</p></div>
+
+<div class="var"><div class="oh">B · <span>last, after color, only on a bank account</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · enter to save</span>
+
+
+
+   type            bank
+   name            Signature Soles
+   currency        PEN
+   color           <span class="s1">██</span> blue
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The code comes last, after the things every account has. Here <code>enter</code> creates the account, so the hint says so. On the Edit form it sits after the colour and before the opening balance.</p></div>
+
+<div class="var"><div class="oh">C · <span>after currency, always there; on a person it is read-only</span></div>
+<div class="opt">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · type bank</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters,
+   e.g. SIG · enter to go on</span>
+
+
+   type            bank
+   name            Signature Soles
+   currency        PEN
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense · type person</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
+
+
+   <span class="d">free text · enter to go on</span>
+
+
+
+   type            person
+   <span class="b">name            </span><span class="d">—  *</span>
+   currency        <span class="d">—  *</span>
+   <span class="d">statement code  —  read-only</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+</div>
+<p class="cap">The line is always on the form. When the type is <b>person</b> it turns grey and the cursor steps over it, the way the type and currency do on the Edit form. You see that a person has no code, at the price of a line that does nothing for people. (Narrow here only to fit two side by side.)</p></div>
+
+<div class="var"><div class="oh">A and B · <span>when the type is person, the line is not there</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
+
+
+   <span class="d">free text · enter to go on</span>
+
+
+
+   type      person
+   <span class="b">name      </span><span class="d">—  *</span>
+   currency  <span class="d">—  *</span>
+   color     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Switch the type to <b>person</b> and the code line leaves the form; switch back to <b>bank</b> and it returns, holding what you typed. A person's form looks exactly as it does today.</p></div>
+</div>
+
+<!-- ================================================================== 1b -->
+<div class="pane">
+<div class="lbl">1b · What the line's hint says <span>— drawn on A · pick A, B or C</span></div>
+<p class="blurb">The grey line under the bar. It has room for one short line; the hints of the other lines say <code>optional</code> first and what <code>enter</code> does last.</p>
+
+<div class="var"><div class="oh">A · <span>the shape, with an example</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span><span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · enter to go on</span>
+
+
+
+   type            bank
+   name            Signature Dólares
+   currency        USD
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Short. On the Edit form it gains <code>· empty clears it</code> (screen 2).</p></div>
+
+<div class="var"><div class="oh">B · <span>the shape, and that a card's two accounts share it</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span><span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · a card's two accounts share it · enter to go on</span>
+
+
+
+   type            bank
+   name            Signature Dólares
+   currency        USD
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Reminds you to type the same code on the dollars account. It fills the whole width, so on the Edit form there is no room left for <code>· empty clears it</code>.</p></div>
+
+<div class="var"><div class="oh">C · <span>where the letters come from</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  <span class="b">New</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span><span class="a">▍</span>
+
+
+   <span class="d">optional · the bank statement's three letters for it, e.g. SIG · enter to go on</span>
+
+
+
+   type            bank
+   name            Signature Dólares
+   currency        USD
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Says where to look for the letters rather than what they look like.</p></div>
+</div>
+
+<!-- ================================================================== 2 -->
+<div class="pane">
+<div class="lbl">2 · Setting, changing and clearing it later <span>— e on Manage ▸ Accounts · drawn on 1 A and 1b A</span></div>
+<p class="blurb">The Edit form of a bank account gets the same line, between the currency and the colour. A person's Edit form stays as it is today. The code can be set, changed or cleared on an archived account too.</p>
+
+<div class="var"><div class="oh"><span>setting it: the card's soles account</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Soles
+   <span class="d">currency        PEN  read-only</span>
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Type <code>SIG</code>, <code>enter</code>, and save with <code>ctrl+s</code>. Then do the same on <b>Signature Dólares</b>: the same code is fine there, because its currency is different. The note says <code>Saved.</code> and you are back on the list.</p></div>
+
+<div class="var"><div class="oh"><span>changing it: fixing a typo</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Dólares  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Dólares
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">statement code  </span>SGI
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The line opens holding the account's code, <code>SGI</code> here, in the bar ready to edit. Type over it and save. The engine changes the statement line of every one of this account's lines in a completed reconciliation at the same time: they all start with <code>SIG</code> from then on.</p></div>
+
+<div class="var"><div class="oh">A · <span>clearing it: empty the line and save, no question</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">COLOR           </span><span class="a">▍</span>
+
+
+   <span class="d">optional · enter keeps it · ↑↓ another swatch</span>
+     <span class="s1">██</span> blue
+     <span class="s2">██</span> green
+     <span class="n">██</span> red
+     <span class="s4">██</span> purple
+     <span class="w">██</span> amber
+     <span class="p">██</span> teal
+     <span class="s3">██</span> orange
+     <span class="s5">██</span> grey
+
+   <span class="d">type            bank  read-only</span>
+   name            Sueldo Soles
+   <span class="d">currency        PEN  read-only</span>
+   statement code  <span class="d">—  (optional)</span>
+   <span class="b">color           </span><span class="d">—  (optional)</span>
+   opening         3,200.00
+   as of           2026-01-01
+                                                          <span class="a">▌</span> Saved.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The account held <code>PEN</code>. On the code line, delete the letters and press <code>enter</code>: the summary shows <code>—  (optional)</code>. <code>ctrl+s</code> saves and the account has no code. Its lines in completed reconciliations stop showing a statement line. Nothing is lost: the engine builds a statement line from the code each time it is read and keeps each line's place, so typing <code>PEN</code> again brings them all back.</p></div>
+
+<div class="var"><div class="oh">B · <span>clearing it asks first</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre><span class="d">  ◈ EXPENSE WORLD  ▸  Manage  ▸  Accounts  ▸  Sueldo Soles  ▸  Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="d">   COLOR           </span>
+<span class="d">                </span><span class="a">──────────────────────────────────────────────────────────────</span>
+<span class="d">                </span>
+<span class="d">   optional · e</span>   <span class="ab">Clear this account's statement code?</span>
+<span class="d">                </span>
+<span class="d">                </span>  Sueldo Soles · PEN · code PEN
+<span class="d">                </span>  Its lines in completed reconciliations stop showing a
+<span class="d">                </span>  statement line until it has a code again.
+<span class="d">   type        </span>
+<span class="d">   name        </span>   <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+<span class="d">   currency    </span>
+<span class="d">   statement co</span> <span class="a">──────────────────────────────────────────────────────────────</span>
+<span class="d">   color           —  (optional)</span>
+<span class="d">   opening         3,200.00</span>
+<span class="d">   as of           2026-01-01</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div>
+<p class="cap">The same emptied line, but <code>ctrl+s</code> asks over the form first, like the question before an opening balance is deleted. Only <code>y</code> saves. Changing a code to another one still saves at once.</p></div>
+</div>
+
+<!-- ================================================================== 3 -->
+<div class="pane">
+<div class="lbl">3 · When the engine says no <span>— the Edit form; the New form shows the same note</span></div>
+<p class="blurb">The way every refused save in the app shows: a note in the bottom-right corner, in the engine's own words. Nothing is saved, the form stays open with what you typed, and the cursor goes to the code line. The engine's words are the refusal's kind, then its sentence, then one line on <code>statement_code</code> (the engine's name for the code).</p>
+
+<div class="var"><div class="oh">3·1 A · <span>small letters: sent as typed, the engine refuses them</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>sig<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Soles
+   <span class="d">currency        PEN  read-only</span>
+   <span class="b">statement code  </span>sig
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+                                              <span class="n">▌</span> <span class="b">Failed</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence›</span>
+                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The engine takes exactly three capital letters, A to Z, as sent: <code>sig</code>, <code>SI</code>, <code>SIGN</code> or <code>S1G</code> are all refused. In A the app sends what you typed and shows the engine's answer.</p></div>
+
+<div class="var"><div class="oh">3·1 B · <span>small letters: the bar shows them as capitals while you type</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>   <span class="d">← you typed s i g</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Soles
+   <span class="d">currency        PEN  read-only</span>
+   <span class="b">statement code  </span><span class="d">—  (optional)</span>
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Like a phone keyboard set to capitals: what you see is what is sent, so you never meet the refusal for small letters. A digit, a missing letter or a fourth one still goes to the engine and comes back refused, as in A. The arrow note is only on this page.</p></div>
+
+<div class="var"><div class="oh">3·2 A · <span>a code another account in the same currency has: the engine's words alone</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Soles
+   <span class="d">currency        PEN  read-only</span>
+   <span class="b">statement code  </span>SIG
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+                                              <span class="n">▌</span> <span class="b">Failed</span>
+                                              <span class="n">▌</span> CONFLICT — <span class="ph">‹the engine's sentence›</span>
+                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Your old card's soles account, <b>Visa antigua</b>, still says <code>SIG</code>. Two accounts share a code only when their currencies differ, and an archived account still holds its code; only a deleted one lets it go.</p></div>
+
+<div class="var"><div class="oh">3·2 B · <span>the same, with a line from the app saying what to do</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Soles  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Soles
+   <span class="d">currency        PEN  read-only</span>
+   <span class="b">statement code  </span>SIG
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+                                              <span class="n">▌</span> <span class="b">Failed</span>
+                                              <span class="n">▌</span> CONFLICT — <span class="ph">‹the engine's sentence›</span>
+                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+                                              <span class="n">▌</span>
+                                              <span class="n">▌</span> Another account in this currency has this
+                                              <span class="n">▌</span> code: pick another, or clear it there first.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The way a taken name already ends: <code>That name is taken: pick another.</code> Here the code is often right and the old account is the one to fix, so the line says both.</p></div>
+
+<div class="var"><div class="oh">3·3 · <span>a code that would join a card statement already completed</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Dólares  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Dólares
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">statement code  </span>SIG
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+                                              <span class="n">▌</span> <span class="b">Failed</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence,</span>
+                                              <span class="n">▌</span> <span class="ph">naming both reconciliations and which one</span>
+                                              <span class="n">▌</span> <span class="ph">is completed›</span>
+                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Signature Soles already has <code>SIG</code>, and its statement from 26 February to 25 March is <b>completed</b>. Signature Dólares has a reconciliation over the same days. Giving it <code>SIG</code> would make the two one card statement while one half is already numbered, so the engine refuses. What to do: revert the completed one to draft, set the code, put the whole statement in order again, then complete both. No line from the app: the engine's sentence names the two reconciliations.</p></div>
+
+<div class="var"><div class="oh">3·4 · <span>a code that would give one month two statements</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Signature Dólares  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">STATEMENT CODE  </span>SIG<span class="a">▍</span>
+
+
+   <span class="d">optional · three capital letters, e.g. SIG · empty clears it · enter to go on</span>
+
+
+
+   <span class="d">type            bank  read-only</span>
+   name            Signature Dólares
+   <span class="d">currency        USD  read-only</span>
+   <span class="b">statement code  </span>SIG
+   color           <span class="s1">██</span> blue
+   opening         <span class="d">—  (optional)</span>
+   as of           <span class="d">—  (optional)</span>
+                                              <span class="n">▌</span> <span class="b">Failed</span>
+                                              <span class="n">▌</span> VALIDATION_ERROR — <span class="ph">‹the engine's sentence,</span>
+                                              <span class="n">▌</span> <span class="ph">naming the two reconciliations that clash›</span>
+                                              <span class="n">▌</span>   statement_code: <span class="ph">‹the engine's words›</span>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">One statement per code per month. Signature Soles (<code>SIG</code>) has a reconciliation from 26 February to 25 March; Signature Dólares has one from 1 to 31 March. Both end in March but over different days, so they cannot be the soles and dollars of one card statement, and the engine refuses the code. A card's two reconciliations cover exactly the same days. No line from the app: the engine's sentence names the pair.</p></div>
+</div>
+
+<!-- ================================================================== 4 -->
+<div class="pane">
+<div class="lbl">4 · Manage ▸ Accounts <span>— does the list show the code? · pick A or B</span></div>
+<p class="blurb">After saving, the form closes and the list reads the accounts again.</p>
+
+<div class="var"><div class="oh">A · <span>no new column, as today</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">──────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Color         Balance   Status
+    <span class="d">─────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Signature Soles             bank      PEN    <span class="s1">██</span>          -2,340.50   active  </span>
+    Signature Dólares           bank      USD    <span class="s1">██</span>          <span class="n">  -185.20</span>   active
+    Sueldo Soles                bank      PEN    —           <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares      bank      USD    <span class="s2">██</span>          <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —           <span class="p">   350.00</span>   active
+    Eliana                      person    PEN    —           <span class="n">  -150.00</span>   active
+<span class="d">    Ahorro viejo                bank      PEN    ██               0.00   archived</span>
+
+  <span class="d">balances are native currency</span>
+                                                                <span class="a">▌</span> Saved.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">The code is seen only by opening an account's Edit form.</p></div>
+
+<div class="var"><div class="oh">B · <span>a Code column after Cur</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+    Name                        Type      Cur    Code  Color         Balance   Status
+    <span class="d">───────────────────────────────────────────────────────────────────────────────────</span>
+    <span class="rev">Signature Soles             bank      PEN    SIG   <span class="s1">██</span>          -2,340.50   active  </span>
+    Signature Dólares           bank      USD    SIG   <span class="s1">██</span>          <span class="n">  -185.20</span>   active
+    Sueldo Soles                bank      PEN    PEN   —           <span class="p">12,450.00</span>   active
+    Cuenta Digital Dólares      bank      USD    —     <span class="s2">██</span>          <span class="p">   820.15</span>   active
+    Efectivo                    bank      PEN    —     —           <span class="p">   350.00</span>   active
+    Eliana                      person    PEN    —     —           <span class="n">  -150.00</span>   active
+<span class="d">    Ahorro viejo                bank      PEN    —     ██               0.00   archived</span>
+
+  <span class="d">balances are native currency</span>
+                                                                      <span class="a">▌</span> Saved.
+ <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
+<p class="cap">You see at a glance that both card accounts say <code>SIG</code>, and which bank accounts still have no code (<code>—</code>). A person always shows <code>—</code>. The list grows six characters wider.</p></div>
+</div>
+
+<!-- ================================================================== pick -->
+<div class="pick">
+<b>Pick</b> — one letter per question.
+<ol>
+  <li><b>Where the line sits on the form (screen 1):</b> A after currency, bank only · B last, after color, bank only · C after currency, always there, read-only on a person. <b>Recommended A:</b> the code belongs with the currency (one code per currency), and a person's form stays exactly as today.</li>
+  <li><b>What its hint says (screen 1b):</b> A <code>three capital letters, e.g. SIG</code> · B adds <code>a card's two accounts share it</code> · C <code>the bank statement's three letters for it</code>. <b>Recommended A:</b> short, and it leaves room for <code>· empty clears it</code> on the Edit form.</li>
+  <li><b>Clearing a code (screen 2):</b> A empty the line and save, no question · B a y/n question first. <b>Recommended A:</b> nothing is lost, since typing the code again brings every statement line back; the app asks only before something that cannot be undone.</li>
+  <li><b>Small letters (screen 3·1):</b> A sent as typed, refused by the engine · B the bar shows capitals as you type. <b>Recommended B:</b> you never meet a refusal for <code>sig</code>; everything else about the shape is still the engine's to judge.</li>
+  <li><b>A code another account in the same currency has (screen 3·2):</b> A the engine's words alone · B with the app's line <code>Another account in this currency has this code: pick another, or clear it there first.</code> <b>Recommended B</b>, like a taken name.</li>
+  <li><b>Manage ▸ Accounts (screen 4):</b> A no new column · B a <code>Code</code> column after <code>Cur</code>. <b>Recommended B:</b> it is where you check that both card accounts carry the same code.</li>
+</ol>
+Screens 3·3 and 3·4 have nothing to choose: the engine's words alone, as drawn.
+</div>
+
+</body>
+</html>

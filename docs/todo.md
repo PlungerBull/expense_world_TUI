@@ -46,6 +46,79 @@ as is into the engine repo's `docs/from-tui/`, over the copies there, then tell 
 they are handed over and both leave [to-engine/](to-engine/). Only you can carry them. Their copy
 of "One write edits a whole bank line" is already their approved work, so they may delete it.
 
+### The statement-code field on the account form [UI]
+Asked 2026-10-24 · Blocks: task 5 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Drawn in [mockups/expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html).
+The engine's own sentences for its refusals show as placeholders until task 3's live tests read
+them; the mockup is updated with them before you pick. Six picks, each drawn as lettered panes:
+1. Where the line sits: **A** after CURRENCY, bank accounts only. **Recommended:** A, because a
+   code is held once per currency, and a person's form stays as today.
+2. Its hint: **A** `optional · three capital letters, e.g. SIG · enter to go on`.
+   **Recommended:** A, short, with room for `· empty clears it` on Edit.
+3. Clearing a code: **A** empty it and save, no question; **B** a y/n question first.
+   **Recommended:** A, because nothing is lost: typing the code again brings every line back.
+4. Small letters: **A** sent as typed, the engine refuses; **B** capitals as you type.
+   **Recommended:** B.
+5. A code another account already holds: **A** the engine's words alone; **B** plus an app line
+   saying what to do. **Recommended:** B, as a taken name already reads.
+6. Manage ▸ Accounts: **A** as today; **B** a `Code` column. **Recommended:** B.
+
+### The statement-order screen [UI]
+Asked 2026-10-24 · Blocks: task 6 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Drawn in [mockups/expense-world-statement-order.html](mockups/expense-world-statement-order.html).
+1. How a line gets its place: **A** `space` gives the line under the cursor the next place,
+   `shift+↑↓` moves it; **B** pick a line up and put it down; **C** type its number.
+   **Recommended:** A, because you copy the paper top to bottom, one key per line.
+2. How an empty slot looks: **A** `— empty slot —`; **B** a longer dotted line.
+   **Recommended:** A, with `e` to add one and `x` to remove it.
+3. When completing is refused as not in order: **A** the refusal plus `Press o to put the
+   statement in order.`; **B** a y/n question that opens the screen; **C** the screen opens by
+   itself. **Recommended:** A, like every other refusal.
+4. The name "Statement order" and the key `o Order`. **Recommended:** as drawn.
+5. The app's own words on the screen (listed in the mockup's last section): keep or change.
+
+The order is sent whole in one write, so leaving the screen part-way loses the arranging; the
+screen asks `Leave without saving?` first.
+
+### A card's statement as one [UI]
+Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Drawn in [mockups/expense-world-card-statement.html](mockups/expense-world-card-statement.html).
+1. Reconciliations list: **A** one row per statement, both currencies on it; **B** a heading with
+   its two halves under it. **Recommended:** A, so as many months fit as today.
+2. Creating: **A** one form makes both halves, days typed once; **B** today's form, then `Create
+   the dollar half too?`. **Recommended:** A, so the two halves always share the same days.
+3. A statement's screen: **A** both halves on one screen, soles then dollars; **B** one half at a
+   time, `tab` to switch. **Recommended:** A, because it reads like the paper.
+4. The questions `Complete the statement?` and `Revert to draft?` (both halves): keep or change.
+5. Completing while not in order: **A** `c` sends and the engine refuses; **B** the app asks
+   first. **Recommended:** A, so the engine stays the one that refuses.
+6. A half over the days of a completed one: **A** a warning on the screen saying the way out
+   (`u`, then `o`, then `c`); **B** only under the refusal. **Recommended:** A.
+7. Not drawn yet: does `d` delete both halves or one, and does `u` (rows in no batch) list both
+   accounts' rows? **Recommended:** both halves, and both accounts' rows.
+
+Creating or deleting both halves is two writes today, so one could land without the other. The
+complete answer is an engine ask, "one write creates (and deletes) both halves", written once
+you pick 2A.
+
+### Where the statement line shows [UI]
+Asked 2026-10-24 · Blocks: task 8 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Drawn in [mockups/expense-world-statement-line-shown.html](mockups/expense-world-statement-line-shown.html).
+1. The ledger: **A** not shown; **B** a `Statement line` column; **C** the line under the cursor
+   shows it in the line under the list. **Recommended:** C, because a column cuts titles to 7
+   letters at 100 columns.
+2. A reconciliation's lines: **A** a `Statement line` column; **B** a `Place` column while a
+   draft, the statement line once completed. **Recommended:** B, so you see which lines still
+   have no place before pressing `c`.
+3. The Edit form: **A** a dimmed read-only line under account; **B** above the input bar; **C**
+   under the fields. **Recommended:** A, like the read-only lines you already know.
+4. The Edit form on a line with no statement line yet: **A** shows `—`; **B** leaves the line
+   off. **Recommended:** A.
+
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
