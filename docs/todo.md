@@ -37,24 +37,6 @@ the app's Split screen gets `404` until the catch-up. Ask them for one hand-off 
 `70476c8797566383` to `76ea2d3a139c816e` and copy it into [from-engine/](from-engine/). Only you
 can carry it. The current spec goes on meanwhile, as you chose on 2026-10-24.
 
-### Hand the engine two corrected asks on card statements
-Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-The engine coders reviewed both asks; each now carries their corrections. Copy
-[a-reconciliation-names-its-other-half.md](to-engine/a-reconciliation-names-its-other-half.md)
-and [one-write-completes-a-whole-statement.md](to-engine/one-write-completes-a-whole-statement.md)
-as is into the engine repo's `docs/from-tui/`, over the copies there, then tell the orchestrator
-they are handed over and both leave [to-engine/](to-engine/). Only you can carry them. Their copy
-of "One write edits a whole bank line" is already their approved work, so they may delete it.
-
-### Hand the engine three asks for card statements and their order
-Asked 2026-10-24 · Blocks: tasks 6, 7 and 8 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-Copy [the-statement-order-lists-unplaced-lines-oldest-first.md](to-engine/the-statement-order-lists-unplaced-lines-oldest-first.md),
-[one-write-creates-or-deletes-a-whole-card-statement.md](to-engine/one-write-creates-or-deletes-a-whole-card-statement.md)
-and [a-reconciliations-lines-list-in-statement-order.md](to-engine/a-reconciliations-lines-list-in-statement-order.md)
-as is into the engine repo's `docs/from-tui/`. Only you can carry them.
-
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
