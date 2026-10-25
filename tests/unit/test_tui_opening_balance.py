@@ -130,7 +130,15 @@ def reads_log(monkeypatch):
 
 def test_screen_1_two_empty_lines_after_colour_and_no_read(fake_client):
     async def body(pilot, app, screen):
-        assert screen._sequence() == ["type", "name", "currency", "color", "opening", "as_of"]
+        assert screen._sequence() == [
+            "type",
+            "name",
+            "currency",
+            "statement_code",
+            "color",
+            "opening",
+            "as_of",
+        ]
         text = _summary(screen)
         assert "opening — (optional)" in text
         assert "as of — (optional)" in text
@@ -332,8 +340,8 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
 @pytest.mark.parametrize(
     "record, lines",
     [
-        (EFECTIVO, ["name", "color", "opening", "as_of"]),
-        (SUELDO, ["name", "color", "opening", "as_of"]),
+        (EFECTIVO, ["name", "statement_code", "color", "opening", "as_of"]),
+        (SUELDO, ["name", "statement_code", "color", "opening", "as_of"]),
         (ELIANA, ["name", "color"]),
     ],
     ids=["no-opening", "read-opening", "person"],
@@ -366,7 +374,7 @@ def test_after_a_failed_read_enter_on_colour_saves(fake_client, notes, reads_log
 
     async def body(pilot, app, screen):
         assert screen._key == "name"
-        await pilot.press("enter")
+        await pilot.press("enter", "enter")
         await pilot.pause()
         assert screen._key == "color"
         await pilot.press(*"green")

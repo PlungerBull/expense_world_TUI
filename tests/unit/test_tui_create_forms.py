@@ -497,10 +497,11 @@ def test_an_emptied_colour_bar_goes_back_to_the_rows_own_swatch(fake_client):
 def test_new_account_defaults_to_bank_on_empty_type(fake_client):
     """Empty enter on TYPE keeps `bank` — adding an account costs no extra decision."""
     # type (empty → the prefilled bank), name, currency PEN, skip color
-    path, body = _run(fake_client, NewAccountScreen(), ["", "Interbank Sueldo", "PEN", ""])
+    path, body = _run(fake_client, NewAccountScreen(), ["", "Interbank Sueldo", "PEN", "", ""])
     assert path == "/accounts"
     assert body["name"] == "Interbank Sueldo" and body["currency_code"] == "PEN"
     assert "color" not in body
+    assert "statement_code" not in body  # skipped: left out, never null
     # `is_person` is a 422 on both routes — the endpoint is the flag, never a field.
     assert "is_person" not in body
 
@@ -514,15 +515,16 @@ def test_new_account_type_person_posts_to_people(fake_client):
 
 
 @pytest.mark.parametrize(
-    ("type_step", "path"),
-    [("", "/accounts"), ("person", "/people")],
+    ("steps", "path"),
+    [(["", "Eliana", "PEN", "", ""], "/accounts"), (["person", "Eliana", "PEN", ""], "/people")],
     ids=["bank", "person"],
 )
-def test_new_account_without_color_omits_color_and_sort_order(fake_client, type_step, path):
+def test_new_account_without_color_omits_color_and_sort_order(fake_client, steps, path):
     """A skipped COLOR leaves the key out of the body, and the form has no
     order field, so the engine applies both defaults; an explicit `null` on
-    either is a 422 (contract: POST /v1/accounts) (contract: POST /v1/people)."""
-    posted_path, body = _run(fake_client, NewAccountScreen(), [type_step, "Eliana", "PEN", ""])
+    either is a 422 (contract: POST /v1/accounts) (contract: POST /v1/people).
+    A bank account's STATEMENT CODE is skipped too, one line before COLOR."""
+    posted_path, body = _run(fake_client, NewAccountScreen(), steps)
     assert posted_path == path
     assert "color" not in body
     assert "sort_order" not in body
@@ -876,9 +878,10 @@ def test_a_system_rows_rename_shows_the_engines_words(fake_client, monkeypatch, 
 # ---------------------------------------------------------------------------
 #
 # EditAccountScreen is the form with read-only fields: TYPE and CURRENCY are
-# locked, so the editable sequence is NAME (a plain text field, no list), COLOR
-# (a palette list), then a bank account's OPENING and AS OF (plain text). Every
-# bar form takes the same keymap from FormScreen.
+# locked, so the editable sequence is NAME (a plain text field, no list), a bank
+# account's STATEMENT CODE (plain text), COLOR (a palette list), then a bank
+# account's OPENING and AS OF (plain text). Every bar form takes the same keymap
+# from FormScreen.
 
 _ACCOUNT = {
     "id": "abc",
@@ -941,12 +944,14 @@ def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():
     """tab → next editable field, shift+tab → previous; both stop at the ends."""
     _navigate(
         [
-            ("tab", "color"),  # skips locked CURRENCY
+            ("tab", "statement_code"),  # skips locked CURRENCY
+            ("tab", "color"),
             ("tab", "opening"),
             ("tab", "as_of"),
             ("tab", "as_of"),  # no editable field further on: stays
             ("shift+tab", "opening"),
             ("shift+tab", "color"),
+            ("shift+tab", "statement_code"),
             ("shift+tab", "name"),
             ("shift+tab", "name"),  # TYPE is locked: stays
         ]
@@ -960,25 +965,28 @@ def test_tab_moves_fields_while_a_suggestion_list_is_open():
         screen = EditAccountScreen(dict(_ACCOUNT))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
-        await pilot.press("tab")
+        await pilot.press("tab", "tab")
         await pilot.pause()
         assert screen._key == "color" and screen._suggestions  # list open
         await pilot.press("shift+tab")
         await pilot.pause()
-        assert screen._key == "name"
+        assert screen._key == "statement_code"
 
     run_app(scenario)
 
 
 def test_plain_arrows_walk_a_list_and_move_fields_without_one():
-    """NAME has no list, so `↓` moves on; COLOR's palette list takes `↑`/`↓`
-    until it empties, and then `↑` moves back."""
+    """NAME and STATEMENT CODE have no list, so `↓` moves on; COLOR's palette
+    list takes `↑`/`↓` until it empties, and then `↑` moves back."""
 
     async def scenario(pilot, app):
         screen = EditAccountScreen(dict(_ACCOUNT))
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("down")  # NAME: no list → next field
+        await pilot.pause()
+        assert screen._key == "statement_code" and screen._suggestions == []
+        await pilot.press("down")
         await pilot.pause()
         assert screen._key == "color" and len(screen._suggestions) > 2
         assert screen._suggest_idx == -1  # optional and empty: nothing highlighted
@@ -994,10 +1002,10 @@ def test_plain_arrows_walk_a_list_and_move_fields_without_one():
         assert screen._suggestions == []
         await pilot.press("up")
         await pilot.pause()
-        assert screen._key == "name"
+        assert screen._key == "statement_code"
 
     run_app(scenario)
 
 
 def test_ctrl_arrows_still_move_fields():
-    _navigate([("ctrl+down", "color"), ("ctrl+up", "name")])
+    _navigate([("ctrl+down", "statement_code"), ("ctrl+up", "name")])

@@ -201,6 +201,9 @@ _APP_FAULT = (
 #: first (contract: POST /v1/accounts/{account_id}/make-person, "Refusals"),
 #: `PERSON_ACCOUNT`, whose words already say a person cannot have it
 #: (contract: POST /v1/reconciliations, "A person account never has reconciliations"),
+#: `STATEMENT_MONTH_TAKEN` and `COMPLETED_STATEMENT_JOINED` on a statement code,
+#: whose words already name the reconciliations and say what to do
+#: (contract: "Bank Accounts", "Statement code"),
 #: and `SECRET_NOT_REPLAYABLE`, which only creating a sign-in key can draw
 #: (contract: POST /v1/auth/pat), and the app never creates one.
 NEXT_STEPS: dict[tuple[str, str], NextStep] = {
@@ -216,6 +219,11 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     # its name"); Manage ▸ Hashtags offers neither, so this is met only rarely.
     ("FORBIDDEN", "SYSTEM_HASHTAG"): NextStep("The pending hashtag cannot be renamed or deleted."),
     ("CONFLICT", "NAME_EXISTS"): NextStep("That name is taken: pick another."),
+    # Two live accounts share a statement code only when their currencies differ;
+    # a deleted one does not hold its code (contract: "Bank Accounts", "Statement code").
+    ("CONFLICT", "STATEMENT_CODE_EXISTS"): NextStep(
+        "Another account in this currency has this code: pick another, or clear it there first."
+    ),
     ("LIMIT_REACHED", "CAP_REACHED"): NextStep("Delete one first."),
     ("CONFLICT", "OPERATION_CODE_EXISTS"): NextStep(
         "That account already has a row with this operation number: look there for a duplicate."

@@ -25,7 +25,8 @@ expense/tui/
   widgets/
     header.py       # Breadcrumb — slim section header (home banner lives in home.py)
                     #   + rate_alert() — the `!` staleness mark both headers share
-    cells.py        # cell renderers: color swatch, sign-colored right-aligned amount_cell;
+    cells.py        # cell renderers: color swatch, sign-colored right-aligned amount_cell,
+                    #   code_cell (a code, or a dim `—` when there is none);
                     #   `—` for a null amount, BLANK for a null difference_cents
                     #   (different states, never the same glyph — decisions.md)
     windowed.py     # CURSOR_STYLE (reverse video, app-wide) + WindowedList — the
@@ -750,6 +751,14 @@ other row they end the footer as usual. A built-in category's colour is not chan
 from this app either. Under the list a legend says so: `System categories cannot be renamed
 or deleted.` on Categories, `System hashtags cannot be renamed or deleted.` on Hashtags.
 
+**Manage ▸ Accounts is a table of Name, Type, Cur, Code, Color, Balance and Status** (screen
+4 B in [expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)
+for Code), banks and people together, archived rows dimmed, under the legend `balances are
+native currency`. Code is the account's statement code, or a dim `—` when it has none (a
+person never has one); it is where both accounts of one card show the same code. Balance is the
+one right-aligned column (`account_rows` in
+[accounts.py](../expense/tui/screens/accounts.py)).
+
 **`t` turns an account into a person and back** (screens 1 A, 2 A, 3, 4 B and 5 B in
 [expense-world-account-to-person.html](mockups/expense-world-account-to-person.html)). On
 Manage ▸ Accounts the footer reads `t Make person` on a bank account's row and
@@ -861,6 +870,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
 | `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
+| `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
+| `STATEMENT_MONTH_TAKEN`, `COMPLETED_STATEMENT_JOINED` (a `VALIDATION_ERROR`) on `statement_code` | a code set or changed on a bank account's Edit form that would clash with a reconciliation under it (contract: "Bank Accounts", "Statement code") | none: the engine's words name the reconciliations and say what to do |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
@@ -947,6 +958,34 @@ account_id: Locked by completed reconciliation.
 rows 1, 3
 ```
 
+**A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,
+2 A, 3·1 B, 3·2 B, 3·3 and 3·4 in
+[expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html)).
+**`statement code`** sits right after `currency`, on a bank account only: only a real
+account carries a code, and `POST /people` takes none (contract: "Bank Accounts", "Statement code").
+On New, TYPE turned to `person` takes the line off the form and the save sends no code;
+turned back to `bank`, the line returns holding what was typed. A person's Edit form has no
+such line.
+
+- **The hint** reads `optional · three capital letters, e.g. SIG · enter to go on` on New,
+  and `optional · three capital letters, e.g. SIG · empty clears it · enter to go on` on
+  Edit; `⏎` goes on to `color`.
+- **Small letters show as capitals while typing,** typed or pasted (`FormScreen._typed`,
+  which `FormBar` applies to every edit of the bar); no other line of any form changes what
+  is typed. The app checks nothing else about the code: the engine judges its shape, and a
+  digit, a missing letter or a fourth one comes back refused in its words.
+- **On New,** a code typed is sent as `statement_code` on `POST /accounts`; skipped, the key
+  is left out of the body, never sent as `null` (contract: POST /v1/accounts).
+- **On Edit,** the line opens holding the account's code. The save sends `statement_code`
+  only when it differs from the account's own, and `null` when the line was emptied, which
+  clears the code with no question: nothing is lost, since typing the code again brings
+  every statement line back (contract: PUT /v1/accounts/{account_id}).
+- **A refusal** shows the "Failed" note in the engine's words, the cursor back on the code
+  line with what was typed on the Edit form; `STATEMENT_CODE_EXISTS` adds the app's line
+  `Another account in this currency has this code: pick another, or clear it there first.`,
+  and every other refusal of a code reads in the engine's words alone (the table in "When
+  the engine says no").
+
 **An account's opening balance lives on its Edit form** (`e` on Manage ▸ Accounts; screens
 in [expense-world-opening-balance.html](mockups/expense-world-opening-balance.html)). A bank
 account's form ends with two optional lines after `color`: **`opening`**, the amount, and
@@ -977,7 +1016,7 @@ neither line: what you owe each other comes only from the rows you record.
 - **A refusal** shows the "Failed" note in the engine's words, with the line saying what to
   do when it has one (`format_error`), and leaves the
   form open with what was typed, the cursor on the line the refusal names (an amount on
-  `opening`, a date on `as of`, a name or colour on its own line); a refusal that names
+  `opening`, a date on `as of`, a name, statement code or colour on its own line); a refusal that names
   none of them leaves the cursor where it was. When the account saved and the opening balance was refused,
   the note says so: `The account's changes are saved. The opening balance is not:`, the
   engine's words, then `It is still in the form: fix it and save again.`, or, for a
@@ -1291,7 +1330,9 @@ line.
 `⏎` saves** (`FormScreen._goes_on`; guard: [test_tui_form_hints.py](../tests/unit/test_tui_form_hints.py),
 which walks every bar form). NAME on Manage ▸ Accounts and Manage ▸ Categories (New and Edit)
 and the Edit forms' TITLE read `free text · enter to go on`, and a new reconciliation's NAME
-`e.g. “April 2026” · enter to go on`. The account's COLOR, New and Edit, reads
+`e.g. “April 2026” · enter to go on`. A bank account's STATEMENT CODE reads
+`optional · three capital letters, e.g. SIG · enter to go on`, with `· empty clears it` before
+`· enter to go on` on Edit. The account's COLOR, New and Edit, reads
 `optional · enter keeps it · ↑↓ another swatch`, though on New, and on a person's Edit, it is
 the last line and `⏎` there saves. Some lines where `⏎` saves say so: a new category's COLOR
 (`optional · enter to save · ↑↓ another swatch`), the Edit form's NOTE, a new

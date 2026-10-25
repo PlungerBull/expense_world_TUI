@@ -71,19 +71,22 @@ class FormBar(Input):
     (`read_only()`, asked at each key), nothing typed, pasted or deleted
     changes the bar, and `⏎` posts `Passed` in place of `Submitted`: no
     field's commit runs, so nothing lands on a read-only line, and the form
-    moves on as from any line (`FormScreen.on_form_bar_passed`)."""
+    moves on as from any line (`FormScreen.on_form_bar_passed`). What is typed
+    or pasted shows as `typed(text)` gives it back (`FormScreen._typed`), the
+    cursor after it."""
 
     class Passed(Message):
         """`⏎` on a read-only field."""
 
-    def __init__(self, *, read_only, **kwargs) -> None:
+    def __init__(self, *, read_only, typed=None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._read_only = read_only
+        self._typed = typed or (lambda text: text)
 
     def replace(self, text: str, start: int, end: int) -> None:
         # every edit of the bar's text (typing, paste, delete, cut) goes through here
         if not self._read_only():
-            super().replace(text, start, end)
+            super().replace(self._typed(text), start, end)
 
     async def action_submit(self) -> None:
         if self._read_only():
@@ -117,6 +120,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def _hint_for(self, key: str) -> str:
         return ""
+
+    def _typed(self, key: str, text: str) -> str:
+        """How text typed or pasted into the bar shows while the bar is on
+        `key`; the default shows it as typed."""
+        return text
 
     def _hint_line(self, key: str) -> Text:
         """The hint line under the bar: `_hint_for`'s words, dimmed."""
@@ -172,7 +180,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         heading = self._heading()
         if heading is not None:
             yield Static(heading, id="form-head")
-        bar = FormBar(id="bar", read_only=lambda: self._key in self._locked)
+        bar = FormBar(
+            id="bar",
+            read_only=lambda: self._key in self._locked,
+            typed=lambda text: self._typed(self._key, text),
+        )
         yield Horizontal(Label("", id="field"), bar, id="inputbar")
         yield Static("", id="hint")
         yield Static("", id="suggest")

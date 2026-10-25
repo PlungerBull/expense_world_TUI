@@ -1,8 +1,9 @@
 """Accounts screen — banks & people.
 
 Built on SectionScreen + the shared CursorList. Includes people and archived
-accounts (archived rows dimmed); the Color column renders the account's hex
-color as a swatch. Balances are native currency — no surface converts an
+accounts (archived rows dimmed); the Code column shows the account's
+statement code, a dim `—` when it has none (a person always); the Color column
+renders the account's hex color as a swatch. Balances are native currency — no surface converts an
 account balance to the home currency: a single-currency user sees one
 meaningful number, and a multi-currency user gets the value in the unit they
 think in for that account. `n` creates; `e` edits the cursor row (prefilled
@@ -24,9 +25,9 @@ from expense.errors import format_error
 from expense.formatting import format_cents
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, list_refusal_text
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
-from expense.tui.widgets.cells import amount_cell, swatch
+from expense.tui.widgets.cells import amount_cell, code_cell, swatch
 
-_HEADERS = ["Name", "Type", "Cur", "Color", "Balance", "Status"]
+_HEADERS = ["Name", "Type", "Cur", "Code", "Color", "Balance", "Status"]
 
 
 def account_rows(items: list[dict], palette: Palette | None = None) -> list:
@@ -38,6 +39,7 @@ def account_rows(items: list[dict], palette: Palette | None = None) -> list:
             it.get("name") or "(unnamed)",
             "person" if it.get("is_person") else "bank",
             it.get("currency_code") or "?",
+            code_cell(it.get("statement_code")),
             swatch(it.get("color")),
             amount_cell(it.get("current_balance_cents"), palette, AMOUNT_RULE),
             "archived" if archived else "active",
@@ -48,12 +50,12 @@ def account_rows(items: list[dict], palette: Palette | None = None) -> list:
 
 class AccountsScreen(ResourceListScreen):
     crumb = ("Manage", "Accounts")
-    CARD_WIDTH = 80
+    CARD_WIDTH = 86
     TITLE = "Accounts — banks & people"
     HEADERS = _HEADERS
     EMPTY = "(no accounts)"
     LEGEND = "balances are native currency"
-    ALIGN_RIGHT = {4}
+    ALIGN_RIGHT = {5}
     RESOURCE = "accounts"
     # Accounts are the only archivable resource, so the `a` toggle lives here,
     # not on the shared scaffold. `t` is two bindings of one key, one per

@@ -47,6 +47,12 @@ NAME_HINT = "free text · enter to go on"
 #: The account's COLOR, New and Edit: `⏎` keeps what the line holds — the
 #: account's own colour on Edit, no colour on New.
 ACCOUNT_COLOR_HINT = "optional · enter keeps it · ↑↓ another swatch"
+#: The account's STATEMENT CODE on New: optional, and `⏎` goes on to COLOR.
+STATEMENT_CODE_HINT = "optional · three capital letters, e.g. SIG · enter to go on"
+#: The same line on Edit, where emptying it and saving clears the code.
+STATEMENT_CODE_EDIT_HINT = (
+    "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
+)
 #: A new category's COLOR, its last line: `⏎` there creates the category.
 CATEGORY_COLOR_HINT = "optional · enter to save · ↑↓ another swatch"
 # Bank first: it is the prefilled default, so `enter` on an untouched TYPE field
@@ -77,7 +83,7 @@ class BarFormScreen(FormScreen):
 
     @property
     def _f(self) -> Field:
-        return self.FIELDS[self._current]
+        return self._field(self._key)
 
     def _label(self, key: str) -> str:
         return self._field(key).label
@@ -175,7 +181,7 @@ class BarFormScreen(FormScreen):
         t = Table(box=None, pad_edge=False, show_header=False)
         t.add_column("k")
         t.add_column("v")
-        for i, f in enumerate(self.FIELDS):
+        for f in (self._field(key) for key in self._sequence()):
             locked = f.key in self._locked
             if f.key in self._values:
                 if f.kind == "color":
@@ -189,7 +195,7 @@ class BarFormScreen(FormScreen):
             if locked:  # edit forms lock immutable fields (e.g. account currency)
                 value.append("  read-only", style="dim")
             label = Text(f.label.lower(), style="dim" if locked else "")
-            if i == self._current and not locked:
+            if f.key == self._key and not locked:
                 label.stylize("bold")
             t.add_row(label, value)
         return t
@@ -248,6 +254,13 @@ class NewAccountScreen(BarFormScreen):
     `is_person` is never sent in the body: `POST /accounts` rejects it and
     `POST /people` implies it, so on either route the field is a 422. The endpoint
     *is* the flag.
+
+    A bank account has one more line, STATEMENT CODE, after CURRENCY: only a
+    real account carries a code, and `POST /people` takes no such field
+    (contract: "Bank Accounts", "Statement code"). With TYPE on person the line
+    leaves the form; back on bank it returns holding what was typed. Letters
+    typed there show as capitals; the engine judges the shape. Skipped, the
+    key is left out of the body (contract: POST /v1/accounts).
     """
 
     crumb = ("Manage", "Accounts", "New")
@@ -266,6 +279,7 @@ class NewAccountScreen(BarFormScreen):
         Field(
             "currency", "CURRENCY", "choice", choices=_CURRENCIES, required=True, hint="PEN or USD"
         ),
+        Field("statement_code", "STATEMENT CODE", hint=STATEMENT_CODE_HINT),
         Field("color", "COLOR", "color", choices=_PALETTE, hint=ACCOUNT_COLOR_HINT),
     ]
 
@@ -276,6 +290,13 @@ class NewAccountScreen(BarFormScreen):
     @property
     def _is_person(self) -> bool:
         return self._values.get("type") == "person"
+
+    def _sequence(self) -> list[str]:
+        keys = super()._sequence()
+        return [k for k in keys if k != "statement_code"] if self._is_person else keys
+
+    def _typed(self, key: str, text: str) -> str:
+        return text.upper() if key == "statement_code" else text
 
     def _submit_request(self) -> tuple[str, str, dict, str]:
         # The one place the TYPE field is read. `/people` is the only people
@@ -295,6 +316,8 @@ class NewAccountScreen(BarFormScreen):
         }
         if self._values.get("color"):
             payload["color"] = self._values["color"]
+        if not self._is_person and self._values.get("statement_code"):
+            payload["statement_code"] = self._values["statement_code"]
         return payload
 
 
@@ -314,6 +337,11 @@ def _edit_payload(values: dict, original_color: str | None) -> dict:
 # Each declares `BINDINGS = form_bindings("Save")`: the footer names what
 # `ctrl+s` does here, not the parent's `Create`.
 # --------------------------------------------------------------------------- #
+def _field_with_hint(f: Field, hint: str) -> Field:
+    """`f` with another hint, its other parts the same."""
+    return Field(f.key, f.label, f.kind, choices=f.choices, required=f.required, hint=hint)
+
+
 class EditHashtagScreen(NewHashtagScreen):
     BINDINGS = form_bindings("Save")
 
@@ -374,6 +402,7 @@ _REFUSED_LINES = {
     "color": "color",
     "amount_cents": "opening",
     "date": "as_of",
+    "statement_code": "statement_code",
 }
 
 
@@ -384,6 +413,11 @@ class EditAccountScreen(NewAccountScreen):
     (the signed amount, in the account's currency, taken as typed) and AS OF
     (its day). A person has neither: what you owe each other comes only from
     the rows you record.
+
+    A bank account's STATEMENT CODE opens holding its code. The save sends it
+    only when it changed, and `null` when the line was emptied, which clears
+    the code with no question (contract: PUT /v1/accounts/{account_id}). A
+    person's form has no such line.
 
     The account names its opening balance by id, or `null` when it has none
     (contract: "Bank Accounts", "Opening balance"); the form reads that row
@@ -405,6 +439,11 @@ class EditAccountScreen(NewAccountScreen):
     """
 
     BINDINGS = form_bindings("Save")
+    # New's lines, STATEMENT CODE's hint saying that emptying it clears the code
+    FIELDS = [
+        _field_with_hint(f, STATEMENT_CODE_EDIT_HINT) if f.key == "statement_code" else f
+        for f in NewAccountScreen.FIELDS
+    ]
 
     def __init__(self, record: dict) -> None:
         super().__init__()
@@ -424,6 +463,9 @@ class EditAccountScreen(NewAccountScreen):
         if record.get("color"):
             self._values["color"] = record["color"]
         self._original_color = record.get("color")
+        self._original_code: str | None = record.get("statement_code")
+        if self._original_code and not record.get("is_person"):
+            self._values["statement_code"] = self._original_code
         self.crumb = ("Manage", "Accounts", self._name, "Edit")
         # The account half as last saved: once it matches, a save sends only
         # the opening balance.
@@ -438,7 +480,7 @@ class EditAccountScreen(NewAccountScreen):
         if self._has_opening:
             currency = record.get("currency_code") or "?"
             self.FIELDS = [
-                *NewAccountScreen.FIELDS,
+                *EditAccountScreen.FIELDS,
                 Field(
                     "opening",
                     "OPENING",
@@ -570,7 +612,17 @@ class EditAccountScreen(NewAccountScreen):
         return ("PUT", f"/accounts/{self._id}", self._payload(), "Saving…")
 
     def _payload(self) -> dict:
-        return _edit_payload(self._values, self._original_color)
+        return self._account_body(self._values)
+
+    def _account_body(self, values: dict) -> dict:
+        """The account half's body from `values`: `_edit_payload`'s, and on a
+        bank account the statement code when it is not the account's own,
+        `null` when emptied."""
+        body = _edit_payload(values, self._original_color)
+        code = values.get("statement_code")
+        if not self._is_person and code != self._original_code:
+            body["statement_code"] = code
+        return body
 
     def action_submit(self) -> None:
         if self._submitting:
@@ -642,7 +694,10 @@ class EditAccountScreen(NewAccountScreen):
                 # the colour it sent is now the account's own: picking the old
                 # one again is a change, and the next save sends it
                 self._original_color = account.get("color", self._original_color)
-                self._account_sent = _edit_payload(account, self._original_color)
+                self._original_code = account.get("statement_code", self._original_code)
+                self._account_sent = self._account_body(
+                    {"statement_code": self._original_code, **account}
+                )
                 self._account_saved = True
                 if opening is None:
                     self._done()

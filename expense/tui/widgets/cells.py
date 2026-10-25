@@ -13,10 +13,15 @@ def swatch(color: object) -> Text:
     return Text("—", style="dim")
 
 
+def code_cell(code: object) -> str | Text:
+    """A code column's cell: the code, or a dim `—` when there is none."""
+    return str(code) if code else Text("—", style="dim")
+
+
 def operation_cell(code: object) -> str | Text:
     """A bank line's `operation_code` as every reconciliation list shows it:
     the operation code, or a dim `—` when the line has none."""
-    return str(code) if code else Text("—", style="dim")
+    return code_cell(code)
 
 
 def difference_cell(cents: object, palette: Palette | None) -> str | Text:

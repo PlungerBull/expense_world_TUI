@@ -550,6 +550,20 @@ APP_FAULT = (
         ("VALIDATION_ERROR", "account_id", "PERSON_ACCOUNT", False, None),
         # 2
         ("CONFLICT", "name", "NAME_EXISTS", False, "That name is taken: pick another."),
+        # statement-code-field 3·2 B: a code another account in this currency has;
+        # 3·3, 3·4 and a person given a code keep the engine's words alone
+        (
+            "CONFLICT",
+            "statement_code",
+            "STATEMENT_CODE_EXISTS",
+            False,
+            "Another account in this currency has this code: "
+            "pick another, or clear it there first.",
+        ),
+        ("VALIDATION_ERROR", "statement_code", "STATEMENT_MONTH_TAKEN", False, None),
+        ("VALIDATION_ERROR", "statement_code", "COMPLETED_STATEMENT_JOINED", False, None),
+        ("VALIDATION_ERROR", "statement_code", "PERSON_ACCOUNT", False, None),
+        ("VALIDATION_ERROR", "statement_code", "INVALID_FORMAT", False, None),
         # 3A
         ("LIMIT_REACHED", "id", "CAP_REACHED", False, "Delete one first."),
         # 4, on a form and in a batch or an import
@@ -717,6 +731,7 @@ def test_the_table_is_keyed_by_code_and_reason_only():
         "SYSTEM_CATEGORY",
         "SYSTEM_HASHTAG",
         "NAME_EXISTS",
+        "STATEMENT_CODE_EXISTS",
         "CAP_REACHED",
         "OPERATION_CODE_EXISTS",
         "CONCURRENT_CHANGE",

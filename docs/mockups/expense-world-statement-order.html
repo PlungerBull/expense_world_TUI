@@ -61,421 +61,389 @@
   .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
          background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
 
+  table.ref{border-collapse:collapse;font-size:12px;margin-top:10px;width:100%;color:var(--muted)}
+  table.ref th,table.ref td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;line-height:1.5}
+  table.ref th{color:var(--text);font-weight:600}
+  table.ref code{color:var(--text);font-size:11.5px}
 </style>
 </head>
 <body>
-<button class="theme" type="button" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='light'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme: light)').matches))?'dark':'light'">light / dark</button>
+<button class="theme" type="button" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='light'||(!r.dataset.theme&amp;&amp;matchMedia('(prefers-color-scheme: light)').matches))?'dark':'light'">light / dark</button>
 <div class="head">
   <h1>Putting a statement in order</h1>
-  <p>A <b>statement line</b> such as <code>SIG-202603-007</code> is made by the engine from three things: the account's <b>statement code</b> (<code>SIG</code>), the month the reconciliation ends (March 2026), and the line's <b>place on the paper statement</b> (7). This new screen is where you give each line its place, once per statement, by copying the order of the paper.</p>
-  <p>A card statement is <b>two reconciliations</b> over the same days, one in soles and one in dollars, and the paper mixes them. So this screen shows <b>both currencies in one list</b>, and either half opens the same list. Where the paper has a line the ledger doesn't have (a fee of 0.00, say), you leave an <b>empty slot</b>, so the next line keeps the paper's number.</p>
-  <p>What you arrange here stays on the screen until you save it with <code>ctrl+s</code>: <b>the whole order is one save</b>, and the engine takes it only when every line has its place. A reconciliation on an account with a statement code <b>can't be completed until its statement is in order</b>; the statement lines then show on its lines.</p>
-  <p>The card, its lines and amounts are invented: <b>Signature Soles</b> (PEN) and <b>Signature Dólares</b> (USD), both with the code <b>SIG</b>, and their reconciliations <b>Marzo 2026</b>, 2026-02-21 → 2026-03-20. <b>The engine's refusals are its real words</b>, shown whole as every refusal in the app is. The lines under them, marked as the app's, are proposals, yours to change. Use the button at the top right for a light terminal.</p>
+  <p>Each line of a statement gets its <b>place</b>: its number on the paper statement, top to bottom, both currencies of a card mixed. The engine keeps the statement's lines in that order and builds each line's statement line from it, which no screen shows. A statement on an account with a statement code <b>can't be completed until it is in order</b>. This screen is where you put it in order, once per statement, by reading the paper next to it.</p>
+  <p>Picked by you on 2026-10-24, from the redraw: the screen <b>opens with the lines already in date order</b>, so you move only the few lines the paper prints elsewhere, with <code>shift+↑↓</code>; a paper line the ledger doesn't have <b>comes in from the bank's file</b>, through the import door, never typed here; a line added after the order was saved waits at the end of the order, marked <code>new</code>. Opening in date order needs the engine ask “The statement order lists a statement's unplaced lines oldest first”; the screens are drawn as if it has landed.</p>
+  <p>The card is the one from the card-statement mockup: <b>Signature PEN</b> and <b>Signature USD</b>, code <b>SIG</b>, statement <b>Octubre 2026</b>, 2026-09-26 → 2026-10-25. Lines and amounts are invented; the engine's refusals are its real words. Use the button at the top right for a light terminal.</p>
 </div>
 
-<div class="pane"><div class="lbl">1 · Arranging the lines <span>— one list, both currencies · three ways to choose from</span></div>
-<p class="blurb">The screen has two parts. On top, <b>the order</b>: each line with its place (<code>001</code>, <code>002</code> … as it will read at the end of its statement line) and its currency (<code>Cur</code>), then the bank's own columns as on a reconciliation today. Below, <b>“no place yet”</b>: the lines that have no place, in the engine's order, newest first. The first time you open a statement every line is down there; a line added to the reconciliation later shows up there too. Drawn mid-way: places 001 to 006 done (004 is an empty slot), four lines to go. <b>The question is how a line gets its place.</b></p>
-<div class="opt wide">
-<div class="var"><div class="oh">A1 · <span>space gives the next place · before space</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-  <span class="rev">           PEN   2026-03-09   PAGO TARJETA          00731552       1,500.00 </span>
-
-  <span class="d">changed · not saved yet · 6 places · 4 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">You read the paper top to bottom. For each line, put the cursor on it under “no place yet” and press <code>space</code>: it takes <b>the next place</b> at the end of the order. Here the next paper line is PAGO TARJETA in soles.</p></div>
-<div class="var"><div class="oh">A2 · <span>after space</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-     <span class="d">no place yet · 3 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-  <span class="rev">           USD   2026-03-11   SPOTIFY               48230011         -10.99 </span>
-
-  <span class="d">changed · not saved yet · 7 places · 3 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">PAGO TARJETA is now <code>007</code>. The cursor stays down in “no place yet”, on the line that took its spot, ready for the next one. Pressing <code>space</code> on a line in the order takes it back out.</p></div>
-<div class="var"><div class="oh">A3 · <span>shift+↑↓ fixes a slip · before</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-  <span class="rev">   008     PEN   2026-03-14   TOTTUS JOCKEY         48244120        -212.40 </span>
-     009     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-
-     <span class="d">no place yet · 1 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-
-  <span class="d">changed · not saved yet · 9 places · 1 line with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">To fix a line in the wrong place, put the cursor on it and press <code>shift+↑</code> or <code>shift+↓</code>: the line moves one place up or down and the cursor goes with it. Here TOTTUS JOCKEY took 008 by mistake; SPOTIFY comes first on the paper.</p></div>
-<div class="var"><div class="oh">A4 · <span>after shift+↓</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     008     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-  <span class="rev">   009     PEN   2026-03-14   TOTTUS JOCKEY         48244120        -212.40 </span>
-
-     <span class="d">no place yet · 1 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-
-  <span class="d">changed · not saved yet · 9 places · 1 line with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">After one <code>shift+↓</code>: SPOTIFY is 008 and TOTTUS JOCKEY 009. The place numbers belong to the rows as they stand: they always run 001, 002, 003 … from the top.</p></div>
-</div><div class="opt wide">
-<div class="var"><div class="oh">B · <span>pick a line up, then put it down</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-  <span class="rev">   ···     end of the order                                                           </span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-   <span class="ab">▸ </span>        PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-  <span class="d">changed · not saved yet · 6 places · 4 lines with no place</span>
-  <span class="d">moving PAGO TARJETA · space puts it above the cursor line · esc leaves it where it was</span>
-
-
- <span class="a">space</span> Put it here  <span class="a">esc</span> Stop moving  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>space</code> on any line picks it up (<code>▸</code>); the arrows take the cursor where it belongs; <code>space</code> again puts it <b>above the cursor line</b>. The row <code>end of the order</code> puts it last. Two presses per line, the same for a first order and for a fix.</p></div>
-<div class="var"><div class="oh">C · <span>type its place</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-  <span class="rev">           PEN   2026-03-09   PAGO TARJETA          00731552       1,500.00 </span>
-
-  <span class="a">──────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="ab">PLACE            </span>7<span class="a">▍</span>
-
-   <span class="d">its line number on the paper · enter moves it there · the lines from there down move one down</span>
-
-  <span class="a">──────────────────────────────────────────────────────────────────────────────────────</span>
-
- <span class="a">esc</span> Cancel  <span class="a">⏎</span> Move</pre></div></div><p class="cap"><code>⏎</code> on a line opens one line to type its place, here 7. The line moves there and the lines from 7 down move one down. Quick if you count the paper's lines; slow if you don't.</p></div>
-</div></div>
-<div class="pane"><div class="lbl">2 · Empty slots <span>— a line on the paper that the ledger doesn't have</span></div>
-<p class="blurb"><code>e</code> puts an empty slot <b>above the cursor line</b>, and every line under it moves down one number. With the cursor under “no place yet”, it goes at the end of the order instead, so reading the paper top to bottom you press <code>e</code> exactly where the paper has the line you don't. <code>x</code> on an empty slot removes it, and the lines under it move up one; <code>x</code> shows in the footer only on an empty slot. An empty slot can be moved with <code>shift+↑↓</code> like a line. Drawn with 1 A; <b>the question is how an empty slot looks</b>.</p>
-<div class="opt wide">
-<div class="var"><div class="oh">Before e · <span>NETFLIX.COM is 004, the paper says 005</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-  <span class="rev">   004     USD   2026-03-02   NETFLIX.COM           48213907         -15.49 </span>
-     005     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-             PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-  <span class="d">changed · not saved yet · 5 places · 4 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">The paper's fourth line is a 0.00 fee that isn't in the ledger, so NETFLIX.COM should be 005. The cursor is on it.</p></div>
-<div class="var"><div class="oh">A · <span>the words “empty slot”, dim</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-  <span class="rev">   004     — empty slot —                                                   </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-             PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-  <span class="d">changed · not saved yet · 6 places · 4 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">x</span> Remove slot  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">After <code>e</code>: an empty slot takes 004, the cursor is on it, NETFLIX.COM is 005 and FARMACIA 006.</p></div>
-</div><div class="opt wide">
-<div class="var"><div class="oh">B · <span>says what it stands for, dim</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">· · ·  a line on the paper the ledger doesn&#x27;t have  · · ·       </span>
-  <span class="rev">   005     USD   2026-03-02   NETFLIX.COM           48213907         -15.49 </span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-             USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-             PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-  <span class="d">changed · not saved yet · 6 places · 4 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">The same order, the slot saying what it stands for. Longer, and nothing to learn.</p></div>
-<div class="var"><div class="oh">An opening balance · <span>the cursor never lands on it</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-
-     <span class="d">no place yet · 4 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-  <span class="rev">           USD   2026-03-18   PAGO TARJETA          00731601          60.00 </span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-             USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-             PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-
-     <span class="d">takes no place ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-   <span class="d">          PEN   2026-02-21   Opening balance       —               -320.00</span>
-
-  <span class="d">changed · not saved yet · 6 places · 4 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">An account's opening balance (only ever in its first reconciliation) is no line of the paper, so the engine never gives it a place. It sits dim at the very bottom under “takes no place”, and the cursor skips it. Nothing to choose here.</p></div>
-</div></div>
-<div class="pane"><div class="lbl">3 · Saving the order, and when the engine refuses <span>— drawn with 1 A and 2 A</span></div>
-<p class="blurb"><code>ctrl+s</code> sends the whole order in one save, every line and every empty slot, both currencies. Nothing is sent before that. The line under the list says whether what you see is saved. A saved statement can be opened and changed again any time while both halves are drafts; a line added to either half later shows under “no place yet” until you place it and save again.</p>
-<div class="opt wide">
-<div class="var"><div class="oh">3a · <span>ready · not saved yet</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     008     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-     009     PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-  <span class="rev">   010     USD   2026-03-18   PAGO TARJETA          00731601          60.00 </span>
-
-     <span class="d">no place yet · 0 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-
-  <span class="d">changed · not saved yet · 10 places · every line has a place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">Every line placed, one empty slot. <code>ctrl+s</code> saves it.</p></div>
-<div class="var"><div class="oh">3b · <span>after ctrl+s</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev">   001     PEN   2026-02-22   PLAZA VEA SURCO       48190211         -84.30 </span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     008     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-     009     PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-     010     USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-
-     <span class="d">no place yet · 0 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-
-  <span class="d">saved · 10 places · every line has a place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
+<div class="pane"><div class="lbl">1 · Opening the screen <span>— o on Octubre 2026 · nothing to choose here</span></div><p class="blurb">The first time you open a statement, every line of both halves is already in the order, <b>by date, oldest first</b>, soles and dollars mixed, numbered 001, 002 … from the top. That is the engine's suggestion (the engine ask “The statement order lists a statement's unplaced lines oldest first”), not yet saved: the line under the list says so. Your paper is mostly by date, so you read it next to the screen and fix only the lines that sit elsewhere on the paper. When the date order is already right, <code>ctrl+s</code> saves it as it is.</p><div class="opt wide"><div class="var"><div class="oh">1 · <span>a statement never put in order</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+  <span class="rev">   001     PEN   2026-10-02   FARMACIA              48201764         -100.00 </span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">suggested by date · not saved yet · 9 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">Octubre 2026 has nine lines, five in dollars and four in soles. Columns: the place (as the paper numbers its lines), the currency, then the bank's columns as on the statement's screen. Drawn with 1 A's keys; the keys are question 1.</p></div></div></div>
+<div class="pane"><div class="lbl">2 · Moving a line to its place on the paper <span>— question 1 · three ways, each drawn screen by screen</span></div><p class="blurb">Every line already has a place from the date order, so the work is moving the few lines the paper prints elsewhere. <b>The question is how you move one.</b> The same move, APPLE.COM/BILL from 003 to 005, drawn in each way.</p><div class="opt wide"><div class="var"><div class="oh">A1 · <span>shift+↑↓ moves the line · before</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+  <span class="rev">   003     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">suggested by date · not saved yet · 9 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">On the paper APPLE.COM/BILL is the fifth line, not the third: the bank posted it on the 12th. The cursor is on it.</p></div><div class="var"><div class="oh">A2 · <span>after one shift+↓</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+  <span class="rev">   004     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">changed · not saved yet · 9 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">It moves one place down and the cursor goes with it; RAPPI*RESTAURANTE takes 003. The numbers always run 001, 002 … from the top.</p></div></div><div class="opt wide"><div class="var"><div class="oh">A3 · <span>after a second shift+↓</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     004     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+  <span class="rev">   005     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">changed · not saved yet · 9 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">APPLE.COM/BILL is 005, as on the paper. One key per place moved: quick for the usual line one or two places off, slow for a line that sits far away.</p></div></div><div class="opt wide"><div class="var"><div class="oh">B1 · <span>space picks the line up</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+  <span class="rev"> ▸ 003     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">moving APPLE.COM/BILL · not saved yet</span>
+  <span class="d">↑↓ go where it belongs · space puts it above the cursor line · esc leaves it</span>
+
+
+
+ <span class="a">space</span> Put it here  <span class="a">esc</span> Stop moving  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>space</code> on APPLE.COM/BILL picks it up: <code>▸</code> marks it, and the footer has only the keys that finish the move.</p></div><div class="var"><div class="oh">B2 · <span>the cursor goes where it belongs</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+   <span class="ab">▸ </span>003     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+  <span class="rev">   006     PEN   2026-10-14   PAGO TARJETA          00731552        1,240.50 </span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">moving APPLE.COM/BILL · not saved yet</span>
+  <span class="d">↑↓ go where it belongs · space puts it above the cursor line · esc leaves it</span>
+
+
+
+ <span class="a">space</span> Put it here  <span class="a">esc</span> Stop moving  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>↓</code> three times, to PAGO TARJETA in soles: on the paper APPLE.COM/BILL comes right above it. The line stays where it was until it is put down.</p></div></div><div class="opt wide"><div class="var"><div class="oh">B3 · <span>space puts it down</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     004     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+  <span class="rev">   005     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">changed · not saved yet · 9 lines</span>
+  <span class="d">space pick up · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">space</span> Pick up  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">It goes above the cursor line and is 005. Two presses of <code>space</code> per line, plus the arrows, however far it moves. The line after the last one is reached by a row <code>end of the order</code>, shown only while moving.</p></div></div><div class="opt wide"><div class="var"><div class="oh">C1 · <span>⏎ opens its place</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+  <span class="rev">   003     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="a">──────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PLACE            </span>5<span class="a">▍</span>
+
+   <span class="d">its number on the paper · enter moves it there · the lines from there down move one down</span>
+  <span class="a">──────────────────────────────────────────────────────────────────────────────</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">⏎</span> Move</pre></div></div><p class="cap"><code>⏎</code> on APPLE.COM/BILL opens one line under the list to type its number on the paper, here 5.</p></div><div class="var"><div class="oh">C2 · <span>after ⏎</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     004     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+  <span class="rev">   005     USD   2026-10-07   APPLE.COM/BILL        48185520           -2.99 </span>
+     006     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     007     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     008     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     009     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">changed · not saved yet · 9 lines</span>
+  <span class="d">enter type its place · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⏎</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">It is 005 and the lines between move up one. Two keys whatever the distance, if you count the paper's lines; none of the others move by hand.</p></div></div></div>
+<div class="pane"><div class="lbl">3 · A line on the paper the ledger doesn't have <span>— from the bank's file, as you picked · nothing to choose</span></div><p class="blurb">Such a line comes in <b>by itself from the bank's file</b>, through the import door the app already has: drop the card's BCP file on the LOG bar, and every line of the file the ledger lacks is created under <code>@Pendiente</code>, both currencies (<code>expense-world-import-door.html</code>). Done before you open the order, the new lines are simply among the others, by date. This screen creates nothing and has no empty slots. One step is still by hand today: ticking the new lines into the statement on its screen (<code>space</code>); doing that by itself too is listed for the next piece of work.</p><div class="opt wide"><div class="var"><div class="oh">3 · <span>the order after importing the file</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+  <span class="rev">   004     PEN   2026-10-08   COMISION MEMBRESIA    —                 -15.00 </span>
+     005     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     006     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">suggested by date · not saved yet · 10 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">COMISION MEMBRESIA, a 15.00 fee nobody recorded, came in from the bank's file and was ticked into the soles half. It opens at 004 by its date, between APPLE.COM/BILL and RAPPI*RESTAURANTE.</p></div></div></div>
+<div class="pane"><div class="lbl">4 · A line added after the order was saved <span>— question 3</span></div><p class="blurb">Octubre was saved with ten lines; then TOTTUS JOCKEY (2026-10-23) was ticked into the soles half on the statement's screen. It has no place, so the statement cannot be completed until the order is saved again. <b>The question is where it shows when you open the order.</b></p><div class="opt wide"><div class="var"><div class="oh">A · <span>at the end of the order, marked new</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+  <span class="rev">   011     PEN   2026-10-23   TOTTUS JOCKEY         48244120         -212.40 </span><span class="d">  new</span>
+
+  <span class="d">changed · not saved yet · 11 lines · 1 new at the end</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">Every line in its saved place, then the new ones as the engine lists them, oldest first, with a dim <code>new</code>. You move it like any line, then <code>ctrl+s</code>. The screen opens the way it opened the first time.</p></div><div class="var"><div class="oh">B · <span>in a list of their own, under the order</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+     <span class="d">no place yet · 1 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
+  <span class="rev">           PEN   2026-10-23   TOTTUS JOCKEY         48244120         -212.40 </span>
+
+  <span class="d">saved · 10 lines · 1 line with no place</span>
+  <span class="d">shift+↑ puts it at the end of the order · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑</span> Into the order  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">The saved order as it was, and the new line apart under <code>no place yet</code>, without a number until you put it in the order.</p></div></div></div>
+<div class="pane"><div class="lbl">5 · Saving, refusals, leaving, a completed statement <span>— drawn with 1 A</span></div><p class="blurb"><code>ctrl+s</code> sends the whole order in one save. Nothing is sent before that. A saved order can be changed again while the statement is a draft.</p><div class="opt wide"><div class="var"><div class="oh">5a · <span>ready · not saved yet</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+  <span class="rev">   010     PEN   2026-10-21   PLAZA VEA SURCO       48213907         -184.30 </span>
+
+  <span class="d">changed · not saved yet · 10 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
+
+
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">Every line where the paper has it. <code>ctrl+s</code> sends the whole order, both currencies, in one save.</p></div><div class="var"><div class="oh">5b · <span>after ctrl+s</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
+
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+  <span class="rev">   001     PEN   2026-10-02   FARMACIA              48201764         -100.00 </span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
+
+  <span class="d">saved · 10 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
+
 
                                               <span class="a">▌</span> <span class="b">Saved.</span>
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">The engine answers with the statement as it now holds it, and the screen shows exactly that, with the cursor on the first line as every list after a save. The line under the list says <code>saved</code>.</p></div>
-</div><div class="opt wide">
-<div class="var"><div class="oh">3c · <span>refused: lines left without a place</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">The engine answers with the order as it now holds it, and the screen shows exactly that, the cursor on the first line as every list after a save.</p></div></div><div class="opt wide"><div class="var"><div class="oh">5c · <span>refused: a line left the statement meanwhile</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
 
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="w">draft</span><span class="d">    ·    Signature USD </span><span class="w">draft</span>
 
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-     006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     008     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+     001     PEN   2026-10-02   FARMACIA              48201764      <span class="n">   -100.00</span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+   <span class="nb">! </span>004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
 
-     <span class="d">no place yet · 2 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-  <span class="rev">           USD   2026-03-18   PAGO TARJETA          00731601          60.00 </span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-
-  <span class="d">changed · not saved yet · 8 places · 2 lines with no place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
+  <span class="d">changed · not saved yet · 10 lines</span>
+  <span class="d">shift+↑↓ move · ctrl+s save · r refresh · esc back</span>
 
                                         <span class="n">▌</span> <span class="b">Couldn&#x27;t save</span>
                                         <span class="n">▌</span> VALIDATION_ERROR — The statement&#x27;s order was
                                         <span class="n">▌</span> refused.
-                                        <span class="n">▌</span>   places: Leaves out 2 live bank line(s) of
-                                        <span class="n">▌</span> the statement:
-                                        <span class="n">▌</span> 6c1f0e2a-93b4-4d0e-8f27-5a9b3e4c7d10,
-                                        <span class="n">▌</span> e2d84b71-0c5a-4f3e-b9a6-17f2c8d05e93.
-                                        <span class="n">▌</span>
-                                        <span class="n">▌</span> Give each line under “no place yet” a place,
-                                        <span class="n">▌</span> then press ctrl+s again.
- <span class="a">space</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">Saving with lines still under “no place yet” is refused, because the order must name every line. The engine names the lines left out by their ids only; the two lines are the ones still down there. Nothing is saved and what you arranged stays on the screen. The last line is the app's.</p></div>
-<div class="var"><div class="oh">3d · <span>refused: a line left the statement meanwhile</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-   <span class="nb">! </span>006     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     007     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     008     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-     009     PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-     010     USD   2026-03-18   PAGO TARJETA          00731601     <span class="p">     60.00</span>
-
-     <span class="d">no place yet · 0 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-
-  <span class="d">changed · not saved yet · 10 places · every line has a place</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
-                                        <span class="n">▌</span> <span class="b">Couldn&#x27;t save</span>
-                                        <span class="n">▌</span> VALIDATION_ERROR — The statement&#x27;s order was
-                                        <span class="n">▌</span> refused.
-                                        <span class="n">▌</span>   places.5: Must name a live bank line of this
+                                        <span class="n">▌</span>   places.3: Must name a live bank line of this
                                         <span class="n">▌</span> statement.
                                         <span class="n">▌</span>
                                         <span class="n">▌</span> It changed somewhere else: press r to read the
                                         <span class="n">▌</span> statement again.
- <span class="a">space</span> Take out  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">⇧↑↓</span> Move  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">FARMACIA was taken out of this reconciliation on another screen after this one was read. The engine names the line by its position in what was sent (<code>places.5</code> is the sixth entry, place 006), and the screen marks that row with <code>!</code>. The last line is the app's.</p></div>
-</div><div class="opt wide">
-<div class="var"><div class="oh">3e · <span>esc with an order not saved</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
+ <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">?</span> Keys</pre></div></div><p class="cap">RAPPI*RESTAURANTE was taken out of its half on another screen after this one was read. The engine names it by its position in what was sent (<code>places.3</code> is the fourth entry, place 004), and the screen marks that row with <code>!</code>. Nothing is saved; what you arranged stays. The last two lines are the app's.</p></div><div class="var"><div class="oh">5d · <span>esc with an order not saved</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
   <span class="a">──────────────────────────────────────────</span>
 
     <span class="ab">Leave without saving?</span>
@@ -487,177 +455,58 @@
 
   <span class="a">──────────────────────────────────────────</span>
 
- <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap"><code>esc</code>, or <code>r</code> to read the statement again, with an order not saved asks first. Only <code>y</code> drops it. Nothing asks when everything shown is saved.</p></div>
-<div class="var"><div class="oh">3f · <span>a completed statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap"><code>esc</code>, or <code>r</code> to read the statement again, with an order not saved asks first. Only <code>y</code> drops it. Nothing asks when what you see is saved.</p></div></div><div class="opt wide"><div class="var"><div class="oh">5e · <span>a completed statement</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Octubre 2026  ▸  <span class="b">Statement order</span>
 
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="p">completed</span><span class="d">    ·    Signature Dólares </span>USD <span class="p">completed</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  <span class="d">Signature PEN </span><span class="p">completed</span><span class="d">    ·    Signature USD </span><span class="p">completed</span>
 
-     Place   Statement line   Cur   Date         Title                 Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev">   001     SIG-202603-001   PEN   2026-02-22   PLAZA VEA SURCO       -84.30 </span>
-     002     SIG-202603-002   USD   2026-02-24   AMAZON MKTPLACE   <span class="n">    -35.99</span>
-     003     SIG-202603-003   PEN   2026-02-27   UBER *TRIP        <span class="n">    -42.00</span>
-     004     <span class="d">— empty slot —                                                  </span>
-     005     SIG-202603-005   USD   2026-03-02   NETFLIX.COM       <span class="n">    -15.49</span>
-     006     SIG-202603-006   PEN   2026-03-05   FARMACIA          <span class="n">   -100.00</span>
-     007     SIG-202603-007   PEN   2026-03-09   PAGO TARJETA      <span class="p">  1,500.00</span>
-     008     SIG-202603-008   USD   2026-03-11   SPOTIFY           <span class="n">    -10.99</span>
-     009     SIG-202603-009   PEN   2026-03-14   TOTTUS JOCKEY     <span class="n">   -212.40</span>
-     010     SIG-202603-010   USD   2026-03-18   PAGO TARJETA      <span class="p">     60.00</span>
+     Place   Cur   Date         Title                 Operation         Amount
+  <span class="d"> ──────────────────────────────────────────────────────────────────────────── </span>
+  <span class="rev">   001     PEN   2026-10-02   FARMACIA              48201764         -100.00 </span>
+     002     USD   2026-10-03   SPOTIFY               48176302      <span class="n">     -5.99</span>
+     003     PEN   2026-10-08   COMISION MEMBRESIA    <span class="d">—             </span><span class="n">    -15.00</span>
+     004     PEN   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">    -96.40</span>
+     005     USD   2026-10-11   AMAZON MKTPLACE       48207733      <span class="n">    -28.91</span>
+     006     USD   2026-10-07   APPLE.COM/BILL        48185520      <span class="n">     -2.99</span>
+     007     PEN   2026-10-14   PAGO TARJETA          00731552      <span class="p">  1,240.50</span>
+     008     USD   2026-10-15   PAGO TARJETA          00731569      <span class="p">     60.12</span>
+     009     USD   2026-10-19   NETFLIX.COM           48230017      <span class="n">    -15.99</span>
+     010     PEN   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">   -184.30</span>
 
-  <span class="d">completed · 10 places</span>
-  <span class="d">read-only while completed · u on its reconciliation reverts it · r refresh · esc back</span>
-
-
- <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys</pre></div></div><p class="cap">Opened from a completed reconciliation, the screen is read-only and adds each line's <b>statement line</b> as the engine gives it; the empty slot 004 has none. To change the order, revert both halves (<code>u</code> on each reconciliation).</p></div>
-</div>
-<p class="blurb"><b>Every refusal this screen can meet</b>, each shown the same way: a <code>Couldn't save</code> note with the engine's words whole (<code>CODE — message</code>, then its field lines), and for some a blank line and the app's line saying what to do. Nothing is ever saved by a refused save, and the screen keeps what you arranged.</p>
-<table class="ref"><tr><th>Engine reason</th><th>When it happens here</th><th>The engine's words</th><th>The app's line under it (proposed)</th></tr>
-<tr><td><code>STATEMENT_LINES_MISSING</code></td><td>ctrl+s with lines under “no place yet”, or a line added to either half after the screen was read</td><td>Leaves out 2 live bank line(s) of the statement: &lt;id&gt;, &lt;id&gt;.</td><td>Give each line under “no place yet” a place, then press ctrl+s again.</td></tr>
-<tr><td><code>LINE_NOT_IN_STATEMENT</code></td><td>a line taken out of the reconciliation, or deleted, on another screen meanwhile</td><td>Must name a live bank line of this statement.</td><td>It changed somewhere else: press r to read the statement again.</td></tr>
-<tr><td><code>TRAILING_EMPTY_SLOT</code></td><td>ctrl+s with an empty slot at the very end</td><td>Must not be an empty slot: the last entry is a bank line.</td><td>Remove the empty slot at the end: press x on it.</td></tr>
-<tr><td><code>OPENING_BALANCE_NOT_PLACED</code></td><td>not reachable here: the opening balance never takes a place on this screen</td><td>Must not name an opening balance: it takes no place in the statement.</td><td>none</td></tr>
-<tr><td><code>DUPLICATE_IN_REQUEST</code></td><td>not reachable here: the screen lists each line once</td><td>Lists a bank line already listed above it.</td><td>the line every “the app sent it wrong” refusal has: <code>Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.</code></td></tr>
-<tr><td><code>RECONCILIATION_NOT_DRAFT</code></td><td>ctrl+s when the other half was completed meanwhile</td><td>Must be a draft reconciliation, and so must the statement's other half.</td><td>today this reason's line reads <code>Press u to revert it, then d again.</code>, written for <code>d</code>; one line serves every screen, so it would become <code>Press u on each completed half to revert it, then try again.</code></td></tr>
-<tr><td><code>CONCURRENT_CHANGE</code></td><td>ctrl+s while a half was added or removed at the same moment</td><td>(the engine's words for it)</td><td><code>It changed at the same moment: press r, then try again.</code>, as on every list today</td></tr>
-<tr><td><code>ACCOUNT_ARCHIVED</code></td><td>ctrl+s after either card account was archived</td><td>The account is archived. Unarchive it first.</td><td>none, as everywhere today</td></tr>
-<tr><td><code>NO_STATEMENT_CODE</code></td><td>opening the screen, or ctrl+s, after the account's statement code was cleared elsewhere</td><td>The account has no statement code, so its statement has no order.</td><td>none: the engine's words say why</td></tr>
-</table></div>
-<div class="pane"><div class="lbl">4 · How you get there <span>— from a reconciliation, and from a refused complete</span></div>
-<p class="blurb">A new key on a reconciliation's screen, <b><code>o</code> Order</b>, opens this screen, on a draft and on a completed reconciliation alike. It shows only on an account with a statement code; on any other account the footer and the hint line are as today. <code>esc</code> on the order screen comes back here, and the reconciliation is read again. On the dollars half's reconciliation, <code>o</code> opens the same list. Saying on the reconciliation, before you press <code>c</code>, whether its statement is in order waits on an open engine ask and belongs to the screen for a card as one statement (task 7), not to this one.</p>
-<div class="opt wide">
-<div class="var"><div class="oh">4a · <span>a reconciliation's screen, with o</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Marzo 2026</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  </span>Signature Soles<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-<span class="d">  begin </span>-3,120.00<span class="d">    end </span>-1,882.70<span class="d">    diff </span>0.00<span class="d">    status </span><span class="w">draft</span>
-
-           Date               Title                        Operation             Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev"> [x]     2026-03-14         TOTTUS JOCKEY                48244120             -212.40  </span>
-   <span class="p">[x]</span>     2026-03-09         PAGO TARJETA                 00731552          <span class="p">  1,500.00</span>
-   <span class="p">[x]</span>     2026-03-05         FARMACIA                     48201764          <span class="n">   -100.00</span>
-   <span class="p">[x]</span>     2026-02-27         UBER *TRIP                   <span class="d">—                 </span><span class="n">    -42.00</span>
-   <span class="p">[x]</span>     2026-02-22         PLAZA VEA SURCO              48190211          <span class="n">    -84.30</span>
-
-  <span class="d">space toggle in/out of this batch · o order · c complete · u revert · d delete · r refresh · esc back</span>
+  <span class="d">completed · 10 lines</span>
+  <span class="d">read-only while completed · u on the statement reverts both halves · esc back</span>
 
 
- <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">o</span> Order  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The Marzo 2026 reconciliation on Signature Soles, a draft. <code>o</code> sits before <code>c</code>, because the order comes before completing.</p></div>
-<div class="var"><div class="oh">4b · <span>o after the code was cleared elsewhere</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Marzo 2026</span>
 
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  </span>Signature Soles<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-<span class="d">  begin </span>-3,120.00<span class="d">    end </span>-1,882.70<span class="d">    diff </span>0.00<span class="d">    status </span><span class="w">draft</span>
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys</pre></div></div><p class="cap">Opened from a completed statement the screen only shows the order: no key moves a line or creates one. As you settled for task 8, no screen shows the statement line itself (<code>SIG-202610-003</code>); the places are its last part.</p></div></div><p class="blurb"><b>Every refusal this screen can meet</b>, shown as every refusal is: <code>Couldn't save</code>, the engine's words whole, and for some a line from the app saying what to do. The engine's words are its real ones, read on the practice engine.</p><table class="ref"><tr><th>Engine reason</th><th>When it happens here</th><th>The engine's words</th><th>The app's line under it (proposed)</th></tr><tr><td><code>STATEMENT_LINES_MISSING</code></td><td>ctrl+s after a line was added to either half on another screen</td><td>Leaves out 1 live bank line(s) of the statement: &lt;id&gt;.</td><td>It changed somewhere else: press r to read the statement again.</td></tr><tr><td><code>LINE_NOT_IN_STATEMENT</code></td><td>a line taken out of its half, or deleted, on another screen meanwhile</td><td>Must name a live bank line of this statement.</td><td>It changed somewhere else: press r to read the statement again.</td></tr><tr><td><code>RECONCILIATION_NOT_DRAFT</code></td><td>ctrl+s after the statement was completed on another screen or device</td><td>Must be a draft reconciliation, and so must the statement's other half.</td><td><code>Press u on the statement to revert it, then try again.</code></td></tr><tr><td><code>CONCURRENT_CHANGE</code></td><td>ctrl+s while a half changed at the same moment</td><td>(the engine's words for it)</td><td><code>It changed at the same moment: press r, then try again.</code>, as on every list</td></tr><tr><td><code>ACCOUNT_ARCHIVED</code></td><td>ctrl+s after either card account was archived</td><td>The account is archived. Unarchive it first.</td><td>none, as everywhere</td></tr><tr><td><code>NO_STATEMENT_CODE</code></td><td>opening the screen, or ctrl+s, after the code was cleared elsewhere</td><td>The account has no statement code, so its statement has no order.</td><td>none: the engine's words say why</td></tr><tr><td><code>TRAILING_EMPTY_SLOT</code></td><td>not reachable: the screen makes no empty slots</td><td>Must not be an empty slot: the last entry is a bank line.</td><td>none</td></tr><tr><td><code>OPENING_BALANCE_NOT_PLACED</code></td><td>not reachable: the opening balance never takes a place here</td><td>Must not name an opening balance: it takes no place in the statement.</td><td>none</td></tr><tr><td><code>DUPLICATE_IN_REQUEST</code></td><td>not reachable: the screen lists each line once</td><td>Lists a bank line already listed above it.</td><td>the line every “the app sent it wrong” refusal has</td></tr></table></div>
+<div class="pane"><div class="lbl">6 · How you get there <span>— o on the statement's screen · nothing to choose</span></div><p class="blurb"><code>o</code> on the statement's screen you picked for a card (both halves on one screen, <code>expense-world-card-statement.html</code> 3 A) opens this screen; <code>esc</code> comes back and the statement is read again. An account with a code that is not a card has one half, and the same <code>o</code>. When <code>c</code> is refused because the statement isn't in order, the engine's words are followed by <code>Press o to put the statement in order.</code>, as you picked there (5 A).</p><div class="opt wide"><div class="var"><div class="oh">6 · <span>the statement's screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
 
-           Date               Title                        Operation             Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev"> [x]     2026-03-14         TOTTUS JOCKEY                48244120             -212.40  </span>
-   <span class="p">[x]</span>     2026-03-09         PAGO TARJETA                 00731552          <span class="p">  1,500.00</span>
-   <span class="p">[x]</span>     2026-03-05         FARMACIA                     48201764          <span class="n">   -100.00</span>
-   <span class="p">[x]</span>     2026-02-27         UBER *TRIP                   <span class="d">—                 </span><span class="n">    -42.00</span>
-   <span class="p">[x]</span>     2026-02-22         PLAZA VEA SURCO              48190211          <span class="n">    -84.30</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span>  0.00<span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>  -53.88<span class="d">    diff </span>  0.00<span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">9 lines without a place</span><span class="d">   · o to put it in order</span>
 
-  <span class="d">space toggle in/out of this batch · o order · c complete · u revert · d delete · r refresh · esc back</span>
+         Date         Title                 Operation       Amount
+   <span class="d">────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Signature PEN</span>
+<span class="rev">   [x]   2026-10-21   PLAZA VEA SURCO       48213907       -184.30  </span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">1,240.50</span>
+   <span class="d">⋮</span>
 
+  <span class="d">space toggle in/out of its half · c complete both · u revert both · o order · r refresh · esc back</span>
 
-                                        <span class="n">▌</span> <span class="b">Couldn&#x27;t open the statement order</span>
-                                        <span class="n">▌</span> CONFLICT — The reconciliation&#x27;s account has no
-                                        <span class="n">▌</span> statement code, so its statement has no order.
-                                        <span class="n">▌</span> Give the account a statement code first.
-                                        <span class="n">▌</span>   reconciliation_id: The account has no
-                                        <span class="n">▌</span> statement code, so its statement has no order.
- <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">o</span> Order  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">If the account's statement code was cleared on another screen after this one was read, <code>o</code> opens nothing and says so in the engine's words.</p></div>
-</div>
-<p class="blurb"><b>When completing is refused because the statement isn't in order.</b> You press <code>c</code>, answer <code>y</code> to <code>Complete reconciliation?</code>, and the engine refuses: some lines have no place, or (for a card whose halves were ordered apart) two lines hold one place. Its words are the contract's own example. <b>The question is what the app offers next.</b></p>
-<div class="opt wide">
-<div class="var"><div class="oh">A · <span>the refusal names the key</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Marzo 2026</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  </span>Signature Soles<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-<span class="d">  begin </span>-3,120.00<span class="d">    end </span>-1,882.70<span class="d">    diff </span>0.00<span class="d">    status </span><span class="w">draft</span>
-
-           Date               Title                        Operation             Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-  <span class="rev"> [x]     2026-03-14         TOTTUS JOCKEY                48244120             -212.40  </span>
-   <span class="p">[x]</span>     2026-03-09         PAGO TARJETA                 00731552          <span class="p">  1,500.00</span>
-   <span class="p">[x]</span>     2026-03-05         FARMACIA                     48201764          <span class="n">   -100.00</span>
-   <span class="p">[x]</span>     2026-02-27         UBER *TRIP                   <span class="d">—                 </span><span class="n">    -42.00</span>
-   <span class="p">[x]</span>     2026-02-22         PLAZA VEA SURCO              48190211          <span class="n">    -84.30</span>
-
-  <span class="d">space toggle in/out of this batch · o order · c complete · u revert · d delete · r refresh · esc back</span>
-
-                                        <span class="n">▌</span> <span class="b">Couldn&#x27;t complete</span>
-                                        <span class="n">▌</span> VALIDATION_ERROR — Cannot complete
-                                        <span class="n">▌</span> reconciliation until its statement is fully
-                                        <span class="n">▌</span> ordered.
-                                        <span class="n">▌</span>   statement_order: 2 line(s) of the statement
-                                        <span class="n">▌</span> have no place; place(s) 4 are each held by
-                                        <span class="n">▌</span> more than one line. Send the statement&#x27;s order
-                                        <span class="n">▌</span> first (for a card, both halves in one list).
-                                        <span class="n">▌</span>
-                                        <span class="n">▌</span> Press o to put the statement in order.
- <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">o</span> Order  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The refusal as every refusal shows, and under it one line from the app naming the key, as <code>Press c again: the app asks for it first.</code> does for a missing ending balance. You press <code>o</code> when ready.</p></div>
-<div class="var"><div class="oh">B · <span>the app asks to open it</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
-  <span class="a">──────────────────────────────────────────</span>
-
-    <span class="ab">Put the statement in order now?</span>
-
-    Completing was refused:
-    2 line(s) of the statement have no
-    place; place(s) 4 are each held by
-    more than one line. Send the
-    statement's order first (for a card,
-    both halves in one list).
-    <span class="d">[y] open it    [enter / n / esc] stay here</span>
-
-  <span class="a">──────────────────────────────────────────</span>
-
- <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap">After the refusal, a question: <code>y</code> opens the order screen, anything else stays on the reconciliation.</p></div>
-</div><div class="opt wide">
-<div class="var"><div class="oh">C · <span>the order screen opens by itself</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Marzo 2026  ▸  <span class="b">Statement order</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Marzo 2026</span><span class="d">  ·  statement code </span>SIG<span class="d">  ·  2026-02-21 → 2026-03-20</span>
-  <span class="d">Signature Soles </span>PEN <span class="w">draft</span><span class="d">    ·    Signature Dólares </span>USD <span class="w">draft</span>
-
-  <span class="n">▌</span> <span class="b">Completing was refused:</span>
-  <span class="n">▌</span> VALIDATION_ERROR — Cannot complete reconciliation until its statement is fully
-  <span class="n">▌</span> ordered.
-  <span class="n">▌</span>   statement_order: 2 line(s) of the statement have no place; place(s) 4 are each held
-  <span class="n">▌</span> by more than one line. Send the statement&#x27;s order first (for a card, both halves in
-  <span class="n">▌</span> one list).
-
-     Place   Cur   Date         Title                 Operation        Amount
-  <span class="d"> ────────────────────────────────────────────────────────────────────────────────────── </span>
-     001     PEN   2026-02-22   PLAZA VEA SURCO       48190211     <span class="n">    -84.30</span>
-     002     USD   2026-02-24   AMAZON MKTPLACE       77310208     <span class="n">    -35.99</span>
-     003     PEN   2026-02-27   UBER *TRIP            <span class="d">—            </span><span class="n">    -42.00</span>
-   <span class="nb">! </span>004     USD   2026-03-02   NETFLIX.COM           48213907     <span class="n">    -15.49</span>
-   <span class="nb">! </span>004     PEN   2026-03-05   FARMACIA              48201764     <span class="n">   -100.00</span>
-     005     PEN   2026-03-09   PAGO TARJETA          00731552     <span class="p">  1,500.00</span>
-     006     USD   2026-03-11   SPOTIFY               48230011     <span class="n">    -10.99</span>
-
-     <span class="d">no place yet · 2 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
-  <span class="rev">           USD   2026-03-18   PAGO TARJETA          00731601          60.00 </span>
-             PEN   2026-03-14   TOTTUS JOCKEY         48244120     <span class="n">   -212.40</span>
-
-  <span class="d">saved · 2 lines with no place · two lines hold place 004</span>
-  <span class="d">space place / take out · shift+↑↓ move · e empty slot · x remove slot · ctrl+s save · esc back</span>
-
- <span class="a">space</span> Place  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">^s</span> Save  <span class="a">e</span> Empty slot  <span class="a">?</span> Keys</pre></div></div><p class="cap">The app opens the order screen at once, the engine's words at the top of it until you save. One key fewer, but <code>c</code> then lands you on another screen. Drawn as the engine's example has it: two lines with no place, and place 004 held by two lines, marked <code>!</code>. Two lines share a place only when the soles and dollars halves were put in order apart and then became one card statement; the screen shows the numbers as the engine holds them, and once you change anything the numbers follow the rows again, 001 to the end.</p></div>
-</div></div>
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">o</span> Order  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The header's <code>order</code> line counts what still has no place, from the engine. <code>o</code> sits before <code>d</code>.</p></div></div></div>
 <div class="pick">
-<b>Pick:</b>
+<b>Picked on 2026-10-24:</b>
 <ul>
-<li><b>1 · How a line gets its place</b> — A <code>space</code> gives the next place, <code>shift+↑↓</code> moves a line · B pick a line up, put it down · C type its place. <b>Recommended: A.</b> You copy the paper top to bottom with one key per line, and a slip is fixed with <code>shift+↑↓</code> without counting anything.</li>
-<li><b>2 · How an empty slot looks</b> — A <code>— empty slot —</code> · B <code>· · ·  a line on the paper the ledger doesn't have  · · ·</code>. <b>Recommended: A</b>, short and easy to spot. The keys <code>e</code> (put one above the cursor) and <code>x</code> (remove one): ok, or other keys?</li>
-<li><b>3 · What the app offers when completing is refused as not in order</b> — A a line under the refusal: <code>Press o to put the statement in order.</code> · B a question that opens it · C the order screen opens by itself. <b>Recommended: A</b>, the way every other refusal tells you the next key.</li>
-<li><b>4 · The screen's name and its key</b> — the crumb reads <code>Reconciliations ▸ Marzo 2026 ▸ Statement order</code> and the key on a reconciliation is <code>o Order</code>. Ok, or another name (for example <code>Paper order</code>) or key? <b>Recommended: as drawn</b>: “statement” is your word, and <code>o</code> is free on that screen.</li>
-<li><b>5 · The words the app adds</b>: <code>no place yet</code>, <code>takes no place</code>, <code>end of the order</code> (only in B), the line under the list (<code>changed · not saved yet · 6 places · 4 lines with no place</code>, then <code>saved · …</code>), <code>Saved.</code>, <code>Couldn't save</code>, <code>Leave without saving?</code> and its text, and the app's lines in the table under pane 3, including the new shared line for <code>RECONCILIATION_NOT_DRAFT</code>. Ok, or what to change?</li>
-<li><b>Nothing to choose</b>: both currencies in one list with a <code>Cur</code> column; the bank's columns as on a reconciliation; the whole order saved at once with <code>ctrl+s</code>; <code>esc</code> and <code>r</code> asking before dropping an order not saved; a completed statement read-only with its statement lines (3f); the opening balance never placed.</li>
+<li><b>1 · Moving a line to its place</b> (pane 2): <b>A</b>, <code>shift+↑↓</code> moves it one place at a time. B and C stay drawn as the record of the choice.</li>
+<li><b>2 · A line on the paper the ledger doesn't have</b> (pane 3): it comes in from the bank's file, through the import door; this screen creates nothing and has no empty slots.</li>
+<li><b>3 · A line added after the order was saved</b> (pane 4): <b>A</b>, at the end of the order, marked <code>new</code>.</li>
+<li><b>4 · Names and keys</b>: as drawn, the crumb <code>Statement order</code> and <code>o Order</code> on the statement's screen.</li>
+<li><b>5 · The words the app adds</b>: as drawn, the line under the list (<code>suggested by date · not saved yet · 9 lines</code>, <code>changed · not saved yet · …</code>, <code>saved · …</code>, <code>completed · …</code>, <code>1 new at the end</code>), <code>new</code> on such a line, <code>Saved.</code>, <code>Couldn't save</code>, <code>Leave without saving?</code> and its text, and the app's lines in pane 5's table.</li>
+<li><b>Settled before</b>: both currencies in one list with a <code>Cur</code> column; the whole order saved at once with <code>ctrl+s</code>; <code>esc</code> and <code>r</code> asking before dropping an order not saved; a completed statement read-only, no statement line shown (task 8); a refused <code>c</code> naming <code>o</code> (card statement 5 A); the opening balance never takes a place and is not listed.</li>
 </ul>
 </div>
 

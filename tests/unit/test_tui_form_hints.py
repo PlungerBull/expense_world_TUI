@@ -36,6 +36,8 @@ from tests.unit.helpers import run_app, wait_for
 NAME_GOES_ON = "free text · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
 CATEGORY_COLOR_SAVES = "optional · enter to save · ↑↓ another swatch"
+CODE_GOES_ON = "optional · three capital letters, e.g. SIG · enter to go on"
+CODE_EDIT_GOES_ON = "optional · three capital letters, e.g. SIG · empty clears it · enter to go on"
 
 ACCOUNT = {
     "id": "acc-sue",
@@ -106,7 +108,7 @@ def _open(screen, body):
 
 def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
     """New: `⏎` keeps bank on TYPE; NAME reads "enter to go on"; past CURRENCY,
-    COLOR reads "enter keeps it"."""
+    STATEMENT CODE reads "enter to go on" and COLOR "enter keeps it"."""
 
     async def body(pilot, screen):
         await pilot.press("enter")  # TYPE keeps bank
@@ -115,6 +117,9 @@ def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
         await pilot.press(*"BCP Oro", "enter")
         assert screen._key == "currency"
         await pilot.press(*"PEN", "enter")
+        assert screen._key == "statement_code"
+        assert _hint(screen) == CODE_GOES_ON
+        await pilot.press("enter")
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
 
@@ -123,11 +128,15 @@ def test_new_account_name_goes_on_and_color_keeps_it(fake_client):
 
 def test_edit_account_name_goes_on_and_color_keeps_it(fake_client):
     """Edit opens on NAME (TYPE is read-only); `⏎` keeps the name and goes on
-    past the read-only CURRENCY to COLOR."""
+    past the read-only CURRENCY to STATEMENT CODE, whose hint adds that
+    emptying it clears the code, then to COLOR."""
 
     async def body(pilot, screen):
         assert screen._key == "name"
         assert _hint(screen) == NAME_GOES_ON
+        await pilot.press("enter")
+        assert screen._key == "statement_code"
+        assert _hint(screen) == CODE_EDIT_GOES_ON
         await pilot.press("enter")
         assert screen._key == "color"
         assert _hint(screen) == COLOR_KEEPS
