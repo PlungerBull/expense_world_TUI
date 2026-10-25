@@ -53,3 +53,14 @@ Every task is done. The tester's acceptance check on 2026-10-24 passed checks 1â
 app against the practice engine and in unit tests, but the engine's contract version moved
 (todo.md "Hand the engine a reply and ask for the next hand-off"); the check runs again once the
 owner answers, then the librarian's sweep.
+
+## Found along the way
+
+Not built in this spec; drafted into a new spec when it is done.
+
+- Every app note other than the bulk edit's passes the engine's words to the screen as styling
+  markup unescaped, so a `[` in the engine's words could be read as styling and lost.
+- On a row inside a completed reconciliation, the Edit form offers DATE as a line you can change;
+  the engine refuses it only at save.
+- The note when missing settings stop a bulk edit reads slightly unlike the LOG bar's: titled
+  "Refused" where the LOG bar's reads "Failed", and without the blank line before "Hint:".

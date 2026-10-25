@@ -8,6 +8,9 @@ and how the owner will know it is done, in plain language; it does not say how t
   owner approves them before the loop runs. Everything above that section is the owner's, and
   agents change it only when the owner asks. A finished task is deleted from the section in the
   commit that finishes it.
+- A **Found along the way** section follows "Tasks": the orchestrator lists there any new work
+  found while the spec runs, which the loop does not build; when the spec is done it becomes a
+  new spec ([CLAUDE.md](../../CLAUDE.md) "Specs and tasks").
 - Work that belongs to no spec stays in [todo.md](../todo.md).
 - When the spec's work ships, its why moves to [decisions.md](../decisions.md) and the spec is
   deleted.

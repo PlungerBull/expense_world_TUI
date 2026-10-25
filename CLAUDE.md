@@ -110,7 +110,7 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 
 **If you are a worker,** you have no owner to ask and you are not the orchestrator. When something is unclear, a rationale belongs in decisions.md, or a choice belongs to the owner, stop and put it in your report; the orchestrator files it. Every worker reports in one shape: **verdict · what was checked · what is wrong · where**.
 
-**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one when starting the loop. The orchestrator drafts that spec's tasks into the spec's own "Tasks" section, the owner approves them, and then the loop runs on its own. It works only on the current spec. Everything above "Tasks" is the owner's; agents change it only when the owner asks. Work that belongs to no spec stays in todo.md.
+**Specs and tasks.** The owner writes one spec per piece of work in [docs/specs/](docs/specs/) and names the current one when starting the loop. The orchestrator drafts that spec's tasks into the spec's own "Tasks" section, the owner approves them, and then the loop runs on its own. It works only on the current spec and does exactly its tasks, nothing more: new work found along the way, by any role, is neither built nor put to the owner mid-run — the orchestrator lists it in the spec's **Found along the way** section, after "Tasks", and turns it into a new spec when this one is done ("Per spec" below). Everything above "Tasks" is the owner's; agents change it only when the owner asks. Work that belongs to no spec stays in todo.md.
 
 **Per task:**
 1. Take the next approved task and write its "passes if…" criteria. No clear criteria → a question for the owner first.
@@ -124,7 +124,8 @@ The workers are defined once for every repo in `~/.claude/agents/` (`builder`, `
 1. The tester runs the acceptance check against the practice engine (`:8002`): the drift script (version check and fixture check — "Stay inside this repo" below), the live contract suite (`tests/contract`, with the practice key and target as [docs/runtime.md](docs/runtime.md) "Working against the live engine" gives the command), each check in the spec's "How the owner knows it is done", and the app when the spec changed a screen. Each failure becomes a new task in the spec, added by the orchestrator; the per-task loop runs it, then the tester checks again.
 2. The librarian sweeps every doc.
 3. A catch-up spec's last step: the orchestrator writes its reply to the engine into [docs/to-engine/](docs/to-engine/) from the spec's "Reply to the engine" section, with the tester's results ([docs/specs/README.md](docs/specs/README.md)).
-4. **Done** = the tester's acceptance check passed + the librarian's sweep done + a catch-up spec's reply written. The spec then retires as [docs/specs/README.md](docs/specs/README.md) says.
+4. When "Found along the way" lists anything, the orchestrator drafts it into a new spec in [docs/specs/](docs/specs/) for the owner to rewrite or approve, its questions in it.
+5. **Done** = the tester's acceptance check passed + the librarian's sweep done + a catch-up spec's reply written + "Found along the way" drafted into a new spec. The spec then retires as [docs/specs/README.md](docs/specs/README.md) says.
 
 **Engine hand-offs become catch-up specs.** The files in [docs/from-engine/](docs/from-engine/) are planned together into one spec, or several when parts are independent; each spec takes what the live contract does not hold and ends with its reply to the engine, and the hand-off files are then deleted ([docs/from-engine/README.md](docs/from-engine/README.md)).
 
