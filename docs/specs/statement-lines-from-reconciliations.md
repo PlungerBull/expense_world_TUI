@@ -144,18 +144,9 @@ it differs from what was asked:
 ## Tasks
 
 Tasks 6 to 8 approved by the owner on 2026-10-24; tasks 9 to 13 approved 2026-10-25. They run
-in this order: 12, then 6, 7, 8, 13. Tasks 6, 7, 8 and 13 are **[UI]**, each picked from
+in this order: 6, 7, 8, 13. Tasks 6, 7, 8 and 13 are **[UI]**, each picked from
 its mockup in [mockups/](../mockups/).
 
-12. **The live contract suite catches up on a card statement as one.** New tests for each
-    reconciliation's other half and its two counts; complete and revert of both halves and their
-    `twin.` refusals; one create of both halves and its refusals; a delete of both; a rename and
-    a move of both, and a balance change on one half alone.
-    Two tests that still act on one half of a card alone fail until this task:
-    `test_a_card_statement_is_one_order_across_both_currencies` in
-    [test_statement_order.py](../../tests/contract/test_statement_order.py) and
-    `test_one_statement_per_code_per_month_on_reconciliation_writes` in
-    [test_statement_codes.py](../../tests/contract/test_statement_codes.py).
 6. **[UI] The statement-order screen**: read the order, arrange the lines (both currencies),
    send it; reached from a statement's screen with `o`. The owner picked on 2026-10-24, in
    [mockups/expense-world-statement-order.html](../mockups/expense-world-statement-order.html):
@@ -238,10 +229,15 @@ Not built in this spec; drafted into a new spec when it is done.
   [bank_line_write.py](../../expense/bank_line_write.py) compares sets; and `kept_part` takes a
   part's raw hashtags while `new_part` takes them filtered. Task 13 moving the Edit form onto
   `kept_part` leaves one check.
-- **Copies in the contract suite.** `_live_ids` sits in four contract test files; `_batch_into` in
+- **Copies in the contract suite.** `_live_ids` sits in four contract test files, `_send` in
+  [test_card_statement.py](../../tests/contract/test_card_statement.py) and
+  test_statement_order.py; `_batch_into` in
   [test_statement_order.py](../../tests/contract/test_statement_order.py) repeats `Scratch.line`
   in [conftest.py](../../tests/contract/conftest.py). And the two guards that nothing names the
   split route, over `expense/` and `tests/contract/` in
   [test_bank_line_write.py](../../tests/unit/test_bank_line_write.py), could be one over the
   whole repo, whose wording says "the removed split route" where the present tense would say
   the contract holds none.
+- **Two card-statement answers the live suite does not pin**: a complete on a card whose halves
+  are both completed already, which writes nothing, and `UNASSIGNED_IN_PERIOD` on both halves at
+  once (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation").

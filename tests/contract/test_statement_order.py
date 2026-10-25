@@ -33,7 +33,7 @@ the engine can say what they read, take and refuse. Pinned here:
     revert with the place kept, the same again on completing again without a new list,
     and following a change or clearing of the account's code;
   · a card: one list over both currencies sent from either half, read the same from
-    either, each half's lines numbered once that half completes; and a code change that
+    either, both halves' lines numbered in it by one complete; and a code change that
     would join a completed half is `422` `COMPLETED_STATEMENT_JOINED`, nothing written,
     until that half is reverted, after which the whole statement is ordered again.
 
@@ -313,9 +313,10 @@ def test_a_card_statement_is_one_order_across_both_currencies(client, scratch):
     numbers both currencies mixed, an empty slot between them
     (contract: "Reconciliations", "The client sends the statement's lines top to
     bottom, as one list").
-    A completed half's lines read their codes while the draft half's read `null`
-    (contract: "Transactions (Ledger)", "Bank lines"), and no list is taken while
-    either half is completed (`RECONCILIATION_NOT_DRAFT`)
+    Completing from one half completes both, so every line of both currencies reads
+    its code in that one order (contract: "Reconciliations", "Completing needs the order")
+    (contract: "Transactions (Ledger)", "Bank lines"), and no list is taken from either
+    half once it is completed (`RECONCILIATION_NOT_DRAFT`)
     (contract: PUT /v1/reconciliations/{reconciliation_id}/statement-order, "Refusals")."""
     (code,) = free_statement_codes(client, 1)
     soles = scratch.account("PEN", code)
@@ -343,15 +344,14 @@ def test_a_card_statement_is_one_order_across_both_currencies(client, scratch):
     assert _unplaced(sent) == set()
     assert _order(client, soles_half) == sent
 
-    client.post(f"/reconciliations/{soles_half}/complete")
+    done = client.post(f"/reconciliations/{soles_half}/complete")
+    assert (done["status"], done["twin"]["id"], done["twin"]["status"]) == (2, dollar_half, 2)
     assert _numbered(client, s1) == (f"{code}-202603-001", 1)
-    assert _numbered(client, s2) == (f"{code}-202603-004", 4)
-    assert _numbered(client, d1) == (None, 2)
-    err = refused(lambda: _send(client, dollar_half, [d1, s1, s2]))
-    assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
-
-    client.post(f"/reconciliations/{dollar_half}/complete")
     assert _numbered(client, d1) == (f"{code}-202603-002", 2)
+    assert _numbered(client, s2) == (f"{code}-202603-004", 4)
+    for recon in (soles_half, dollar_half):
+        err = refused(lambda recon=recon: _send(client, recon, [d1, s1, s2]))
+        assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
 
 
 def test_two_ordered_halves_joined_by_their_days_hold_one_place_twice(client, scratch):

@@ -187,13 +187,17 @@ def refused(call) -> EngineError:
     return excinfo.value
 
 
-def assert_refusal(err: EngineError, status: int, code: str, key: str, reason: str) -> None:
-    """The refusal is `status` `code`, keyed on `key` alone, carrying `reason` there
-    (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str, str]) -> None:
+    """The refusal is `status` `code`, keyed on exactly the keys of `reasons`, each
+    carrying its reason (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
     assert (err.status, err.code) == (status, code), (err.status, err.code, err.reasons)
-    assert isinstance(err.reasons, dict) and set(err.reasons) == {key}, err.reasons
-    assert isinstance(err.fields, dict) and set(err.fields) == {key}, err.fields
-    assert reason_on(err, key) == reason
+    assert err.reasons == reasons, err.reasons
+    assert isinstance(err.fields, dict) and set(err.fields) == set(reasons), err.fields
+
+
+def assert_refusal(err: EngineError, status: int, code: str, key: str, reason: str) -> None:
+    """The refusal is `status` `code`, keyed on `key` alone, carrying `reason` there."""
+    assert_refusals(err, status, code, {key: reason})
 
 
 def account_body(currency: str = "PEN", code: str | None = None) -> dict:
@@ -205,11 +209,36 @@ def account_body(currency: str = "PEN", code: str | None = None) -> dict:
     return body
 
 
+def reconciliation_body(account_id: str, start: str, end: str, twin: str | None = None) -> dict:
+    """A `POST /reconciliations` body under a fresh id over the calendar days `start`
+    to `end`, with an ending balance so nothing but the rule under test stands in the
+    way of completing it; with `twin`, the other half of a card statement on that
+    account, under its own fresh id (contract: POST /v1/reconciliations)."""
+    new_id = str(uuid4())
+    body = {
+        "id": new_id,
+        "account_id": account_id,
+        "name": f"contract-stmt-recon-{new_id[:8]}",
+        "date_start": start,
+        "date_end": end,
+        "beginning_balance_cents": 0,
+        "ending_balance_cents": 0,
+    }
+    if twin is not None:
+        body["twin"] = {
+            "id": str(uuid4()),
+            "account_id": twin,
+            "beginning_balance_cents": 0,
+            "ending_balance_cents": 0,
+        }
+    return body
+
+
 class Scratch:
     """What one test builds on the practice user, undone in reverse dependency order:
-    archived accounts unarchived, reconciliations reverted and deleted, transactions
-    deleted, accounts deleted. Every step is best-effort, so a failed test still frees
-    its statement codes."""
+    archived accounts unarchived, reconciliations reverted and deleted (each statement
+    once), transactions deleted, accounts deleted. Every step is best-effort, so a
+    failed test still frees its statement codes."""
 
     def __init__(self, client: ExpenseClient) -> None:
         self.client = client
@@ -238,23 +267,19 @@ class Scratch:
         return new_id
 
     def reconciliation(self, account_id: str, start: str, end: str) -> str:
-        """A draft over the calendar days `start` to `end`, with an ending balance so
-        nothing but the rule under test stands in the way of completing it."""
-        new_id = str(uuid4())
-        self.reconciliations.append(new_id)
-        self.client.post(
-            "/reconciliations",
-            json_body={
-                "id": new_id,
-                "account_id": account_id,
-                "name": f"contract-stmt-recon-{new_id[:8]}",
-                "date_start": start,
-                "date_end": end,
-                "beginning_balance_cents": 0,
-                "ending_balance_cents": 0,
-            },
-        )
-        return new_id
+        """A draft over the calendar days `start` to `end`, made alone (`reconciliation_body`)."""
+        body = reconciliation_body(account_id, start, end)
+        self.reconciliations.append(body["id"])
+        self.client.post("/reconciliations", json_body=body)
+        return body["id"]
+
+    def card(self, account_id: str, twin_account_id: str, start: str, end: str) -> tuple[str, str]:
+        """Both halves of a card statement over `start` to `end`, in one create: the
+        half on `account_id` and its twin on `twin_account_id`; their ids, in that order."""
+        body = reconciliation_body(account_id, start, end, twin=twin_account_id)
+        self.reconciliations.extend((body["id"], body["twin"]["id"]))
+        self.client.post("/reconciliations", json_body=body)
+        return body["id"], body["twin"]["id"]
 
     def noon(self, day: str) -> str:
         y, m, d = (int(part) for part in day.split("-"))
@@ -293,22 +318,31 @@ class Scratch:
             self.client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon})
         return made["bank_line_id"]
 
+    def _quietly(self, call, path: str) -> dict | None:
+        try:
+            return call(path)
+        except EngineError:
+            return None
+
     def cleanup(self) -> None:
-        steps = [
-            *(("POST", f"/accounts/{a}/unarchive") for a in self.accounts),
-            *(("POST", f"/reconciliations/{r}/revert") for r in self.reconciliations),
-            *(("DELETE", f"/reconciliations/{r}") for r in self.reconciliations),
-            *(("DELETE", f"/transactions/{t}") for t in self.transactions),
-            *(("DELETE", f"/accounts/{a}") for a in self.accounts),
-        ]
-        for method, path in steps:
-            try:
-                if method == "POST":
-                    self.client.post(path)
-                else:
-                    self.client.delete(path)
-            except EngineError:
-                pass
+        """A revert and a delete each act on a whole statement, both halves of a card
+        from either one (contract: DELETE /v1/reconciliations/{reconciliation_id}), so
+        a half the delete of its twin took is not sent again."""
+        for account in self.accounts:
+            self._quietly(self.client.post, f"/accounts/{account}/unarchive")
+        for recon in self.reconciliations:
+            self._quietly(self.client.post, f"/reconciliations/{recon}/revert")
+        gone: set[str] = set()
+        for recon in self.reconciliations:
+            if recon in gone:
+                continue
+            answer = self._quietly(self.client.delete, f"/reconciliations/{recon}")
+            if answer is not None and answer.get("twin") is not None:
+                gone.add(answer["twin"]["id"])
+        for tx in self.transactions:
+            self._quietly(self.client.delete, f"/transactions/{tx}")
+        for account in self.accounts:
+            self._quietly(self.client.delete, f"/accounts/{account}")
 
 
 @pytest.fixture

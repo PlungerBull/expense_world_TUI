@@ -20,8 +20,9 @@ what it refuses. Pinned here:
   · one statement per code per month: a reconciliation under a code ending in a month
     another one under the code already ends in, and not its twin over exactly the same
     days, is `422` `STATEMENT_MONTH_TAKEN` on `date_end` from the create and the
-    update, and on `statement_code` from the account's `PUT` that would make such a
-    pair; clearing a code never clashes, and a deleted reconciliation does not count.
+    update (a card moved as one, `twin.date_end` naming its other half), and on
+    `statement_code` from the account's `PUT` that would make such a pair; clearing a
+    code never clashes, and a deleted reconciliation does not count.
 
 Each test builds its own accounts under codes no account of the practice user holds, and
 undoes everything (conftest.py `scratch`). Gating, target and the real-ledger guard:
@@ -34,7 +35,9 @@ from expense.errors import EngineError
 from tests.contract.conftest import (
     account_body,
     assert_refusal,
+    assert_refusals,
     free_statement_codes,
+    reconciliation_body,
     refused,
 )
 
@@ -209,7 +212,8 @@ def test_one_statement_per_code_per_month_on_reconciliation_writes(client, scrat
     (`STATEMENT_MONTH_TAKEN`), nothing written
     (contract: "Bank Accounts", "One statement per code per month"), from the create
     (contract: POST /v1/reconciliations, "One statement per code per month") and the
-    update, which also refuses moving one half of a card off its twin's days
+    update, which moves a card statement as one, both halves judged and each named,
+    `twin.date_end` for the other half, and never against each other
     (contract: PUT /v1/reconciliations/{reconciliation_id}, "One statement per code per month")."""
     (code,) = free_statement_codes(client, 1)
     soles = scratch.account("PEN", code)
@@ -220,16 +224,8 @@ def test_one_statement_per_code_per_month_on_reconciliation_writes(client, scrat
         (soles, "2026-03-26", "2026-03-31"),  # the same account, the same month
         (dollars, "2026-03-01", "2026-03-25"),  # the other account, other days
     ):
-        new_id = str(uuid4())
-        scratch.reconciliations.append(new_id)
-        body = {
-            "id": new_id,
-            "account_id": account,
-            "name": f"contract-stmt-recon-{new_id[:8]}",
-            "date_start": start,
-            "date_end": end,
-            "beginning_balance_cents": 0,
-        }
+        body = reconciliation_body(account, start, end)
+        scratch.reconciliations.append(body["id"])
         err = refused(lambda body=body: client.post("/reconciliations", json_body=body))
         assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
     assert _recon_ids(client, soles) == [half]
@@ -239,18 +235,36 @@ def test_one_statement_per_code_per_month_on_reconciliation_writes(client, scrat
     assert _recon_ids(client, dollars) == [twin]
 
     april = scratch.reconciliation(soles, "2026-03-26", "2026-04-25")
-    for recon, change in (
-        (april, {"date_end": "2026-03-31"}),
-        (twin, {"date_start": "2026-02-27"}),
+    taken = "STATEMENT_MONTH_TAKEN"
+    for recon, change, reasons in (
+        (april, {"date_end": "2026-03-31"}, {"date_end": taken}),
+        # The card moved into April, which `april` holds under the code: both halves.
+        (
+            twin,
+            {"date_start": "2026-04-26", "date_end": "2026-04-30"},
+            {"date_end": taken, "twin.date_end": taken},
+        ),
     ):
-        before = client.get(f"/reconciliations/{recon}")
+        before = [client.get(f"/reconciliations/{r}") for r in (half, twin, april)]
         err = refused(
             lambda recon=recon, change=change: client.put(
                 f"/reconciliations/{recon}", json_body=change
             )
         )
-        assert_refusal(err, 422, "VALIDATION_ERROR", "date_end", "STATEMENT_MONTH_TAKEN")
-        assert client.get(f"/reconciliations/{recon}") == before
+        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+        assert [client.get(f"/reconciliations/{r}") for r in (half, twin, april)] == before
+
+    # Moved as one into a month no other statement holds, from either half.
+    for recon, other, days in (
+        (twin, half, ("2026-04-26", "2026-05-25")),
+        (half, twin, ("2026-05-26", "2026-06-25")),
+    ):
+        moved = client.put(
+            f"/reconciliations/{recon}", json_body={"date_start": days[0], "date_end": days[1]}
+        )
+        assert moved["twin"]["id"] == other
+        for read in (moved, moved["twin"]):
+            assert (read["date_start"], read["date_end"]) == days
 
 
 def test_one_statement_per_code_per_month_on_the_accounts_code(client, scratch):
