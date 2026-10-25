@@ -28,13 +28,14 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for the hand-off to 58d18ab42f4c09a2
-Asked 2026-10-24 · Blocks: the catch-up to `58d18ab42f4c09a2` (the new `PUT /bank-lines/{id}`)
+### Ask the engine coders for the hand-off to 76ea2d3a139c816e
+Asked 2026-10-24 · Blocks: the catch-up to `76ea2d3a139c816e` (`PUT /bank-lines/{id}` with `parts`, and the split's removal)
 
-The engine shipped "One write edits a whole bank line" as contract `58d18ab42f4c09a2`. Ask them
-for one hand-off file from `70476c8797566383` to `58d18ab42f4c09a2` and copy it into
-[from-engine/](from-engine/). Only you can carry it. The current spec goes on meanwhile, as you
-chose on 2026-10-24.
+The engine shipped "One write edits a whole bank line" as contracts `58d18ab42f4c09a2`,
+`dcda6e2de2883f1a` and `76ea2d3a139c816e`; the last removes `POST /transactions/{id}/split`, so
+the app's Split screen gets `404` until the catch-up. Ask them for one hand-off file from
+`70476c8797566383` to `76ea2d3a139c816e` and copy it into [from-engine/](from-engine/). Only you
+can carry it. The current spec goes on meanwhile, as you chose on 2026-10-24.
 
 ### Hand the engine two corrected asks on card statements
 Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
@@ -151,8 +152,11 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Statement lines come from reconciliations** (the catch-up to contract
   `70476c8797566383`): the current spec, approved 2026-10-24
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
-- **Catch up to contract `58d18ab42f4c09a2`**: the new `PUT /bank-lines/{id}`, which answers
-  the engine ask "One write edits a whole bank line". It becomes its own catch-up spec once the engine's hand-off lands, after the current spec.
+- **Catch up to contract `76ea2d3a139c816e`**: `PUT /bank-lines/{id}` with `parts`, which
+  answers the engine ask "One write edits a whole bank line", and the removal of
+  `POST /transactions/{id}/split`: the Split screen and the live tests that split get `404` until
+  then. It becomes its own catch-up spec once the engine's hand-off lands, right after the
+  current spec.
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
