@@ -47,7 +47,7 @@ from expense.bank_import.parse import (
 )
 from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, import_part, line_code_of
+from tests.unit.helpers import ORDERED_ALONE, error_response, import_part, line_code_of
 
 CARD_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]
 ACCOUNT_HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
@@ -451,8 +451,15 @@ def _stopped(*blocked_by: str | None) -> list[Placed]:
 
 
 #: Two completed reconciliations, as `GET /reconciliations/{id}` answers them.
-SEP = {"id": "r-sep", "account_id": "sig-pen", "name": "Septiembre 2026", "status": 2}
-OCT = {"id": "r-oct", "account_id": "sig-usd", "name": "Octubre 2026", "status": 2}
+#: Different months, so neither is the other's twin.
+SEP = {
+    "id": "r-sep",
+    "account_id": "sig-pen",
+    "name": "Septiembre 2026",
+    "status": 2,
+    **ORDERED_ALONE,
+}
+OCT = {"id": "r-oct", "account_id": "sig-usd", "name": "Octubre 2026", "status": 2, **ORDERED_ALONE}
 
 
 def test_the_distinct_stopping_reconciliations_in_the_rows_order():

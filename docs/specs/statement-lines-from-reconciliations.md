@@ -142,12 +142,10 @@ it differs from what was asked:
 
 ## Tasks
 
-Tasks 6 to 8 approved by the owner on 2026-10-24; tasks 9 to 13 approved 2026-10-25. They run in this order: 9, 10, 11, 12, then 6, 7, 8, 13. Tasks 6, 7, 8 and
-13 are **[UI]**, each picked from its mockup in [mockups/](../mockups/).
+Tasks 6 to 8 approved by the owner on 2026-10-24; tasks 9 to 13 approved 2026-10-25. They run
+in this order: 10, 11, 12, then 6, 7, 8, 13. Tasks 6, 7, 8 and 13 are **[UI]**, each picked from
+its mockup in [mockups/](../mockups/).
 
-9. **Test data carries the contract's new fields.** Unit fixtures give every reconciliation
-   `twin_id`, `unplaced_count` and `shared_place_count`, and every reconciliation write's answer
-   `twin`; the drift check stays clean.
 10. **The Split screen saves with one `PUT /bank-lines/{bank_line_id}`**, keeping each existing
     part's id, and nothing in the app calls `POST /transactions/{id}/split`. What the owner sees
     stays as today, so no mockup; each refusal it handles keeps its unit test, and
@@ -224,3 +222,8 @@ Not built in this spec; drafted into a new spec when it is done.
   `line_code`.
 - **[test_cmd_import.py](../../tests/unit/test_cmd_import.py) copies one account record about 25
   times**; one small builder would do.
+- **The complete answer's unit fixtures lack `coverage_gap`**, which the contract requires on
+  that answer (contract: POST /v1/reconciliations/{reconciliation_id}/complete); the drift check
+  catches only fields the engine does not serve, never a required one a fixture leaves out.
+- **`FakeClient` answers every write with a bare `{}`**, so the reconciliation create, revert,
+  delete and some completes in the unit tests get no `twin`; nothing reads those answers today.

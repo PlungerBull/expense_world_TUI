@@ -26,6 +26,7 @@ from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import GROW_STEP, CursorList, page_indicator
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 from tests.unit.helpers import (
+    NO_STATEMENT,
     bank_line_row,
     cursor_page,
     fake_ledger,
@@ -723,6 +724,7 @@ def test_the_reconciliation_checklist_fits_its_container(fake_client, monkeypatc
         "account_id": "acc1",
         "name": "August 2026",
         "status": 1,
+        **NO_STATEMENT,
         "date_start": "2026-07-24",
         "date_end": "2026-08-25",
         "beginning_balance_cents": 1248000,

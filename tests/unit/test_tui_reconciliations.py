@@ -16,6 +16,7 @@ from tests.unit.helpers import (
     ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    NO_STATEMENT,
     archived_refusal,
     archived_words,
     bank_line_row,
@@ -42,6 +43,7 @@ ITEMS = [
         "ending_balance_cents": 958000,
         "difference_cents": 0,
         "status": 2,
+        **NO_STATEMENT,
     },
     {
         "id": "r2",
@@ -53,6 +55,7 @@ ITEMS = [
         "ending_balance_cents": None,
         "difference_cents": -3500,
         "status": 1,
+        **NO_STATEMENT,
     },
 ]
 
@@ -409,6 +412,7 @@ def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
             "account_id": "acc1",
             "name": "March",
             "status": 1,
+            **NO_STATEMENT,
             "date_start": "2026-03-01",
             "date_end": "2026-03-31",
         },
@@ -417,6 +421,7 @@ def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
             "account_id": "acc1",
             "name": "April",
             "status": 1,
+            **NO_STATEMENT,
             "date_start": "2026-04-01",
             "date_end": "2026-04-30",
         },
@@ -425,6 +430,7 @@ def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
             "account_id": "acc1",
             "name": "February",
             "status": 1,
+            **NO_STATEMENT,
             "date_start": "2026-02-01",
             "date_end": "2026-02-28",
         },
@@ -536,6 +542,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
             "date_start": "2026-03-01",
             "date_end": "2026-03-31",
             "status": 2,
+            **NO_STATEMENT,
         },
         {
             "id": "b2",
@@ -544,6 +551,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
             "date_start": "2026-04-01",
             "date_end": "2026-04-30",
             "status": 2,
+            **NO_STATEMENT,
         },
     ]
     reads = _patch_browse(monkeypatch, items=two)
@@ -590,6 +598,7 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
                 "date_start": "2026-05-01",
                 "date_end": "2026-05-31",
                 "status": 1,
+                **NO_STATEMENT,
             }
         )
         form.dismiss("new-1")  # what `_done` hands back after the POST

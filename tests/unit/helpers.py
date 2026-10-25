@@ -301,6 +301,25 @@ def put_answer(named: dict, changed: list[dict], *, left: tuple[str, ...] = ()) 
     }
 
 
+#: The three fields every reconciliation carries, on every read and every write's
+#: answer: its statement's other half and how far the statement is from ordered
+#: (contract: "Reconciliations", "Every reconciliation says its statement's other half
+#: and whether the statement is ordered").
+#: On an account without a statement code all three are null: `NO_STATEMENT`.
+NO_STATEMENT = {"twin_id": None, "unplaced_count": None, "shared_place_count": None}
+#: On an account with a statement code and no twin, its statement ordered: no line
+#: without a place, no place held twice.
+ORDERED_ALONE = {"twin_id": None, "unplaced_count": 0, "shared_place_count": 0}
+
+
+def reconciliation_answer(record: dict, twin: dict | None = None) -> dict:
+    """A reconciliation write's answer: the half the path names, after the write, plus
+    `twin`, the statement's other half, `None` when it has none
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")
+    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response")."""
+    return {**record, "twin": twin}
+
+
 #: `GET /accounts?include_people=true` in an order no client could derive:
 #: not alphabetical (Z, A, M), not `sort_order` (3, 1, 2), and the person last,
 #: the way the engine lists people after every real account (contract: GET

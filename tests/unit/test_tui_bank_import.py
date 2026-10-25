@@ -34,6 +34,7 @@ from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    NO_STATEMENT,
     import_part,
     line_code_of,
     render_text,
@@ -887,8 +888,8 @@ EVERY_REASON_COUNTS = {
 
 
 RECONCILIATIONS = {
-    "r-aug": {"id": "r-aug", "name": "Agosto 2026"},
-    "r-sep": {"id": "r-sep", "name": "Septiembre 2026"},
+    "r-aug": {"id": "r-aug", "name": "Agosto 2026", **NO_STATEMENT},
+    "r-sep": {"id": "r-sep", "name": "Septiembre 2026", **NO_STATEMENT},
 }
 
 

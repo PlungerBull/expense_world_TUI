@@ -22,12 +22,14 @@ from tests.unit.helpers import (
     ARCHIVED_PUT_WORDS,
     ARCHIVED_RECONCILIATION_PUT_WORDS,
     ENGINE_URL,
+    NO_STATEMENT,
     archived_refusal,
     archived_words,
     bank_line_row,
     cursor_page,
     import_part,
     put_answer,
+    reconciliation_answer,
     refusal_text,
     render_text,
     run_app,
@@ -179,6 +181,7 @@ DRAFT = {
     "ending_balance_cents": 946000,
     "difference_cents": -3500,
     "status": 1,
+    **NO_STATEMENT,
 }
 
 
@@ -1092,11 +1095,9 @@ GAP = (
 
 
 def _complete_with_warnings(fake_client, warnings: list[str]) -> None:
-    fake_client.write_responses["/reconciliations/r1/complete"] = {
-        **DRAFT,
-        "status": 2,
-        "warnings": warnings,
-    }
+    fake_client.write_responses["/reconciliations/r1/complete"] = reconciliation_answer(
+        {**DRAFT, "status": 2, "warnings": warnings}
+    )
 
 
 def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
@@ -1421,8 +1422,10 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
     engine's saved end and diff, then "Complete reconciliation?" and only `y`
     completes."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = dict(SAVED)
-    fake_client.write_responses[COMPLETE_PATH] = {**SAVED, "status": 2, "warnings": []}
+    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
+    fake_client.write_responses[COMPLETE_PATH] = reconciliation_answer(
+        {**SAVED, "status": 2, "warnings": []}
+    )
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1449,7 +1452,9 @@ def test_the_sign_is_the_one_typed(fake_client, monkeypatch):
     """The amount is taken exactly as typed: a negative stays negative, a bare
     figure stays positive — never added or flipped."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = {**SAVED, "ending_balance_cents": -12050}
+    fake_client.write_responses[PUT_PATH] = reconciliation_answer(
+        {**SAVED, "ending_balance_cents": -12050}
+    )
 
     async def scenario(pilot, app):
         await _open_box(pilot, app)
@@ -1466,7 +1471,7 @@ def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answe
     """A2: say no and the reconciliation stays a draft with its balance saved;
     the next `c` goes straight to the question, no box."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = dict(SAVED)
+    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
 
     async def scenario(pilot, app):
         screen = await _open_box(pilot, app)
@@ -1600,7 +1605,7 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
     balance is saved, then the engine's words; the header keeps the saved end,
     and the next `c` goes straight to the question."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = dict(SAVED)
+    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
     words = "1 transaction in the period is in no batch."
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
