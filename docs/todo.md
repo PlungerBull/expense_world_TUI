@@ -28,28 +28,13 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine's contract moved to 58d18ab42f4c09a2
-Asked 2026-10-24 · Blocks: every task of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+### Ask the engine coders for the hand-off to 58d18ab42f4c09a2
+Asked 2026-10-24 · Blocks: the catch-up to `58d18ab42f4c09a2` (the new `PUT /bank-lines/{id}`)
 
-This client last caught up to `70476c8797566383`. The version check now reads the engine at
-`58d18ab42f4c09a2` and prints:
-
-```
-58d18ab42f4c09a2  2026-10-24
-  added: `PUT /bank-lines/{id}`, which changes a bank line's `title`, `date`, `account_id`, `operation_code` and `reconciliation_id` on every live part in one write, each optional, taken exactly as `PUT /transactions/{id}` takes it (an explicit `null` only on `title`, `operation_code` and `reconciliation_id`, else `NOT_NULL`). Any other field is `422` (`UNKNOWN_FIELD`), a part's own fields, `parts`, `statement_line` and `statement_place` included. […] a line leaving its reconciliation loses its `statement_place`. Answers `200` with the line as `GET /bank-lines/{id}` returns it after the write, plus `changed_parts` […] and `created_part_ids` and `deleted_part_ids`, both `[]`. […]
-  changed: wording only, *Aggregate exceptions* → *Bank lines* names `PUT /bank-lines/{id}` among the writes that change a line's operation code, account and statement place.
-```
-
-It is a new route, the first part of the engine ask "One write edits a whole bank line"; nothing
-this client already sends changed. Ask the engine coders for one hand-off file from
-`70476c8797566383` to `58d18ab42f4c09a2`.
-- **A.** Go on with the current spec now; the new route becomes its own catch-up spec once their
-  hand-off lands.
-- **B.** Fold the new route into the current spec.
-- **C.** Wait for their hand-off before any task runs.
-
-**Recommended:** A, because the change only adds a route, so the current spec's work is
-unaffected, and the route belongs with the split Edit form it was asked for.
+The engine shipped "One write edits a whole bank line" as contract `58d18ab42f4c09a2`. Ask them
+for one hand-off file from `70476c8797566383` to `58d18ab42f4c09a2` and copy it into
+[from-engine/](from-engine/). Only you can carry it. The current spec goes on meanwhile, as you
+chose on 2026-10-24.
 
 ### Hand the engine two corrected asks on card statements
 Asked 2026-10-24 · Blocks: task 7 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
@@ -111,6 +96,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Statement lines come from reconciliations** (the catch-up to contract
   `70476c8797566383`): the current spec, approved 2026-10-24
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
+- **Catch up to contract `58d18ab42f4c09a2`**: the new `PUT /bank-lines/{id}`, which answers
+  the engine ask "One write edits a whole bank line". It becomes its own catch-up spec once the engine's hand-off lands, after the current spec.
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
