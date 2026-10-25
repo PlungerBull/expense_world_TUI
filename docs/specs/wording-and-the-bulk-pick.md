@@ -50,9 +50,10 @@ a style of its own, and its pick is a pop-up though it carries rows.
 Approved by the owner on 2026-10-24. One task per item above, in order.
 
 Every task is done. The tester's acceptance check on 2026-10-24 passed checks 1–6 above in the
-app against the practice engine and in unit tests, but the engine's contract version moved
-(todo.md "Hand the engine a reply and ask for the next hand-off"); the check runs again once the
-owner answers, then the librarian's sweep.
+app against the practice engine and in unit tests. The engine's contract moved to
+`206db22a65774501`; the owner chose on 2026-10-24 to record it and leave the catch-up, with the 7
+live tests that fail against it, to the next spec (todo.md backlog). The check runs again, then
+the librarian's sweep.
 
 ## Found along the way
 

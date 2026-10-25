@@ -28,49 +28,22 @@ Asked <date> · Blocks: <task or spec>
 ```
 
 ### Hand the engine a reply and ask for the next hand-off
-Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to the engine's current version,
-and closing [specs/wording-and-the-bulk-pick.md](specs/wording-and-the-bulk-pick.md)
+Asked 2026-10-24 · Blocks: the catch-up from `f5cbc6ab4841f0a7` to `206db22a65774501`
 
-This client last caught up to contract `f5cbc6ab4841f0a7`. On 2026-10-24 the version check found
-the engine moved again, from `a1859d71873b8807` (recorded) to `206db22a65774501`; it printed:
-
-```
-  206db22a65774501  2026-10-24
-    changed: `statement_line` is built by the engine on every read, never stored: `<CODE>-<YYYYMM>-<NNN>`, from the statement code of the line's account, the year and month of the `date_end` of the completed reconciliation the line is in, and the line's `statement_place`, three digits, zero-padded (`SIG-202603-029`). It is `null` unless that reconciliation is completed, the line holds a place and its account has a statement code: a line in a draft reads `null`, and with a card's soles half completed and its dollars half still a draft, only the soles lines show codes. Every part of a line reads the same one, the parts of a split inside a completed reconciliation included. Changing the account's statement code changes every code its lines show; a revert makes them `null`, and completing again brings the same codes back. It is on every transaction response, every bank line (`GET /bank-lines`, `GET /bank-lines/{id}`, `GET`/`PUT /reconciliations/{id}/statement-order`), `PUT /transactions/{id}`'s `changed_parts` and the activity snapshots, as built when the entry is written. Every statement line stored before is gone. Stated in *Bank lines*, `GET /bank-lines/{id}`, *Bank Accounts* → *Statement code*, *A statement's order* and `POST /reconciliations/{id}/revert`.
-    added: `POST /reconciliations/{id}/complete` on an account with a statement code is refused until its statement is fully ordered: every live bank line assigned to the reconciliation, and to its other half for a card, opening balances excepted, holds a place, and no two of them hold the same one. Otherwise `422` on `statement_order` with the new reason `STATEMENT_NOT_ORDERED`, the message counting the lines with no place and naming the places held twice, and nothing is written. It is checked last, after `UNASSIGNED_IN_PERIOD`; an already completed reconciliation is still a silent no-op, and an account without a statement code completes as before. It holds against a statement order, an assignment or a new half sent at the same moment. Stated in `POST /reconciliations/{id}/complete` and *A statement's order*.
-    added: `PUT /accounts/{id}` setting or changing `statement_code` is refused when it would make one of the account's live reconciliations the twin (the other live account holding the code, exactly the same days) of one while either of the two is completed: `422` on `statement_code` with the new reason `COMPLETED_STATEMENT_JOINED`, naming both and which is completed, and nothing is written. Checked last, after `STATEMENT_MONTH_TAKEN`, on an archived account too, and against a complete or a reconciliation write sent at the same moment. Revert the completed reconciliation first. Two drafts may still join, sending the code the account already holds is no change, and clearing a code never joins anything. So no two live lines read the same `statement_line`. Stated in *Bank Accounts* → *Statement code*, `PUT /accounts/{id}` and *Bank lines*.
-    changed: wording only, *Aggregate exceptions* (*Reconciliation side-effects*, *Bank lines*).
-  00c19334d476f25f  2026-10-24
-    added: `PUT /reconciliations/{id}/statement-order`, which sets a statement's order: body `{"places": [<bank line id> | null, ...]}`, the statement's bank lines top to bottom, `null` an empty slot for a line the bank's statement has and the ledger does not; for a card, both halves in one list, sent from either half. Each listed line's place is its position from 1. 1 to 999 entries, else `422` on `places` (`OUT_OF_RANGE`). Refused with nothing written, in this order: `404`; either half's account archived (`409` on `reconciliation_id`, `ACCOUNT_ARCHIVED`); an account without a statement code (`409` on `reconciliation_id`, new reason `NO_STATEMENT_CODE`); the statement's halves changing meanwhile (`409`, `CONCURRENT_CHANGE`); either half completed (`409` on `reconciliation_id`, `RECONCILIATION_NOT_DRAFT`); then every problem with the list in one `422`: a list ending in an empty slot (`places.<i>`, new reason `TRAILING_EMPTY_SLOT`), a line listed again (each later `places.<i>`, `DUPLICATE_IN_REQUEST`), an id naming no live line of the statement (`places.<i>`, new reason `LINE_NOT_IN_STATEMENT`), an opening balance (`places.<i>`, new reason `OPENING_BALANCE_NOT_PLACED`) and lines of the statement left out (`places`, new reason `STATEMENT_LINES_MISSING`, naming them). Each part of a line whose place changes gets an `UPDATED` entry and a `version` bump. Answers `200` with the statement as the read below returns it. Stated in *Reconciliations* → *A statement's order* and the route's section.
-    added: `GET /reconciliations/{id}/statement-order`, the statement top to bottom from either half: `reconciliation_ids` (the statement's reconciliations, in their accounts' order), `places` (one `{"place", "bank_line"}` per place from 1 to the highest held, `bank_line` as `GET /bank-lines/{id}` returns it or `null` for an empty slot) and `unplaced` (its lines holding no place, opening balances among them, in `GET /bank-lines` order). On an account without a statement code it is `409` (`NO_STATEMENT_CODE`).
-    added: `statement_place` on every transaction response (after `statement_line`, in `PUT /transactions/{id}`'s `changed_parts` and the activity snapshots too) and every bank line (`GET /bank-lines`, `GET /bank-lines/{id}`): the line's place in its bank statement, 1 to 999, `null` when it has none; every part of a line reads the same one. Every line reads `null` until a statement's order is sent. No other request takes it (`422`, `UNKNOWN_FIELD`).
-    changed: a line's place stays only while it stays in its reconciliation. `PUT /transactions/{id}` taking a line out of its reconciliation (unassigning it, or assigning it to another) sets its `statement_place` to `null` in the same write; `DELETE /reconciliations/{id}` clears its lines' places too, and may now also be `409` (`CONCURRENT_CHANGE`) when a statement-order write places a line in it at the same moment. A revert and a split keep places. Stated in *Reconciliations* → *Assigning transactions*, `POST /reconciliations/{id}/revert` and `DELETE /reconciliations/{id}`.
-    changed: wording only, `RECONCILIATION_NOT_DRAFT` covers the statement order; *Bank lines*, *Aggregate exceptions* (*Reconciliation side-effects*, *Bank lines*), `POST /transactions/{id}/split` and `POST /transactions/import` name the statement place.
-```
-
-Against it, 7 live tests fail: the 6 in `test_line_codes_and_statement_lines.py` that send
-`statement_line`, and `test_bank_lines.py::test_a_bank_line_reads_its_figures`, whose bank line
-now carries `statement_place`.
-
-Only you can carry these to the engine coders:
+This client last caught up to contract `f5cbc6ab4841f0a7`; the engine is at
+`206db22a65774501`, recorded on 2026-10-24 so the wording spec could close. Only you can carry
+these to the engine coders:
 1. The reply [caught-up-f5cbc6ab4841f0a7.md](to-engine/caught-up-f5cbc6ab4841f0a7.md), copied as
    is into the engine repo's `docs/from-tui/`.
 2. The message asking for one hand-off file covering contract `f5cbc6ab4841f0a7` to
    `206db22a65774501`: no write takes `statement_line`, accounts gain a three-letter
-   `statement_code`, one statement code takes one reconciliation per month, and (above) the
-   engine now builds `statement_line` from a statement's order. The reply says the sheet import
-   sets no statement lines, which answers the question in their
-   `statement-line-from-reconciliation` about the lines it set.
+   `statement_code`, one statement code takes one reconciliation per month, and the engine
+   builds `statement_line` from a statement's order (`statement_place`,
+   `GET`/`PUT /reconciliations/{id}/statement-order`). The reply says the sheet import sets no
+   statement lines, which answers the question in their `statement-line-from-reconciliation`
+   about the lines it set.
 
-When the file lands in [from-engine/](from-engine/), it becomes the catch-up spec. One choice is
-yours now:
-- **A.** Catching up to `206db22a65774501` is the next spec once the hand-off lands, and the 7
-  failing live tests wait for it; the orchestrator records the new version now, so the wording
-  spec's check can pass and it closes.
-- **B.** Hold every new spec until the hand-off lands.
-
-**Recommended:** A, because the wording spec's work passed every one of its own checks and does
-not touch statement lines; only the version check stands between it and done.
+When the file lands in [from-engine/](from-engine/), it becomes the next spec.
 
 ### Hand the engine the ask on editing a whole line
 Asked 2026-10-24 · Blocks: saving the split transaction's Edit form in one go
@@ -130,8 +103,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   ([test_line_codes_and_statement_lines.py](../tests/contract/test_line_codes_and_statement_lines.py),
   [test_bank_lines.py](../tests/contract/test_bank_lines.py)), and the shared batch writer's
   row refusals in [runtime.md](runtime.md) "Bulk writes" still list a taken statement line;
-  accounts gain `statement_code`, one reconciliation per code per month. Waits on the hand-off
-  file ("Hand the engine a reply and ask for the next hand-off" above).
+  accounts gain `statement_code`, one reconciliation per code per month; the engine builds
+  `statement_line` from a statement's order, so `test_bank_lines.py::test_a_bank_line_reads_its_figures`
+  fails on the new `statement_place` too (7 live tests in all, against `206db22a65774501`). The
+  next spec once the hand-off file lands ("Hand the engine a reply and ask for the next
+  hand-off" above).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
@@ -270,8 +246,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Notes and hints that say what is true, and the bulk pick as a screen**: its tasks are done
-  and its own checks pass; it waits on the moved contract version ("Waiting on you")
+- **Notes and hints that say what is true, and the bulk pick as a screen**: its tasks are done;
+  closing it: the acceptance check again, then the librarian's sweep
   ([specs/wording-and-the-bulk-pick.md](specs/wording-and-the-bulk-pick.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
   [specs/before-the-official-import.md](specs/before-the-official-import.md).
