@@ -68,7 +68,7 @@
 
 <div class="head">
   <h1>A card's reconciliation as one statement</h1>
-  <p>A card is two accounts, <b>Signature PEN</b> and <b>Signature USD</b>, sharing the statement code <code>SIG</code>. Its monthly statement is two reconciliations, one per currency, over exactly the same days: the statement's two <b>halves</b>. Every line of both halves gets a place on the paper statement (the statement-order screen, drawn in <code>expense-world-statement-order.html</code>). The engine numbers each line from that place when the statement is completed; no screen shows that number.</p>
+  <p>A card is two accounts, <b>Signature PEN</b> and <b>Signature USD</b>, sharing the statement code <code>SIG</code>. Its monthly statement is two reconciliations, one per currency, over exactly the same days: the statement's two <b>halves</b>. Every line of both halves gets a place on the paper statement (put in order on the statement's screen, drawn in <code>expense-world-statement-screen.html</code>). The engine numbers each line from that place when the statement is completed; no screen shows that number.</p>
   <p>These screens show a card's statement as one statement: listed together, created together, opened together, completed and reverted together. They assume two changes the engine coders already have: <b>a reconciliation names its other half and whether the statement is in order</b> (the app reads that instead of working it out), and <b>completing or reverting either half does both halves in one write</b>. An account with no statement code, such as Sueldo Soles, keeps today's screens unchanged.</p>
   <p>The accounts, lines and amounts are invented. Card balances are signed as the paper shows them: negative is what you owe. The engine's words are its real ones; words the app adds are listed under <b>Pick</b> as new.</p>
 </div>
@@ -362,7 +362,7 @@
 
 <div class="pane">
 <div class="lbl">4c · A half joined to a completed one <span>— Septiembre 2026: the soles half completed before the dollar half was made</span></div>
-<p class="blurb">The engine accepts a dollar half created over the days of a completed soles half. Its lines have no place, and no order can be sent while either half is completed, so the way out is: <code>u</code> reverts the soles half (the dollar half is already a draft), <code>o</code> puts both halves in order, <code>c</code> completes both. The completed half's lines show without tick boxes. The engine's words name only what is wrong, so here they leave out shared places, since none is shared.</p>
+<p class="blurb">The engine accepts a dollar half created over the days of a completed soles half. Its lines have no place, and no order can be sent while either half is completed, so the way out is: <code>u</code> reverts the soles half (the dollar half is already a draft), <code>shift+↑↓</code> and <code>ctrl+s</code> put both halves in order, <code>c</code> completes both. The completed half's lines show without tick boxes. A is drawn in the statement's screen of <code>expense-world-statement-screen.html</code>: one list, the soles lines in their saved places, then the dollar lines with no place yet, marked <code>new</code>. The engine's words name only what is wrong, so here they leave out shared places, since none is shared.</p>
 <div class="opt wide">
 <div class="var"><div class="oh">A · <span>the way out, always on the header</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Septiembre 2026</span>
 
@@ -370,19 +370,22 @@
   <span class="b">Septiembre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-08-26 → 2026-09-25</span>
   PEN  <span class="d">  begin </span>  -968.25<span class="d">    end </span>-1,240.50<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="p">completed</span>
   USD  <span class="d">  begin </span>   -71.35<span class="d">    end </span>   -60.12<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
-  <span class="d">order</span>  <span class="w">3 lines without a place</span><span class="d">   · o to put it in order</span>
+  <span class="d">order</span>  <span class="w">3 lines without a place</span>
   <span class="w">! The PEN half is completed and the USD half is not. To complete both:</span>
-  <span class="w">  u reverts the PEN half to draft, o puts both halves in order, c completes both.</span>
+  <span class="w">  u reverts the PEN half to draft, shift+↑↓ and ctrl+s put both halves</span>
+  <span class="w">  in order, c completes both.</span>
 
-         Date         Title                 Operation       Amount
-   <span class="d">────────────────────────────────────────────────────────────────────</span>
-  <span class="b">Signature PEN</span>
-         2026-09-18   TOTTUS JOCKEY         47391026       <span class="n">-150.00</span>
-         2026-09-04   PAGO TARJETA          00729810        <span class="p">968.25</span>
-  <span class="b">Signature USD</span>
-<span class="rev">   [x]   2026-09-20   NETFLIX.COM           47920055        -15.99  </span>
-   <span class="p">[x]</span>   2026-09-12   PAGO TARJETA          00729877         <span class="p">71.35</span>
-<span class="d">   ⋮</span>
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                   -968.25      -71.35
+         2026-09-04   PAGO TARJETA          00729810      <span class="p">      968.25</span>            
+         2026-09-10   SAGA FALABELLA        47358812      <span class="n">   -1,090.50</span>            
+         2026-09-18   TOTTUS JOCKEY         47391026      <span class="n">     -150.00</span>            
+   <span class="p">[x]</span>   2026-09-12   PAGO TARJETA          00729877                  <span class="p">       71.35</span><span class="d">  new</span>
+<span class="rev">   [x]   2026-09-20   NETFLIX.COM           47920055                        -15.99  </span><span class="d">new</span>
+   <span class="p">[x]</span>   2026-09-24   STEAM GAMES           47955230                  <span class="n">      -44.13</span><span class="d">  new</span>
+                      <span class="b">Ending balance        </span>                 -1,240.50      -60.12
+
                                   <span class="n">▌</span> <span class="b">Couldn't complete</span>
                                   <span class="n">▌</span> VALIDATION_ERROR — Cannot complete
                                   <span class="n">▌</span> reconciliation until its statement is
@@ -391,8 +394,7 @@
                                   <span class="n">▌</span> statement have no place. Send the
                                   <span class="n">▌</span> statement's order first (for a card, both
                                   <span class="n">▌</span> halves in one list).
-
- <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">o</span> Order  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The warning sits on the header whenever one half is completed and the other is not, and the refusal shows the engine's words alone. <b>Recommended:</b> you see the way out before trying <code>c</code>.</p></div>
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The warning sits on the header whenever one half is completed and the other is not, and the refusal shows the engine's words alone. <b>Recommended:</b> you see the way out before trying <code>c</code>.</p></div>
 <div class="var"><div class="oh">B · <span>the way out, only after the refusal</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Septiembre 2026</span>
 
 <span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>

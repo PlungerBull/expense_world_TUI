@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>The statement's screen</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>The statement's screen</h1>
+  <p>One screen for a month's statement: you tick the lines in, put them in the paper's order, and complete the statement, all here. It replaces the separate statement-order screen (task 6), and <b>screen 3, the statement's screen</b>, of <code>expense-world-card-statement.html</code> (task 7). There is no separate order screen and no key <code>o</code>. One row per statement in the list (screen 1 A there) and the one form that creates both halves (screen 2 A there) stay as they are and are not drawn again.</p>
+  <p>The screen reads like the paper statement: <b>one list</b>, both currencies mixed, with an amount column for each currency, <code>Amount PEN</code> and <code>Amount USD</code>. <b>The first row is the starting balance</b>, soles in the PEN column and dollars in the USD column. Each line below has an amount in one of the two columns, never both. The lines sit in the paper's order, and you move a line with <code>shift+↑↓</code>, as picked for moving. The engine gives the list already in this order, both halves of the card together: first the lines that have their place, in that order, then the lines with no place yet, oldest first. <code>ctrl+s</code> saves the whole order in one save.</p>
+  <p>Kept as settled: no screen shows the statement line itself (<code>SIG-202610-004</code>) or a place number; a paper line the ledger lacks comes in from the bank's file through the import door, so this screen creates nothing and has no empty slots; a line ticked after the order was saved waits at the end, marked <code>new</code>. The header keeps each half's begin, end, diff and status, and the <code>order</code> line from the engine's counts. <code>c</code> completes both halves, <code>u</code> reverts both, <code>d</code> deletes both, each after its question; <code>space</code> ticks a line in or out of its own half; <code>esc</code> goes back.</p>
+  <p>The card is <b>Signature PEN</b> and <b>Signature USD</b>, statement code <b>SIG</b>, statement <b>Octubre 2026</b>, 2026-09-26 → 2026-10-25, with the same nine invented lines as the card-statement drawings. Picked on 2026-10-25: question 1 A, 2 A, 3 A and 4 A, and panes 1, 6 and 7 as drawn; every screen here is drawn with those answers, except the variants that were not picked. Question 5 is open. Card balances are signed as the paper shows them: negative is what you owe. The engine's words are its real ones. The button at the top right switches to a light terminal.</p>
+</div>
+<div class="pane">
+<div class="lbl">1 · The statement's screen <span>— ⏎ on Octubre 2026 in the list · a draft, opened for the first time</span></div>
+<p class="blurb">The statement has never been put in order, so the eight ticked lines come <b>by date, oldest first</b>, soles and dollars mixed, as the engine suggests. The dim line under the list says so: nothing is saved until <code>ctrl+s</code>. Drawn with the answers picked below. The cursor is on APPLE.COM/BILL, a dollar line of the period not ticked yet: it is the <code>-2.99</code> the dollar half is off by.</p>
+<div class="opt wide">
+<div class="var"><div class="oh"><span>the screen</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="n">-2.99 </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">8 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+   <span class="d">╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
+<span class="rev">   [ ]   2026-10-07   APPLE.COM/BILL        48185520                         -2.99  </span>
+
+  <span class="d">suggested by date · not saved yet · 8 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Check it against the paper top to bottom: the starting balances, each line in the column of its currency, then the ending balances you typed. Soles: -1,240.50 − 100.00 − 96.40 + 1,240.50 − 184.30 = -380.70, the end typed, so its diff is <code>—</code>. Dollars: -60.12 − 5.99 − 28.91 + 60.12 − 15.99 = -50.89, against the -53.88 typed: the -2.99 of APPLE.COM/BILL is missing until it is ticked. The starting and ending rows are not lines: the cursor passes over them and no key acts on them.</p></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">2 · Question 1 · where the lines not ticked yet go <span>— lines of either card account dated inside the statement's days and in no statement</span></div>
+<p class="blurb">Each half's account can have lines dated inside the statement's days that are in no statement yet, such as APPLE.COM/BILL. They are not on the statement until you tick them, so they have no place in its order. <b>The question is where they show.</b> The engine refuses to complete the statement while such a line is not ticked (or deleted), so they cannot be forgotten either way.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>under the statement's lines, oldest first, after a thin line</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="n">-2.99 </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">8 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+   <span class="d">╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</span>
+<span class="rev">   [ ]   2026-10-07   APPLE.COM/BILL        48185520                         -2.99  </span>
+
+  <span class="d">suggested by date · not saved yet · 8 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Everything to check is on one screen, as today: the statement's lines, then a thin dotted line, then the lines not ticked yet, oldest first, each with its <code>[ ]</code>. <code>space</code> on one ticks it in: it joins the statement's lines (by its date while the order has never been saved, at the end marked <code>new</code> once it has). <code>shift+↑↓</code> does nothing on a line not ticked. <b>Picked:</b> nothing is hidden, and it is today's screen.</p></div>
+<div class="var"><div class="oh">B · <span>hidden until a key shows them</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="n">-2.99 </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">8 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+<span class="rev">   [x]   2026-10-21   PLAZA VEA SURCO       48213907           -184.30              </span>
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">suggested by date · not saved yet · 8 lines · 1 line not ticked, a shows it</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">a</span> Show all  <span class="a">?</span> Keys</pre></div></div><p class="cap">Only the statement's lines show; the line under the list counts the ones not ticked. <code>a</code> shows them under the statement's lines, as in A, and <code>a</code> again hides them; the footer then reads <code>a Ticked only</code>. The list is the paper alone, but a line not ticked is out of sight until you ask.</p></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">3 · Question 2 · how a move is saved <span>— drawn with APPLE.COM/BILL ticked, so all nine lines are on the statement</span></div>
+<p class="blurb">On the paper APPLE.COM/BILL is the fifth line, not the third: the bank posted it on the 12th. The same move, two presses of <code>shift+↓</code>, under each way of saving. With APPLE.COM/BILL ticked, the dollar half adds up and its diff is <code>—</code>. <b>The question is when the order is saved.</b></p>
+<div class="opt wide">
+<div class="var"><div class="oh">A1 · <span>ctrl+s saves · before the move</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">9 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+<span class="rev">   [x]   2026-10-07   APPLE.COM/BILL        48185520                         -2.99  </span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">suggested by date · not saved yet · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The suggested order, nothing saved. The cursor is on APPLE.COM/BILL.</p></div>
+<div class="var"><div class="oh">A2 · <span>after shift+↓ twice</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">9 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+<span class="rev">   [x]   2026-10-07   APPLE.COM/BILL        48185520                         -2.99  </span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">changed · not saved yet · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">It moves one row per press and the cursor goes with it; the line under the list says <code>changed · not saved yet</code>. The header's <code>order</code> line is the engine's and still counts nine lines without a place, since nothing is sent yet.</p></div>
+<div class="var"><div class="oh">A3 · <span>after ctrl+s</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+<span class="rev">   [x]   2026-10-02   FARMACIA              48201764           -100.00              </span>
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">saved · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+                                              <span class="a">▌</span> <span class="b">Saved.</span>
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>ctrl+s</code> sends the whole list, both currencies, in one save. The engine answers with the order it now holds; the screen shows it, the header says <code>in order</code>, and the cursor goes to the first line, as on every list after a save.</p></div>
+<div class="var"><div class="oh">A4 · <span>esc with an order not saved</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>
+  <span class="a">──────────────────────────────────────────</span>
+
+    <span class="ab">Leave without saving?</span>
+
+    The order you made here is not saved,
+    and leaving drops it. The order the
+    engine holds stays as it was.
+    <span class="d">[y] confirm    [enter / n / esc] cancel</span>
+
+  <span class="a">──────────────────────────────────────────</span>
+
+ <span class="a">y</span> Yes  <span class="a">n</span> No</pre></div></div><p class="cap">Only <code>y</code> drops it. Nothing asks when what you see is saved. <b>Picked, A:</b> the engine takes the whole order in one save, so you arrange freely and save once, and a half-arranged order is never saved. Ticking stays one save per tick, as today.</p></div>
+<div class="var"><div class="oh">B · <span>every move saved at once · after the first shift+↓</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+<span class="rev">   [x]   2026-10-07   APPLE.COM/BILL        48185520                         -2.99  </span>
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+   <span class="p">[x]</span>   2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">saved · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move, saved at once · c complete both · u revert both · esc back</span>
+
+                                              <span class="a">▌</span> <span class="b">Saved.</span>
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Each press of <code>shift+↑↓</code> sends the whole list and the engine saves it, so there is no <code>ctrl+s</code> and no question on leaving. The first press also saves the date order suggested for every other line. Two presses are two saves, and a slip of the key is saved too.</p></div>
+</div>
+<p class="blurb">With A, a line you tick after moving lines you have not saved yet joins the end of the list, marked <code>new</code>, and what you arranged stays; a line you untick leaves the list and the others keep their order. <code>r</code> with an order not saved asks the same question as <code>esc</code>. When <code>ctrl+s</code> is refused, the screen shows <code>Couldn't save</code>, the engine's words and the app's line under them, as picked for the separate order screen, and what you arranged stays.</p>
+</div>
+<div class="pane">
+<div class="lbl">4 · Question 3 · the bottom of the list <span>— the saved order of 3 A3</span></div>
+<p class="blurb">The list opens with the starting balances. <b>The question is whether it also closes with the ending balances.</b></p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>a closing row with the ending balances</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+<span class="rev">   [x]   2026-10-21   PLAZA VEA SURCO       48213907           -184.30              </span>
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">saved · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap"><code>Ending balance</code> mirrors the starting row: the end typed for each half, -380.70 and -53.88, under the last line, as the paper ends. It is the figure typed, not the lines added up: when a half is off, the closing row still shows the typed figure and the header's diff shows the gap. With question 1 A, the lines not ticked come under it. Moving stops at the last line: no line moves below the closing row.</p></div>
+<div class="var"><div class="oh">B · <span>no closing row</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+   <span class="p">[x]</span>   2026-10-02   FARMACIA              48201764      <span class="n">     -100.00</span>            
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+   <span class="p">[x]</span>   2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+   <span class="p">[x]</span>   2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+   <span class="p">[x]</span>   2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+   <span class="p">[x]</span>   2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+   <span class="p">[x]</span>   2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+<span class="rev">   [x]   2026-10-21   PLAZA VEA SURCO       48213907           -184.30              </span>
+
+  <span class="d">saved · 9 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The list ends with the last line; the ending balances are on the header only, next to each half's diff.</p></div>
+</div>
+<p class="blurb"><b>Picked: A.</b> No recommendation was made: A lets you check the last row against the paper's last row and reads like it; B keeps each ending balance in one place, next to its diff, so a figure typed is never read as a sum. Neither is clearly better.</p>
+</div>
+<div class="pane">
+<div class="lbl">5 · Question 4 · an account with no statement code <span>— Sueldo Soles, Octubre 2026, one currency</span></div>
+<p class="blurb">Sueldo Soles has no statement code: it is one account in one currency, and its statement has no order to save, so it never needs putting in order. <b>The question is whether its screen looks like the card's.</b> All five lines are ticked.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>the same layout, one Amount column</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>9,417.80<span class="d">    end </span>12,450.00<span class="d">    diff </span><span class="d">—</span><span class="d">    status </span><span class="w">draft</span>
+
+         Date         Title                 Operation           Amount
+   <span class="d">───────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                  9,417.80
+<span class="rev">   [x]   2026-10-01   HABERES OCTUBRE       51080045          4,800.00  </span>
+   <span class="p">[x]</span>   2026-10-03   RETIRO CAJERO         51102871      <span class="n">     -300.00</span>
+   <span class="p">[x]</span>   2026-10-14   TRANSF A SIGNATURE    51130977      <span class="n">   -1,240.50</span>
+   <span class="p">[x]</span>   2026-10-22   YAPE MARIA LOPEZ      51190342      <span class="n">      -85.00</span>
+   <span class="p">[x]</span>   2026-10-28   LUZ DEL SUR           51220198      <span class="n">     -142.30</span>
+                      <span class="b">Ending balance        </span>                 12,450.00
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Starting balance first, then the lines <b>oldest first</b>, then the ending balance, one <code>Amount</code> column, no <code>order</code> line and no moving: the engine lists them by date. 9,417.80 + 4,800.00 − 300.00 − 1,240.50 − 85.00 − 142.30 = 12,450.00, the end typed. Every statement reads the same way, top to bottom like its paper.</p></div>
+<div class="var"><div class="oh">B · <span>today's screen, unchanged</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Sueldo Soles<span class="d">  ·  2026-10-01 → 2026-10-31</span>
+<span class="d">  begin </span>9,417.80<span class="d">    end </span>12,450.00<span class="d">    diff </span><span class="d">—</span><span class="d">    status </span><span class="w">draft</span>
+
+         Date         Title                 Operation           Amount
+   <span class="d">───────────────────────────────────────────────────────────────────</span>
+<span class="rev">   [x]   2026-10-28   LUZ DEL SUR           51220198           -142.30  </span>
+   <span class="p">[x]</span>   2026-10-22   YAPE MARIA LOPEZ      51190342      <span class="n">      -85.00</span>
+   <span class="p">[x]</span>   2026-10-14   TRANSF A SIGNATURE    51130977      <span class="n">   -1,240.50</span>
+   <span class="p">[x]</span>   2026-10-03   RETIRO CAJERO         51102871      <span class="n">     -300.00</span>
+   <span class="p">[x]</span>   2026-10-01   HABERES OCTUBRE       51080045      <span class="p">    4,800.00</span>
+
+  <span class="d">space toggle in/out of this batch · c complete · u revert · d delete · r refresh · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Ticked lines first, newest first, then the lines not ticked, and no starting row. The card's screen and this one then read in opposite directions.</p></div>
+</div>
+<p class="blurb"><b>Picked: A</b>, so every statement reads like its paper and you learn one screen. The lines not ticked follow your answer to question 1.</p>
+</div>
+<div class="pane">
+<div class="lbl">6 · A completed card statement <span>— Octubre 2026 after c</span></div>
+
+<div class="opt wide">
+<div class="var"><div class="oh"><span>read-only, in the paper's order</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="p">completed</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="p">completed</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+<span class="rev">         2026-10-02   FARMACIA              48201764           -100.00              </span>
+         2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+         2026-10-09   RAPPI*RESTAURANTE     48190211      <span class="n">      -96.40</span>            
+         2026-10-11   AMAZON MKTPLACE       48207733                  <span class="n">      -28.91</span>
+         2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+         2026-10-14   PAGO TARJETA          00731552      <span class="p">    1,240.50</span>            
+         2026-10-15   PAGO TARJETA          00731569                  <span class="p">       60.12</span>
+         2026-10-19   NETFLIX.COM           48230017                  <span class="n">      -15.99</span>
+         2026-10-21   PLAZA VEA SURCO       48213907      <span class="n">     -184.30</span>            
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+  <span class="d">completed · 9 lines</span>
+  <span class="d">read-only while completed · u reverts both halves · esc back</span>
+
+ <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">The statement's lines alone, in the order saved, with no tick box; no key moves a line. The starting row stays. The ending balances close the list, as picked in question 3. <code>u</code> reverts both halves (only <code>y</code> goes ahead), and the order is kept.</p></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">7 · c while the statement is not in order <span>— Octubre 2026, all nine lines ticked, the order never saved</span></div>
+<p class="blurb">The engine completes neither half until every line of both halves has its own place. Here the order was never saved, so all nine lines have none; the header's <code>order</code> line says so before you press <code>c</code>. All nine lines are ticked: with a line of the period not ticked, the engine refuses first for that, in its own words.</p>
+<div class="opt wide">
+<div class="var"><div class="oh"><span>c sends; the engine's words, then how to fix it here</span><span class="rec">picked</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Signature PEN + Signature USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>-1,240.50<span class="d">    end </span>  -380.70<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>   -60.12<span class="d">    end </span>   -53.88<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="w">9 lines without a place</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                 -1,240.50      -60.12
+<span class="rev">   [x]   2026-10-02   FARMACIA              48201764           -100.00              </span>
+   <span class="p">[x]</span>   2026-10-03   SPOTIFY               48176302                  <span class="n">       -5.99</span>
+   <span class="p">[x]</span>   2026-10-07   APPLE.COM/BILL        48185520                  <span class="n">       -2.99</span>
+   <span class="d">⋮</span>
+                      <span class="b">Ending balance        </span>                   -380.70      -53.88
+
+                                  <span class="n">▌</span> <span class="b">Couldn't complete</span>
+                                  <span class="n">▌</span> VALIDATION_ERROR — Cannot complete
+                                  <span class="n">▌</span> reconciliation until its statement is
+                                  <span class="n">▌</span> fully ordered.
+                                  <span class="n">▌</span>   statement_order: 9 line(s) of the
+                                  <span class="n">▌</span> statement have no place. Send the
+                                  <span class="n">▌</span> statement's order first (for a card, both
+                                  <span class="n">▌</span> halves in one list).
+                                  <span class="n">▌</span> 
+                                  <span class="n">▌</span> Put the lines in the paper's order with
+                                  <span class="n">▌</span> shift+↑↓, then save it with ctrl+s.
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">As every refusal: the engine says no and why, whole; the app's last line says how to fix it on this screen, in place of <code>Press o to put the statement in order.</code> <code>c</code> does not save an order you arranged: the engine judges the order it holds. When two lines hold the same place, the engine's words add the places held twice; they name only what is wrong.</p></div>
+</div>
+</div>
+<div class="pane">
+<div class="lbl">8 · Question 5 · the account's opening balance line <span>— a card's first month in the ledger · drawn with the answers picked to questions 1 to 4</span></div>
+<p class="blurb">An account's <b>opening balance</b> is the ledger line that holds what the account had before you began recording it. It can be ticked into the account's first statement like any line, but it is not a line of the paper, so it <b>never takes a place</b> in the order: the engine always lists it with the lines that have no place, and refuses an order that gives it one. The engine counts it in no <code>order</code> line either. The screen tells it from the other lines by a mark the engine is asked to add to each line, “A bank line says when it is an account's opening balance”. <b>The question is where it shows.</b> Drawn on an invented second card, <b>Oro PEN</b> and <b>Oro USD</b>, code <b>ORO</b>, first recorded in Octubre 2026. The card owed -850.00 and -40.00 when you began, so each half's opening balance is that figure and each statement begins at 0.00: the opening balance stands in for the paper's starting figure. Soles: 0.00 − 850.00 − 132.60 + 850.00 − 48.00 = -180.60. Dollars: 0.00 − 40.00 − 12.99 + 40.00 = -12.99. Both match the ends typed. Typing the paper's starting figure as the begin as well would count it twice, and the diff would show it.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">A · <span>right under the starting balance, marked opening</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Oro PEN + Oro USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>     0.00<span class="d">    end </span>  -180.60<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>     0.00<span class="d">    end </span>   -12.99<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                      0.00        0.00
+<span class="rev">   [x]   2026-09-26   Opening balance       —                  -850.00              </span><span class="d">opening</span>
+   <span class="p">[x]</span>   2026-09-26   Opening balance       <span class="d">—             </span>            <span class="n">      -40.00</span><span class="d">  opening</span>
+   <span class="p">[x]</span>   2026-10-04   WONG BENAVIDES        48300112      <span class="n">     -132.60</span>            
+   <span class="p">[x]</span>   2026-10-08   UDEMY.COM             48310455                  <span class="n">      -12.99</span>
+   <span class="p">[x]</span>   2026-10-12   PAGO TARJETA          00740118      <span class="p">      850.00</span>            
+   <span class="p">[x]</span>   2026-10-16   PAGO TARJETA          00740131                  <span class="p">       40.00</span>
+   <span class="p">[x]</span>   2026-10-20   CINEPLANET            48331907      <span class="n">      -48.00</span>            
+                      <span class="b">Ending balance        </span>                   -180.60      -12.99
+
+  <span class="d">saved · 5 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">Each half's opening balance sits right under the starting row, marked with a dim <code>opening</code>, soles first, before the five lines of the paper. <code>space</code> ticks it in or out of its half like any line; <code>shift+↑↓</code> never moves it, and no line moves above it. It stays there before and after the order is saved. <b>Recommended:</b> it is the starting figure of the paper in another form, so it reads with the starting row, and it never sits where lines with no place yet wait.</p></div>
+<div class="var"><div class="oh">B · <span>among the lines with no place, by date</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  <span class="b">Octubre 2026</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="b">Octubre 2026</span><span class="d">  ·  </span>Oro PEN + Oro USD<span class="d">  ·  2026-09-26 → 2026-10-25</span>
+  PEN  <span class="d">  begin </span>     0.00<span class="d">    end </span>  -180.60<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  USD  <span class="d">  begin </span>     0.00<span class="d">    end </span>   -12.99<span class="d">    diff </span><span class="d">—     </span><span class="d">   status </span><span class="w">draft</span>
+  <span class="d">order</span>  <span class="p">in order</span>
+
+         Date         Title                 Operation       Amount PEN  Amount USD
+   <span class="d">───────────────────────────────────────────────────────────────────────────────</span>
+                      <span class="b">Starting balance      </span>                      0.00        0.00
+   <span class="p">[x]</span>   2026-10-04   WONG BENAVIDES        48300112      <span class="n">     -132.60</span>            
+   <span class="p">[x]</span>   2026-10-08   UDEMY.COM             48310455                  <span class="n">      -12.99</span>
+   <span class="p">[x]</span>   2026-10-12   PAGO TARJETA          00740118      <span class="p">      850.00</span>            
+   <span class="p">[x]</span>   2026-10-16   PAGO TARJETA          00740131                  <span class="p">       40.00</span>
+   <span class="p">[x]</span>   2026-10-20   CINEPLANET            48331907      <span class="n">      -48.00</span>            
+<span class="rev">   [x]   2026-09-26   Opening balance       —                  -850.00              </span><span class="d">opening</span>
+   <span class="p">[x]</span>   2026-09-26   Opening balance       <span class="d">—             </span>            <span class="n">      -40.00</span><span class="d">  opening</span>
+                      <span class="b">Ending balance        </span>                   -180.60      -12.99
+
+  <span class="d">saved · 5 lines</span>
+  <span class="d">space toggle in/out of its half · shift+↑↓ move · ctrl+s save the order · c complete both · u revert both · esc back</span>
+
+ <span class="a">space</span> Toggle  <span class="a">⇧↑↓</span> Move  <span class="a">^s</span> Save  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">c</span> Complete  <span class="a">u</span> Revert  <span class="a">d</span> Delete  <span class="a">?</span> Keys</pre></div></div><p class="cap">It stays where the engine lists it: with the lines that have no place, by its date, marked with a dim <code>opening</code>, and <code>shift+↑↓</code> never moves it. Before the first save every line has no place, so it opens first, by its date; once the order is saved it goes to the bottom, where a line ticked later waits marked <code>new</code>.</p></div>
+</div>
+</div>
+
+<div class="pick">
+<b>Picked on 2026-10-25:</b>
+<ul>
+<li><b>The screen (pane 1)</b>, <b>a completed statement (pane 6)</b> and <b>a refused <code>c</code> (pane 7)</b>: as drawn.</li>
+<li><b>Question 1 · the lines not ticked yet:</b> A, under the statement's lines after a thin line, oldest first.</li>
+<li><b>Question 2 · saving a move:</b> A, <code>ctrl+s</code> saves the whole order, and leaving with it not saved asks first.</li>
+<li><b>Question 3 · the bottom of the list:</b> A, a closing row with the ending balances.</li>
+<li><b>Question 4 · an account with no statement code:</b> A, the same layout with one <code>Amount</code> column.</li>
+<li><b>A half joined to a completed one</b> (card-statement 4c A): its warning names <code>shift+↑↓</code> and <code>ctrl+s</code>, redrawn there in this screen's layout.</li>
+</ul>
+<b>Pick:</b>
+<ul>
+<li><b>Question 5 · the opening balance line (pane 8):</b> A, right under the starting balance, or B, among the lines with no place. <b>Recommended: A</b>: it is the paper's starting figure in another form, so it reads with the starting row, and it never sits where lines still waiting for their place go.</li>
+</ul>
+<b>New words, yours to change:</b> <code>opening</code>, the mark on an opening balance line (question 5), <code>Starting balance</code> on the first row, <code>Ending balance</code> on the closing row (3 A), the column names <code>Amount PEN</code> / <code>Amount USD</code>, the line <code>Put the lines in the paper's order with shift+↑↓, then save it with ctrl+s.</code>, the key hint <code>ctrl+s save the order</code>, and for question 1 B the key <code>a</code> with <code>Show all</code> / <code>Ticked only</code> and <code>1 line not ticked, a shows it</code>. Kept from the order screen as picked: <code>Move</code>, <code>Save</code>, <code>suggested by date · not saved yet</code>, <code>changed · not saved yet</code>, <code>saved</code>, <code>completed</code>, <code>new</code>, <code>Saved.</code>, <code>Leave without saving?</code>.
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

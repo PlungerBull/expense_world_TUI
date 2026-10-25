@@ -72,7 +72,7 @@
 <div class="head">
   <h1>Editing a split transaction</h1>
   <p>Your design, drawn: <b>the parts stay rows in the ledger, and <code>⏎</code> on any part opens the same Edit form as any transaction</b>. On top, what every part shares; below, every part with its own amount, category, hashtags and note, and the line adding them up. Parts are added and dropped in the form. A transaction never split opens the same form, with one part. The reconciliation screens keep showing a split transaction as one line.</p>
-  <p>The parts of the design you settled are drawn without options. <b>One question is left</b>: what you can do on a line in the “no batch” list. The screens that stay as they are today are drawn from the app's own code, so they look exactly as they do now.</p>
+  <p>The parts of the design you settled are drawn without options. Questions 1 and 2 are answered (1 A, 2 A); <b>questions 3 to 6</b>, at the end of the page, are open. The screens that stay as they are today are drawn from the app's own code, so they look exactly as they do now.</p>
   <p>The transaction is invented: <b>Tottus Jockey Plaza -100.00</b> on <b>Sueldo Soles</b>, 2026-10-11, operation 47391026, split into <b>-60.00 COMIDA</b> (#casa, “verduras”) and <b>-40.00 HOGAR</b> (“lejía y papel”). Use the button at the top right for a light terminal.</p>
 </div>
 
@@ -439,13 +439,339 @@
 
 <!-- ============ ENGINE ============ -->
 <div class="pane"><div class="lbl">What the engine has to answer first <span>— for the app's builders, not a question for you</span></div>
-<p class="blurb">This page shows what you see. Behind it, a few points have to be checked with the engine, and some may become requests to the engine coders before this can be built. <b>One save, one write:</b> today, the parts and the title are sent in one write, and the date, account and operation in another. A save that changes both would need two writes, and if the second were refused, only half would be saved. <b>The parts keep who they are:</b> today, changing a split's parts gives every part a new identity, so changing one part's category would replace every part. <b>Locked before you type:</b> screen 3 needs the engine to say, when the app reads the transaction, that it sits in a completed reconciliation. <b>Down to one part:</b> today a split needs two parts or more, so dropping to one takes several writes. The first, second and fourth are already asked of the engine, in the ask “One write edits a whole bank line”. The third is not asked yet.</p>
+<p class="blurb">This page shows what you see. Behind it, a few points have to be checked with the engine, and some may become requests to the engine coders before this can be built. <b>One save, one write:</b> today, the parts and the title are sent in one write, and the date, account and operation in another. A save that changes both would need two writes, and if the second were refused, only half would be saved. <b>The parts keep who they are:</b> today, changing a split's parts gives every part a new identity, so changing one part's category would replace every part. <b>Locked before you type:</b> screen 3 needs the engine to say, when the app reads the transaction, that it sits in a completed reconciliation. <b>Down to one part:</b> today a split needs two parts or more, so dropping to one takes several writes. The first, second and fourth are already asked of the engine, in the ask “One write edits a whole bank line”. The third is asked as “A bank line's read says which of its fields a write would refuse”.</p>
 </div>
 
 <div class="pick"><b>To answer:</b> one letter, e.g. <code>1 A</code>.
 <ul>
 <li><b>Question 1 · a line in “no batch”:</b> <b>A</b> (as today: <code>⏎</code> opens the new Edit form, <code>d</code> deletes after the question) or <b>B</b> (only looking; changes and deletes from the ledger). <b>Recommended:</b> 1 A.</li>
 <li>Sections 1 to 4 draw the design you settled, so they ask nothing. If a key (<code>^n</code>, <code>^x</code>), a hint or a line reads wrong to you, say the words you want instead.</li>
+</ul></div>
+
+<!-- ============ QUESTIONS FOR TASK 13 ============ -->
+<div class="pane"><div class="lbl">Questions for task 13 <span>— four details the drawings above leave open</span></div>
+<p class="blurb">You answered question 1 above (1 A) and the <code>s</code> key (<code>s</code> opens the same Edit form) on 2026-10-25. Building the form turned up four more things you would see that no drawing above shows. They are numbered 3 to 6 so they never mix with the two already answered. Each is drawn with the same Tottus Jockey Plaza, -60.00 COMIDA and -40.00 HOGAR on Sueldo Soles.</p>
+</div>
+
+<!-- ---- QUESTION 3 · NOTE HINT ---- -->
+<div class="pane"><div class="lbl">Question 3 · the hint under a part's NOTE <span>— when it is not the last part</span></div>
+<p class="blurb">The line under the bar says what <code>⏎</code> does. Today, on NOTE, it says <code>optional · enter saves · (ctrl+s anytime)</code>, because NOTE is the form's last line. With two parts, <code>⏎</code> on <b>part 1's</b> NOTE does not save: it moves on to part 2's AMOUNT. So part 1's hint can't say “saves”. Part 2's NOTE, the last line, keeps today's <code>optional · enter saves · (ctrl+s anytime)</code> in every letter below.</p>
+<div class="opt wide"><div class="var"><div class="oh">A · <span>“enter to go on”</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 NOTE      </span>verduras<span class="a">▍</span>
+
+
+   <span class="d">optional · enter to go on</span>
+
+
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The same words the TITLE line already uses, <code>free text · enter to go on</code>, wherever <code>⏎</code> moves on.</p></div><div class="var"><div class="oh">B · <span>names where it goes</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 NOTE      </span>verduras<span class="a">▍</span>
+
+
+   <span class="d">optional · enter goes to part 2</span>
+
+
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Says which part comes next: on part 2 of three it would read <code>enter goes to part 3</code>.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">C · <span>says nothing about ⏎</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 NOTE      </span>verduras<span class="a">▍</span>
+
+
+   <span class="d">optional</span>
+
+
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -60.00    COMIDA         #casa           verduras</span>
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">Only that the note may stay empty, as CURRENCY's hint leaves <code>⏎</code> unsaid on a new account.</p></div></div>
+<p class="blurb"><b>Why A is recommended:</b> it says what <code>⏎</code> does, as every hint on the forms does since your wording picks, in words the app already uses.</p>
+<p class="cap"><b>Your pick:</b> A, B or C. <b>New words:</b> B's <code>enter goes to part 2</code>. A uses words already in the app; C adds none.</p>
+</div>
+
+<!-- ---- QUESTION 4 · A REFUSED SAVE ---- -->
+<div class="pane"><div class="lbl">Question 4 · where a save the engine refuses shows <span>— Tottus Jockey Plaza in a completed reconciliation</span></div>
+<p class="blurb">Tottus Jockey Plaza sits in a completed reconciliation (screen 3a), so its parts must still add up to -100.00. You change part 1 from -60.00 to -85.00 and press <code>^s</code>. The parts now come to -125.00, and the engine refuses: <code>SPLIT_TOTAL_MISMATCH</code> on the parts and on each part's amount. Nothing is saved and the form stays open. The lines after <code>parts:</code> and <code>part 1 (amount):</code> are the engine's real words. Its first line, after <code>VALIDATION_ERROR —</code>, is a stand-in, because the engine's documents don't give that sentence.</p>
+<div class="opt wide"><div class="var"><div class="oh">A · <span>under the parts, as the Split screen shows it today</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span>-85<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   </span><span class="bad">-85.00</span><span class="ab">    COMIDA         #casa           verduras</span>
+     2   <span class="bad">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-125.00</span> of <span class="n">-100.00</span>  ·  <span class="n">25.00 left</span>
+
+   <span class="n">VALIDATION_ERROR — (the engine's message)</span>
+   <span class="n">! parts: Must add up to the line's total: the line's total is -10000 cents and the</span>
+   <span class="n">  parts add up to -12500.</span>
+   <span class="n">! part 1 (amount): The parts must add up to the line's total: the line's total is</span>
+   <span class="n">  -10000 cents and the parts add up to -12500.</span>
+   <span class="n">! part 2 (amount): The parts must add up to the line's total: the line's total is</span>
+   <span class="n">  -10000 cents and the parts add up to -12500.</span>
+   <span class="d">Nothing was saved.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The engine's words stay under the table until you change something. Each refused part is named by its number, and the amounts it names turn red and bold. A refusal that has a line of the app's own gets it under a blank line, for example <code>It changed at the same moment: save again.</code>; this one has none.</p></div><div class="var"><div class="oh">B · <span>the “Failed” note, as the Edit form shows a refusal today</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span>-85<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   -85.00    COMIDA         #casa           verduras</span>
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-125.00</span> of <span class="n">-100.00</span>  ·  <span class="n">25.00 left</span>
+
+                                    <span class="n">▌</span> <span class="b">Failed</span>
+                                    <span class="n">▌</span> VALIDATION_ERROR — (the engine's message)
+                                    <span class="n">▌</span>   parts: Must add up to the line's total: the
+                                    <span class="n">▌</span>   line's total is -10000 cents and the parts add
+                                    <span class="n">▌</span>   up to -12500.
+                                    <span class="n">▌</span>   parts.0.amount_cents: The parts must add up to
+                                    <span class="n">▌</span>   the line's total: the line's total is -10000
+                                    <span class="n">▌</span>   cents and the parts add up to -12500.
+                                    <span class="n">▌</span>   parts.1.amount_cents: The parts must add up to
+                                    <span class="n">▌</span>   the line's total: the line's total is -10000
+                                    <span class="n">▌</span>   cents and the parts add up to -12500.
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The note in the bottom-right corner, as every refused save on the Edit form shows today. It goes away after a few seconds. The parts are named as the engine names them, counting from 0 (<code>parts.0</code> is part 1), and no amount turns red.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">C · <span>as A, without “Nothing was saved.”</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 AMOUNT    </span>-85<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   </span><span class="bad">-85.00</span><span class="ab">    COMIDA         #casa           verduras</span>
+     2   <span class="bad">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-125.00</span> of <span class="n">-100.00</span>  ·  <span class="n">25.00 left</span>
+
+   <span class="n">VALIDATION_ERROR — (the engine's message)</span>
+   <span class="n">! parts: Must add up to the line's total: the line's total is -10000 cents and the</span>
+   <span class="n">  parts add up to -12500.</span>
+   <span class="n">! part 1 (amount): The parts must add up to the line's total: the line's total is</span>
+   <span class="n">  -10000 cents and the parts add up to -12500.</span>
+   <span class="n">! part 2 (amount): The parts must add up to the line's total: the line's total is</span>
+   <span class="n">  -10000 cents and the parts add up to -12500.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The same as A. The form staying open with the refusal on it already says nothing was saved.</p></div></div>
+<p class="blurb"><b>Why A is recommended:</b> a refusal of several parts names each part by its number and marks its amount in the table, and it stays while you fix it. A note in the corner goes away after a few seconds. It is also how the Split screen shows a refusal today, and that screen's job moves into this form.</p>
+<p class="cap"><b>Your pick:</b> A, B or C. <b>New words:</b> <code>Nothing was saved.</code> (A only). The Split screen says <code>Nothing was split.</code> there today, and setup says <code>nothing was saved</code>.</p>
+</div>
+
+<!-- ---- QUESTION 5 · LINES WHOSE PARTS NEVER CHANGE ---- -->
+<div class="pane"><div class="lbl">Question 5 · opening balances, and lines on an archived account <span>— where the engine never adds or drops a part</span></div>
+<p class="blurb">On two kinds of line the engine never adds or drops a part. One is a transaction on an <b>archived account</b>: only its parts' category, hashtags and note can change, as today. The other is an account's <b>opening balance</b>: its account, category and hashtags never change, as today. The question is what the form offers there. To draw the archived case, imagine Sueldo Soles archived. The opening balance is invented: <b>Saldo inicial 3,200.00</b> on Sueldo Soles, 2026-01-01.</p>
+<div class="opt wide"><div class="var"><div class="oh">A · <span>an archived account's line: no ^n, no ^x</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY  </span><span class="a">▍</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     @Pendiente
+     <span class="rev">COMIDA      </span>
+     HOGAR
+     SALUD
+     TAXI
+     OCIO
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   </span><span class="d">-60.00</span><span class="ab">    COMIDA         #casa           verduras</span>
+     2   <span class="d">-40.00</span>    HOGAR          —               lejía y papel
+   <span class="d">amount  read-only</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Date, title, account and every part's amount are dimmed and read-only, with a dim <code>amount  read-only</code> under the table as in 3b. The bar skips them, and the form opens on part 1's category. <code>^n Add part</code> and <code>^x Drop part</code> are not in the footer, as <code>s</code> and <code>d</code> already leave the ledger's footer on an archived account's row.</p></div><div class="var"><div class="oh">A · <span>an opening balance: no ^n</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">DATE             </span>2026-01-01<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   <span class="b">date     </span>2026-01-01
+   title    Saldo inicial
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">       amount    category       hashtags        note</span>
+     1  <span class="p">3,200.00</span>    <span class="d">@Opening</span>       <span class="d">—</span>
+   <span class="d">category  read-only</span>
+   <span class="d">hashtags  read-only</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div><p class="cap">As today's opening balance: the account, category and hashtags are dimmed and read-only, and the bar skips them. Date, title, amount and note change. The part's two locked cells are dimmed, with a dim line under the table for each, as 3b does for the amount. <code>^n</code> is not offered: an opening balance is never split.</p></div></div>
+<div class="opt wide"><div class="var"><div class="oh">B · <span>the keys show, and the engine says no on save</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY  </span><span class="a">▍</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     @Pendiente
+     <span class="rev">COMIDA      </span>
+     HOGAR
+     SALUD
+     TAXI
+     OCIO
+
+   <span class="d">date     2026-10-11  read-only</span>
+   <span class="d">title    Tottus Jockey Plaza  read-only</span>
+   <span class="d">account  Sueldo Soles  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1   </span><span class="d">-60.00</span><span class="ab">    COMIDA         #casa           verduras</span>
+     2   <span class="d">-40.00</span>    HOGAR          —               lejía y papel
+   <span class="d">amount  read-only</span>
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">The same form with <code>^n</code> and <code>^x</code> in the footer, as on any line; on an opening balance <code>^n</code> shows too. A part added or dropped here is sent on <code>^s</code>, and the engine refuses it. For the archived account its words end in <code>The account is archived. Unarchive it first.</code>, shown as question 4 picks, and nothing is saved.</p></div></div>
+<p class="blurb"><b>Why A is recommended:</b> the form offers only what can be saved, as the ledger already does by hiding <code>s</code> and <code>d</code> on an archived account's row. B lets you build parts that can only come back refused.</p>
+<p class="cap"><b>Your pick:</b> A or B. <b>New words:</b> <code>category  read-only</code> and <code>hashtags  read-only</code> under the table (A), written the way 3b writes <code>amount  read-only</code>.</p>
+</div>
+
+<!-- ---- QUESTION 6 · WHERE s OPENS ---- -->
+<div class="pane"><div class="lbl">Question 6 · where <code>s</code> opens the Edit form <span>— Ledger ▸ s on Tottus Jockey Plaza</span></div>
+<p class="blurb">You chose that <code>s</code> in the ledger opens the same Edit form, so parts change in one place. The footer keeps <code>s Split</code>, as section 1 draws it. Open is where the bar starts when you press <code>s</code>.</p>
+<div class="opt wide"><div class="var"><div class="oh">A · <span>exactly as ⏎, on DATE</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">DATE             </span>2026-10-11<span class="a">▍</span>
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date · </span><span class="a">changes every part of the transaction</span>
+
+
+
+   <span class="b">date     </span>2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+
+   2 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div><p class="cap">The same screen as 2a: <code>s</code> and <code>⏎</code> open the form in the same place. You add a part with <code>^n</code>.</p></div><div class="var"><div class="oh">B · <span>a new empty part already added, the bar on its AMOUNT</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 3 AMOUNT    </span><span class="a">▍</span>
+
+
+   <span class="d">signed decimal · − expense / + income · in the account's currency</span>
+
+
+
+   date     2026-10-11
+   title    Tottus Jockey Plaza
+   account  Sueldo Soles
+
+   <span class="d">      amount    category       hashtags        note</span>
+     1   <span class="n">-60.00</span>    COMIDA         #casa           verduras
+     2   <span class="n">-40.00</span>    HOGAR          —               lejía y papel
+   <span class="ab">▌ 3        —    —              —</span>
+
+   3 parts  ·  <span class="n">-100.00</span> of <span class="n">-100.00</span>  <span class="p">✓</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part  <span class="a">^x</span> Drop part</pre></div></div><p class="cap">As if <code>^n</code> had been pressed for you: <code>s</code> still starts a split. The new part is empty, so if you save without filling it, it is dropped, as in 2f. On Cine Plaza, never split, it would open on <code>PART 2 AMOUNT</code>.</p></div></div>
+<p class="blurb"><b>Why A is recommended:</b> one form opened one way, whichever key you press. Adding a part is one more key, <code>^n</code>, and an <code>s</code> pressed only to look at the parts adds nothing.</p>
+<p class="cap"><b>Your pick:</b> A or B. <b>New words:</b> none.</p>
+</div>
+
+<div class="pick"><b>To answer task 13's questions:</b> one letter each, e.g. <code>3 A, 4 A, 5 A, 6 A</code>.
+<ul>
+<li><b>Question 3 · the hint under a part's NOTE that is not the last:</b> <b>A</b> <code>optional · enter to go on</code>, <b>B</b> <code>optional · enter goes to part 2</code>, or <b>C</b> <code>optional</code>. <b>Recommended:</b> 3 A.</li>
+<li><b>Question 4 · where a refused save shows:</b> <b>A</b> under the parts, ending <code>Nothing was saved.</code>; <b>B</b> today's “Failed” note in the corner; or <b>C</b> as A without that line. <b>Recommended:</b> 4 A.</li>
+<li><b>Question 5 · opening balances and archived accounts' lines:</b> <b>A</b> no <code>^n</code> or <code>^x</code> there, locked cells dimmed and marked under the table; or <b>B</b> the keys show and the engine refuses on save. <b>Recommended:</b> 5 A.</li>
+<li><b>Question 6 · where <code>s</code> opens the form:</b> <b>A</b> exactly as <code>⏎</code>, on DATE; or <b>B</b> with a new empty part added, the bar on its AMOUNT. <b>Recommended:</b> 6 A.</li>
 </ul></div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){
