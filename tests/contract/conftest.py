@@ -9,6 +9,10 @@ docs/runtime.md "Working against the live engine".
 """
 
 import os
+import random
+from datetime import datetime
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -136,3 +140,163 @@ def statuses(client):
     hooks = client._client.event_hooks
     hooks["response"] = [*hooks.get("response", []), lambda r: seen.append(r.status_code)]
     return seen
+
+
+# ---- statements: accounts with a statement code, their reconciliations and lines ----
+
+_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def free_statement_codes(client: ExpenseClient, count: int) -> list[str]:
+    """`count` different statement codes no account of the caller's holds, so a test's
+    codes clash with nothing but what it builds itself, whatever an earlier run left.
+    A deleted account holds no code; an archived account and a person are read too
+    (contract: "Bank Accounts", "Shared only across currencies")."""
+    listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
+    held = {item["statement_code"] for item in listed["items"]}
+    rng = random.SystemRandom()
+    codes: list[str] = []
+    while len(codes) < count:
+        code = "".join(rng.choice(_LETTERS) for _ in range(3))
+        if code not in held and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def refused(call) -> EngineError:
+    """The engine's refusal of `call`, which must be refused."""
+    with pytest.raises(EngineError) as excinfo:
+        call()
+    return excinfo.value
+
+
+def assert_refusal(err: EngineError, status: int, code: str, key: str, reason: str) -> None:
+    """The refusal is `status` `code`, keyed on `key` alone, carrying `reason` there
+    (contract: "Base Conventions", "`fields` and `reasons` semantics")."""
+    assert (err.status, err.code) == (status, code), (err.status, err.code, err.reasons)
+    assert isinstance(err.reasons, dict) and set(err.reasons) == {key}, err.reasons
+    assert isinstance(err.fields, dict) and set(err.fields) == {key}, err.fields
+    assert reason_on(err, key) == reason
+
+
+def account_body(currency: str = "PEN", code: str | None = None) -> dict:
+    """A `POST /accounts` body under a fresh id, with `statement_code` when given."""
+    new_id = str(uuid4())
+    body = {"id": new_id, "name": f"contract-stmt-{new_id[:8]}", "currency_code": currency}
+    if code is not None:
+        body["statement_code"] = code
+    return body
+
+
+class Scratch:
+    """What one test builds on the practice user, undone in reverse dependency order:
+    archived accounts unarchived, reconciliations reverted and deleted, transactions
+    deleted, accounts deleted. Every step is best-effort, so a failed test still frees
+    its statement codes."""
+
+    def __init__(self, client: ExpenseClient) -> None:
+        self.client = client
+        self.zone = ZoneInfo(client.get("/auth/me")["settings"]["display_timezone"])
+        self.accounts: list[str] = []
+        self.reconciliations: list[str] = []
+        self.transactions: list[str] = []
+
+    def account(self, currency: str = "PEN", code: str | None = None) -> str:
+        body = account_body(currency, code)
+        self.accounts.append(body["id"])
+        self.client.post("/accounts", json_body=body)
+        return body["id"]
+
+    def person(self, currency: str = "PEN") -> str:
+        new_id = str(uuid4())
+        self.accounts.append(new_id)
+        self.client.post(
+            "/people",
+            json_body={
+                "id": new_id,
+                "name": f"contract-stmt-p-{new_id[:8]}",
+                "currency_code": currency,
+            },
+        )
+        return new_id
+
+    def reconciliation(self, account_id: str, start: str, end: str) -> str:
+        """A draft over the calendar days `start` to `end`, with an ending balance so
+        nothing but the rule under test stands in the way of completing it."""
+        new_id = str(uuid4())
+        self.reconciliations.append(new_id)
+        self.client.post(
+            "/reconciliations",
+            json_body={
+                "id": new_id,
+                "account_id": account_id,
+                "name": f"contract-stmt-recon-{new_id[:8]}",
+                "date_start": start,
+                "date_end": end,
+                "beginning_balance_cents": 0,
+                "ending_balance_cents": 0,
+            },
+        )
+        return new_id
+
+    def noon(self, day: str) -> str:
+        y, m, d = (int(part) for part in day.split("-"))
+        return datetime(y, m, d, 12, tzinfo=self.zone).isoformat(timespec="seconds")
+
+    def line(self, account_id: str, day: str, *amounts: int, recon: str | None = None) -> str:
+        """A new bank line on `day` holding one part per amount (a batch `line_group`
+        for more than one), assigned whole to `recon` when given; its id."""
+        items = [
+            {
+                "id": str(uuid4()),
+                "title": "contract statement line",
+                "amount_cents": amount,
+                "account_id": account_id,
+                "date": self.noon(day),
+                **({"line_group": "g"} if len(amounts) > 1 else {}),
+            }
+            for amount in amounts
+        ]
+        self.transactions.extend(item["id"] for item in items)
+        created = self.client.post("/transactions/batch", json_body={"transactions": items})
+        first = created["created"][0]
+        if recon is not None:
+            self.client.put(f"/transactions/{first['id']}", json_body={"reconciliation_id": recon})
+        return first["bank_line_id"]
+
+    def opening_balance(self, account_id: str, day: str, recon: str | None = None) -> str:
+        """The account's opening balance, assigned to `recon` when given; its line's id."""
+        tx_id = str(uuid4())
+        self.transactions.append(tx_id)
+        made = self.client.post(
+            f"/accounts/{account_id}/opening-balance",
+            json_body={"transaction_id": tx_id, "amount_cents": 50000, "date": self.noon(day)},
+        )
+        if recon is not None:
+            self.client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon})
+        return made["bank_line_id"]
+
+    def cleanup(self) -> None:
+        steps = [
+            *(("POST", f"/accounts/{a}/unarchive") for a in self.accounts),
+            *(("POST", f"/reconciliations/{r}/revert") for r in self.reconciliations),
+            *(("DELETE", f"/reconciliations/{r}") for r in self.reconciliations),
+            *(("DELETE", f"/transactions/{t}") for t in self.transactions),
+            *(("DELETE", f"/accounts/{a}") for a in self.accounts),
+        ]
+        for method, path in steps:
+            try:
+                if method == "POST":
+                    self.client.post(path)
+                else:
+                    self.client.delete(path)
+            except EngineError:
+                pass
+
+
+@pytest.fixture
+def scratch(client):
+    """A `Scratch` on the practice user, cleaned up after the test whatever its outcome."""
+    made = Scratch(client)
+    yield made
+    made.cleanup()

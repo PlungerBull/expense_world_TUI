@@ -89,16 +89,10 @@ Checks 3 and 4 run on the practice engine: the official import has not happened 
 
 ## Tasks
 
-Approved by the owner on 2026-10-24. Tasks 3 and 4 have no screen and run first.
+Approved by the owner on 2026-10-24. Task 4 has no screen and runs first.
 Tasks 5 to 8 are **[UI]**: each starts with a mockup in [mockups/](../mockups/) and waits for the
 owner's pick.
 
-3. **Live contract tests for the new rules:** setting, changing and clearing a statement code,
-   and its refusals (bad shape, a code taken in the same currency, a person, a person-making
-   account holding a code); one statement per code per month; the statement order read and
-   write and each of their refusals; completing refused until ordered; the statement line built
-   on completion, gone on revert, back on completing again; a code change refused when it joins
-   a completed half; `statement_place` refused as `UNKNOWN_FIELD` in every request body.
 4. **Turning an account with a code into a person shows the engine's refusal.** `t` on Manage ▸
    Accounts shows `HAS_STATEMENT_CODE`'s words as sent (contract: POST /v1/accounts/{account_id}/make-person), with a unit test.
 5. **[UI] The account form's statement-code field**, on bank accounts only: set, change, clear.

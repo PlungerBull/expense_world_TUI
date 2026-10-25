@@ -1,4 +1,5 @@
-"""Contract: every bank line's `line_code`, and the `statement_line` no client writes.
+"""Contract: every bank line's `line_code`, and the `statement_line` and `statement_place`
+no client writes.
 
 Every bank line carries the engine's short code, `#` and six digits, given at its
 create and never sent by a client; and a statement line, the line's code in its bank
@@ -19,6 +20,10 @@ Pinned here:
     split's `parts` too, and on `PUT /transactions/{id}` whether set or `null`, it is
     `422` `UNKNOWN_FIELD` under its own key, nothing is written, and a line in no
     reconciliation reads a `null` statement line;
+  · `statement_place`, set only by a statement's order, is in no other request body:
+    on the same writes, beside a split's `parts` too, and on `PUT /transactions/{id}`
+    whether set or `null`, and on a reconciliation's create and update, it is `422`
+    `UNKNOWN_FIELD` under its own key, and nothing is written;
   · letter case counts: `ABC…` and `abc…` are two operation codes on one account,
     each read back as sent; only the exact same value again is `409`, nothing
     written.
@@ -133,7 +138,7 @@ def test_a_line_group_reads_one_line_code_and_a_split_keeps_it(client):
 
 
 def _writes_sending(
-    key: str, value: str, account: str, date: str, tx_id: str
+    key: str, value: object, account: str, date: str, tx_id: str
 ) -> list[tuple[str, str, dict, str]]:
     """Every write that takes a body naming a transaction or its line, each sending
     `key` where a client field would go: (method, path, body, refused key)."""
@@ -268,6 +273,88 @@ def test_statement_line_is_in_no_request_body(client):
         line = client.get(f"/bank-lines/{original['bank_line_id']}")
         assert (line["statement_line"], line["statement_place"]) == (None, None)
     finally:
+        _cleanup(client, written, account)
+
+
+# ---- statement_place ---------------------------------------------------------
+
+
+def test_statement_place_is_in_no_request_body_but_the_order(client):
+    """A line's place is set only by the statement order's list; it is in no other
+    request body (contract: "Transactions (Ledger)", "Bank lines"), so every write
+    naming a transaction refuses it as an unknown field
+    (contract: "Unknown request fields"), `422` `UNKNOWN_FIELD` under its own key: a
+    create, a batch item, an upload row, the opening balance, a split's part and beside
+    its `parts`, and an update, set or `null`; and so do a reconciliation's create and
+    update. The order's own body takes no
+    `statement_place` either (test_statement_order.py). Nothing is written, and the
+    line reads no place."""
+    zone = _zone(client)
+    account = _make_account(client)
+    date = _noon(zone, 2026, 4, 12)
+    original = client.post("/transactions", json_body=_tx_body(account, date, -100))
+    writes = _writes_sending("statement_place", 1, account, date, original["id"])
+    writes += [
+        (
+            "POST",
+            f"/transactions/{original['id']}/split",
+            {
+                "parts": [
+                    {"id": str(uuid4()), "amount_cents": -60},
+                    {"id": str(uuid4()), "amount_cents": -40},
+                ],
+                "statement_place": 1,
+            },
+            "statement_place",
+        ),
+        ("PUT", f"/transactions/{original['id']}", {"statement_place": None}, "statement_place"),
+    ]
+    recon = str(uuid4())
+    period = {"date_start": "2026-04-01", "date_end": "2026-04-30"}
+    made = client.post(
+        "/reconciliations",
+        json_body={
+            "id": recon,
+            "account_id": account,
+            "name": f"contract-sl-{recon[:8]}",
+            "beginning_balance_cents": 0,
+            **period,
+        },
+    )
+    unwritten = str(uuid4())
+    writes += [
+        (
+            "POST",
+            "/reconciliations",
+            {
+                "id": unwritten,
+                "account_id": account,
+                "name": f"contract-sl-{unwritten[:8]}",
+                "beginning_balance_cents": 0,
+                "statement_place": 1,
+                **period,
+            },
+            "statement_place",
+        ),
+        ("PUT", f"/reconciliations/{recon}", {"statement_place": 1}, "statement_place"),
+    ]
+    written = [original["id"], *_ids_in(writes)]
+    try:
+        for method, path, body, key in writes:
+            send = client.post if method == "POST" else client.put
+            err = _refused(lambda send=send, path=path, body=body: send(path, json_body=body))
+            assert (err.status, err.code) == (422, "VALIDATION_ERROR"), (method, path)
+            assert reason_on(err, key) == "UNKNOWN_FIELD", (method, path, err.reasons)
+        assert _live_ids(client, account) == {original["id"]}
+        assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
+        assert client.get(f"/transactions/{original['id']}")["version"] == original["version"]
+        line = client.get(f"/bank-lines/{original['bank_line_id']}")
+        assert line["statement_place"] is None
+        recons = client.get("/reconciliations", params={"account_id": account})["items"]
+        assert [(r["id"], r["version"]) for r in recons] == [(recon, made["version"])]
+    finally:
+        _safe(client.delete, f"/reconciliations/{unwritten}")
+        _safe(client.delete, f"/reconciliations/{recon}")
         _cleanup(client, written, account)
 
 
