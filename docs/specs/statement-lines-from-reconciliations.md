@@ -6,7 +6,7 @@ a statement is put in order from the paper, and a card statement is one statemen
 2026-10-24 and 2026-10-25, breaking.
 
 **Status: tasks 9 to 12 done; tasks 6 to 8 and 13 approved by the owner on 2026-10-25; tasks 7,
-8 and 13 wait on engine asks the owner handed over on 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md)
+8 and 13 wait on four engine asks in to-engine/, not yet handed over.** When done, the why moves to [decisions.md](../decisions.md)
 and this file is deleted.
 
 ---

@@ -28,6 +28,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over four engine asks
+Asked 2026-10-25 · Blocks: tasks 7, 8 and 13 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Four asks are in [to-engine/](to-engine/), each a file to copy as is into the engine repo's
+`docs/from-tui/`: "The statement read lists every line a statement needs, on any account, oldest
+first", "A bank line says when it is an account's opening balance", "A bank line's read says which
+of its fields a write would refuse" and "The whole-line write takes every part edit that PUT
+/transactions/{id} takes". Say when they are handed over and they leave the folder.
+
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
