@@ -93,6 +93,14 @@ Approved by the owner on 2026-10-24. Tasks 5 to 8 are **[UI]**: each has its moc
 [mockups/](../mockups/) and waits for the owner's pick in [todo.md](../todo.md) "Waiting on you".
 
 5. **[UI] The account form's statement-code field**, on bank accounts only: set, change, clear.
+   The owner picked on 2026-10-24, in
+   [mockups/expense-world-statement-code-field.html](../mockups/expense-world-statement-code-field.html):
+   1 A (the line sits after CURRENCY, on bank accounts only), 1b A (the hint `optional · three
+   capital letters, e.g. SIG · enter to go on`, plus `· empty clears it` on Edit), 2 A (clearing
+   is emptying the line and saving, no question), 3·1 B (small letters show as capitals while
+   typing), 3·2 B (a taken code gets the app line `Another account in this currency has this
+   code: pick another, or clear it there first.` under the engine's words), 4 B (a `Code` column
+   after `Cur` on Manage ▸ Accounts).
 6. **[UI] The statement-order screen**: read the order, arrange the lines (both currencies),
    insert empty slots, send it; reached from a reconciliation, and from a completion refused as
    not ordered.

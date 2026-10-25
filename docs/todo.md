@@ -46,23 +46,6 @@ as is into the engine repo's `docs/from-tui/`, over the copies there, then tell 
 they are handed over and both leave [to-engine/](to-engine/). Only you can carry them. Their copy
 of "One write edits a whole bank line" is already their approved work, so they may delete it.
 
-### The statement-code field on the account form [UI]
-Asked 2026-10-24 · Blocks: task 5 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-Drawn in [mockups/expense-world-statement-code-field.html](mockups/expense-world-statement-code-field.html).
-Its refusals show the engine's own words. Six picks, each drawn as lettered panes:
-1. Where the line sits: **A** after CURRENCY, bank accounts only. **Recommended:** A, because a
-   code is held once per currency, and a person's form stays as today.
-2. Its hint: **A** `optional · three capital letters, e.g. SIG · enter to go on`.
-   **Recommended:** A, short, with room for `· empty clears it` on Edit.
-3. Clearing a code: **A** empty it and save, no question; **B** a y/n question first.
-   **Recommended:** A, because nothing is lost: typing the code again brings every line back.
-4. Small letters: **A** sent as typed, the engine refuses; **B** capitals as you type.
-   **Recommended:** B.
-5. A code another account already holds: **A** the engine's words alone; **B** plus an app line
-   saying what to do. **Recommended:** B, as a taken name already reads.
-6. Manage ▸ Accounts: **A** as today; **B** a `Code` column. **Recommended:** B.
-
 ### The statement-order screen [UI]
 Asked 2026-10-24 · Blocks: task 6 of [statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
 
