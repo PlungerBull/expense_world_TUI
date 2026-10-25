@@ -134,9 +134,10 @@ it differs from what was asked:
 
 ## Questions for the owner
 
-1. **The screens** each get a mockup to pick from before they are built: tasks 6 and 7 are
-   picked; task 8 needs its mockup; task 13 waits on the two picks in [todo.md](../todo.md)
-   "Split transactions: your Edit form with its parts".
+1. **The screens** each get a mockup to pick from before they are built: task 13 is picked;
+   tasks 6 and 7 wait on the owner's notes of 2026-10-25 (one question on the order screen's
+   opening order; the statement's screen as one list with an amount column per currency, first
+   row the starting balance, redrawn to pick from); task 8 needs its mockup.
 
 ---
 
@@ -181,10 +182,12 @@ its mockup in [mockups/](../mockups/).
 13. **[UI] The Edit form with its parts saves in one write**: line fields and every part in one
     `PUT /bank-lines/{bank_line_id}`, a kept part's hashtags sent only when the owner changed
     them, and no line field on a line in a completed reconciliation unless the owner changed it.
-    Drawn in
-    [mockups/expense-world-split-transaction-screen.html](../mockups/expense-world-split-transaction-screen.html);
-    waits on the owner's two picks in [todo.md](../todo.md) "Split transactions: your Edit form
-    with its parts". Proves checks 5 and 6.
+    `⏎` on any part opens the Edit form with the shared fields on top and every part below, as
+    drawn in
+    [mockups/expense-world-split-transaction-screen.html](../mockups/expense-world-split-transaction-screen.html).
+    The owner picked on 2026-10-25: 1 A (in the "no batch" list `⏎` opens this form and `d`
+    deletes, as today) and 2 A (`s` opens the same Edit form, so parts change in one place).
+    Proves checks 5 and 6.
 
 ## Reply to the engine
 

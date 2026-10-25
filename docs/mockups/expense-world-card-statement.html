@@ -68,7 +68,7 @@
 
 <div class="head">
   <h1>A card's reconciliation as one statement</h1>
-  <p>A card is two accounts, <b>Signature PEN</b> and <b>Signature USD</b>, sharing the statement code <code>SIG</code>. Its monthly statement is two reconciliations, one per currency, over exactly the same days: the statement's two <b>halves</b>. Every line of both halves gets a place on the paper statement (the statement-order screen, drawn in <code>expense-world-statement-order.html</code>), and once the statement is completed each line shows its statement line, such as <code>SIG-202610-004</code>.</p>
+  <p>A card is two accounts, <b>Signature PEN</b> and <b>Signature USD</b>, sharing the statement code <code>SIG</code>. Its monthly statement is two reconciliations, one per currency, over exactly the same days: the statement's two <b>halves</b>. Every line of both halves gets a place on the paper statement (the statement-order screen, drawn in <code>expense-world-statement-order.html</code>). The engine numbers each line from that place when the statement is completed; no screen shows that number.</p>
   <p>These screens show a card's statement as one statement: listed together, created together, opened together, completed and reverted together. They assume two changes the engine coders already have: <b>a reconciliation names its other half and whether the statement is in order</b> (the app reads that instead of working it out), and <b>completing or reverting either half does both halves in one write</b>. An account with no statement code, such as Sueldo Soles, keeps today's screens unchanged.</p>
   <p>The accounts, lines and amounts are invented. Card balances are signed as the paper shows them: negative is what you owe. The engine's words are its real ones; words the app adds are listed under <b>Pick</b> as new.</p>
 </div>
@@ -157,7 +157,7 @@
    <span class="b">begin balance USD   </span><span class="d">*</span>
    end balance USD     <span class="d">optional</span>
 
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Create both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Started from a card account, the form asks the name and days once, then each half's balances. <code>^s</code> creates both, and the panel opens on the new statement. The app sends two creates, one per half: should the second be refused, the first stays, and the form says <code>The PEN half is created. The USD half is not:</code> over the engine's words, as the ending-balance save does today. <b>Recommended:</b> the days are typed once, so the two halves cannot differ; the orchestrator may also ask the engine for one write that creates both, so a half is never left alone.</p></div>
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Started from a card account, the form asks the name and days once, then each half's balances. <code>^s</code> creates both, and the panel opens on the new statement. The engine creates both halves in one write: a refusal creates neither, and the form shows the engine's words. <b>Recommended:</b> the days are typed once, so the two halves cannot differ, and a half is never left alone.</p></div>
 <div class="var"><div class="oh">B · <span>today's form for one half, then the other is offered</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Signature PEN  ▸  <span class="b">New</span>
 
@@ -278,8 +278,7 @@
 
     Octubre 2026 · both halves, PEN and USD
     Locks amount/account/title/date on the 8
-    ticked rows, 4 in PEN and 4 in USD. Each
-    line then shows its statement line.
+    ticked rows, 4 in PEN and 4 in USD.
     <span class="d">[y] confirm    [enter / n / esc] cancel</span>
 
   <span class="a">──────────────────────────────────────────────</span>
@@ -292,8 +291,7 @@
 
     Octubre 2026 · both halves, PEN and USD
     Unlocks their transactions and balances.
-    Their statement lines are hidden until it
-    is completed again; the order stays.
+    The order stays.
     <span class="d">[y] confirm    [enter / n / esc] cancel</span>
 
   <span class="a">──────────────────────────────────────────────</span>

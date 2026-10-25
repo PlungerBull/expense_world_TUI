@@ -41,23 +41,6 @@ instead of saved as 15.00. The account setting is an ask to the engine. One choi
 
 **Recommended:** A, because that is what normal apps do: one format, both ways.
 
-### Split transactions: your Edit form with its parts [UI]
-Asked 2026-10-24 · Blocks: task 13 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md), and the "no batch" `?` card's line on a split row
-
-Your design is drawn in
-[mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
-`⏎` on any part opens the Edit form with the shared fields on top and every part below (amount,
-category, hashtags, note), parts added and dropped there; a reconciliation's list shows the
-transaction as one line, as today. Two picks are open:
-1. In the "no batch" list: **A.** `⏎` opens this form and `d` deletes, as today; **B.** only
-   looking, changes and deletes from the ledger. **Recommended:** A, because the usual fix there
-   is a wrong date or account, and you chose `⏎` there on 2026-10-17.
-2. The `s` key (the Split screen) now that `⏎` edits the parts: **A.** `s` opens the same Edit
-   form; **B.** `s` stays as today; **C.** `s` goes. **Recommended:** A, so there is one place to
-   change parts.
-
-The engine saves the form in one go (contract: PUT /v1/bank-lines/{bank_line_id}).
-
 ---
 
 ## Backlog
@@ -156,8 +139,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   and the screen map's split pane still draws the typed line the split screen no longer has;
   `expense-world-split-screen.html` backs the split screen as built,
   `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
-  is open in "Split transactions: your Edit form with its parts", drawn in
-  `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
+  is task 13 of the current spec, drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
