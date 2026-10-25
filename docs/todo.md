@@ -28,19 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve tasks 9 to 13 of the current spec
-Asked 2026-10-25 · Blocks: [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md) tasks 9 to 13
-
-The engine's hand-off now runs to its current contract, so the current spec catches up that far,
-as you chose on 2026-10-25. Its new tasks: the test data and the live contract suite catch up
-(9, 11, 12), the Split screen saves through the engine's new one-write route and looks as today
-(10, first, since the screen fails until then), and the Edit form with its parts saves in one
-go once you pick it (13). Tasks 6 to 8 stay as you approved them.
-- **A.** Approve them as drafted.
-- **B.** Change them: say what.
-
-**Recommended:** A, because they hold only what the engine shipped and you have already settled.
-
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
@@ -89,7 +76,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   `saved` means instead.
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
   catch-up to contract `48ae0b6acb393dfa`): the current spec, tasks 6 to 8 approved 2026-10-24,
-  tasks 9 to 13 waiting on approval
+  tasks 9 to 13 approved 2026-10-25
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
