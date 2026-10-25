@@ -13,14 +13,15 @@ An archived account's transactions are frozen except for their categorisation
 `hashtag_ids` or `description` goes through; any other field is `422`
 `ACCOUNT_ARCHIVED` on its key, at its current value too, and a mixed `PUT` writes
 nothing; an empty `title` or `operation_code` is filled once; a delete, of a
-transaction or of a bank line, is `409` and a split `422`, both `ACCOUNT_ARCHIVED`;
-after unarchiving, a frozen field, a split and both deletes go through. Moving
+transaction or of a bank line, is `409` and a whole-line write with `parts` `422` on
+`parts`, beside every line field sent, all `ACCOUNT_ARCHIVED`; after unarchiving, a
+frozen field, a rewrite of a line's parts and both deletes go through. Moving
 another account's row onto it stays `INVALID_REFERENCE`. Its reconciliations'
 freeze is in test_reconciliations_lifecycle.py.
 
 Not pinned here: a line field sent on an active account's transaction refused
 because another part of its line sits on an archived account. Every part of a line
-shares its account: a split gives each part the line's account, a batch
+shares its account: a part the whole-line write creates takes the line's account, a batch
 `line_group` must share it, and `PUT` of `account_id` writes it onto every part
 (contract: "Transactions (Ledger)", "Bank lines"), so no route builds such a line.
 It comes only from a manual database repair outside the engine, so no client test
@@ -39,7 +40,7 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import read_signed
+from tests.contract.conftest import read_signed, replace_parts
 
 
 def _list_all(client, resource: str, **flags) -> list[dict]:
@@ -208,11 +209,11 @@ class ArchivedBook:
         return new_id
 
     def split(self, tx_id: str, amounts: list[int]) -> list[dict]:
-        """Split the line holding `tx_id`; every part id is kept before the call, so
+        """Rewrite the line holding `tx_id` into new parts of `amounts`
+        (conftest.py `replace_parts`); every part id is kept before the write, so
         cleanup reaches whatever the engine created."""
-        parts = [{"id": str(uuid4()), "amount_cents": a} for a in amounts]
-        self.rows.extend(p["id"] for p in parts)
-        return self.c.post(f"/transactions/{tx_id}/split", json_body={"parts": parts})["parts"]
+        line_id = self.c.get(f"/transactions/{tx_id}")["bank_line_id"]
+        return replace_parts(self.c, line_id, amounts, self.rows)
 
     def draft(self, account_id: str) -> str:
         new_id = str(uuid4())
@@ -388,11 +389,12 @@ def test_an_archived_accounts_empty_operation_code_is_filled_once(client, book):
 def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchived(client, book):
     """On an archived account, `DELETE /transactions/{id}` is `409` on `transaction_id`
     and `DELETE /bank-lines/{id}` `409` on `bank_line_id`, a split line's part and the
-    line included; a split is `422` on `transaction_id`; all `ACCOUNT_ARCHIVED`, and
-    the balance and every row stay as they were
+    line included; a whole-line write with `parts` is `422` on `parts`, beside every
+    line field sent; all `ACCOUNT_ARCHIVED`, and the balance and every row stay as they
+    were
     (contract: POST /v1/accounts/{account_id}/archive, "Its transactions are frozen
     except for their categorisation"). After `POST /accounts/{id}/unarchive` a frozen
-    field, a split and both deletes go through
+    field, a rewrite of a line's parts and both deletes go through
     (contract: POST /v1/accounts/{account_id}/unarchive)."""
     account_id = book.account()
     single = book.row(account_id, title="single")
@@ -421,12 +423,16 @@ def test_an_archived_accounts_rows_are_neither_split_nor_deleted_until_unarchive
         assert (err.status, err.code) == (409, "CONFLICT"), path
         assert err.reasons == {key: "ACCOUNT_ARCHIVED"}, path
 
-    for tx_id in (single, parts[0]["id"]):
-        new_parts = [{"id": str(uuid4()), "amount_cents": a} for a in (-700, -300)]
-        book.rows.extend(p["id"] for p in new_parts)
-        err = _refused(client.post, f"/transactions/{tx_id}/split", json_body={"parts": new_parts})
-        assert (err.status, err.code) == (422, "VALIDATION_ERROR"), tx_id
-        assert err.reasons == {"transaction_id": "ACCOUNT_ARCHIVED"}, tx_id
+    kept = [{"id": p["id"], "amount_cents": -500} for p in parts]
+    for line_id, body, keys in (
+        (single_line, {"parts": [{"id": str(uuid4()), "amount_cents": -1000}]}, {"parts"}),
+        (split_line, {"parts": kept}, {"parts"}),
+        (split_line, {"parts": kept, "date": _now()}, {"parts", "date"}),
+    ):
+        book.rows.extend(p["id"] for p in body["parts"])
+        err = _refused(client.put, f"/bank-lines/{line_id}", json_body=body)
+        assert (err.status, err.code) == (422, "VALIDATION_ERROR"), body
+        assert err.reasons == dict.fromkeys(keys, "ACCOUNT_ARCHIVED"), body
 
     assert ledger() == before
 

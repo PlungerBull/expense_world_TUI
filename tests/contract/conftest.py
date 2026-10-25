@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from expense import config as config_module
+from expense.bank_line_write import line_body, new_part
 from expense.config import Config
 from expense.errors import EngineError
 from expense.http import ExpenseClient
@@ -45,6 +46,22 @@ def read_signed(client: ExpenseClient, tx_id: str) -> dict:
     be compared or sent back as is: write responses carry the magnitude and
     `transaction_type` (contract: "Base Conventions", "Sign convention — responses")."""
     return client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
+
+
+def replace_parts(
+    client: ExpenseClient, line_id: str, amounts: list[int], written: list[str]
+) -> list[dict]:
+    """Rewrite the bank line `line_id` into new parts of `amounts`, in one whole-line
+    write sending only new ids, which replaces every part and keeps the line
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The body is the app's own
+    (expense/bank_line_write.py). Each part id joins `written` before the call, so
+    cleanup reaches whatever the engine created. Returns the parts as the answer reads
+    them, in request order."""
+    parts = [new_part(amount_cents=amount) for amount in amounts]
+    written.extend(part["id"] for part in parts)
+    answer = client.put(f"/bank-lines/{line_id}", json_body=line_body(parts))
+    by_id = {part["id"]: part for part in answer["parts"]}
+    return [by_id[part["id"]] for part in parts]
 
 
 @pytest.hookimpl(optionalhook=True)

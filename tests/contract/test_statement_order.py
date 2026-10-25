@@ -9,7 +9,15 @@ statement-order screen is built on these two routes and the completion refusal, 
 the engine can say what they read, take and refuse. Pinned here:
 
   · the read: the statement's reconciliations, its places (an empty slot `null`) and
-    its unplaced lines, the opening balance always among them;
+    its unplaced lines, the opening balance always among them; a card's unplaced lines
+    oldest first, both currencies mixed by date, two lines of one batch on one instant
+    in the order they were made;
+  · a reconciliation's lines in the statement's order (`GET /bank-lines` with
+    `sort=statement`): placed lines by place, then the rest oldest first, a line
+    created straight into it among them; paged by a cursor bound to the order; every
+    line oldest first on an account without a code; `REQUIRED` on `reconciliation_id`
+    without one, `CONFLICTING_PARAMETERS` with `unreconciled`, `INVALID_FORMAT` on any
+    other `sort`, and `UNKNOWN_PARAMETER` for `sort` on the count;
   · completing is `422` `STATEMENT_NOT_ORDERED` on `statement_order` until every line
     holds its own place: lines with none, a line assigned after the list, and two
     separately ordered halves joined into one card, whose place 1 is held twice;
@@ -419,3 +427,133 @@ def test_a_code_change_never_joins_a_completed_half(client, scratch):
     client.post(f"/reconciliations/{dollar_half}/complete")
     assert _numbered(client, d1) == (f"{code}-202603-001", 1)
     assert _numbered(client, s1) == (f"{code}-202603-002", 2)
+
+
+# ---- the statement's order, as the reads list it ------------------------------
+
+
+def _listed(client, **params) -> list[str]:
+    return [line["id"] for line in client.get("/bank-lines", params=params)["items"]]
+
+
+def _batch_into(client, scratch, recon: str, account: str, day: str, *amounts: int) -> list[str]:
+    """One batch of one line per amount, every item created straight into `recon`, all
+    on one instant; the lines' ids, in request order."""
+    items = [
+        {
+            "id": str(uuid4()),
+            "title": "contract statement line",
+            "amount_cents": amount,
+            "account_id": account,
+            "date": scratch.noon(day),
+            "reconciliation_id": recon,
+        }
+        for amount in amounts
+    ]
+    scratch.transactions.extend(item["id"] for item in items)
+    created = client.post("/transactions/batch", json_body={"transactions": items})["created"]
+    return [item["bank_line_id"] for item in created]
+
+
+def test_the_unplaced_lines_come_oldest_first_both_currencies_mixed(client, scratch):
+    """The statement order lists a card's unplaced lines oldest first, by the line's
+    date, the soles and dollar lines mixed by date, not grouped by half; two lines of
+    one batch on one instant keep the order they were made in; either half reads the
+    same list (contract: GET /v1/reconciliations/{reconciliation_id}/statement-order)
+    (contract: "Reconciliations", "A statement's order")."""
+    (code,) = free_statement_codes(client, 1)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    rs = scratch.reconciliation(soles, "2026-03-01", "2026-03-31")
+    rd = scratch.reconciliation(dollars, "2026-03-01", "2026-03-31")
+    s20 = scratch.line(soles, "2026-03-20", -100, recon=rs)
+    d05 = scratch.line(dollars, "2026-03-05", -200, recon=rd)
+    s10 = scratch.line(soles, "2026-03-10", -300, recon=rs)
+    d15 = scratch.line(dollars, "2026-03-15", -400, recon=rd)
+    b1, b2 = _batch_into(client, scratch, rs, soles, "2026-03-12", -500, -600)
+
+    expected = [d05, s10, b1, b2, d15, s20]
+    for recon in (rs, rd):
+        order = _order(client, recon)
+        assert order["places"] == []
+        assert [line["id"] for line in order["unplaced"]] == expected, recon
+    # One half's lines in the statement's order: the same rule, its own lines.
+    assert _listed(client, reconciliation_id=rs, sort="statement") == [s10, b1, b2, s20]
+
+
+def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
+    """`GET /bank-lines?reconciliation_id=&sort=statement` lists the lines holding a
+    place by place, then the rest oldest first, a line created straight into the
+    reconciliation among them; it pages by cursor, a cursor bound to its order; on an
+    account without a statement code every line is unplaced, oldest first. Refused:
+    without `reconciliation_id` (`REQUIRED`), with `unreconciled` too
+    (`CONFLICTING_PARAMETERS`), any other `sort` (`INVALID_FORMAT`); the count takes no
+    `sort` (`UNKNOWN_PARAMETER`) (contract: GET /v1/bank-lines, "Ordering")
+    (contract: GET /v1/bank-lines/count)."""
+    (code,) = free_statement_codes(client, 1)
+    account = scratch.account("PEN", code)
+    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
+    early = scratch.line(account, "2026-03-05", -100, recon=recon)
+    middle = scratch.line(account, "2026-03-10", -200, recon=recon)
+    late = scratch.line(account, "2026-03-15", -300, recon=recon)
+    _send(client, recon, [late, early, middle])
+    # Assigned after the list: no place, listed oldest first after the placed lines.
+    newest = scratch.line(account, "2026-03-20", -400, recon=recon)
+    (oldest,) = _batch_into(client, scratch, recon, account, "2026-03-02", -500)
+
+    expected = [late, early, middle, oldest, newest]
+    assert _listed(client, reconciliation_id=recon, sort="statement") == expected
+    assert _listed(client, reconciliation_id=recon) == [newest, late, middle, early, oldest]
+
+    # Paged by cursor, the cursor bound to the order.
+    pages, after = [], None
+    while True:
+        params = {"reconciliation_id": recon, "sort": "statement", "limit": 2}
+        page = client.get("/bank-lines", params={**params, **({"after": after} if after else {})})
+        pages.append([line["id"] for line in page["items"]])
+        after = page["next_cursor"]
+        if after is None:
+            break
+    assert [len(page) for page in pages] == [2, 2, 1]
+    assert [line for page in pages for line in page] == expected
+    statement_cursor = client.get(
+        "/bank-lines", params={"reconciliation_id": recon, "sort": "statement", "limit": 1}
+    )["next_cursor"]
+    default_cursor = client.get("/bank-lines", params={"reconciliation_id": recon, "limit": 1})[
+        "next_cursor"
+    ]
+    for params in (
+        {"reconciliation_id": recon, "after": statement_cursor},
+        {"reconciliation_id": recon, "sort": "date_desc", "after": statement_cursor},
+        {"reconciliation_id": recon, "sort": "statement", "after": default_cursor},
+    ):
+        err = refused(lambda params=params: client.get("/bank-lines", params=params))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "after", "INVALID_CURSOR")
+
+    # No statement code: no place, every line oldest first.
+    plain = scratch.account("PEN")
+    plain_recon = scratch.reconciliation(plain, "2026-03-01", "2026-03-31")
+    second = scratch.line(plain, "2026-03-10", -100, recon=plain_recon)
+    first = scratch.line(plain, "2026-03-05", -200, recon=plain_recon)
+    assert _listed(client, reconciliation_id=plain_recon, sort="statement") == [first, second]
+
+    for params, key, reason in (
+        ({"sort": "statement"}, "reconciliation_id", "REQUIRED"),
+        ({"sort": "statement", "account_id": account}, "reconciliation_id", "REQUIRED"),
+        ({"sort": "statement", "unreconciled": "true"}, "reconciliation_id", "REQUIRED"),
+        (
+            {"sort": "statement", "unreconciled": "true", "reconciliation_id": recon},
+            "unreconciled",
+            "CONFLICTING_PARAMETERS",
+        ),
+        ({"sort": "date_asc", "reconciliation_id": recon}, "sort", "INVALID_FORMAT"),
+    ):
+        err = refused(lambda params=params: client.get("/bank-lines", params=params))
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
+    for sort in ("statement", "date_desc"):
+        err = refused(
+            lambda sort=sort: client.get(
+                "/bank-lines/count", params={"reconciliation_id": recon, "sort": sort}
+            )
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "sort", "UNKNOWN_PARAMETER")

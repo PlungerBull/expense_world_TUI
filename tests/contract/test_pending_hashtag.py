@@ -9,7 +9,7 @@ the pending hashtag (contract: "Hashtags", "The built-in pending hashtag"). Home
   · `PUT` with `[<real>]` replaces the pending hashtag, and `PUT` with `[]` puts
     it back;
   · the refusals: the pending hashtag beside another is `PENDING_HASHTAG_NOT_ALONE`
-    on `hashtag_ids` (on a split part, `parts.<i>.hashtag_ids`); any hashtag on an
+    on `hashtag_ids` (on a whole-line write's part, `parts.<i>.hashtag_ids`); any hashtag on an
     opening balance is `OPENING_BALANCE_NOT_TAGGED` on `hashtag_ids`, while `[]` on
     it is accepted; a user hashtag created or renamed `Pendiente` is
     `RESERVED_NAME` on `name`.
@@ -119,7 +119,8 @@ def test_the_pending_hashtag_beside_another_is_pending_hashtag_not_alone(client)
     part_ids = [str(uuid4()), str(uuid4())]
     try:
         date = _date(client)
-        anchor = _post_untagged(client, account, date)["id"]
+        made = _post_untagged(client, account, date)
+        anchor = made["id"]
         pending = _pending_id(client)
 
         # A create.
@@ -147,10 +148,10 @@ def test_the_pending_hashtag_beside_another_is_pending_hashtag_not_alone(client)
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert reason_on(err, "hashtag_ids") == "PENDING_HASHTAG_NOT_ALONE"
 
-        # A split part, keyed by the part.
+        # A part of the whole-line write, keyed by the part.
         err = _refused(
-            lambda: client.post(
-                f"/transactions/{anchor}/split",
+            lambda: client.put(
+                f"/bank-lines/{made['bank_line_id']}",
                 json_body={
                     "parts": [
                         {"id": part_ids[0], "amount_cents": -60},

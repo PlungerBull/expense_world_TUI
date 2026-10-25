@@ -113,14 +113,26 @@ def test_the_body_refuses_any_key_the_write_does_not_take_as_a_line_field(key):
         line_body([], {key: "x"})
 
 
+#: The removed split route, as a path or a citation names it.
+SPLIT_ROUTE = re.compile(r"/transactions/[^\s\"'`]*/split")
+
+
+def _split_route_hits(folder: Path) -> list[str]:
+    return [
+        f"{path.relative_to(PACKAGE.parent)}:{number}"
+        for path in sorted(folder.rglob("*.py"))
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if SPLIT_ROUTE.search(line)
+    ]
+
+
 def test_nothing_in_the_app_calls_the_split_route():
     """The split route is gone: every rewrite of a line's parts is the
     whole-line write."""
-    route = re.compile(r"/transactions/[^\s\"'`]*/split")
-    hits = [
-        f"{path.relative_to(PACKAGE.parent)}:{number}"
-        for path in sorted(PACKAGE.rglob("*.py"))
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        if route.search(line)
-    ]
-    assert hits == []
+    assert _split_route_hits(PACKAGE) == []
+
+
+def test_no_contract_test_calls_or_cites_the_split_route():
+    """The live contract suite rewrites a line's parts with the whole-line write
+    alone, and cites no part of the removed route."""
+    assert _split_route_hits(PACKAGE.parent / "tests" / "contract") == []

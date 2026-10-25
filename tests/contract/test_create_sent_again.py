@@ -14,7 +14,10 @@ as already there instead of failing it. Pinned here:
     one created;
   · a landed opening balance sent again is `409` `ID_EXISTS` on `transaction_id`, not
     `OPENING_BALANCE_EXISTS`, though the account holds it;
-  · a landed split sent again is `409` `ID_EXISTS` on each `parts.<i>.id`.
+  · a whole-line write sent again under a new key finds its new parts live on the line
+    and writes nothing, while a part id the line's own deleted part, another line's
+    part or a line that does not exist holds is `409` `ID_EXISTS` on that
+    `parts.<i>.id`, judged before the line's `404`.
 
 Every value a test writes is fresh per run (UUIDs, an account named by one): the
 practice user's data outlives a reseed. Each test builds its own account and undoes
@@ -158,22 +161,46 @@ def test_a_landed_opening_balance_sent_again_answers_id_exists(client):
         _cleanup(client, [seed_id], account)
 
 
-def test_a_landed_split_sent_again_answers_id_exists_on_each_part(client):
-    """A split sent again is `409` on each taken `parts.<i>.id` (`ID_EXISTS`), though
-    the split deleted its `{id}` (contract: POST /v1/transactions/{transaction_id}/split)."""
+def test_a_landed_line_write_sent_again_writes_nothing_and_a_taken_part_id_is_id_exists(
+    client,
+):
+    """A whole-line write sent again under a new key finds the parts it created live on
+    the line, updates them in place and, every value as held, writes nothing
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+    A part id any other record holds is `409` on that `parts.<i>.id` (`ID_EXISTS`): the
+    line's own transaction the first write deleted, a part of another line, and a part
+    sent to a line that does not exist, which answers before the `404`
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")
+    (contract: "Base Conventions", "Which refusal comes first on a create"). Nothing is
+    written."""
     account = str(uuid4())
     original_id = str(uuid4())
+    other_id = str(uuid4())
     parts = [{"id": str(uuid4()), "amount_cents": amount} for amount in (-6000, -4000)]
-    path = f"/transactions/{original_id}/split"
     try:
         _make_account(client, account)
         original = {**_item(account, _date(client), -10000), "id": original_id}
-        client.post("/transactions", json_body=original)
-        client.post(path, json_body={"parts": parts})
+        line = client.post("/transactions", json_body=original)["bank_line_id"]
+        other = {**_item(account, _date(client), -2500), "id": other_id}
+        client.post("/transactions", json_body=other)
+        path = f"/bank-lines/{line}"
+        client.put(path, json_body={"parts": parts})
+        versions = {p["id"]: p["version"] for p in client.get(path)["parts"]}
 
-        err = _refused(lambda: client.post(path, json_body={"parts": parts}))
-        assert (err.status, err.code) == (409, "CONFLICT")
-        assert err.reasons == {"parts.0.id": "ID_EXISTS", "parts.1.id": "ID_EXISTS"}
-        assert _live_ids(client, account) == {part["id"] for part in parts}
+        again = client.put(path, json_body={"parts": parts})
+        assert (again["created_part_ids"], again["deleted_part_ids"]) == ([], [])
+        assert {p["id"]: p["version"] for p in client.get(path)["parts"]} == versions
+
+        for taken, target in [
+            (original_id, path),
+            (other_id, path),
+            (parts[0]["id"], f"/bank-lines/{uuid4()}"),
+        ]:
+            body = {"parts": [{"id": taken, "amount_cents": -10000}]}
+            err = _refused(lambda target=target, body=body: client.put(target, json_body=body))
+            assert (err.status, err.code) == (409, "CONFLICT"), taken
+            assert err.reasons == {"parts.0.id": "ID_EXISTS"}, taken
+        assert _live_ids(client, account) == {other_id, *(part["id"] for part in parts)}
+        assert {p["id"]: p["version"] for p in client.get(path)["parts"]} == versions
     finally:
-        _cleanup(client, [original_id, *(part["id"] for part in parts)], account)
+        _cleanup(client, [original_id, other_id, *(part["id"] for part in parts)], account)

@@ -35,6 +35,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from expense.errors import EngineError
+from tests.contract.conftest import replace_parts
 
 
 def _safe(call, *args):
@@ -165,9 +166,8 @@ def test_a_split_unclaimed_line_is_one_entry_with_every_part(client):
     try:
         whole = _post_at_noon(client, zone, account, 12, -10000)
         written.append(whole)
-        parts = [{"id": str(uuid4()), "amount_cents": a} for a in (-6000, -4000)]
-        written.extend(p["id"] for p in parts)
-        client.post(f"/transactions/{whole}/split", json_body={"parts": parts})
+        line = client.get(f"/transactions/{whole}")["bank_line_id"]
+        parts = replace_parts(client, line, [-6000, -4000], written)
 
         row = _row(account, "2026-03-12", "")
         del row["operation_code"]
@@ -289,7 +289,8 @@ def test_a_code_matched_line_moves_every_part_to_the_banks_day(client):
                 "date": datetime(2026, 3, 3, 12, tzinfo=zone).isoformat(timespec="seconds"),
             },
         )
-        client.post(f"/transactions/{whole}/split", json_body={"parts": parts})
+        line = client.get(f"/transactions/{whole}")["bank_line_id"]
+        client.put(f"/bank-lines/{line}", json_body={"parts": parts})
 
         row = _row(account, "2026-03-04", code)
         dry = client.post("/transactions/import", json_body={"dry_run": True, "rows": [row]})

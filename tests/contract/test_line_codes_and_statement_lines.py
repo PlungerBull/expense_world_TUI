@@ -10,20 +10,23 @@ line and sends no statement line, so it stands on rules only the engine can conf
 Pinned here:
 
   · a batch whose `line_group` holds two items makes one line whose parts read one
-    `line_code`, and the next line of the batch takes the next code; a split of that
-    line keeps its code on every new part;
+    `line_code`, and the next line of the batch takes the next code; a whole-line
+    write replacing that line's parts keeps its code on every new part;
   · `line_code` is in no request body: on `POST /transactions`, each item of
     `POST /transactions/batch`, each row of `POST /transactions/import`, the
-    opening balance, each part of a split and `PUT /transactions/{id}` it is `422`
-    `UNKNOWN_FIELD` under its own key, and nothing is written;
+    opening balance, each part of a whole-line write and beside its `parts`, and
+    `PUT /transactions/{id}`, it is `422` `UNKNOWN_FIELD` under its own key, and
+    nothing is written;
   · `statement_line` is in no request body either: on the same writes, beside a
-    split's `parts` too, and on `PUT /transactions/{id}` whether set or `null`, it is
-    `422` `UNKNOWN_FIELD` under its own key, nothing is written, and a line in no
-    reconciliation reads a `null` statement line;
+    whole-line write's `parts` and alone in its body too, and on `PUT
+    /transactions/{id}` whether set or `null`, it is `422` `UNKNOWN_FIELD` under its
+    own key, nothing is written, and a line in no reconciliation reads a `null`
+    statement line;
   · `statement_place`, set only by a statement's order, is in no other request body:
-    on the same writes, beside a split's `parts` too, and on `PUT /transactions/{id}`
-    whether set or `null`, and on a reconciliation's create and update, it is `422`
-    `UNKNOWN_FIELD` under its own key, and nothing is written;
+    on the same writes, beside a whole-line write's `parts` and alone in its body too,
+    and on `PUT /transactions/{id}` whether set or `null`, and on a reconciliation's
+    create and update, it is `422` `UNKNOWN_FIELD` under its own key, and nothing is
+    written;
   · letter case counts: `ABC…` and `abc…` are two operation codes on one account,
     each read back as sent; only the exact same value again is `409`, nothing
     written.
@@ -40,7 +43,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import reason_on
+from tests.contract.conftest import reason_on, replace_parts
 
 LINE_CODE = re.compile(r"^#\d{6}$")
 
@@ -100,12 +103,12 @@ def _cleanup(client, tx_ids: list[str], account_id: str) -> None:
 # ---- line_code ---------------------------------------------------------------
 
 
-def test_a_line_group_reads_one_line_code_and_a_split_keeps_it(client):
+def test_a_line_group_reads_one_line_code_and_new_parts_keep_it(client):
     """The items of one `line_group` are the parts of one line and read one
     `line_code`; each line of the batch takes the next code in request order
-    (contract: POST /v1/transactions/batch, "Line groups"). A split makes no new
-    line: every new part reads the line's code
-    (contract: POST /v1/transactions/{transaction_id}/split, "On success (atomic)")."""
+    (contract: POST /v1/transactions/batch, "Line groups"). A whole-line write sending
+    only new parts makes no new line: every new part reads the line's code
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts")."""
     zone = _zone(client)
     account = _make_account(client)
     date = _noon(zone, 2026, 4, 6)
@@ -125,11 +128,9 @@ def test_a_line_group_reads_one_line_code_and_a_split_keeps_it(client):
         assert read["line_code"] == code
         assert {p["line_code"] for p in read["parts"]} == {code}
 
-        parts = [{"id": str(uuid4()), "amount_cents": a} for a in (-5000, -3000, -2000)]
-        written.extend(p["id"] for p in parts)
-        split = client.post(f"/transactions/{second['id']}/split", json_body={"parts": parts})
-        assert [p["line_code"] for p in split["parts"]] == [code, code, code]
-        assert {p["bank_line_id"] for p in split["parts"]} == {line}
+        parts = replace_parts(client, line, [-5000, -3000, -2000], written)
+        assert [p["line_code"] for p in parts] == [code, code, code]
+        assert {p["bank_line_id"] for p in parts} == {line}
         assert client.get(f"/bank-lines/{line}")["line_code"] == code
         for part in parts:
             assert client.get(f"/transactions/{part['id']}")["line_code"] == code
@@ -138,7 +139,7 @@ def test_a_line_group_reads_one_line_code_and_a_split_keeps_it(client):
 
 
 def _writes_sending(
-    key: str, value: object, account: str, date: str, tx_id: str
+    key: str, value: object, account: str, date: str, tx: dict
 ) -> list[tuple[str, str, dict, str]]:
     """Every write that takes a body naming a transaction or its line, each sending
     `key` where a client field would go: (method, path, body, refused key)."""
@@ -174,8 +175,8 @@ def _writes_sending(
             key,
         ),
         (
-            "POST",
-            f"/transactions/{tx_id}/split",
+            "PUT",
+            f"/bank-lines/{tx['bank_line_id']}",
             {
                 "parts": [
                     {"id": str(uuid4()), "amount_cents": -60, key: value},
@@ -184,8 +185,16 @@ def _writes_sending(
             },
             f"parts.0.{key}",
         ),
-        ("PUT", f"/transactions/{tx_id}", {key: value}, key),
+        ("PUT", f"/transactions/{tx['id']}", {key: value}, key),
     ]
+
+
+def _line_writes_sending(key: str, value: object, tx: dict) -> list[tuple[str, str, dict, str]]:
+    """The whole-line write sending `key` where a line field would go: beside new
+    `parts`, and alone in its body."""
+    path = f"/bank-lines/{tx['bank_line_id']}"
+    parts = [{"id": str(uuid4()), "amount_cents": -60}, {"id": str(uuid4()), "amount_cents": -40}]
+    return [("PUT", path, {"parts": parts, key: value}, key), ("PUT", path, {key: value}, key)]
 
 
 def _ids_in(writes: list[tuple[str, str, dict, str]]) -> list[str]:
@@ -207,7 +216,8 @@ def test_line_code_is_in_no_request_body(client):
     account = _make_account(client)
     date = _noon(zone, 2026, 4, 7)
     original = client.post("/transactions", json_body=_tx_body(account, date, -100))
-    writes = _writes_sending("line_code", "#000001", account, date, original["id"])
+    writes = _writes_sending("line_code", "#000001", account, date, original)
+    writes += _line_writes_sending("line_code", "#000001", original)
     written = [original["id"], *_ids_in(writes)]
     try:
         for method, path, body, key in writes:
@@ -232,9 +242,10 @@ def test_statement_line_is_in_no_request_body(client):
     batch item (contract: POST /v1/transactions/batch), an upload row
     (contract: POST /v1/transactions/import, "Body"), the opening balance
     (contract: POST /v1/accounts/{account_id}/opening-balance, "Forbidden"), a
-    split's part and beside its `parts`
-    (contract: POST /v1/transactions/{transaction_id}/split, "Forbidden"), and an
-    update, set or `null` (contract: PUT /v1/transactions/{transaction_id}, "Updatable").
+    whole-line write's part (contract: PUT /v1/bank-lines/{bank_line_id}, "Forbidden"),
+    beside its `parts` and alone in its body
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"), and an update, set or
+    `null` (contract: PUT /v1/transactions/{transaction_id}, "Updatable").
     Nothing is written, and the line, in no reconciliation, reads a `null`
     `statement_line` and `statement_place`
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
@@ -243,20 +254,9 @@ def test_statement_line_is_in_no_request_body(client):
     date = _noon(zone, 2026, 4, 11)
     value = "SIG-202604-001"
     original = client.post("/transactions", json_body=_tx_body(account, date, -100))
-    writes = _writes_sending("statement_line", value, account, date, original["id"])
+    writes = _writes_sending("statement_line", value, account, date, original)
     writes += [
-        (
-            "POST",
-            f"/transactions/{original['id']}/split",
-            {
-                "parts": [
-                    {"id": str(uuid4()), "amount_cents": -60},
-                    {"id": str(uuid4()), "amount_cents": -40},
-                ],
-                "statement_line": value,
-            },
-            "statement_line",
-        ),
+        *_line_writes_sending("statement_line", value, original),
         ("PUT", f"/transactions/{original['id']}", {"statement_line": None}, "statement_line"),
     ]
     written = [original["id"], *_ids_in(writes)]
@@ -269,6 +269,7 @@ def test_statement_line_is_in_no_request_body(client):
         assert _live_ids(client, account) == {original["id"]}
         assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
         read = client.get(f"/transactions/{original['id']}")
+        assert read["version"] == original["version"]
         assert (read["statement_line"], read["statement_place"]) == (None, None)
         line = client.get(f"/bank-lines/{original['bank_line_id']}")
         assert (line["statement_line"], line["statement_place"]) == (None, None)
@@ -284,29 +285,19 @@ def test_statement_place_is_in_no_request_body_but_the_order(client):
     request body (contract: "Transactions (Ledger)", "Bank lines"), so every write
     naming a transaction refuses it as an unknown field
     (contract: "Unknown request fields"), `422` `UNKNOWN_FIELD` under its own key: a
-    create, a batch item, an upload row, the opening balance, a split's part and beside
-    its `parts`, and an update, set or `null`; and so do a reconciliation's create and
-    update. The order's own body takes no
+    create, a batch item, an upload row, the opening balance, a whole-line write's part,
+    beside its `parts` and alone in its body
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"), and an update, set or
+    `null`; and so do a reconciliation's create and update. The order's own body takes no
     `statement_place` either (test_statement_order.py). Nothing is written, and the
     line reads no place."""
     zone = _zone(client)
     account = _make_account(client)
     date = _noon(zone, 2026, 4, 12)
     original = client.post("/transactions", json_body=_tx_body(account, date, -100))
-    writes = _writes_sending("statement_place", 1, account, date, original["id"])
+    writes = _writes_sending("statement_place", 1, account, date, original)
     writes += [
-        (
-            "POST",
-            f"/transactions/{original['id']}/split",
-            {
-                "parts": [
-                    {"id": str(uuid4()), "amount_cents": -60},
-                    {"id": str(uuid4()), "amount_cents": -40},
-                ],
-                "statement_place": 1,
-            },
-            "statement_place",
-        ),
+        *_line_writes_sending("statement_place", 1, original),
         ("PUT", f"/transactions/{original['id']}", {"statement_place": None}, "statement_place"),
     ]
     recon = str(uuid4())
