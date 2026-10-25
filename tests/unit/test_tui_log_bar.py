@@ -59,6 +59,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "acc2",
@@ -66,6 +67,7 @@ ACCOUNTS = [
         "currency_code": "USD",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "acc3",
@@ -73,6 +75,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
 ]
 CATEGORIES = {
@@ -114,6 +117,7 @@ PEEK_ITEMS = [
         "hashtag_ids": ["h1"],
         "line_code": "#000002",
         "statement_line": None,
+        "statement_place": None,
     },
     {
         "id": "t2",
@@ -125,6 +129,7 @@ PEEK_ITEMS = [
         "hashtag_ids": [],
         "line_code": "#000001",
         "statement_line": None,
+        "statement_place": None,
     },
 ]
 PEEK_BODY = cursor_page(PEEK_ITEMS, next_cursor="c40", limit=40)
@@ -1474,6 +1479,7 @@ def test_peek_row_of_an_unnamed_category_still_renders():
         "amount_cents": -100,
         "line_code": "#000003",
         "statement_line": None,
+        "statement_place": None,
     }
     rows = peek_rows([row], REFS)
     assert rows and str(rows[0][1]) == "—"

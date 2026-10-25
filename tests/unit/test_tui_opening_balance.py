@@ -29,6 +29,7 @@ EFECTIVO = {
     "is_archived": False,
     "currency_code": "PEN",
     "color": None,
+    "statement_code": None,
     "current_balance_cents": 0,
     "opening_balance_transaction_id": None,
 }
@@ -51,6 +52,7 @@ OPENING_ROW = {
     "date": "2026-01-01T00:00:00-05:00",
     "line_code": "#000001",
     "statement_line": None,
+    "statement_place": None,
 }
 
 

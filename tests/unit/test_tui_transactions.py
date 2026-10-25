@@ -19,6 +19,7 @@ ITEMS = [
         "hashtag_ids": ["h1"],
         "line_code": "#000001",
         "statement_line": None,
+        "statement_place": None,
     },
     {
         "id": "t2",
@@ -31,6 +32,7 @@ ITEMS = [
         "hashtag_ids": [],
         "line_code": "#000002",
         "statement_line": None,
+        "statement_place": None,
     },
 ]
 ACCOUNTS = {"acc1": "BCP Soles"}

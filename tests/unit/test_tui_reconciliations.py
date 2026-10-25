@@ -88,12 +88,14 @@ def _patch(monkeypatch):
                     "name": "BCP PEN",
                     "currency_code": "PEN",
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 },
                 {
                     "id": "acc2",
                     "name": "Interbank USD",
                     "currency_code": "USD",
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 },
             ]
         ),
@@ -303,12 +305,14 @@ def _patch_browse(monkeypatch, items=None, fail=False):
                     "name": "BCP PEN",
                     "currency_code": "PEN",
                     "current_balance_cents": 100,
+                    "statement_code": None,
                 },
                 {
                     "id": "acc2",
                     "name": "Interbank USD",
                     "currency_code": "USD",
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 },
             ]
         ),

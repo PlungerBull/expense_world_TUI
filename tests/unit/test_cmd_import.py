@@ -107,12 +107,14 @@ def test_apply_reuses_existing_and_creates_rest(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
             {
                 "id": "acc-usd",
                 "name": "BCP USD",
                 "currency_code": "USD",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
         ],
         categories=[{"id": "cat-susc", "name": "Suscripciones"}],
@@ -217,12 +219,14 @@ def test_apply_split_currency_reuses_existing_suffixed_accounts(configured):
                 "name": "BCP Oro PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
             {
                 "id": "acc-oro-usd",
                 "name": "BCP Oro USD",
                 "currency_code": "USD",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
         ],
         categories=[],
@@ -269,12 +273,14 @@ def test_apply_seeds_opening_balances(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
             {
                 "id": "acc-usd",
                 "name": "Interbank USD",
                 "currency_code": "USD",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
         ],
         categories=[],
@@ -317,6 +323,7 @@ def _seeded_account() -> None:
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -399,6 +406,7 @@ def test_opening_replay_of_its_own_id_counts_already_present(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -429,6 +437,7 @@ def test_opening_engine_error_reports_sheet_line(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -504,6 +513,7 @@ def test_batch_409_is_non_fatal(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -617,6 +627,7 @@ def test_a_refused_row_beside_an_imported_one_reports_its_sheet_line(configured)
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -653,6 +664,7 @@ def test_a_connection_error_on_a_second_send_stops_the_run(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -689,6 +701,7 @@ def test_a_chunk_422_isolates_its_bad_row(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -723,6 +736,7 @@ def test_row_failure_keeps_engine_fields_detail(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -757,6 +771,7 @@ def test_an_unknown_hashtag_names_its_sheet_line(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -794,6 +809,7 @@ def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(c
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -826,6 +842,7 @@ def test_chunking_splits_batches(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -857,6 +874,7 @@ def test_a_chunk_size_above_the_engines_limit_is_refused_before_any_write(config
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -900,6 +918,7 @@ def test_batch_connection_failure_marks_remaining_failed_and_stops(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -940,6 +959,7 @@ def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1104,6 +1124,7 @@ def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1135,8 +1156,20 @@ def test_a_re_run_after_an_account_became_a_person_reuses_it(configured, monkeyp
             rows=[RawRow(2, list(_CELLS)), RawRow(3, [*alejo, "None", "None"])],
         ),
     )
-    bank = {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN", "is_person": False}
-    person = {"id": "acc-alejo", "name": " alejo pen ", "currency_code": "PEN", "is_person": True}
+    bank = {
+        "id": "acc-pen",
+        "name": "BCP PEN",
+        "currency_code": "PEN",
+        "is_person": False,
+        "statement_code": None,
+    }
+    person = {
+        "id": "acc-alejo",
+        "name": " alejo pen ",
+        "currency_code": "PEN",
+        "is_person": True,
+        "statement_code": None,
+    }
 
     def accounts(request: httpx.Request) -> httpx.Response:
         people = request.url.params.get("include_people") == "true"
@@ -1208,6 +1241,7 @@ def test_apply_reads_the_settings_file_once(configured, monkeypatch):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1245,6 +1279,7 @@ def test_apply_json_result_with_failures(configured, monkeypatch):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1287,6 +1322,7 @@ def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1327,6 +1363,7 @@ def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch)
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[],
@@ -1419,6 +1456,7 @@ def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             }
         ],
         categories=[{"id": f"c{n}", "name": n} for n in ("WANTS", "NEEDS", "FUN")],
@@ -1501,12 +1539,14 @@ def test_settings_missing_at_an_opening_balance_ends_the_run(configured):
                 "name": "BCP PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
             {
                 "id": "acc-bbva",
                 "name": "BBVA PEN",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
         ],
         categories=[{"id": "c", "name": "WANTS"}],
@@ -1539,7 +1579,9 @@ def test_the_printed_report_carries_no_app_keys_or_hint_lines(configured, monkey
 
     _three_row_sheet(monkeypatch)
     _mock_existing(
-        accounts=[{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}],
+        accounts=[
+            {"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN", "statement_code": None}
+        ],
         categories=[{"id": "c1", "name": "WANTS"}, {"id": "c2", "name": "NEEDS"}],
         hashtags=[{"id": "h", "name": "Salidas"}],
     )

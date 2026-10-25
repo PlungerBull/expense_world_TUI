@@ -309,7 +309,7 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     """A line's ledger refusal is keyed by its first item; every part of that
     line fails with it, so no line lands with a part missing
     (contract: POST /v1/transactions/batch, "Line groups")."""
-    client = _Client([_conflict(1, field="statement_line", reason="STATEMENT_LINE_EXISTS"), {}])
+    client = _Client([_conflict(1, field="operation_code", reason="OPERATION_CODE_EXISTS"), {}])
     outcome = post_transaction_batch(client, _grouped(5, {"g1": [1, 2, 4]}))
 
     # the group's parts go together, in the place of its first item
@@ -324,7 +324,7 @@ def test_a_refusal_on_a_groups_first_item_fails_the_whole_group():
     assert sorted(f.indices for f in outcome.failures) == [(1,), (2,), (4,)]
     messages = {f.message for f in outcome.failures}
     assert len(messages) == 1  # every part fails in the words of the one refused
-    assert "statement_line: stand-in field words" in messages.pop()
+    assert "operation_code: stand-in field words" in messages.pop()
 
 
 def test_a_chunk_never_cuts_a_group():
@@ -444,7 +444,8 @@ def test_a_refusal_naming_no_item_after_a_drop_fails_only_what_is_left():
     "refusal",
     [
         _conflict(field="operation_code", reason="OPERATION_CODE_EXISTS"),
-        _conflict(field="statement_line", reason="STATEMENT_LINE_EXISTS"),
+        # a ledger rule refusing the row, under the 422 code
+        _invalid(0, field="date", reason="SEALED_PERIOD"),
         # the row's own id, but not taken
         _conflict(field="id", reason="IDEMPOTENCY_KEY_REUSED"),
         # its own id taken, and something else wrong with the row
@@ -462,7 +463,7 @@ def test_a_refusal_naming_no_item_after_a_drop_fails_only_what_is_left():
             "VALIDATION_ERROR", 422, "Invalid input.", {"transactions.0.id": ("x", "ID_EXISTS")}
         ),
     ],
-    ids=["operation-code", "statement-line", "key-reused", "id-and-more", "not-a-conflict"],
+    ids=["operation-code", "sealed-period", "key-reused", "id-and-more", "not-a-conflict"],
 )
 def test_any_other_refusal_of_a_row_is_never_written(refusal):
     """Only `ID_EXISTS` on the row's own id, alone, counts as written; every

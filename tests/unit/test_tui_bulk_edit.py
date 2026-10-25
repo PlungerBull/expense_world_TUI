@@ -65,6 +65,7 @@ ITEMS = [
         "hashtag_ids": [],
         "line_code": f"#{i:06d}",
         "statement_line": None,
+        "statement_place": None,
     }
     for i, title in enumerate(["EDO SUSHI BAR", "DLC*RIDES", "MAR DE COLAS"], start=1)
 ]
@@ -234,6 +235,7 @@ def test_space_is_inert_and_unadvertised_where_no_screen_owns_a_selection(monkey
                     "name": "BCP",
                     "is_archived": False,
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 }
             ]
         },
@@ -1461,6 +1463,7 @@ def _part(tx_id: str, title: str, amount: int, line: str, recon: str | None) -> 
         "bank_line_id": line,
         "line_code": line_code_of(line),
         "statement_line": None,
+        "statement_place": None,
         "reconciliation_id": recon,
     }
 

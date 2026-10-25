@@ -294,6 +294,7 @@ def _account(color, *, is_person=False) -> EditAccountScreen:
             "name": "Sueldo",
             "currency_code": "PEN",
             "color": color,
+            "statement_code": None,
             "is_person": is_person,
             "opening_balance_transaction_id": None,
         }
@@ -537,6 +538,7 @@ def test_edit_account_locks_type_and_currency(fake_client):
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
+            "statement_code": None,
         }
     )
     assert screen._locked == {"currency", "type"}
@@ -661,6 +663,7 @@ def test_a_refused_edit_reports_through_the_same_path(fake_client, monkeypatch):
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
+            "statement_code": None,
         }
     )
 
@@ -688,6 +691,7 @@ def _eliana() -> EditAccountScreen:
             "currency_code": "PEN",
             "is_person": True,
             "opening_balance_transaction_id": None,
+            "statement_code": None,
         }
     )
 
@@ -882,6 +886,7 @@ _ACCOUNT = {
     "currency_code": "PEN",
     "is_person": False,
     "opening_balance_transaction_id": None,
+    "statement_code": None,
 }
 
 

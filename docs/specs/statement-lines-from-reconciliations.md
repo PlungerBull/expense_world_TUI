@@ -89,12 +89,10 @@ Checks 3 and 4 run on the practice engine: the official import has not happened 
 
 ## Tasks
 
-Approved by the owner on 2026-10-24. Tasks 2 to 4 have no screen and run first.
+Approved by the owner on 2026-10-24. Tasks 3 and 4 have no screen and run first.
 Tasks 5 to 8 are **[UI]**: each starts with a mockup in [mockups/](../mockups/) and waits for the
 owner's pick.
 
-2. **Test data carries the new fields.** Unit fixtures give accounts `statement_code` and
-   transactions and bank lines `statement_place`; the drift check stays clean.
 3. **Live contract tests for the new rules:** setting, changing and clearing a statement code,
    and its refusals (bad shape, a code taken in the same currency, a person, a person-making
    account holding a code); one statement per code per month; the statement order read and
@@ -133,3 +131,8 @@ Not built in this spec; drafted into a new spec when it is done.
   of the list; a flag on the read is the complete answer, as an engine ask.
 - **`PUT /bank-lines/{id}` refuses `statement_line` and `statement_place` too** (contract
   `58d18ab42f4c09a2`); its pin belongs to the catch-up for that route.
+- **No unit guard refuses `statement_line` or `statement_place` in a request body**, as
+  `_no_line_code_in_requests` in [tests/unit/conftest.py](../../tests/unit/conftest.py) does for
+  `line_code`.
+- **[test_cmd_import.py](../../tests/unit/test_cmd_import.py) copies one account record about 25
+  times**; one small builder would do.

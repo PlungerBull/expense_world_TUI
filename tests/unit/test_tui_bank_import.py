@@ -50,6 +50,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "sig-usd",
@@ -57,6 +58,7 @@ ACCOUNTS = [
         "currency_code": "USD",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "bcp-pen",
@@ -64,6 +66,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "old",
@@ -72,6 +75,7 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": True,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
 ]
 HEADERS = ["Fecha", "Descripcion", "Moneda", "Monto"]

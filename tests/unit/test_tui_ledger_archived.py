@@ -41,6 +41,7 @@ ARCHIVED = {
     "is_archived": True,
     "sort_order": 4,
     "color": "#3b82f6",
+    "statement_code": None,
     "current_balance_cents": 0,
     "opening_balance_transaction_id": None,
 }
@@ -60,6 +61,7 @@ def _row(tx_id: str, account_id: str, title: str) -> dict:
         "bank_line_id": f"bl-{tx_id}",
         "line_code": line_code_of(f"bl-{tx_id}"),
         "statement_line": None,
+        "statement_place": None,
         "reconciliation_id": None,
     }
 

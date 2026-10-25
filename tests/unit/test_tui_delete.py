@@ -52,6 +52,7 @@ def _account(i: int) -> dict:
         "is_archived": False,
         "currency_code": "PEN",
         "color": None,
+        "statement_code": None,
         "current_balance_cents": -15000 if i == 22 else 0,
         "opening_balance_transaction_id": None,
     }
@@ -252,6 +253,7 @@ LEDGER = [
         "bank_line_id": f"bl{i}",
         "line_code": line_code_of(f"bl{i}"),
         "statement_line": None,
+        "statement_place": None,
     }
     for i in range(1, 26)
 ]
@@ -723,6 +725,7 @@ def _ledger_row(tx_id: str, title: str, amount: int, line: str, day: str = "2026
         "bank_line_id": line,
         "line_code": line_code_of(line),
         "statement_line": None,
+        "statement_place": None,
     }
 
 

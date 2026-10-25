@@ -222,7 +222,9 @@ def _seeded() -> None:
         return lambda request: httpx.Response(200, json={"items": rows})
 
     respx.get(f"{BASE}/v1/accounts").mock(
-        side_effect=whole([{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN"}])
+        side_effect=whole(
+            [{"id": "acc-pen", "name": "BCP PEN", "currency_code": "PEN", "statement_code": None}]
+        )
     )
     respx.get(f"{BASE}/v1/categories").mock(side_effect=whole([{"id": "c", "name": "WANTS"}]))
     respx.get(f"{BASE}/v1/hashtags").mock(side_effect=whole([{"id": "h", "name": "Casa"}]))

@@ -226,6 +226,7 @@ def import_part(
     hashtag_ids: tuple[str, ...] = ("h-pend",),
     description: str | None = None,
     statement_line: str | None = None,
+    statement_place: int | None = None,
 ) -> dict:
     """One part of a bank line as the engine lists it, in a
     `POST /transactions/import` answer's unclaimed line or in the `parts` of
@@ -233,7 +234,10 @@ def import_part(
     (contract: POST /v1/transactions/import) (contract: GET /v1/bank-lines/{bank_line_id}),
     `amount_cents` a magnitude and the direction in `transaction_type`, 1 out
     and 2 in (contract: "Base Conventions", "Sign convention — responses").
-    `amount_cents` is given signed here and written as the engine sends it."""
+    `amount_cents` is given signed here and written as the engine sends it.
+    `statement_line` and `statement_place` are the line's, the same on every part:
+    the engine builds the first from the account's statement code, the completed
+    reconciliation's month and the place (contract: "Transactions (Ledger)", "Bank lines")."""
     return {
         "id": tx_id,
         "user_id": "u-1",
@@ -249,6 +253,7 @@ def import_part(
         "line_code": line_code_of(line),
         "operation_code": None,
         "statement_line": statement_line,
+        "statement_place": statement_place,
         "created_at": f"{day}T15:00:00Z",
         "updated_at": f"{day}T15:00:00Z",
         "version": 1,
@@ -266,15 +271,16 @@ def bank_line_row(
     account_id: str = "sig-pen",
 ) -> dict:
     """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
-    reads it: its `parts` (each an `import_part`), its `line_code` and
-    `statement_line` as its parts read them, the engine's signed `net_cents` and
-    `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
+    reads it: its `parts` (each an `import_part`), its `line_code`,
+    `statement_line` and `statement_place` as its parts read them, the engine's
+    signed `net_cents` and `part_count` (contract: GET /v1/bank-lines/{bank_line_id})."""
     return {
         "id": line,
         "line_code": line_code_of(line),
         "account_id": account_id,
         "operation_code": operation_code,
         "statement_line": parts[0]["statement_line"] if parts else None,
+        "statement_place": parts[0]["statement_place"] if parts else None,
         "net_cents": net_cents,
         "part_count": len(parts),
         "parts": parts,
@@ -308,6 +314,7 @@ ENGINE_ORDER_ACCOUNTS = [
         "is_archived": False,
         "sort_order": 3,
         "color": "#3b82f6",
+        "statement_code": None,
         "current_balance_cents": 500,
         "opening_balance_transaction_id": None,
     },
@@ -319,6 +326,7 @@ ENGINE_ORDER_ACCOUNTS = [
         "is_archived": False,
         "sort_order": 1,
         "color": "#3b82f6",
+        "statement_code": None,
         "current_balance_cents": 700,
         "opening_balance_transaction_id": None,
     },
@@ -330,6 +338,7 @@ ENGINE_ORDER_ACCOUNTS = [
         "is_archived": False,
         "sort_order": 2,
         "color": "#3b82f6",
+        "statement_code": None,
         "current_balance_cents": -300,
         "opening_balance_transaction_id": None,
     },
@@ -341,6 +350,7 @@ ENGINE_ORDER_ACCOUNTS = [
         "is_archived": False,
         "sort_order": 0,
         "color": "#3b82f6",
+        "statement_code": None,
         "current_balance_cents": 100,
         "opening_balance_transaction_id": None,
     },

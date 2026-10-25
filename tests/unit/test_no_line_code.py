@@ -67,7 +67,7 @@ def tripped():
             ["body.rows[1].line_code"],
         ),
         (
-            {"title": "x", "hashtag_ids": [], "statement_line": "12", "line_code": CODE},
+            {"title": "x", "hashtag_ids": [], "operation_code": "12", "line_code": CODE},
             ["body.line_code"],
         ),
     ],
@@ -82,7 +82,7 @@ def test_the_key_is_found_at_any_depth(body, where):
     [
         None,
         {},
-        {"title": "line_code", "statement_line": "12"},
+        {"title": "line_code", "operation_code": "12"},
         {"transactions": [{"description": "line_code"}]},
         ["line_code"],
     ],
@@ -144,7 +144,7 @@ def test_the_real_client_sends_a_clean_body():
     )
     cfg = Config(engine_url=ENGINE_URL, token="ewe_pat_test")
     with ExpenseClient(cfg) as client:
-        client.put("/transactions/t1", json_body={"title": "x", "statement_line": "12"})
+        client.put("/transactions/t1", json_body={"title": "x", "operation_code": "12"})
     assert route.called
     assert LINE_CODE_LEAKS == []
 

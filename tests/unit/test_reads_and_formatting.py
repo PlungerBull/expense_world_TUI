@@ -203,9 +203,27 @@ def test_load_account_index_gives_names_and_archived_ids_from_one_read(configure
     route = respx.get(f"{BASE}/v1/accounts").mock(
         return_value=_list_body(
             [
-                {"id": "a1", "name": "BCP", "is_archived": False, "is_person": False},
-                {"id": "a2", "name": "Ahorro viejo", "is_archived": True, "is_person": False},
-                {"id": "p1", "name": "Mom", "is_archived": False, "is_person": True},
+                {
+                    "id": "a1",
+                    "name": "BCP",
+                    "is_archived": False,
+                    "is_person": False,
+                    "statement_code": None,
+                },
+                {
+                    "id": "a2",
+                    "name": "Ahorro viejo",
+                    "is_archived": True,
+                    "is_person": False,
+                    "statement_code": None,
+                },
+                {
+                    "id": "p1",
+                    "name": "Mom",
+                    "is_archived": False,
+                    "is_person": True,
+                    "statement_code": None,
+                },
             ]
         )
     )
@@ -359,6 +377,7 @@ _ACCOUNT_ROWS = [
         "currency_code": "PEN",
         "current_balance_cents": 100,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "a2",
@@ -366,6 +385,7 @@ _ACCOUNT_ROWS = [
         "currency_code": None,
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "p1",
@@ -373,6 +393,7 @@ _ACCOUNT_ROWS = [
         "currency_code": "PEN",
         "is_person": True,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {"name": "no-id row is skipped"},
 ]
@@ -539,6 +560,7 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
                     "name": "BCP PEN",
                     "currency_code": "PEN",
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 },
                 {
                     "id": "a2",
@@ -546,6 +568,7 @@ def test_load_quickadd_refs_shapes_all_three_lists(configured):
                     "currency_code": "PEN",
                     "is_archived": True,
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 },
             ]
         )
@@ -578,6 +601,7 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
                     "name": "Retired",
                     "is_archived": True,
                     "opening_balance_transaction_id": None,
+                    "statement_code": None,
                 }
             ]
         )
@@ -780,11 +804,12 @@ TRANSACTION_RESPONSE = {
     "description": None,
     "transaction_type": 1,
     "hashtag_ids": [],
-    "reconciliation_id": None,
+    "reconciliation_id": "rec-id",
     "bank_line_id": "66666666-6666-6666-6666-666666666666",
     "line_code": "#000042",
     "operation_code": None,
     "statement_line": "SIG-202603-029",
+    "statement_place": 29,
     "created_at": "2026-04-24T10:00:00Z",
     "updated_at": "2026-04-24T10:00:00Z",
     "version": 1,
@@ -863,6 +888,7 @@ BANK_LINE_RESPONSE = {
     "account_id": "acct-id",
     "operation_code": None,
     "statement_line": "SIG-202603-029",
+    "statement_place": 29,
     "net_cents": -10000,
     "part_count": 2,
     # Each part the transaction response, unsigned: a magnitude and its type.

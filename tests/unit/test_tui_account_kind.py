@@ -44,6 +44,7 @@ def _account(ident: str, name: str, *, person: bool = False, archived: bool = Fa
         "is_archived": archived,
         "currency_code": "PEN",
         "color": None,
+        "statement_code": None,
         "current_balance_cents": 125000,
         "opening_balance_transaction_id": None,
     }

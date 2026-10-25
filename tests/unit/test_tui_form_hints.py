@@ -44,6 +44,7 @@ ACCOUNT = {
     "is_archived": False,
     "currency_code": "PEN",
     "color": "#4a90d9",
+    "statement_code": None,
     "current_balance_cents": 0,
     "opening_balance_transaction_id": None,
 }
@@ -58,6 +59,8 @@ TXN = {
     "category_id": "cat1",
     "hashtag_ids": ["h1"],
     "description": "receta",
+    "statement_line": None,
+    "statement_place": None,
 }
 LINE = {
     "id": "bl1",
@@ -72,8 +75,12 @@ LINE = {
             "title": "FARMACIA",
             "amount_cents": 4250,
             "transaction_type": 1,
+            "statement_line": None,
+            "statement_place": None,
         }
     ],
+    "statement_line": None,
+    "statement_place": None,
 }
 SPLIT_LINE = {**LINE, "part_count": 2, "parts": [*LINE["parts"], {**LINE["parts"][0], "id": "p2"}]}
 

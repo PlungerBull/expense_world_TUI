@@ -50,6 +50,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "acc2",
@@ -57,6 +58,7 @@ ACCOUNTS = [
         "currency_code": "USD",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
     {
         "id": "acc3",
@@ -64,6 +66,7 @@ ACCOUNTS = [
         "currency_code": "PEN",
         "is_person": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     },
 ]
 CATEGORIES = {
@@ -108,6 +111,7 @@ TXN = {
     "bank_line_id": "bl1",
     "line_code": line_code_of("bl1"),
     "statement_line": None,
+    "statement_place": None,
 }
 
 
@@ -123,6 +127,7 @@ def test_load_entities_three_superset_queries(fake_client, monkeypatch):
         "currency_code": "PEN",
         "is_archived": True,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     }
 
     def rec(name, payload):
@@ -971,6 +976,7 @@ def _bank_line(part_count: int) -> dict:
         "account_id": "acc1",
         "operation_code": None,
         "statement_line": None,
+        "statement_place": None,
         "net_cents": -10000 if part_count > 1 else -4250,
         "part_count": part_count,
         "parts": [
@@ -1113,6 +1119,7 @@ BANK_LINE = {
     "account_id": "acc1",
     "operation_code": "47391026",
     "statement_line": None,
+    "statement_place": None,
     "part_count": 1,
     "net_cents": -4250,
     "parts": [
@@ -1124,6 +1131,7 @@ BANK_LINE = {
             "transaction_type": 1,
             "line_code": line_code_of("bl1"),
             "statement_line": None,
+            "statement_place": None,
         }
     ],
 }
@@ -1276,6 +1284,7 @@ ARCHIVED_ACCOUNT = {
     "is_person": False,
     "is_archived": True,
     "opening_balance_transaction_id": None,
+    "statement_code": None,
 }
 ON_ARCHIVED = {**TXN, "account_id": "accX", "reconciliation_id": None}
 #: The keys no save on an archived account's transaction ever holds (an empty

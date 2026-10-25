@@ -218,12 +218,14 @@ def test_rerun_without_flag_reuses_the_renamed_account(configured, sheet):
                 "name": "Sueldo Soles",
                 "currency_code": "PEN",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
             {
                 "id": "acc-usd",
                 "name": "BCP USD",
                 "currency_code": "USD",
                 "opening_balance_transaction_id": None,
+                "statement_code": None,
             },
         ]
     )

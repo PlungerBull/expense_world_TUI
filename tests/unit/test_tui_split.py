@@ -62,6 +62,7 @@ ACCOUNTS = [
         "is_person": False,
         "is_archived": False,
         "opening_balance_transaction_id": None,
+        "statement_code": None,
     }
 ]
 CATEGORIES = [
@@ -93,6 +94,7 @@ def _tx(
         "bank_line_id": line,
         "line_code": line_code_of(line),
         "statement_line": None,
+        "statement_place": None,
         "version": 1,
     }
 
@@ -131,6 +133,7 @@ def bank_line(line: str) -> dict:
         "account_id": "acc1",
         "operation_code": None,
         "statement_line": None,
+        "statement_place": None,
         "net_cents": NET[line],
         "part_count": len(LINES[line]),
         "parts": [_as_part(tx) for tx in LINES[line]],
