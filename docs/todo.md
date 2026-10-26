@@ -38,21 +38,21 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
-### Approve the Edit form's words and keys: its tasks, the words, and when it runs
-Asked 2026-10-25 · Blocks: [specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)
+### Pick the Edit form's words
+Asked 2026-10-25 · Blocks: tasks 2 and 3 of [specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)
 
-You approved the spec with A, A and A. Three things are left:
-- **Its four tasks**, in the spec's "Tasks" section: approve them, or say what to change.
-- **The exact words**, in
-  [mockups/expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html):
-  screen 1 (the ledger's `s`: footer `s Edit`, or keep `s Split`), screen 2 (the "no batch"
-  `⏎` line: short, or a full list) and screen 3 (a refused part's `category` and `hashtags`).
-- **When it runs:** the loop runs one spec at a time.
-  - **A.** This spec first; it is small. Then "Statement lines come from reconciliations".
-  - **B.** "Statement lines come from reconciliations" first, as listed; this one after.
+[mockups/expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html) draws
+the exact words. Screen 1, the ledger's `s` in the footer:
+- **A.** `s Edit`.
+- **B.** Keep `s Split`.
 
-**Recommended:** approve the tasks, pick 1 A, 2 A and 3 A, and A for when, because this spec is
-four small tasks and clears the words before the next screens are built.
+Screen 2, the "no batch" `⏎` line on the `?` card:
+- **A.** "Edit the transaction and its parts", the same as `s`.
+- **B.** The full list of fields, on three lines.
+
+Screen 3 has one option, a refused part reading `category` and `hashtags`: say OK.
+
+**Recommended:** 1 A, 2 A and OK, because the words then match the screen they open, on one line.
 
 ### The locked-line part of the notes spec is done
 Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
@@ -96,7 +96,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
-  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the next spec, its tasks approved
+  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the spec after the Edit form's words,
+  its tasks approved
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
@@ -245,8 +246,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   `test_nothing_in_the_app_calls_the_split_route` in
   [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
   gone", where the rule is present tense.
-- **The Edit form's words and keys match what it does**: approved, its tasks and a mockup pick
-  waiting on the owner ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
+- **The Edit form's words and keys match what it does**: the spec running now, its tasks 2 and 3
+  waiting on the owner's pick ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
   waiting for the owner's approval and two answers
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).

@@ -1,7 +1,8 @@
 # The Edit form's words and keys match what it does
 
-**Status: approved by the owner on 2026-10-25, with A for all three questions; its tasks wait
-for the owner's approval, and tasks 2 and 3 for a pick in
+**Status: approved by the owner on 2026-10-25, with A for all three questions, its tasks approved
+the same day and the spec run before "Statement lines come from reconciliations"; tasks 2 and 3
+wait for a pick in
 [mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).**
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -52,7 +53,7 @@ On 2026-10-25 the owner answered each question with A:
 
 ## Tasks
 
-Drafted by the orchestrator on 2026-10-25; waiting on the owner's approval. They run in this
+Approved by the owner on 2026-10-25. They run in this
 order: 1, 4, 2 and 3. Tasks 2 and 3 are **[UI]**, picked from
 [mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).
 
