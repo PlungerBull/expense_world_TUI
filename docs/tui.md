@@ -557,8 +557,10 @@ and the caption says so: `In no batch · <account>   ·   N of M loaded · newes
 read together with the first rows, and counts a split transaction once
 (contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an
 edit and a delete all start again from the newest ten, cursor on row 1. The **`!` flag is
-a hint, not a ruling** — it marks a row whose date falls inside a batch window this screen
-already holds, so it costs no request; the engine stays the authority at close time.
+a hint, not a ruling** — it marks a row whose date falls inside the days of a statement this
+screen already holds, draft or completed, so it costs no request. It stops nothing: a close goes
+through with such lines in no statement and names the ones it flags in its answer ("The lines a
+complete flagged for review" below), and which lines those are is the engine's alone.
 
 **Keys**: `esc` swaps back to the panel. `⏎ Edit`, on every row, opens the Edit form on the
 line and its parts (below); the `?` card words it "Edit the transaction and its parts", as the
@@ -593,7 +595,8 @@ moved it out of the list is gone. `esc` sends nothing and keeps the list and its
 card's `cur` column, a refused file and the screen after importing in
 [expense-world-import-whole-file.html](mockups/expense-world-import-whole-file.html), the rest
 of the preview's table in
-[expense-world-import-report.html](mockups/expense-world-import-report.html), the days that
+[expense-world-import-report.html](mockups/expense-world-import-report.html) (whose
+`Before 2026` and `Couldn't read the row` rows and counts the app does not show), the days that
 disagree and a row changed while the import ran in
 [expense-world-bank-lines-upload.html](mockups/expense-world-bank-lines-upload.html), and the
 several-files words in [expense-world-import-door.html](mockups/expense-world-import-door.html)).
@@ -1210,8 +1213,8 @@ them — they are hand-written into the `?` card
   the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
   `check_action` allows it, as the footer does: the Reconciliations panel's `⏎ Open` and
   `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
-  `f Flagged`, on only while lines its complete flagged are left (§2 "The lines a
-  complete flagged for review").
+  `f Flagged`, on only while lines its complete flagged are left ("The lines a complete
+  flagged for review" below).
 
 **The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
 `FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its

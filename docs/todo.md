@@ -36,6 +36,25 @@ repo's `docs/from-tui/`, then say so here and it leaves the folder.
 
 **Recommended:** none: only you can hand it over.
 
+### Hand over the catch-up reply for the bank download and closing a statement
+Asked 2026-10-26 · Blocks: nothing; the engine learns this client caught up to `592f2467fa3df75a`
+
+Copy [to-engine/caught-up-592f2467fa3df75a-bank-download-and-closing.md](to-engine/caught-up-592f2467fa3df75a-bank-download-and-closing.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder. It reports
+two slips in the engine's contract.
+
+**Recommended:** none: only you can hand it over.
+
+### Approve the spec for the catch-up's leftovers
+Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
+
+Small things the bank download and closing catch-up turned up: old engine words still quoted in
+tests and docs, five mockups drawing old screens, and a completed statement's footer still
+offering `c Complete` and `d Delete`. That footer is the one thing you see change, and its
+question is in the spec. Approve it or rewrite it, and answer it there.
+
+**Recommended:** approve it with B (drop `c` only), after the sheet import and the PDF specs.
+
 ### Approve the spec for the engine words' leftovers
 Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
 
@@ -250,10 +269,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
-  spec done on 2026-10-26; the rest run in this order: the bank download and closing a
-  statement, the current spec
-  ([specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md));
-  the sheet import through the engine
+  spec and the bank download and closing a statement done on 2026-10-26; the rest run in this
+  order: the sheet import through the engine
   ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), a
   draft with three questions; and the PDF statement below.
 - **Leftovers of the engine's words**: a draft spec waiting for the owner's approval

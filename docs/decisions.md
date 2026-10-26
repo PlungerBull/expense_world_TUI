@@ -286,9 +286,9 @@ Decisions whose why lives elsewhere:
 
 ## Bank downloads are matched against the ledger, not hashed (2026-09-12)
 
-**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. A card's two currencies are one pick. (2) **The engine matches** — the whole file in one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches each row to a bank line (one transaction, or the parts of a split) by operation code, otherwise by account + exact day + direction + total, claiming each line once; titles play no part, and a match writes the bank's title and any missing code onto every part of the line (contract: POST /v1/transactions/import, "Matching"). The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree, or that holds a ledger line no file row claimed, is a report, never an action** (the engine's `day_mismatches`); the unclaimed lines stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new** (owner, 2026-10-16): it is added, and the leftover ledger line's own day shows as disagreeing when it falls inside the file's dates, so the owner fixes it by hand. (4) **The title is the bank's text**, whitespace collapsed; the client writes no description (description is the owner's notes field). (5) **New rows land under `@Pendiente` and `#Pendiente`.** (6) Nothing dated before **2026-01-01** is sent; a file over **500** rows (the engine's cap) is refused; a row inside a completed reconciliation comes back `sealed` and is its own row on the preview, `✗ Closed period`. The preview's `#` is the row's line in the file. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). (7) **The ledger lines no file row claimed are shown signed by the app**: the engine sends them as ordinary transaction responses, `amount_cents` positive with the direction in `transaction_type`, and declined a signed copy; `?debit_as_negative` is refused on every route but the two transaction reads (contract: "Base Conventions", "Sign convention — responses"). So the app signs them in one helper, and a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics"). Screens: [mockups/expense-world-import-report.html](mockups/expense-world-import-report.html).
+**Decision.** The TUI import door brings bank files in ([expense/bank_import/](../expense/bank_import/)): (1) **It asks which account, every run**; nothing is remembered by file name, because a browser re-download (`… (1).xlsx`) is a new name and a per-name memory would prompt again and grow the config forever. A card's two currencies are one pick, its two accounts paired only by the engine's `statement_partner_id` (contract: GET /v1/accounts). (2) **The engine reads and matches** — the download is sent whole, its bytes in base64, and the app reads no cell of it; one `POST /transactions/import`, a dry run first, then the same call with `dry_run: false`. The engine matches each row to a bank line (one transaction, or the parts of a split) by operation code, otherwise by account + exact day + direction + total, claiming each line once; titles play no part, and a match writes the bank's title and any missing code onto every part of the line (contract: POST /v1/transactions/import, "Matching"). The per-account UNIQUE on `operation_code` is the floor. **More rows beats fewer**: there is no amount-only rule, because a duplicate shows up at reconciliation and a missed row is invisible. (3) **A day whose file total and ledger total disagree, or that holds a ledger line no file row claimed, is a report, never an action** (the engine's `day_mismatches`); the unclaimed lines stay out of that month's reconciliation, where the owner deletes them. **A row a day off its ledger line is new** (owner, 2026-10-16): it is added, and the leftover ledger line's own day shows as disagreeing when it falls inside the file's dates, so the owner fixes it by hand. (4) **The title is the bank's text**, as the engine reads it from the file; the client writes no description (description is the owner's notes field). (5) **New rows land under `@Pendiente` and `#Pendiente`.** (6) **Every row of the file goes in, whatever its date**; a file over **500** rows (the engine's cap) is refused by the engine on `file`; a row inside a completed reconciliation comes back `sealed` and is its own row on the preview, `✗ Closed period`. The preview's `#` is the row's number in the spreadsheet, as the engine numbers it. Request and response live once in [expense/bank_import/engine.py](../expense/bank_import/engine.py). (7) **The ledger lines no file row claimed are shown signed by the app**: the engine sends them as ordinary transaction responses, `amount_cents` positive with the direction in `transaction_type`, and declined a signed copy; `?debit_as_negative` is refused on every route but the two transaction reads (contract: "Base Conventions", "Sign convention — responses"). So the app signs them in one helper, and a guard keeps it the only place a sign is read off the type ([runtime.md](runtime.md) "Read semantics"). Screens: [mockups/expense-world-import-report.html](mockups/expense-world-import-report.html).
 
-**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card, and the leftover line shows in the days that disagree. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor* — one forgotten flag from duplicates. *A cleaned merchant name as the title* — the title is what the bank sent.
+**Rejected.** *Content-hashed ids* — blind to rows already in the ledger from the sheet or the LOG bar. *Matching a row one day off* — it can claim the wrong line on a busy card, and the leftover line shows in the days that disagree. *A client-side matcher* — every client would need its own copy. *Splitting a file over 500 rows across calls* — a later call's row could be claimed by one an earlier call just created. *A `--since` floor*, or *leaving out rows dated before 2026* — the owner wants every row of the file in. *Reading the download in the app and sending its rows* — each client would carry its own reader of the bank's format, and the engine now reads it once for all. *A cleaned merchant name as the title* — the title is what the bank sent.
 
 ## The TUI import door — a drop is text, read up front, asked every time (2026-10-02)
 
@@ -298,8 +298,9 @@ emulator hook is involved. Terminal.app's backslash escapes and VS Code's quotes
 **A line counts as files only if every word is an existing `.xlsx` path**; otherwise it stays
 quick-add, so a half-recognised line never imports some files and stages the rest. VS Code's
 terminal inserts one file per drop, so several files at once work in Terminal.app only.
-(2) **Every file is read before any screen opens**; a file that is not a BCP export keeps the
-LOG bar where it is, with what it is missing, and nothing is sent. (3) **Three full screens**
+(2) **Every file's bytes are read before any screen opens**; only a file the app cannot read
+from disk keeps the LOG bar where it is, noted `can't read the file · …`, and nothing is sent.
+Whether a file is a bank download is the engine's call: it refuses one that is not, on `file`. (3) **Three full screens**
 (account list, preview, result) replace one another above the bar, built on the shared steps of
 [flow.py](../expense/bank_import/flow.py) and the reasons of [engine.py](../expense/bank_import/engine.py). (4) **The account is asked every time** (see "Bank downloads
 are matched against the ledger" (1)). (5) **`esc` cancels this file and every later one**,
@@ -568,8 +569,8 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## The bank import's preview is one table: a mark and a reason per file row (2026-10-18, owner)
 
-**Decision.** (1) The preview lists every line of the file, the unreadable and pre-2026 ones
-included, each with a **mark** and a **reason** from a short fixed list, the reason alone on
+**Decision.** (1) The preview lists every row the engine read, numbered by its spreadsheet
+row, each with a **mark** and a **reason** from a short fixed list, the reason alone on
 the row ([tui.md](tui.md) "The import door"). (2) **✓ means the row is in the ledger after the
 import** (new, already there, or changed); **✗ means it needs looking at**: left out, or a move
 to the bank's day stopped. (3) **A move to the bank's day is one more "Modified existing
@@ -583,7 +584,11 @@ preview already showed every row. (6) The stopping reconciliation is named by on
 id, once per distinct id, in the worker (contract: GET /v1/reconciliations/{reconciliation_id}).
 The engine keeps a reference to another record an id alone, so it declined to put the name in
 the import's answer. The fallback `a reconciliation` stays for a read that fails, and one failed
-read does not stop the others, so the other rows keep their names.
+read does not stop the others, so the other rows keep their names. (7) **A row of `0` is
+marked `·`, `Skipped: amount 0`, dim, and counted**: the engine never matches or creates it, so
+it is neither ✓ nor ✗. (8) **On a card, a `cur` column after the amount** names the currency of
+the account the engine put the row on. The owner picked 2 B and 3 B in
+[expense-world-import-whole-file.html](mockups/expense-world-import-whole-file.html).
 
 **Why.** The old preview grew a suffix on its `match` column, or a note under the summary, for
 each thing the engine learned to do (`+code`, `+title`, the bank's day), and each brought its own
@@ -917,3 +922,36 @@ exists and can never be deleted, and no hashtag of a user's may take the name `P
 *Faking the state on the shared practice user* — the engine allows no way into it. *Holding the
 spec open for the live test* — the owner chose to finish the unit half first and ask the engine
 for the second practice user.
+
+## A close flags lines instead of refusing, and a card's other account is the engine's (2026-10-26, owner)
+
+**Decision.** (1) **Completing a statement goes through when it adds up, and the app shows the
+lines the close flagged** on a screen of its own, pushed right after the complete, both halves
+of a card in one list, each line opening in the Edit form or deleted after the question; back on
+the statement, a `⚑` line under the header and `f` open the list again while flagged lines are
+left (contract: POST /v1/reconciliations/{reconciliation_id}/complete). The owner picked 1 A in
+[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
+Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
+lines a close flags. (2) **The screen reads each flagged line by its id**, one call per line,
+because the engine names them only in the close's answer; the engine ask "The bank-line list
+reads several lines by their ids in one call" makes it one call. (3) **A card's other account is
+the engine's `statement_partner_id`** everywhere the app pairs a card (the import door's account
+list, Reconciliations), never a match of statement codes (contract: GET /v1/accounts). (4) **An
+archived card account with no statement gets no column** on the card's statement list (owner,
+question 2, A). (5) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
+close flags such a line instead of being blocked by it (owner, question 3, A, drawn in
+[expense-world-no-batch-caption.html](mockups/expense-world-no-batch-caption.html)). (6) **The
+practice engine's second key, the reserved-names practice user's, is handled like the first**:
+printed to the terminal only, kept out of files by the guards, and used only by the live tests
+that draw `RESERVED_NAME_HELD` ([runtime.md](runtime.md) "Working against the live engine").
+
+**Why.** Which lines a close leaves behind, and which account is a card's other half, are
+engine rules; a copy in each client drifts. A line dated in a statement but in none is often a
+later statement's, so stopping the close on it blocked the owner for a line that was fine. The
+flagged lines are only named in the close's answer, so a screen right after it is the one place
+the owner sees them all.
+
+**Rejected.** *The flagged lines listed on the statement itself* (1 B) — they sit among the
+statement's own lines, where each needs keys of its own. *A column for an archived card account
+with no statement* — it would always be empty. *Dropping the `!` mark* (question 3, B) — the
+mark points at the lines worth opening first; the caption only had to stop saying they block.

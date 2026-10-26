@@ -71,6 +71,7 @@ client-side by comparing the ISO date prefix of the row's `date`; the engine tre
 whole calendar days in the user's timezone (contract: "Base Conventions", "Calendar days").
 They agree **only because every live row is stored
 at 00:00 America/Lima** (and Lima has no daylight saving); nothing enforces midnight. The bank
-importer sends bare days. **The first writer that stores a real time of day makes the `!` wrong
-near midnight** — that is the point to write an engine ask for the per-row flag
-([to-engine/](to-engine/)).
+import sends no dates: the engine dates each row it creates, or moves to the bank's day, 00:00 of
+that day in the user's timezone (contract: POST /v1/transactions/import). **The first writer
+that stores a real time of day makes the `!` wrong near midnight** — that is the point to write
+an engine ask for the per-row flag ([to-engine/](to-engine/)).

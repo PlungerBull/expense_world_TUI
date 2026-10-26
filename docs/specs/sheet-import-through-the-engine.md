@@ -2,8 +2,8 @@
 
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 2 of the engine's
 hand-off of 2026-10-26, the new sheet import (`0f7cdbe45cece354`). It runs after
-[catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md), which holds most
-of the rest of the hand-off.
+the catch-up of the bank download and closing a statement (done on 2026-10-26), which held
+most of the rest of the hand-off.
 
 **Status: draft, for the owner to rewrite or approve; questions 1 to 3 wait on the owner. Its
 tasks are drafted when the owner names it the current spec.** When done, the why moves to
@@ -97,7 +97,8 @@ Drafted when the owner names this the current spec.
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
 
 - **Range:** item 2 of the hand-off (`0f7cdbe45cece354`); the range as a whole is confirmed in
-  the reply of [catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+  the reply "Caught up with contract 592f2467fa3df75a: the terminal app sends a bank download
+  whole, …".
 - **The engine's "Done when" checks to report on:** no code reads the sheet itself; the contract
   tests upload a made-up sheet with a dry run and an apply.
 - **The asks it closes:** none; the sheet import is the owner's own work.

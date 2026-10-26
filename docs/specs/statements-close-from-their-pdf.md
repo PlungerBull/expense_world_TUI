@@ -2,8 +2,8 @@
 
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 5 of the engine's
 hand-off of 2026-10-26, the statement upload (`9063fab000b2e3d6`, worded again in
-`9537a3f6276d7d85`). Showing the lines a close flags is built first, in
-[catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+`9537a3f6276d7d85`). Showing the lines a close flags was built first, in
+the catch-up of the bank download and closing a statement (done on 2026-10-26).
 
 **Status: draft, for the owner to rewrite or approve; questions 1 to 6 answered on 2026-10-25,
 questions 7 and 8 wait on the owner. The engine shipped the upload on 2026-10-26, settling
@@ -196,8 +196,8 @@ Drafted when the owner names this the current spec.
 Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
 
 - **Range:** item 5 of the hand-off (`9063fab000b2e3d6`, `9537a3f6276d7d85`); the range as a
-  whole is confirmed in the reply of
-  [catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+  whole is confirmed in the reply "Caught up with contract 592f2467fa3df75a: the terminal app sends a
+  bank download whole, …".
 - **The engine's "Done when" checks to report on:** no code reads a PDF itself; the contract
   tests upload a made-up statement PDF with a dry run and an apply.
 - **The asks it closes:** none; the engine built the upload ahead of this client's ask.
