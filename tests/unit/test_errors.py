@@ -513,10 +513,11 @@ APP_FAULT = (
             False,
             "Leave the opening balance out of the selection.",
         ),
-        # edit-form-words-and-keys 3 A: on the Edit form's whole-line write, a part's
-        # key, the engine's words alone
+        # the Edit form's whole-line write refusing a part's `parts.<i>.hashtag_ids` with
+        # OPENING_BALANCE_NOT_TAGGED: the engine's words alone, with no line of the app's
         ("VALIDATION_ERROR", "parts.0.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", False, None),
         ("VALIDATION_ERROR", "parts.2.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", True, None),
+        # a transaction in a completed reconciliation: the engine's words alone
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
         # archived-account 3 A: the engine's words alone, on every route that answers it
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),

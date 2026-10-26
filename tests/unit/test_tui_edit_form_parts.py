@@ -1090,7 +1090,8 @@ REFUSALS = [
         "OPENING_BALANCE_NOT_TAGGED",
         "Must be empty: an opening balance carries no hashtag.",
         "part 1 (hashtags)",
-        None,  # edit-form-words-and-keys 3 A: the engine's words alone
+        # a part's OPENING_BALANCE_NOT_TAGGED: the engine's words alone, no line of the app's
+        None,
     ),
     (
         "a1",

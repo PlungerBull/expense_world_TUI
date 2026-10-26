@@ -52,10 +52,7 @@ hashtag hold the reserved names", and the live test waits under "Found along the
    engine's words whole with no line of the app's under them (not the category line), says
    nothing was saved, and sent exactly that one write; the test fails if the category line
    shows; and the unit suite passes.
-2. **The two test comments say what their case proves** (point 3). Passes if the comments in
-   test_tui_edit_form_parts.py and test_errors.py no longer name "edit-form-words-and-keys 3 A"
-   and instead say what the case proves (a part's `parts.<i>.hashtag_ids` refusal shows the
-   engine's words alone), no other pick tag is added, and what the tests check is unchanged.
+Every task is done; the acceptance check and the librarian's sweep follow.
 
 ## Found along the way
 
@@ -66,3 +63,7 @@ Not built in this spec; drafted into a new spec when it is done.
   whose own category and hashtag hold the reserved names", live tests run as that user prove
   that `PUT /bank-lines/{id}` with `parts`, and the other transaction routes, send
   `RESERVED_NAME_HELD` on `hashtag_ids` or `category_id` and write nothing.
+- **Four more test comments name a retired spec's pick.** In test_errors.py, the comments
+  heading the refusal rows still say "pending-hashtag-manage 4 B, both refusals, and 5 B",
+  "pending-hashtag-manage 7 B", "archived-account 3 A" and "account-to-person 4 B"; each should
+  say what its rows prove instead.
