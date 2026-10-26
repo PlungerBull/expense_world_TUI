@@ -552,7 +552,7 @@ says it is split, and its parts are not listed. No category, hashtags or note.
 
 The list is **newest first**, the one order the engine's line list has (contract: GET /v1/bank-lines),
 and the caption says so: `In no batch · <account>   ·   N of M loaded · newest first   ·
-! blocks a batch's close`. It reads ten lines at a time and grows like the ledger (§5,
+! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
 `GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`),
 read together with the first rows, and counts a split transaction once
 (contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an

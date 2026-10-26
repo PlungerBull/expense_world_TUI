@@ -847,10 +847,10 @@ def test_u_reads_the_accounts_lines_in_no_batch_newest_first(monkeypatch):
         # one row per line, in the engine's order, under the bank's columns
         assert [r.key for r in screen._batch_list._rows] == ["bl-uber", "bl-farm", "bl-net"]
         assert screen._batch_list._headers == ["", "Date", "Title", "Operation", "Amount"]
-        caption = screen._batch_list._caption or ""
-        assert caption.startswith("In no batch · BCP PEN")
-        assert "3 of 3 loaded · newest first" in caption
-        assert "oldest" not in caption
+        assert screen._batch_list._caption == (
+            "In no batch · BCP PEN   ·   3 of 3 loaded · newest first"
+            "   ·   ! dated inside a statement"
+        )
         # one read of the account's lines in no batch, no dates, no sort; the
         # count asks the same question
         assert calls == [

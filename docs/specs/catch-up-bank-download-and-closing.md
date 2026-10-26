@@ -107,10 +107,6 @@ file the app cannot open is noted `can't read the file · …` (question 4, B).
 
 ## Tasks
 
-8. **[UI] The "no batch" caption** (question 3, A). The "no batch" list's caption explains its
-   `!` as `! dated inside a statement`, as drawn in
-   [expense-world-no-batch-caption.html](../mockups/expense-world-no-batch-caption.html); the
-   rows and the mark stay. [tui.md](../tui.md) and the tests say the same.
 9. **The note for a dropped file the app cannot open** (question 4, B). The LOG bar notes such
    a file `can't read the file · File not found: <path>` (or `· Could not open <path>: <why>`),
    never `not a BCP bank file`; [tui.md](../tui.md) and the tests say the same.
@@ -168,6 +164,11 @@ Not built in this spec; drafted into a new spec when it is done.
 - **One live test builds its download body by hand.** `test_reserved_name_held.py` (around line
   219) writes its own header and body where the shared `download_body` and `CURRENT_HEADER` in
   the contract conftest now do it. (Task 7.)
+- **The `!` helper's name and one tui.md sentence still speak of blocking.** `blocking_windows`
+  in [reconciliations.py](../../expense/tui/screens/reconciliations.py) names what is now a
+  "dated inside a statement" hint, and [tui.md](../tui.md) (around line 559) says "the engine
+  stays the authority at close time", though the close decides nothing about these lines.
+  (Task 8.)
 - **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
   test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
   reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)

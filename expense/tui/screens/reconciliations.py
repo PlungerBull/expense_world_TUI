@@ -917,7 +917,7 @@ class ReconciliationsScreen(SectionScreen):
         label = acct[1] if acct else "—"
         return (
             f"In no batch · {label}   ·   {len(self._unfiled)} of {self._unfiled_grow.total} loaded"
-            " · newest first   ·   ! blocks a batch's close"
+            " · newest first   ·   ! dated inside a statement"
         )
 
     def _unfiled_record(self) -> dict | None:
