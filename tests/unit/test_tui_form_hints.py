@@ -81,6 +81,7 @@ LINE = {
     "operation_code": "47391026",
     "part_count": 1,
     "net_cents": -4250,
+    "is_opening_balance": False,
     "parts": [_PART],
     "statement_line": None,
     "statement_place": None,
@@ -255,7 +256,7 @@ SHAPES = {
     EditFormScreen: lambda: [
         _on(EditFormScreen(record=dict(TXN)), LINE),
         _on(EditFormScreen(record=dict(TXN)), SPLIT_LINE),
-        _on(EditFormScreen(record=dict(TXN)), LINE, OPENING),
+        _on(EditFormScreen(record=dict(TXN)), {**LINE, "is_opening_balance": True}, OPENING),
         _on(EditFormScreen(record=dict(TXN)), LINE, ARCHIVED),
         _on(EditFormScreen(record={**TXN, "title": None}), LINE, ARCHIVED_NO_TITLE),
         _on(EditFormScreen(record=dict(TXN)), LINE, COMPLETED),

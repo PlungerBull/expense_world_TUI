@@ -289,12 +289,14 @@ def bank_line_row(
     net_cents: int,
     operation_code: str | None = None,
     account_id: str = "sig-pen",
+    is_opening_balance: bool = False,
 ) -> dict:
     """One bank line as `GET /bank-lines` lists it and `GET /bank-lines/{id}`
     reads it: its `parts` (each an `import_part`), its `line_code`,
     `statement_line` and `statement_place` as its parts read them, the engine's
-    signed `net_cents` and `part_count`, and the `edit_limits` of a line nothing
-    closes (contract: GET /v1/bank-lines/{bank_line_id})."""
+    signed `net_cents` and `part_count`, `is_opening_balance` (`true` only on an
+    account's opening balance), and the `edit_limits` of a line nothing closes
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
     return {
         "id": line,
         "line_code": line_code_of(line),
@@ -304,6 +306,7 @@ def bank_line_row(
         "statement_place": parts[0]["statement_place"] if parts else None,
         "net_cents": net_cents,
         "part_count": len(parts),
+        "is_opening_balance": is_opening_balance,
         "parts": parts,
         "edit_limits": edit_limits(),
     }

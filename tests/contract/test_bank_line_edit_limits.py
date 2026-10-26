@@ -1,5 +1,6 @@
-"""Contract: what a bank line says a write would refuse, and the whole-line write's
-`parts` on the two kinds of line that keep their parts.
+"""Contract: what a bank line says a write would refuse and whether it is an opening
+balance, and the whole-line write's `parts` on the two kinds of line that keep their
+parts.
 
 Every bank line the engine returns carries `edit_limits`: the line fields a write
 would refuse, with the reason; whether the total and the parts are fixed; and, per
@@ -21,6 +22,9 @@ state closes. Pinned here:
   · an opening balance's line: `account_id` `OPENING_BALANCE_ACCOUNT_FIXED`, the parts
     fixed and the total not, its part `OPENING_BALANCE_CATEGORY_FIXED` on
     `category_id` and `OPENING_BALANCE_NOT_TAGGED` on `hashtag_ids`;
+  · `is_opening_balance`, `true` on the opening balance's line and `false` on every
+    other, on the read by id, each list row, the statement order's read and write, and
+    the whole-line write's answer;
   · `parts` on an opening balance's line: its amount and note change in one write
     under its own id, its own category `@Opening` sent as is is no change, `[]` leaves
     it with no hashtag; another category is `OPENING_BALANCE_CATEGORY_FIXED` on
@@ -49,7 +53,7 @@ from uuid import uuid4
 
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
-from tests.contract.conftest import assert_refusals, read_signed, refused
+from tests.contract.conftest import assert_refusals, free_statement_codes, read_signed, refused
 
 #: `edit_limits` of a line nothing closes: every key present, nothing in it
 #: (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
@@ -198,6 +202,51 @@ def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratc
             }
         },
     }
+
+
+# ---- is_opening_balance, on every bank-line read ----------------------------------
+
+
+def _flags(lines: list[dict]) -> dict[str, bool]:
+    return {line["id"]: line["is_opening_balance"] for line in lines}
+
+
+def test_a_line_says_whether_it_is_its_accounts_opening_balance(client, scratch):
+    """`is_opening_balance` is `true` on the account's opening balance and `false` on
+    every other line, a split one included, never `null`: on the read by id, on each
+    row of `GET /bank-lines` in either order, on the statement order's `places` and
+    `unplaced` as its read and its write answer them, and on the whole-line write's
+    answer (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
+    (contract: GET /v1/bank-lines)
+    (contract: GET /v1/reconciliations/{reconciliation_id}/statement-order, "Response")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). The opening balance is
+    the line the statement's order never places, so it stays under `unplaced`; a list
+    naming it is refused (test_statement_order.py, `OPENING_BALANCE_NOT_PLACED`)."""
+    (code,) = free_statement_codes(client, 1)
+    account = scratch.account("PEN", code)
+    recon = scratch.reconciliation(account, "2026-05-01", "2026-05-31")
+    opening = scratch.opening_balance(account, "2026-05-01", recon)
+    single = scratch.line(account, "2026-05-04", -2500, recon=recon)
+    split = scratch.line(account, "2026-05-05", -6000, -4000, recon=recon)
+    expected = {opening: True, single: False, split: False}
+
+    for line_id, flag in expected.items():
+        assert _line(client, line_id)["is_opening_balance"] is flag, line_id
+    for params in ({"account_id": account}, {"reconciliation_id": recon, "sort": "statement"}):
+        assert _flags(client.get("/bank-lines", params=params)["items"]) == expected, params
+
+    order = client.get(f"/reconciliations/{recon}/statement-order")
+    assert _flags(order["unplaced"]) == expected
+    sent = client.put(
+        f"/reconciliations/{recon}/statement-order", json_body={"places": [single, split]}
+    )
+    assert _flags([entry["bank_line"] for entry in sent["places"]]) == {single: False, split: False}
+    assert _flags(sent["unplaced"]) == {opening: True}
+
+    for line_id, flag in expected.items():
+        held = _line(client, line_id)["parts"]
+        parts = [{"id": p["id"], "amount_cents": signed_cents(p)} for p in held]
+        assert _write(client, line_id, parts)["is_opening_balance"] is flag, line_id
 
 
 # ---- parts on an opening balance's line ------------------------------------------

@@ -26,7 +26,14 @@ say them. Pinned here:
   · the create's refusals one check at a time, in the contract's order, nothing written;
   · a delete from either half deleting both, its refusals naming each half;
   · a rename and a move from either half writing both, a balance only the half named,
-    and the update's refusals naming each half.
+    and the update's refusals naming each half;
+  · the list of a whole card from either card account (`statement_of`): both halves of
+    every month and a month with one half, in the stated order, each `twin_id` naming
+    another item of the answer; and its refusals, `REQUIRED` on both keys with neither
+    parameter;
+  · one save writing both halves' balances through `twin`, and its refusals writing
+    neither half: `NO_TWIN`, a `twin.id` not the current other half (a stale read
+    included) `CONCURRENT_CHANGE`, and a `twin` with no balance.
 
 Each test builds its own accounts under codes no account of the practice user holds, and
 undoes everything (conftest.py `scratch`). Gating, target and the real-ledger guard:
@@ -761,3 +768,182 @@ def test_a_rename_and_a_move_change_both_halves_and_a_balance_one(client, scratc
     closed = put(rd, {"name": "contract card closed"})
     assert (closed["name"], closed["twin"]["name"]) == ("contract card closed",) * 2
     assert (closed["status"], closed["twin"]["status"]) == (2, 2)
+
+
+# ---- the list of a whole card -----------------------------------------------------
+
+
+def _whole_card(client, account: str) -> list[dict]:
+    return client.get("/reconciliations", params={"statement_of": account})["items"]
+
+
+def test_the_list_reads_a_whole_card_from_either_account(client, scratch):
+    """`GET /reconciliations?statement_of=<account>` lists the reconciliations of every
+    live account holding that account's statement code: a card's two halves of every
+    month, a month with one half on either account included, the same items in the
+    same order from either card account, an archived card account included, each
+    item exactly its read; every non-null `twin_id` names another item of the same
+    answer (contract: GET /v1/reconciliations). They come by `date_start` ascending,
+    then by account in the order of `GET /accounts`, then creation time, oldest first
+    (contract: "Reconciliations", "Ordering"). On an account with a code and no
+    partner, or with none, it lists that account's own, as `?account_id=` does; an id
+    naming no account of the caller's lists none. Exactly one of `account_id` and
+    `statement_of`: neither is `REQUIRED` on both, both `CONFLICTING_PARAMETERS` on
+    `statement_of`, and a non-UUID `INVALID_FORMAT` on its parameter."""
+    code, lone_code = free_statement_codes(client, 2)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    april_s = scratch.reconciliation(soles, "2026-04-01", "2026-04-30")
+    march = scratch.card(dollars, soles, *MARCH)
+    jan_d = scratch.reconciliation(dollars, "2026-01-01", "2026-01-31")
+    feb = scratch.card(soles, dollars, "2026-02-01", "2026-02-28")
+
+    listed = client.get("/accounts", params={"include_archived": "true"})["items"]
+    rank = {item["id"]: at for at, item in enumerate(listed)}
+    first, second = sorted((soles, dollars), key=rank.__getitem__)
+
+    def by_account(pair: tuple[str, str], accounts: tuple[str, str]) -> list[str]:
+        on = dict(zip(accounts, pair, strict=True))
+        return [on[first], on[second]]
+
+    expected = [
+        jan_d,
+        *by_account(feb, (soles, dollars)),
+        *by_account(march, (dollars, soles)),
+        april_s,
+    ]
+    for account in (soles, dollars):
+        items = _whole_card(client, account)
+        assert [item["id"] for item in items] == expected, account
+        assert items == [_read(client, recon) for recon in expected]
+        ids = {item["id"] for item in items}
+        for item in items:
+            assert item["twin_id"] in ids - {item["id"]} | {None}, item["id"]
+        halves = {item["id"]: item["twin_id"] for item in items}
+        assert (halves[jan_d], halves[april_s]) == (None, None)
+        assert halves[feb[0]] == feb[1] and halves[march[1]] == march[0]
+
+    scratch.archive(dollars)
+    assert [item["id"] for item in _whole_card(client, soles)] == expected
+    client.post(f"/accounts/{dollars}/unarchive")
+
+    lone = scratch.account("PEN", lone_code)
+    plain = scratch.account("PEN")
+    for account in (lone, plain):
+        scratch.reconciliation(account, *MARCH)
+        assert _whole_card(client, account) == _listed(client, account), account
+    assert _whole_card(client, str(uuid4())) == []
+
+    for params, reasons in (
+        ({}, {"account_id": "REQUIRED", "statement_of": "REQUIRED"}),
+        ({"account_id": soles, "statement_of": soles}, {"statement_of": "CONFLICTING_PARAMETERS"}),
+        ({"statement_of": "not-a-uuid"}, {"statement_of": "INVALID_FORMAT"}),
+        ({"account_id": "not-a-uuid"}, {"account_id": "INVALID_FORMAT"}),
+    ):
+        err = refused(lambda params=params: client.get("/reconciliations", params=params))
+        assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+
+
+# ---- one save writes both halves' balances ----------------------------------------
+
+
+def test_one_save_writes_both_halves_balances(client, scratch):
+    """`PUT /reconciliations/{id}` with `twin`, its `id` the `twin_id` read, writes
+    the other half's balances in the same write as the half the path names, each half
+    bumping its own `version`; beside a name, one request renames the statement and
+    sets both halves' balances; `twin` alone leaves the path's half unwritten
+    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Both halves' balances in
+    one write: `twin`"). Refused, writing neither half: a half with no other half
+    (`NO_TWIN` on `twin`), a `twin.id` that is not its current other half, a stale read
+    of one since replaced, the path's own or another reconciliation's (`409`
+    `CONCURRENT_CHANGE` on `twin.id`), and a `twin` with no balance in it
+    (`NOTHING_TO_UPDATE` on `twin`, and `REQUIRED` on `twin.id` for `{}`), each sent
+    beside a balance of the path's half."""
+    code, lone_code = free_statement_codes(client, 2)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    rs, rd = scratch.card(soles, dollars, *MARCH)
+
+    def put(recon: str, body: dict) -> dict:
+        return client.put(f"/reconciliations/{recon}", json_body=body)
+
+    def state() -> list[tuple[int, int, int | None]]:
+        return [
+            (read["version"], read["beginning_balance_cents"], read["ending_balance_cents"])
+            for read in (_read(client, rs), _read(client, rd))
+        ]
+
+    (vs, _, _), (vd, _, _) = state()
+    twin = _read(client, rs)["twin_id"]
+    assert twin == rd
+    saved = put(
+        rs, {"beginning_balance_cents": 1500, "twin": {"id": twin, "ending_balance_cents": 77}}
+    )
+    _assert_answers(client, saved, rs, rd)
+    assert state() == [(vs + 1, 1500, 0), (vd + 1, 0, 77)]
+
+    named = put(
+        rd,
+        {
+            "name": "contract card balances",
+            "ending_balance_cents": 10,
+            "twin": {"id": rs, "beginning_balance_cents": 0, "ending_balance_cents": None},
+        },
+    )
+    _assert_answers(client, named, rd, rs)
+    assert (named["name"], named["twin"]["name"]) == ("contract card balances",) * 2
+    assert state() == [(vs + 2, 0, None), (vd + 2, 0, 10)]
+
+    put(rs, {"twin": {"id": rd, "beginning_balance_cents": 5}})
+    assert state() == [(vs + 2, 0, None), (vd + 3, 5, 10)]
+
+    lone_month = scratch.reconciliation(soles, "2026-04-01", "2026-04-30")
+    plain_recon = scratch.reconciliation(scratch.account("PEN"), *MARCH)
+    lone_recon = scratch.reconciliation(scratch.account("PEN", lone_code), *MARCH)
+    for recon in (lone_month, plain_recon, lone_recon):
+        err = _refused_writing_nothing(
+            client,
+            lambda recon=recon: put(
+                recon, {"ending_balance_cents": 1, "twin": {"id": rd, "ending_balance_cents": 1}}
+            ),
+            recon,
+            rd,
+        )
+        assert_refusal(err, 422, "VALIDATION_ERROR", "twin", "NO_TWIN")
+
+    for body, status, error, reasons in (
+        ({"id": rs, "ending_balance_cents": 1}, 409, "CONFLICT", {"twin.id": "CONCURRENT_CHANGE"}),
+        (
+            {"id": lone_month, "ending_balance_cents": 1},
+            409,
+            "CONFLICT",
+            {"twin.id": "CONCURRENT_CHANGE"},
+        ),
+        ({"id": rd}, 422, "VALIDATION_ERROR", {"twin": "NOTHING_TO_UPDATE"}),
+        ({}, 422, "VALIDATION_ERROR", {"twin.id": "REQUIRED"}),
+    ):
+        err = _refused_writing_nothing(
+            client,
+            lambda body=body: put(rs, {"ending_balance_cents": 1, "twin": body}),
+            rs,
+            rd,
+        )
+        assert_refusals(err, status, error, reasons)
+
+    # A stale read: the other half read here is replaced by another account's, which
+    # takes the code and the same days.
+    june = ("2026-06-01", "2026-06-30")
+    js, stale = scratch.card(soles, dollars, *june)
+    client.put(f"/accounts/{dollars}", json_body={"statement_code": None})
+    current = scratch.reconciliation(scratch.account("USD", code), *june)
+    assert _read(client, js)["twin_id"] == current
+    err = _refused_writing_nothing(
+        client,
+        lambda: put(
+            js, {"ending_balance_cents": 1, "twin": {"id": stale, "ending_balance_cents": 1}}
+        ),
+        js,
+        stale,
+        current,
+    )
+    assert_refusal(err, 409, "CONFLICT", "twin.id", "CONCURRENT_CHANGE")

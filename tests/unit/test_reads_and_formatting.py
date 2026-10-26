@@ -866,6 +866,7 @@ BANK_LINE_RESPONSE = {
     "statement_place": 29,
     "net_cents": -10000,
     "part_count": 2,
+    "is_opening_balance": False,
     # Each part the transaction response, unsigned: a magnitude and its type.
     "parts": [
         {

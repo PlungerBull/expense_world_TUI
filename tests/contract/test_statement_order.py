@@ -18,6 +18,12 @@ the engine can say what they read, take and refuse. Pinned here:
     line oldest first on an account without a code; `REQUIRED` on `reconciliation_id`
     without one, `CONFLICTING_PARAMETERS` with `unreconciled`, `INVALID_FORMAT` on any
     other `sort`, and `UNKNOWN_PARAMETER` for `sort` on the count;
+  · the lines a statement still needs (`GET /bank-lines?unassigned_in_period_of=` and
+    its count): both halves of a card from either half, oldest first, an opening
+    balance never, none on a completed statement, the draft half's alone beside a
+    completed one, an account without a code its own; empty exactly when the complete
+    is no longer refused `UNASSIGNED_IN_PERIOD`; `CONFLICTING_PARAMETERS` beside any
+    other filter, `INVALID_REFERENCE` and `INVALID_FORMAT`;
   · completing is `422` `STATEMENT_NOT_ORDERED` on `statement_order` until every line
     holds its own place: lines with none, a line assigned after the list, and two
     separately ordered halves joined into one card, whose place 1 is held twice;
@@ -557,3 +563,123 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
             )
         )
         assert_refusal(err, 422, "VALIDATION_ERROR", "sort", "UNKNOWN_PARAMETER")
+
+
+# ---- the lines a statement still needs ------------------------------------------
+
+
+def _needed(client, recon: str, **params) -> list[str]:
+    """The lines `recon`'s statement still needs, in the statement's order, after
+    checking the count agrees with the list."""
+    counted = client.get("/bank-lines/count", params={"unassigned_in_period_of": recon})
+    listed = _listed(client, unassigned_in_period_of=recon, sort="statement", **params)
+    assert counted == {"count": len(listed)}, recon
+    return listed
+
+
+def _assign(client, line: str, recon: str) -> None:
+    client.put(f"/bank-lines/{line}", json_body={"reconciliation_id": recon})
+
+
+def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, scratch):
+    """`GET /bank-lines?unassigned_in_period_of=<id>` and its count list the lines a
+    statement still needs: on a card both halves' lines, whichever half is named, each
+    half's own account's lines dated inside its days and in no reconciliation, an
+    opening balance never; with `sort=statement` oldest first, both currencies mixed
+    by date, and newest first without it; the count the list's length
+    (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines, "Ordering")
+    (contract: GET /v1/bank-lines/count). They are exactly what the complete counts:
+    while one is listed it is refused `UNASSIGNED_IN_PERIOD` on that line's half, and
+    once the list is empty that check passes and the next one answers
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation").
+    A completed statement lists none; a card with one half completed lists only the
+    draft half's lines; an account with no statement code lists its own."""
+    (code,) = free_statement_codes(client, 1)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    rs, rd = scratch.card(soles, dollars, "2026-03-01", "2026-03-31")
+    s1 = scratch.line(soles, "2026-03-05", -1000, recon=rs)
+    d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
+    s20 = scratch.line(soles, "2026-03-20", -100)
+    d10 = scratch.line(dollars, "2026-03-10", -200)
+    s12 = scratch.line(soles, "2026-03-12", -400, -500)
+    # Never needed: an opening balance in the days, a line after them, one in another
+    # reconciliation, one on an account outside the statement.
+    scratch.opening_balance(dollars, "2026-03-02")
+    scratch.line(soles, "2026-04-02", -700)
+    april = scratch.reconciliation(soles, "2026-04-01", "2026-04-30")
+    scratch.line(soles, "2026-03-15", -800, recon=april)
+    scratch.line(scratch.account("PEN"), "2026-03-15", -900)
+
+    for recon in (rs, rd):
+        assert _needed(client, recon) == [d10, s12, s20], recon
+        assert _listed(client, unassigned_in_period_of=recon) == [s20, s12, d10], recon
+
+    _assign(client, d10, rd)
+    _assign(client, s12, rs)
+    assert _needed(client, rd) == [s20]
+    for recon, key in ((rs, "transactions"), (rd, "twin.transactions")):
+        err = refused(lambda recon=recon: client.post(f"/reconciliations/{recon}/complete"))
+        assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNASSIGNED_IN_PERIOD")
+    _assign(client, s20, rs)
+    assert _needed(client, rs) == []
+    err = refused(lambda: client.post(f"/reconciliations/{rs}/complete"))
+    assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
+    _send(client, rs, [s1, d1, d10, s12, s20])
+    assert client.post(f"/reconciliations/{rd}/complete")["twin"]["status"] == 2
+
+    for recon in (rs, rd):
+        assert _needed(client, recon) == [], recon
+
+    # One half completed: only the draft half's account and days are listed. The
+    # completed half's days are sealed, so no line comes into them.
+    may = ("2026-05-01", "2026-05-31")
+    done = scratch.reconciliation(soles, *may)
+    _send(client, done, [scratch.line(soles, "2026-05-03", -100, recon=done)])
+    client.post(f"/reconciliations/{done}/complete")
+    draft = scratch.reconciliation(dollars, *may)
+    assert client.get(f"/reconciliations/{draft}")["twin_id"] == done
+    assert _needed(client, draft) == []
+    waiting = scratch.line(dollars, "2026-05-11", -300)
+    for recon in (done, draft):
+        assert _needed(client, recon) == [waiting], recon
+
+    plain = scratch.account("PEN")
+    plain_recon = scratch.reconciliation(plain, "2026-03-01", "2026-03-31")
+    later = scratch.line(plain, "2026-03-09", -100)
+    sooner = scratch.line(plain, "2026-03-08", -200)
+    assert _needed(client, plain_recon) == [sooner, later]
+
+
+def test_the_lines_a_statement_still_needs_refusals(client, scratch):
+    """`unassigned_in_period_of` is taken alone: beside `account_id`,
+    `reconciliation_id`, `unreconciled=true`, `date_from` or `date_to` it is `422`
+    `CONFLICTING_PARAMETERS` on it, on the list and the count; an id naming no live
+    reconciliation of the caller's, none or a deleted one, is `INVALID_REFERENCE`,
+    never an empty list, and one that is not a UUID `INVALID_FORMAT`
+    (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines/count).
+    A refused read changes nothing: the statement reads as before."""
+    (code,) = free_statement_codes(client, 1)
+    account = scratch.account("PEN", code)
+    recon = scratch.reconciliation(account, "2026-03-01", "2026-03-31")
+    scratch.line(account, "2026-03-05", -1000)
+    gone = scratch.reconciliation(scratch.account("PEN"), "2026-03-01", "2026-03-31")
+    client.delete(f"/reconciliations/{gone}")
+    before = _order(client, recon), _needed(client, recon)
+
+    key = "unassigned_in_period_of"
+    for params, reason in (
+        ({"account_id": account}, "CONFLICTING_PARAMETERS"),
+        ({"reconciliation_id": recon}, "CONFLICTING_PARAMETERS"),
+        ({"unreconciled": "true"}, "CONFLICTING_PARAMETERS"),
+        ({"date_from": "2026-03-01"}, "CONFLICTING_PARAMETERS"),
+        ({"date_to": "2026-03-31"}, "CONFLICTING_PARAMETERS"),
+        ({key: str(uuid4())}, "INVALID_REFERENCE"),
+        ({key: gone}, "INVALID_REFERENCE"),
+        ({key: "not-a-uuid"}, "INVALID_FORMAT"),
+    ):
+        sent = {key: recon, **params}
+        for path in ("/bank-lines", "/bank-lines/count"):
+            err = refused(lambda path=path, sent=sent: client.get(path, params=sent))
+            assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
+    assert (_order(client, recon), _needed(client, recon)) == before

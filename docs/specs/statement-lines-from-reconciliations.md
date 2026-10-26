@@ -11,7 +11,7 @@ Edit form's part (the whole-line write from the line editor, `parts` on an openi
 and an archived account's line, and what a line's read says is locked) is done, as
 [decisions.md](../decisions.md) "The Edit form saves a whole line in one write, and the engine says what is locked" records, with its own reply to the engine.
 
-**Status: tasks 6 and 9 to 12 done; tasks 16, 14, 7, 8 and 15 approved by the owner on
+**Status: tasks 6, 9 to 12 and 16 done; tasks 14, 7, 8 and 15 approved by the owner on
 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
@@ -183,17 +183,9 @@ writes both halves' balances in one write". Where it differs from what was asked
 
 ## Tasks
 
-Tasks 7, 8, 14, 15 and 16 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 16, 14, 7, 8 and 15. Tasks 7, 8, 14 and 15 are **[UI]**,
+Tasks 7, 8, 14 and 15 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 14, 7, 8 and 15. Tasks 7, 8, 14 and 15 are **[UI]**,
 each picked from its mockup in [mockups/](../mockups/).
 
-16. **Catch up with the contract's statement parts** (no screen): the unit fixtures of bank lines
-    carry `is_opening_balance`; the live contract suite proves the flag on each kind of bank-line
-    read and the statement order refusing to place the opening balance; the lines a statement
-    still needs on the list and its count (both halves of a card from either half, oldest first,
-    a completed statement listing none, and its refusals); the list of a whole card (both halves
-    from either card account, the stated order, a one-half month, and its refusals, both keys
-    `REQUIRED` with neither parameter); and the other half's balances on a save (both halves in
-    one write, `NO_TWIN`, a stale other-half id, an other half sent with no balance).
 7. **[UI] The statement's screen is one list, put in order on it**, as the owner picked on
    2026-10-25 in
    [mockups/expense-world-statement-screen.html](../mockups/expense-world-statement-screen.html)
@@ -277,7 +269,8 @@ Not built in this spec; drafted into a new spec when it is done.
   [test_card_statement.py](../../tests/contract/test_card_statement.py) and
   test_statement_order.py; `_batch_into` in
   [test_statement_order.py](../../tests/contract/test_statement_order.py) repeats `Scratch.line`
-  in [conftest.py](../../tests/contract/conftest.py). And the two guards that nothing names the
+  in [conftest.py](../../tests/contract/conftest.py), and `_assign` in test_statement_order.py assigns a line through
+  `PUT /bank-lines/{id}` where `Scratch.line(recon=…)` uses `PUT /transactions/{id}`. And the two guards that nothing names the
   split route, over `expense/` and `tests/contract/` in
   [test_bank_line_write.py](../../tests/unit/test_bank_line_write.py), could be one over the
   whole repo, whose wording says "the removed split route" where the present tense would say
