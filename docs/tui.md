@@ -1212,7 +1212,7 @@ one step — no-batch rows → the panel → the account list (`esc Close the pa
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
 **The begin balance's hint takes two lines** on the new-reconciliation form, the whole hint
-dim as every hint is (drawn in
+dim as every hint is (panes 1 B and 2 B of
 [expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html)):
 `signed decimal · your statement's opening balance`, then directly under it
 `0.00 if it holds the account's opening balance, which already counts it`. The engine sums

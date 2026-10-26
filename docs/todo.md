@@ -28,6 +28,16 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Approve the spec for the test suites' leftovers
+Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
+
+Eight small things the statement catch-up's leftovers found, all inside the tests and their
+tools: copies to merge, a stale test sentence, the drift check covering more of the engine's
+answers, and the practice-data cleaner reading every page. Nothing you see changes. Approve it
+or rewrite it.
+
+**Recommended:** approve it, after the PDF spec, which matters more.
+
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
@@ -56,8 +66,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Leftovers from the statement catch-up**: the current spec, approved with its tasks on
-  2026-10-25 ([specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)).
+- **Leftovers in the test suites**: a draft spec waiting for the owner's approval
+  ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
@@ -149,6 +159,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
   is answered by the Edit form, drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
+  `expense-world-opening-balance-note.html` backs the begin balance hint already built (panes
+  1 B and 2 B; linked from tui.md, decisions.md and test_tui_form_hints.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
   another bank line already has.` line the sheet import can no longer get. Ledger footers still

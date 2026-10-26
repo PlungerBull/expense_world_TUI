@@ -838,3 +838,32 @@ to tick under it, and an `e` form for the name, days and balances* — picked, t
 PDF upload before it was built: each is a hand step the PDF does. *Ticking lines into an open
 month by date as they are imported* — with no ending balance before the PDF there is nothing to
 compare them against.
+
+## The suites copy the engine's answers and leave the practice user as they found it (2026-10-25)
+
+**Decision.** (1) **The unit suite's fake engine answers a reconciliation write in the engine's
+shape**, a card's twin included, through answer builders marked with the endpoint they stand
+for, and the drift script reports any field the contract requires that a marked builder leaves
+out ([runtime.md](runtime.md) "Fixture drift"). (2) **Every request body a unit test sends is
+checked for the fields the engine sets itself** (`line_code`, `statement_line`,
+`statement_place`), which the engine refuses in every body. (3) **Every live contract test fails
+when it leaves an account, category or hashtag it made**, the rows the engine creates for itself
+excepted, and a cleaner removes leftovers by name prefix ([runtime.md](runtime.md)
+"Leftovers"). (4) **Engine-side probes use a practice user of their own**, never the one this
+client's suite and hand checks use; the engine coders took that on 2026-10-25, after their
+probes left about 60 accounts and 55 reconciliations here. (5) **The create form's begin balance
+hint says a statement holding the opening balance begins at 0.00**, drawn in
+[expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html).
+
+**Why.** A fake that answers `{}` hides every field a screen might read, and a fixture missing a
+required field passes until the real engine answers. A test that leaves records takes statement
+codes other tests need and fills the browse the owner checks by hand; failing the test that
+leaves them finds the leak where it starts. The engine adds an assigned opening balance into the
+statement's sum, so typing the paper's starting figure too counts it twice.
+
+**Rejected.** *Checking every fixture against the one endpoint it mocks* — the fixtures are not
+mapped to endpoints; marking the builders that stand for an answer checks those exactly.
+*Cleaning the practice user before each run* — it hides which test leaks. *Every engine-side
+probe remembering to delete what it made* — a second practice user cannot leak into this one at
+all. *A one-line hint, "0.00 on the first one"*, and *calling the paper's figure the "starting
+balance"* — the first is not the exact rule, the second changes words already in use.
