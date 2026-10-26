@@ -15,7 +15,7 @@ import os
 import random
 from collections.abc import Iterable
 from contextlib import ExitStack
-from datetime import datetime
+from datetime import date, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -171,6 +171,13 @@ def client():
     """
     with ExpenseClient(_target()) as c:
         yield c
+
+
+@pytest.fixture
+def target() -> Config:
+    """The resolved target as a `Config`, for a test driving one of the app's own modules
+    that opens its clients from one (expense/import_/engine.py)."""
+    return _target()
 
 
 NO_RESERVED_PAT = (
@@ -336,6 +343,48 @@ def send_download(
     return client.post(
         "/transactions/import", json_body=download_body(account_id, rows, dry_run=dry_run)
     )
+
+
+#: The sheet import's header, columns A to L in order
+#: (contract: POST /v1/transactions/import-sheet, "The sheet").
+SHEET_HEADER = [
+    "description",
+    "HASHTAG",
+    "CATEGORY",
+    "FECHA",
+    "MONTO",
+    "CUENTA",
+    "T.C.",
+    "MONEDA",
+    "Solarizado",
+    "ESTADO_CUENTA",
+    "NOTAS",
+    "COD_EECC",
+]
+
+
+def sheet_row(
+    title: str,
+    hashtag: str,
+    category: str,
+    day: date,
+    amount: float,
+    account: str,
+    currency: str,
+    *,
+    note: str | None = None,
+    code: str | None = None,
+) -> list:
+    """One row of a made-up sheet, its cells in `SHEET_HEADER`'s order: `day` saved as a
+    date, `amount` signed (negative an outflow), the columns the engine never reads empty."""
+    return [title, hashtag, category, day, amount, account, None, currency, None, None, note, code]
+
+
+def sheet_file(rows: list[list]) -> bytes:
+    """A made-up sheet of the books as `expense import sheet` reads it from disk: the
+    workbook's bytes, `SHEET_HEADER` on row 1 and `rows` (`sheet_row`) below it
+    (`workbook`). Never the owner's real sheet: this repo is public."""
+    return base64.b64decode(workbook([SHEET_HEADER, *rows]))
 
 
 def account_body(currency: str = "PEN", code: str | None = None) -> dict:

@@ -54,7 +54,15 @@ import pytest
 
 from expense.bank_line_write import line_body, new_part
 from expense.http import ExpenseClient
-from tests.contract.conftest import Scratch, assert_refusal, refused, workbook
+from expense.import_.engine import request_body
+from tests.contract.conftest import (
+    Scratch,
+    assert_refusal,
+    refused,
+    sheet_file,
+    sheet_row,
+    workbook,
+)
 
 #: The names the reserved-names user's own rows hold: two categories and a hashtag.
 HELD_CATEGORIES = {"@Pendiente", "@Opening"}
@@ -235,52 +243,24 @@ def test_a_bank_download_creating_a_row_is_refused(reserved_client, made):
     )
 
 
-#: The sheet's header, columns A to L (contract: POST /v1/transactions/import-sheet).
-SHEET_HEADER = [
-    "description",
-    "HASHTAG",
-    "CATEGORY",
-    "FECHA",
-    "MONTO",
-    "CUENTA",
-    "T.C.",
-    "MONEDA",
-    "Solarizado",
-    "ESTADO_CUENTA",
-    "NOTAS",
-    "COD_EECC",
-]
-
-
-def _serial(day: date) -> int:
-    """`day` as a date serial of the 1900 date system: 44896 is 1 December 2022."""
-    return (day - date(1899, 12, 30)).days
-
-
 def test_a_sheet_creating_an_opening_balance_is_refused(reserved_client, made):
     account = made.account()
     name = reserved_client.get(f"/accounts/{account}")["name"]
-    opening = [
+    opening = sheet_row(
         "contract reserved opening",
         "contract-unused",
         "SALDO INICIAL",
-        _serial(date(2026, 1, 2)),
+        date(2026, 1, 2),
         500,
         name,
-        None,
         "PEN",
-        None,
-        None,
-        None,
-        None,
-    ]
-    file = workbook([SHEET_HEADER, opening])
+    )
     names = {
         "accounts": [{"name": name, "currency_code": "PEN", "account_id": account}],
         "categories": [],
         "hashtags": [],
     }
-    body = {"dry_run": False, "file": file, "names": names}
+    body = request_body(sheet_file([opening]), dry_run=False, names=names)
     _refused_writing_nothing(
         reserved_client,
         account,

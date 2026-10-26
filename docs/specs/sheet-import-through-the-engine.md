@@ -86,7 +86,8 @@ Approved by the owner on 2026-10-26.
    with the names the apply created. The dry run shows the engine's counts, and a name only
    opening balances use is shown as such, left out of the table and never created. The app's
    own reader of the sheet goes with its tests (the parse, plan, apply, header aliases and
-   currency-split naming), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
+   currency-split naming; the live `test_sheet_import_split_groups.py` drives it too, and its
+   entry in runtime.md goes with it), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
    and stays only for the tests that build made-up sheets. [commands.md](../commands.md) and
    [runtime.md](../runtime.md) say what the import does now. With the old reader gone, the
    command takes its renames and its read timeout from the engine-calls module
@@ -95,11 +96,6 @@ Approved by the owner on 2026-10-26.
    module merges them without a word). **Waits on the engine asks** "The
    sheet import's dry run counts the rows before every name has an id" and "The sheet import
    marks the names only opening balances use", and then on their catch-up.
-3. **A live test of the sheet import.** A made-up sheet on the practice engine, through task 1's
-   module: the dry run lists its names and refuses bad rows; the apply writes it; a second
-   apply writes nothing and every row comes back matched; a made-up sheet with one bad row is
-   refused whole, naming the row, and nothing is written, no name included; a renamed account
-   lands under its rename. The dry run's counts get their live test in task 2.
 
 ## Reply to the engine
 
@@ -111,6 +107,11 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 - **The engine's "Done when" checks to report on:** no code reads the sheet itself; the contract
   tests upload a made-up sheet with a dry run and an apply.
 - **The asks it closes:** none; the sheet import is the owner's own work.
+- **Contract problems found:** under "Rejected up front with `422`", the contract says "a
+  message of the sheet's own rules begins `Row <row>:`" and lists `FUTURE_DATE` beneath it, but
+  the engine's `FUTURE_DATE` message is "Must not be in the future.", with no row (its key,
+  `rows.<row>.date`, carries it). Either `FUTURE_DATE` is not one of the sheet's own rules and
+  the wording should say so, or its message lacks the prefix (found in task 3's review).
 
 ## Found along the way
 
