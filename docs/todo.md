@@ -38,6 +38,16 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
+### Hand over the ask for a practice user held on the reserved names
+Asked 2026-10-25 · Blocks: the live tests of a held reserved name, under "Found along the way" in [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)
+
+For a live test to see the engine refuse a write because one of your own hashtags or categories
+holds a built-in name, the practice engine needs a second practice user stuck in that state. Copy
+[to-engine/a-practice-user-holds-the-reserved-names.md](to-engine/a-practice-user-holds-the-reserved-names.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
@@ -239,8 +249,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
-- **A held reserved name is proven on the Edit form**: a spec the owner approved on
-  2026-10-25, not started
+- **A held reserved name is proven on the Edit form**: the current spec, approved with its
+  tasks on 2026-10-25
   ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a spec the owner
   approved on 2026-10-25, its questions answered, not started; its reason beside `read-only`

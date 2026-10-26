@@ -1,7 +1,6 @@
 # A held reserved name is proven on the Edit form
 
-**Status: approved by the owner on 2026-10-25; not started. Its tasks are drafted when the
-owner names it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: the current spec, approved with its tasks on 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -38,8 +37,32 @@ None.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
+do and when it passes. Point 2 is not built in this spec: the practice user cannot reach a held
+reserved name, because its pending hashtag already exists and can never be deleted, and no
+hashtag of the user's may take the name `Pendiente` (contract: "Hashtags"). The owner chose on
+2026-10-25 to ask the engine for a practice user that can, and to finish this spec without the
+live test; the ask is "The practice engine seeds a second practice user whose own category and
+hashtag hold the reserved names", and the live test waits under "Found along the way".
+
+1. **A unit test proves the Edit form shows the engine's words alone for a held reserved
+   name** (point 1). Passes if a unit test on the Edit form has the fake engine refuse the
+   whole-line write (`PUT /bank-lines/{id}`) with `409` `RESERVED_NAME_HELD` keyed
+   `hashtag_ids` itself (contract: "Hashtags"), and proves that the form stays open, shows the
+   engine's words whole with no line of the app's under them (not the category line), says
+   nothing was saved, and sent exactly that one write; the test fails if the category line
+   shows; and the unit suite passes.
+2. **The two test comments say what their case proves** (point 3). Passes if the comments in
+   test_tui_edit_form_parts.py and test_errors.py no longer name "edit-form-words-and-keys 3 A"
+   and instead say what the case proves (a part's `parts.<i>.hashtag_ids` refusal shows the
+   engine's words alone), no other pick tag is added, and what the tests check is unchanged.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **Live tests draw a held reserved name** (this spec's point 2, widened to every route that
+  answers it): once the engine ships the ask "The practice engine seeds a second practice user
+  whose own category and hashtag hold the reserved names", live tests run as that user prove
+  that `PUT /bank-lines/{id}` with `parts`, and the other transaction routes, send
+  `RESERVED_NAME_HELD` on `hashtag_ids` or `category_id` and write nothing.
