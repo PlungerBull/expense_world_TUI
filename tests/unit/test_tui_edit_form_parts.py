@@ -25,7 +25,7 @@ from rich.text import Text
 from textual.widgets import Footer, Input, Static
 from textual.widgets._footer import FooterKey
 
-from expense.errors import EngineConnectionError, EngineError
+from expense.errors import NEXT_STEPS, EngineConnectionError, EngineError
 from expense.tui.screens.edit_form import (
     EVERY_PART_NOTE,
     NOTE_GOES_ON,
@@ -50,6 +50,7 @@ from tests.unit.helpers import (
     FakeClient,
     cursor_page,
     edit_limits,
+    hashtag_refusal,
     import_part,
     line_code_of,
     render_text,
@@ -1140,6 +1141,45 @@ def test_each_refusal_lands_under_the_parts_on_the_key_it_names(
     parts = [{"id": tx["id"], "amount_cents": tx["amount_cents"]} for tx in LINES[bank]]
     parts[-1]["description"] = "otra nota"
     assert _writes(engine) == [("PUT", f"/bank-lines/{bank}", {"parts": parts})]
+
+
+def test_a_held_reserved_name_shows_the_engines_words_alone_under_the_parts(engine):
+    """Part 2 of Tottus Jockey Plaza tagged #casa, `^s`, refused `409`
+    `RESERVED_NAME_HELD`, keyed `hashtag_ids` itself and never a part's
+    (contract: "Hashtags", "When the engine creates it"): the form stays, the
+    engine's words show whole, `Nothing was saved.`, and no line of the app's
+    under them, not the category line the same reason carries on `category_id`."""
+    engine.errors["PUT"] = hashtag_refusal("CONFLICT", 409, "RESERVED_NAME_HELD")
+    category_line = NEXT_STEPS[("CONFLICT", "RESERVED_NAME_HELD")].line
+    assert category_line
+
+    async def scenario(pilot, app):
+        _ledger, screen = await _open(pilot, app, "p1")
+        await _go(pilot, screen, "1.hashtags")
+        await _type(pilot, screen, "casa")
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: screen._refusal is not None)
+        return app.screen is screen, _summary(screen, width=200)
+
+    stayed, shown = run_app(scenario, size=SIZE)
+    assert stayed
+    tail = shown[shown.index("CONFLICT — Engine words for RESERVED_NAME_HELD.") :]
+    assert tail[1] == "! hashtag_ids: stand-in field words"
+    assert tail[2] == "Nothing was saved."
+    assert [row for row in tail[3:] if row] == []
+    assert not any(category_line in row for row in shown)
+    assert _writes(engine) == [
+        (
+            "PUT",
+            "/bank-lines/bl-9",
+            {
+                "parts": [
+                    {"id": "p1", "amount_cents": -6000},
+                    {"id": "p2", "amount_cents": -4000, "hashtag_ids": ["h-casa"]},
+                ]
+            },
+        )
+    ]
 
 
 def test_an_engine_out_of_reach_says_so_under_the_parts(engine):
