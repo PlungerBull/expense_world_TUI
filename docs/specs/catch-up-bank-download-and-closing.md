@@ -2,10 +2,11 @@
 
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: the engine's hand-off of
 2026-10-26, its items 1, 3, 4, 6, 8 and 9, and the changed refusal wording of item 7. Its other
-items have specs of their own, run after this one:
+items have specs of their own:
 [notes-that-keep-the-engines-words.md](notes-that-keep-the-engines-words.md) (item 7, a locked
-field's words), [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2)
-and [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
+field's words), run before this one, and, after it,
+[sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
+[statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
 
 **Status: draft, for the owner to rewrite or approve. Its tasks are drafted when the owner names
 it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file
@@ -65,8 +66,6 @@ so the live tests can finally see the engine refuse a write with `RESERVED_NAME_
    is made up: never one of your real downloads, since this repo is public.
 7. **The practice engine's second key is handled like the first**: the practice-engine script
    and the live-run instructions carry it, and the guards keep it out of files.
-8. **The app records that it has caught up** to contract `592f2467fa3df75a`, so the version
-   check passes again.
 
 ## How the owner knows it is done
 

@@ -1,8 +1,9 @@
 # The sheet import goes through the engine
 
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 2 of the engine's
-hand-off of 2026-10-26, the new sheet import (`0f7cdbe45cece354`). The rest of the hand-off is in
-[catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md), which runs first.
+hand-off of 2026-10-26, the new sheet import (`0f7cdbe45cece354`). It runs after
+[catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md), which holds most
+of the rest of the hand-off.
 
 **Status: draft, for the owner to rewrite or approve; questions 1 to 3 wait on the owner. Its
 tasks are drafted when the owner names it the current spec.** When done, the why moves to
