@@ -42,6 +42,25 @@ Two mockups, one per screen that changes. Open each in a browser and pick.
 **Recommended:** 2B, 3B and A: a zero row is nothing to look at, a card's preview should say
 where each row lands, and a screen of their own can say what to do with each line.
 
+### An archived card account with no statements
+Asked 2026-10-26 · Blocks: question 2 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
+
+When a card account is archived before it ever had a statement, should the card's list on
+Reconciliations still show its empty column? The question and its options are in the spec.
+
+**Recommended:** A (no column), because the column was empty anyway.
+
+### Two practice keys in CLAUDE.md and the guard
+Asked 2026-10-26 · Blocks: nothing
+
+CLAUDE.md and the guard script's comments and messages still speak of "the practice user's key";
+the reseed now prints two. May the orchestrator change the wording to "both practice users'
+keys"? No rule changes.
+- **A.** Yes.
+- **B.** No, leave it.
+
+**Recommended:** A, so the instructions match what the reseed prints.
+
 ### Approve the spec for the engine words' leftovers
 Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
 
