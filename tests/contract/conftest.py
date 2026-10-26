@@ -141,6 +141,12 @@ def pytest_sessionstart(session):
     print(f"\ncontract target: {ENGINE_URL} · credential: {source}")
 
 
+def _target() -> Config:
+    """The resolved target: EXPENSE_PAT + EXPENSE_ENGINE_URL, or the developer's config
+    only when the guard above has explicitly allowed it."""
+    return Config(engine_url=ENGINE_URL, token=PAT) if PAT else config_module.ensure_loaded()
+
+
 @pytest.fixture
 def client():
     """An ExpenseClient aimed at the resolved target.
@@ -149,9 +155,36 @@ def client():
     as the freshman walk; falls back to the developer's config only when the guard
     above has explicitly allowed it.
     """
-    cfg = Config(engine_url=ENGINE_URL, token=PAT) if PAT else config_module.ensure_loaded()
-    with ExpenseClient(cfg) as c:
+    with ExpenseClient(_target()) as c:
         yield c
+
+
+def holdings(client: ExpenseClient) -> dict[str, str]:
+    """Every account (people and archived ones too), category and hashtag the caller
+    holds: id to a label naming its kind and name."""
+    listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
+    held = {item["id"]: f"account {item['name']!r}" for item in listed["items"]}
+    for kind, path in (("category", "/categories"), ("hashtag", "/hashtags")):
+        held |= {item["id"]: f"{kind} {item['name']!r}" for item in client.get(path)["items"]}
+    return held
+
+
+@pytest.fixture(autouse=True)
+def leaves_nothing():
+    """Fails the test whose teardown leaves an account, category or hashtag it made.
+
+    Autouse, so it is set up before every fixture a test asks for and torn down after
+    them, the `scratch` cleanup included. It reads through a client of its own, so the
+    `statuses` a test reads never see its calls. A leftover is listed by kind and name;
+    scripts/clean_practice_user.py removes it (docs/runtime.md "Working against the
+    live engine")."""
+    with ExpenseClient(_target()) as own:
+        before = holdings(own)
+        yield
+        after = holdings(own)
+    left = sorted(label for record, label in after.items() if record not in before)
+    if left:
+        pytest.fail(f"the test left {len(left)} record(s) behind: {', '.join(left)}")
 
 
 @pytest.fixture

@@ -1103,11 +1103,9 @@ def load_drift_script():
 
     The script is deliberately not a pytest file — it reads the engine's
     openapi.json, and tests/unit is hermetic. Loading it costs no network; a
-    test that runs its `main` mocks the engine with respx.
+    test that runs its `main` mocks the engine with respx. The loader is imported here,
+    not at the top, so a test that copies this file into a tmp tree needs nothing more.
     """
-    import importlib.util
+    from tests.scripts_loader import load_script
 
-    spec = importlib.util.spec_from_file_location("_check_fixture_drift", DRIFT_SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_script(DRIFT_SCRIPT.name)

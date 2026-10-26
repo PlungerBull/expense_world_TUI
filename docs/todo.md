@@ -173,10 +173,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   note, which it does not.
   Deleting one means removing its links from tui.md and from code and test docstrings in the
   same change.
-- **A whole-file live run of the bank-line tests leaves an empty account.** One
-  `contract-lines-*` account stays on the practice user after `tests/contract/test_bank_lines.py`
-  runs whole, though no test leaves one when run alone; find which pair of tests does it
-  ([test_bank_lines.py](../tests/contract/test_bank_lines.py)).
 - **Three more copies of the name filter.** `matching` in
   [picker.py](../expense/tui/widgets/picker.py) is the shared name filter; reconciliations.py
   (around line 817) and modals.py (around line 222) still copy it, and create_forms.py (around
