@@ -97,52 +97,23 @@ None beyond the two mockup picks (points 1 and 2).
 **Answered:** a bank download imports every row of the file, whatever its date: the import
 door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
-2. **An archived card account with no statements, on the card's list** (found in task 2). While
-   one of a card's two accounts is archived, the engine names no other account on either. The
-   card's list on Reconciliations then makes a column for each account that holds a statement in
-   it; an archived card account holding none gets no column, where today it gets one reading
-   "no half" on every row.
-   - **A.** No column: the list shows the accounts that have a statement in it.
-   - **B.** Keep the empty column: ask the engine to name an archived card account's other
-     account too, and the app reads the column from that.
-
-   **Recommended:** A, because the column was empty anyway, and the case needs a card account
-   archived before it ever had a statement.
-
-3. **The "no batch" list's caption** (found in task 5). It explains its `!` mark as `! blocks a
-   batch's close`, which is no longer true: a close flags such a line instead. Drawn in
-   [expense-world-no-batch-caption.html](../mockups/expense-world-no-batch-caption.html).
-   - **A.** `! dated inside a statement`: the mark stays, the words say only what is true.
-   - **B.** No mark and no words.
-
-   **Recommended:** A, because the mark still points at the lines worth opening first.
-
-4. **The note for a dropped file the app cannot open** (found in task 6). When a dropped file
-   cannot be read from the disk, the LOG bar says `not a BCP bank file · File not found: <path>`
-   (or `· Could not open <path>: <why>`). The app no longer reads the file, so it cannot know
-   whether it is a bank download; the engine judges that on the preview.
-   - **A.** Keep `not a BCP bank file · …`.
-   - **B.** `can't read the file · File not found: <path>`, saying only what the app knows.
-
-   **Recommended:** B.
+**Answered (owner, 2026-10-26):** an archived card account with no statement gets no column on
+the card's list (question 2, A: as built in task 2); the "no batch" list explains its `!` as
+`! dated inside a statement` (question 3, A, drawn in
+[expense-world-no-batch-caption.html](../mockups/expense-world-no-batch-caption.html)); a dropped
+file the app cannot open is noted `can't read the file · …` (question 4, B).
 
 ---
 
 ## Tasks
 
-Questions 2 to 4 wait on the owner and become tasks once answered.
-
-7. **The last live tests that send import rows** (from the tester's acceptance check of
-   2026-10-26). Three places in the live suite still send `rows` to `POST /transactions/import`,
-   which the engine refuses: the split-line and line-group re-imports in
-   [test_bank_lines.py](../../tests/contract/test_bank_lines.py), and the import entry of
-   `_writes_sending` in
-   [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py).
-   Each sends a made-up download whole, as [test_bank_import.py](../../tests/contract/test_bank_import.py)
-   does, or, where the engine no longer has an upload row to refuse a field on, proves what the
-   contract now states instead; [runtime.md](../runtime.md)'s list of what the suite proves
-   matches. The whole live suite passes.
-
+8. **[UI] The "no batch" caption** (question 3, A). The "no batch" list's caption explains its
+   `!` as `! dated inside a statement`, as drawn in
+   [expense-world-no-batch-caption.html](../mockups/expense-world-no-batch-caption.html); the
+   rows and the mark stay. [tui.md](../tui.md) and the tests say the same.
+9. **The note for a dropped file the app cannot open** (question 4, B). The LOG bar notes such
+   a file `can't read the file · File not found: <path>` (or `· Could not open <path>: <why>`),
+   never `not a BCP bank file`; [tui.md](../tui.md) and the tests say the same.
 
 ## Reply to the engine
 
@@ -194,6 +165,9 @@ Not built in this spec; drafted into a new spec when it is done.
 - **The sheet reader keeps an unused keyword.** `read_workbook`'s `sheet_name` in
   [expense/import_/reader.py](../../expense/import_/reader.py) has no caller passing it since
   the bank door stopped reading files. (Task 6.)
+- **One live test builds its download body by hand.** `test_reserved_name_held.py` (around line
+  219) writes its own header and body where the shared `download_body` and `CURRENT_HEADER` in
+  the contract conftest now do it. (Task 7.)
 - **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
   test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
   reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)

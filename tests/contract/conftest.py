@@ -23,6 +23,7 @@ import pytest
 from openpyxl import Workbook
 
 from expense import config as config_module
+from expense.bank_import.engine import request_body
 from expense.bank_line_write import line_body, new_part
 from expense.config import Config
 from expense.errors import EngineError
@@ -312,6 +313,29 @@ def workbook(rows: list[list]) -> str:
     out = io.BytesIO()
     book.save(out)
     return base64.b64encode(out.getvalue()).decode("ascii")
+
+
+#: The two headers of the bank's download (contract: POST /v1/transactions/import,
+#: "The download"): a current account's, with an operation number and `DD/MM/YYYY`
+#: days, and a card's, without one and with `YYYY-MM-DD` days.
+CURRENT_HEADER = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
+CARD_HEADER = ["Fecha", "Descripcion", "Moneda", "Monto"]
+
+
+def download_body(account_id: str, rows: list[list], *, dry_run: bool) -> dict:
+    """The `POST /transactions/import` body for a made-up download holding `rows`
+    (`workbook`), built by the import door's own `request_body`."""
+    return request_body(account_id, base64.b64decode(workbook(rows)), dry_run=dry_run)
+
+
+def send_download(
+    client: ExpenseClient, account_id: str, rows: list[list], *, dry_run: bool
+) -> dict:
+    """The made-up download holding `rows` sent whole, as the import door sends it;
+    the engine's answer."""
+    return client.post(
+        "/transactions/import", json_body=download_body(account_id, rows, dry_run=dry_run)
+    )
 
 
 def account_body(currency: str = "PEN", code: str | None = None) -> dict:

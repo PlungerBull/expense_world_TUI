@@ -15,10 +15,11 @@ rules only the engine can confirm. Pinned here:
     `account_id` on one part moves every part; and `b` with both parts of a
     line in a draft reconciliation selected sends the second part a body built
     before the first `PUT` moved the line, which the engine accepts;
-  · a statement imported, split and imported again is every row `matched`, none
-    `new`: by `operation_code`, and by `same_day` for a card row with no operation code;
-  · a batch whose two items share a `line_group` makes one line of two parts,
-    and a dry-run import of the bank's one row for its total is `matched` on it;
+  · a made-up download imported, its line split, and imported again is every row
+    `matched`, none `new`: by `operation_code`, and by `same_day` for a card row with no
+    operation code;
+  · a batch whose two items share a `line_group` makes one line of two parts, and a
+    dry run of a made-up download whose one row is its total is `matched` on it;
   · `?bank_line_id=` on the list and the count names exactly a line's parts; an
     id naming no line lists nothing and counts 0, a malformed one is `422`
     `INVALID_FORMAT` on `bank_line_id`, and a cursor issued under one line's
@@ -94,7 +95,15 @@ from expense import http as http_module
 from expense.config import Config
 from expense.errors import EngineError
 from expense.formatting import signed_cents
-from tests.contract.conftest import live_ids, read_signed, reason_on, replace_parts
+from tests.contract.conftest import (
+    CARD_HEADER,
+    CURRENT_HEADER,
+    live_ids,
+    read_signed,
+    reason_on,
+    replace_parts,
+    send_download,
+)
 
 
 def _safe(call, *args):
@@ -372,34 +381,31 @@ def test_an_account_move_on_one_part_moves_the_whole_line(client):
     ids=["with-operation-code", "card-row-no-operation-code"],
 )
 def test_a_split_line_is_matched_on_re_import(client, code, rule):
+    """A made-up download, a current account's with an operation number or a card's
+    without one, imported, its line split, and imported again: the row is `matched` on
+    the split line and nothing new is written
+    (contract: POST /v1/transactions/import, "Bank lines, not rows")."""
     account = _make_account(client)
     written: list[str] = []
+    if code is None:
+        statement = [CARD_HEADER, ["2026-04-08", "TIENDA LIMA PE", "S/", -80]]
+    else:
+        statement = [CURRENT_HEADER, ["08/04/2026", "TIENDA LIMA PE", "S/", -80, code]]
 
-    def statement() -> list[dict]:
-        row = {
-            "id": str(uuid4()),
-            "account_id": account,
-            "date": "2026-04-08",
-            "amount_cents": -8000,
-            "title": "TIENDA LIMA PE",
-        }
-        if code is not None:
-            row["operation_code"] = code
-        return [row]
+    def upload() -> dict:
+        answer = send_download(client, account, statement, dry_run=False)
+        written.extend(r["transaction_id"] for r in answer["rows"] if r["transaction_id"])
+        return answer
 
     try:
-        rows = statement()
-        first = client.post("/transactions/import", json_body={"dry_run": False, "rows": rows})
+        first = upload()
         assert [r["outcome"] for r in first["rows"]] == ["new"]
-        written.append(rows[0]["id"])
-        line = client.get(f"/transactions/{rows[0]['id']}")["bank_line_id"]
+        line = client.get(f"/transactions/{first['rows'][0]['transaction_id']}")["bank_line_id"]
 
         parts = replace_parts(client, line, [-5000, -3000], written)
         assert {p["bank_line_id"] for p in parts} == {line}
 
-        again = client.post(
-            "/transactions/import", json_body={"dry_run": False, "rows": statement()}
-        )
+        again = upload()
         (only,) = again["rows"]
         assert only["outcome"] == "matched"
         assert only["rule"] == rule
@@ -871,21 +877,8 @@ def test_a_line_group_is_one_line_and_a_re_import_matches_it(client):
         assert (read["net_cents"], read["part_count"]) == (-10000, 2)
         assert {p["id"] for p in read["parts"]} == set(ids)
 
-        dry = client.post(
-            "/transactions/import",
-            json_body={
-                "dry_run": True,
-                "rows": [
-                    {
-                        "id": str(uuid4()),
-                        "account_id": account,
-                        "date": "2026-04-15",
-                        "amount_cents": -10000,
-                        "title": "MERCADO GRUPO",
-                    }
-                ],
-            },
-        )
+        download = [CARD_HEADER, ["2026-04-15", "MERCADO GRUPO", "S/", -100]]
+        dry = send_download(client, account, download, dry_run=True)
         (only,) = dry["rows"]
         assert (only["outcome"], only["rule"]) == ("matched", "same_day")
         assert only["bank_line_id"] == line

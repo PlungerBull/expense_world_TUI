@@ -35,28 +35,20 @@ this repo is public. Each goes out through the app's own body,
 Gating, target and the real-ledger guard: conftest.py.
 """
 
-import base64
 from datetime import datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from expense.bank_import.engine import request_body
-from tests.contract.conftest import free_statement_codes, read_signed, replace_parts, workbook
+from tests.contract.conftest import (
+    CARD_HEADER,
+    CURRENT_HEADER,
+    free_statement_codes,
+    read_signed,
+    replace_parts,
+    send_download,
+)
 
-#: The two headers of the bank's download (contract: POST /v1/transactions/import,
-#: "The download"): a current account's, with an operation number and `DD/MM/YYYY`
-#: days, and a card's, without one and with `YYYY-MM-DD` days.
-CURRENT = ["Fecha", "Descripcion", "Moneda", "Monto", "Numero de Operacion"]
-CARD = ["Fecha", "Descripcion", "Moneda", "Monto"]
 TITLE = "DLC*RIDES LIMA PE"
-
-
-def _send(client, account_id: str, rows: list[list], *, dry_run: bool) -> dict:
-    """The download holding `rows` under its header, sent as the door sends it."""
-    data = base64.b64decode(workbook(rows))
-    return client.post(
-        "/transactions/import", json_body=request_body(account_id, data, dry_run=dry_run)
-    )
 
 
 def _code() -> str:
@@ -126,11 +118,11 @@ def test_the_apply_writes_what_the_dry_run_showed_and_the_same_file_then_matches
     account = scratch.account()
     code, other = _code(), _code()
     rows = [
-        CURRENT,
+        CURRENT_HEADER,
         ["05/03/2026", f"  {TITLE}  ", "S/", -25.9, code],
         ["06/03/2026", "PAGO PLANILLA", "S/", 6519, other],
     ]
-    dry = _send(client, account, rows, dry_run=True)
+    dry = send_download(client, account, rows, dry_run=True)
     assert dry["dry_run"] is True
     assert [r["row"] for r in dry["rows"]] == [2, 3]  # the spreadsheet's own numbers
     assert [r["outcome"] for r in dry["rows"]] == ["new", "new"]
@@ -142,7 +134,7 @@ def test_the_apply_writes_what_the_dry_run_showed_and_the_same_file_then_matches
     assert dry["counts"]["new"] == 2
     assert _count(client, account) == 0
 
-    applied = _send(client, account, rows, dry_run=False)
+    applied = send_download(client, account, rows, dry_run=False)
     made = _written(scratch, applied)
     shown = ("row", "account_id", "date", "amount_cents", "transaction_type", "title", "outcome")
     assert [{k: r[k] for k in shown} for r in applied["rows"]] == [
@@ -153,7 +145,7 @@ def test_the_apply_writes_what_the_dry_run_showed_and_the_same_file_then_matches
     written = client.get(f"/transactions/{made[0]}")
     assert (written["operation_code"], written["title"]) == (code, TITLE)
 
-    again = _send(client, account, rows, dry_run=False)
+    again = send_download(client, account, rows, dry_run=False)
     only = again["rows"][0]
     assert only["outcome"] == "matched" and only["rule"] == "operation_code"
     assert only["bank_line_id"] == written["bank_line_id"]
@@ -177,13 +169,13 @@ def test_a_cards_download_lands_each_currency_on_its_own_account(scratch):
     assert listed[dollars]["statement_partner_id"] == soles
 
     rows = [
-        CARD,
+        CARD_HEADER,
         ["2026-03-11", "EDO SUSHI BAR", "S/", -49],
         ["2026-03-09", "APPLE.COM/BILL", "$", -21.17],
         ["2026-03-08", "UBER TRIP", "S/", -4.2],
     ]
     for dry_run in (True, False):
-        answer = _send(client, soles, rows, dry_run=dry_run)
+        answer = send_download(client, soles, rows, dry_run=dry_run)
         made = _written(scratch, answer)  # cleaned up whatever the checks below find
         assert [(r["row"], r["account_id"], r["outcome"]) for r in answer["rows"]] == [
             (2, soles, "new"),
@@ -200,9 +192,13 @@ def test_a_cards_download_lands_each_currency_on_its_own_account(scratch):
 def test_a_row_of_zero_is_skipped_and_never_written(scratch):
     client = scratch.client
     account = scratch.account()
-    rows = [CARD, ["2026-03-10", "PAGO TARJETA", "S/", 0], ["2026-03-10", TITLE, "S/", -25.9]]
+    rows = [
+        CARD_HEADER,
+        ["2026-03-10", "PAGO TARJETA", "S/", 0],
+        ["2026-03-10", TITLE, "S/", -25.9],
+    ]
     for dry_run in (True, False):
-        answer = _send(client, account, rows, dry_run=dry_run)
+        answer = send_download(client, account, rows, dry_run=dry_run)
         _written(scratch, answer)  # cleaned up whatever the checks below find
         skipped, new = answer["rows"]
         assert (skipped["row"], skipped["outcome"]) == (2, "skipped")
@@ -219,7 +215,9 @@ def test_a_leftover_ledger_line_is_reported_on_its_day(scratch):
     account = scratch.account()
     ledger = [_post(scratch, account, 3, 9, -2590) for _ in range(2)]
     # a card's row: no operation code, matched by day and total
-    body = _send(client, account, [CARD, ["2026-03-09", TITLE, "S/", -25.9]], dry_run=True)
+    body = send_download(
+        client, account, [CARD_HEADER, ["2026-03-09", TITLE, "S/", -25.9]], dry_run=True
+    )
     (only,) = body["rows"]
     assert only["outcome"] == "matched" and only["rule"] == "same_day"
     (day,) = body["day_mismatches"]
@@ -247,7 +245,9 @@ def test_a_split_unclaimed_line_is_one_entry_with_every_part(scratch):
     line_id = client.get(f"/transactions/{whole}")["bank_line_id"]
     parts = replace_parts(client, line_id, [-6000, -4000], scratch.transactions)
 
-    body = _send(client, account, [CARD, ["2026-03-12", TITLE, "S/", -25.9]], dry_run=True)
+    body = send_download(
+        client, account, [CARD_HEADER, ["2026-03-12", TITLE, "S/", -25.9]], dry_run=True
+    )
     (only,) = body["rows"]
     assert only["outcome"] == "new"
     (day,) = body["day_mismatches"]
@@ -271,7 +271,9 @@ def test_a_day_whose_totals_agree_is_reported_for_its_unclaimed_lines(scratch):
     plus = _post(scratch, account, 3, 13, 5000)
     minus = _post(scratch, account, 3, 13, -5000)
 
-    body = _send(client, account, [CARD, ["2026-03-13", TITLE, "S/", -25.9]], dry_run=True)
+    body = send_download(
+        client, account, [CARD_HEADER, ["2026-03-13", TITLE, "S/", -25.9]], dry_run=True
+    )
     (only,) = body["rows"]
     assert only["outcome"] == "matched" and only["rule"] == "same_day"
     (day,) = body["day_mismatches"]
@@ -291,8 +293,8 @@ def test_a_row_inside_a_completed_period_comes_back_sealed(scratch):
     anchor = _post(scratch, account, 2, 5, -100)
     period = _completed(scratch, account, anchor, "2026-02-01", "2026-02-28", -100)
 
-    rows = [CURRENT, ["10/02/2026", TITLE, "S/", -25.9, _code()]]
-    body = _send(client, account, rows, dry_run=False)
+    rows = [CURRENT_HEADER, ["10/02/2026", TITLE, "S/", -25.9, _code()]]
+    body = send_download(client, account, rows, dry_run=False)
     (only,) = body["rows"]
     assert only["outcome"] == "sealed"
     assert only["sealed_by"] == period
@@ -310,8 +312,8 @@ def test_a_code_matched_line_moves_every_part_to_the_banks_day(scratch):
     line_id = client.get(f"/transactions/{whole}")["bank_line_id"]
     parts = replace_parts(client, line_id, [-1590, -1000], scratch.transactions)
 
-    rows = [CURRENT, ["04/03/2026", TITLE, "S/", -25.9, code]]
-    dry = _send(client, account, rows, dry_run=True)
+    rows = [CURRENT_HEADER, ["04/03/2026", TITLE, "S/", -25.9, code]]
+    dry = send_download(client, account, rows, dry_run=True)
     (only,) = dry["rows"]
     assert only["outcome"] == "matched" and only["rule"] == "operation_code"
     assert only["redated"] is True
@@ -321,7 +323,7 @@ def test_a_code_matched_line_moves_every_part_to_the_banks_day(scratch):
     assert dry["day_mismatches"] == []
     assert {_day_of(client, zone, p["id"]).date().isoformat() for p in parts} == {"2026-03-03"}
 
-    applied = _send(client, account, rows, dry_run=False)
+    applied = send_download(client, account, rows, dry_run=False)
     (only,) = applied["rows"]
     assert only["outcome"] == "matched"
     assert only["redated"] is True and only["redate_blocked_by"] is None
@@ -341,12 +343,12 @@ def test_a_completed_reconciliation_stops_the_move_and_the_rest_imports(scratch)
     period = _completed(scratch, account, reconciled, "2026-02-01", "2026-02-28", -2590)
 
     rows = [
-        CURRENT,
+        CURRENT_HEADER,
         ["02/03/2026", TITLE, "S/", -25.9, code],
         ["03/03/2026", "PAGO", "S/", -10, _code()],
     ]
     for dry_run in (True, False):
-        body = _send(client, account, rows, dry_run=dry_run)
+        body = send_download(client, account, rows, dry_run=dry_run)
         made = _written(scratch, body)  # cleaned up whatever the checks below find
         stopped, new = body["rows"]
         assert stopped["outcome"] == "matched" and stopped["rule"] == "operation_code"
