@@ -16,11 +16,12 @@ say them. Pinned here:
     and joined by a move of the days holding one place twice;
   · complete and revert from either half writing both in one write, the answer's `twin`
     the other half; a half already completed, or already a draft, left as it is; every
-    half already a draft a no-op;
+    half already a draft a no-op on a revert, and every half already completed a no-op
+    on a complete, no version bump and no activity entry;
   · their refusals, each naming every half it fails on (`twin.` for the other) and
     writing nothing: `ACCOUNT_ARCHIVED`, then `ENDING_BALANCE_REQUIRED`, then
     `NO_TRANSACTIONS_ASSIGNED`, then `UNASSIGNED_IN_PERIOD`, then `STATEMENT_NOT_ORDERED`,
-    never prefixed;
+    never prefixed; `UNASSIGNED_IN_PERIOD` on both halves at once, each counting its own;
   · one create making both halves, the twin under the request's name and days and its
     own balances; a half created alone over the other half's days becoming its twin;
   · the create's refusals one check at a time, in the contract's order, nothing written;
@@ -40,6 +41,7 @@ undoes everything (conftest.py `scratch`). Gating, target and the real-ledger gu
 conftest.py.
 """
 
+from functools import partial
 from uuid import uuid4
 
 from expense.errors import EngineError
@@ -281,6 +283,46 @@ def test_a_half_already_completed_or_already_a_draft_is_left_as_it_is(client, sc
         assert (reverted["status"], reverted["version"]) == (1, kept["version"] + 1)
 
 
+def _entries(client, *resources: str) -> list[list[str]]:
+    """The ids of each resource's activity entries, newest first (contract: GET /v1/activity)."""
+    return [
+        [entry["id"] for entry in client.get("/activity", params={"resource_id": rid})["items"]]
+        for rid in resources
+    ]
+
+
+def test_completing_a_statement_already_completed_writes_nothing(client, scratch):
+    """A complete sent, from either half, on a card whose halves are both completed is a
+    silent no-op: it answers both halves as they read, the half named and its `twin`,
+    each with its own `warnings` and `coverage_gap`, and writes nothing, no `version`
+    bump on either half or on a line's part and no activity entry
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation")
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Atomicity")."""
+    (code,) = free_statement_codes(client, 1)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    rs, rd = scratch.card(soles, dollars, *MARCH)
+    s1 = scratch.line(soles, "2026-03-05", -1000, recon=rs)
+    d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
+    send_order(client, rs, [s1, d1])
+    client.post(f"/reconciliations/{rs}/complete")
+    parts = [part["id"] for line in (s1, d1) for part in client.get(f"/bank-lines/{line}")["parts"]]
+
+    halves = [_read(client, recon) for recon in (rs, rd)]
+    assert [half["status"] for half in halves] == [2, 2]
+    lines = [client.get(f"/bank-lines/{line}") for line in (s1, d1)]
+    entries = _entries(client, rs, rd, *parts)
+    assert all(entries)
+    for named, other in ((rs, rd), (rd, rs)):
+        again = client.post(f"/reconciliations/{named}/complete")
+        _assert_answers(client, again, named, other)
+        for half in (again, again["twin"]):
+            assert {"warnings", "coverage_gap"} <= set(half)
+        assert [_read(client, recon) for recon in (rs, rd)] == halves
+        assert [client.get(f"/bank-lines/{line}") for line in (s1, d1)] == lines
+        assert _entries(client, rs, rd, *parts) == entries
+
+
 def test_complete_and_revert_refusals_name_each_half(client, scratch):
     """Each check runs on both halves before the next, the first that fails answering
     for every half it failed on, a key with `twin.` in front naming the other half, and
@@ -368,6 +410,41 @@ def test_complete_and_revert_refusals_name_each_half(client, scratch):
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
     send_order(client, rd, [s1, d1, loose])
     assert client.post(f"/reconciliations/{rs}/complete")["twin"]["status"] == 2
+
+
+def test_unassigned_in_period_names_both_halves_at_once(client, scratch):
+    """With a transaction dated inside its period left unassigned on each half, a
+    complete from either half is refused on both at once, `transactions` for the half
+    the path names and `twin.transactions` for the other, each half counting its own
+    account's rows inside its own period, and nothing is written
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Which half a
+    refusal names")
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation")."""
+    (code,) = free_statement_codes(client, 1)
+    soles = scratch.account("PEN", code)
+    dollars = scratch.account("USD", code)
+    rs, rd = scratch.card(soles, dollars, *MARCH)
+    scratch.line(soles, "2026-03-05", -1000, recon=rs)
+    scratch.line(dollars, "2026-03-06", -300, recon=rd)
+    scratch.line(soles, "2026-03-10", -150)
+    scratch.line(dollars, "2026-03-11", -200)
+    scratch.line(dollars, "2026-03-12", -250)
+
+    unassigned = "UNASSIGNED_IN_PERIOD"
+    counted = {rs: 1, rd: 2}
+    for named, other in ((rs, rd), (rd, rs)):
+        complete = partial(client.post, f"/reconciliations/{named}/complete")
+        err = _refused_writing_nothing(client, complete, rs, rd)
+        assert_refusals(
+            err,
+            422,
+            "VALIDATION_ERROR",
+            {"transactions": unassigned, "twin.transactions": unassigned},
+        )
+        for key, recon in (("transactions", named), ("twin.transactions", other)):
+            assert err.fields[key].startswith(f"{counted[recon]} transaction(s) dated inside"), (
+                err.fields
+            )
 
 
 # ---- one create, both halves ------------------------------------------------------

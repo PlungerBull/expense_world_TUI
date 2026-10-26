@@ -908,12 +908,18 @@ _R_LABELS = {
     "begin": "BEGIN BALANCE",
     "end": "END BALANCE",
 }
+#: The begin balance hint's second line, on every begin field: a statement holding
+#: the account's opening balance begins at 0.00, as the engine sums every assigned
+#: transaction, that line included, into the statement's add-up check
+#: (contract: "Reconciliations", "`difference_cents` — the add-up check").
+#: The hint widget lays out one line per `\n`.
+_OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
 _R_HINTS = {
     "name": "e.g. “April 2026” · enter to go on",
     "account": "pick a bank account · ↑↓ highlight · enter select",
     "date_start": "YYYY-MM-DD · the statement's first day · it orders the batch",
     "date_end": "YYYY-MM-DD · the statement's last day",
-    "begin": "signed decimal · your statement's opening balance",
+    "begin": f"signed decimal · your statement's opening balance\n{_OPENING_NOTE}",
     "end": "signed decimal · statement's closing balance · optional · enter saves",
 }
 #: A balance's keys: the reconciliation's own, and on a card statement's form
@@ -1158,7 +1164,7 @@ class NewCardStatementScreen(NewReconciliationScreen):
             return super()._hint_for(key)
         half = formatting.half_name(balance[1])
         if key in _BEGINS:
-            return f"signed decimal · the {half}'s opening balance"
+            return f"signed decimal · the {half}'s opening balance\n{_OPENING_NOTE}"
         last = "" if self._goes_on(key) else " · enter saves"
         return f"signed decimal · the {half}'s closing balance · optional{last}"
 

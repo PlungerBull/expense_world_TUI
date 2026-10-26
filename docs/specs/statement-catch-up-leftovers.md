@@ -87,16 +87,6 @@ do and when it passes. For this spec only (the owner, 2026-10-25): tasks 6, 9 an
 as one bundle, and from task 6 on the reviewer reads every change once, after the last task,
 in place of a review per task; the commit gate still runs the unit suite on each commit.
 
-7. **The live suite pins two card-statement answers** (point 6). Passes if live tests prove
-   that a complete on a card whose halves are both completed writes nothing, and that
-   `UNASSIGNED_IN_PERIOD` names both halves at once, and the live suite passes.
-8. **A unit test pins `c`, `u` and `d` on a card half's batch screen** (point 7; after task 4).
-   Passes if unit tests drive each key on a card half and prove the one write sent and that the
-   screen shows both halves done.
-10. **The create form's note on the opening balance** (point 9). Passes if the hint under
-    BEGIN BALANCE reads as pick B of
-    [expense-world-opening-balance-note.html](../mockups/expense-world-opening-balance-note.html),
-    on the one-account form and on each half of a card's form, with tests, and tui.md says it.
 13. **The practice user's leftovers are cleaned, and the run that leaves them is fixed** (point
     12). Passes if the live run that leaves accounts with statement codes and reconciliations
     behind is found and fixed, those leftovers are removed from the practice user, and after a
@@ -133,3 +123,7 @@ in place of a review per task; the commit gate still runs the unit suite on each
   `live_ids` under another name; test_bank_line_edit_limits.py reads and sends the statement
   order inline instead of through `send_order`; `_item` in test_create_into_reconciliation.py
   repeats `Scratch`'s create body (found by task 5's builder, 2026-10-25).
+- **`stub_home_month` quietly replaces the settings.** In tests/unit/helpers.py it also patches
+  `expense.config.ensure_loaded` to a bare `object()`, so a respx test that calls it loses its
+  settings and every screen read fails on `engine_url`; its name and docstring do not say so
+  (found by the builder of tasks 7, 8 and 10, 2026-10-25).

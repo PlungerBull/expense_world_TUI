@@ -5,7 +5,8 @@ for a code no other account holds. `⏎` on an account with a code reads
 `GET /reconciliations?statement_of=<its id>`, the reconciliations of every account
 holding the code, and nothing else about reconciliations; each row is an item and the
 item its `twin_id` names in the same answer (contract: GET /v1/reconciliations). An
-account with no code keeps today's read and list.
+account with no code keeps today's read and list. On a card half's batch screen, `c`, `u`
+and `d` each send one write, which the engine applies to both halves.
 
 The engine is a `FakeClient` behind the reads module's own HTTP client, so the query
 each read sends is the one `expense/reads.py` builds; it answers the way the contract
@@ -15,9 +16,13 @@ code, an archived one included, in the engine's order, `account_id` one account 
 
 from typing import NamedTuple
 
+import httpx
 import pytest
+import respx
+from textual.widgets import Static
 
 from expense.errors import EngineError, format_error
+from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
     ReconciliationsScreen,
@@ -25,9 +30,13 @@ from expense.tui.screens.reconciliations import (
     statement_rows,
 )
 from tests.unit.helpers import (
+    ENGINE_URL,
     FakeClient,
+    complete_answer,
     cursor_page,
+    delete_answer,
     render_text,
+    revert_answer,
     run_app,
     stub_home_month,
     wait_for,
@@ -565,3 +574,162 @@ def test_a_code_labels_every_real_account_holding_it_an_archived_one_too():
         "acc-sig-usd": card,
         "acc-ahorro": StatementAccounts("AHO", (("acc-ahorro", "Ahorro Soles", "PEN"),)),
     }
+
+
+# ---- c, u and d on a card half's batch screen act on both halves --------------------
+
+
+def _writing_engine(monkeypatch) -> FakeClient:
+    """`_engine` over its own copy of the reconciliations, which a write changes as the
+    engine does: the write answers in the engine's shape (`FAKE_ANSWERS`), the half the
+    path names and its `twin`, and each half that answer names reads afterwards with
+    the answer's status, a deleted half no longer listed
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")
+    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)
+    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
+    items = [dict(item) for item in RECONCILIATIONS]
+    client = _engine(monkeypatch, items=items)
+    client.get_responses.update({f"/reconciliations/{item['id']}": item for item in items})
+
+    def written(answer: dict) -> dict:
+        for half in (answer, answer.get("twin")):
+            item = next((it for it in items if half and it["id"] == half["id"]), None)
+            if item is None:
+                continue
+            if half.get("deleted_at"):
+                items.remove(item)
+            else:
+                item["status"] = half["status"]
+        return answer
+
+    post, delete = client.post, client.delete
+    client.post = lambda path, json_body=None: written(post(path, json_body))  # type: ignore[method-assign]
+    client.delete = lambda path: written(delete(path))  # type: ignore[method-assign]
+    return client
+
+
+#: Each status key on a card half's batch screen, opened from the dollar account on the
+#: row at `row`: the half it opens, the one write it sends, its toast, the header's status
+#: after it (`None`: the screen closes), and the browse's rows after it. Octubre is a
+#: draft, Agosto completed (`CARD`); a completed statement's row is dimmed.
+STATUS_KEYS = {
+    "c": (
+        3,
+        "oct-usd",
+        ("POST", "/reconciliations/oct-usd/complete"),
+        "Reconciliation completed.",
+        "completed",
+        [*CARD_ROWS[:3], [*CARD_ROWS[3][:4], "completed", "not in order"]],
+        ["dim", "dim", "", "dim"],
+    ),
+    "u": (
+        1,
+        "ago-usd",
+        ("POST", "/reconciliations/ago-usd/revert"),
+        "Reconciliation reverted to draft.",
+        "draft",
+        [CARD_ROWS[0], [*CARD_ROWS[1][:4], "draft", "in order"], *CARD_ROWS[2:]],
+        ["dim", "", "", ""],
+    ),
+    "d": (
+        3,
+        "oct-usd",
+        ("DELETE", "/reconciliations/oct-usd"),
+        "Reconciliation deleted.",
+        None,
+        CARD_ROWS[:3],
+        ["dim", "dim", ""],
+    ),
+}
+
+
+@pytest.mark.parametrize("key", list(STATUS_KEYS))
+def test_c_u_and_d_on_a_card_half_send_one_write_and_both_halves_show_it(monkeypatch, key):
+    """`c`, `u` and `d` on one half of a card statement, each confirmed with `y`, send
+    one write on the half the screen shows, never one per half: the engine completes,
+    reverts or deletes the whole statement from either half
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete)
+    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)
+    (contract: DELETE /v1/reconciliations/{reconciliation_id}). The batch screen's
+    header shows its half's new status, and back on the browse the statement's row,
+    read again, shows both halves' (a deleted statement's row gone)."""
+    row, half, write, toast, status, rows, styles = STATUS_KEYS[key]
+    client = _writing_engine(monkeypatch)
+    notes: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notes.append(message)
+    )
+    seen: dict = {}
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, SIG_USD)
+        screen._batch_list.set_cursor(row)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
+        detail = app.screen
+        seen["opened"] = detail._id
+        await wait_for(pilot, lambda: detail._list is not None)
+        listed = screen._batch_list
+        await pilot.press(key)
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+        if status is not None:
+            seen["head"] = str(detail.query_one("#rhead", Static).visual)
+            await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen and screen._batch_list is not listed)
+        await wait_for(pilot, lambda: screen._batch_list is not None)
+        seen["panel"] = _panel(screen)
+
+    run_app(scenario, size=(140, 50))
+    assert seen["opened"] == half
+    assert [(method, path) for method, path, _ in client.calls if method != "GET"] == [write]
+    assert notes == [toast]
+    if status is not None:
+        assert seen["head"].endswith(f"status {status}")
+    assert seen["panel"].cells == rows
+    assert seen["panel"].styles == styles
+
+
+@pytest.mark.parametrize("key", list(STATUS_KEYS))
+def test_a_status_key_on_a_card_half_is_one_request_under_one_key(configured, monkeypatch, key):
+    """Through the shared write path and the real HTTP client, each key's write on a
+    card half is one request carrying one `X-Idempotency-Key`, and nothing is sent on
+    the other half's path."""
+    row, half, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
+    record = next(item for item in CARD if item["id"] == half)
+    twin = next(item for item in CARD if item["id"] == record["twin_id"])
+    answers = {
+        "c": complete_answer({**record, "status": 2}, twin={**twin, "status": 2}),
+        "u": revert_answer({**record, "status": 1}, twin={**twin, "status": 1}),
+        "d": delete_answer(record, twin=twin),
+    }
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map",
+        lambda: {SIG_USD["id"]: SIG_USD["name"]},
+    )
+    notes: list = []
+    monkeypatch.setattr(
+        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notes.append(message)
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(record), currency="USD")
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        await pilot.press(key)
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: notes)
+
+    with respx.mock() as mock:
+        mock.get(f"{ENGINE_URL}/v1/bank-lines").mock(httpx.Response(200, json=cursor_page([])))
+        route = mock.request(method, f"{ENGINE_URL}/v1{path}").mock(
+            httpx.Response(200, json=answers[key])
+        )
+        run_app(scenario)
+        writes = [call.request for call in mock.calls if call.request.method != "GET"]
+    assert notes == [toast]
+    assert route.call_count == 1
+    assert writes == [route.calls.last.request]
+    assert writes[0].headers["X-Idempotency-Key"]

@@ -1211,6 +1211,15 @@ reconciliation list, where a batch's own delete lives one screen deeper); `esc` 
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
+**The begin balance's hint takes two lines** on the new-reconciliation form (pick B of
+[expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html)):
+`signed decimal · your statement's opening balance`, then, dim, directly under it,
+`0.00 if it holds the account's opening balance, which already counts it`. The engine sums
+every transaction assigned to a reconciliation, an account's opening balance included, into
+its add-up check (contract: "Reconciliations", "`difference_cents` — the add-up check"), so
+the statement holding that line begins at 0.00; the form cannot know which statement that is,
+so the line is always there. Each half's begin on a card's form carries the same second line.
+
 **A card statement's create form** (`n` on a card account; pane 2 A of
 [expense-world-card-statement.html](mockups/expense-world-card-statement.html)). A card is
 two bank accounts sharing a statement code, one per currency
@@ -1223,7 +1232,8 @@ form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line `accounts  
 Signature USD · SIG` (stated, never edited), `date start`, `date end`, then the open account's
 `begin balance <CUR>` and `end balance <CUR>`, then the other account's. Each balance's hint
 names its half by currency (`signed decimal · the dollar half's opening balance`; `soles half`
-for PEN, `dollar half` for USD, any other by its code, `formatting.half_name`); both begins are
+for PEN, `dollar half` for USD, any other by its code, `formatting.half_name`), a begin's
+with the opening-balance line under it (above); both begins are
 required, both ends optional. `^s Create both`, or `⏎` on the last line, sends one
 `POST /reconciliations` whose `twin` is the other half, its own id, account and balances,
 taking the request's name and days (contract: POST /v1/reconciliations). Both halves are

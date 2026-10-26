@@ -268,7 +268,7 @@ def test_the_form_is_drawn_as_picked(fake_client):
         label = screen.query_one("#field", Static)
         assert label.size.width == len("BEGIN BALANCE USD") and "USD" in str(label.content)
         hint = str(screen.query_one("#hint", Static).content)
-        assert hint == "signed decimal · the dollar half's opening balance"
+        assert hint.splitlines()[0] == "signed decimal · the dollar half's opening balance"
         summary = render_text(screen._summary_renderable(), width=100)
         lines = [line.split() for line in summary.splitlines()]
         assert lines[0] == ["name", "Octubre", "2026"]
@@ -284,7 +284,11 @@ def test_the_form_is_drawn_as_picked(fake_client):
 
 def test_the_hints_say_save_only_on_the_last_line():
     screen = _form()
-    assert screen._hint_for("begin") == "signed decimal · the soles half's opening balance"
+    for key, half in (("begin", "soles"), ("twin_begin", "dollar")):
+        assert screen._hint_for(key).splitlines() == [
+            f"signed decimal · the {half} half's opening balance",
+            "0.00 if it holds the account's opening balance, which already counts it",
+        ]
     assert screen._hint_for("end") == "signed decimal · the soles half's closing balance · optional"
     assert screen._hint_for("twin_end") == (
         "signed decimal · the dollar half's closing balance · optional · enter saves"

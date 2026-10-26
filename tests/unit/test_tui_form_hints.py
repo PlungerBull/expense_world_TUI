@@ -6,7 +6,8 @@ there (expense-world-wording-picks.html, questions 4a and 4b, both A).
 
 The pins drive the screens with real key presses; the guard walks every bar
 form in `expense/tui/screens/`, in each of its shapes, so a new form or a new
-hint is covered as soon as it exists.
+hint is covered as soon as it exists. A hint may take a second line: under
+BEGIN BALANCE it says when a statement begins at 0.00.
 """
 
 import importlib
@@ -30,7 +31,7 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
-from tests.unit.helpers import edit_limits, run_app, wait_for
+from tests.unit.helpers import edit_limits, render_text, run_app, wait_for
 
 NAME_GOES_ON = "free text · enter to go on"
 COLOR_KEEPS = "optional · enter keeps it · ↑↓ another swatch"
@@ -229,6 +230,61 @@ def test_new_reconciliation_name_goes_on(fake_client):
         assert fake_client.posts == []
 
     _open(NewReconciliationScreen(account_id="acc1", account_name="BCP PEN"), body)
+
+
+#: The begin balance hint's second line, the same on every begin field
+#: (docs/mockups/expense-world-opening-balance-note.html, B).
+OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
+
+
+def _card() -> NewCardStatementScreen:
+    return NewCardStatementScreen(
+        account=("acc1", "Signature PEN", "PEN"),
+        partner=("acc2", "Signature USD", "USD"),
+        code="SIG",
+    )
+
+
+@pytest.mark.parametrize(
+    "make, typed, key, first",
+    [
+        (
+            lambda: NewReconciliationScreen(account_id="acc1", account_name="Sueldo Soles"),
+            ["Enero 2026", "2026-01-01", "2026-01-31"],
+            "begin",
+            "signed decimal · your statement's opening balance",
+        ),
+        (
+            _card,
+            ["Enero 2026", "2025-12-26", "2026-01-25"],
+            "begin",
+            "signed decimal · the soles half's opening balance",
+        ),
+        (
+            _card,
+            ["Enero 2026", "2025-12-26", "2026-01-25", "0", ""],
+            "twin_begin",
+            "signed decimal · the dollar half's opening balance",
+        ),
+    ],
+    ids=["one account", "card, soles half", "card, dollar half"],
+)
+def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client, make, typed, key, first):
+    """Pick B: under BEGIN BALANCE, today's hint and a second line saying a statement
+    holding the account's opening balance begins at 0.00, each whole on its own row at
+    80 columns, on the one-account form and on each half of a card's form."""
+
+    async def body(pilot, screen):
+        for text in typed:
+            await pilot.press(*text, "enter")
+        assert screen._key == key
+        assert _hint(screen) == f"{first}\n{OPENING_NOTE}"
+        hint = screen.query_one("#hint", Static)
+        assert screen.size.width == 80 and hint.size.height == 2
+        shown = render_text(hint.content, width=hint.content_size.width)
+        assert shown.splitlines() == [first, OPENING_NOTE]
+
+    _open(make(), body)
 
 
 # ---- the guard: every bar form, in each of its shapes ------------------------
