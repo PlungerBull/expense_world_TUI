@@ -28,6 +28,16 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over the ask that locked lines say why in words
+Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md), its reason beside `read-only`
+
+For the Edit form to say why a line is read-only, the engine has to send a sentence with each
+lock, not only a code. Copy
+[to-engine/edit-limits-say-why-in-words.md](to-engine/edit-limits-say-why-in-words.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
@@ -233,7 +243,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   2026-10-25, not started
   ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a spec the owner
-  approved on 2026-10-25, not started; one question waits for its mockup
+  approved on 2026-10-25, its questions answered, not started; its reason beside `read-only`
+  waits on the engine ask "A bank line's edit limits say why each field is locked, in words"
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine

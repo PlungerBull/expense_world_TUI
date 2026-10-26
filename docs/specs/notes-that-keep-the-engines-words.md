@@ -1,7 +1,8 @@
 # Notes that keep the engine's words, and lines that say they are locked
 
 **Status: approved by the owner on 2026-10-25, its questions answered; not started. Its tasks
-are drafted when the owner names it the current spec.** When done, the why moves to
+are drafted when the owner names it the current spec. What it must do 2 waits on the engine ask
+"A bank line's edit limits say why each field is locked, in words".** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -45,17 +46,17 @@ Four small things found while building the last spec, not fixed there:
   reconciliation's lines read-only; this spec adds why, after a mockup pick.
 - **The bulk edit's missing-settings note is the LOG bar's** (owner, 2026-10-25): one problem,
   one note.
+- **Every read-only line says why** (owner, 2026-10-25): a completed reconciliation's lines, an
+  archived account's, an opening balance's, each with the reason the engine sends for it.
+- **The engine sends the words** (owner, 2026-10-25): the engine sends each lock's reason as a
+  code only (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"), so the app asks
+  the engine to send a sentence with it, rather than keeping its own table from code to words.
+  The engine ask "A bank line's edit limits say why each field is locked, in words" carries it;
+  the Edit form shows the engine's sentence as sent, and the mockup picks only where it sits.
 
 ## Questions for the owner
 
-1. **Which read-only lines say why?**
-   - **A.** Every one: a completed reconciliation's lines, an opening balance's, an archived
-     account's, each with the reason the engine sends for it.
-   - **B.** Only a completed reconciliation's lines; the others keep plain `read-only`.
-
-   **Recommended:** A, because the engine gives a reason for every locked line, so one rule
-   covers them all and the app copies no rule of its own. Asked with the mockup, when the spec
-   starts.
+None open. Where the reason sits beside `read-only` is picked from a mockup when the spec starts.
 
 ---
 
