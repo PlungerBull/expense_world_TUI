@@ -130,8 +130,18 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Every task is done; the tester's acceptance check runs next. Questions 2 to 4 wait on the
-owner and become tasks once answered.
+Questions 2 to 4 wait on the owner and become tasks once answered.
+
+7. **The last live tests that send import rows** (from the tester's acceptance check of
+   2026-10-26). Three places in the live suite still send `rows` to `POST /transactions/import`,
+   which the engine refuses: the split-line and line-group re-imports in
+   [test_bank_lines.py](../../tests/contract/test_bank_lines.py), and the import entry of
+   `_writes_sending` in
+   [test_line_codes_and_statement_lines.py](../../tests/contract/test_line_codes_and_statement_lines.py).
+   Each sends a made-up download whole, as [test_bank_import.py](../../tests/contract/test_bank_import.py)
+   does, or, where the engine no longer has an upload row to refuse a field on, proves what the
+   contract now states instead; [runtime.md](../runtime.md)'s list of what the suite proves
+   matches. The whole live suite passes.
 
 
 ## Reply to the engine
