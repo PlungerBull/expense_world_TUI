@@ -64,15 +64,18 @@ The only thing you see change is bracketed names showing whole. Approve it or re
 
 **Recommended:** approve it, after the engine catch-up, which matters more.
 
-### Approve the spec for the sheet import through the engine
-Asked 2026-10-26 · Blocks: [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
+### Pick what the sheet import prints
+Asked 2026-10-26 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
 
-The engine now reads your spreadsheet itself; `expense import sheet` sends it the file, and the
-app's own reader goes. It holds three questions: whether the app creates the accounts,
-categories and hashtags you don't have yet, how you confirm which name goes where, and whether
-renaming an account as it comes in stays. Approve it or rewrite it, and answer them there.
+[expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html) draws
+the dry run, the apply and a refused sheet. Screen 1 shows the names your sheet uses:
+- **A.** Three tables (accounts, categories, hashtags), each name with its row count and where
+  it goes.
+- **B.** One line per kind, as today, without row counts.
 
-**Recommended:** approve it with the recommended answers, to run after the engine catch-up.
+Screens 2 and 3 are drawn once each: say yes, or what to change.
+
+**Recommended:** A, because the row counts show at a glance which names matter.
 
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)

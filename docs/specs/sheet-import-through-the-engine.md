@@ -5,8 +5,7 @@ hand-off of 2026-10-26, the new sheet import (`0f7cdbe45cece354`). It runs after
 the catch-up of the bank download and closing a statement (done on 2026-10-26), which held
 most of the rest of the hand-off.
 
-**Status: draft, for the owner to rewrite or approve; questions 1 to 3 wait on the owner. Its
-tasks are drafted when the owner names it the current spec.** When done, the why moves to
+**Status: approved, the current spec (owner, 2026-10-26).** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -62,35 +61,41 @@ What changes for you, from the engine's rules:
 
 ## Questions for the owner
 
-1. **Names you don't have yet.** On the official import, onto an empty ledger, every name is new.
-   - **A.** The app creates them at the apply, as today (an account under its name and
-     currency, a category, a hashtag), then sends the table.
-   - **B.** The import stops and lists them; you create each one in the app, then run it again.
-
-   **Recommended:** A, because the official import would otherwise mean creating every account,
-   category and hashtag by hand first.
-2. **Confirming the table.**
-   - **A.** The dry run prints the table; running it again with `--apply` is your confirmation.
-     A name goes somewhere other than the engine's proposal only through `--account-name`
-     (question 3).
-   - **B.** The apply asks you name by name in the terminal.
-
-   **Recommended:** A, because the import runs once, and the dry run already shows every match.
-3. **Renaming an account as it comes in** (`--account-name "BCP:PEN=Sueldo Soles"`, remembered
-   for later runs).
-   - **A.** Keep it: it says which account a sheet name and currency goes to, created under that
-     name when you don't have it.
-   - **B.** Drop it: the accounts come in under the sheet's names, and you rename them in the app
-     afterwards.
-
-   **Recommended:** A, because the official import's plan renames the four BCP accounts this way
-   ([before-the-official-import.md](before-the-official-import.md) "Decided").
+**Answered (owner, 2026-10-26):** a name you don't have yet is created by the app at the apply
+(question 1, A); running again with `--apply` is the confirmation (question 2, A);
+`--account-name` stays, remembered for later runs (question 3, A); and a sheet account used in
+two currencies becomes two accounts under the sheet's same name, one per currency, the currency
+telling them apart (where today the app adds the currency to the name, `BCP Oro PEN`).
 
 ---
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Approved by the owner on 2026-10-26.
+
+1. **The sheet import's engine calls, in one shared home.** A module beside the command holds
+   the request and answer of POST /v1/transactions/import-sheet (the file whole, in base64, as
+   the bank import door sends a download) and the names table: each name the engine lists goes
+   to its proposal, a renamed account (the `--account-name` flag, or the rename saved in
+   `sheet_account_names`) to your account of that name and currency, and a name with neither to
+   a new one. The apply runs a dry run first, so a refused sheet creates nothing; then it
+   creates each new name through its own route (an account under the sheet's name and
+   currency, or its rename; a category; a hashtag), then sends the table. Every write carries
+   its idempotency key. Unit tests cover the table, the creates, each refusal it handles, and a
+   refusal after a create. Nothing the user sees changes in this task.
+2. **[UI] The command goes through the engine, and the old reader goes.** `expense import
+   sheet` prints as screens 1 to 3 of
+   [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
+   draw, once the owner picks; `--json` prints the engine's answer, with the names the apply
+   created. The app's own reader of the sheet goes with its tests (the parse, plan, apply,
+   header aliases and currency-split naming), and so does `--chunk-size`; `openpyxl` leaves the
+   app's dependencies and stays only for the tests that build made-up sheets.
+   [commands.md](../commands.md) and [runtime.md](../runtime.md) say what the import does now.
+   Waits on the owner's pick.
+3. **A live test of the sheet import.** A made-up sheet on the practice engine: the dry run
+   lists its names and counts; the apply writes it; a second apply writes nothing and every row
+   comes back matched; a made-up sheet with one bad row is refused whole, naming the row, and
+   nothing is written, no name included; a renamed account lands under its rename.
 
 ## Reply to the engine
 
