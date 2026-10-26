@@ -233,7 +233,7 @@ def test_new_reconciliation_name_goes_on(fake_client):
 
 
 #: The begin balance hint's second line, the same on every begin field
-#: (docs/mockups/expense-world-opening-balance-note.html, B).
+#: (drawn in docs/mockups/expense-world-opening-balance-note.html).
 OPENING_NOTE = "0.00 if it holds the account's opening balance, which already counts it"
 
 
@@ -270,7 +270,7 @@ def _card() -> NewCardStatementScreen:
     ids=["one account", "card, soles half", "card, dollar half"],
 )
 def test_a_begin_balance_hint_says_when_it_is_0_00(fake_client, make, typed, key, first):
-    """Pick B: under BEGIN BALANCE, today's hint and a second line saying a statement
+    """Under BEGIN BALANCE, today's hint and a second line saying a statement
     holding the account's opening balance begins at 0.00, each whole on its own row at
     80 columns, on the one-account form and on each half of a card's form."""
 

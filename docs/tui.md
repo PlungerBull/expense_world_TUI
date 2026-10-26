@@ -1211,9 +1211,10 @@ reconciliation list, where a batch's own delete lives one screen deeper); `esc` 
 one step — no-batch rows → the panel → the account list (`esc Close the panel`) → Home.
 `u` means *revert* on the batch screen one keypress away; the overlap is deliberate.
 
-**The begin balance's hint takes two lines** on the new-reconciliation form (pick B of
+**The begin balance's hint takes two lines** on the new-reconciliation form, the whole hint
+dim as every hint is (drawn in
 [expense-world-opening-balance-note.html](mockups/expense-world-opening-balance-note.html)):
-`signed decimal · your statement's opening balance`, then, dim, directly under it,
+`signed decimal · your statement's opening balance`, then directly under it
 `0.00 if it holds the account's opening balance, which already counts it`. The engine sums
 every transaction assigned to a reconciliation, an account's opening balance included, into
 its add-up check (contract: "Reconciliations", "`difference_cents` — the add-up check"), so

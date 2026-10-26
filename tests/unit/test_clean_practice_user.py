@@ -13,6 +13,8 @@ import httpx
 import pytest
 import respx
 
+from expense.config import Config
+from expense.http import ExpenseClient
 from tests.scripts_loader import load_script
 
 PRACTICE = "http://127.0.0.1:8002"
@@ -241,3 +243,55 @@ def test_a_prefix_replaces_the_test_names(script, capsys):
 
     assert engine.calls == ["DELETE /accounts/a1"]
     assert list(engine.accounts) == ["a2"]
+
+
+@respx.mock
+def test_a_system_row_appearing_between_two_snapshots_is_no_leftover(script):
+    """The engine creates `@Pendiente`, `@Opening` and the pending hashtag on first need
+    and never deletes them, so a test that brings one about leaves nothing behind."""
+    engine = FakeEngine(accounts=[_account("a1", "BCP PEN")])
+    _serve(engine)
+    with ExpenseClient(Config(engine_url=PRACTICE, token="ewe_pat_practice")) as client:
+        before = script.holdings(client)
+        for ident, name, key in (("c8", "@Pendiente", "pending"), ("c9", "@Opening", "opening")):
+            engine.categories[ident] = dict(id=ident, name=name, system_key=key)
+        engine.hashtags["h9"] = dict(id="h9", name="Pendiente", system_key="pending")
+        engine.categories["c1"] = dict(id="c1", name="contract-c-1", system_key=None)
+        after = script.holdings(client)
+
+    assert {ident: after[ident] for ident in set(after) - set(before)} == {
+        "c1": "category 'contract-c-1'"
+    }
+
+
+@respx.mock
+def test_a_system_row_is_never_matched_or_deleted(script, capsys):
+    engine = FakeEngine(
+        accounts=[],
+        categories=[dict(id="c1", name="contract-sys", system_key="pending")],
+        hashtags=[dict(id="h1", name="contract-sys", system_key="pending")],
+    )
+    _serve(engine)
+
+    assert script.main([*TARGET, "--apply"]) == 0
+
+    assert engine.calls == []
+    assert "contract-sys" not in capsys.readouterr().out
+
+
+@respx.mock
+def test_a_refused_transaction_delete_is_listed_once(script, capsys):
+    engine = FakeEngine(
+        accounts=[_account("a1", "contract-acct-1")],
+        txs=[
+            dict(id="t1", account_id="a1", hashtag_ids=[]),
+            dict(id="t2", account_id="a1", hashtag_ids=[]),
+        ],
+        refuse=["DELETE /transactions/t1"],
+    )
+    _serve(engine)
+
+    assert script.main([*TARGET, "--apply"]) == 1
+
+    assert set(engine.txs) == {"t1"}
+    assert capsys.readouterr().out.count("left delete transaction t1 ") == 1

@@ -18,7 +18,8 @@ deletes need:
   4. every matched hashtag no live transaction carries any more, every matched category
      and every matched account is deleted.
 
-A record is matched only by its own name starting with a prefix. A matched account's
+A record is matched only by its own name starting with a prefix, and a system category or
+hashtag, which the engine creates for itself and never deletes, never. A matched account's
 reconciliations and transactions go with it; nothing else is touched. A card statement
 whose other half sits on an account that is not matched is left whole, since deleting one
 half deletes both. A hashtag still on a live transaction is left, since deleting it would
@@ -70,6 +71,25 @@ def matches(name: str | None, prefixes: tuple[str, ...]) -> bool:
     return bool(name) and any(name.startswith(prefix) for prefix in prefixes)
 
 
+def user_rows(client: ExpenseClient, path: str) -> list[dict]:
+    """The caller's categories or hashtags at `path`, without the system rows, those with a
+    non-null `system_key`, which the engine creates for itself on first need and never
+    deletes (contract: "Categories", "Engine-created system categories")
+    (contract: "Hashtags", "The built-in pending hashtag")."""
+    return [row for row in client.get(path)["items"] if row.get("system_key") is None]
+
+
+def holdings(client: ExpenseClient) -> dict[str, str]:
+    """Every account (people and archived ones too), and every category and hashtag but
+    the system rows, the caller holds: id to a label naming its kind and name. What a
+    test may leave behind (`leaves_nothing` in tests/contract/conftest.py)."""
+    listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
+    held = {item["id"]: f"account {item['name']!r}" for item in listed["items"]}
+    for kind, path in (("category", "/categories"), ("hashtag", "/hashtags")):
+        held |= {row["id"]: f"{kind} {row['name']!r}" for row in user_rows(client, path)}
+    return held
+
+
 @dataclass
 class Plan:
     """What one run found: the matched records, and what it leaves and why."""
@@ -104,10 +124,8 @@ def plan(client: ExpenseClient, prefixes: tuple[str, ...]) -> Plan:
                 found.left.append(f"statement {names}: its other half is on an unmatched account")
         count = client.get("/transactions/count", params={"account_id": account["id"]})["count"]
         found.transactions[account["id"]] = count
-    found.categories = [
-        c for c in client.get("/categories")["items"] if matches(c["name"], prefixes)
-    ]
-    found.hashtags = [h for h in client.get("/hashtags")["items"] if matches(h["name"], prefixes)]
+    found.categories = [c for c in user_rows(client, "/categories") if matches(c["name"], prefixes)]
+    found.hashtags = [h for h in user_rows(client, "/hashtags") if matches(h["name"], prefixes)]
     return found
 
 
@@ -169,22 +187,18 @@ def apply(client: ExpenseClient, found: Plan) -> list[str]:
 
 
 def _delete_transactions(client: ExpenseClient, account: dict, left: list[str]) -> None:
-    """Deletes every live transaction on `account`, page by page, until none is left or
-    a page deletes nothing."""
+    """Deletes every live transaction on `account`, page by page, until a page holds none
+    but those already refused; each refused one is listed once."""
+    refused: set[str] = set()
     while True:
         page = client.get("/transactions", params={"account_id": account["id"], "limit": _PAGE})
-        if not page["items"]:
+        todo = [tx for tx in page["items"] if tx["id"] not in refused]
+        if not todo:
             return
-        refused_before = len(left)
-        for tx in page["items"]:
-            _try(
-                left,
-                f"delete transaction {tx['id']} on {account['name']!r}",
-                client.delete,
-                f"/transactions/{tx['id']}",
-            )
-        if len(left) - refused_before == len(page["items"]):
-            return
+        for tx in todo:
+            what = f"delete transaction {tx['id']} on {account['name']!r}"
+            if _try(left, what, client.delete, f"/transactions/{tx['id']}") is None:
+                refused.add(tx["id"])
 
 
 def describe(found: Plan) -> list[str]:

@@ -21,6 +21,7 @@ from expense.bank_line_write import line_body, new_part
 from expense.config import Config
 from expense.errors import EngineError
 from expense.http import ExpenseClient
+from tests.scripts_loader import load_script
 
 # The default is the one real engine, the local deployment. A practice run sets
 # EXPENSE_ENGINE_URL to the disposable test engine on :8002.
@@ -31,6 +32,9 @@ PAT = os.environ.get("EXPENSE_PAT")
 ALLOW_REAL_LEDGER = os.environ.get("EXPENSE_ALLOW_REAL_LEDGER") == "1"
 
 LIVE = os.environ.get("PYTEST_LIVE") == "1"
+
+#: scripts/clean_practice_user.py: what a test may leave behind, and how it is removed.
+CLEANER = load_script("clean_practice_user.py")
 
 
 def reason_on(err: EngineError, field: str) -> str | None:
@@ -159,29 +163,20 @@ def client():
         yield c
 
 
-def holdings(client: ExpenseClient) -> dict[str, str]:
-    """Every account (people and archived ones too), category and hashtag the caller
-    holds: id to a label naming its kind and name."""
-    listed = client.get("/accounts", params={"include_people": "true", "include_archived": "true"})
-    held = {item["id"]: f"account {item['name']!r}" for item in listed["items"]}
-    for kind, path in (("category", "/categories"), ("hashtag", "/hashtags")):
-        held |= {item["id"]: f"{kind} {item['name']!r}" for item in client.get(path)["items"]}
-    return held
-
-
 @pytest.fixture(autouse=True)
 def leaves_nothing():
     """Fails the test whose teardown leaves an account, category or hashtag it made.
 
     Autouse, so it is set up before every fixture a test asks for and torn down after
     them, the `scratch` cleanup included. It reads through a client of its own, so the
-    `statuses` a test reads never see its calls. A leftover is listed by kind and name;
-    scripts/clean_practice_user.py removes it (docs/runtime.md "Working against the
-    live engine")."""
+    `statuses` a test reads never see its calls. What it counts is the cleanup script's
+    `holdings`, which leaves out the system rows the engine creates on first need. A
+    leftover is listed by kind and name; scripts/clean_practice_user.py removes it
+    (docs/runtime.md "Working against the live engine")."""
     with ExpenseClient(_target()) as own:
-        before = holdings(own)
+        before = CLEANER.holdings(own)
         yield
-        after = holdings(own)
+        after = CLEANER.holdings(own)
     left = sorted(label for record, label in after.items() if record not in before)
     if left:
         pytest.fail(f"the test left {len(left)} record(s) behind: {', '.join(left)}")

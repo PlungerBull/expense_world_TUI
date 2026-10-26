@@ -21,12 +21,11 @@ from uuid import uuid4
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import Scratch, free_statement_codes, holdings, reconciliation_body
-from tests.scripts_loader import load_script
+from tests.contract.conftest import CLEANER, Scratch, free_statement_codes, reconciliation_body
 
 
 def test_the_script_removes_what_a_test_left(client):
-    cleaner = load_script("clean_practice_user.py")
+    cleaner = CLEANER
     prefix = f"contract-clean-{uuid4().hex[:8]}-"
     noon = Scratch(client).noon
     [code] = free_statement_codes(client, 1)
@@ -104,6 +103,6 @@ def test_the_script_removes_what_a_test_left(client):
             with pytest.raises(EngineError) as excinfo:
                 client.get(f"/reconciliations/{recon}")
             assert excinfo.value.status == 404
-        assert not [label for label in holdings(client).values() if prefix in label]
+        assert not [label for label in cleaner.holdings(client).values() if prefix in label]
     finally:
         cleaner.apply(client, cleaner.plan(client, (prefix,)))
