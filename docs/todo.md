@@ -38,15 +38,21 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
-### Approve the spec for the Edit form's words and keys
+### Approve the Edit form's words and keys: its tasks, the words, and when it runs
 Asked 2026-10-25 · Blocks: [specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)
 
-Three small things the new Edit form left behind: `s` hidden on an archived account's rows, a
-few words still describing the old split screen, and one refusal line that reads wrong on the
-form. Approve the spec, or rewrite it, and answer its three questions (A, A and A recommended).
+You approved the spec with A, A and A. Three things are left:
+- **Its four tasks**, in the spec's "Tasks" section: approve them, or say what to change.
+- **The exact words**, in
+  [mockups/expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html):
+  screen 1 (the ledger's `s`: footer `s Edit`, or keep `s Split`), screen 2 (the "no batch"
+  `⏎` line: short, or a full list) and screen 3 (a refused part's `category` and `hashtags`).
+- **When it runs:** the loop runs one spec at a time.
+  - **A.** This spec first; it is small. Then "Statement lines come from reconciliations".
+  - **B.** "Statement lines come from reconciliations" first, as listed; this one after.
 
-**Recommended:** approve it with A, A and A, because each brings the words and keys in line with
-the form you picked.
+**Recommended:** approve the tasks, pick 1 A, 2 A and 3 A, and A for when, because this spec is
+four small tasks and clears the words before the next screens are built.
 
 ### The locked-line part of the notes spec is done
 Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
@@ -239,8 +245,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   `test_nothing_in_the_app_calls_the_split_route` in
   [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
   gone", where the rule is present tense.
-- **The Edit form's words and keys match what it does**: a draft spec waiting for the owner's
-  approval and three answers ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
+- **The Edit form's words and keys match what it does**: approved, its tasks and a mockup pick
+  waiting on the owner ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
   waiting for the owner's approval and two answers
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
