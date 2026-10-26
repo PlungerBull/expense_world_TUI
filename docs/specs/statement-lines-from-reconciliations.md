@@ -11,8 +11,9 @@ Edit form's part (the whole-line write from the line editor, `parts` on an openi
 and an archived account's line, and what a line's read says is locked) is done, as
 [decisions.md](../decisions.md) "The Edit form saves a whole line in one write, and the engine says what is locked" records, with its own reply to the engine.
 
-**Status: tasks 6, 9 to 12, 14 and 16 done; tasks 7, 8 and 15 approved by the owner on
-2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and
+**Status: tasks 6, 9 to 12, 14 and 16 done. Tasks 7, 8 and 15 dropped by the owner on
+2026-10-25: a month's statement is to close from the bank's PDF instead (the spec that follows
+this one, under "Found along the way"), so this spec closes with what is built.** When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
 ---
@@ -122,6 +123,10 @@ From the engine's "Done when", with the owner's own calls ("What the owner settl
 
 Checks 3 to 6 and 8 to 12 run on the practice engine: the official import has not happened yet.
 
+**Moved to the spec that follows (owner, 2026-10-25):** checks 4, 5, 6, 10, 11 and 12, and
+check 9's renaming, moving the days and never seeing one half without the other. They need the
+screens of tasks 7, 8 and 15, which the PDF upload replaces.
+
 ## What the engine settled
 
 It answers eight asks of this client's, all raised 2026-10-24: "One write edits a whole bank
@@ -183,47 +188,7 @@ writes both halves' balances in one write". Where it differs from what was asked
 
 ## Tasks
 
-Tasks 7, 8 and 15 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 7, 8 and 15. Tasks 7, 8 and 15 are **[UI]**,
-each picked from its mockup in [mockups/](../mockups/).
-
-7. **[UI] The statement's screen is one list, put in order on it**, as the owner picked on
-   2026-10-25 in
-   [mockups/expense-world-statement-screen.html](../mockups/expense-world-statement-screen.html)
-   (it replaces the separate statement-order screen and the card-statement mockup's screens 3
-   and 4; the key `o` goes): the tick column, `Date`, `Title`, `Operation`, `Amount PEN` and
-   `Amount USD`, the `Starting balance` row first and the `Ending balance` row last (3 A), the
-   statement's lines in the engine's order (placed lines by place, then the rest oldest first,
-   both currencies mixed), `shift+↑↓` moving a line and `ctrl+s` saving the whole order in one
-   write, its refusals shown with the app's lines picked in pane 5 of
-   [mockups/expense-world-statement-order.html](../mockups/expense-world-statement-order.html), leaving
-   with an order not saved asking first (2 A), the lines still to tick under the
-   statement's lines, oldest first, after a dotted rule (1 A), a line ticked after the order was
-   saved waiting at the end marked `new`, the account's opening balance at the top, the first line under the `Starting balance` row,
-   never moved (5 A),
-   a completed statement read-only in the paper's order (pane 6), and `c` refused while not in
-   order with the engine's words and pane 7's line. Its reads: the statement read; the lines
-   still to tick from `GET /bank-lines?unassigned_in_period_of=<either half's id>&sort=statement`,
-   paging with its cursor and read again after each tick and each saved order; the opening
-   balance known by its line's `is_opening_balance` alone. No per-account reads, merging or
-   sorting in the app, and no "in the period, in no reconciliation" rule. On a card it also
-   carries, from
-   [mockups/expense-world-card-statement.html](../mockups/expense-world-card-statement.html): `c` and `u` on the whole statement in one write after the questions `Complete the
-   statement?` and `Revert to draft?` (pane 4, counting both halves' lines), `d` deleting both
-   halves after `Delete the statement?` (task 6's question 2 A), the way out of a half joined to
-   a completed one always on the header (4c A), and `u` listing both accounts' rows in no batch
-   (7).
-8. **[UI] An account with no statement code on the same screen** (4 A, pane 5): one `Amount`
-   column, the `Starting balance` and `Ending balance` rows, its lines oldest first, nothing to
-   move, and the lines still to tick under them as task 7 reads them. Its lines come from
-   `GET /bank-lines?reconciliation_id=<id>&sort=statement`, the statement read being refused on
-   an account with no code.
-15. **[UI] `e` edits a statement's name, days and balances**, as the owner picked on 2026-10-25
-    in [mockups/expense-world-card-statement.html](../mockups/expense-world-card-statement.html), task 6's question 1 A: `e Edit` on the statement's screen opens a small form, the
-    name, the days, then each half's begin and end balance, `^s` sending what changed in one
-    `PUT /reconciliations/{id}`, the other half's balances in `twin` with `twin.id` the `twin_id`
-    read and `twin` left out when they did not change; on a completed statement only the name
-    changes, the rest dimmed `locked while completed`; a refusal shows the engine's words and the
-    app's line as drawn.
+None left. Tasks 7, 8 and 15 were dropped by the owner on 2026-10-25 (see the status above).
 
 ## Reply to the engine
 
@@ -242,6 +207,14 @@ Written into [to-engine/](../to-engine/) once this spec is done.
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **A month's statement closes from the bank's PDF** (owner, 2026-10-25): a month's
+  reconciliation is opened with no statement and stays open; uploading the bank's PDF statement
+  (the BCP `EECC`) closes it: it creates and links every currency's half of the card with the
+  PDF's balances, matches each PDF line to a ledger line, creates the lines the ledger lacks,
+  flags the ledger lines the PDF does not hold, puts the lines in the PDF's order and completes.
+  An engine ask (owner: ask the engine, never a client-side workaround). It replaces tasks 7, 8
+  and 15 and carries the checks moved above.
 
 - **A reconciliation's lines ticked for you** (owner, 2026-10-24): an automatic way to choose
   which lines belong to a month, e.g. every line dated inside the statement's days, instead of
