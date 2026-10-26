@@ -242,10 +242,7 @@ MISMATCH = (
     "Must add up to the line's total: the line's total is -10000 cents "
     "and the parts add up to -12500."
 )
-PART_MISMATCH = (
-    "The parts must add up to the line's total: the line's total is -10000 cents "
-    "and the parts add up to -12500."
-)
+PART_MISMATCH = "The parts must add up to the line's total."
 
 
 class LineClient(FakeClient):
@@ -1027,7 +1024,7 @@ def _mismatch() -> EngineError:
     keys = ("parts", "parts.0.amount_cents", "parts.1.amount_cents")
     return EngineError(
         "VALIDATION_ERROR",
-        "Validation failed.",
+        "Bank line validation failed.",
         {
             "parts": MISMATCH,
             "parts.0.amount_cents": PART_MISMATCH,
@@ -1060,7 +1057,7 @@ def test_a_refused_save_shows_under_the_parts_each_part_named_by_its_number(engi
     assert stayed
     tail = shown[shown.index("2 parts  ·  -125.00 of -100.00  ·  25.00 left") :]
     assert tail[1] == ""
-    assert tail[2] == "VALIDATION_ERROR — Validation failed."
+    assert tail[2] == "VALIDATION_ERROR — Bank line validation failed."
     flat = " ".join(row.strip() for row in tail[3:])
     assert f"! parts: {MISMATCH}" in flat
     assert f"! part 1 (amount): {PART_MISMATCH}" in flat
@@ -1103,7 +1100,7 @@ REFUSALS = [
         "a1",
         "parts.1.amount_cents",
         "ACCOUNT_ARCHIVED",
-        "Part a2 of this bank line is the cause: The account is archived. Unarchive it first.",
+        "The account is archived. Unarchive it first.",
         "part 2 (amount)",
         None,
     ),

@@ -472,10 +472,12 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
         ),
         EngineError(
             "VALIDATION_ERROR",
-            "Another part of this bank line (t2b) is the cause: the account does not match.",
-            {"reconciliation_id": "Must be on the reconciliation's account."},
+            "Transaction t2b, another part of the same bank line, refuses this change. "
+            "Reconciliation validation failed.",
+            {"reconciliation_id": "Reconciliation account does not match transaction account."},
             422,
             {},
+            reasons={"reconciliation_id": "ACCOUNT_MISMATCH"},
         ),
     ],
 )

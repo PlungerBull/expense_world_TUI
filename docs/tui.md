@@ -495,8 +495,10 @@ hanging under its own words (`hanging` in
 [refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was saved.` dim (not under a
 `5xx`), then a blank line and the app's line when the reason has one (`app_lines`; "When the
 engine says no" below). The amounts a `parts.<i>.amount_cents` key names turn the error colour
-in the table. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words
-giving both totals in cents) and every other refusal of the route show this way. A failure that
+in the table. `SPLIT_TOTAL_MISMATCH` is keyed `parts`, whose words give both totals in cents,
+and every `parts.<i>.amount_cents`, whose words say only that the parts must add up to the line's
+total (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"); it and every other refusal of
+the route show this way. A failure that
 is not the engine's answer (the engine out of reach) shows the app's error text there instead.
 `esc` leaves with nothing sent, and the ledger keeps its rows and its cursor.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the

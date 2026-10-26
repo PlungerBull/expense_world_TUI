@@ -113,16 +113,8 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Tasks 3 and 4 run now; tasks 5 and 6 wait for their mockup pick.
+Task 4 runs now; tasks 5 and 6 wait for their mockup pick.
 
-3. **The engine's current words in the tests, and a statement's last day** (points 4 and 5). No
-   unit test quotes a part's refusal starting "Part … of this bank line is the cause", or a parts
-   total refusal stating both totals; each quotes the engine's current words. The app's words
-   about sealed days ([tui.md](../tui.md), hints, code comments) say a completed statement locks
-   its days but the last, which locks once the next statement is completed too; the app shows
-   the engine's refusal as it comes and computes nothing. The live sealed-period tests prove the
-   last day open until the next statement completes, and leave no `contract-seal-…` account
-   behind.
 4. **A held reserved name, live** (point 6). As the reserved-names practice user, a live test
    draws `RESERVED_NAME_HELD` on each route the engine's check names, reading the routes from the
    live contract; each refusal writes nothing. The contract suite's leak check (`leaves_nothing`)
@@ -138,7 +130,11 @@ Tasks 3 and 4 run now; tasks 5 and 6 wait for their mockup pick.
    (contract: POST /v1/reconciliations/{reconciliation_id}/complete); a card shows both halves'
    lines. The live tests stop expecting the refusal ([test_card_statement.py](../../tests/contract/test_card_statement.py),
    [test_statement_order.py](../../tests/contract/test_statement_order.py)) and prove a close
-   flagging a leftover line, on a card on both halves.
+   flagging a leftover line, on a card on both halves. [runtime.md](../runtime.md)'s line on the
+   statement-order tests stops naming `UNASSIGNED_IN_PERIOD`, and the sealed-period test of a row
+   filed nowhere checks the close's `review_lines` too. The `blocking_windows` docstring in
+   [reconciliations.py](../../expense/tui/screens/reconciliations.py) stops saying a leftover
+   row refuses the close.
 6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
    door's account list, preview and result
    ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)), the
@@ -169,7 +165,22 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 - **The asks it closes:** "The account read names a card's other account", "Probes on the
   practice engine clean up after themselves" and "The practice engine seeds a second practice
   user whose own category and hashtag hold the reserved names".
+- **A wording slip in the contract:** the complete route points to *Transactions* → *Sealed
+  periods*, while the tag is named "Transactions (Ledger)".
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **Old sealed-day words in tests, docs and a mockup.** The `SEALED_PERIOD` sentence "The date
+  falls inside a completed reconciliation's period." is still quoted in [tui.md](../tui.md)
+  (around line 959), test_grouped_refusals.py, test_tui_log_bar.py and
+  `expense-world-grouped-refusals.html`; the engine now sends "Period … is sealed by completed
+  reconciliation '…'. Revert it to draft to change anything inside it." Same kind as the backlog
+  item "A unit fixture quotes an old refusal". (Task 3.)
+- **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
+  test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
+  reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)
+- **Two mockups show old refusal words.** `expense-world-split-transaction-screen.html` (a part's
+  amount stating both totals) and `expense-world-edit-part.html` ("Another part of this bank line
+  …"). (Task 3.)
