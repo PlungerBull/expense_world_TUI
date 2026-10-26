@@ -87,17 +87,24 @@ def test_a_half_is_named_after_its_currency():
 
 def _patch_browse(monkeypatch, fake_client, accounts=ACCOUNTS) -> list:
     """`accounts`, an archived one only when asked for, as the engine lists
-    them; each account's reconciliations are what the fake engine has created
-    on it. Returns the accounts the list was read for."""
+    them; the reconciliations are what the fake engine has created, each half
+    naming its twin: `account_id` lists one account's, `statement_of` every
+    account's holding the named account's code (contract: GET /v1/reconciliations).
+    Returns each read's `(parameter, account)`."""
     reads: list = []
 
-    def fetch(_cfg, *, account_id, **kw):
-        reads.append(account_id)
+    def fetch(_cfg, *, account_id=None, statement_of=None, **kw):
+        named = account_id or statement_of
+        reads.append(("account_id" if account_id else "statement_of", named))
+        code = next((a["statement_code"] for a in accounts if a["id"] == named), None)
+        on = {named}
+        if statement_of and code:
+            on = {a["id"] for a in accounts if a["statement_code"] == code}
         made = [
-            _record(half)
+            half
             for _path, body in fake_client.posts
-            for half in _halves(body)
-            if half["account_id"] == account_id
+            for half in _records(body)
+            if half["account_id"] in on
         ]
         return whole(made)
 
@@ -118,6 +125,15 @@ def _halves(body: dict) -> list[dict]:
         return [body]
     shared = {key: body[key] for key in ("name", "date_start", "date_end")}
     return [body, {**shared, **twin}]
+
+
+def _records(body: dict) -> list[dict]:
+    """The halves one create makes, as the engine reads them back, each
+    naming the other as its `twin_id`."""
+    records = [_record(half) for half in _halves(body)]
+    if len(records) == 2:
+        records[0]["twin_id"], records[1]["twin_id"] = records[1]["id"], records[0]["id"]
+    return records
 
 
 def _record(sent: dict) -> dict:
@@ -347,8 +363,9 @@ def test_saved_it_says_so_and_the_panel_lands_on_the_new_statement(monkeypatch, 
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: app.screen is browse and browse._batch_list is not None)
         [(_path, body)] = fake_client.posts
-        assert reads == ["acc-sig-pen"]
+        assert reads == [("statement_of", "acc-sig-pen")]
         assert browse._mode == "batches" and browse._batch_list.has_focus
+        # the new statement is one row, standing for this account's half
         assert browse._batch_list.cursor_key == body["id"]
         assert [r.key for r in browse._batch_list._rows] == [body["id"]]
 

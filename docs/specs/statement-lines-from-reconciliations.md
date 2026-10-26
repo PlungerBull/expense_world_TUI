@@ -11,7 +11,7 @@ Edit form's part (the whole-line write from the line editor, `parts` on an openi
 and an archived account's line, and what a line's read says is locked) is done, as
 [decisions.md](../decisions.md) "The Edit form saves a whole line in one write, and the engine says what is locked" records, with its own reply to the engine.
 
-**Status: tasks 6, 9 to 12 and 16 done; tasks 14, 7, 8 and 15 approved by the owner on
+**Status: tasks 6, 9 to 12, 14 and 16 done; tasks 7, 8 and 15 approved by the owner on
 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and
 this file is deleted.
 
@@ -183,7 +183,7 @@ writes both halves' balances in one write". Where it differs from what was asked
 
 ## Tasks
 
-Tasks 7, 8, 14 and 15 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 14, 7, 8 and 15. Tasks 7, 8, 14 and 15 are **[UI]**,
+Tasks 7, 8 and 15 approved by the owner on 2026-10-25, as reshaped that day. They run in this order: 7, 8 and 15. Tasks 7, 8 and 15 are **[UI]**,
 each picked from its mockup in [mockups/](../mockups/).
 
 7. **[UI] The statement's screen is one list, put in order on it**, as the owner picked on
@@ -217,14 +217,6 @@ each picked from its mockup in [mockups/](../mockups/).
    move, and the lines still to tick under them as task 7 reads them. Its lines come from
    `GET /bank-lines?reconciliation_id=<id>&sort=statement`, the statement read being refused on
    an account with no code.
-14. **[UI] A card's list shows one row per statement**, as the owner picked in [mockups/expense-world-card-statement.html](../mockups/expense-world-card-statement.html): 1 A (one
-    row per statement, both halves' differences on it, `half completed` and `no half` where they
-    apply, whether it is in order from the engine's two counts, all from the list's one read),
-    and task 6's question 3 B (an account with a statement code and no partner lists `Name`,
-    `Period`, `Diff`, `Status` and `Order`). The one read is
-    `GET /reconciliations?statement_of=<the account's id>`, the other half's status and
-    difference read from the item its `twin_id` names; no second account's list and no pairing
-    of halves in the app. An account with no statement code keeps today's list.
 15. **[UI] `e` edits a statement's name, days and balances**, as the owner picked on 2026-10-25
     in [mockups/expense-world-card-statement.html](../mockups/expense-world-card-statement.html), task 6's question 1 A: `e Edit` on the statement's screen opens a small form, the
     name, the days, then each half's begin and end balance, `^s` sending what changed in one
@@ -285,3 +277,10 @@ Not built in this spec; drafted into a new spec when it is done.
   partner by grouping accounts on their statement code, dropping people and codes not held by
   exactly two accounts; the engine knows the pair, so a partner on the account read, as an
   engine ask, spares every client the grouping.
+- **Two loops group accounts by statement code.** `statement_accounts` and
+  `statement_partners` in [reads.py](../../expense/reads.py) each group the accounts read by
+  code; the partners could be built from `statement_accounts`, dropping archived accounts and
+  codes not held by exactly two.
+- **A statement row is dimmed by its label.** `statement_rows` in
+  [reconciliations.py](../../expense/tui/screens/reconciliations.py) dims a row when its status
+  reads `completed`, where `batch_rows` compares the engine's `status` value.

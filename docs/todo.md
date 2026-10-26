@@ -28,21 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Confirm the card list's mockup before it is built
-Asked 2026-10-25 · Blocks: task 14 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
-
-Task 14 builds the list of a card's statements drawn in
-[mockups/expense-world-card-statement.html](mockups/expense-world-card-statement.html), screen 1 A:
-`⏎` on either card account opens the same list, one row per month with `Name`, `Period`,
-`Diff PEN`, `Diff USD`, `Status` and `Order`, `half completed` and `no half` where they apply,
-and `in order` or `not in order` from the engine. An account with a statement code and no
-partner gets the same columns with one `Diff` (task 6's question 3 B). An account with no
-statement code keeps today's list.
-- **A.** Build it as picked.
-- **B.** Change something first: say what, and the mockup is redrawn for a pick.
-
-**Recommended:** A, because every question on it is answered and the engine is ready.
-
 ### Hand over the Edit form's reply to the engine
 Asked 2026-10-25 · Blocks: nothing; the engine waits for it
 
@@ -125,11 +110,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   repr) raises `ValueError`. The bound belongs to the engine: read the live contract for the
   largest amount it takes, and if it states none, it becomes an engine ask; the client never
   invents one.
-- **No unit test pins that Reconciliations leaves archived accounts out.** The browse reads
-  `GET /accounts` without `include_archived`
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`),
-  so an archived account and its reconciliations are not listed ([tui.md](tui.md)); only the
-  acceptance check of 2026-10-18 saw it live. A unit test should hold it.
+- **No unit test pins that Reconciliations leaves an archived account with no statement code
+  out.** The browse reads `GET /accounts` with `include_archived` and leaves archived accounts
+  out of its list itself, so the whole card's list can name an archived card account's column
+  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`,
+  [tui.md](tui.md)); `test_an_archived_card_accounts_halves_still_show_under_its_column` pins
+  it for a card account only. A unit test should hold it for an account with no code.
 - **A test docstring says the sheet import brings a colour.**
   [test_tui_create_forms.py](../tests/unit/test_tui_create_forms.py) around line 409 says "(the
   sheet import's, say)"; the import sends no colour, and the colour no swatch shows is the

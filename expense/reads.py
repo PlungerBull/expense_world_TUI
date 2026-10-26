@@ -392,20 +392,35 @@ def count_transactions(
     return _count_of(body, "GET /transactions/count")
 
 
-def fetch_reconciliations(cfg, *, account_id: str, verbose: bool = False) -> dict:
-    """GET /v1/reconciliations?account_id= → the raw engine body. Pure data.
+def fetch_reconciliations(
+    cfg,
+    *,
+    account_id: str | None = None,
+    statement_of: str | None = None,
+    verbose: bool = False,
+) -> dict:
+    """GET /v1/reconciliations → the raw engine body. Pure data.
 
-    Read by the TUI's Reconciliations screens. The engine lists one account at
-    a time: the
-    account is required, the list comes back whole as `{items}` — no `limit`,
-    no `offset`, no `total` — sorted `date_start` ascending, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"). A row not in its
+    Exactly one of the two is sent (contract: GET /v1/reconciliations):
+    `account_id` lists that account's reconciliations alone; `statement_of`
+    lists those of every live account holding that account's statement code,
+    archived ones included: for a card, both halves of every month in one
+    answer, the same from either card account, every non-null `twin_id`
+    naming an item of the same answer. On an account with no code it lists
+    that account's own, as `account_id` does. The list comes back whole as
+    `{items}`, no `limit`, no `offset`, no `total`, sorted `date_start`
+    ascending, then by account in the accounts' order, then creation time,
+    oldest first (contract: "Reconciliations", "Ordering"). Read by the TUI's
+    Reconciliations screens: the browse's panel reads `statement_of` on an
+    account with a code and `account_id` on one without. A row not in its
     account's list has been deleted.
     """
+    if (account_id is None) == (statement_of is None):
+        raise ValueError("fetch_reconciliations takes exactly one of account_id, statement_of")
     return fetch_body(
         cfg,
         path="/reconciliations",
-        params=query_params(account_id=account_id),
+        params=query_params(account_id=account_id, statement_of=statement_of),
         verbose=verbose,
     )
 
@@ -772,6 +787,39 @@ def statement_partners(items: list) -> dict[str, tuple[str, str, str, str]]:
                 code,
             )
     return partners
+
+
+class StatementAccounts(NamedTuple):
+    """The accounts one statement code labels: the code, and every real
+    account holding it as `(id, name, currency)`, in the accounts read's order."""
+
+    code: str
+    accounts: tuple[tuple[str, str, str], ...]
+
+
+def statement_accounts(items: list) -> dict[str, StatementAccounts]:
+    """`account id → StatementAccounts` for every account with a statement
+    code, from one accounts read with `include_archived`.
+
+    A reconciliation list read with `statement_of` holds the reconciliations
+    of every live account holding the named account's code, an archived one
+    included (contract: GET /v1/reconciliations); these are those accounts,
+    so the browse names a column and a title for each of them, an archived
+    card account too. People never hold a code (contract: "Bank Accounts",
+    "Statement code"), and an account with no code has no entry.
+    """
+    holders: dict[str, list[tuple[str, str, str]]] = {}
+    for row in items:
+        code = row.get("statement_code")
+        if code and row.get("id") and not row.get("is_person"):
+            holders.setdefault(code, []).append(
+                (row["id"], row.get("name") or "(unnamed)", row.get("currency_code") or "?")
+            )
+    return {
+        aid: StatementAccounts(code, tuple(rows))
+        for code, rows in holders.items()
+        for aid, _name, _currency in rows
+    }
 
 
 @dataclass(frozen=True)

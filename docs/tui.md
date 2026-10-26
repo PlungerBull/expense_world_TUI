@@ -1160,18 +1160,50 @@ other list it is the next page of rows already loaded (§5). On Home it walks th
 window one month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** opens on
-the **account list alone**, full height, and reads no reconciliations. The list is
-`GET /accounts` as the engine gives it without `include_archived`, people left out, so an
-archived account and its reconciliations are not listed until it is unarchived on
-Manage ▸ Accounts. The engine lists
-reconciliations one account at a time (`GET /reconciliations?account_id=`, whole, `date_start`
-ascending, then creation time, oldest first (contract: "Reconciliations", "Ordering")),
-so moving the account cursor costs nothing. `⏎ Its reconciliations` reads that account's
-list and opens the **panel** under the accounts, halving the height, with the cursor in
-it; the open account keeps an accent `▸`, and the breadcrumb grows to
+the **account list alone**, full height, and reads no reconciliations. The list is the
+bank accounts of one `GET /accounts?include_archived=true`, people and archived accounts
+left out, so an archived account and its own list are not offered until it is unarchived on
+Manage ▸ Accounts; the read keeps the archived ones only to name a statement code's
+columns (below). Nothing about reconciliations is read until `⏎`, so moving the account
+cursor costs nothing. `⏎ Its reconciliations` reads that account's list in **one read**,
+whole, in the engine's order (`date_start` ascending, then by account in the accounts'
+order, then creation time, oldest first (contract: "Reconciliations", "Ordering")), and
+opens the **panel** under the accounts, halving the height, with the cursor in it; the
+open account keeps an accent `▸`, and the breadcrumb grows to
 `Reconciliations ▸ <account>`. An account with none says `none yet · n to create one`
-inside the panel; a read that fails toasts and leaves the panel closed. Coming back from
-a reconciliation re-reads that account and lands on the same row. **Keys**: `n` new
+inside the panel; a read that fails toasts the engine's words and leaves the panel closed.
+Coming back from a reconciliation, or `r`, reads the same list again and lands on the same
+row.
+
+- **An account with no statement code** reads `GET /reconciliations?account_id=<id>` and
+  lists one row per reconciliation: `Name · Period · Begin · End · Diff · Status`, titled
+  `Reconciliations · BCP PEN   ·   oldest → newest`.
+- **An account with a statement code** reads `GET /reconciliations?statement_of=<id>`
+  instead: the reconciliations of every account holding its code, an archived one
+  included, the same items in the same order from either card account, each non-null
+  `twin_id` naming an item of the same answer (contract: GET /v1/reconciliations). It lists
+  **one row per statement** (pane 1 A of
+  [expense-world-card-statement.html](mockups/expense-world-card-statement.html), and its
+  task 6 question 3 B for a code one account holds): an item, and the item its `twin_id`
+  names, found by id, the row standing where the first of them stands; no other read, and
+  no pairing by dates or names. The columns are `Name · Period`, one `Diff <CUR>` per
+  account holding the code in the accounts' order (`Diff PEN · Diff USD`; `Diff` alone when
+  one account holds it), then `Status · Order`. Each Diff is that half's difference by
+  the rule of every reconciliation list (a dim `—` when it adds up, the figure when off, blank with no ending
+  balance), `no half` where the statement has none on that account. Status is `completed`
+  or `draft` when the halves agree and `half completed` (warning) when they do not; Order
+  is `in order` when the engine's `unplaced_count` and `shared_place_count` both read 0 and
+  `not in order` (warning) otherwise, the same two counts on both halves (contract: "Reconciliations", "A statement's order").
+  A completed statement is dim, as a completed reconciliation is. The title names every
+  account holding the code, then the code:
+  `Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
+  listed account holding it carries the `▸`, so opening either card account shows the
+  identical list. An archived card account is not listed, but its halves still show under
+  its own column, which the accounts read names. A row stands for the open account's half,
+  or the other half on a month with none there: `⏎` opens that half on the batch
+  screen, in its own currency.
+
+**Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
 saved the panel opens on the new one (on a card account, the card statement's form below); `u` swaps the panel to the account's rows in no
 batch (panel open only); `d` deletes the cursor row **in that pane only** (a no-op on the
