@@ -172,10 +172,11 @@ def test_whole_list_fakes_serve_the_engine_shape():
 
 
 # ---------------------------------------------------------------------------
-# Guard: every fake engine refuses `line_code`
+# Guard: every fake engine refuses the read-only fields
 # ---------------------------------------------------------------------------
 #
-# The engine mints `line_code` and refuses it on every write
+# The engine sets `line_code`, `statement_line` and `statement_place` itself
+# (`helpers.READ_ONLY_FIELDS`) and refuses each in every request body
 # (contract: "Transactions (Ledger)", "Bank lines"). Read by AST, not by regex,
 # so a class's own `post`/`put` and its bases are what is checked, wherever
 # they sit in the file.
@@ -212,14 +213,14 @@ def _callee_name(call: ast.Call) -> str | None:
     return callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
 
 
-def _calls_refuse_line_code(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+def _calls_refuse_read_only_fields(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     calls = (node for node in ast.walk(func) if isinstance(node, ast.Call))
-    return any(_callee_name(call) == "refuse_line_code" for call in calls)
+    return any(_callee_name(call) == "refuse_read_only_fields" for call in calls)
 
 
 def _unchecked_fakes(rel: str, tree: ast.Module, kin: set[str]) -> list[str]:
     """Each `post`/`put` of a class in `tree` that is neither `FakeClient` kin
-    (whose `__getattribute__` checks them) nor calls `refuse_line_code` itself."""
+    (whose `__getattribute__` checks them) nor calls `refuse_read_only_fields` itself."""
     hits = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef) or node.name in kin:
@@ -228,24 +229,24 @@ def _unchecked_fakes(rel: str, tree: ast.Module, kin: set[str]) -> list[str]:
             if (
                 isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
                 and item.name in _VERBS
-                and not _calls_refuse_line_code(item)
+                and not _calls_refuse_read_only_fields(item)
             ):
                 hits.append(f"{rel}:{item.lineno}: {node.name}.{item.name}")
     return hits
 
 
-def test_every_fake_engine_refuses_line_code():
+def test_every_fake_engine_refuses_read_only_fields():
     """A class with its own `post` or `put` is a fake engine: the app's writes
-    reach it instead of `httpx`, so conftest's `_no_line_code_in_requests` sees
-    them only if it is `FakeClient` kin or calls `helpers.refuse_line_code`
+    reach it instead of `httpx`, so conftest's `_no_read_only_fields_in_requests` sees
+    them only if it is `FakeClient` kin or calls `helpers.refuse_read_only_fields`
     (docs/tui.md "Test conventions")."""
     paths = sorted(TESTS_DIR.glob("*.py"))
     trees = {path.name: ast.parse(path.read_text()) for path in paths}
     kin = _fake_client_kin(list(trees.values()))
     hits = [hit for name, tree in trees.items() for hit in _unchecked_fakes(name, tree, kin)]
     assert not hits, (
-        "these fake engines answer writes without the line_code check: subclass "
-        "helpers.FakeClient, or call helpers.refuse_line_code(method, path, json_body) "
+        "these fake engines answer writes without the read-only field check: subclass "
+        "helpers.FakeClient, or call helpers.refuse_read_only_fields(method, path, json_body) "
         f"first in each post/put: {hits}"
     )
 
@@ -259,7 +260,7 @@ def test_fake_engine_guard_trips():
         "class C:\n    def post(self, path, json_body=None):\n        return {}\n",
         "class C:\n    def put(self, path, json_body=None):\n        return {}\n",
         "class C(Other):\n    def post(self, path, json_body=None):\n        check(json_body)\n",
-        "class C:\n    def post(self, p, b=None):\n        refuse_line_code('POST', p, b)\n"
+        "class C:\n    def post(self, p, b=None):\n        refuse_read_only_fields('POST', p, b)\n"
         "    def put(self, p, b=None):\n        return {}\n",
     ):
         assert hits(source), source
@@ -267,8 +268,9 @@ def test_fake_engine_guard_trips():
         "class C(FakeClient):\n    def post(self, path, json_body=None):\n        return {}\n",
         "class L(helpers.FakeClient):\n    pass\n"
         "class C(L):\n    def put(self, path, json_body=None):\n        return {}\n",
-        "class C:\n    def post(self, p, b=None):\n        refuse_line_code('POST', p, b)\n",
-        "class C:\n    def post(self, p, b=None):\n        h.refuse_line_code('POST', p, b)\n",
+        "class C:\n    def post(self, p, b=None):\n        refuse_read_only_fields('POST', p, b)\n",
+        "class C:\n    def post(self, p, b=None):\n"
+        "        h.refuse_read_only_fields('POST', p, b)\n",
         "class C:\n    def get(self, path):\n        return {}\n",
     ):
         assert not hits(source), source

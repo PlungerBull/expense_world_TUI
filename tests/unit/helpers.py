@@ -445,52 +445,58 @@ def fake_ledger(monkeypatch, rows: list, *, count_fails: bool = False) -> tuple[
 
 
 # ---------------------------------------------------------------------------
-# No request carries line_code
+# No request carries a read-only field
 # ---------------------------------------------------------------------------
 
-#: The key no request body may hold: the engine mints every line's `line_code` and
-#: refuses it on every write as `422` `UNKNOWN_FIELD`
-#: (contract: "Transactions (Ledger)", "Bank lines").
-MINTED_KEY = "line_code"
+#: The keys no request body may hold, at any depth. The engine sets each one itself:
+#: it gives every new line its `line_code`, builds `statement_line` on every read and sets
+#: `statement_place` only through a statement's order, and each is in no request body, so
+#: sending one is `422` `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines").
+READ_ONLY_FIELDS = ("line_code", "statement_line", "statement_place")
 
-#: Every request a test sent with the key in its body, as "METHOD path sends … at …".
-#: `refuse_line_code` adds to it; conftest's autouse `_no_line_code_in_requests` empties
-#: it before each test and fails the test after it when it is not empty, so a leak the
-#: app catches and swallows still fails the test that made it.
-LINE_CODE_LEAKS: list[str] = []
-
-
-class LineCodeLeak(AssertionError):
-    """A request body holds the key `line_code`."""
+#: Every request a test sent with one of the keys in its body, as
+#: "METHOD path sends <key> at <where>". `refuse_read_only_fields` adds to it; conftest's
+#: autouse `_no_read_only_fields_in_requests` empties it before each test and fails the
+#: test after it when it is not empty, so a leak the app catches and swallows still fails
+#: the test that made it.
+READ_ONLY_FIELD_LEAKS: list[str] = []
 
 
-def line_code_paths(body: Any, where: str = "body") -> list[str]:
-    """Every place `body` holds the key `line_code`, at any depth:
-    `body.line_code`, `body.transactions[2].line_code`, `body.parts[0].line_code`, …"""
+class ReadOnlyFieldLeak(AssertionError):
+    """A request body holds a key of `READ_ONLY_FIELDS`."""
+
+
+def read_only_field_paths(body: Any, where: str = "body") -> list[str]:
+    """Every place `body` holds a key of `READ_ONLY_FIELDS`, at any depth:
+    `body.line_code`, `body.transactions[2].statement_line`, `body.parts[0].statement_place`, …"""
     if isinstance(body, dict):
-        found = [f"{where}.{MINTED_KEY}"] if MINTED_KEY in body else []
+        found = [f"{where}.{key}" for key in READ_ONLY_FIELDS if key in body]
         for key, value in body.items():
-            found += line_code_paths(value, f"{where}.{key}")
+            found += read_only_field_paths(value, f"{where}.{key}")
         return found
     if isinstance(body, list | tuple):
-        return [p for i, item in enumerate(body) for p in line_code_paths(item, f"{where}[{i}]")]
+        return [
+            p for i, item in enumerate(body) for p in read_only_field_paths(item, f"{where}[{i}]")
+        ]
     return []
 
 
-def refuse_line_code(method: str, path: str, body: Any) -> None:
-    """Record and raise `LineCodeLeak` when `body` holds `line_code` anywhere.
+def refuse_read_only_fields(method: str, path: str, body: Any) -> None:
+    """Record and raise `ReadOnlyFieldLeak` when `body` holds a key of
+    `READ_ONLY_FIELDS` anywhere.
 
     Called before the request goes out, by every fake engine the suite has:
     `FakeClient` (and any function a test puts in place of its `post`/`put`),
     the real `httpx.Client.send` under respx (conftest), and test_batch_write's
     scripted client."""
-    found = line_code_paths(body)
+    found = read_only_field_paths(body)
     if not found:
         return
-    leak = f"{method} {path} sends {MINTED_KEY} at {', '.join(found)}"
-    LINE_CODE_LEAKS.append(leak)
-    raise LineCodeLeak(
-        f"{leak}: the engine mints it and refuses it on every write (422 UNKNOWN_FIELD)"
+    sends = ", ".join(f"{where.rsplit('.', 1)[1]} at {where}" for where in found)
+    leak = f"{method} {path} sends {sends}"
+    READ_ONLY_FIELD_LEAKS.append(leak)
+    raise ReadOnlyFieldLeak(
+        f"{leak}: the engine sets each and refuses it in every request body (422 UNKNOWN_FIELD)"
     )
 
 
@@ -508,14 +514,14 @@ def sent_json(request: httpx.Request) -> Any:
         return None
 
 
-def _refusing_line_code(method: str, send: Callable) -> Callable:
-    """`send` (a `post`/`put`), checked by `refuse_line_code` before it runs.
+def _refusing_read_only_fields(method: str, send: Callable) -> Callable:
+    """`send` (a `post`/`put`), checked by `refuse_read_only_fields` before it runs.
     The body is the `json_body` argument, by keyword or second positional."""
 
     @functools.wraps(send)
     def checked(path: str, *args: Any, **kwargs: Any) -> Any:
         body = kwargs["json_body"] if "json_body" in kwargs else (args[0] if args else None)
-        refuse_line_code(method, path, body)
+        refuse_read_only_fields(method, path, body)
         return send(path, *args, **kwargs)
 
     return checked
@@ -543,14 +549,14 @@ class FakeClient:
     carries a `warnings` envelope).
 
     `post` and `put` are read through `__getattribute__`, which hands back the
-    method checked by `refuse_line_code` — so a function a test assigns to
+    method checked by `refuse_read_only_fields` — so a function a test assigns to
     `client.post` or `client.put` is checked too, before it runs.
     """
 
     def __getattribute__(self, name: str) -> Any:
         attr = object.__getattribute__(self, name)
         if name in ("post", "put"):
-            return _refusing_line_code(name.upper(), attr)
+            return _refusing_read_only_fields(name.upper(), attr)
         return attr
 
     def __init__(self) -> None:

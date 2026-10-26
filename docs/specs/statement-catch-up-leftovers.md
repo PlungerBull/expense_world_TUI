@@ -85,10 +85,6 @@ note in point 9 and the engine ask in point 10.
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
 do and when it passes.
 
-1. **Guard `statement_line` and `statement_place` out of request bodies** (point 1). Passes if
-   every unit test fails when a request body it sends carries either field at any depth, as it
-   does for `line_code`, with a test proving the guard trips on each, and the unit suite still
-   passes.
 2. **One account-record builder in test_cmd_import.py** (point 2). Passes if the file builds
    every account record through one helper, no copied record is left, and its tests check
    what they checked before.
