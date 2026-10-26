@@ -87,10 +87,7 @@ do and when it passes. For this spec only (the owner, 2026-10-25): tasks 6, 9 an
 as one bundle, and from task 6 on the reviewer reads every change once, after the last task,
 in place of a review per task; the commit gate still runs the unit suite on each commit.
 
-13. **The practice user's leftovers are cleaned, and the run that leaves them is fixed** (point
-    12). Passes if the live run that leaves accounts with statement codes and reconciliations
-    behind is found and fixed, those leftovers are removed from the practice user, and after a
-    full live run the practice user's Reconciliations browse lists no account a test made.
+Every task is built; the review of tasks 6 to 13 runs next.
 
 ## Found along the way
 
