@@ -299,3 +299,48 @@ def test_one_statement_per_code_per_month_on_the_accounts_code(client, scratch):
     client.put(f"/accounts/{holder}", json_body={"statement_code": first})
     client.delete(f"/reconciliations/{holders}")
     assert _set_code(client, joiner, first) == first
+
+
+# ---- the card's other account --------------------------------------------------
+
+
+def _partners(client, *account_ids: str) -> dict[str, str | None]:
+    """`statement_partner_id` of each named account, as `GET /accounts` lists it,
+    archived ones included."""
+    listed = client.get("/accounts", params={"include_archived": "true"})
+    read = {item["id"]: item["statement_partner_id"] for item in listed["items"]}
+    return {account_id: read[account_id] for account_id in account_ids}
+
+
+def test_a_cards_two_accounts_name_each_other_and_no_other_account_names_one(client, scratch):
+    """`statement_partner_id` is the card's other account: the other live account of
+    the caller's holding this account's statement code, so a soles and a dollar account
+    sharing a code each name the other; it is `null` on an account with no code and on
+    one whose code no other account holds (contract: "Bank Accounts", "Statement partner")
+    (contract: GET /v1/accounts). The Reconciliations browse pairs a card's two accounts
+    by this field alone."""
+    card, lone = free_statement_codes(client, 2)
+    soles = scratch.account("PEN", card)
+    dollars = scratch.account("USD", card)
+    plain = scratch.account("PEN")
+    alone = scratch.account("USD", lone)
+    assert _partners(client, soles, dollars, plain, alone) == {
+        soles: dollars,
+        dollars: soles,
+        plain: None,
+        alone: None,
+    }
+
+
+def test_an_archived_card_account_leaves_both_with_no_partner(client, scratch):
+    """While one of a card's two accounts is archived both read `null`, and
+    unarchiving it restores both
+    (contract: "Bank Accounts", "While one of the two accounts is archived").
+    The browse's new-statement form keeps to one account then."""
+    (card,) = free_statement_codes(client, 1)
+    soles = scratch.account("PEN", card)
+    dollars = scratch.account("USD", card)
+    scratch.archive(dollars)
+    assert _partners(client, soles, dollars) == {soles: None, dollars: None}
+    client.post(f"/accounts/{dollars}/unarchive")
+    assert _partners(client, soles, dollars) == {soles: dollars, dollars: soles}

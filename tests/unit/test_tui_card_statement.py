@@ -12,7 +12,7 @@ from textual.widgets import Input, Static
 from expense import errors
 from expense.errors import EngineError
 from expense.formatting import half_name
-from expense.reads import code_holders, statement_partners
+from expense.reads import card_partners
 from expense.tui.screens.reconciliations import (
     NewCardStatementScreen,
     NewReconciliationScreen,
@@ -29,23 +29,35 @@ from tests.unit.helpers import (
 )
 
 
-def _account(aid: str, name: str, currency: str, code: str | None, **extra) -> dict:
+def _account(
+    aid: str, name: str, currency: str, code: str | None, partner: str | None = None, **extra
+) -> dict:
+    """An account as the engine reads it: `partner` is its `statement_partner_id`,
+    the card's other account, null on any account that is not half of a live card
+    (contract: "Bank Accounts", "Statement partner")."""
     return {
         "id": aid,
         "name": name,
         "currency_code": currency,
         "current_balance_cents": 0,
         "statement_code": code,
+        "statement_partner_id": partner,
         "is_person": False,
         **extra,
     }
 
 
-SIG_PEN = _account("acc-sig-pen", "Signature PEN", "PEN", "SIG")
-SIG_USD = _account("acc-sig-usd", "Signature USD", "USD", "SIG")
+SIG_PEN = _account("acc-sig-pen", "Signature PEN", "PEN", "SIG", "acc-sig-usd")
+SIG_USD = _account("acc-sig-usd", "Signature USD", "USD", "SIG", "acc-sig-pen")
 SUELDO = _account("acc-sueldo", "Sueldo Soles", "PEN", None)
 AHORRO = _account("acc-ahorro", "Ahorro PEN", "PEN", "AHO")  # a code, no other half
 ACCOUNTS = [SIG_PEN, SIG_USD, SUELDO, AHORRO]
+#: A card with its dollar account archived: both read null
+#: (contract: "Bank Accounts", "While one of the two accounts is archived").
+HALF_ARCHIVED = [
+    {**SIG_PEN, "statement_partner_id": None},
+    {**SIG_USD, "statement_partner_id": None, "is_archived": True},
+]
 
 PEN_ACCOUNT = (SIG_PEN["id"], "Signature PEN", "PEN")
 USD_ACCOUNT = (SIG_USD["id"], "Signature USD", "USD")
@@ -55,43 +67,43 @@ USD_ACCOUNT = (SIG_USD["id"], "Signature USD", "USD")
 
 
 def test_each_card_account_names_the_other_and_no_other_account_has_one():
-    partners = statement_partners(ACCOUNTS)
+    """The other account is the one the engine names, never one found by code."""
+    partners = card_partners(ACCOUNTS)
     assert partners == {
-        "acc-sig-pen": ("acc-sig-usd", "Signature USD", "USD", "SIG"),
-        "acc-sig-usd": ("acc-sig-pen", "Signature PEN", "PEN", "SIG"),
+        "acc-sig-pen": ("acc-sig-usd", "Signature USD", "USD"),
+        "acc-sig-usd": ("acc-sig-pen", "Signature PEN", "PEN"),
     }
 
 
-def test_a_person_or_a_code_held_three_times_makes_no_card():
-    eur = _account("acc-sig-eur", "Signature EUR", "EUR", "SIG")
-    assert statement_partners([SIG_PEN, SIG_USD, eur]) == {}
-    person = _account("acc-ana", "Ana", "USD", "SIG", is_person=True)
-    assert statement_partners([SIG_PEN, person]) == {}
-
-
-def test_an_archived_account_is_no_ones_other_half():
-    """The engine refuses an archived account as `twin.account_id`
-    (contract: POST /v1/reconciliations), so it makes no card."""
-    archived = {**SIG_USD, "is_archived": True}
-    assert statement_partners([SIG_PEN, archived]) == {}
-
-
-def test_both_lookups_group_accounts_by_code_one_way():
-    """`code_holders` is the one grouping: a code's accounts in the read's
-    order, a person, a codeless or id-less account left out, and an archived
-    one kept only when asked for."""
-    archived = {**SIG_USD, "is_archived": True}
-    person = _account("acc-ana", "Ana", "USD", "SIG", is_person=True)
-    nameless = {"id": "acc-x", "statement_code": "AHO"}
-    no_id = {**AHORRO, "id": None}
-    items = [archived, SIG_PEN, SUELDO, person, AHORRO, nameless, no_id]
-    assert code_holders(items, archived=True) == {
-        "SIG": [USD_ACCOUNT, PEN_ACCOUNT],
-        "AHO": [("acc-ahorro", "Ahorro PEN", "PEN"), ("acc-x", "(unnamed)", "?")],
+def test_accounts_sharing_a_code_are_no_card_unless_the_engine_names_them():
+    """Two accounts holding one code, neither naming the other, make no card;
+    a named partner is read whatever codes the two hold."""
+    unnamed = [{**SIG_PEN, "statement_partner_id": None}, {**SIG_USD, "statement_partner_id": None}]
+    assert card_partners(unnamed) == {}
+    other_codes = [
+        {**SUELDO, "statement_partner_id": "acc-ahorro"},
+        {**AHORRO, "statement_partner_id": "acc-sueldo"},
+    ]
+    assert card_partners(other_codes) == {
+        "acc-sueldo": ("acc-ahorro", "Ahorro PEN", "PEN"),
+        "acc-ahorro": ("acc-sueldo", "Sueldo Soles", "PEN"),
     }
-    assert code_holders(items, archived=False) == {
-        "SIG": [PEN_ACCOUNT],
-        "AHO": [("acc-ahorro", "Ahorro PEN", "PEN"), ("acc-x", "(unnamed)", "?")],
+
+
+def test_an_archived_half_leaves_both_accounts_with_none():
+    """While one of the two is archived the engine reads both null
+    (contract: "Bank Accounts", "While one of the two accounts is archived")."""
+    assert card_partners(HALF_ARCHIVED) == {}
+
+
+def test_a_partner_the_read_does_not_hold_or_an_id_less_row_makes_no_entry():
+    nameless = {"id": "acc-x", "statement_partner_id": "acc-y"}
+    blank = {"id": "acc-y", "statement_partner_id": "acc-x"}
+    no_id = {**SIG_USD, "id": None}
+    assert card_partners([SIG_PEN, no_id]) == {}
+    assert card_partners([nameless, blank]) == {
+        "acc-x": ("acc-y", "(unnamed)", "?"),
+        "acc-y": ("acc-x", "(unnamed)", "?"),
     }
 
 
@@ -217,9 +229,9 @@ def test_n_on_any_other_account_keeps_todays_form(monkeypatch, fake_client, row)
 
 
 def test_a_card_whose_other_account_is_archived_keeps_todays_form(monkeypatch, fake_client):
-    """The browse lists no archived account, so Signature PEN has no other
-    half to name: `n` opens the one-account form, and its save sends no `twin`."""
-    _patch_browse(monkeypatch, fake_client, [SIG_PEN, {**SIG_USD, "is_archived": True}])
+    """The engine names no other account on Signature PEN while Signature USD is
+    archived: `n` opens the one-account form, and its save sends no `twin`."""
+    _patch_browse(monkeypatch, fake_client, HALF_ARCHIVED)
 
     async def scenario(pilot, app):
         await _press_n_on(pilot, app, 0)

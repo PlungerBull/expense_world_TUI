@@ -20,15 +20,17 @@ docs/mockups/expense-world-card-statement.html, and task 6's question 3 B
 for a code no other account holds): an item and, when its `twin_id` is set,
 the item of the same answer that id names (contract: GET /v1/reconciliations),
 the row standing where its first item stands. Its columns are Name, Period,
-one Diff per account holding the code (`Diff PEN`, `Diff USD`, in the
-accounts' order; `Diff` alone when one account holds it), Status and Order:
+one Diff per account of the statement (`Diff PEN`, `Diff USD`, in the
+accounts' order; `Diff` alone on a code one account holds), Status and Order:
 each Diff that half's difference, `no half` where the statement has no half
 on that account; Status `completed` or `draft` when the halves agree, `half
 completed` when they do not; Order `in order` when the engine's
 `unplaced_count` and `shared_place_count` both read 0, `not in order`
-otherwise (contract: "Reconciliations", "A statement's order"). The panel's
-title names every account holding the code, then the code, and each of them
-listed above carries the `▸`.
+otherwise (contract: "Reconciliations", "A statement's order"). The
+statement's accounts are the open one, the card's other account the engine
+names on it (`statement_partner_id`), and any account a reconciliation of the
+answer is on (`statement_columns`). The panel's title names each of them,
+then the code, and each of them listed above carries the `▸`.
 
 New batch: name › account › date start › date end › begin › end. Both balances
 are typed off the paper statement — the engine has no derived (chained) begin,
@@ -37,7 +39,8 @@ so `beginning_balance_cents` is required. Both dates are required too
 calendar days sent as typed (contract: "Date inputs"); the form refuses any other shape at
 the field. POST /reconciliations.
 
-New card statement (NewCardStatementScreen), `n` on a card account: name ›
+New card statement (NewCardStatementScreen), `n` on a card account, one the
+engine names another account on as `statement_partner_id`: name ›
 date start › date end › this account's begin › end › the other account's begin
 › end, the two accounts stated on a line of their own. One POST /reconciliations
 with `twin` creates both halves (contract: POST /v1/reconciliations).
@@ -60,6 +63,7 @@ for it in a box, saves it with PUT /reconciliations/{id}, then asks the usual
 """
 
 import uuid
+from typing import NamedTuple
 
 from rich.text import Text
 from textual import work
@@ -84,13 +88,11 @@ from expense.formatting import (
 from expense.quickadd.money import amount_to_text, parse_amount
 from expense.quickadd.names import matches
 from expense.reads import (
-    StatementAccounts,
     account_choices,
+    card_partners,
     fetch_all_cursor_pages,
     items_of,
     load_account_name_map,
-    statement_accounts,
-    statement_partners,
 )
 from expense.tui.screens._base import (
     AdaptiveRowsMixin,
@@ -232,9 +234,52 @@ def batch_rows(items: list[dict], palette: Palette | None = None) -> list:
     return rows
 
 
+class StatementAccounts(NamedTuple):
+    """What a statement list is titled and laid out by: the open account's
+    statement code, and the accounts it shows a Diff column for as
+    `(id, name, currency)`, in the accounts read's order."""
+
+    code: str
+    accounts: tuple[tuple[str, str, str], ...]
+
+
+def statement_columns(
+    account_id: object, accounts: list[dict], recons: list[dict]
+) -> StatementAccounts | None:
+    """The statement list of `account_id`'s panel: its own statement code and
+    the accounts it shows; None on an account with no code.
+
+    The accounts are the open account, the card's other account the engine
+    names on it as `statement_partner_id`
+    (contract: "Bank Accounts", "Statement partner"), and every account a
+    reconciliation of the panel's `statement_of` answer is on: that answer
+    holds the reconciliations of every account holding the code, an archived
+    one included (contract: GET /v1/reconciliations). The answer is how an
+    archived card account, which names no other account and is named by none
+    (contract: "Bank Accounts", "While one of the two accounts is archived"),
+    keeps its column and its place in the title while it holds a half.
+    `accounts` is one read with `include_archived`; their order is its order.
+    """
+    rows = {row["id"]: row for row in accounts if row.get("id")}
+    own = rows.get(account_id)
+    code = own.get("statement_code") if own else None
+    if not code:
+        return None
+    shown = {account_id, own.get("statement_partner_id")}
+    shown |= {item.get("account_id") for item in recons}
+    return StatementAccounts(
+        code,
+        tuple(
+            (aid, row.get("name") or "(unnamed)", row.get("currency_code") or "?")
+            for aid, row in rows.items()
+            if aid in shown
+        ),
+    )
+
+
 def statement_headers(accounts: tuple) -> tuple[list[str], set[int]]:
     """`(headers, right-aligned columns)` of a statement list: Name, Period,
-    a Diff per account holding the code, `(id, name, currency)` in the
+    a Diff per account of the statement, `(id, name, currency)` in the
     accounts' order, then Status and Order. One account: `Diff` alone."""
     if len(accounts) == 1:
         diffs = ["Diff"]
@@ -273,9 +318,10 @@ def statement_rows(
     answer in the engine's order: an item and the item its `twin_id` names in
     the same answer, found by id, the row where the first of them stands.
 
-    `accounts` are the accounts holding the code, `(id, name, currency)`, one
-    Diff column each. The row's key is the half on `open_id`, the account
-    whose panel is open, or the other half when the statement has none there.
+    `accounts` are the statement's accounts (`statement_columns`),
+    `(id, name, currency)`, one Diff column each. The row's key is the half on
+    `open_id`, the account whose panel is open, or the other half when the
+    statement has none there.
     """
     by_id = {it.get("id"): it for it in items}
     seen: set = set()
@@ -308,11 +354,16 @@ def statement_rows(
     return rows
 
 
-def _read_reconciliations(cfg, account_id: str, statements: dict, kw: dict) -> dict:
+def _has_code(accounts: list[dict], account_id: object) -> bool:
+    """Whether `account_id` has a statement code, from one accounts read."""
+    return any(a.get("id") == account_id and a.get("statement_code") for a in accounts)
+
+
+def _read_reconciliations(cfg, account_id: str, has_code: bool, kw: dict) -> dict:
     """The panel's one read: the whole statement code's list on an account
     with a code (`statement_of`), the account's own on one without
     (`account_id`)."""
-    if account_id in statements:
+    if has_code:
         return reads.fetch_reconciliations(cfg, statement_of=account_id, **kw)
     return reads.fetch_reconciliations(cfg, account_id=account_id, **kw)
 
@@ -395,10 +446,10 @@ class ReconciliationsScreen(SectionScreen):
         super().__init__()
         self._recons: list = []  # the open account's reconciliations, engine order
         self._accounts: list = []  # (id, name, currency, balance_cents)
-        # a card account → its other half's (id, name, currency, statement code)
+        # a card account → its other account's (id, name, currency), as the engine names it
         self._partners: dict = {}
-        # an account with a statement code → the code and every account holding it
-        self._statements: dict[str, StatementAccounts] = {}
+        # the accounts read, archived ones included: names a statement list's columns
+        self._known: list[dict] = []
         self._acct_idx = 0
         self._open_aid: str | None = None  # the account whose panel is open
         self._mode = "accts"  # "accts" | "batches" | "unfiled"
@@ -422,15 +473,15 @@ class ReconciliationsScreen(SectionScreen):
         accts = items_of(reads.fetch_accounts(cfg, include_archived=True, **kw))
         live = [a for a in accts if not a.get("is_archived")]
         accounts = account_choices(live, include_people=False, with_balance=True)
-        statements = statement_accounts(accts)
         recons = None
         if self._open_aid is not None:
-            recons = items_of(_read_reconciliations(cfg, self._open_aid, statements, kw))
+            has_code = _has_code(accts, self._open_aid)
+            recons = items_of(_read_reconciliations(cfg, self._open_aid, has_code, kw))
         return {
             "recons": recons,
             "accounts": accounts,
-            "partners": statement_partners(accts),
-            "statements": statements,
+            "partners": card_partners(accts),
+            "known": accts,
         }
 
     def _selected_account(self):
@@ -440,9 +491,11 @@ class ReconciliationsScreen(SectionScreen):
         return next((a for a in self._accounts if a[0] == self._open_aid), None)
 
     def _open_statement(self) -> StatementAccounts | None:
-        """The open account's code and the accounts holding it; None with no
-        panel open or on an account with no code."""
-        return self._statements.get(self._open_aid) if self._open_aid else None
+        """The open account's code and the accounts its statement list shows;
+        None with no panel open or on an account with no code."""
+        if self._open_aid is None:
+            return None
+        return statement_columns(self._open_aid, self._known, self._recons)
 
     def _batch_caption(self) -> str:
         statement = self._open_statement()
@@ -466,7 +519,7 @@ class ReconciliationsScreen(SectionScreen):
 
     def _currency_of(self, account_id: object) -> str | None:
         """The currency of a listed reconciliation's account: a card's other
-        account's too, from the accounts holding the code."""
+        account's too, from the accounts its statement list shows."""
         statement = self._open_statement()
         for aid, _name, currency in statement.accounts if statement else ():
             if aid == account_id:
@@ -499,7 +552,7 @@ class ReconciliationsScreen(SectionScreen):
     def _account_rows(self) -> list:
         """The open account carries an accent `▸`, so you can see whose panel
         is showing once the cursor has gone down into it; on a statement code,
-        every account holding it does, the panel listing all of theirs."""
+        every account the panel's statement list shows does."""
         statement = self._open_statement()
         marked = {aid for aid, _name, _currency in statement.accounts} if statement else set()
         marked |= {self._open_aid} if self._open_aid else set()
@@ -525,7 +578,7 @@ class ReconciliationsScreen(SectionScreen):
     def build(self, data: dict) -> list[Widget]:
         self._accounts = data["accounts"]
         self._partners = data["partners"]
-        self._statements = data["statements"]
+        self._known = data["known"]
         if data["recons"] is None or self._open_account() is None:
             self._open_aid, self._recons = None, []
         else:
@@ -635,9 +688,8 @@ class ReconciliationsScreen(SectionScreen):
         worker = get_current_worker()
         try:
             cfg = config_module.ensure_loaded()
-            body = _read_reconciliations(
-                cfg, account_id, self._statements, screen_fetch_kwargs(self.app)
-            )
+            has_code = _has_code(self._known, account_id)
+            body = _read_reconciliations(cfg, account_id, has_code, screen_fetch_kwargs(self.app))
         except Exception as exc:
             if not worker.is_cancelled:
                 self.app.call_from_thread(
@@ -892,10 +944,11 @@ class ReconciliationsScreen(SectionScreen):
             self._load()
 
         partner = self._partners.get(acct[0])
+        code = next((a.get("statement_code") for a in self._known if a.get("id") == acct[0]), "")
         form = (
             NewReconciliationScreen(account_id=acct[0], account_name=acct[1])
             if partner is None
-            else NewCardStatementScreen(account=acct[:3], partner=partner[:3], code=partner[3])
+            else NewCardStatementScreen(account=acct[:3], partner=partner, code=code or "")
         )
         self.app.push_screen(form, saved)
 
@@ -1098,8 +1151,8 @@ class NewCardStatementScreen(NewReconciliationScreen):
     """A card statement: both halves in one form and one write (pane 2 A of
     docs/mockups/expense-world-card-statement.html).
 
-    Opened by `n` on a card account, one of the two bank accounts sharing a
-    statement code (`reads.statement_partners`). The name and the days are
+    Opened by `n` on a card account, one the engine names another account on
+    as `statement_partner_id` (`reads.card_partners`). The name and the days are
     typed once; then this account's balances, then the other account's, each
     in its own currency. `^s Create both` sends one `POST /reconciliations`
     whose `twin` is the other half: its own id, its account and its balances,
@@ -1116,7 +1169,8 @@ class NewCardStatementScreen(NewReconciliationScreen):
     def __init__(self, *, account: tuple, partner: tuple, code: str) -> None:
         """`account` and `partner` are `(id, name, currency)`: the account the
         list was opened from, whose half the write's top level is, and the
-        other account holding `code`."""
+        card's other account, as the engine names it; `code` is the account's
+        statement code."""
         super().__init__(account_id=account[0], account_name=account[1])
         self._currencies = {"": account[2], "twin_": partner[2]}
         self._partner_id = partner[0]

@@ -91,6 +91,7 @@ def _patch(monkeypatch):
                     "currency_code": "PEN",
                     "opening_balance_transaction_id": None,
                     "statement_code": None,
+                    "statement_partner_id": None,
                 },
                 {
                     "id": "acc2",
@@ -98,6 +99,7 @@ def _patch(monkeypatch):
                     "currency_code": "USD",
                     "opening_balance_transaction_id": None,
                     "statement_code": None,
+                    "statement_partner_id": None,
                 },
             ]
         ),
@@ -308,6 +310,7 @@ def _patch_browse(monkeypatch, items=None, fail=False):
                     "currency_code": "PEN",
                     "current_balance_cents": 100,
                     "statement_code": None,
+                    "statement_partner_id": None,
                 },
                 {
                     "id": "acc2",
@@ -315,6 +318,7 @@ def _patch_browse(monkeypatch, items=None, fail=False):
                     "currency_code": "USD",
                     "opening_balance_transaction_id": None,
                     "statement_code": None,
+                    "statement_partner_id": None,
                 },
             ]
         ),

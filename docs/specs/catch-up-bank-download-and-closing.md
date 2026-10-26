@@ -97,20 +97,24 @@ None beyond the two mockup picks (points 1 and 2).
 **Answered:** a bank download imports every row of the file, whatever its date: the import
 door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
+2. **An archived card account with no statements, on the card's list** (found in task 2). While
+   one of a card's two accounts is archived, the engine names no other account on either. The
+   card's list on Reconciliations then makes a column for each account that holds a statement in
+   it; an archived card account holding none gets no column, where today it gets one reading
+   "no half" on every row.
+   - **A.** No column: the list shows the accounts that have a statement in it.
+   - **B.** Keep the empty column: ask the engine to name an archived card account's other
+     account too, and the app reads the column from that.
+
+   **Recommended:** A, because the column was empty anyway, and the case needs a card account
+   archived before it ever had a statement.
+
 ---
 
 ## Tasks
 
-Tasks 2 to 4 run now; tasks 5 and 6 wait for their mockup pick.
+Tasks 3 and 4 run now; tasks 5 and 6 wait for their mockup pick.
 
-2. **A card's other account comes from the engine on Reconciliations** (point 3). Every place
-   Reconciliations pairs a card's two accounts (the list's columns, a new card statement's two
-   halves) reads the account's `statement_partner_id` (contract: GET /v1/accounts), never matching
-   statement codes: `code_holders`, `statement_partners` and `statement_accounts` in
-   [reads.py](../../expense/reads.py) go, or keep only what is not pairing. The unit tests'
-   accounts carry `statement_partner_id`. A live test reads a card's two accounts naming each
-   other, and `null` on an account with no code and on one whose code no other account holds.
-   Nothing you see changes. (The import door's account list changes with its rewrite, task 6.)
 3. **The engine's current words in the tests, and a statement's last day** (points 4 and 5). No
    unit test quotes a part's refusal starting "Part … of this bank line is the cause", or a parts
    total refusal stating both totals; each quotes the engine's current words. The app's words

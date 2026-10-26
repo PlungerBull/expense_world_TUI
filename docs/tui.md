@@ -1218,7 +1218,7 @@ window one month older, `pgup` one newer (§2).
 the **account list alone**, full height, and reads no reconciliations. The list is the
 bank accounts of one `GET /accounts?include_archived=true`, people and archived accounts
 left out, so an archived account and its own list are not offered until it is unarchived on
-Manage ▸ Accounts; the read keeps the archived ones only to name a statement code's
+Manage ▸ Accounts; the read keeps the archived ones only to name a statement list's
 columns (below). Nothing about reconciliations is read until `⏎`, so moving the account
 cursor costs nothing. `⏎ Its reconciliations` reads that account's list in **one read**,
 whole, in the engine's order (`date_start` ascending, then by account in the accounts'
@@ -1241,20 +1241,26 @@ row.
   [expense-world-card-statement.html](mockups/expense-world-card-statement.html), and its
   task 6 question 3 B for a code one account holds): an item, and the item its `twin_id`
   names, found by id, the row standing where the first of them stands; no other read, and
-  no pairing by dates or names. The columns are `Name · Period`, one `Diff <CUR>` per
-  account holding the code in the accounts' order (`Diff PEN · Diff USD`; `Diff` alone when
-  one account holds it), then `Status · Order`. Each Diff is that half's difference by
+  no pairing by dates or names. The statement's accounts are the open account, the card's
+  other account the engine names on it as `statement_partner_id`
+  (contract: "Bank Accounts", "Statement partner"), and any account the answer has a half on
+  (`statement_columns` in [reconciliations.py](../expense/tui/screens/reconciliations.py));
+  the app never pairs accounts by their codes. The columns are `Name · Period`, one
+  `Diff <CUR>` per account of the statement in the accounts' order (`Diff PEN · Diff USD`;
+  `Diff` alone on a code one account holds), then `Status · Order`. Each Diff is that half's difference by
   the rule of every reconciliation list (a dim `—` when it adds up, the figure when off, blank with no ending
   balance), `no half` where the statement has none on that account. Status is `completed`
   or `draft` when the halves agree and `half completed` (warning) when they do not; Order
   is `in order` when the engine's `unplaced_count` and `shared_place_count` both read 0 and
   `not in order` (warning) otherwise, the same two counts on both halves (contract: "Reconciliations", "A statement's order").
   A completed statement is dim, as a completed reconciliation is. The title names every
-  account holding the code, then the code:
+  account of the statement, then the code:
   `Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
-  listed account holding it carries the `▸`, so opening either card account shows the
-  identical list. An archived card account is not listed, but its halves still show under
-  its own column, which the accounts read names. A row stands for the open account's half,
+  listed one carries the `▸`, so opening either card account shows the identical list. An
+  archived card account is not listed, and while it is archived neither account names the
+  other (contract: "Bank Accounts", "While one of the two accounts is archived"), but its
+  halves still show under its own column, which the answer's halves and the accounts read
+  name; while it holds no half it has no column. A row stands for the open account's half,
   or the other half on a month with none there: `⏎` opens that half on the batch
   screen, in its own currency.
 
@@ -1279,11 +1285,12 @@ so the line is always there. Each half's begin on a card's form carries the same
 **A card statement's create form** (`n` on a card account; pane 2 A of
 [expense-world-card-statement.html](mockups/expense-world-card-statement.html)). A card is
 two bank accounts sharing a statement code, one per currency
-(contract: "Bank Accounts", "Statement code"); the browse finds an account's other half in the
-accounts list it already holds (`statement_partners` in [reads.py](../expense/reads.py)), so
-an account with no code, one whose code no other listed account holds, or one whose other half
-is archived keeps the one-account form: the browse lists no archived account, and the engine
-refuses one as the other half's account. On a card account `n` opens one
+(contract: "Bank Accounts", "Statement code"). The engine names a card account's other account
+on it as `statement_partner_id`, and the browse reads that account from the accounts list it
+already holds (`card_partners` in [reads.py](../expense/reads.py))
+(contract: "Bank Accounts", "Statement partner"). It is null on an account with no code, on one
+whose code no other live account holds, and on both accounts while either is archived, so such
+an account keeps the one-account form. On a card account `n` opens one
 form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line `accounts  Signature PEN +
 Signature USD · SIG` (stated, never edited), `date start`, `date end`, then the open account's
 `begin balance <CUR>` and `end balance <CUR>`, then the other account's. Each balance's hint
