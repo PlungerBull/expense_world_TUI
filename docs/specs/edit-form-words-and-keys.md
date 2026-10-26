@@ -54,8 +54,8 @@ On 2026-10-25 the owner answered each question with A:
 
 ## Tasks
 
-Approved by the owner on 2026-10-25. They run in this
-order: 4, 2 and 3. Tasks 2 and 3 are **[UI]**, picked from
+Approved by the owner on 2026-10-25. They run in this order: 2 and 3. Both are **[UI]**,
+picked from
 [mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).
 
 2. **[UI] The words for `s` and for `⏎` in "no batch"** read as screens 1 A and 2 A of the
@@ -65,10 +65,17 @@ order: 4, 2 and 3. Tasks 2 and 3 are **[UI]**, picked from
 3. **[UI] A refused part names its category and hashtags in the form's words**, as screen 3 A of
    the mockup draws it: `part 1 (category)` and `part 1 (hashtags)`, as `part 1 (amount)` reads
    now. A test for each.
-4. **An opening balance's hashtag refusal on the Edit form shows the engine's words alone.** The
-   `OPENING_BALANCE_NOT_TAGGED` refusal shows no app line on the Edit form; the ledger's bulk `h`
-   keeps its line, "Leave the opening balance out of the selection." A test for each screen.
 
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **A mockup still draws the opening balance's line on the Edit form.** Pane 7 of
+  [mockups/expense-world-pending-hashtag-manage.html](../mockups/expense-world-pending-hashtag-manage.html)
+  says "The Edit form shows the same note", which task 4 takes off the form; tui.md cites that
+  mockup only for the ledger's line. Part of the todo.md item "Mockups that back no open work".
+- **A held reserved name may draw the category line on the Edit form.** `RESERVED_NAME_HELD`
+  draws no line on the keys `hashtag_ids` and `hashtag_id` alone (`no_line_on` in
+  [errors.py](../../expense/errors.py)); if the whole-line write sends it on
+  `parts.<i>.hashtag_ids`, the Edit form shows the category line, though tui.md says it shows
+  none there. Unconfirmed: check the live contract's key, and add a test for it.

@@ -154,7 +154,8 @@ class NextStep:
     `line` is the line on every screen. `on_list` replaces it on a list, where
     `r` reads the list again; elsewhere (a form, the LOG bar, the bank import)
     saving again is the retry. `by_key` picks the line by the reason's key, for
-    a reason two resources share (contract: "Error reasons"). A key in
+    a reason two resources share (contract: "Error reasons") or a line that suits
+    one key alone; with no `line`, every other key draws none. A key in
     `no_line_on` draws no line at all.
     """
 
@@ -288,10 +289,15 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("VALIDATION_ERROR", "SYSTEM_NAME_FIXED"): NextStep(
         "Built-in names never change: press esc to leave it as it is."
     ),
-    # An opening balance carries no hashtag, not even the pending one
-    # (contract: PUT /v1/transactions/{transaction_id}).
+    # An opening balance carries no hashtag, not even the pending one. The line
+    # shows on a transaction write's `hashtag_ids`
+    # (contract: PUT /v1/transactions/{transaction_id}): the ledger's bulk `h`
+    # over a selection holding one. The Edit form's whole-line write names the
+    # part's `parts.<i>.hashtag_ids` (contract: PUT /v1/bank-lines/{bank_line_id},
+    # "A line holding an opening balance keeps its parts"), where no line shows:
+    # the engine's words alone.
     ("VALIDATION_ERROR", "OPENING_BALANCE_NOT_TAGGED"): NextStep(
-        "Leave the opening balance out of the selection."
+        by_key={"hashtag_ids": "Leave the opening balance out of the selection."}
     ),
 }
 

@@ -505,7 +505,7 @@ APP_FAULT = (
             False,
             "Built-in names never change: press esc to leave it as it is.",
         ),
-        # pending-hashtag-manage 7 B, on a list (bulk h) and on the Edit form
+        # pending-hashtag-manage 7 B: the ledger's bulk h, on a transaction write's key
         (
             "VALIDATION_ERROR",
             "hashtag_ids",
@@ -513,6 +513,10 @@ APP_FAULT = (
             False,
             "Leave the opening balance out of the selection.",
         ),
+        # edit-form-words-and-keys 3 A: on the Edit form's whole-line write, a part's
+        # key, the engine's words alone
+        ("VALIDATION_ERROR", "parts.0.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", False, None),
+        ("VALIDATION_ERROR", "parts.2.hashtag_ids", "OPENING_BALANCE_NOT_TAGGED", True, None),
         ("CONFLICT", "transaction_id", "IN_COMPLETED_RECONCILIATION", True, None),
         # archived-account 3 A: the engine's words alone, on every route that answers it
         ("CONFLICT", "transaction_id", "ACCOUNT_ARCHIVED", True, None),

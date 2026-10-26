@@ -1087,7 +1087,7 @@ REFUSALS = [
         "OPENING_BALANCE_NOT_TAGGED",
         "Must be empty: an opening balance carries no hashtag.",
         "part 1 (hashtag_ids)",
-        "Leave the opening balance out of the selection.",
+        None,  # edit-form-words-and-keys 3 A: the engine's words alone
     ),
     (
         "a1",

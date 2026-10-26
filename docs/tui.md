@@ -686,15 +686,15 @@ shows its name, read-only on its Edit form (below).
 account's transactions (contract: POST /v1/accounts/{account_id}/archive), so with the cursor
 on one, whole ledger or filtered from Home, `d Delete` leaves the footer and the key does
 nothing and sends nothing; on the next row of an active account or a person it is back, the
-footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where only what the line's
-`edit_limits` leaves open changes ("On an archived account's line the Edit form changes the
-categorisation alone" below). The row is drawn as any other, with nothing on it saying why, and
-`s`, `c`, `b`, `h`, `⏎` and every other key stay; the engine still judges each write they send.
-The ledger learns which accounts are archived from the same `GET /accounts` that gives it the
-names, one read per load (`reads.load_account_index`), so an account unarchived on
-Manage ▸ Accounts gets its `d` back at the ledger's next read (`r`, or any reload).
-The `?` card still lists `d`, as it does while rows are selected: it lists a screen's own keys
-as the screen declares them.
+footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where
+only what the line's `edit_limits` leaves open changes ("On an archived account's line the Edit
+form changes the categorisation alone" below). The row is drawn as any other, with nothing on
+it saying why, and `s`, `c`, `b`, `h`, `⏎` and every other key stay; the engine still judges
+each write they send. The ledger learns which accounts are archived from the same
+`GET /accounts` that gives it the names, one read per load (`reads.load_account_index`), so an
+account unarchived on Manage ▸ Accounts gets its `d` back at the ledger's next read (`r`, or
+any reload). The `?` card still lists `d`, as it does while rows are selected: it lists a
+screen's own keys as the screen declares them.
 
 **On an archived account's line the Edit form changes the categorisation alone**
 (screen 2 B of [expense-world-archived-account.html](mockups/expense-world-archived-account.html),
@@ -864,7 +864,8 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
 | `SYSTEM_NAME_FIXED` (a `VALIDATION_ERROR`) on `name` | a new name, letter case alone included, for `@Pendiente`, `@Opening` or the pending hashtag on an Edit form, should one open on it (Manage offers no `e` on them) | `Built-in names never change: press esc to leave it as it is.` |
 | `RESERVED_NAME` (a `VALIDATION_ERROR`) on `name` | a new category, or a category renamed on its Edit form, named like a system category (`@Opening`, `@Pendiente`); a new hashtag, or a hashtag renamed on its Edit form, named `Pendiente` in any letter case | `That name belongs to a system row: pick another.` |
-| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `Leave the opening balance out of the selection.` |
+| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `hashtag_ids` | `h` on ledger rows that include an opening balance | `Leave the opening balance out of the selection.` |
+| `OPENING_BALANCE_NOT_TAGGED` (a `VALIDATION_ERROR`) on `parts.<index>.hashtag_ids` | an opening balance's Edit form, should the refusal reach it (its hashtags show read-only) | none: the engine's words alone |
 | `ID_EXISTS`, `IDEMPOTENCY_KEY_REUSED` | any save, rarely: both mean the app sent something wrong | `Not your mistake: the app sent it wrong and nothing was saved. Try again; if it happens again, report it.` |
 
 The line is chosen by the error's `code` and reason alone, never by the HTTP status, the
@@ -878,8 +879,12 @@ screen that reports a failure through it shows the line. One row is the import d
 `d`, `t` on Manage ▸ Accounts, and the ending balance saved at `c` on a reconciliation's
 batch screen, where `r` reads it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
-resources share; its key (`account_id` or `category_id`) picks the line, and the keys
-`hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`. The three
+resources share; its key (`account_id` or `category_id`) picks the line, the keys
+`hashtag_ids` and `hashtag_id` keep the category line off `RESERVED_NAME_HELD`, and
+`OPENING_BALANCE_NOT_TAGGED` has its line on a transaction write's `hashtag_ids` alone, so
+the Edit form, whose whole-line write names the part's `parts.<index>.hashtag_ids`, shows the
+engine's words alone (the last screen of
+[expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html)). The three
 opening-balance reasons, `ENDING_BALANCE_REQUIRED`, `SYSTEM_NAME_FIXED` and `RESERVED_NAME`
 are the table's only `VALIDATION_ERROR` rows with a line; any other validation error,
 `ACCOUNT_ARCHIVED` and `LOCKED` included (the field lock answers first in a completed reconciliation), has no line. The lines for
