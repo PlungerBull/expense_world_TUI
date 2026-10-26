@@ -52,12 +52,22 @@ repo's `docs/from-tui/`, then say so here and it leaves the folder.
 
 **Recommended:** none: only you can hand it over.
 
-### Two practice keys in CLAUDE.md and the guard
+### The note for a dropped file the app cannot open
+Asked 2026-10-26 · Blocks: question 4 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
+
+The LOG bar says `not a BCP bank file · File not found: <path>` when a dropped file cannot be
+opened, though the app no longer knows whether a file is a bank download. Keep it (A), or say
+`can't read the file · …` (B)?
+
+**Recommended:** B.
+
+### Out-of-date words in CLAUDE.md and the guard
 Asked 2026-10-26 · Blocks: nothing
 
 CLAUDE.md and the guard script's comments and messages still speak of "the practice user's key";
 the reseed now prints two. May the orchestrator change the wording to "both practice users'
-keys"? No rule changes.
+keys", and, in CLAUDE.md, stop calling the bank import door an `.xlsx` reader (the engine reads
+the download now; only the sheet import reads `.xlsx`)? No rule changes.
 - **A.** Yes.
 - **B.** No, leave it.
 
@@ -167,15 +177,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
   helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
   that waiting for every test.
-- **Leftovers in the import door.** The apply still builds `day_mismatches` the screen after
-  importing no longer shows; `reason_cell` picks a row's style by comparing the reason's words
-  (a kind on `FileLine` would not); `Placed.rule` and `Placed.sealed_by` are read but used only
-  by tests; `test_apply_writes_once_and_the_result_says_what_to_check` is named for a screen
-  that no longer says what to check; no test draws a row whose amount could not be read; the
-  `ImportCounts` docstring says "summary" ([bank_import.py](../expense/tui/screens/bank_import.py),
-  [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
-  They go with the import door's rewrite in
-  [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a

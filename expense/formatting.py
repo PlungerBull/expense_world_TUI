@@ -93,7 +93,9 @@ def signed_cents(transaction: dict) -> int:
     The one place the app reads the sign off `transaction_type`. Every read
     the app makes asks for signed amounts (`debit_as_negative=true`); this is
     for the responses the engine sends only as a magnitude and a type, the
-    bank upload's unclaimed parts among them (contract: POST /v1/transactions/import).
+    bank upload's rows and their unclaimed parts among them
+    (contract: POST /v1/transactions/import). A skipped upload row reads `0`
+    with no type, and stays `0`.
     """
     magnitude = abs(int(transaction.get("amount_cents") or 0))
     return -magnitude if transaction.get("transaction_type") == OUTFLOW_TYPE else magnitude

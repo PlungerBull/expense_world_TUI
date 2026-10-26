@@ -117,27 +117,22 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
    **Recommended:** A, because the mark still points at the lines worth opening first.
 
+4. **The note for a dropped file the app cannot open** (found in task 6). When a dropped file
+   cannot be read from the disk, the LOG bar says `not a BCP bank file · File not found: <path>`
+   (or `· Could not open <path>: <why>`). The app no longer reads the file, so it cannot know
+   whether it is a bank download; the engine judges that on the preview.
+   - **A.** Keep `not a BCP bank file · …`.
+   - **B.** `can't read the file · File not found: <path>`, saying only what the app knows.
+
+   **Recommended:** B.
+
 ---
 
 ## Tasks
 
-The owner picked both mockups on 2026-10-26: 2B and 3B for the import door, 1A for the flagged
-lines.
+Every task is done; the tester's acceptance check runs next. Questions 2 to 4 wait on the
+owner and become tasks once answered.
 
-6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
-   door's account list, preview and result
-   ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)),
-   picked 2B and 3B. Then: the door
-   sends the file itself (`dry_run`, `account_id`, `file`; contract: POST /v1/transactions/import)
-   and reads no cell of it; [parse.py](../../expense/bank_import/parse.py) and every other piece
-   of the app's own bank-file reading go (the sheet import's reader stays: it has its own spec).
-   The preview names each row by its spreadsheet row number, shows and counts a `skipped` row,
-   and shows a refused row on that row in the engine's words; a refused file shows the engine's
-   words. The account list pairs a card through `statement_partner_id`. Every row of the file
-   goes in, whatever its date: the 2026 rule (`IMPORT_FLOOR`) goes. The backlog item "Leftovers
-   in the import door" is deleted with it. Live tests ([test_bank_import.py](../../tests/contract/test_bank_import.py)) build a
-   made-up download in the test itself, never a real file: a dry run and an apply, a card's
-   rows landing on both its accounts, a zero row skipped.
 
 ## Reply to the engine
 
@@ -154,6 +149,9 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 - **The asks it closes:** "The account read names a card's other account", "Probes on the
   practice engine clean up after themselves" and "The practice engine seeds a second practice
   user whose own category and hashtag hold the reserved names".
+- **An import row refusal without its row:** the contract says every `rows.<row>` message of
+  `POST /transactions/import` begins `Row <row>:`, but `FUTURE_DATE` sends only "Must not be in
+  the future." (seen live on `rows.3.date`).
 - **A wording slip in the contract:** the complete route points to *Transactions* → *Sealed
   periods*, while the tag is named "Transactions (Ledger)".
 
@@ -183,6 +181,9 @@ Not built in this spec; drafted into a new spec when it is done.
   mockup's statement pane (1A, after `esc`) draws `esc Back  r Refresh  u Revert  f Flagged  ?
   Keys`; the screen shows `c` and `d` on a completed statement too, as before this spec.
   (Task 5.)
+- **The sheet reader keeps an unused keyword.** `read_workbook`'s `sheet_name` in
+  [expense/import_/reader.py](../../expense/import_/reader.py) has no caller passing it since
+  the bank door stopped reading files. (Task 6.)
 - **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
   test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
   reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)

@@ -374,8 +374,9 @@ def app_lines(err: EngineError, *, on_list: bool = False) -> list[str]:
 def key_index(key: object, collection: str) -> int | None:
     """The item a refusal's key names in a list the request sent, from 0:
     `<collection>.<i>` or `<collection>.<i>.<field>` gives `i`; any other key
-    gives None. One reader for every screen that names a refused item by its
-    place: the bank import's `rows`, the split's `parts`."""
+    gives None. One reader for every key naming an item of a list: the
+    batch's `transactions` and the split's `parts` by their place, the bank
+    import's `rows` by their spreadsheet row."""
     bits = str(key).split(".", 2)
     if len(bits) >= 2 and bits[0] == collection and bits[1].isdigit():
         return int(bits[1])

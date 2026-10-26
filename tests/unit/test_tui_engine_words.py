@@ -47,15 +47,12 @@ from tests.unit.helpers import (
 )
 from tests.unit.test_tui_bank_import import (
     CARD_ROWS,
-    HEADERS,
     _bank_file,
     _body,
     _drop,
     _engine,
-    _feed,
     _preview,
     _previewed,
-    _two_new_two_in_ledger,
 )
 from tests.unit.test_tui_bank_import import _open as _open_import
 from tests.unit.test_tui_bank_import import _patch as _patch_import
@@ -546,7 +543,6 @@ def test_an_import_whose_accounts_cannot_load_shows_the_words_whole(
     """The import's account list read refused: its toast, and its line on the screen."""
     path = _bank_file(tmp_path)
     _patch_import(monkeypatch)
-    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
 
     def refused(*a, **k):
         raise refusal("FORBIDDEN", 403)
@@ -562,12 +558,11 @@ def test_an_import_whose_accounts_cannot_load_shows_the_words_whole(
 
 
 def test_a_refused_import_shows_the_words_whole(fake_client, monkeypatch, tmp_path):
-    """The apply refused naming a file row: its toast, and the `! row …`
-    lines on the preview."""
+    """The apply refused naming a file row: its toast, and the `!` line the
+    preview gives the row's words."""
     path = _bank_file(tmp_path)
     _patch_import(monkeypatch)
-    _feed(monkeypatch, {path.name: (HEADERS, CARD_ROWS)})
-    _engine(fake_client, _two_new_two_in_ledger)
+    _engine(fake_client, {path.read_bytes(): CARD_ROWS})
 
     async def scenario(pilot, app):
         screen = await _open_import(app, pilot)
@@ -575,12 +570,12 @@ def test_a_refused_import_shows_the_words_whole(fake_client, monkeypatch, tmp_pa
         await _preview(pilot, app)
         await pilot.press("enter")
         preview = await _previewed(pilot, app)
-        fake_client.errors["POST"] = refusal(key="rows.2")
+        fake_client.errors["POST"] = refusal(key="rows.4")
         await pilot.press("enter")
         assert whole_in(await toast_with_words(pilot, app))
         body = _body(preview)
         assert f"VALIDATION_ERROR — {MESSAGE}" in body
-        assert f"! row 4: {FIELD_WORDS}" in body
+        assert f"! rows.4: {FIELD_WORDS}" in body  # words naming no row keep the key
 
     run_app(scenario, size=(120, 40), toasts=True)
 

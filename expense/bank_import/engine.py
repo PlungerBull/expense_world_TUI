@@ -1,92 +1,75 @@
-"""BankRows → the `POST /transactions/import` body, and its response → one
-view per row. Pure: no HTTP, no typer, no config.
+"""The bank's download → the `POST /transactions/import` body, and its answer →
+what the import door shows. Pure: no HTTP, no typer, no config.
 
-The engine does the matching against its bank lines, and reports the days
-whose totals disagree (contract: POST /v1/transactions/import, "Matching").
-This module only decides what is sent and how the answer reads, so the TUI
-import door shows the engine's word.
+The engine reads the file, matches its rows against its bank lines, and
+reports the days whose totals disagree (contract: POST /v1/transactions/import).
+The app sends the file whole and reads no cell of it; this module only says
+what is sent and how the answer reads, so the door shows the engine's word.
 """
 
+import base64
 from dataclasses import dataclass
-from datetime import date
-from uuid import uuid4
+from enum import Enum
 
-from expense.bank_import.parse import BankRow
-from expense.errors import key_field, key_index
+from expense.formatting import signed_cents
 
-#: Nothing dated earlier is ever sent. The hand-typed rows the bank files
-#: overlap are aligned to the bank's wording before the first real import
-#: (todo.md, "One-time title alignment").
-#: Why: docs/decisions.md "Bank downloads are matched against the ledger".
-IMPORT_FLOOR = date(2026, 1, 1)
 
-#: Rows per request, 1–500 (contract: POST /v1/transactions/import). A longer file is
-#: refused whole, never split: a row in a later request could be claimed by a
-#: row an earlier one had just created, and vanish without a word.
-IMPORT_MAX_ROWS = 500
+def request_body(account_id: str, data: bytes, *, dry_run: bool) -> dict:
+    """Exactly the three keys the engine takes: the account the download is
+    from, and the file's bytes in standard base64 (the RFC 4648 alphabet,
+    padded, no line breaks) (contract: POST /v1/transactions/import, "Body")."""
+    return {
+        "dry_run": dry_run,
+        "account_id": account_id,
+        "file": base64.b64encode(data).decode("ascii"),
+    }
 
 
 @dataclass(frozen=True)
-class SentRow:
-    """One file row as it goes to the engine: the id it was sent under and the
-    leg of the card it landed on."""
+class ImportedRow:
+    """One data row of the file as the engine read it, and what it did (or, on
+    a dry run, would do) with it."""
 
-    row: BankRow
-    id: str
+    #: The row's number in the spreadsheet; the first data row is 2.
+    row: int
+    #: The account the engine puts the row on: on a card's download, the
+    #: account of the row's currency.
     account_id: str
-    account_name: str
-
-    def payload(self) -> dict:
-        body: dict = {
-            "id": self.id,
-            "account_id": self.account_id,
-            # The calendar day as the bank printed it — the engine reads it in
-            # the user's display_timezone. Never an instant.
-            "date": self.row.date_iso,
-            "amount_cents": self.row.amount_cents,
-            "title": self.row.title,
-        }
-        if self.row.operation_code is not None:
-            body["operation_code"] = self.row.operation_code
-        return body
-
-
-@dataclass(frozen=True)
-class Placed:
-    """What the engine did (or would do) with one sent row."""
-
-    sent: SentRow
-    outcome: str  # new | matched | sealed
-    rule: str | None
-    #: The bank line a `matched` row is; None on the other outcomes.
-    bank_line_id: str | None
+    date_iso: str
+    title: str | None
+    amount_cents: int  # signed: negative = outflow; 0 on a skipped row
+    outcome: str  # new | matched | sealed | skipped
+    #: On a `matched` row, the operation code the apply writes onto its line.
     backfill_code: str | None
-    #: On a `matched` row, whether the bank's title is (or, on a dry run,
-    #: would be) written onto the line; None on the other outcomes.
+    #: On a `matched` row, whether the bank's title is (or would be) written
+    #: onto the line.
     retitled: bool | None
     #: On a `matched` row, whether the line is (or would be) moved to the
-    #: bank's day; None on the other outcomes.
+    #: bank's day.
     redated: bool | None
     #: On a `matched` row whose move a completed reconciliation stops: that
-    #: reconciliation's id; None otherwise.
+    #: reconciliation's id.
     redate_blocked_by: str | None
-    sealed_by: str | None
 
 
-@dataclass(frozen=True)
-class UnclaimedLine:
-    """A ledger bank line on a reported day that no file row claimed — one
-    entry however many parts it is split into (contract: POST /v1/transactions/import).
-
-    `parts` are its live transactions on that account and day, each the
-    engine's whole transaction response as `GET /transactions/{id}` returns
-    it, in the engine's order: everything a screen shows of them is here, so
-    none is read again. Their `amount_cents` is a magnitude, the direction in
-    `transaction_type`; only `net_cents` is signed."""
-
-    bank_line_id: str
-    net_cents: int  # signed: inflow positive, outflow negative
-    parts: tuple[dict, ...]
+def answer_rows(response: dict) -> list[ImportedRow]:
+    """The answer's `rows`, in the file's order. Each amount comes as a
+    magnitude and a `transaction_type`; `signed_cents` signs it."""
+    return [
+        ImportedRow(
+            row=int(item.get("row") or 0),
+            account_id=str(item.get("account_id")),
+            date_iso=str(item.get("date")),
+            title=item.get("title"),
+            amount_cents=signed_cents(item),
+            outcome=str(item.get("outcome")),
+            backfill_code=item.get("backfill_code"),
+            retitled=item.get("retitled"),
+            redated=item.get("redated"),
+            redate_blocked_by=item.get("redate_blocked_by"),
+        )
+        for item in response.get("rows") or []
+    ]
 
 
 @dataclass(frozen=True)
@@ -101,97 +84,19 @@ class DayMismatch:
     date_iso: str
     file_net_cents: int  # signed: inflow positive, outflow negative
     ledger_net_cents: int  # signed, the ledger's after this import
-    #: The indexes of the sent rows on this day that matched no line.
+    #: The spreadsheet rows on this day that matched no line.
     unmatched_rows: tuple[int, ...]
-    unclaimed_lines: tuple[UnclaimedLine, ...]
-
-
-@dataclass(frozen=True)
-class AnswerCounts:
-    """The engine's own `counts` of one answer."""
-
-    new: int
-    matched: int
-    sealed: int
-    backfilled: int
-    retitled: int
-    redated: int  # the lines moved (or, on a dry run, to move) to the bank's day
-
-
-def split_floor(rows: list[BankRow]) -> tuple[list[BankRow], list[BankRow]]:
-    """(rows to send, rows dated before IMPORT_FLOOR)."""
-    floor = IMPORT_FLOOR.isoformat()
-    kept = [r for r in rows if r.date_iso >= floor]
-    skipped = [r for r in rows if r.date_iso < floor]
-    return kept, skipped
-
-
-def sent_rows(rows: list[BankRow], legs: dict[str, tuple[str, str]]) -> list[SentRow]:
-    """Each row on its currency's leg, under a fresh id. Every currency has a
-    leg by now — the door refuses the file before this otherwise."""
-    return [
-        SentRow(
-            row=r, id=str(uuid4()), account_id=legs[r.currency][0], account_name=legs[r.currency][1]
-        )
-        for r in rows
-    ]
-
-
-def request_body(sent: list[SentRow], *, dry_run: bool) -> dict:
-    return {"dry_run": dry_run, "rows": [s.payload() for s in sent]}
-
-
-class IncompleteAnswer(Exception):
-    """The response does not answer exactly the rows that were sent."""
-
-    def __init__(self, missing: list[SentRow], unknown: list[str]):
-        self.missing = missing
-        self.unknown = unknown
-        super().__init__(
-            f"the engine answered {len(missing)} sent row(s) too few and "
-            f"{len(unknown)} it was never sent"
-        )
-
-
-def placements(response: dict, sent: list[SentRow]) -> list[Placed]:
-    """The response's rows joined back to the file's, by the id each was sent
-    under — in the file's order.
-
-    Raises IncompleteAnswer unless every sent id comes back exactly once and
-    nothing else does: a row silently missing from the answer would make
-    every count under-report without a word.
-    """
-    by_id = {s.id: s for s in sent}
-    items = response.get("rows") or []
-    returned = [str(item.get("id")) for item in items]
-    missing = [s for s in sent if s.id not in returned]
-    unknown = [i for i in returned if i not in by_id]
-    if missing or unknown or len(returned) != len(sent):
-        raise IncompleteAnswer(missing, unknown)
-    out: list[Placed] = []
-    for item in items:
-        s = by_id[str(item.get("id"))]
-        out.append(
-            Placed(
-                sent=s,
-                outcome=str(item.get("outcome")),
-                rule=item.get("rule"),
-                bank_line_id=item.get("bank_line_id"),
-                backfill_code=item.get("backfill_code"),
-                retitled=item.get("retitled"),
-                redated=item.get("redated"),
-                redate_blocked_by=item.get("redate_blocked_by"),
-                sealed_by=item.get("sealed_by"),
-            )
-        )
-    return out
+    #: Every part of the day's lines no file row claimed, line after line in
+    #: the engine's order, each the engine's whole transaction response: a
+    #: magnitude in `amount_cents`, the direction in `transaction_type`.
+    unclaimed_parts: tuple[dict, ...]
 
 
 def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
-    """The response's `day_mismatches`, in the engine's order, each account
-    named by its leg (its id when the leg is unknown). The totals and each
-    unclaimed line's `net_cents` stay signed as the engine sends them; a day
-    can be reported with equal totals when it holds an unclaimed line."""
+    """The answer's `day_mismatches`, in the engine's order, each account
+    named from `names` (account id → name; its id when it is not there). The
+    totals stay signed as the engine sends them; a day can be reported with
+    equal totals when it holds an unclaimed line."""
     out: list[DayMismatch] = []
     for e in response.get("day_mismatches") or []:
         account_id = str(e.get("account_id"))
@@ -203,88 +108,117 @@ def day_mismatches(response: dict, names: dict[str, str]) -> list[DayMismatch]:
                 file_net_cents=int(e.get("file_net_cents") or 0),
                 ledger_net_cents=int(e.get("ledger_net_cents") or 0),
                 unmatched_rows=tuple(int(i) for i in e.get("unmatched_rows") or []),
-                unclaimed_lines=tuple(
-                    UnclaimedLine(
-                        bank_line_id=str(line.get("bank_line_id")),
-                        net_cents=int(line.get("net_cents") or 0),
-                        parts=tuple(dict(p) for p in line.get("parts") or []),
-                    )
+                unclaimed_parts=tuple(
+                    dict(part)
                     for line in e.get("unclaimed_lines") or []
+                    for part in line.get("parts") or []
                 ),
             )
         )
     return out
 
 
+@dataclass(frozen=True)
+class AnswerCounts:
+    """What one answer adds up to: how many rows the engine read, then its own
+    `counts`."""
+
+    rows: int  # one per data row of the file
+    new: int
+    matched: int
+    sealed: int
+    skipped: int
+    retitled: int
+    redated: int  # the lines moved (or, on a dry run, to move) to the bank's day
+
+
 def answer_counts(response: dict) -> AnswerCounts:
-    """The response's `counts`, as the engine counted them."""
+    """The answer's `counts`, as the engine counted them, and its rows."""
     counts = response.get("counts") or {}
     return AnswerCounts(
+        rows=len(response.get("rows") or []),
         new=int(counts.get("new") or 0),
         matched=int(counts.get("matched") or 0),
         sealed=int(counts.get("sealed") or 0),
-        backfilled=int(counts.get("backfilled") or 0),
+        skipped=int(counts.get("skipped") or 0),
         retitled=int(counts.get("retitled") or 0),
         redated=int(counts.get("redated") or 0),
     )
 
 
-#: The preview's reason for each row of the file, and whether that row is in
-#: the ledger after the import (✓) or left out (✗).
+class Verdict(Enum):
+    """What one row comes to, from the engine's outcome: the preview's mark and
+    the style of its reason follow from it, never from the reason's words."""
+
+    NEW = "new"  # created on apply
+    IN_LEDGER = "in_ledger"  # matched, and the apply writes nothing onto its line
+    MODIFIED = "modified"  # matched, and the apply writes onto its line
+    NOT_MOVED = "not_moved"  # matched, its move to the bank's day stopped
+    CLOSED = "closed"  # sealed: never created
+    SKIPPED = "skipped"  # a row of 0: never matched or created
+
+
+#: The preview's reason for each verdict.
 NEW = "New"
 IN_LEDGER = "Already in the ledger"
 MODIFIED = "Modified existing transaction"
 CLOSED = "Closed period"
-BEFORE_FLOOR = f"Before {IMPORT_FLOOR.year}"
-UNREADABLE = "Couldn't read the row"
+SKIPPED = "Skipped: amount 0"
 #: A move a completed reconciliation stops; `{}` is its name.
 NOT_MOVED = "Not moved: {} is reconciled"
 #: The name in NOT_MOVED when the reconciliations could not be read.
 UNNAMED_RECONCILIATION = "a reconciliation"
 
 
-def row_reason(p: Placed, names: dict[str, str]) -> tuple[bool, str]:
-    """(in the ledger after the import, the reason) of one answered row.
+@dataclass(frozen=True)
+class PreviewLine:
+    """One row of the preview: the row as the engine read it, its verdict and
+    its reason."""
 
-    A matched row is modified when the apply writes the bank's operation code, title
-    or day onto its line; a move a completed reconciliation stops wins over
-    the rest, named from `names` (reconciliation id → name)."""
-    if p.outcome == "new":
-        return True, NEW
-    if p.outcome == "sealed":
-        return False, CLOSED
-    if p.redate_blocked_by:
-        name = names.get(p.redate_blocked_by, UNNAMED_RECONCILIATION)
-        return False, NOT_MOVED.format(name)
-    if p.backfill_code or p.retitled or p.redated:
-        return True, MODIFIED
-    return True, IN_LEDGER
+    row: ImportedRow
+    verdict: Verdict
+    reason: str
 
 
-def blocking_reconciliations(placed: list[Placed]) -> list[str]:
+def row_verdict(row: ImportedRow) -> Verdict:
+    """The row's verdict from its outcome. A matched row is modified when the
+    apply writes the bank's operation code, title or day onto its line; a move
+    a completed reconciliation stops wins over the rest."""
+    if row.outcome == "new":
+        return Verdict.NEW
+    if row.outcome == "sealed":
+        return Verdict.CLOSED
+    if row.outcome == "skipped":
+        return Verdict.SKIPPED
+    if row.redate_blocked_by:
+        return Verdict.NOT_MOVED
+    if row.backfill_code or row.retitled or row.redated:
+        return Verdict.MODIFIED
+    return Verdict.IN_LEDGER
+
+
+def preview_line(row: ImportedRow, names: dict[str, str]) -> PreviewLine:
+    """The row with its verdict and reason; a stopped move names its
+    reconciliation from `names` (reconciliation id → name)."""
+    verdict = row_verdict(row)
+    if verdict is Verdict.NOT_MOVED:
+        name = names.get(str(row.redate_blocked_by), UNNAMED_RECONCILIATION)
+        return PreviewLine(row, verdict, NOT_MOVED.format(name))
+    reasons = {
+        Verdict.NEW: NEW,
+        Verdict.IN_LEDGER: IN_LEDGER,
+        Verdict.MODIFIED: MODIFIED,
+        Verdict.CLOSED: CLOSED,
+        Verdict.SKIPPED: SKIPPED,
+    }
+    return PreviewLine(row, verdict, reasons[verdict])
+
+
+def blocking_reconciliations(rows: list[ImportedRow]) -> list[str]:
     """The distinct ids of the reconciliations that stop a row's move to the
     bank's day, in the rows' order: the ones that need naming."""
     seen: list[str] = []
-    for p in placed:
-        if p.redate_blocked_by and p.redate_blocked_by not in seen:
-            seen.append(p.redate_blocked_by)
+    for r in rows:
+        if r.redate_blocked_by and r.redate_blocked_by not in seen:
+            seen.append(r.redate_blocked_by)
     return seen
-
-
-def row_refusals(fields: object, sent: list[SentRow]) -> list[tuple[int | None, str | None, str]]:
-    """A refusal's `rows.<index>` and `rows.<index>.<field>` keys → (the file's
-    line, field, message); the field is None when the key names the row alone.
-
-    The engine counts the rows it was sent; the user counts the file's lines.
-    A key that names no row keeps its line as None and its key as the field.
-    """
-    out: list[tuple[int | None, str | None, str]] = []
-    if not isinstance(fields, dict):
-        return out
-    for key, message in fields.items():
-        i = key_index(key, "rows")
-        if i is not None and i < len(sent):
-            out.append((sent[i].row.line, key_field(key, "rows"), str(message)))
-            continue
-        out.append((None, str(key), str(message)))
-    return out

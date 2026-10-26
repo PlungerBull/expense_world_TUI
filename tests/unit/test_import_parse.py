@@ -494,26 +494,16 @@ def test_one_unreadable_date_skips_its_row_and_the_sheet_still_imports():
     assert [p.line for p in parsed] == [3]
 
 
-# ---- one header normaliser for both importers ------------------------------
+# ---- the header normaliser ---------------------------------------------------
 def test_headers_match_through_doubled_interior_spaces():
     """`normalize_header` collapses runs of whitespace, so a sheet re-exported
-    with a double space in a header still maps. Both importers share the one
-    function, so they cannot disagree on this."""
+    with a double space in a header still maps."""
     assert mapping.normalize_header("Numero  de  Operacion") == "numero de operacion"
     assert mapping.normalize_header(" Fecha\n") == "fecha"
     assert mapping.normalize_header(None) == ""
 
     noisy = [f"  {h.upper()}  ".replace(" ", "  ") for h in HEADERS]
     assert build_column_index(noisy) == build_column_index(HEADERS)
-
-
-def test_both_importers_share_one_header_matcher():
-    """Both the normaliser and the nested match loop are shared by the two
-    importers. The sheet layouts stay their own."""
-    from expense.bank_import import parse as bank_parse
-
-    assert bank_parse.match_headers is mapping.match_headers
-    assert bank_parse.FIELD_HEADERS is not mapping.FIELD_HEADERS
 
 
 def test_match_headers_reports_missing_fields_by_their_canonical_label():

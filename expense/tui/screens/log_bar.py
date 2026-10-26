@@ -56,9 +56,9 @@ dragged onto the terminal, pasted or typed — is not a transaction.
 `expense/tui/dropped.py` decides it from the text alone; while it holds, the
 bar stands quick-add down (no colouring, no picker, no peek, no refusal), the
 hint names the file(s), the footer reads `esc Cancel  ⏎ Import`, and `↵` hands
-the files to `import_bank_files` instead of staging anything: it reads them and
-opens the import door (`bank_import.py`), or says under the bar why a file is
-not a bank export.
+the files to `import_bank_files` instead of staging anything: it reads their
+bytes and opens the import door (`bank_import.py`), or says under the bar why a
+file cannot be read from disk.
 """
 
 from collections.abc import Hashable
@@ -876,9 +876,9 @@ class LogBarScreen(Screen):
     def import_bank_files(self, paths: list[Path]) -> None:
         """Where `⏎` hands the dropped files, in the order they were dropped.
 
-        Every file is read here, before any screen opens. One that is not a
-        bank export keeps the bar where it is and says why under it (screen
-        5 A); otherwise the import screens take over (`bank_import.py`). A row
+        Every file's bytes are read here, before any screen opens. One that
+        cannot be read from disk keeps the bar where it is and says why under
+        it; otherwise the import screens take over (`bank_import.py`). A row
         lifted for editing goes back to its place unchanged: the edit is
         dropped, never the row.
         """

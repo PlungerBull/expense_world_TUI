@@ -19,11 +19,11 @@ people).
 
 **BCP only** — no second bank, no CSV, no format abstraction. The bank's PDF comes in only as a
 month's statement, which closes that month's reconciliation (owner, 2026-10-25; a draft spec:
-[statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). Both export shapes (card:
-no operation number, ISO dates, mixed PEN/USD; current account: operation number, `dd/mm/yyyy`)
-already parse ([bank_import/parse.py](../expense/bank_import/parse.py)).
+[statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). The engine
+reads both export shapes (card: no operation number, ISO dates, mixed PEN/USD; current account:
+operation number, `dd/mm/yyyy`) (contract: POST /v1/transactions/import, "The download").
 
-**Reuse, don't rebuild:** the TUI import door does parse → account pick → one
+**Reuse, don't rebuild:** the TUI import door does account pick → the file sent whole in one
 `POST /transactions/import` as a dry run → preview → the apply. The request and the
 response → rows live once, in [bank_import/engine.py](../expense/bank_import/engine.py). Recovery from a wrong account pick: select the rows in Home, `b`.
 

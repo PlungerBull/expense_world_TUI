@@ -169,8 +169,7 @@ def to_iso_date(value: object) -> str | None:
 def amount_to_cents(value: object) -> int | None:
     """An amount cell -> signed integer cents, or None when it is not an amount.
 
-    The one reader of an amount cell, for this import and the bank import
-    (expense/bank_import/parse.py). A cell goes through the typed fields' own
+    A cell goes through the typed fields' own
     reader, ``parse_amount``, as its text: a number cell's text is its value
     (``-132.80000000000001`` -> ``-13280``, float-artifact safe via Decimal),
     and a text cell reads as typed — ``13,853.20`` is 1385320, while

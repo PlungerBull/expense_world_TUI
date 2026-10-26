@@ -398,6 +398,136 @@ def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callabl
     return mark
 
 
+#: The keys of an import answer's row that say what the engine did with it, each `None`
+#: unless its outcome sets it (contract: POST /v1/transactions/import, "Response").
+IMPORT_OUTCOME_KEYS = (
+    "transaction_id",
+    "rule",
+    "bank_line_id",
+    "backfill_code",
+    "retitled",
+    "redated",
+    "redate_blocked_by",
+    "sealed_by",
+)
+
+
+def import_row(
+    row: int,
+    amount_cents: int = -1000,
+    *,
+    outcome: str = "new",
+    account_id: str = "sig-pen",
+    day: str = "2026-09-07",
+    title: str | None = "TOTTUS PORONGOCHE",
+    operation_code: str | None = None,
+    **set_keys: Any,
+) -> dict:
+    """One row of a `POST /transactions/import` answer, every key present: the row
+    as the engine read it from the spreadsheet (`row` its row number, the first data
+    row being 2) and what it did with it (contract: POST /v1/transactions/import,
+    "Response"). `amount_cents` is given signed here and written as the engine sends
+    it, a magnitude and `transaction_type` (1 out, 2 in); a row of `0` reads `0` and
+    `null`. `set_keys` are the outcome's keys (`IMPORT_OUTCOME_KEYS`)."""
+    unknown = set(set_keys) - set(IMPORT_OUTCOME_KEYS)
+    assert not unknown, f"not an import row's key: {sorted(unknown)}"
+    if amount_cents == 0:
+        kind = None
+    else:
+        kind = 1 if amount_cents < 0 else 2
+    return {
+        "row": row,
+        "account_id": account_id,
+        "date": day,
+        "amount_cents": abs(amount_cents),
+        "transaction_type": kind,
+        "title": title,
+        "operation_code": operation_code,
+        "outcome": outcome,
+        **{key: set_keys.get(key) for key in IMPORT_OUTCOME_KEYS},
+    }
+
+
+def unclaimed_line(bank_line_id: str, parts: list[dict]) -> dict:
+    """A ledger line no file row claimed, as an import answer's reported day holds it:
+    its id, its `line_code`, the signed sum of its parts and the parts themselves, each
+    an `import_part` (contract: POST /v1/transactions/import)."""
+    net = sum(
+        -p["amount_cents"] if p["transaction_type"] == 1 else p["amount_cents"] for p in parts
+    )
+    return {
+        "bank_line_id": bank_line_id,
+        "line_code": line_code_of(bank_line_id),
+        "net_cents": net,
+        "parts": parts,
+    }
+
+
+def import_day(
+    day: str,
+    file_net_cents: int,
+    ledger_net_cents: int,
+    *,
+    account_id: str = "sig-pen",
+    unmatched_rows: tuple[int, ...] = (),
+    lines: tuple[dict, ...] = (),
+) -> dict:
+    """One `day_mismatches` entry of an import answer: the account and day, both
+    signed totals, the spreadsheet rows on it that matched no line and the ledger
+    lines no file row claimed (each an `unclaimed_line`)
+    (contract: POST /v1/transactions/import)."""
+    return {
+        "account_id": account_id,
+        "date": day,
+        "file_net_cents": file_net_cents,
+        "ledger_net_cents": ledger_net_cents,
+        "unmatched_rows": list(unmatched_rows),
+        "unclaimed_lines": list(lines),
+    }
+
+
+def import_counts(rows: list[dict]) -> dict:
+    """An import answer's `counts` for `rows`, as the engine counts them."""
+    outcomes = [r["outcome"] for r in rows]
+    return {
+        "new": outcomes.count("new"),
+        "matched": outcomes.count("matched"),
+        "sealed": outcomes.count("sealed"),
+        "skipped": outcomes.count("skipped"),
+        "backfilled": sum(1 for r in rows if r["backfill_code"]),
+        "retitled": sum(1 for r in rows if r["retitled"]),
+        "redated": sum(1 for r in rows if r["redated"]),
+    }
+
+
+@answer_of("POST", "/v1/transactions/import")
+def import_answer(
+    rows: list[dict] | None = None,
+    *,
+    dry_run: bool = True,
+    day_mismatches: list[dict] | None = None,
+    counts: dict | None = None,
+) -> dict:
+    """`POST /transactions/import`'s answer: `dry_run` echoed, one row per data row
+    (each an `import_row`), the reported days (each an `import_day`, none by default)
+    and `counts` (by default the rows counted) (contract: POST /v1/transactions/import,
+    "Response"). The bare answer holds a row and a reported day with an unclaimed
+    line, so the drift script checks each nested shape."""
+    if rows is None:
+        rows = [import_row(2)]
+        if day_mismatches is None:
+            part = import_part("t-bare", -1000)
+            day_mismatches = [
+                import_day("2026-09-07", -1000, -2000, lines=(unclaimed_line("bl-1", [part]),))
+            ]
+    return {
+        "dry_run": dry_run,
+        "rows": rows,
+        "day_mismatches": list(day_mismatches or []),
+        "counts": counts if counts is not None else import_counts(rows),
+    }
+
+
 #: A draft reconciliation as `GET /reconciliations/{id}` reads it, every field present,
 #: on an account without a statement code: what the write answers below spread a
 #: test's record over.
