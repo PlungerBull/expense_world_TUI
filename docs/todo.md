@@ -28,17 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the locked-field reply to the engine
-Asked 2026-10-26 · Blocks: nothing; the engine waits for it
-
-The notes spec is done: the Edit form shows why each line is read-only in the engine's own
-sentence, and every note shows the engine's words whole. Its reply answers item 7 of the
-engine's hand-off of 2026-10-26. Copy
-[to-engine/caught-up-592f2467fa3df75a-locked-field-words.md](to-engine/caught-up-592f2467fa3df75a-locked-field-words.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
-
 ### Approve the spec for the engine words' leftovers
 Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
 
@@ -48,19 +37,17 @@ The only thing you see change is bracketed names showing whole. Approve it or re
 
 **Recommended:** approve it, after the engine catch-up, which matters more.
 
-### Approve the engine catch-up spec
+### Approve the engine catch-up's tasks, and answer its question 1
 Asked 2026-10-26 · Blocks: [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
 
-The engine's hand-off of 2026-10-26 is planned into four specs; the notes spec is done, so
-this one runs next. It fixes the
-bank download import, which does not work against the engine today, shows the lines a
-statement's close flags, takes a card's other account from the engine, and adds the live tests
-of a held reserved name (the practice engine now has the second practice user). It also makes
-pass the 21 live tests that failed and the 1 that errored on 2026-10-26 after the engine moved,
-Two screens change, each picked from a mockup when it starts. Approve it or rewrite it.
+The catch-up is the current spec. Its six tasks are in its "Tasks" section: four run now, and
+the two that change a screen (the import door, and what a statement's close flagged) each wait
+for a mockup pick. Its question 1 asks whether the import door keeps leaving out bank rows dated
+before 2026, which the app cannot do once the engine reads the file. Approve the tasks or change
+them, and answer question 1 there.
 
-**Recommended:** approve it and make it the current spec, because the app cannot import a
-bank download until it lands.
+**Recommended:** approve the tasks, and A for question 1 (drop the rule; the preview shows an
+old row before anything is written).
 
 ### Approve the spec for the sheet import through the engine
 Asked 2026-10-26 · Blocks: [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
@@ -277,7 +264,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   DATE, though it opens on the first line that can change.
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec done on 2026-10-26; the rest run in this order: the bank download and closing a
-  statement, a draft waiting for the owner's approval
+  statement, the current spec
   ([specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md));
   the sheet import through the engine
   ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), a

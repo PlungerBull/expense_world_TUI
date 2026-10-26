@@ -3,13 +3,12 @@
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: the engine's hand-off of
 2026-10-26, its items 1, 3, 4, 6, 8 and 9, and the changed refusal wording of item 7. Its other
 items have specs of their own: item 7, a locked field's words, was caught up by its own spec on
-2026-10-26, its reply waiting in [to-engine/](../to-engine/) to be handed over; after this one
+2026-10-26, its reply handed over the same day; after this one
 come [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
 
-**Status: draft, for the owner to rewrite or approve. Its tasks are drafted when the owner names
-it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file
-is deleted.
+**Status: current (owner, 2026-10-26); its tasks and question 1 wait for the owner.** When done,
+the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -93,13 +92,78 @@ so the live tests can finally see the engine refuse a write with `RESERVED_NAME_
 
 ## Questions for the owner
 
-None beyond the two mockup picks (points 1 and 2), made when the spec starts.
+Beside the two mockup picks (points 1 and 2):
+
+1. **Bank rows dated before 2026.** The import door today sends nothing dated before
+   2026-01-01, so an old row in a download is never added
+   ([decisions.md](../decisions.md) "Bank downloads are matched against the ledger", point 6).
+   Once the engine reads the file, the app cannot leave rows out.
+   - **A.** Drop the rule: every row goes to the engine. An old row the ledger lacks shows as
+     new on the preview, where you see it before anything is written, and a row inside a
+     completed statement is never added.
+   - **B.** Ask the engine to keep a "ledger starts on" day for you, and to leave out every row
+     before it, for every app.
+
+   **Recommended:** A, because downloads cover recent months, the preview already shows an old
+   row before you apply, and B only matters for the first import or two.
 
 ---
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Drafted 2026-10-26; the loop runs them once the owner approves them. Tasks 1 to 4 can run now;
+tasks 5 and 6 wait for their mockup pick.
+
+1. **The second practice key is handled like the first** (point 7). `scripts/practice-engine up`
+   passes both keys the reseed prints through to the terminal: the shared practice user's and
+   the reserved-names practice user's. [runtime.md](../runtime.md) "Working against the live
+   engine" names the second one and the variable it goes in on the contract suite's command line,
+   good for one check only like the first; [tests/contract/conftest.py](../../tests/contract/conftest.py)
+   gives the tests a client as that user, and a live run without the variable fails those tests
+   naming it. A test in [test_claude_hooks.py](../../tests/unit/test_claude_hooks.py) proves the
+   guard keeps the second key out of files as it does the first.
+2. **A card's other account comes from the engine on Reconciliations** (point 3). Every place
+   Reconciliations pairs a card's two accounts (the list's columns, a new card statement's two
+   halves) reads the account's `statement_partner_id` (contract: GET /v1/accounts), never matching
+   statement codes: `code_holders`, `statement_partners` and `statement_accounts` in
+   [reads.py](../../expense/reads.py) go, or keep only what is not pairing. The unit tests'
+   accounts carry `statement_partner_id`. A live test reads a card's two accounts naming each
+   other, and `null` on an account with no code and on one whose code no other account holds.
+   Nothing you see changes. (The import door's account list changes with its rewrite, task 6.)
+3. **The engine's current words in the tests, and a statement's last day** (points 4 and 5). No
+   unit test quotes a part's refusal starting "Part … of this bank line is the cause", or a parts
+   total refusal stating both totals; each quotes the engine's current words. The app's words
+   about sealed days ([tui.md](../tui.md), hints, code comments) say a completed statement locks
+   its days but the last, which locks once the next statement is completed too; the app shows
+   the engine's refusal as it comes and computes nothing. The live sealed-period tests prove the
+   last day open until the next statement completes, and leave no `contract-seal-…` account
+   behind.
+4. **A held reserved name, live** (point 6). As the reserved-names practice user, a live test
+   draws `RESERVED_NAME_HELD` on each route the engine's check names, reading the routes from the
+   live contract; each refusal writes nothing.
+5. **[UI] Completing a statement shows the lines it flagged** (point 2). First a mockup of where
+   the flagged lines show after complete, each leading to its line; the task waits for the
+   owner's pick. Then: complete goes through whenever the engine takes it, and nothing in the
+   app or its unit tests treats leftover lines as a refusal of complete (the
+   `UNASSIGNED_IN_PERIOD` test in
+   [test_tui_reconcile_detail.py](../../tests/unit/test_tui_reconcile_detail.py) goes); the fake
+   engine answers a complete with each half's `review_lines` and the `twin`, as the real one does
+   (contract: POST /v1/reconciliations/{reconciliation_id}/complete); a card shows both halves'
+   lines. The live tests stop expecting the refusal ([test_card_statement.py](../../tests/contract/test_card_statement.py),
+   [test_statement_order.py](../../tests/contract/test_statement_order.py)) and prove a close
+   flagging a leftover line, on a card on both halves.
+6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
+   door's account list, preview and result, the task waiting for the owner's pick. Then: the door
+   sends the file itself (`dry_run`, `account_id`, `file`; contract: POST /v1/transactions/import)
+   and reads no cell of it; [parse.py](../../expense/bank_import/parse.py) and every other piece
+   of the app's own bank-file reading go (the sheet import's reader stays: it has its own spec).
+   The preview names each row by its spreadsheet row number, shows and counts a `skipped` row,
+   and shows a refused row on that row in the engine's words; a refused file shows the engine's
+   words. The account list pairs a card through `statement_partner_id`. The rule of question 1
+   follows the owner's answer. The backlog item "Leftovers in the import door" is deleted with
+   it. Live tests ([test_bank_import.py](../../tests/contract/test_bank_import.py)) build a
+   made-up download in the test itself, never a real file: a dry run and an apply, a card's
+   rows landing on both its accounts, a zero row skipped.
 
 ## Reply to the engine
 
