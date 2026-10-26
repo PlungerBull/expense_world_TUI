@@ -28,15 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the spec for the statement catch-up's leftovers
-Asked 2026-10-25 · Blocks: [specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)
-
-Twelve small things the catch-up found: test guards and copies, two comments, a note on the
-create form, an engine ask for a card's other account, and the practice data's leftovers.
-Nothing you use changes but the note, which gets a mockup. Approve it or rewrite it.
-
-**Recommended:** approve it, after the PDF spec, which matters more.
-
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
@@ -65,8 +56,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Leftovers from the statement catch-up**: a draft spec waiting for the owner's approval
-  ([specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)).
+- **Leftovers from the statement catch-up**: the current spec, approved with its tasks on
+  2026-10-25 ([specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add

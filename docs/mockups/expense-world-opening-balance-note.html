@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Opening balance note</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+
+<div class="head">
+  <h1>The create form's note on the opening balance</h1>
+  <p>An account's <b>opening balance</b> is a line on the account, the first one. When a statement holds that line, the engine already counts it in the statement's sum. So if you also type the paper's starting figure as the statement's <b>begin balance</b>, the money counts twice and the statement never adds up. That statement begins at <code>0.00</code>.</p>
+  <p>The form cannot know which statement will hold the opening balance, so the note is always there under <b>BEGIN BALANCE</b>, on the one-account form and on each half of a card's form. Nothing else on the form changes. Pick one wording.</p>
+  <p>The accounts and amounts are invented. Words that are new are listed under <b>Pick</b>.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">1 · New reconciliation <span>— n on Sueldo Soles, on the BEGIN BALANCE field</span></div>
+<p class="blurb">Today the field's hint reads <code>signed decimal · your statement's opening balance</code>. Note that it already says "opening balance" for the paper's starting figure, the same words as the account's opening-balance line: C changes that.</p>
+<div class="opt">
+
+<div class="var"><div class="oh">A · <span>one line, short</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Sueldo Soles  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE   </span>0.00<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · your statement's opening balance · 0.00 on the first one</span>
+
+   name          Enero 2026
+   date start    2026-01-01
+   date end      2026-01-31
+   <span class="b">begin balance </span><span class="d">*</span>
+   end balance   <span class="d">optional</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Fits on one line. "The first one" is the usual case, but not the exact rule: it is the statement that holds the opening-balance line, and it says nothing of why.</p></div>
+
+<div class="var"><div class="oh">B · <span>today's hint, plus a second line saying when and why</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Sueldo Soles  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE   </span>0.00<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · your statement's opening balance</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name          Enero 2026
+   date start    2026-01-01
+   date end      2026-01-31
+   <span class="b">begin balance </span><span class="d">*</span>
+   end balance   <span class="d">optional</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Keeps today's first line as it is. The second line gives the exact rule and the reason, in under 80 columns. <b>Recommended:</b> it says when to type 0.00 and why, without changing words you already know.</p></div>
+
+<div class="var"><div class="oh">C · <span>B, with the paper's figure called the starting balance</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Sueldo Soles  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE   </span>0.00<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · the paper's starting balance</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name          Enero 2026
+   date start    2026-01-01
+   date end      2026-01-31
+   <span class="b">begin balance </span><span class="d">*</span>
+   end balance   <span class="d">optional</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create  <span class="a">⇥</span> Field</pre></div></div><p class="cap">"Opening balance" then means only the account's line, and "starting balance" the figure printed on the paper. Clearer, but it changes a hint you know, on both forms.</p></div>
+
+</div>
+</div>
+
+<div class="pane">
+<div class="lbl">2 · New card statement <span>— n on Signature PEN, on BEGIN BALANCE PEN (the USD half reads the same, with "dollar")</span></div>
+<p class="blurb">Each half of a card is its own account with its own opening balance, so each half's begin field carries the note. Shown with B; A and C change the same way as on screen 1.</p>
+<div class="opt">
+<div class="var"><div class="oh">B · <span>on a card's form</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Signature PEN  ▸  <span class="b">New</span>
+
+<span class="d">──────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">BEGIN BALANCE PEN   </span>0.00<span class="a">▍</span>
+
+
+   <span class="d">signed decimal · the soles half's opening balance</span>
+   <span class="d">0.00 if it holds the account's opening balance, which already counts it</span>
+
+   name                Enero 2026
+   accounts            Signature PEN + Signature USD · SIG
+   date start          2025-12-26
+   date end            2026-01-25
+   <span class="b">begin balance PEN   </span><span class="d">*</span>
+   end balance PEN     <span class="d">optional</span>
+   begin balance USD   <span class="d">*</span>
+   end balance USD     <span class="d">optional</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Create both  <span class="a">⇥</span> Field</pre></div></div><p class="cap">Under C the first line would read <code>the soles half's starting balance</code>.</p></div>
+</div>
+</div>
+
+<div class="pick">
+<b>Picked on 2026-10-25:</b> B, today's hint kept and a second line saying when and why.
+<ul>
+<li><b>New words, yours to change:</b> A's <code>· 0.00 on the first one</code>; B's and C's second line <code>0.00 if it holds the account's opening balance, which already counts it</code>; C's <code>the paper's starting balance</code> and <code>the soles half's starting balance</code>.</li>
+</ul>
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

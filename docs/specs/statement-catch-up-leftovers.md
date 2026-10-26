@@ -1,7 +1,6 @@
 # Leftovers from the statement catch-up
 
-**Status: draft, for the owner to rewrite or approve. Its tasks are drafted when the owner names
-it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file
+**Status: approved by the owner and the current spec, 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and this file
 is deleted.
 
 ---
@@ -67,9 +66,74 @@ note in point 9 and the engine ask in point 10.
 
 1. The unit and live suites pass, and each point above has its test or its single copy.
 2. The create form's note reads as picked.
-3. The engine's account read names a card's other account, and the create form reads it there.
+3. The ask that the engine's account read name a card's other account is written for the engine
+   coders. The create form reads it there in the catch-up that follows the engine's answer, not
+   in this spec (the owner, 2026-10-25).
 4. The practice user's Reconciliations browse lists only accounts a test is using.
 
 ## Questions for the owner
 
-1. **Point 9's note.** A mockup comes when the spec starts.
+1. **Point 9's note.** Answered 2026-10-25: B in
+   [expense-world-opening-balance-note.html](../mockups/expense-world-opening-balance-note.html),
+   today's hint kept and a second line `0.00 if it holds the account's opening balance, which
+   already counts it`.
+
+---
+
+## Tasks
+
+Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
+do and when it passes.
+
+1. **Guard `statement_line` and `statement_place` out of request bodies** (point 1). Passes if
+   every unit test fails when a request body it sends carries either field at any depth, as it
+   does for `line_code`, with a test proving the guard trips on each, and the unit suite still
+   passes.
+2. **One account-record builder in test_cmd_import.py** (point 2). Passes if the file builds
+   every account record through one helper, no copied record is left, and its tests check
+   what they checked before.
+3. **The complete answer's fixtures carry `coverage_gap`, and the drift check catches a
+   required field a fixture leaves out** (point 3). Passes if every unit fixture of the complete
+   answer has `coverage_gap`, the drift script reports a fixture that leaves out a field the
+   contract marks required on its answer, with a unit test proving it, and a run against the
+   practice engine is clean.
+4. **The fake engine answers a reconciliation write as the engine does** (point 4). Passes if
+   `FakeClient` answers a reconciliation's create, revert, delete and complete in the engine's
+   answer shape, `twin` included on a card (contract: POST /v1/reconciliations), the tests that
+   set their own answer keep working, and the unit suite passes.
+5. **One copy of each contract-suite helper** (point 5, first half). Passes if `_live_ids`,
+   `_send`, `_batch_into` and `_assign` each exist once, in the contract suite's conftest.py, or
+   give way to `Scratch.line`, keeping whichever route a test exists to prove, and the live
+   suite passes against the practice engine.
+6. **One repo-wide guard that nothing names the split route** (point 5, second half). Passes if
+   one test over the whole repo replaces the two in test_bank_line_write.py, its docstring in
+   the present tense, and it fails when any file names the route.
+7. **The live suite pins two card-statement answers** (point 6). Passes if live tests prove
+   that a complete on a card whose halves are both completed writes nothing, and that
+   `UNASSIGNED_IN_PERIOD` names both halves at once, and the live suite passes.
+8. **A unit test pins `c`, `u` and `d` on a card half's batch screen** (point 7; after task 4).
+   Passes if unit tests drive each key on a card half and prove the one write sent and that the
+   screen shows both halves done.
+9. **One way to group accounts by statement code, one way to dim a completed row** (point 8).
+   Passes if `statement_accounts` and `statement_partners` share one grouping, `statement_rows`
+   dims a row from the engine's `status` as `batch_rows` does, and what the screens show is
+   unchanged.
+10. **The create form's note on the opening balance** (point 9). Passes if the hint under
+    BEGIN BALANCE reads as pick B of
+    [expense-world-opening-balance-note.html](../mockups/expense-world-opening-balance-note.html),
+    on the one-account form and on each half of a card's form, with tests, and tui.md says it.
+11. **Write the engine ask: the account read names a card's other account** (point 10, the
+    orchestrator's part). Passes if one file in [to-engine/](../to-engine/) asks for it in that
+    folder's shape and says what this client removes once it lands (the grouping by statement
+    code that finds a card's partner).
+12. **Words that describe dropped screens say what is** (point 11). Passes if the `⏎` comment
+    in reconciliations.py and the docstrings of test_statement_codes.py and
+    test_statement_order.py describe what the code does, naming no screen that does not exist.
+13. **The practice user's leftovers are cleaned, and the run that leaves them is fixed** (point
+    12). Passes if the live run that leaves accounts with statement codes and reconciliations
+    behind is found and fixed, those leftovers are removed from the practice user, and after a
+    full live run the practice user's Reconciliations browse lists no account a test made.
+
+## Found along the way
+
+Nothing yet.
