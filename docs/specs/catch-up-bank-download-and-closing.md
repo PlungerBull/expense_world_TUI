@@ -7,7 +7,7 @@ items have specs of their own: item 7, a locked field's words, was caught up by 
 come [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
 
-**Status: current (owner, 2026-10-26); its tasks and question 1 wait for the owner.** When done,
+**Status: current (owner, 2026-10-26); its tasks wait for the owner's approval.** When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -92,20 +92,10 @@ so the live tests can finally see the engine refuse a write with `RESERVED_NAME_
 
 ## Questions for the owner
 
-Beside the two mockup picks (points 1 and 2):
+None beyond the two mockup picks (points 1 and 2).
 
-1. **Bank rows dated before 2026.** The import door today sends nothing dated before
-   2026-01-01, so an old row in a download is never added
-   ([decisions.md](../decisions.md) "Bank downloads are matched against the ledger", point 6).
-   Once the engine reads the file, the app cannot leave rows out.
-   - **A.** Drop the rule: every row goes to the engine. An old row the ledger lacks shows as
-     new on the preview, where you see it before anything is written, and a row inside a
-     completed statement is never added.
-   - **B.** Ask the engine to keep a "ledger starts on" day for you, and to leave out every row
-     before it, for every app.
-
-   **Recommended:** A, because downloads cover recent months, the preview already shows an old
-   row before you apply, and B only matters for the first import or two.
+**Answered:** a bank download imports every row of the file, whatever its date: the import
+door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ---
 
@@ -159,9 +149,9 @@ tasks 5 and 6 wait for their mockup pick.
    of the app's own bank-file reading go (the sheet import's reader stays: it has its own spec).
    The preview names each row by its spreadsheet row number, shows and counts a `skipped` row,
    and shows a refused row on that row in the engine's words; a refused file shows the engine's
-   words. The account list pairs a card through `statement_partner_id`. The rule of question 1
-   follows the owner's answer. The backlog item "Leftovers in the import door" is deleted with
-   it. Live tests ([test_bank_import.py](../../tests/contract/test_bank_import.py)) build a
+   words. The account list pairs a card through `statement_partner_id`. Every row of the file
+   goes in, whatever its date: the 2026 rule (`IMPORT_FLOOR`) goes. The backlog item "Leftovers
+   in the import door" is deleted with it. Live tests ([test_bank_import.py](../../tests/contract/test_bank_import.py)) build a
    made-up download in the test itself, never a real file: a dry run and an apply, a card's
    rows landing on both its accounts, a zero row skipped.
 
