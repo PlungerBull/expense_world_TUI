@@ -39,6 +39,16 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
+### Hand over the ask that probes clean up after themselves
+Asked 2026-10-25 · Blocks: nothing; it keeps the practice user from filling up again
+
+The junk on the practice user came from the engine coders' agents trying things by hand on the
+shared practice engine. Copy
+[to-engine/engine-side-probes-clean-up-after-themselves.md](to-engine/engine-side-probes-clean-up-after-themselves.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
