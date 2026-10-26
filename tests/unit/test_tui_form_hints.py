@@ -30,7 +30,6 @@ from expense.tui.screens.create_forms import (
 from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
 from expense.tui.screens.reconciliations import NewCardStatementScreen, NewReconciliationScreen
 from expense.tui.screens.setup import SetupScreen
-from expense.tui.screens.split import SplitScreen
 from tests.unit.helpers import edit_limits, run_app, wait_for
 
 NAME_GOES_ON = "free text · enter to go on"
@@ -64,28 +63,64 @@ TXN = {
     "statement_line": None,
     "statement_place": None,
 }
+_PART = {
+    "id": "p1",
+    "date": "2026-06-20T00:00:00Z",
+    "title": "FARMACIA",
+    "amount_cents": 4250,
+    "transaction_type": 1,
+    "category_id": "cat1",
+    "hashtag_ids": ["h1"],
+    "description": None,
+    "statement_line": None,
+    "statement_place": None,
+}
 LINE = {
     "id": "bl1",
     "account_id": "acc1",
     "operation_code": "47391026",
     "part_count": 1,
     "net_cents": -4250,
-    "parts": [
-        {
-            "id": "p1",
-            "date": "2026-06-20T00:00:00Z",
-            "title": "FARMACIA",
-            "amount_cents": 4250,
-            "transaction_type": 1,
-            "statement_line": None,
-            "statement_place": None,
-        }
-    ],
+    "parts": [_PART],
     "statement_line": None,
     "statement_place": None,
     "edit_limits": edit_limits(),
 }
-SPLIT_LINE = {**LINE, "part_count": 2, "parts": [*LINE["parts"], {**LINE["parts"][0], "id": "p2"}]}
+SPLIT_LINE = {
+    **LINE,
+    "part_count": 2,
+    "net_cents": -8500,
+    "parts": [_PART, {**_PART, "id": "p2"}],
+}
+_LINE_FIELDS = ("title", "date", "account_id", "reconciliation_id")
+#: Each closed state's `edit_limits`, as the engine answers it
+#: (tests/contract/test_bank_line_edit_limits.py).
+ARCHIVED = edit_limits(
+    locked_fields=dict.fromkeys(_LINE_FIELDS, "ACCOUNT_ARCHIVED"),
+    total_fixed=True,
+    parts_fixed=True,
+    locked_part_fields={"p1": {"amount_cents": "ACCOUNT_ARCHIVED"}},
+)
+#: The same with no title on the line: a title filled while empty is not refused.
+ARCHIVED_NO_TITLE = {
+    **ARCHIVED,
+    "locked_fields": dict.fromkeys(("date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"),
+}
+OPENING = edit_limits(
+    locked_fields={"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
+    parts_fixed=True,
+    locked_part_fields={
+        "p1": {
+            "category_id": "OPENING_BALANCE_CATEGORY_FIXED",
+            "hashtag_ids": "OPENING_BALANCE_NOT_TAGGED",
+        }
+    },
+)
+COMPLETED = edit_limits(
+    locked_fields=dict.fromkeys((*_LINE_FIELDS, "operation_code"), "LOCKED"),
+    total_fixed=True,
+    locked_part_fields={"p1": {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
+)
 
 
 def _hint(screen) -> str:
@@ -198,25 +233,14 @@ def test_new_reconciliation_name_goes_on(fake_client):
 # ---- the guard: every bar form, in each of its shapes ------------------------
 
 
-def _archived(screen: EditFormScreen) -> EditFormScreen:
-    """The form as on an archived account's row (`_set_entities` locks these)."""
-    screen._locked |= screen._frozen_on_archived()
-    return screen
-
-
-def _opening(screen: EditFormScreen) -> EditFormScreen:
-    """The form as on an opening balance (`_set_entities` locks these)."""
-    screen._locked |= {"account", "category", "hashtags"}
+def _on(screen: EditFormScreen, line: dict, limits: dict | None = None) -> EditFormScreen:
+    """The form holding `line`, its `edit_limits` replaced by `limits` if given."""
+    screen._take_line({**line, "edit_limits": limits or line["edit_limits"]})
     return screen
 
 
 def _with_profile(screen: SetupScreen) -> SetupScreen:
     screen._profile = True  # the engine has no profile for the key: name + zone
-    return screen
-
-
-def _title_open(screen: SplitScreen) -> SplitScreen:
-    screen._title_open = True
     return screen
 
 
@@ -229,20 +253,18 @@ SHAPES = {
     NewAccountScreen: lambda: [NewAccountScreen()],
     EditAccountScreen: lambda: [EditAccountScreen(dict(ACCOUNT)), EditAccountScreen(dict(PERSON))],
     EditFormScreen: lambda: [
-        EditFormScreen(record=dict(TXN)),
-        _opening(EditFormScreen(record=dict(TXN))),
-        _archived(EditFormScreen(record=dict(TXN))),
-        _archived(EditFormScreen(record={**TXN, "title": None})),
+        _on(EditFormScreen(record=dict(TXN)), LINE),
+        _on(EditFormScreen(record=dict(TXN)), SPLIT_LINE),
+        _on(EditFormScreen(record=dict(TXN)), LINE, OPENING),
+        _on(EditFormScreen(record=dict(TXN)), LINE, ARCHIVED),
+        _on(EditFormScreen(record={**TXN, "title": None}), LINE, ARCHIVED_NO_TITLE),
+        _on(EditFormScreen(record=dict(TXN)), LINE, COMPLETED),
     ],
     BankLineEditFormScreen: lambda: [
         BankLineEditFormScreen(line=dict(LINE)),
         BankLineEditFormScreen(line=dict(SPLIT_LINE)),
-        _archived(BankLineEditFormScreen(line={**LINE, "operation_code": None})),
-        _archived(
-            BankLineEditFormScreen(
-                line={**LINE, "parts": [{**LINE["parts"][0], "title": None}]},
-            )
-        ),
+        BankLineEditFormScreen(line={**LINE, "operation_code": None, "edit_limits": ARCHIVED}),
+        BankLineEditFormScreen(line={**LINE, "edit_limits": COMPLETED}),
     ],
     NewReconciliationScreen: lambda: [
         NewReconciliationScreen(),
@@ -256,7 +278,6 @@ SHAPES = {
         )
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],
-    SplitScreen: lambda: [SplitScreen(dict(TXN)), _title_open(SplitScreen(dict(TXN)))],
 }
 
 _SAYS_SAVE = re.compile(r"\bsav", re.IGNORECASE)
@@ -320,10 +341,18 @@ def test_the_guard_trips_on_a_save_hint_before_the_last_line(monkeypatch):
 
 
 def test_title_says_save_only_when_it_is_the_one_line_left():
-    """TITLE on an archived account's bank line with its operation set and no
-    title: no line after it can change, so `⏎` there saves and the hint says so."""
-    line = {**LINE, "parts": [{**LINE["parts"][0], "title": None}]}
-    screen = _archived(BankLineEditFormScreen(line=line))
+    """TITLE with no line after it that can change: `⏎` there saves and the
+    hint says so. No engine state closes every part field (a part's note always
+    changes), so these `edit_limits` close them all by hand to reach the rule."""
+    every_field = dict.fromkeys(("amount_cents", "category_id", "hashtag_ids", "description"), "X")
+    closed = {**ARCHIVED_NO_TITLE["locked_fields"], "operation_code": "ACCOUNT_ARCHIVED"}
+    limits = {
+        **ARCHIVED_NO_TITLE,
+        "locked_fields": closed,
+        "locked_part_fields": {"p1": every_field},
+    }
+    line = {**LINE, "parts": [{**_PART, "title": None}], "edit_limits": limits}
+    screen = BankLineEditFormScreen(line=line)
     assert [k for k in screen._sequence() if k not in screen._locked] == ["title"]
     assert screen._hint_for("title") == "free text · enter to save"
-    assert EditFormScreen(record=dict(TXN))._hint_for("title") == NAME_GOES_ON
+    assert _on(EditFormScreen(record=dict(TXN)), LINE)._hint_for("title") == NAME_GOES_ON

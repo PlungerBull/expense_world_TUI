@@ -619,31 +619,6 @@ def test_load_quickadd_refs_pool_excludes_what_the_maps_keep(configured):
 
 
 @respx.mock
-def test_load_quickadd_refs_names_the_opening_category_by_its_system_key(configured):
-    """The @Opening row is found by `system_key`, never by its name (the owner
-    may rename it), from the same categories read; none means None."""
-    respx.get(f"{BASE}/v1/accounts").mock(return_value=_list_body([]))
-    cats = respx.get(f"{BASE}/v1/categories")
-    cats.mock(
-        return_value=_list_body(
-            [
-                {"id": "c1", "name": "@Opening", "is_system": False},
-                {"id": "c2", "name": "Apert", "is_system": True, "system_key": "opening_balance"},
-                {"id": "c3", "name": "@Pendiente", "is_system": True, "system_key": "pending"},
-            ]
-        )
-    )
-    respx.get(f"{BASE}/v1/hashtags").mock(return_value=_list_body([]))
-
-    refs = load_quickadd_refs(config_module.ensure_loaded())
-
-    assert refs.opening == "c2"
-    assert cats.call_count == 1
-    cats.mock(return_value=_list_body([{"id": "c1", "name": "KORAKUEN"}]))
-    assert load_quickadd_refs(config_module.ensure_loaded()).opening is None
-
-
-@respx.mock
 def test_the_pick_list_holds_pendiente_where_the_engine_lists_it_never_opening(configured):
     """`pickable_categories` — the Edit form's CATEGORY and the ledger's bulk
     `c` — keeps the engine's order with @Pendiente in its place, found by its

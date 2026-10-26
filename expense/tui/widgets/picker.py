@@ -13,8 +13,8 @@ genuinely differs — the bar appends a currency, the form whatever third field
 the entity tuple carries, the bulk pick the name alone — so the caller formats
 the labels and this draws them.
 
-What a field's list holds is `matching`'s: the edit form, the split screen's
-part fields and the bulk pick fill their lists through it, so a typed name
+What a field's list holds is `matching`'s: the Edit form, its parts' fields
+among them, and the bulk pick fill their lists through it, so a typed name
 finds the same entities on each.
 """
 

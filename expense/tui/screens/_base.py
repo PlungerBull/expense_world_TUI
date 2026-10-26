@@ -134,7 +134,7 @@ class EngineWriteMixin:
         the words `on_error` (or the toast) gets; the shared `format_error`
         unless a screen needs the engine's words without its hints.
         `on_failure` receives the failure itself instead of `on_error`'s words,
-        for a screen that lays a refusal out by its keys (the split screen
+        for a screen that lays a refusal out by its keys (the Edit form
         names each refused part by its number)."""
         if self._write_queue is None:
             self._write_queue = deque()

@@ -4,12 +4,11 @@ One input bar cycles through a field sequence; a suggestion list under it
 offers picks; a summary table mirrors progress; `ctrl+s` (or enter when no
 field ahead can change) submits via `run_write`. Subclasses supply the field
 sequence, labels/hints, suggestion pools, commit handlers, and the submit request:
-BarFormScreen (static Field list), EditFormScreen (dynamic sequence,
-locked fields, edit mode), NewReconciliationScreen (dynamic sequence) and
+BarFormScreen (static Field list), EditFormScreen (a bank line's shared
+fields, then every part's, the read-only ones the line's `edit_limits` names,
+and its own send), NewReconciliationScreen (dynamic sequence) and
 NewCardStatementScreen (both halves of a card statement),
-SetupScreen (first-time setup: the engine address and key, then a profile),
-SplitScreen (a part's fields, or the title's one field, under the table of
-parts, its own layout and send).
+SetupScreen (first-time setup: the engine address and key, then a profile).
 """
 
 from rich.console import Group, RenderableType
@@ -306,7 +305,11 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         return Group(*rows)
 
     def _summary_renderable(self) -> RenderableType:
-        seq = self._sequence()
+        return self._summary_table(self._sequence())
+
+    def _summary_table(self, seq: list[str]) -> Table:
+        """The summary's table, one line per field of `seq`: its name, then its
+        value, `read-only` and dimmed while locked, `—` while empty."""
         required = self._required()
         current_key = self._key
         t = Table(box=None, pad_edge=False, show_header=False, expand=False)

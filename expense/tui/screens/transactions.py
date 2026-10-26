@@ -3,8 +3,8 @@
 Built on SectionScreen + the shared CursorList, as **one list that grows**
 (`GrowingRead`): it opens with the newest 10, `pgdn` appends the next 10 by
 the engine's cursor, and the legend reads `N of M loaded`. Any write starts it
-over from the newest 10. `enter` opens the
-record in the editable EditFormScreen and `+` opens the LOG bar
+over from the newest 10. `enter` opens the Edit form (`EditFormScreen`) on the
+row's bank line, every part of it, and `+` opens the LOG bar
 (`LogTransactionMixin`).
 
 **The filtered ledger is the categorising pass**. Home pushes this screen with
@@ -27,9 +27,9 @@ changes nothing shows no receipt. A refused row is named by its number;
 the others go through. Title, description,
 amount and date stay single-row edits behind `⏎`.
 
-`s` opens the split screen (`split.py`) on the cursor row: one purchase into
-parts, or, on a part of a split purchase, all its parts again. A split reads
-the list fresh from the newest 10.
+`s` opens the same Edit form on the cursor row, on DATE as `⏎` does: its parts
+are changed, added and dropped there (edit_form.py). A save reads the list
+fresh from the newest 10.
 
 `d` deletes the cursor row after the question and reads the list fresh from
 the newest 10. It first reads the row's bank line once
@@ -101,7 +101,6 @@ from expense.tui.screens._base import (
 from expense.tui.screens._growing import GrowingRead, read_first
 from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_on_move
-from expense.tui.screens.split import SplitScreen
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList, list_table
@@ -466,16 +465,16 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self.refresh_bindings()  # re-check `s` and `d` for the row the cursor landed on
 
     def action_split(self) -> None:
-        """`s` — the split screen for the row under the cursor; a split reads
-        the list fresh. Never a selection, nor an archived account's row
-        (`check_action`)."""
+        """`s` — the Edit form on the row under the cursor, as `⏎` opens it; a
+        save reads the list fresh. Never a selection, nor an archived account's
+        row (`check_action`)."""
         if self._selected or self._bulk_busy or self._on_archived_row():
             return
         targets = self._targets()
         if not targets:
             return
         record = self._by_id[targets[0]]
-        self.app.push_screen(SplitScreen(record, crumb=self.crumb), self._after_detail)
+        self.app.push_screen(EditFormScreen(record=record), self._after_detail)
 
     def action_delete(self) -> None:
         """`d` — delete the row under the cursor, after the question. Never a
@@ -731,7 +730,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         item = self._by_id.get(event.key)
         if item:
             self.app.push_screen(
-                EditFormScreen(record=item, resource="transactions"),
+                EditFormScreen(record=item),
                 self._after_detail,
             )
 

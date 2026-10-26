@@ -17,12 +17,12 @@ from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.split import SplitScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     bank_line_row,
+    edit_limits,
     fake_ledger,
     import_part,
     line_code_of,
@@ -75,11 +75,26 @@ LEDGER = [
 CATEGORIES = [{"id": "cat-efe", "name": "EFECTIVO", "is_system": False}]
 
 
+def _archived_limits(part_id: str) -> dict:
+    """A line on an archived account: every line field refused, its parts and
+    their amounts kept (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")."""
+    return edit_limits(
+        locked_fields=dict.fromkeys(
+            ("title", "date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"
+        ),
+        total_fixed=True,
+        parts_fixed=True,
+        locked_part_fields={part_id: {"amount_cents": "ACCOUNT_ARCHIVED"}},
+    )
+
+
 @pytest.fixture
 def engine(fake_client, monkeypatch):
     """The fake engine behind the shared reads: every account, the archived one
-    included, and each row's never-split bank line; the ledger's own list
-    reads are `fake_ledger`'s."""
+    included, and each row's never-split bank line, the archived account's with
+    the `edit_limits` the engine answers for it
+    (tests/contract/test_bank_line_edit_limits.py); the ledger's own list reads
+    are `fake_ledger`'s."""
     monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
     fake_client.get_responses.update(
         {
@@ -91,9 +106,12 @@ def engine(fake_client, monkeypatch):
     for row in LEDGER:
         line = row["bank_line_id"]
         part = import_part(row["id"], row["amount_cents"], account_id=row["account_id"], line=line)
-        fake_client.get_responses[f"/bank-lines/{line}"] = bank_line_row(
+        read = bank_line_row(
             line, [part], net_cents=row["amount_cents"], account_id=row["account_id"]
         )
+        if row["account_id"] == ARCHIVED["id"]:
+            read["edit_limits"] = _archived_limits(row["id"])
+        fake_client.get_responses[f"/bank-lines/{line}"] = read
     fake_ledger(monkeypatch, list(LEDGER))
     return fake_client
 
@@ -207,7 +225,7 @@ def test_s_and_d_work_as_today_on_an_active_or_a_persons_row(engine, key):
         await wait_for(pilot, lambda: app.screen is screen)
         assert engine.deletes == []
         await pilot.press("s")
-        await wait_for(pilot, lambda: isinstance(app.screen, SplitScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
 
     run_app(scenario, size=(160, 30))
 
@@ -249,7 +267,7 @@ def test_after_an_unarchive_and_r_s_and_d_are_back_on_the_row(engine):
         await _cursor_on(pilot, screen, "t-old")
         await wait_for(pilot, lambda: _keys_shown(screen) == {"Split", "Delete"})
         await pilot.press("s")
-        await wait_for(pilot, lambda: isinstance(app.screen, SplitScreen))
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
 
     run_app(scenario, size=(160, 30))
 

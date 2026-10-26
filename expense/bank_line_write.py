@@ -1,7 +1,8 @@
 """The body of the whole-line write, `PUT /bank-lines/{id}`.
 
-One home for every screen that rewrites a bank line's parts: the split screen
-now, the Edit form with its parts next, so neither builds the body its own way.
+One home for the body of every write that rewrites a bank line's parts: the
+Edit form's save (`expense/tui/screens/edit_form.py`), so no screen builds it
+its own way.
 
 **`parts` is the line's complete new set**, each part deciding by its `id`
 what happens to it (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"):

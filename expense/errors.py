@@ -348,8 +348,8 @@ def app_lines(err: EngineError, *, on_list: bool = False) -> list[str]:
     """The app's lines `format_error` puts under the engine's words, each after
     a blank line: `next_step`'s line (`on_list` on a list screen), then a hint
     chosen by the status or the error code. Empty when the refusal has none. A
-    screen that lays the engine's words out itself (the split screen) adds these
-    under them."""
+    screen that lays the engine's words out itself (the Edit form, under its
+    parts) adds these under them."""
     lines: list[str] = []
     step = next_step(err, on_list=on_list)
     if step is not None:

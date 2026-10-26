@@ -85,6 +85,11 @@ Screen {
 NewCardStatementScreen #field {
     width: 18;
 }
+/* the Edit form names each part's field: its longest label up to part 99
+   (PART 99 CATEGORY, 16) + 1 right padding — guarded by test_tui_field_width.py */
+EditFormScreen #field {
+    width: 17;
+}
 /* EVERY Input, not just the bar's: Textual's own default is
    `border: tall $border-blurred`, and #prompt inside the prompt boxes is
    not matched by an `#inputbar` selector — they would be the only vertical
@@ -134,43 +139,6 @@ Input {
 #pick-rows {
     padding: 0 3 0 4;
     height: auto;
-}
-/* the split screen (split.py): the line every part keeps, the title, the
-   table of the parts, and the picked part's fields under it */
-#split-head {
-    padding: 1 3 0 3;
-    height: auto;
-}
-#split-title {
-    padding: 1 3 0 3;
-    height: auto;
-}
-#parts {
-    padding: 1 3;
-    height: auto;
-}
-#part-fields {
-    display: none;
-    height: auto;
-    padding: 0 3;
-}
-#part-head, #fields-above, #fields-below {
-    height: auto;
-}
-#part-inputbar {
-    height: 1;
-}
-/* `▌ ` and the label: the input starts where the other fields' values do */
-#part-field {
-    width: 12;
-}
-#part-inputbar Input {
-    width: 1fr;
-}
-/* the list under the field, its names under the field's value */
-#part-suggest {
-    height: auto;
-    padding: 0 0 0 12;
 }
 /* the LOG bar's account peek: the ledger of the account the line names.
    `1fr` is the whole of it — every widget above it is

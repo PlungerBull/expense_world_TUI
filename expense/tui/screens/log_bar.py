@@ -106,7 +106,7 @@ from expense.tui.dropped import dropped_bank_files
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
-from expense.tui.widgets.cells import amount_cell
+from expense.tui.widgets.cells import amount_cell, amount_text
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.windowed import CURSOR_STYLE
@@ -486,8 +486,7 @@ def staged_summary(
         line = Text(f"  {len(pending)} staged", style="dim")
         for code, cents in totals.items():
             line.append(" · ", style="dim")
-            figure = amount_cell(cents, palette, AMOUNT_RULE)
-            line.append_text(figure if isinstance(figure, Text) else Text(str(figure)))
+            line.append_text(amount_text(cents, palette, AMOUNT_RULE))
             if code:
                 line.append(f" {code}", style="dim")
         unclassified = sum(1 for e in pending if e.parsed.category_id is None)

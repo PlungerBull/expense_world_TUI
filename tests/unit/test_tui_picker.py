@@ -50,7 +50,7 @@ def test_the_cursor_row_is_drawn_with_the_shared_style():
 
 
 def test_matching_finds_a_name_anywhere_case_and_accent_blind_without_the_chosen():
-    """What a field's list holds, for the Edit form and the split screen's part
+    """What a field's list holds, for the Edit form's line and part
     fields alike: every entity whose name holds what is typed, in their order,
     the whole tuple kept, and none whose id the field already holds."""
     pool = [("c-hog", "HOGAR"), ("c-hos", "HOSPEDAJE"), ("c-ban", "BAÑOS"), ("c-com", "COMIDA")]

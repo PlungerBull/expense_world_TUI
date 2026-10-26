@@ -23,7 +23,6 @@ from tests.unit.helpers import (
     cursor_page,
     import_part,
     in_order,
-    put_answer,
     refusal_text,
     render_text,
     run_app,
@@ -934,7 +933,7 @@ def test_appended_rows_carry_the_flag_too(monkeypatch):
 
 
 def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
-    """`⏎` on a line never split opens the edit form on its one transaction,
+    """`⏎` on a line never split opens the Edit form on the line, its one part
     signed; `esc` is not a write, so nothing is read again and the cursor stays
     on its row."""
     from expense.tui.screens.edit_form import EditFormScreen
@@ -954,7 +953,7 @@ def test_esc_from_the_edit_form_keeps_the_no_batch_rows_and_cursor(monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
         form = app.screen
         assert form._record["id"] == "bl12-p1"  # the line's one transaction
-        assert form._values["amount"] == -1200  # signed, as a ledger read gives it
+        assert [p.amount_cents for p in form._parts] == [-1200]  # signed
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is screen)
         assert len(calls) == reads
@@ -1008,14 +1007,18 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
     run_app(scenario)
 
 
-# ---- `⏎` in no batch: the Edit form on the bank's columns (pane 2e C2) -------
-# (contract: PUT /v1/transactions/{transaction_id}, "Line fields")
-EDIT_CATEGORIES = whole([])
-EDIT_HASHTAGS = whole([])
+# ---- `⏎` in no batch: the Edit form on the line and its parts ----------------
+# Question 1 A of expense-world-split-transaction-screen.html: the same Edit form,
+# OPERATION among the shared fields; one save is one `PUT /bank-lines/{id}`
+# (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
+EDIT_CATEGORIES = whole(
+    [{"id": "pend", "name": "@Pendiente", "is_system": True, "system_key": "pending"}]
+)
+EDIT_HASHTAGS = whole([{"id": "h-pend", "name": "Pendiente", "system_key": "pending"}])
 
 
-def _summary_lines(form) -> list[str]:
-    text = render_text(form._summary_renderable(), width=120)
+def _summary_lines(form, width: int = 120) -> list[str]:
+    text = render_text(form._summary_renderable(), width=width)
     return [line.rstrip() for line in text.splitlines()]
 
 
@@ -1024,7 +1027,7 @@ def _heading_text(form) -> str:
 
 
 async def _open_form(pilot, app, key: str):
-    """The no batch list, the cursor on `key`, `⏎`; the form with its accounts loaded."""
+    """The no batch list, the cursor on `key`, `⏎`; the form once loaded."""
     from expense.tui.screens.edit_form import BankLineEditFormScreen
 
     screen = await _open_unfiled(pilot, app)
@@ -1032,7 +1035,8 @@ async def _open_form(pilot, app, key: str):
     await pilot.press("enter")
     await wait_for(pilot, lambda: isinstance(app.screen, BankLineEditFormScreen))
     form = app.screen
-    await wait_for(pilot, lambda: form._accounts)
+    await wait_for(pilot, lambda: form._ready)
+    await pilot.pause()
     return screen, form
 
 
@@ -1043,41 +1047,34 @@ def _patch_form(monkeypatch, items=None):
     return _patch_unfiled(monkeypatch, items=items)
 
 
-def test_parts_section_is_each_parts_amount_then_the_total_under_a_rule():
-    """C2's `Parts`: each part's signed amount right-aligned, a rule, the
-    line's own `net_cents` as the total, then the dim line, all read-only."""
-    from expense.tui.screens.edit_form import parts_section
-
-    text = render_text(parts_section(UNFILED[1]), width=120)
-    assert [line.rstrip() for line in text.splitlines()] == [
-        "Parts  read-only",
-        "             -60.00",
-        "             -40.00",
-        "           ────────",
-        "total       -100.00",
-        "the parts must add up to the total · s in the ledger splits it again to change them",
-    ]
+def _go_to(form, key: str) -> None:
+    """Move the bar to `key`, a line of the form's own sequence."""
+    assert key in form._sequence(), key
+    while form._key != key:
+        form.action_field(1)
 
 
-def test_the_total_is_the_engines_net_cents_never_a_sum_of_the_parts():
-    from expense.tui.screens.edit_form import parts_section
-
-    odd = {**UNFILED[1], "net_cents": -12345}  # not -60.00 + -40.00: the app adds nothing
-    text = render_text(parts_section(odd), width=120)
-    assert "total       -123.45" in text
+#: Each line of a part, after the shared fields.
+PART_FIELDS = ["amount", "category", "hashtags", "note"]
 
 
-def test_a_row_never_split_opens_the_bank_columns_with_its_amount(monkeypatch, fake_client):
-    """C2, a row never split: date, title, operation, amount and account, all
-    editable, in that order; the heading is the row as listed; no category,
-    hashtags or note and no Parts section; the crumb is `… ▸ Reconciliations ▸ Edit`."""
+def test_a_row_never_split_opens_the_line_and_its_one_part(monkeypatch, fake_client):
+    """A row never split: date, title, operation and account, then part 1's
+    amount, category, hashtags and note, all editable; the heading is the row
+    as listed; the crumb is `… ▸ Reconciliations ▸ Edit`."""
     from expense.tui.widgets.header import Breadcrumb
 
     _patch_form(monkeypatch)
 
     async def scenario(pilot, app):
         _screen, form = await _open_form(pilot, app, "bl-uber")
-        assert form._sequence() == ["date", "title", "operation", "amount", "account"]
+        assert form._sequence() == [
+            "date",
+            "title",
+            "operation",
+            "account",
+            *(f"0.{f}" for f in PART_FIELDS),
+        ]
         assert not form._locked
         assert form._key == "date"
         assert form.query_one("#crumb", Breadcrumb)._trail == (
@@ -1090,30 +1087,28 @@ def test_a_row_never_split_opens_the_bank_columns_with_its_amount(monkeypatch, f
             "date       2026-03-20",
             "title      UBER *TRIP",
             "operation  —  (optional)",
-            "amount     -24.50",
             "account    BCP PEN",
+            "",
+            "      amount    category       hashtags        note",
+            "  1   -24.50    —              —",
         ]
-        for key in ("title", "operation", "amount", "account"):
+        for key in ("title", "operation", "account", "0.amount"):
             form.action_field(1)
             assert form._key == key
-        assert form.query_one("#bar", Input).value == ""  # account re-picks from scratch
+        assert form.query_one("#bar", Input).value == "-24.5"  # as `amount_to_text` writes it
 
     run_app(scenario)
     assert fake_client.calls == []  # the line was in hand: nothing read, nothing sent
 
 
-def test_a_split_transaction_opens_the_bank_columns_and_its_parts_read_only(
-    monkeypatch, fake_client
-):
-    """C2, a split transaction: date, title, operation and account, editable;
-    under them `Parts`, each part's amount, then the total under a rule; no
-    amount field, no category, hashtags or note."""
+def test_a_split_transaction_opens_the_line_and_every_part(monkeypatch, fake_client):
+    """A split transaction: the shared fields, then each part's lines, every
+    one editable, and the line adding the parts up against its total."""
     _patch_form(monkeypatch)
 
     async def scenario(pilot, app):
         _screen, form = await _open_form(pilot, app, "bl-farm")
-        assert form._sequence() == ["date", "title", "operation", "account"]
-        assert "amount" not in form._values
+        assert form._sequence()[4:] == [f"{i}.{f}" for i in (0, 1) for f in PART_FIELDS]
         assert _heading_text(form) == "FARMACIA  ·  -100.00 PEN"
         assert _summary_lines(form) == [
             "date       2026-03-10",
@@ -1121,16 +1116,13 @@ def test_a_split_transaction_opens_the_bank_columns_and_its_parts_read_only(
             "operation  48201764",
             "account    BCP PEN",
             "",
-            "Parts  read-only",
-            "             -60.00",
-            "             -40.00",
-            "           ────────",
-            "total       -100.00",
-            "the parts must add up to the total · s in the ledger splits it again to change them",
+            "      amount    category       hashtags        note",
+            "  1   -60.00    —              —",
+            "  2   -40.00    —              —",
+            "",
+            "2 parts  ·  -100.00 of -100.00  ✓",
         ]
-        form.action_field(1)
-        form.action_field(1)
-        assert form._key == "operation"
+        _go_to(form, "operation")
         assert form.query_one("#bar", Input).value == "48201764"
 
     run_app(scenario)
@@ -1143,6 +1135,12 @@ def _type_and_enter(form, text: str) -> None:
     form.on_input_submitted(None)
 
 
+FARM_PARTS = [
+    {"id": "bl-farm-p1", "amount_cents": -6000},
+    {"id": "bl-farm-p2", "amount_cents": -4000},
+]
+
+
 @pytest.mark.parametrize(
     ("row", "field", "typed", "sent"),
     [
@@ -1152,7 +1150,7 @@ def _type_and_enter(form, text: str) -> None:
         ("bl-farm", "operation", "", {"operation_code": None}),
         ("bl-farm", "account", "Interbank", {"account_id": "acc2", "reconciliation_id": None}),
         ("bl-uber", "operation", "11122233", {"operation_code": "11122233"}),
-        ("bl-uber", "amount", "-30.00", {"amount_cents": -3000}),
+        ("bl-uber", "0.amount", "-30.00", {}),
     ],
     ids=[
         "split-date",
@@ -1164,26 +1162,28 @@ def _type_and_enter(form, text: str) -> None:
         "lone-amount",
     ],
 )
-def test_saving_sends_one_put_on_one_part_with_only_the_field_changed(
+def test_saving_sends_one_put_on_the_line_with_the_field_changed_and_its_parts(
     monkeypatch, fake_client, row, field, typed, sent
 ):
-    """One `PUT /transactions/{id}` on the line's first part, carrying only
-    what changed; the engine moves every part (contract: PUT
-    /v1/transactions/{transaction_id}, "Line fields"). An emptied operation
-    sends `null`, which clears it (contract: PUT /v1/transactions/{transaction_id}).
-    An account move also settles the assignment (`unassign_on_move`). Saved,
-    "no batch" reads its newest ten again, the cursor on row 1."""
+    """One `PUT /bank-lines/{id}`: the line field changed, if any, beside every
+    part under its own id with its current amount, a typed amount in its place.
+    An emptied operation sends `null`, which clears it, and an account move
+    also settles the assignment (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
+    (`unassign_on_move`). Saved, "no batch" reads its newest ten again, the
+    cursor on row 1."""
     from expense.dates import to_canonical_aware
 
     calls, counts = _patch_form(monkeypatch)
     if "date" in sent:
         sent = {"date": to_canonical_aware(sent["date"])}
+    parts = FARM_PARTS if row == "bl-farm" else [{"id": "bl-uber-p1", "amount_cents": -2450}]
+    if field == "0.amount":
+        parts = [{"id": "bl-uber-p1", "amount_cents": -3000}]
 
     async def scenario(pilot, app):
         screen, form = await _open_form(pilot, app, row)
         await _cursor_on(pilot, screen, row)
-        while form._key != field:
-            form.action_field(1)
+        _go_to(form, field)
         reads = len(calls)
         _type_and_enter(form, typed)
         if form.is_attached and app.screen is form:
@@ -1195,12 +1195,12 @@ def test_saving_sends_one_put_on_one_part_with_only_the_field_changed(
         assert screen._batch_list.cursor_index == 0
 
     run_app(scenario)
-    assert fake_client.puts == [(f"/transactions/{row}-p1", sent)]
+    assert fake_client.puts == [(f"/bank-lines/{row}", {**sent, "parts": parts})]
     assert [m for m, _p in fake_client.requests] == ["PUT"]
 
 
 def test_saving_carries_one_idempotency_key(configured, monkeypatch):
-    """Through the real HTTP client: one `PUT` on the first part, with the
+    """Through the real HTTP client: one `PUT /bank-lines/{id}` with the
     client's idempotency key, and no read of the line."""
     import httpx
     import respx
@@ -1220,29 +1220,60 @@ def test_saving_carries_one_idempotency_key(configured, monkeypatch):
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: not isinstance(app.screen, BankLineEditFormScreen))
 
+    farm = next(line for line in UNFILED if line["id"] == "bl-farm")
     with respx.mock(assert_all_called=False) as engine:
         read = engine.get(url__startswith=f"{ENGINE_URL}/v1/bank-lines").mock(
             httpx.Response(200, json={})
         )
-        farm = next(line for line in UNFILED if line["id"] == "bl-farm")
-        titled = [{**p, "title": "FARMACIA CENTRAL", "version": 2} for p in farm["parts"]]
-        route = engine.put(f"{ENGINE_URL}/v1/transactions/bl-farm-p1").mock(
-            httpx.Response(200, json=put_answer(titled[0], titled))
+        route = engine.put(f"{ENGINE_URL}/v1/bank-lines/bl-farm").mock(
+            httpx.Response(
+                200,
+                json={**farm, "changed_parts": [], "created_part_ids": [], "deleted_part_ids": []},
+            )
         )
         run_app(scenario)
     assert route.call_count == 1
     assert route.calls.last.request.headers["X-Idempotency-Key"]
-    assert json.loads(route.calls.last.request.content) == {"title": "FARMACIA CENTRAL"}
+    assert json.loads(route.calls.last.request.content) == {
+        "title": "FARMACIA CENTRAL",
+        "parts": FARM_PARTS,
+    }
     assert not read.called
 
 
-def test_a_refused_save_shows_the_engine_words_and_the_form_stays(monkeypatch, fake_client):
-    """The engine refuses: its words whole in the "Failed" note, as the Edit
-    form shows them, the form still open and "no batch" not read again."""
-    from expense.errors import EngineError, format_error
-    from expense.tui.screens.edit_form import BankLineEditFormScreen
-
+def _refused(monkeypatch, fake_client, err) -> tuple[list[str], tuple[bool, bool, int]]:
+    """Type a new operation number on bl-farm and save into `err`; returns the
+    summary once refused, then whether the form is still on top, whether it
+    holds what was typed, and how many times "no batch" was read since."""
     calls, _counts = _patch_form(monkeypatch)
+    fake_client.errors["PUT"] = err
+    seen: list = []
+
+    async def scenario(pilot, app):
+        _screen, form = await _open_form(pilot, app, "bl-farm")
+        reads = len(calls)
+        _go_to(form, "operation")
+        _type_and_enter(form, "47391026")
+        typed = dict(form._values)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: form._refusal is not None and not form._submitting)
+        seen.extend([app.screen is form, form._values == typed, len(calls) - reads])
+        return _summary_lines(form, width=200)
+
+    summary = run_app(scenario)
+    assert fake_client.puts == [
+        ("/bank-lines/bl-farm", {"operation_code": "47391026", "parts": FARM_PARTS})
+    ]
+    return summary, tuple(seen)
+
+
+def test_a_refused_save_shows_the_engine_words_under_the_parts_and_the_form_stays(
+    monkeypatch, fake_client
+):
+    """The engine refuses: its words whole under the parts, then the app's
+    line for the reason, the form still open and "no batch" not read again."""
+    from expense.errors import EngineError
+
     err = EngineError(
         "CONFLICT",
         "Another bank line on this account already has operation code '47391026'.",
@@ -1251,70 +1282,31 @@ def test_a_refused_save_shows_the_engine_words_and_the_form_stays(monkeypatch, f
         {},
         reasons={"operation_code": "OPERATION_CODE_EXISTS"},
     )
-    fake_client.errors["PUT"] = err
-    notices: list = []
-    monkeypatch.setattr(
-        BankLineEditFormScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, str(message))),
-    )
-
-    async def scenario(pilot, app):
-        _screen, form = await _open_form(pilot, app, "bl-farm")
-        reads = len(calls)
-        form.action_field(1)
-        form.action_field(1)
-        _type_and_enter(form, "47391026")
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notices and not form._submitting)
-        assert notices == [("Failed", format_error(err))]
-        assert app.screen is form
-        assert len(calls) == reads
-
-    run_app(scenario)
-    assert fake_client.puts == [("/transactions/bl-farm-p1", {"operation_code": "47391026"})]
+    summary, seen = _refused(monkeypatch, fake_client, err)
+    assert [line.strip() for line in summary[-5:]] == [
+        "CONFLICT — Another bank line on this account already has operation code '47391026'.",
+        "! operation_code: Another bank line on this account already has operation code.",
+        "Nothing was saved.",
+        "",
+        "That account already has a row with this operation number: look there for a duplicate.",
+    ]
+    assert seen == (True, True, 0)  # on top, holding what was typed, nothing read again
 
 
 def test_a_save_on_an_archived_account_shows_the_engine_words_alone(monkeypatch, fake_client):
     """Screen 3 A of expense-world-archived-account.html: the form was opened
     before the line's account was archived, and a new operation number is
-    saved. The "Failed" note is the engine's words, its field's words under
-    them, and no line of the app's; the form stays open with what was typed,
-    and "no batch" is not read again."""
-    from expense.tui.screens.edit_form import BankLineEditFormScreen
-
-    calls, _counts = _patch_form(monkeypatch)
+    saved. Under the parts, the engine's words, its field's words under them,
+    and no line of the app's; the form stays open with what was typed, and
+    "no batch" is not read again."""
     err = archived_refusal(422, ARCHIVED_PUT_WORDS, "operation_code")
-    fake_client.errors["PUT"] = err
-    notices: list = []
-    monkeypatch.setattr(
-        BankLineEditFormScreen,
-        "notify",
-        lambda self, message, title="", **kw: notices.append((title, str(message))),
-    )
-
-    async def scenario(pilot, app):
-        _screen, form = await _open_form(pilot, app, "bl-farm")
-        reads = len(calls)
-        form.action_field(1)
-        form.action_field(1)
-        _type_and_enter(form, "47391026")
-        typed = dict(form._values)
-        await pilot.press("ctrl+s")
-        await wait_for(pilot, lambda: notices and not form._submitting)
-        assert notices == [
-            (
-                "Failed",
-                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
-                f"  operation_code: {ARCHIVED_FIELD_WORDS}",
-            )
-        ]
-        assert notices[0][1] == refusal_text(err, None)
-        assert app.screen is form and form._values == typed
-        assert len(calls) == reads
-
-    run_app(scenario)
-    assert fake_client.puts == [("/transactions/bl-farm-p1", {"operation_code": "47391026"})]
+    summary, seen = _refused(monkeypatch, fake_client, err)
+    assert [line.strip() for line in summary[-3:]] == [
+        f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}",
+        f"! operation_code: {ARCHIVED_FIELD_WORDS}",
+        "Nothing was saved.",
+    ]
+    assert seen == (True, True, 0)  # on top, holding what was typed, nothing read again
 
 
 def test_esc_on_a_split_transaction_sends_nothing_and_keeps_the_cursor(monkeypatch, fake_client):

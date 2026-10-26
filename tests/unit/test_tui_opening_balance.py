@@ -740,8 +740,8 @@ def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
     the one place a sign is read off the type, and the
     account Edit form never looks its opening balance up through the @Opening
     category; the account names it. The category's `system_key` has one home,
-    `reads.OPENING_SYSTEM_KEY`, which only tells the ledger's edit form that a
-    row is an opening balance."""
+    `reads.OPENING_SYSTEM_KEY`, which the live contract suite reads to find the
+    category; what an opening balance's line keeps is its `edit_limits`."""
     import ast
     from pathlib import Path
 
@@ -764,19 +764,18 @@ def test_no_sign_from_the_type_and_no_lookup_through_the_opening_category():
 
 
 #: What reading the @Opening category through the shared reads looks like.
-_OPENING_CATEGORY_READS = {"OPENING_SYSTEM_KEY", "_opening_of", "load_quickadd_refs"}
+_OPENING_CATEGORY_READS = {"OPENING_SYSTEM_KEY", "load_quickadd_refs"}
 
 
 def _opening_category_reads(source: str) -> set[str]:
     """The @Opening-category reads `source` makes: one of the names above,
-    bare (`load_quickadd_refs(...)`) or through a module (`reads.load_quickadd_refs`),
-    or `.opening` off a `QuickAddRefs`."""
+    bare (`load_quickadd_refs(...)`) or through a module (`reads.load_quickadd_refs`)."""
     import ast
 
     tree = ast.parse(source)
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
-    return (_OPENING_CATEGORY_READS & (names | attrs)) | ({"opening"} & attrs)
+    return _OPENING_CATEGORY_READS & (names | attrs)
 
 
 def test_the_opening_category_guard_sees_reads_through_a_module():
@@ -785,8 +784,6 @@ def test_the_opening_category_guard_sees_reads_through_a_module():
         "load_quickadd_refs"
     }
     assert _opening_category_reads("x = reads.OPENING_SYSTEM_KEY") == {"OPENING_SYSTEM_KEY"}
-    assert _opening_category_reads("_opening_of(rows)") == {"_opening_of"}
-    assert _opening_category_reads("refs.opening") == {"opening"}
     assert _opening_category_reads("self._opening_id = 1") == set()
 
 

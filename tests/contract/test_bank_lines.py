@@ -2,8 +2,8 @@
 
 Every transaction belongs to one bank line, and the whole-line write gives a line its
 complete set of parts, keeping its identity (contract: "Transactions (Ledger)", "Bank
-lines"). The split screen, the edit form's "reaches every part" note and the bank upload
-all stand on rules only the engine can confirm. Pinned here:
+lines"). The Edit form, its "changes every part" note and the bank upload all stand on
+rules only the engine can confirm. Pinned here:
 
   · new parts sent alone replace the line's one transaction on the same line, each
     taking the line's title, date and account; a re-split (60 + 40 into 70 + 30) sent
@@ -31,15 +31,19 @@ all stand on rules only the engine can confirm. Pinned here:
     place, an unsplit line is one part at its signed amount, a split 60 + 40
     reads `-10000` over two parts in the ledger's order; an unknown id is
     `404`, a malformed one `422` `INVALID_FORMAT`;
-  · the split screen's own path: its body replaces a line's one transaction, one
-    `fetch_bank_line` reads the parts and the total back, the parts read go out
-    again under their own ids writing nothing, a part dropped and one added are
-    deleted and created in one write, and in a completed reconciliation a set that
-    misses the total names parts 1 and 2;
-  · the split screen's title: its body with `title` beside `parts` gives every
-    part that title, and without it every part keeps the line's; on a line in
-    a completed reconciliation a changed title is `422` `LOCKED` on `title`
-    with nothing written, and the same parts without it go through;
+  · the Edit form's own path: a line never split keeps its one transaction as
+    part 1 beside a part added, one `fetch_bank_line` reads the parts and the total
+    back, the parts read change nothing so the form sends nothing, a part dropped
+    and one added are deleted and created in one write, and in a completed
+    reconciliation a set that misses the total names parts 1 and 2;
+  · the Edit form's title: a changed `title` beside `parts` gives every part that
+    title, and without it every part keeps the line's; on a line in a completed
+    reconciliation the title is read-only and never sent, so the parts go through,
+    and a body with a changed title is `422` `LOCKED` on `title` with nothing
+    written;
+  · the "no batch" Edit form: its one write carries the line fields changed beside
+    every part at its amount, an emptied operation clears the code and an account
+    move carries every part;
   · a line is reconciled whole: `reconciliation_id` sent on one part puts every
     part in the reconciliation, and `null` on one part takes every part out;
   · a `PUT` answers with `changed_parts`, each part whose line fields it changed
@@ -988,7 +992,7 @@ def test_a_bank_line_reads_its_figures(client):
         assert line["parts"] == [client.get(f"/transactions/{out['id']}")]
         (part,) = line["parts"]
         assert (part["amount_cents"], signed_cents(part)) == (2500, -2500)
-        # What the split screen pre-fills from a part.
+        # What the Edit form pre-fills a part from.
         for key in ("amount_cents", "transaction_type", "category_id", "hashtag_ids"):
             assert key in part
         assert "description" in part
@@ -1016,20 +1020,53 @@ def test_a_bank_line_reads_its_figures(client):
         _safe(client.delete, f"/accounts/{account}")
 
 
-def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
-    """The split screen's own path, end to end, its body built by `split_body` and sent
-    as one whole-line write: on a line never split its new parts replace the line's one
-    transaction; one `fetch_bank_line` gives the parts and the `net_cents` total; the
-    parts read back go out again under their own ids, unchanged, and nothing is
-    written; a part dropped from the table is deleted and a part added is created, in
+def _edit_form(cfg, line_id: str, *, no_batch: bool = False):
+    """The Edit form as `⏎` opens it on the line `line_id`, its reads done:
+    the reference lists and `GET /bank-lines/{id}`, whose `edit_limits` say
+    what is read-only. Built off screen, so nothing it says is shown: a
+    `No changes to save.` lands in its `notes`."""
+    from expense.reads import fetch_bank_line, load_quickadd_refs
+    from expense.tui.screens.edit_form import BankLineEditFormScreen, EditFormScreen
+
+    line = fetch_bank_line(cfg, line_id)
+    if no_batch:
+        form = BankLineEditFormScreen(line=line)
+    else:
+        form = EditFormScreen(record={**line["parts"][0], "bank_line_id": line_id})
+        form._take_line(line)
+    form._take_refs(load_quickadd_refs(cfg))
+    form.notes = []
+    form.notify = lambda message, **kw: form.notes.append(str(message))
+    return form
+
+
+def _form_save(client, form, written: list[str] | None = None) -> dict | None:
+    """The form's one save, sent as the app sends it; None when the form has
+    nothing to send. The ids of the parts it creates join `written` first."""
+    request = form._submit_request()
+    if request is None:
+        return None
+    method, path, body, _busy = request
+    assert (method, path) == ("PUT", f"/bank-lines/{form._line['id']}")
+    if written is not None:
+        written.extend(p["id"] for p in body["parts"])
+    return client.put(path, json_body=body)
+
+
+def test_the_edit_form_splits_then_re_splits_through_its_own_reads(client):
+    """The Edit form's own path, end to end, each save the one whole-line write its
+    `_submit_request` builds: on a line never split its one transaction stays as part 1
+    and a part added is created beside it; one `fetch_bank_line` gives the parts and
+    the `net_cents` total; the parts read back change nothing, so the form sends
+    nothing; a part dropped from the table is deleted and a part added is created, in
     the same write; and on a line in a completed reconciliation, parts that miss the
-    total come back keyed so the screen names part 1 and part 2
+    total come back keyed so the form names part 1 and part 2
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "The total")."""
     from dataclasses import replace
 
-    from expense.reads import fetch_bank_line, load_quickadd_refs
-    from expense.tui.screens.split import Part, flagged_parts, part_from_engine, split_body
+    from expense.reads import fetch_bank_line
+    from expense.tui.widgets.parts_table import Part, flagged_parts
     from tests.contract.conftest import ENGINE_URL, PAT
 
     cfg = Config(engine_url=ENGINE_URL, token=PAT)
@@ -1042,44 +1079,41 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
     def line_parts(line: str) -> list[dict]:
         return fetch_bank_line(cfg, line)["parts"]
 
-    def send(line: str, parts: list[Part]) -> dict:
-        refs = load_quickadd_refs(cfg)
-        held = {p["id"]: p for p in line_parts(line)}
-        body = split_body(parts, refs, held)
-        written.extend(p["id"] for p in body["parts"])
-        return client.put(f"/bank-lines/{line}", json_body=body)
-
     try:
         original = _post_tx(client, account, _noon(zone, 2026, 4, 14), -10000, "TOTTUS")
         written.append(original["id"])
         line = original["bank_line_id"]
-        assert [p["id"] for p in line_parts(line)] == [original["id"]]
+
+        form = _edit_form(cfg, line)
+        assert [p.id for p in form._parts] == [original["id"]]
+        assert form._total == -10000
+        form._parts = [
+            replace(form._parts[0], amount_cents=-6000, category_id=groceries, note="verduras"),
+            Part(-4000),
+        ]
+        first = _form_save(client, form, written)
+        assert first["deleted_part_ids"] == []
+        (created,) = first["created_part_ids"]
+        assert {p["id"]: signed_cents(p) for p in line_parts(line)} == {
+            original["id"]: -6000,
+            created: -4000,
+        }
         assert fetch_bank_line(cfg, line)["net_cents"] == -10000
 
-        first = send(
-            line,
-            [
-                Part(-6000, groceries, (), "verduras"),
-                Part(-4000, None, (), None),
-            ],
-        )
-        assert first["deleted_part_ids"] == [original["id"]]
+        # The parts as read change nothing: the form sends nothing.
         parts = line_parts(line)
-        assert {p["id"] for p in parts} == set(first["created_part_ids"])
-        assert sorted(signed_cents(p) for p in parts) == [-6000, -4000]
-        assert fetch_bank_line(cfg, line)["net_cents"] == -10000
-
-        # The parts as read go back under their own ids: nothing is written.
-        refs = load_quickadd_refs(cfg)
-        again = send(line, [part_from_engine(p, refs) for p in parts])
-        assert (again["created_part_ids"], again["deleted_part_ids"]) == ([], [])
+        again = _edit_form(cfg, line)
+        assert _form_save(client, again) is None
+        assert again.notes == ["No changes to save."]
         reread = line_parts(line)
         assert [(p["id"], p["version"]) for p in reread] == [(p["id"], p["version"]) for p in parts]
 
         # One part kept at a new amount, the other dropped, a new one added.
-        kept = replace(part_from_engine(reread[0], refs), amount_cents=-7000)
-        last = send(line, [kept, Part(-3000, None, (), None)])
-        assert last["deleted_part_ids"] == [reread[1]["id"]]
+        form = _edit_form(cfg, line)
+        form._parts = [replace(form._parts[0], amount_cents=-7000), Part(-3000)]
+        dropped = reread[1]["id"]
+        last = _form_save(client, form, written)
+        assert last["deleted_part_ids"] == [dropped]
         (added,) = last["created_part_ids"]
         assert {p["id"]: signed_cents(p) for p in line_parts(line)} == {
             reread[0]["id"]: -7000,
@@ -1092,16 +1126,11 @@ def test_the_split_screen_splits_then_re_splits_through_its_own_reads(client):
         client.put(f"/transactions/{added}", json_body={"reconciliation_id": recon})
         client.post(f"/reconciliations/{recon}/complete")
         before = line_parts(line)
-        refs = load_quickadd_refs(cfg)
-        err = _refused(
-            lambda: send(
-                line,
-                [
-                    replace(part_from_engine(p, refs), amount_cents=a)
-                    for p, a in zip(before, (-6000, -3000), strict=True)
-                ],
-            )
-        )
+        form = _edit_form(cfg, line)
+        form._parts = [
+            replace(p, amount_cents=a) for p, a in zip(form._parts, (-6000, -3000), strict=True)
+        ]
+        err = _refused(lambda: _form_save(client, form))
         assert flagged_parts(err) == frozenset({0, 1})
         assert line_parts(line) == before
     finally:
@@ -1117,24 +1146,30 @@ TOTTUS = "Tottus Jockey Plaza"
 RENAMED = "Tottus — semana"
 
 
-def _split_titled(client, line_id: str, title: str | None, written: list[str]) -> list[dict]:
-    """The split screen's own body (`split_body`) on a line never split: -60.00 and
-    -40.00 as new parts, with `title` beside them when one is given, sent as one
-    whole-line write; the part ids join `written` before the write."""
-    from expense.reads import load_quickadd_refs
-    from expense.tui.screens.split import Part, split_body
+def _split_titled(client, cfg, line_id: str, title: str | None, written: list[str]) -> dict:
+    """The Edit form on a line never split of -100.00: its part at -60.00 and
+    a new part of -40.00, with `title` typed on TITLE when one is given, saved
+    as its one whole-line write. Returns the form."""
+    from dataclasses import replace
+
+    from expense.tui.widgets.parts_table import Part
+
+    form = _edit_form(cfg, line_id)
+    if title is not None:
+        form._values["title"] = title
+    form._parts = [replace(form._parts[0], amount_cents=-6000), Part(-4000)]
+    form._relock()
+    form.answer = _form_save(client, form, written)
+    return form
+
+
+def test_the_edit_form_sends_the_title_beside_the_parts(client):
+    """The Edit form's title, through its own save: a changed `title` beside
+    `parts` is written onto every part, and left out every part keeps the
+    line's title (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
     from tests.contract.conftest import ENGINE_URL, PAT
 
-    refs = load_quickadd_refs(Config(engine_url=ENGINE_URL, token=PAT))
-    body = split_body([Part(-6000), Part(-4000)], refs, {}, title=title)
-    written.extend(p["id"] for p in body["parts"])
-    return client.put(f"/bank-lines/{line_id}", json_body=body)["parts"]
-
-
-def test_the_split_screen_sends_the_title_with_the_split(client):
-    """The split screen's title, through its own body (`split_body`): `title`
-    beside `parts` is written onto every part, and left out every part keeps
-    the line's title (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")."""
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
     zone = _zone(client)
     account = _make_account(client)
     written: list[str] = []
@@ -1144,24 +1179,32 @@ def test_the_split_screen_sends_the_title_with_the_split(client):
         kept = _post_tx(client, account, _noon(zone, 2026, 4, 16), -10000, TOTTUS)
         written.extend([titled["id"], kept["id"]])
 
-        renamed = _split_titled(client, titled["bank_line_id"], RENAMED, written)
-        assert [client.get(f"/transactions/{p['id']}")["title"] for p in renamed] == [RENAMED] * 2
-        alone = _split_titled(client, kept["bank_line_id"], None, written)
-        assert [client.get(f"/transactions/{p['id']}")["title"] for p in alone] == [TOTTUS] * 2
+        renamed = _split_titled(client, cfg, titled["bank_line_id"], RENAMED, written).answer
+        assert [client.get(f"/transactions/{p['id']}")["title"] for p in renamed["parts"]] == [
+            RENAMED
+        ] * 2
+        alone = _split_titled(client, cfg, kept["bank_line_id"], None, written).answer
+        assert [client.get(f"/transactions/{p['id']}")["title"] for p in alone["parts"]] == [
+            TOTTUS
+        ] * 2
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
         _safe(client.delete, f"/accounts/{account}")
 
 
-def test_a_changed_title_on_a_line_in_a_completed_reconciliation_is_locked(client):
+def test_a_title_on_a_line_in_a_completed_reconciliation_is_read_only_and_never_sent(client):
     """On a line in a completed reconciliation the parts may be rewritten with the
-    total kept, but the title is locked: the split screen's body with a changed
-    `title` is `422` `LOCKED` on `title` and nothing is written, the line still one
-    row under its old title; the same parts with the title left out go through, each
-    new part joining the reconciliation
-    (contract: PUT /v1/transactions/{transaction_id}, "Field locking")
+    total kept, but the title is locked: the Edit form reads it read-only from the
+    line's `edit_limits`, and a title set under it is never sent, so its save goes
+    through, each new part joining the reconciliation under the old title. The same
+    body with the changed `title` beside it is `422` `LOCKED` on `title`, nothing
+    written (contract: PUT /v1/transactions/{transaction_id}, "Field locking")
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")."""
+    from expense.bank_line_write import line_body
+    from tests.contract.conftest import ENGINE_URL, PAT
+
+    cfg = Config(engine_url=ENGINE_URL, token=PAT)
     zone = _zone(client)
     account = _make_account(client)
     recon = _make_reconciliation(client, account, ending=-10000)
@@ -1174,13 +1217,23 @@ def test_a_changed_title_on_a_line_in_a_completed_reconciliation_is_locked(clien
         client.put(f"/transactions/{original['id']}", json_body={"reconciliation_id": recon})
         client.post(f"/reconciliations/{recon}/complete")
 
-        err = _refused(lambda: _split_titled(client, line, RENAMED, written))
+        form = _edit_form(cfg, line)
+        assert {"date", "title", "account"} <= form._locked
+        assert form._submit_request() is None  # nothing changed yet
+        split = [
+            {"id": original["id"], "amount_cents": -6000},
+            {"id": str(uuid4()), "amount_cents": -4000},
+        ]
+        refused_body = line_body(split, {"title": RENAMED})
+        err = _refused(lambda: client.put(f"/bank-lines/{line}", json_body=refused_body))
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert err.reasons == {"title": "LOCKED"}
         assert _live_ids(client, account) == {original["id"]}
         assert client.get(f"/transactions/{original['id']}")["title"] == TOTTUS
 
-        parts = _split_titled(client, line, None, written)
+        saved = _split_titled(client, cfg, line, RENAMED, written)
+        assert "title" not in saved._line_fields()
+        parts = saved.answer["parts"]
         assert _live_ids(client, account) == {p["id"] for p in parts}
         for part in parts:
             read = client.get(f"/transactions/{part['id']}")
@@ -1351,16 +1404,16 @@ def test_the_no_batch_list_reads_through_its_own_reads(client):
         _safe(client.delete, f"/accounts/{account}")
 
 
-def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
+def test_the_no_batch_edit_form_writes_the_line_in_one_write_and_moves_it(client):
     """The "no batch" Edit form's own path (`BankLineEditFormScreen`): built on
-    the line `GET /bank-lines/{id}` reads, its save is one `PUT` on the first
-    part carrying only the fields changed, and the engine writes date, title
-    and operation onto every part, while each part keeps its own amount
-    (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied
-    operation sends `null`, which clears the line's operation code, and an account move
-    carries every part with it (contract: PUT /v1/transactions/{transaction_id})."""
+    the line `GET /bank-lines/{id}` reads, its save is one `PUT /bank-lines/{id}`
+    carrying the line fields changed beside every part at its current amount,
+    and the engine writes date, title and operation onto every part, while each
+    part keeps its own amount (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
+    An emptied operation sends `null`, which clears the line's operation code, and
+    an account move carries every part with it
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")."""
     from expense.reads import fetch_bank_line
-    from expense.tui.screens.edit_form import BankLineEditFormScreen
     from tests.contract.conftest import ENGINE_URL, PAT
 
     cfg = Config(engine_url=ENGINE_URL, token=PAT)
@@ -1370,14 +1423,16 @@ def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
     code = f"op-{uuid4().hex[:10]}"
     written: list[str] = []
 
-    def save(line: dict, **typed) -> dict:
-        form = BankLineEditFormScreen(line=line)
+    def save(line_id: str, **typed) -> dict:
+        form = _edit_form(cfg, line_id, no_batch=True)
         form._values.update(typed)
         request = form._submit_request()
         assert request is not None
-        method, path, payload, _busy = request
-        assert (method, path) == ("PUT", f"/transactions/{line['parts'][0]['id']}")
+        _method, path, payload, _busy = request
         client.put(path, json_body=payload)
+        assert payload.pop("parts") == [
+            {"id": p.id, "amount_cents": p.amount_cents} for p in form._parts
+        ]
         return payload
 
     try:
@@ -1386,10 +1441,9 @@ def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
         client.put(f"/transactions/{purchase['id']}", json_body={"operation_code": code})
         replace_parts(client, purchase["bank_line_id"], [-6000, -4000], written)
         line_id = purchase["bank_line_id"]
-        line = fetch_bank_line(cfg, line_id)
-        before = {p["id"]: p for p in line["parts"]}
+        before = {p["id"]: p for p in fetch_bank_line(cfg, line_id)["parts"]}
 
-        sent = save(line, date="2026-05-08", title="FARMACIA CENTRAL", operation=f"{code}-b")
+        sent = save(line_id, date="2026-05-08", title="FARMACIA CENTRAL", operation=f"{code}-b")
         assert set(sent) == {"date", "title", "operation_code"}
         moved = fetch_bank_line(cfg, line_id)
         assert moved["operation_code"] == f"{code}-b"
@@ -1402,10 +1456,10 @@ def test_the_no_batch_edit_form_writes_one_part_and_moves_the_line(client):
         for part in moved["parts"]:
             assert part["version"] == before[part["id"]]["version"] + 1
 
-        assert save(moved, operation=None) == {"operation_code": None}
+        assert save(line_id, operation=None) == {"operation_code": None}
         assert fetch_bank_line(cfg, line_id)["operation_code"] is None
 
-        sent = save(fetch_bank_line(cfg, line_id), account=other)
+        sent = save(line_id, account=other)
         assert sent == {"account_id": other, "reconciliation_id": None}
         assert {p["account_id"] for p in fetch_bank_line(cfg, line_id)["parts"]} == {other}
     finally:

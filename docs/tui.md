@@ -25,7 +25,8 @@ expense/tui/
   widgets/
     header.py       # Breadcrumb — slim section header (home banner lives in home.py)
                     #   + rate_alert() — the `!` staleness mark both headers share
-    cells.py        # cell renderers: color swatch, sign-colored right-aligned amount_cell,
+    cells.py        # cell renderers: color swatch, sign-colored right-aligned amount_cell
+                    #   (amount_text: the same as Text, for a line that appends it),
                     #   code_cell (a code, or a dim `—` when there is none);
                     #   `—` for a null amount, BLANK for a null difference_cents
                     #   (different states, never the same glyph — decisions.md)
@@ -40,7 +41,10 @@ expense/tui/
     picker.py       # suggestion_list() — the scrolling name list the quick-add
                     #   surfaces and the bulk pick drop under their input
     refusal.py      # hanging() — the `! …` line a screen keeps under a refusal
-                    #   (the import door's preview and result, the split screen)
+                    #   (the import door's preview and result, the Edit form)
+    parts_table.py  # the Edit form's parts: the Part model, the table, the dim
+                    #   `read-only` lines, the line adding the parts up, and a
+                    #   refused save's lines; pure builders
   screens/
     _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
@@ -48,7 +52,7 @@ expense/tui/
     help.py         # HelpModal — the `?` card, derived from BINDINGS (§4)
     home.py         # four months × categories, balances today, then every screen
     transactions.py # the ledger — whole, or filtered by Home; `space` + `c`/`b`/`h` bulk
-                    #   edits; `s` splits and `d` deletes the cursor row
+                    #   edits; `⏎` and `s` open the Edit form, `d` deletes the cursor row
     bulk_pick.py    # BulkPickScreen — what `c`/`b`/`h` open: the rows they change
                     #   over one bar and its suggestion list; writes nothing itself
     accounts.py     categories.py  hashtags.py
@@ -56,9 +60,12 @@ expense/tui/
     system.py       # Config / Auth screens
     setup.py        # SetupScreen — first-time setup: engine address + key, then a
                     #   profile; what the app opens on with no usable settings file
-    edit_form.py    # the transaction EDIT form (`⏎` on a row); `record` is required
-                    #   + BankLineEditFormScreen — the same form on a bank line,
-                    #   `⏎` in the "no batch" list: the bank's columns only
+    edit_form.py    # the Edit form (`⏎` and `s` on a row); `record` is required. The
+                    #   line's shared fields, then every part, saved in one
+                    #   PUT /bank-lines/{id} (body by expense/bank_line_write.py);
+                    #   what is read-only is the line's `edit_limits`
+                    #   + BankLineEditFormScreen — the same form on a line of the
+                    #   "no batch" list, OPERATION among its shared fields
     log_bar.py      # the LOG bar — what `+` opens. One typed line, a staged batch,
                     #   the named account's ledger below it (AccountPeek), one save.
                     #   Parses through expense/quickadd/; `↵` stages a line or refuses
@@ -67,11 +74,6 @@ expense/tui/
                     #   runtime.md "Bulk writes"). Saved rows
                     #   keep a ✓ until the next line is staged; a partial failure
                     #   re-sends only the rest.
-    split.py        # the split screen — what `s` on a ledger row opens. A table of
-                    #   the parts, the picked part's fields or the title's one field
-                    #   below it (FormScreen), one PUT /bank-lines/{id} with the
-                    #   line's whole set of parts (built by expense/bank_line_write.py)
-                    #   and the title when it changed; a refusal stays under the parts
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
@@ -107,7 +109,7 @@ plumbing in [_base.py](../expense/tui/screens/_base.py), form scaffolding in
 
 **One reader for every typed amount.** `parse_amount` in
 [quickadd/money.py](../expense/quickadd/money.py) reads the amount on the LOG bar, the Edit
-form, the split screen, an account's opening balance, a new reconciliation's two balances and
+form, an account's opening balance, a new reconciliation's two balances and
 the reconciliation's `Ending balance first` box. It takes a signed decimal with a dot for its
 decimals (`-99.92`, `13853.20`); every comma is dropped as a thousands mark (`13,853.20`,
 `1,000`) unless one comes after the dot. An amount with a comma after its dot (`13.853,20`,
@@ -140,7 +142,7 @@ cancels a node's workers only on its Unmount, after its children are gone, so a 
 the worker is too early. `call_while_attached(node, callback, …)` in
 [_base.py](../expense/tui/screens/_base.py) makes the check on the UI thread, at the
 moment the callback would run, and drops it once the node has left the app.
-`SectionScreen._load`, every worker of the LOG bar and the split screen's read hand back
+`SectionScreen._load`, every worker of the LOG bar and the Edit form's reads hand back
 this way.
 
 **Invariant: `build()` runs on the UI thread and must never do HTTP.** Where a render
@@ -290,19 +292,19 @@ empty bar drops the last pick, and `⏎` on the empty bar applies; with nothing 
 `Pick at least one tag, or esc to leave the rows as they are.` rather than clear every tag.
 The screen writes nothing: the ledger sends its `PUT`s with the pick, as above.
 **Stepping past ACCOUNT or CATEGORY keeps them** (Question 1 A of
-[expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the `⏎`
-edit form the ACCOUNT and CATEGORY lines open with the bar empty and the whole list in its
-usual order, the highlight on the row's own account or category, so `⏎` with nothing typed
-keeps it and moves on: `⏎` on every line and then `ctrl+s` send nothing and say
-`No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
-another, and a bar emptied again puts the highlight back on the row's own. CATEGORY's list
-is the one the ledger's `c` offers (`pickable_categories` in [reads.py](../expense/reads.py)):
-`@Pendiente` is in it, where the engine lists it, so on a row in `@Pendiente` the highlight
-starts on it and `⏎` keeps it, and picking it on another row sends that row back to waiting
-for a category (Question 3 A of the same mockup); `@Opening` is never in it. A value the list
-does not hold leaves the highlight on the first entry, and there `⏎` with nothing typed takes
-that entry. The "no batch" Edit form's ACCOUNT works the same (`_recompute` in
-[edit_form.py](../expense/tui/screens/edit_form.py)).
+[expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). On the Edit
+form the ACCOUNT line and each part's CATEGORY line open with the bar empty and the whole list
+in its usual order, the highlight on the line's own account or the part's own category, so `⏎`
+with nothing typed keeps it and moves on: `⏎` on every line and then `ctrl+s` send nothing and
+say `No changes to save.` Typing filters the list and highlights its first match, `↑↓` choose
+another, and a bar emptied again puts the highlight back on the line's or part's own.
+CATEGORY's list is the one the ledger's `c` offers (`pickable_categories` in
+[reads.py](../expense/reads.py)): `@Pendiente` is in it, where the engine lists it, so on a
+part in `@Pendiente` the highlight starts on it and `⏎` keeps it, and picking it on another
+part sends that part back to waiting for a category (Question 3 A of the same mockup);
+`@Opening` is never in it. A value the list does not hold leaves the highlight on the first
+entry, and there `⏎` with nothing typed takes that entry. The "no batch" Edit form works the
+same (`_recompute` in [edit_form.py](../expense/tui/screens/edit_form.py)).
 **Stepping past COLOR keeps it** on the Edit screens of Manage ▸ Categories and Manage ▸
 Accounts. The line opens with the bar empty and the highlight on the row's own swatch, so `⏎`
 with nothing typed keeps it and the summary goes on showing it; typing filters and highlights
@@ -317,8 +319,9 @@ saves the name alone and the engine keeps the colour (`_edit_payload` in
 a row in a draft reconciliation unless the write also says what happens to the assignment
 (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}), so `b` adds
 `reconciliation_id: null` to each row whose account changes, and only to those: a row
-already on the picked account keeps its reconciliation. The `⏎` edit form adds
-`reconciliation_id: null` the same way when its account changes; both share `unassign_on_move`
+already on the picked account keeps its reconciliation. The Edit form adds
+`reconciliation_id: null` beside its parts the same way when the line's account changes
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"); both share `unassign_on_move`
 in [edit_form.py](../expense/tui/screens/edit_form.py). The receipt after `b` counts what the
 engine says moved: each `PUT` answers with `changed_parts`, every part whose line field the
 write changed and whether it left its reconciliation
@@ -327,17 +330,18 @@ across the answers that landed and those flagged as leaving — `3 rows → BCP 
 reconciliation` (`· 1 left its reconciliation` for one) — with nothing read to count them
 (`moved_parts` in [edit_form.py](../expense/tui/screens/edit_form.py)). A row already on
 the picked account lists no part, so it is not counted, and a move that changes nothing shows
-no receipt; a refused row is still named. The edit form reads its save's answer the same way
-(`moved_parts`): it says `Saved. It left its reconciliation.` when the answer flags any part as
-leaving, and `Saved.` when `changed_parts` is `[]` or flags none, never judging from the row as
-read before the save.
-**An emptied note empties it.** `⏎` on an emptied NOTE empties the note: the save sends
-`description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
-(contract: PUT /v1/transactions/{transaction_id}). On a row with no note it is no change.
-No field the form sends is `null` except `operation_code`, which `null` clears, and the
-`reconciliation_id: null` a move adds.
-**A date the form can't read is refused at `⏎`.** On DATE, on the `⏎` edit form and the
-"no batch" Edit form alike, `⏎` checks the bar with the reader the save uses
+no receipt; a refused row is still named. The Edit form reads its save's answer the same way
+(`moved_parts`; contract: PUT /v1/bank-lines/{bank_line_id}, "Response"): it says
+`Saved. It left its reconciliation.` when the answer flags any part as leaving, and `Saved.`
+when `changed_parts` is `[]` or flags none, never judging from the line as read before the
+save.
+**An emptied note empties it.** `⏎` on a part's emptied NOTE empties the note: the save sends
+the part's `description: ""` and says `Saved.`; the engine refuses `null` there as `NOT_NULL`
+(contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
+On a part with no note it is no change. No field the form sends is `null` except
+`operation_code`, which `null` clears, and the `reconciliation_id: null` a move adds.
+**A date the form can't read is refused at `⏎`.** On DATE, on the Edit form from the ledger
+and from "no batch" alike, `⏎` checks the bar with the reader the save uses
 (`is_readable_date` in [dates.py](../expense/dates.py)): a day `2026-10-23`, with or without
 a time (`2026-10-23 14:30`), is taken, and an emptied bar commits today. Anything else, `abc`
 say, notes `Date: use YYYY-MM-DD.` as an error, the words New reconciliation's dates and the
@@ -350,27 +354,25 @@ field (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay p
 An opening balance also carries no hashtag, not even the pending one
 (contract: PUT /v1/transactions/{transaction_id}); screen 6 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html).
-The app knows the row by its category: the @Opening system row, found by its `system_key`
-in the categories list the form already reads (`QuickAddRefs.opening` in
-[reads.py](../expense/reads.py)). On such a row the `⏎` edit form shows `account`,
-`category` and `hashtags` (`—`) dimmed and marked `read-only`, every field move (`tab`,
-`shift+tab` and the arrows) skips them, and the save never sends them; date, title, amount
-and note save as on any row. `b`, `c` and `h` send such a row like any other, and the engine
+Its bank line keeps its one part
+(contract: PUT /v1/bank-lines/{bank_line_id}, "A line holding an opening balance keeps its parts").
+The Edit form reads all of it from the line's `edit_limits` ("What is read-only is the line's
+`edit_limits`" above): `account` reads `read-only`, the part's category and hashtags cells are
+dimmed under a dim `category  read-only` and `hashtags  read-only`, every field move (`tab`,
+`shift+tab` and the arrows) skips them, the save never sends them, and there is no `^n` or
+`^x`; date, title, amount and note save as on any line. `b`, `c` and `h` send such a row like any other, and the engine
 refuses it: its "Refused" note is the engine's words for the field, the row, then the line saying what to do
 ("When the engine says no" below), the other rows still go, and the refused row stays
 selected. The LOG bar is untouched: it only creates rows, and a typed line cannot name
 @Opening.
-**A part of a split transaction says what reaches every part.** The engine writes a part's
-date, title and account onto every part of its bank line, in one go, while amount,
-category, hashtags and note stay the part's own
-(contract: "Transactions (Ledger)", "Bank lines"). So on a part, the `⏎` edit form's hint
-under the bar adds `· changes every part of the transaction`, in the accent, while the cursor
-is on date, title or account, and says nothing more on the other fields; screen 1 B in
-[expense-world-edit-part.html](mockups/expense-world-edit-part.html). The form knows the
-row is a part from one `GET /bank-lines/{id}` read as it opens, by the row's
-`bank_line_id`: the engine's `part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}).
-On a row that is not split, and when that read fails, the form and its hints are as on
-any row; the save is the engine's either way.
+**A split transaction says what reaches every part.** The engine writes a line's date,
+title and account onto every part of it, in one go, while amount, category, hashtags and note
+stay each part's own (contract: "Transactions (Ledger)", "Bank lines"). So while the Edit form's
+table holds two parts or more, its hint under the bar adds
+`· changes every part of the transaction`, in the accent, while the bar is on date, title or
+account, and says nothing more on a part's lines; screen 1 B in
+[expense-world-edit-part.html](mockups/expense-world-edit-part.html). On a line of one part
+the hints are as on any form.
 The ledger's bulk keys follow the same rule on a part: `c` and `h` change only the selected
 parts, and `b` on one part moves the whole transaction, every part leaving its reconciliation
 with it, in the engine's one write
@@ -381,110 +383,90 @@ already moved and the engine accepts it as it is, since the `PUT` carries no `ve
 counts the parts the engine says moved, so one part of a 60 + 40 transaction in a draft
 reconciliation reads `2 rows → … · 2 left their reconciliation`, and both parts selected still
 read `2 rows`; `c` and `h` count the rows they wrote.
-**`s` splits the cursor row into parts** ([split.py](../expense/tui/screens/split.py),
-screens 1 to 6 in [expense-world-split-screen.html](mockups/expense-world-split-screen.html)).
-`s Split` sits in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and
-like `d` it works on the cursor row only: off, and out of the footer, while rows are selected,
-while a bulk write runs, or while the cursor is on an archived account's row ("On an
-archived account's row the ledger offers no `s` and no `d`" below). It pushes the split
-screen, a full screen whose crumb adds `Split` to the ledger's. On top, what every part
-keeps: `2026-10-11  ·  Sueldo Soles  ·  -100.00 PEN  ·  every part keeps this date and account`, the date, the account and the line's total. Under it the
-TITLE line, `TITLE      Tottus Jockey Plaza      same on every part`: the title every part
-takes, the transaction's until it is changed (below). The screen opens the row's bank line
-with one `GET /bank-lines/{id}` (`fetch_bank_line` in [reads.py](../expense/reads.py)): its
-`parts`, its `part_count` and its signed `net_cents` total
-(contract: GET /v1/bank-lines/{bank_line_id}). Each part comes as a magnitude and its
-`transaction_type`, signed by `signed_cents` in [formatting.py](../expense/formatting.py). A
-transaction never split is its line's one part, so the table opens empty; on any part of a
-split transaction (`part_count` above 1) the table opens with all its current parts, ready to
-change, drop or add to. A row with no bank line opens at its own amount and reads none.
-**The table** is `amount  category  hashtags  note`, each part numbered, then `+  add a part`
-dim, then the line adding the parts up: `2 parts  ·  -100.00 of -100.00  ✓`, the tick in the
-success colour, or `2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error
-colour: the parts' amounts summed against the engine's total. It never stops a send. A part
-with no amount, category or real hashtag reads `—` there (no category is `@Pendiente`, the
-pending hashtag alone is no hashtag); no note reads blank. `↑↓` move the cursor from the TITLE
-line through the parts to `+ add a part`, the cursor's line in reverse, and stop at either end;
-the screen opens with the cursor on the first part, or on `+ add a part` when there is none.
-**The fields below.** `⏎` on a part opens its fields under the table, under a dim rule and
-`PART 2`: `AMOUNT`, `CATEGORY`, `HASHTAGS`, `NOTE`, one per line, the part marked `▌ 2` in the
-accent in the table. They are the bar form's (`FormScreen` in
-[_form.py](../expense/tui/screens/_form.py)), behaving as on the Edit form: the field the
-cursor is on reads `▌ CATEGORY` in the accent with its input after it; AMOUNT and NOTE open on
-what the part holds; CATEGORY and HASHTAGS open with the bar empty and no list (unlike the
-Edit form's ACCOUNT and CATEGORY, whose list opens on the row's own, "Stepping past ACCOUNT or
-CATEGORY keeps them" above). On CATEGORY and HASHTAGS the shared suggestion list
-([picker.py](../expense/tui/widgets/picker.py), `matching`) shows under the field once
-something is typed, and `↑↓` move in it while it is open. CATEGORY offers the user categories
-only, unlike the Edit form's list, which holds `@Pendiente`: a part left with no category is
-filed under `@Pendiente`. A field is kept when you leave it, by `⏎`, `↑↓` or `⇥`, and shows in
-the table row at once: an amount that is not a number, or a name that matches nothing, is not
-kept, a toast says why (the Edit form's words) and the cursor stays. A field left empty clears
-the amount or the note, and keeps the category and the hashtags the part holds. `⏎` on
-HASHTAGS with a name typed adds that hashtag and stays for another; with nothing typed it
-moves on. `⏎` on NOTE goes back to the table, the cursor on that part. `esc` goes back too,
-keeping every field already left and every hashtag already added with `⏎`; only the field
-being typed goes back to what it was (Question 2 A of
-[expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)).
-**`⏎` on `+ add a part`** adds an empty part, every cell `—`, and opens its fields on AMOUNT.
-A part added there and left with nothing in it, by `esc` or `⏎` through its fields, drops
-again, the cursor back on `+ add a part`; a part holding only the pending hashtag counts as
-empty, since the table never shows it and the split sends no hashtag for it (`part_empty`). A
-part read from the line never drops this way, whatever is emptied; `ctrl+x` drops it.
-**`⏎` on the TITLE line** opens one field below (screen 4), under the dim rule and
-`TITLE · changes it on every part` (`TITLE` bold, the rest dim): `▌ TITLE` in the accent with
-the input after it, opening on the title as it is. While it is open the TITLE line reads
-`▌TITLE      Tottus Jockey Plaza` in the accent, bold, the `▌` in the column `TITLE` starts in
-otherwise, the title as last kept, and no part is under the cursor. `⏎` keeps the title typed,
-trimmed, puts it on the TITLE line and goes back to the table, the cursor on the TITLE line; `esc` goes back leaving the title as it was. An
-empty title, or spaces only, is refused as on the Edit form (`_title_given` in
-[_form.py](../expense/tui/screens/_form.py), one copy for both): the error toast
-`Title is required.`, the field stays open and the TITLE line keeps its title (screen 5), so
-a split never removes a title. `↑↓` do nothing in this one field, and there is no `⇥ Field`.
-`ctrl+s` always sends the line's whole set of parts in one `PUT /bank-lines/{id}` through
-`run_write` (one idempotency key, the same on a retry), to the bank line of the row `s` was
-pressed on, the body built by [bank_line_write.py](../expense/bank_line_write.py), the one
-home for every whole-line write: a part read from the line goes under its own id and is
-updated in place, a part added here goes under a fresh id and is created, and a part dropped
-with `ctrl+x` is left out, so the engine deletes it
-(contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). On a transaction never split the table
-holds only new parts, so the line's one transaction is left out and the new parts replace it.
-A part read from the line sends its signed `amount_cents`, and beside it only what changed: a
-new `category_id`, an emptied note as `description: ""`, and `hashtag_ids` only when its set of
-real hashtags changed, since a kept part sent with them is always written, even with the set
-it has
+**`⏎` and `s` open the Edit form** ([edit_form.py](../expense/tui/screens/edit_form.py),
+[expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html),
+picks 1 A to 6 A). `⏎` on any ledger row and `s` on the cursor row open the same full screen,
+its crumb `Capture & ledger ▸ Transactions ▸ Edit`, the bar on DATE either way. `s Split` sits
+in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
+works on the cursor row only: off, and out of the footer, while rows are selected, while a bulk
+write runs, or while the cursor is on an archived account's row ("On an archived account's row
+the ledger offers no `s` and no `d`" below). The form reads the reference lists and the row's
+bank line, one `GET /bank-lines/{id}` by its `bank_line_id` (`fetch_bank_line` in
+[reads.py](../expense/reads.py)): its `parts` in the engine's order, its signed `net_cents`
+total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
+Each part comes as a magnitude and its `transaction_type`, signed by `signed_cents` in
+[formatting.py](../expense/formatting.py). Until both reads are in the form takes nothing
+typed; a failed read says why in a toast (`format_error`) and the form saves nothing.
+**On top, the line's shared fields**: `date`, `title` and `account`, as the summary of any bar
+form. Under them **the parts table** ([parts_table.py](../expense/tui/widgets/parts_table.py)):
+`amount  category  hashtags  note`, dim, then each part numbered, a transaction never split
+being its line's one part 1. A part with no amount, category or real hashtag reads `—` there
+(no category is `@Pendiente`, the pending hashtag alone is no hashtag); no note reads blank.
+The part the bar is on reads `▌ 2 …`, bold in the accent; an amount reads in its sign's colour.
+With two parts or more the line adding them up follows:
+`2 parts  ·  -100.00 of -100.00  ✓`, the tick in the success colour, or
+`2 parts  ·  -90.00 of -100.00  ·  -10.00 left`, `-10.00 left` in the error colour: the
+parts' amounts summed against the engine's total. It never stops a save.
+**The bar walks every line**: the shared fields, then each part's `PART 1 AMOUNT`,
+`PART 1 CATEGORY`, `PART 1 HASHTAGS` and `PART 1 NOTE`, then part 2's, one line per `⏎`, `⇥`
+or arrow, as on every bar form ("The bar forms' keys", §4). AMOUNT and NOTE open on what the
+part holds; ACCOUNT and a part's CATEGORY and HASHTAGS open with the bar empty and the list
+under it (below). `⏎` on HASHTAGS with a name typed adds that hashtag and stays for another;
+with nothing typed it moves on. A part's NOTE hint reads `optional · enter to go on` where `⏎`
+goes on to the next part, and `optional · enter saves · (ctrl+s anytime)` on the last line. An
+amount that is not a number, a zero amount, or a name that matches nothing is not kept: a toast
+says why and the bar stays.
+**`^n Add part`** adds an empty part at the end of the table, the bar on its AMOUNT.
+**`^x Drop part`**, on a part's line while the table holds two parts or more, drops that part
+at once, the bar moving to the same line of the part above (part 1's when the first goes).
+A part added and left with nothing in it is left out of the save; a part holding only the
+pending hashtag counts as empty, since the table never shows it and the save sends no hashtag
+for it (`part_empty`).
+**What is read-only is the line's `edit_limits`, and nothing else**
+(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). A line field its
+`locked_fields` names reads dimmed with `read-only` beside its value; a part field its
+`locked_part_fields` names for that part's id is dimmed in its cell, and under the table a dim
+`amount  read-only` (`category`, `hashtags`, `note`) line names each column read-only on some
+part. Every field move skips them, and the form opens on its first line that can change. Where
+`parts_fixed` holds (an opening balance's line, a line on an archived account) neither `^n` nor
+`^x` shows. Where `total_fixed` holds and `parts_fixed` does not (a line in a completed
+reconciliation), an amount `locked_part_fields` names is a one-part line's total: it holds while
+the table has one part, and opens once a part is added, since amounts may be redistributed with
+the total kept (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). A field that turns
+read-only again (the added part dropped) goes back to the value read from the line, so a
+read-only cell always shows and sends the line's own value. The app keeps no
+copy of the engine's locking rules.
+**`ctrl+s` sends one `PUT /bank-lines/{id}`** through `run_write` (one idempotency key, the
+same on a retry), the body built by [bank_line_write.py](../expense/bank_line_write.py), the one
+home for every whole-line write. It first keeps what is typed in the bar, as `⏎` would. Beside
+`parts` go the line fields the owner changed, never a read-only one, and never `statement_line`
+or `statement_place` (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `parts` is the
+line's whole set (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"): a part read from the
+line goes under its own id with its signed `amount_cents` as it is, and beside it only what
+changed: a new `category_id`, an emptied note as `description: ""`, and `hashtag_ids` only when
+its set of real hashtags changed, since a kept part sent with them is always written, even with
+the set it has
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A live part of this line is updated in place").
-A part added here sends only what it holds: its signed `amount_cents`, `category_id`,
-`description`, and `hashtag_ids` through `hashtags_to_send` with `pending_alone=False`, so a
-part with only the pending hashtag sends none. Beside `parts` goes `title`, once for the line,
-only when the title kept differs from the transaction's; the engine writes it onto every part,
-and with the key left out every part keeps the title it has. No other line field goes, and
-never `statement_line` or `statement_place`
-(contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). Pressed in a part's fields or the
-title's, it keeps the field being typed first (an empty title is refused there as on `⏎`)
-and the table comes back. The engine decides whether the parts add up
-(contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). Split, the screen
-closes and the ledger reads fresh from the newest 10, cursor on row 1.
-**A refused split stays under the parts** until a part or the title changes: the engine's
+A part added here goes under a fresh id with what it holds, its hashtags through
+`hashtags_to_send` with `pending_alone=False`, so a part with only the pending hashtag sends
+none; a part dropped with `^x` is left out, so the engine deletes it. An account changed also
+sends `reconciliation_id: null` ("A move takes a row out of its reconciliation" above). With no
+line field changed, the same parts and each kept part holding only its id and amount, the form
+says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
+`Saved. It left its reconciliation.` when the answer flags a part as leaving, closes, and the
+ledger reads fresh from the newest 10, cursor on row 1.
+**A refused save stays under the parts** until something changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
 `parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`, the index read
 by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent (`! title: …`),
 each hanging under its own words (`hanging` in
-[refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was split.` dim (not under a
+[refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was saved.` dim (not under a
 `5xx`), then a blank line and the app's line when the reason has one (`app_lines`; "When the
 engine says no" below). The amounts a `parts.<i>.amount_cents` key names turn the error colour
-in the table.
-`SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words giving
-both totals in cents), and every other refusal of the route, `ACCOUNT_ARCHIVED`,
-`OPENING_BALANCE_NOT_SPLIT`, `SPLIT_LINE_PARTS_DIVERGE`, `PENDING_HASHTAG_NOT_ALONE`,
-`ZERO_AMOUNT`, `INVALID_REFERENCE`, `RESERVED_CATEGORY`, `DUPLICATE_IN_REQUEST`, `OUT_OF_RANGE`,
-`ID_EXISTS`, `RESERVED_NAME_HELD`, `SEALED_PERIOD` and `CONCURRENT_CHANGE`, show this way, and so
-does `LOCKED` on `title`:
-a transaction in a completed reconciliation may be split, but a changed title is refused, with
-any part's refusal from the same `422`, and nothing is split (screen 6). A failure that is not
-the engine's answer (the engine out of reach) shows the app's error text there instead.
-`esc` clears the selection if there is one, and otherwise goes back to the screen that
-opened the ledger. Title, description, amount and date stay single-row edits behind `⏎`.
+in the table. `SPLIT_TOTAL_MISMATCH` (keyed `parts` and every `parts.<i>.amount_cents`, its words
+giving both totals in cents) and every other refusal of the route show this way. A failure that
+is not the engine's answer (the engine out of reach) shows the app's error text there instead.
+`esc` leaves with nothing sent, and the ledger keeps its rows and its cursor.
 No suggestions and no same-merchant spreading — [decisions.md](decisions.md) "Home is the
 month".
 
@@ -492,12 +474,13 @@ month".
 hashtag under its built-in pending hashtag and refuses that hashtag together with another
 (`PENDING_HASHTAG_NOT_ALONE`), while a set of real hashtags replaces it on its own
 (contract: "Transactions (Ledger)", "Hashtags on a transaction").
-So every hashtag write sends a set naming a real hashtag without the pending one: the `⏎`
-edit form, `h` on ledger rows and the LOG bar's `#tag` lines, the pending hashtag named
-beside a real one included. The pending hashtag alone goes as picked, an emptied set on the
-edit form sends `[]`, and a LOG bar line with no `#tag` sends no hashtags; the engine files
-both under the pending hashtag. **What the screens list is what the save sends:** on the edit
-form the pending hashtag leaves the `hashtags` line the moment a real hashtag is added; a
+So every hashtag write sends a set naming a real hashtag without the pending one: a part on
+the Edit form, `h` on ledger rows and the LOG bar's `#tag` lines, the pending hashtag named
+beside a real one included. An emptied set on a part of the Edit form sends `[]`, a part added
+there with no real hashtag and a LOG bar line with no `#tag` send no hashtags; the engine files
+them under the pending hashtag. **What the screens list is what the save sends:** on the Edit
+form the pending hashtag leaves a part the moment a real hashtag is added, and a part's cell
+never shows it; a
 staged LOG bar row lists only the real hashtags when its line names the pending one beside
 them, and a line with no `#tag` reads `#Pendiente` (the pending hashtag's name) in its tags
 column, in the accent, as its category column reads `@Pendiente`; `↑` still lifts the line
@@ -544,7 +527,7 @@ a hint, not a ruling** — it marks a row whose date falls inside a batch window
 already holds, so it costs no request; the engine stays the authority at close time.
 
 **Keys**: `esc` swaps back to the panel. `⏎ Edit`, on every row, opens the Edit form on the
-line with the bank's columns only (below). `d` deletes the line under the cursor after a
+line and its parts (below). `d` deletes the line under the cursor after a
 question (pane 3b, and "`d` is the TUI's one destructive key" below), with the line the list
 already holds, so nothing is read before asking: a split transaction (`part_count` above 1)
 asks the ledger's question for a split transaction and goes whole in one
@@ -552,38 +535,22 @@ asks the ledger's question for a split transaction and goes whole in one
 a line never split asks the ledger's transaction question and goes as its one transaction
 in `DELETE /transactions/{id}`.
 
-**`⏎` in "no batch" — the Edit form on the bank's columns** (pane 2e C2 of
-[expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html);
+**`⏎` in "no batch" — the Edit form on the line** (Question 1 A of
+[expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html);
 `BankLineEditFormScreen` in [edit_form.py](../expense/tui/screens/edit_form.py)). It is the
-Edit form, a variant on the shared form scaffolding, and its crumb reads
+ledger's Edit form ("`⏎` and `s` open the Edit form" above) with OPERATION among the shared
+fields, `date › title › operation › account`, then every part, and its crumb reads
 `Capture & ledger ▸ Reconciliations ▸ Edit`. Over the bar, the line as the list shows it:
 its title, then its signed `net_cents` and the account's currency
-(`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, so
-the form reads no line: the day and title off its first part, its `operation_code` and its
-account. A line never split edits `date › title › operation › amount › account`, all
-editable but on an archived account's line ("On an archived account's transaction the Edit
-form shows the read-only lines alone" below), its amount the one part's, signed by
-`signed_cents` in [formatting.py](../expense/formatting.py). A split transaction edits
-`date › title › operation › account`, and under the summary stands a read-only `Parts`
-section: each part's amount, signed by `signed_cents`, then a rule, then `total` and the
-line's own `net_cents` (`parts_section`; the app adds nothing up), and the dim line `the
-parts must add up to the total · s in the ledger splits it again to change them`. There is
-no amount field there, and neither form shows category, hashtags or note: those are the
-ledger's. An operation with nothing typed reads `—  (optional)`; its hint is `optional ·
-the bank's operation number · empty clears it`.
-`ctrl+s` saves as the Edit form does: one `PUT /transactions/{id}` on the line's first part,
-through the shared write path with one idempotency key, carrying only the fields changed.
-The engine writes date, title, operation and account onto every part of the line in that
-write, while the amount stays the part's own
-(contract: PUT /v1/transactions/{transaction_id}, "Line fields"). An emptied operation
+(`FARMACIA  ·  -100.00 PEN`). Every value comes from the line the list already holds, its
+`edit_limits` included, so the form reads no line: the day and title off its first part, its
+`operation_code` and its account. An operation with nothing typed reads `—  (optional)`; its
+hint is `optional · the bank's operation number · empty clears it`, and an emptied operation
 sends `operation_code: null`, which clears the line's operation code
-(contract: PUT /v1/transactions/{transaction_id}); a changed account also sends
-`reconciliation_id: null` (`unassign_on_move`, as on the ledger's form). Saved, the note
-is the ledger's form's — `Saved.`, or `Saved. It left its reconciliation.` when the answer
-flags a part as leaving — and "no batch" reads its newest ten again, cursor on row 1; a row
-whose date or account moved it out of the list is gone. A refusal is the engine's words in
-the "Failed" note, with the line saying what to do when it has one (`format_error`), the
-form still open; `esc` sends nothing and keeps the list and its cursor.
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Body"). `ctrl+s` saves as the ledger's Edit
+form does, in one `PUT /bank-lines/{id}`, and a refusal stays under its parts the same way.
+Saved, "no batch" reads its newest ten again, cursor on row 1; a row whose date or account
+moved it out of the list is gone. `esc` sends nothing and keeps the list and its cursor.
 
 **The import door — a dropped bank file into the ledger**
 ([bank_import.py](../expense/tui/screens/bank_import.py), screens in
@@ -700,12 +667,12 @@ and unwritten, and Home reads afresh: this month's window, every category folded
 cursor on the first category (`HomeScreen.start_fresh`).
 
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
-picker, the edit form's account field, the ledger's `b` pick, the Reconciliations
+picker, the Edit form's account field, the ledger's `b` pick, the Reconciliations
 browse, the new-reconciliation form and the bank import's "Which account is this file?"
 show accounts as `GET /accounts` lists them, every real account first, then every person
 (contract: GET /v1/accounts). No screen sorts them. A screen that has no use for people
 leaves them out and moves nothing else, and the bank import's card line stands where its
-first currency leg does. The LOG bar's `$` picker, the edit forms' account field and the
+first currency leg does. The LOG bar's `$` picker, the Edit form's account field and the
 ledger's `b` pick offer no archived account (`QuickAddRefs.accounts` in
 [reads.py](../expense/reads.py)): the engine refuses an archived account as a transaction's
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
@@ -725,29 +692,22 @@ Manage ▸ Accounts gets its `s` and `d` back at the ledger's next read (`r`, or
 The `?` card still lists `s` and `d`, as it does while rows are selected: it lists a screen's
 own keys as the screen declares them.
 
-**On an archived account's transaction the Edit form shows the read-only lines alone**
-(screen 2 B of [expense-world-archived-account.html](mockups/expense-world-archived-account.html)).
-Only such a transaction's categorisation changes, and the engine refuses `amount_cents`, `date`,
-`title`, `operation_code`, `account_id` and `reconciliation_id` sent even at their current value
-(contract: PUT /v1/transactions/{transaction_id}, "Archived accounts"). So the `⏎` edit form
-shows `date`, `title`, `amount` and `account` dimmed and marked `read-only`, as an opening
-balance's locked lines, every field move skips them, and it opens on `category`; nothing on it
-says why. The save sends only what changed among `category_id`, `hashtag_ids` and
-`description`, and never a `reconciliation_id`, since the account never changes. A title that
-is still empty may be filled once
-(contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled"): it stays
-editable, with its look and hint as on any row, the form opens on it, and its first value is
-saved; opened again once filled, it is read-only like the rest. The "no batch" Edit form
-follows the same rule on a line of an archived account, which only a list read before the
-account was archived still shows: `date`, `title`, `operation`, `amount` and `account` are
-read-only, but a title or operation still empty, filled once. With both set, every line is
-read-only: the form still opens, on `date`, showing what the line holds, nothing typed
-lands on a line ("The bar forms' keys" below), and in place of `date`'s own hint the one under
-the bar reads `read-only · its account is archived, so nothing here can change · esc to leave`.
-The form learns which accounts are archived from the `GET /accounts` it already makes for its
-suggestions (`QuickAddRefs.archived_accounts` in [reads.py](../expense/reads.py)); when that
-read fails, the form is as on any row and the engine judges the save ("When the engine says no"
-below).
+**On an archived account's line the Edit form changes the categorisation alone**
+(screen 2 B of [expense-world-archived-account.html](mockups/expense-world-archived-account.html),
+pick 5 A of [expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html)).
+Such a line keeps its parts and their amounts, and every line field sent is refused but a title
+or operation code filled while it is empty
+(contract: PUT /v1/bank-lines/{bank_line_id}, "A line with a part on an archived account keeps its parts and their amounts")
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). The form reads it from the line's
+`edit_limits`, as every read-only line ("What is read-only is the line's `edit_limits`"
+above): the line fields it names read `read-only`, each part's amount is dimmed under a dim
+`amount  read-only`, there is no `^n` or `^x`, and the form opens on the first line that can
+change, a title still empty if the engine leaves it open, else part 1's CATEGORY; nothing on
+it says why. Each part's category, hashtags and note change as on any line, and the save sends
+each part at its current amount. The "no batch" Edit form follows the same `edit_limits` on a
+line of an archived account, which only a list read before the account was archived still
+shows. When the engine refuses anyway (the account archived after the line was read), its
+words stay under the parts ("When the engine says no" below).
 
 **Manage ▸ Categories and Manage ▸ Hashtags mark the built-in rows** (screens 1 and 2 A in
 [expense-world-pending-hashtag-manage.html](mockups/expense-world-pending-hashtag-manage.html)).
@@ -863,7 +823,7 @@ reconciliation draws when completed without its ending balance, the one a new
 reconciliation draws on a person account, the one a system category
 or the pending hashtag draws when sent a new name, and the one a hashtag draws when named
 like the pending hashtag. The note it draws (a
-toast, a LOG bar row, the bank import's preview, the split screen's parts) shows the engine's words whole (`CODE —
+toast, a LOG bar row, the bank import's preview, the Edit form's parts) shows the engine's words whole (`CODE —
 message`, then one `key: …` line per refused field; a LOG bar row the engine names reads
 `key: …` for each refused field, without the code and message, and so does a ledger row
 refused by `b`, `c` or `h`, "Saved" below), and for the
@@ -882,16 +842,16 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `KIND_UNCHANGED` on `account_id` | `t` on Manage ▸ Accounts, on a list read before the account was turned elsewhere | none: the engine's words already say the account is of that kind |
 | `HAS_STATEMENT_CODE` on `account_id` | `t Make person` on Manage ▸ Accounts, on an account with a statement code (contract: POST /v1/accounts/{account_id}/make-person, "Refusals") | none: the engine's message already names the code and says to clear it first |
 | `IN_COMPLETED_RECONCILIATION` on `transaction_id` or `bank_line_id` | `d` on the ledger | none: the engine's message already says to revert the reconciliation to draft first |
-| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save or a split) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, `ctrl+s` on the split screen, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
+| `ACCOUNT_ARCHIVED` (a `CONFLICT` on a delete, complete, revert or `t`; a `VALIDATION_ERROR` on a save) | a write sent from a screen read before its account was archived: `t` on Manage ▸ Accounts, `d` on the ledger or in "no batch", `b` on ledger rows, a save on the Edit form or the "no batch" Edit form, and `space`, `c` (its ending balance's save too), `u` and `d` on a reconciliation's batch screen | none: the engine's words already say to unarchive the account first, and the screen stays as after any refusal |
 | `NAME_EXISTS` | a new account, person, category or hashtag; a rename on an Edit form | `That name is taken: pick another.` |
 | `STATEMENT_CODE_EXISTS` on `statement_code` | a new bank account, or a bank account's Edit form, given a code another account in its currency has (contract: "Bank Accounts", "Statement code") | `Another account in this currency has this code: pick another, or clear it there first.` |
 | `STATEMENT_MONTH_TAKEN`, `COMPLETED_STATEMENT_JOINED` (a `VALIDATION_ERROR`) on `statement_code` | a code set or changed on a bank account's Edit form that would clash with a reconciliation under it (contract: "Bank Accounts", "Statement code") | none: the engine's words name the reconciliations and say what to do |
 | `CAP_REACHED` | a new account, person, category or hashtag | `Delete one first.` |
 | `OPERATION_CODE_EXISTS` | a transaction's account changed on its Edit form; an operation number or account changed on the "no batch" Edit form; `b` on ledger rows; a bank file | `That account already has a row with this operation number: look there for a duplicate.` |
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
-| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the split screen, a transaction's hashtags on its Edit form or `h` on ledger rows | `It changed at the same moment: save again.` |
+| `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<index>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
-| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the split screen, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
+| `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
@@ -1170,7 +1130,7 @@ bulk pick for category / account / hashtags (§2 "The bulk pick is a full screen
 narrow, `↑↓`, `⏎` picks, `esc Cancel`), `esc` clears the selection if there is one,
 else goes back to the screen that opened the ledger. `s` and `d` never follow the
 selection: they are off while one exists, while a bulk write runs, and on an archived
-account's row (§2 "`s` splits the cursor row into parts", "On an archived account's row the
+account's row (§2 "`⏎` and `s` open the Edit form", "On an archived account's row the
 ledger offers no `s` and no `d`", "`d` is the TUI's one destructive key").
 `space` is declared on `CursorList` but is live — key and footer both — only on a
 screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open`
@@ -1305,20 +1265,14 @@ bar). `↵` stages nothing: it hands the paths to `LogBarScreen.import_bank_file
 starts the import door (§2 "The import door"). Editing the line back to anything else
 returns the bar to quick-add on the same keystroke.
 
-**The split screen's own keys** ([split.py](../expense/tui/screens/split.py)): the bar
-form's keymap (`form_bindings`) with the table's keys, each shown only where it works
-(`check_action`). On the table nothing is focused: `↑↓` move the cursor, `⏎` opens the
-title's field or the part under the cursor, or adds one, `ctrl+x` drops the part under it
-(nothing on the TITLE line or `+ add a part`), `ctrl+s` sends the split, `esc` leaves at once
-with nothing sent; the footer reads `esc Cancel  ^s Split  ⏎ Edit  ^x Drop part`. In a part's
-fields the input holds focus: `↑↓` walk an open suggestion list or move fields, `⏎`, `⇥` and
-`shift+tab` move fields, `ctrl+s` sends, `esc` goes back to the table keeping what `⏎` added
-(each hashtag added with `⏎` on HASHTAGS stays on the part), only the line being typed
-dropped; the footer reads `esc Back to the parts  ^s Split  ⇥ Field`. In the title's one
-field, `⏎` keeps it, `ctrl+s` sends, `esc` goes back, and the footer reads
-`esc Back to the parts  ^s Split`. `esc` is two bindings, `check_action` showing one. There
-is no `?`: the split screen is a bar form (`FormScreen`), and forms take no
-`HelpBindingMixin`, so there is no `?` card; in the fields the input takes `?` as a character.
+**The Edit form's own keys** ([edit_form.py](../expense/tui/screens/edit_form.py)): the bar
+form's keymap (`form_bindings`, "The bar forms' keys" below) with two more, each shown only
+where it works (`check_action`): `ctrl+n` adds a part and `ctrl+x` drops the part the bar is
+on, both off where the line's `edit_limits` holds `parts_fixed`, and `ctrl+x` only on a part's
+line while the table holds two parts or more. On a part's line `ctrl+x` drops the part in place
+of the bar's own cut. The footer reads `esc Cancel  ^s Save  ⇥ Field  ^n Add part`, then
+`^x Drop part` where it works. There is no `?`: the Edit form is a bar form (`FormScreen`), and
+forms take no `HelpBindingMixin`, so there is no `?` card; the bar takes `?` as a character.
 
 **The legend row.** One fixed row under the bar carrying the whole grammar and what `↵`
 does: `$account · @category · #tag · ±amount · //note · when     ↵ stages the line`. It
@@ -1342,8 +1296,8 @@ Read-only: no cursor, no keys, `↑↓` stay with the staged list. One debounced
 save invalidates what it wrote to.
 
 **The bar forms' keys** (`form_bindings` in [_form.py](../expense/tui/screens/_form.py),
-one copy for the edit form, the create/edit forms, the new-reconciliation and card statement
-forms, Setup and the split screen's fields, whose keys differ as "The split screen's own keys" above says):
+one copy for the Edit form, the create/edit forms, the new-reconciliation and card statement
+forms and Setup; the Edit form adds the keys "The Edit form's own keys" above names):
 `⏎` keeps the field and moves one line on, to the next field that can change; when no field
 ahead can change (on the last field, or with only read-only fields after it) it saves the form
 as `ctrl+s` does (`FormScreen._advance`). Textual runs the `on_input_submitted` of every class
@@ -1371,12 +1325,13 @@ and the Edit forms' TITLE read `free text · enter to go on`, and a new reconcil
 `· enter to go on` on Edit. The account's COLOR, New and Edit, reads
 `optional · enter keeps it · ↑↓ another swatch`, though on New, and on a person's Edit, it is
 the last line and `⏎` there saves. Some lines where `⏎` saves say so: a new category's COLOR
-(`optional · enter to save · ↑↓ another swatch`), the Edit form's NOTE, a new
-reconciliation's END BALANCE, and the "no batch" Edit form's TITLE when it is the one line
-left to change (an archived account's line with its operation set), which reads
+(`optional · enter to save · ↑↓ another swatch`), the Edit form's last NOTE (a part's NOTE
+with another part after it reads `optional · enter to go on`), a new reconciliation's END
+BALANCE, and the Edit form's TITLE when no line after it can change, which reads
 `free text · enter to save`; others, such as Edit category's COLOR (`pick a swatch`) and
 Setup's last line, leave it unsaid.
-The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form):
+The footer reads `esc Cancel  ^s Save  ⇥ Field` (`Create` on a create form; the Edit form's
+own keys after them):
 **`⇥ Field` is the form's one navigation footer slot**, because forms have no `?` card
 that could list the other keys (below). Guarded by `test_form_navigation_keys_are_not_advertised`.
 **Setup's footer** reads `esc Quit  ^s Connect  ⇥ Field`: there is no screen of its own

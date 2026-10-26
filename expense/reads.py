@@ -251,13 +251,11 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     One bank line with its parts, as the engine figures it: its `part_count`,
     signed `net_cents` and `parts`, each part the transaction response with
     `amount_cents` a magnitude and its `transaction_type`, in the engine's order
-    (contract: GET /v1/bank-lines/{bank_line_id}). Read by the transaction Edit
-    form, whose "changes every part" note shows only when the engine's
-    `part_count` is above 1; by the split screen, which opens a purchase from
-    this one read: its parts, their count and its total; and by the ledger's
-    `d`, whose question for a part of a split purchase names its part count and
-    total, and whose delete goes whole when `part_count` is above 1. The app
-    counts and adds no parts itself.
+    (contract: GET /v1/bank-lines/{bank_line_id}). Read by the ledger's Edit
+    form, which opens a row's line from this one read: its parts, its total and
+    its `edit_limits`; and by the ledger's `d`, whose question for a part of a
+    split purchase names its part count and total, and whose delete goes whole
+    when `part_count` is above 1. The app counts and adds no parts itself.
     """
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
 
@@ -586,7 +584,7 @@ def load_account_index() -> AccountIndex:
 
 def archived_ids(rows: list) -> frozenset[str]:
     """The ids of the archived accounts among `rows`, one accounts read with
-    `include_archived`; the one copy for the ledger and the edit form."""
+    `include_archived`; the ledger's one copy (`load_account_index`)."""
     return frozenset(
         r["id"] for r in rows if isinstance(r.get("id"), str) and r.get("is_archived") is True
     )
@@ -627,12 +625,6 @@ PENDING_FALLBACK_NAME = "pendiente"
 # opening balance is filed under. Such a row stays on its account and in that
 # category (contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put").
 OPENING_SYSTEM_KEY = "opening_balance"
-
-
-def _opening_of(categories: list[dict]) -> str | None:
-    """The id of the @Opening row among category rows, or None."""
-    row = _system_row(categories, OPENING_SYSTEM_KEY)
-    return str(row["id"]) if row else None
 
 
 def _system_row(rows: list[dict], key: str) -> dict | None:
@@ -711,8 +703,8 @@ def hashtags_to_send(
     stays as sent, and `[]` stays `[]`, which the engine files under the
     pending hashtag. `pending_id` is `QuickAddRefs.pending_hashtag_id`, found
     by its system key; None (the user has none yet) leaves `ids` as they are.
-    One copy for every hashtag write: the edit form, the ledger's bulk `h`,
-    the LOG bar and the split screen.
+    One copy for every hashtag write: the Edit form's parts, the ledger's bulk
+    `h` and the LOG bar.
 
     `pending_alone=False` drops the pending hashtag even alone, for a sparse
     create that puts a part naming no real hashtag on the pending one by
@@ -803,19 +795,10 @@ class QuickAddRefs:
     # seeded it. Not in the matching pool (a typed line never names it; an
     # empty category IS it), but the echo and the staged list render its name.
     pending: tuple[str, str] | None = None
-    # The id of the @Opening system row, or None when there is none. A row
-    # filed under it is an account's opening balance, whose account and
-    # category the engine never lets change and which carries no hashtag; the
-    # edit form reads it to show those three fields read-only.
-    opening: str | None = None
     # `(id, name)` of the built-in pending hashtag, or None until the engine
     # has created it. It stays in `hashtags`, so it can be named; every
     # hashtag write drops it beside a real one (`hashtags_to_send`).
     pending_hashtag: tuple[str, str] | None = None
-    # The ids of the archived accounts, from the same accounts read. An
-    # archived account's transactions change only their categorisation; the
-    # edit form reads it to show the frozen fields read-only.
-    archived_accounts: frozenset[str] = frozenset()
     # `(id, name)` of the categories a pick offers, @Pendiente among them where
     # the engine lists it and @Opening never (`pickable_categories`): the Edit
     # form's CATEGORY and the ledger's bulk `c`. `categories` stays the
@@ -869,8 +852,7 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
     * **One superset accounts fetch** (`include_archived`, `include_people`)
       feeds both the name map and the suggestion pool; the pool then drops
       archived accounts, so you cannot type your way into a retired one but a
-      transaction that already names one still renders; the same read gives
-      the archived ids (`archived_accounts`).
+      transaction that already names one still renders.
     * **System categories are excluded** from the pool — `@Opening` is the
       engine's own bookkeeping, and `@Pendiente` is what an *empty* category
       means, so neither is something a typed line names. The pick lists
@@ -894,8 +876,6 @@ def load_quickadd_refs(cfg, **kw) -> QuickAddRefs:
         category_names=_id_name_map(cats),
         hashtag_names=_id_name_map(tags),
         pending=_pending_of(cats),
-        opening=_opening_of(cats),
         pending_hashtag=pending_hashtag_of(tags),
-        archived_accounts=archived_ids(accts),
         pickable_categories=pickable_categories(cats),
     )

@@ -11,7 +11,7 @@ account, and one save of a card statement writes both halves' balances", shipped
 [statement-lines-from-reconciliations.md](statement-lines-from-reconciliations.md); the owner
 chose on 2026-10-25 to split it in two and to run this spec first.
 
-**Status: task 1 done; task 2 approved by the owner on 2026-10-25, running.** When done, the why moves to [decisions.md](../decisions.md) and this file is
+**Status: tasks done; the acceptance check runs next.** When done, the why moves to [decisions.md](../decisions.md) and this file is
 deleted.
 
 ---
@@ -104,26 +104,7 @@ write would refuse". Where it differs from what was asked, or settles what the a
 
 ## Tasks
 
-Task 2 approved by the owner on 2026-10-25.
-
-2. **[UI] The Edit form with its parts saves in one write**: line fields and every part in one
-   `PUT /bank-lines/{bank_line_id}`, a kept part's hashtags sent only when the owner changed
-   them, and no line field on a line in a completed reconciliation unless the owner changed it.
-   Every save goes through that write, an opening balance's line and an archived account's line
-   included, each kept part's current amount sent as it is; the switch to
-   `PUT /transactions/{id}` for those lines and the one-write-per-part chain go. The form reads
-   the opened line's `edit_limits` alone for what is read-only, whether `^n` and `^x` show and
-   whether the total is kept; the reconciliation read on opening a line and the app's copies of
-   the locking rules go. `⏎` on any part opens the Edit form with the shared fields on top and
-   every part below, as drawn in
-   [mockups/expense-world-split-transaction-screen.html](../mockups/expense-world-split-transaction-screen.html).
-   The owner picked on 2026-10-25: 1 A (in the "no batch" list `⏎` opens this form and `d`
-   deletes, as today), 2 A (`s` opens the same Edit form, so parts change in one place), 3 A (a
-   part's NOTE hint, when `⏎` goes on to the next part, reads `optional · enter to go on`), 4 A
-   (a refused save shows under the parts table, each refused part named by its number), 5 A (no
-   `^n` or `^x` on an opening balance or a line on an archived account, its locked cells dimmed),
-   6 A (`s` opens the form on DATE, as `⏎` does). A locked field reads `read-only`, as the mockup draws it.
-   Proves checks 3 to 6.
+Every task is done.
 
 ## Reply to the engine
 
@@ -144,17 +125,15 @@ Written into [to-engine/](../to-engine/) once this spec is done.
 
 Not built in this spec; drafted into a new spec when it is done.
 
-- **Splitting a line that was never split replaces its one transaction.** The Split screen opens
-  empty on such a line and its save leaves that transaction out, so the engine deletes it and the
-  new parts take fresh ids, as the removed split route did. The whole-line write can keep it as
-  the first part, with its id and history (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts");
-  whether to is the owner's call.
-- **The Split screen keeps two paths the contract rules out**: a row with no `bank_line_id`
-  (it would send `PUT /bank-lines/None`) and a part with no `id` dropped from the table (the save
-  would then delete it), in [split.py](../../expense/tui/screens/split.py); the contract requires
-  both fields, so both paths can go.
-- **Two "did the hashtags change" checks.** The Edit form compares lists in order with the
-  pending hashtag alone (`edit_form.py`), `kept_part` in
-  [bank_line_write.py](../../expense/bank_line_write.py) compares sets; and `kept_part` takes a
-  part's raw hashtags while `new_part` takes them filtered. Task 2 moving the Edit form onto
-  `kept_part` leaves one check.
+- **`s` is hidden on an archived account's row.** The ledger hides `s` and `d` there
+  ([tui.md](../tui.md)), while `⏎` on that row opens the same Edit form, which changes its parts'
+  categories, hashtags and notes. Whether `s` shows there too is the owner's call.
+- **Words the Edit form leaves behind.** The ledger's `s` reads "Split the cursor row into parts";
+  the "no batch" `?` card's `⏎` reads "Edit the row: its date, title, operation, amount or
+  account", leaving out category, hashtags and note; a refused part names the engine's field for
+  category and hashtags (`part 1 (category_id)`, `part 1 (hashtag_ids)`) where the amount reads
+  `part 1 (amount)`. New wording is the owner's.
+- **An opening balance's hashtag refusal on the Edit form** shows the ledger's line "Leave the
+  opening balance out of the selection.", which reads wrong on a form. It is rare, since
+  `edit_limits` makes those hashtags read-only; whether the form shows no line or its own is the
+  owner's call.

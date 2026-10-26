@@ -78,6 +78,12 @@ def amount_cell(cents: object, palette: Palette | None, rule: str) -> str | Text
     return Text(text, style=palette.error) if rule == "sign" else text
 
 
+def amount_text(cents: object, palette: Palette | None, rule: str) -> Text:
+    """`amount_cell` as `Text` always, for a line that appends it to others."""
+    figure = amount_cell(cents, palette, rule)
+    return figure if isinstance(figure, Text) else Text(str(figure))
+
+
 def aggregate_cell(
     cents: object,
     unconverted_count: object,

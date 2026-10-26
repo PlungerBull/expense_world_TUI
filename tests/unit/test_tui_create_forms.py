@@ -919,10 +919,10 @@ def test_a_forms_own_enter_handler_stops_the_ones_under_it():
     default, or one `⏎` commits twice and moves two lines."""
     import inspect
 
-    from expense.tui.screens import create_forms, edit_form, reconciliations, setup, split
+    from expense.tui.screens import create_forms, edit_form, reconciliations, setup
     from expense.tui.screens._form import FormScreen
 
-    assert create_forms and edit_form and reconciliations and setup and split  # all loaded
+    assert create_forms and edit_form and reconciliations and setup  # all loaded
 
     def every(cls):
         for sub in cls.__subclasses__():
@@ -937,7 +937,7 @@ def test_a_forms_own_enter_handler_stops_the_ones_under_it():
         if any("on_input_submitted" in base.__dict__ for base in form.__mro__[1:]):
             overriding.append(form.__name__)
             assert "event.prevent_default()" in inspect.getsource(handler), form.__name__
-    assert {"EditAccountScreen", "BankLineEditFormScreen"} <= set(overriding)
+    assert "EditAccountScreen" in overriding
 
 
 def test_tab_and_shift_tab_move_fields_skipping_read_only_ones():

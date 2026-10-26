@@ -1,7 +1,7 @@
 """The `! …` line a screen keeps under what the engine refused.
 
 One copy for every screen that lays a refusal out line by line: the bank
-import's preview and result, and the split screen's parts.
+import's preview and result, and the Edit form's parts.
 """
 
 from rich.console import RenderableType

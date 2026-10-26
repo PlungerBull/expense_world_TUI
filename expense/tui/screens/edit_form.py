@@ -1,114 +1,131 @@
-"""Edit a transaction — the bar-cycle form.
+"""Edit a bank line — the bar-cycle form with its parts.
 
-One input bar cycles through fields; a summary fills below. Entity fields
-(account/category/hashtags) show a live-filtered suggestion list — pick
-existing entities only. Their bar opens empty, the list in its usual order;
-on ACCOUNT and CATEGORY the highlight starts on the line's own account or
-category whenever the bar is empty and the list holds it, so `⏎` with nothing
-typed keeps it and stepping through the form changes nothing (`_recompute`).
-The category list is the one the ledger's bulk `c` offers, in the engine's
-order: @Pendiente is in it, so a row in @Pendiente starts on it and a row can
-be sent back there; @Opening never is (`reads.pickable_categories`).
-Typing filters the list and highlights its first match; `↑↓` choose another.
+Screens of mockups/expense-world-split-transaction-screen.html. One input bar
+cycles through the line's fields, then every part's; the summary below shows
+them. On top, what every part shares: DATE › TITLE › ACCOUNT (the "no batch"
+form adds OPERATION before ACCOUNT); below, the table of the parts, one line
+each with its amount, category, hashtags and note (`parts_table.py`), and, with
+two parts or more, the line adding them up against the line's total. The bar
+moves from the shared fields to part 1's AMOUNT › CATEGORY › HASHTAGS › NOTE,
+then part 2's; it names the part (`PART 1 AMOUNT`) and the table marks it
+`▌ 1`. A part's NOTE hint reads `optional · enter to go on` while `⏎` goes on to
+another line, and `optional · enter saves · (ctrl+s anytime)` on the last.
 
-**Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)); this screen
-is reached by `⏎` on an existing row. Why the edit form stays: an
-existing row has an id, a version and possibly a completed reconciliation
-freezing four of its fields, so the write is a PUT of just what changed; most
-rows — every one the xlsx importer made — were never a typed line and have
-nothing to round-trip; and retyping a line to fix one number is more work, not
-less.
+**Edit only** — `+` opens the LOG bar ([log_bar.py](log_bar.py)). `⏎` and `s`
+on a ledger row open this form on the row's bank line (`EditFormScreen`), on
+DATE, with every part of the line in the table whichever part the row is;
+`⏎` in the reconciliations' "no batch" list opens it on the line the list
+holds (`BankLineEditFormScreen`). Entity fields (account, a part's category
+and hashtags) show a live-filtered suggestion list — pick existing entities
+only. Their bar opens empty, the list in its usual order; on ACCOUNT and
+CATEGORY the highlight starts on the line's account or the part's category
+whenever the bar is empty and the list holds it, so `⏎` with nothing typed
+keeps it (`_recompute`). The category list is the one the ledger's bulk `c`
+offers: @Pendiente is in it and @Opening never is (`reads.pickable_categories`).
 
-Reached by `⏎` on a row in Transactions. Sequence:
-Date › Title › Amount › Account › Category › Hashtags › Note. `ctrl+s` PUTs
-only the changed fields; a changed account also sends `reconciliation_id: null`,
-so the move takes the row out of its reconciliation (`unassign_on_move`).
+**The form reads the line once and takes what is read-only from it alone.**
+The ledger's form reads the row's line with one `GET /bank-lines/{id}`; the
+"no batch" form has it from the list. The line's `edit_limits` says what a
+write would refuse on it as it stands
+(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"): each line
+field in `locked_fields` and each part field in `locked_part_fields` shows
+`read-only`, dimmed, the bar skipping it, and the form opens on the first line
+that can change; with `parts_fixed` there is no `^n Add part` and no `^x Drop
+part`. With the total fixed and the parts not (a completed reconciliation's
+line), a line of one part has its amount, the total, read-only; once the table
+holds two parts or more, the amounts move between the parts, so none is
+read-only. The form reads no reconciliation and keeps no rule of its own on
+what a line may change.
+
+`^n` adds an empty part at the end and puts the bar on its AMOUNT; `^x`, on a
+part's line while there are two or more, drops that part at once, the bar
+moving to the same line on the part above. A part added and left empty is left
+out of the save (`part_empty`).
+
+**One save, one write.** `ctrl+s` (or `⏎` where no line after can change)
+first keeps what is typed in the bar, as `⏎` would, then sends the line in
+one `PUT /bank-lines/{id}` through `run_write` (one idempotency key, the same
+on a retry), its body built by
+[bank_line_write.py](../../bank_line_write.py) (contract: PUT /v1/bank-lines/{bank_line_id}):
+
+- the line fields the owner changed, and only those, so a read-only one is
+  never sent: `date`, `title`, `account_id`, and on the "no batch" form
+  `operation_code`, whose `null` clears it; a changed account also sends
+  `reconciliation_id: null`, so the move takes the line out of its
+  reconciliation (`unassign_on_move`);
+- `parts`, the line's complete set: each part read from the line under its own
+  id, with its current signed amount always and its category, note and
+  hashtags only when changed (`kept_part`), a part added under a fresh id
+  (`new_part`), a dropped part left out, so the engine deletes it
+  (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
+
+A save that changes nothing says `No changes to save.` and sends nothing.
 Saved, the note says `Saved. It left its reconciliation.` when the engine's
-answer flags a part of the line as leaving one, and `Saved.` otherwise
-(`moved_parts`) (contract: PUT /v1/transactions/{transaction_id}, "Response").
-A hashtag set that names a real hashtag never carries the pending one: the
-moment a real hashtag is added, the pending one leaves the `hashtags` line, and
-the save sends only the real hashtags (`hashtags_to_send`, the same helper for
-both); an emptied set sends `[]`, which the engine files under the pending
-hashtag (contract: PUT /v1/transactions/{transaction_id}).
+answer flags a part as leaving one, and `Saved.` otherwise (`moved_parts`)
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). A refused save
+stays under the parts until something changes: the engine's words, each
+`parts.<i>.<field>` key read as `part i+1 (field)`, the amounts a refusal
+names in the error colour, `Nothing was saved.`, and the app's line for the
+reason, if any (`refusal_lines`).
 
-`⏎` on an emptied note empties it, and the save sends `description: ""`: the
-engine stores `""` as an empty note and refuses `null` there as `NOT_NULL`
-(contract: PUT /v1/transactions/{transaction_id}). Every field the form sends
-is a value, never `null`, except `operation_code`, which `null` clears, and the
-`reconciliation_id: null` a move adds; an empty date bar commits today, a date
-the save's reader (`to_canonical_aware`) cannot read is refused at `⏎` with
-`Date: use YYYY-MM-DD.` and the cursor stays, and an emptied title is refused
-(`_title_given`).
+`⏎` on an emptied note empties it, sent as `description: ""`; an empty date bar
+commits today, a date the save's reader (`to_canonical_aware`) cannot read is
+refused at `⏎` with `Date: use YYYY-MM-DD.` and the cursor stays, an emptied
+title is refused (`_title_given`), and an amount must be a non-zero signed
+decimal. A hashtag set that names a real hashtag never carries the pending one
+(`hashtags_to_send`).
 
-On an opening balance (a row filed under @Opening) account, category and
-hashtags show read-only and are never sent: the engine keeps such a row on its
-account and in @Opening
-(contract: PUT /v1/transactions/{transaction_id}, "Opening balances stay put"),
-and it carries no hashtag, not even the pending one
-(contract: PUT /v1/transactions/{transaction_id}). The form knows the row once
-the reference lists load (`QuickAddRefs.opening`).
-
-On a transaction whose account is archived only its categorisation changes
-(contract: PUT /v1/transactions/{transaction_id}, "Archived accounts"): date,
-title, amount and account show read-only and are never sent, at their current
-value either, and the form opens on the first field left, category. A title that
-is still empty stays editable, and its first value is sent once
-(contract: PUT /v1/transactions/{transaction_id}, "An empty field may be filled");
-reopened once filled, it is read-only like the rest. The form knows the account
-is archived from the same accounts read (`QuickAddRefs.archived_accounts`); a
-failed read leaves the form as on any row, and the engine judges the save.
-
-On a part of a split transaction, the hint under the bar adds `changes every
-part of the transaction` while the cursor is on date, title or account: the
-engine writes those three onto every part of the bank line, in one go
-(contract: "Transactions (Ledger)", "Bank lines"). The form knows the row is a
-part from one `GET /v1/bank-lines/{bank_line_id}` read as it opens, the engine's
-`part_count` above 1 (contract: GET /v1/bank-lines/{bank_line_id}). A failed
-read leaves the hints as on any row; the save is the engine's either way.
-
-`BankLineEditFormScreen` is this form on a bank line, `⏎` in the
-reconciliations' "no batch" list: the bank's columns only. Date › Title ›
-Operation › Amount › Account on a line never split; on a split line the amount
-gives way to a read-only `Parts` section under the summary, each part's amount
-and the line's total. The save is the same diffed PUT on one part; the engine
-writes date, title, operation and account onto every part
-(contract: PUT /v1/transactions/{transaction_id}, "Line fields"). On an archived
-account's line every field is read-only except an empty title or operation
-code, filled once, as above; with both set, every line is read-only and the
-hint under the bar reads `NOTHING_CAN_CHANGE` in place of the field's own.
+While the date, title or account is under the bar on a line of two parts or
+more, the hint adds `changes every part of the transaction`: the engine writes
+the line fields onto every part (contract: "Transactions (Ledger)", "Bank lines").
 
 `enter` keeps the field and moves on, and saves only on the last line that can
 change (`FormScreen._advance`) · `tab` / `shift+tab` move between fields · `↑/↓`
 move the suggestion highlight, or the field when there is no list · `ctrl+s`
 submits. Sign explicit (− expense / + income); currency derived from the
-account. The keymap is `form_bindings` in _form.py.
+account. The keymap is `form_bindings` in _form.py, with `^n` and `^x`.
 """
 
 import copy
+from dataclasses import replace
 from datetime import date as date_cls
 
 from rich.console import Group, RenderableType
 from rich.text import Text
 from textual import work
+from textual.binding import Binding
 from textual.widgets import Input
 
 from expense import reads
+from expense.bank_line_write import kept_part, line_body, new_part
 from expense.dates import is_readable_date, to_canonical_aware
 from expense.errors import format_error
 from expense.formatting import (
     bank_line_columns,
-    bank_line_part_count,
-    format_cents,
     resolve_name,
     signed_cents,
+    whole_number,
 )
 from expense.quickadd.money import amount_to_text, parse_amount
-from expense.reads import hashtags_to_send, load_quickadd_refs
+from expense.reads import QuickAddRefs, hashtags_to_send, load_quickadd_refs
 from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
+from expense.tui.screens.log_bar import LOADING_HINT
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
-from expense.tui.widgets.cells import amount_cell
+from expense.tui.widgets.cells import amount_text
+from expense.tui.widgets.parts_table import (
+    ENGINE_FIELDS,
+    FIELDS,
+    Part,
+    count_line,
+    flagged_parts,
+    part_empty,
+    part_from_engine,
+    parts_lines,
+    readonly_lines,
+    real_hashtags,
+    refusal_lines,
+)
 from expense.tui.widgets.picker import matching, suggestion_list
 
 _LABELS = {
@@ -121,8 +138,6 @@ _LABELS = {
     "hashtags": "HASHTAGS",
     "note": "NOTE",
 }
-_ENTITY = {"account", "category", "hashtags"}
-_AMOUNTS = {"amount"}
 _HINTS = {
     "date": "YYYY-MM-DD · enter to accept, or type a date",
     "title": "free text · enter to go on",
@@ -131,55 +146,63 @@ _HINTS = {
     "account": "pick an existing account · ↑↓ highlight · enter select",
     "category": "pick an existing category · ↑↓ highlight · enter select",
     "hashtags": "type a tag · ↑↓ highlight · enter adds & stays · empty enter = done (optional)",
-    "note": "optional · enter saves · (ctrl+s anytime)",
 }
-#: TITLE's hint when no line after it can change, so `⏎` there saves: an
-#: archived account's bank line with its operation set and its title empty.
+#: A part's NOTE hint where `⏎` saves (the last line that can change), and where
+#: it goes on to another line.
+NOTE_SAVES = "optional · enter saves · (ctrl+s anytime)"
+NOTE_GOES_ON = "optional · enter to go on"
+#: TITLE's hint when no line after it can change, so `⏎` there saves.
 TITLE_SAVES = "free text · enter to save"
 #: The note when DATE holds what the save's reader cannot read; the words the
 #: app's other dates use ("Date Start: use YYYY-MM-DD.", "As of: use YYYY-MM-DD.").
 DATE_UNREADABLE = "Date: use YYYY-MM-DD."
-# The fields a part of a split transaction shares with every other part, and
-# what the hint adds on them.
+# The fields every part of a line shares, and what the hint adds on them while
+# the line has two parts or more.
 _EVERY_PART = {"date", "title", "account"}
 EVERY_PART_NOTE = "changes every part of the transaction"
-# The fields an archived account's transaction never changes, and of them the
-# two that may be filled while empty
-# (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts").
-_FROZEN_ON_ARCHIVED = {"date", "title", "amount", "operation", "account"}
-_FILLED_ONCE = {"title", "operation"}
-#: The hint under the bar when every line of the form is read-only: an archived
-#: account's bank line whose title and operation are both set.
-NOTHING_CAN_CHANGE = (
-    "read-only · its account is archived, so nothing here can change · esc to leave"
-)
-# engine field name for each form key
+# The line fields' names in the whole-line write
+# (contract: PUT /v1/bank-lines/{bank_line_id}, "Body").
 _ENGINE_FIELD = {
     "date": "date",
     "title": "title",
-    "amount": "amount_cents",
     "operation": "operation_code",
     "account": "account_id",
+}
+_FORM_KEY = {engine: key for key, engine in _ENGINE_FIELD.items()}
+# Each part field's attribute on `Part`.
+_PART_ATTR = {
+    "amount": "amount_cents",
     "category": "category_id",
     "hashtags": "hashtag_ids",
-    "note": "description",
+    "note": "note",
 }
+
+
+def part_key(index: int, field: str) -> str:
+    """The form's key for a part's field: `0.amount` is part 1's AMOUNT."""
+    return f"{index}.{field}"
+
+
+def split_key(key: str) -> tuple[int, str] | None:
+    """`(index, field)` of a part's key; None for a line field."""
+    head, _, field = key.partition(".")
+    return (int(head), field) if field and head.isdigit() else None
 
 
 def unassign_on_move(payload: dict, record: dict) -> None:
     """Make an account move take the row out of its reconciliation.
 
-    A PUT that changes `account_id` on a row assigned to a draft reconciliation
-    must say what happens to the assignment, or the engine refuses it
-    (contract: "Assigning transactions") (contract: PUT /v1/transactions/{transaction_id}).
-    So a payload whose `account_id` differs from the row's gains
-    `reconciliation_id: None` — the move unassigns. An `account_id` equal to the
-    row's is not a move and gains nothing, so the row keeps its reconciliation.
-    A row in a completed reconciliation is still refused as `LOCKED`.
+    A write that changes `account_id` on a row assigned to a draft
+    reconciliation must say what happens to the assignment, or the engine
+    refuses it (contract: "Assigning transactions")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). So a payload whose
+    `account_id` differs from the record's gains `reconciliation_id: None` — the
+    move unassigns. An `account_id` equal to the record's is not a move and
+    gains nothing, so the row keeps its reconciliation.
 
     Whether a part did leave its reconciliation is the engine's answer to say
-    (`moved_parts`). Mutates `payload`; shared by the edit form and the ledger's
-    bulk `b`.
+    (`moved_parts`). Mutates `payload`; shared by the Edit form, whose record is
+    the bank line, and the ledger's bulk `b`, whose record is a transaction.
     """
     if "account_id" in payload and payload["account_id"] != record.get("account_id"):
         payload["reconciliation_id"] = None
@@ -187,15 +210,16 @@ def unassign_on_move(payload: dict, record: dict) -> None:
 
 def moved_parts(answers: list[dict]) -> tuple[int, int]:
     """(parts moved, parts that left their reconciliation) across the answers
-    of one or more `PUT /transactions/{id}`, each part counted once by its id.
+    of one or more writes, each part counted once by its id.
 
     Every answer lists in `changed_parts` each part of the bank line whose line
     field the write changed, and flags `left_reconciliation` on a part that was
     in a reconciliation before and is in none or another after
-    (contract: PUT /v1/transactions/{transaction_id}, "Response"). Moving both
-    parts of a line lists both in the first answer and none in the second, so the
-    move counts 2. Shared by the ledger's bulk `b` (its receipt) and the edit
-    form (its note).
+    (contract: PUT /v1/transactions/{transaction_id}, "Response")
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Response"). Moving both
+    parts of a line lists both in the first answer and none in the second, so
+    the move counts 2. Shared by the ledger's bulk `b` (its receipt) and the
+    Edit form (its note).
     """
     moved: set[object] = set()
     left: set[object] = set()
@@ -208,25 +232,72 @@ def moved_parts(answers: list[dict]) -> tuple[int, int]:
     return len(moved), len(left)
 
 
-class EditFormScreen(FormScreen):
-    BINDINGS = form_bindings("Save")
+def part_payload(part: Part, held: dict | None, pending_hashtag_id: str | None) -> dict:
+    """One entry of the save's `parts`: a part read from the line under its own
+    id, against `held`, the part as the engine holds it (`kept_part`); a part
+    added in the form under a fresh id, with what it holds (`new_part`)."""
+    if held is None:
+        return new_part(
+            amount_cents=part.amount_cents,
+            category_id=part.category_id,
+            description=part.note,
+            hashtag_ids=real_hashtags(part, pending_hashtag_id),
+        )
+    return kept_part(
+        held,
+        amount_cents=part.amount_cents,
+        category_id=part.category_id,
+        description=part.note,
+        hashtag_ids=part.hashtag_ids,
+        pending_hashtag_id=pending_hashtag_id,
+    )
 
-    def __init__(self, *, record: dict, resource: str = "transactions") -> None:
+
+def _changes_nothing(entry: dict, held: dict | None) -> bool:
+    """A kept part's entry that holds its id and its current amount alone."""
+    if held is None or set(entry) - {"id", "amount_cents"}:
+        return False
+    return entry.get("amount_cents") == signed_cents(held)
+
+
+class EditFormScreen(FormScreen):
+    """The Edit form on the bank line of a ledger row, `record`: `⏎` and `s`.
+
+    Dismisses with True once saved, so the ledger reads fresh; with None on
+    `esc`."""
+
+    BINDINGS = [
+        *form_bindings("Save"),
+        Binding("ctrl+n", "add_part", "Add part"),
+        # the bar's own ctrl+x cuts text; on a part's line the drop comes first
+        Binding("ctrl+x", "drop_part", "Drop part", priority=True),
+    ]
+
+    def __init__(self, *, record: dict) -> None:
         super().__init__()
-        self._resource = resource
         self._record = record
         self._accounts: list = []
         self._categories: list = []
         self._hashtags: list = []
+        self._acc_names: dict = {}
         self._pending_tag: str | None = None
+        self._refs: QuickAddRefs | None = None
+        self._line: dict | None = None
+        self._parts: list[Part] = []
+        # each part read from the line, as the engine holds it, by its id
+        self._held: dict[str, dict] = {}
+        self._limits: dict = {}
         self._original: dict = {}
+        self._refusal: Exception | None = None  # the engine's, until something changes
         self._left_reconciliation = False  # the save's answer flags a part as leaving
-        self._split_part = False  # the engine reads this row's bank line as > 1 part
 
         self.crumb = ("Capture & ledger", "Transactions", "Edit")
         self._prefill(self._record)
 
-    # ---- edit pre-fill ---------------------------------------------------
+    # ---- the line's own fields -------------------------------------------
+    def _line_keys(self) -> list[str]:
+        return ["date", "title", "account"]
+
     def _prefill(self, rec: dict) -> None:
         self._values = {}
         self._display = {}
@@ -235,156 +306,197 @@ class EditFormScreen(FormScreen):
             self._values["date"] = self._display["date"] = date
         if rec.get("title"):
             self._values["title"] = self._display["title"] = rec["title"]
-        if rec.get("amount_cents") is not None:
-            self._values["amount"] = rec["amount_cents"]
-            self._display["amount"] = format_cents(rec["amount_cents"])
         if rec.get("account_id"):
             self._values["account"] = rec["account_id"]
             self._display["account"] = rec["account_id"][:8]  # resolved once entities load
-        if rec.get("category_id"):
-            self._values["category"] = rec["category_id"]
-            self._display["category"] = rec["category_id"][:8]
-        tags = rec.get("hashtag_ids") or []
-        if tags:
-            self._values["hashtags"] = list(tags)
-            # resolve_name: short-id placeholder until entities load, and a
-            # null id renders "—" instead of TypeError-ing
-            self._display["hashtags"] = " ".join("#" + resolve_name(t, {}) for t in tags)
-        if rec.get("description"):
-            self._values["note"] = self._display["note"] = rec["description"]
-        # deep: the baseline never shares a list with `_values`, or a list changed
-        # in place would change both and the edit diff would never see it.
+        if "operation" in self._line_keys() and rec.get("operation_code"):
+            self._values["operation"] = self._display["operation"] = rec["operation_code"]
+        # deep: the baseline never shares a value with `_values`
         self._original = copy.deepcopy(self._values)
-        # no client-side reconciliation locks: they rely on the engine's 422
-        # (not reliably detectable from the row). The client locks are an
-        # opening balance's account, category and hashtags, and an archived
-        # account's frozen fields, both set in `_set_entities`.
+
+    # ---- the line and its parts --------------------------------------------
+    def _take_line(self, line: dict) -> None:
+        """The line as the engine reads it: its parts in its order, each kept
+        as held, its total and its `edit_limits`."""
+        self._line = line
+        items = [p for p in line.get("parts") or [] if isinstance(p, dict) and p.get("id")]
+        self._held = {str(p["id"]): p for p in items}
+        self._parts = [part_from_engine(p) for p in items]
+        self._limits = line.get("edit_limits") or {}
+        self._relock()
+
+    def _take_refs(self, refs: QuickAddRefs) -> None:
+        self._refs = refs
+        self._accounts = refs.accounts
+        self._categories = refs.pickable_categories
+        self._hashtags = refs.hashtags
+        self._acc_names = refs.account_names
+        self._pending_tag = refs.pending_hashtag_id
+        if "account" in self._values:
+            self._display["account"] = resolve_name(self._values["account"], self._acc_names)
+
+    @property
+    def _ready(self) -> bool:
+        """The line and the reference lists are in: the form takes input."""
+        return self._line is not None and self._refs is not None
+
+    @property
+    def _total(self) -> int | None:
+        return whole_number((self._line or {}).get("net_cents"))
+
+    def _part_locks(self) -> dict[int, frozenset[str]]:
+        """Each part's read-only fields (`FIELDS` words), by its place in the
+        table: what `locked_part_fields` names for its id. With the total fixed
+        and the parts not, an amount it names is the total held by a line of
+        one part, so it holds only while the table has one part."""
+        by_id = self._limits.get("locked_part_fields") or {}
+        moving = (
+            bool(self._limits.get("total_fixed"))
+            and not self._limits.get("parts_fixed")
+            and len(self._parts) > 1
+        )
+        out: dict[int, frozenset[str]] = {}
+        for index, part in enumerate(self._parts):
+            named = by_id.get(part.id) or {} if part.id else {}
+            fields = {field for field, engine in ENGINE_FIELDS.items() if engine in named}
+            if moving:
+                fields.discard("amount")
+            if fields:
+                out[index] = frozenset(fields)
+        return out
+
+    def _relock(self) -> None:
+        """The read-only lines, from the line's `edit_limits` alone."""
+        keys = set(self._line_keys())
+        locked = {
+            _FORM_KEY[field]
+            for field in self._limits.get("locked_fields") or {}
+            if _FORM_KEY.get(field) in keys
+        }
+        for index, fields in self._part_locks().items():
+            locked |= {part_key(index, field) for field in fields}
+            self._parts[index] = self._as_read(self._parts[index], fields)
+        self._locked = locked
+
+    def _as_read(self, part: Part, fields: frozenset[str]) -> Part:
+        """`part` with each of its read-only `fields` back at the value read from
+        the line, so a read-only cell shows and sends the line's own value: an
+        amount edited while the table held two parts, then locked again by a
+        drop, goes back to the one the line holds."""
+        held = self._held.get(part.id) if part.id else None
+        if held is None:
+            return part
+        read = part_from_engine(held)
+        return replace(
+            part, **{_PART_ATTR[field]: getattr(read, _PART_ATTR[field]) for field in fields}
+        )
+
+    @property
+    def _parts_fixed(self) -> bool:
+        return bool(self._limits.get("parts_fixed"))
+
+    def _part_at(self, key: str) -> tuple[int, str, Part] | None:
+        bits = split_key(key)
+        if bits is None or bits[0] >= len(self._parts):
+            return None
+        return bits[0], bits[1], self._parts[bits[0]]
+
+    def _set_part(self, index: int, part: Part) -> None:
+        if part != self._parts[index]:
+            self._parts[index] = part
+            self._refusal = None  # something changed
+
+    def _set_value(self, key: str, value: object, display: object = None) -> None:
+        if value != self._values.get(key):
+            self._refusal = None  # something changed
+        if value is None:
+            self._values[key] = None
+            self._display.pop(key, None)
+        else:
+            self._values[key] = value
+            self._display[key] = value if display is None else display
 
     # ---- field sequence --------------------------------------------------
     def _sequence(self) -> list[str]:
-        return ["date", "title", "amount", "account", "category", "hashtags", "note"]
+        return [
+            *self._line_keys(),
+            *(part_key(i, field) for i in range(len(self._parts)) for field in FIELDS),
+        ]
 
     def _after_mount(self) -> None:
         self._load_entities()
-        if self._record.get("bank_line_id"):
-            self._load_bank_line()
-
-    @work(thread=True, exclusive=True, group="bank_line")
-    def _load_bank_line(self) -> None:
-        """One read of the row's bank line, for the every-part note. Any failure
-        leaves the form as on an unsplit row: the note is a hint, not a guard."""
-        from expense import config as config_module
-
-        try:
-            cfg = config_module.ensure_loaded()
-            line = reads.fetch_bank_line(
-                cfg, self._record["bank_line_id"], **screen_fetch_kwargs(self.app)
-            )
-        except Exception:
-            return
-        if bank_line_part_count(line) > 1:
-            call_while_attached(self, self._set_split_part)
-
-    def _set_split_part(self) -> None:
-        self._split_part = True
-        self._refresh_view()  # a save in flight keeps its busy hint (`_refresh_view`)
 
     @work(thread=True, exclusive=True)
     def _load_entities(self) -> None:
+        """The reference lists, then, when the form does not hold the line yet,
+        the row's line in one `GET /bank-lines/{id}`
+        (contract: GET /v1/bank-lines/{bank_line_id}). A failed read says why
+        and leaves the form taking no input."""
         from expense import config as config_module
 
         try:
             cfg = config_module.ensure_loaded()
-            # the fetch + shaping is shared with the LOG bar; CATEGORY offers
-            # the pick list, @Pendiente in it, as the ledger's bulk `c` does
-            refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
+            kw = screen_fetch_kwargs(self.app)
+            # the fetch + shaping is shared with the LOG bar
+            refs = load_quickadd_refs(cfg, **kw)
+            line = self._line
+            if line is None:
+                line = reads.fetch_bank_line(cfg, str(self._record["bank_line_id"]), **kw)
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            self.app.call_from_thread(self.notify, format_error(exc), severity="error")
+            call_while_attached(self, self.notify, format_error(exc), severity="error")
             return
-        maps = (refs.account_names, refs.category_names, refs.hashtag_names)
-        self.app.call_from_thread(
-            self._set_entities,
-            refs.accounts,
-            refs.pickable_categories,
-            refs.hashtags,
-            maps,
-            refs.opening,
-            refs.pending_hashtag_id,
-            refs.archived_accounts,
-        )
+        call_while_attached(self, self._loaded, refs, line)
 
-    def _set_entities(
-        self,
-        accounts,
-        categories,
-        hashtags,
-        maps,
-        opening=None,
-        pending_tag=None,
-        archived=frozenset(),
-    ) -> None:
-        self._accounts, self._categories, self._hashtags = accounts, categories, hashtags
-        self._pending_tag = pending_tag
-        self._acc_names, self._cat_names, self._tag_names_map = maps
-        if opening is not None and self._record.get("category_id") == opening:
-            # an opening balance: the three fields it can never change show
-            # read-only, and `_edit_payload` skips locked fields
-            self._locked |= {"account", "category", "hashtags"}
-        if self._record.get("account_id") in archived:
-            self._locked |= self._frozen_on_archived()
+    def _loaded(self, refs: QuickAddRefs, line: dict) -> None:
+        self._take_refs(refs)
+        if self._line is not line:
+            self._take_line(line)
         if self._key in self._locked:
             self._current = self._first_editable()
-            self._refresh_bar()
-        # resolve pre-filled ids → names.
-        # resolve_name (shared) renders a null reference as "—" instead of
-        # crashing on None[:8]
-        if "account" in self._values:
-            self._display["account"] = resolve_name(self._values["account"], self._acc_names)
-        if "category" in self._values:
-            self._display["category"] = resolve_name(self._values["category"], self._cat_names)
-        if self._values.get("hashtags"):
-            self._display["hashtags"] = " ".join(
-                "#" + resolve_name(t, self._tag_names_map) for t in self._values["hashtags"]
-            )
-        self._recompute(self.query_one("#bar", Input).value)
+        self._refresh_bar()
         self._refresh_view()
-
-    def _frozen_on_archived(self) -> set[str]:
-        """The fields of this form an archived account's transaction keeps as
-        they are: every frozen one, but a title or operation code still empty
-        (`_original` holds no value for it), which may be filled once."""
-        return {
-            key
-            for key in self._sequence()
-            if key in _FROZEN_ON_ARCHIVED
-            and not (key in _FILLED_ONCE and not self._original.get(key))
-        }
 
     # ---- FormScreen hooks --------------------------------------------------
     def _label(self, key: str) -> str:
-        return _LABELS[key]
+        bits = split_key(key)
+        if bits is None:
+            return _LABELS[key]
+        return f"PART {bits[0] + 1} {_LABELS[bits[1]]}"
 
     def _hint_for(self, key: str) -> str:
+        bits = split_key(key)
+        field = bits[1] if bits else key
+        if field == "note":
+            return NOTE_GOES_ON if self._goes_on(key) else NOTE_SAVES
         if key == "title" and not self._goes_on(key):
             return TITLE_SAVES
-        return _HINTS.get(key, "")
+        return _HINTS.get(field, "")
 
     def _hint_line(self, key: str) -> Text:
-        if self._locked.issuperset(self._sequence()):
-            return Text(NOTHING_CAN_CHANGE, style="dim")
-        if not (self._split_part and key in _EVERY_PART):
+        if not (len(self._parts) > 1 and key in _EVERY_PART):
             return super()._hint_line(key)
         return Text.assemble((f"{self._hint_for(key)} · ", "dim"), (EVERY_PART_NOTE, ACCENT))
 
     def _suggests(self, key: str) -> bool:
-        return key in _ENTITY
+        bits = split_key(key)
+        return key == "account" or (bits is not None and bits[1] in ("category", "hashtags"))
 
     def _bar_value(self, key: str) -> str:
-        if key in _AMOUNTS and key in self._values:
-            return amount_to_text(self._values[key])
-        if key in ("date", "title", "note"):
+        at = self._part_at(key)
+        if at is not None:
+            _index, field, part = at
+            if field == "amount" and part.amount_cents is not None:
+                return amount_to_text(part.amount_cents)
+            if field == "note":
+                return part.note or ""
+            return ""  # entity fields open empty; `_recompute` places the highlight
+        if key in ("date", "title", "operation"):
             return str(self._values.get(key, "") or "")
-        return ""  # entity fields open empty; `_recompute` places the highlight
+        return ""
+
+    def _refresh_bar(self) -> None:
+        super()._refresh_bar()
+        self.refresh_bindings()  # `^x` follows the bar onto and off a part's line
 
     # ---- suggestions -----------------------------------------------------
     def _recompute_suggestions(self, text: str) -> None:
@@ -394,146 +506,283 @@ class EditFormScreen(FormScreen):
     def _recompute(self, text: str) -> None:
         key = self._key
         needle = text.strip()
+        at = self._part_at(key)
+        own: object = None
         if key == "account":
             pool = matching(self._accounts, needle)
-        elif key == "category":
+            own = self._values.get("account")
+        elif at is not None and at[1] == "category":
             pool = matching(self._categories, needle)
-        elif key == "hashtags":
-            chosen = set(self._values.get("hashtags", []))
-            pool = matching(self._hashtags, needle.lstrip("#"), chosen=chosen)
+            own = at[2].category_id
+        elif at is not None and at[1] == "hashtags":
+            pool = matching(self._hashtags, needle.lstrip("#"), chosen=set(at[2].hashtag_ids))
         else:
             pool = []
         self._suggestions = pool
         self._suggest_idx = 0
-        if key in ("account", "category") and not needle:
-            # an empty bar starts on what the line holds, so `⏎` keeps it
+        if own is not None and not needle:
+            # an empty bar starts on what the line or the part holds, so `⏎` keeps it
             ids = [ent[0] for ent in pool]
-            if self._values.get(key) in ids:
-                self._suggest_idx = ids.index(self._values[key])
+            if own in ids:
+                self._suggest_idx = ids.index(own)
 
     def _picked(self):
         return self._suggestions[self._suggest_idx] if self._suggestions else None
 
-    # ---- commit ----------------------------------------------------------
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        key = self._key
-        text = self.query_one("#bar", Input).value.strip()
-
-        if key == "date":
-            # read by the save's own reader, so ⏎ takes what `ctrl+s` can send
-            if text and not is_readable_date(text):
-                self.notify(DATE_UNREADABLE, severity="error")
-                return
-            self._values["date"] = text or date_cls.today().isoformat()
-            self._display["date"] = self._values["date"]
-            self._advance()
-        elif key == "title":
-            if not self._title_given(text):
-                return
-            self._values["title"] = self._display["title"] = text
-            self._advance()
-        elif key == "amount":
-            cents = parse_amount(text)
-            if cents is None:
-                self.notify("Amount: a signed decimal, e.g. -99.92", severity="error")
-                return
-            # Mid-form ergonomics guard; mirrors the engine's 422 on a zero
-            # amount_cents (contract: POST /v1/transactions, "Validation").
-            # Deliberately kept client-side.
-            if cents == 0:
-                self.notify("Amount must be non-zero.", severity="error")
-                return
-            self._values["amount"] = cents
-            self._display["amount"] = format_cents(cents)
-            self._advance()
-        elif key in ("account", "category"):
-            picked = self._picked()
-            if picked is None:
-                self.notify(f"No {key} matches “{text}”.", severity="error")
-                return
-            self._values[key] = picked[0]
-            self._display[key] = picked[1]
-            self._advance()
-        elif key == "hashtags":
-            self._commit_hashtag(text)
-            return
-        elif key == "note":
-            # an emptied bar empties the note; the save sends it as `""`
-            if text:
-                self._values["note"] = self._display["note"] = text
-            else:
-                self._values.pop("note", None)
-                self._display.pop("note", None)
-            self.action_submit()  # note is last → enter submits
-            return
-        self._refresh_view()
-
-    def _commit_hashtag(self, text: str) -> None:
-        if not text:
-            self._advance()
-            self._refresh_view()
-            return
-        picked = self._picked()
-        if picked is None:
-            self.notify(f"No hashtag matches “{text}”.", severity="error")
-            return
-        # what the form lists is what the save sends: once a real hashtag is
-        # in, the pending one leaves the list
-        picked_ids = [*self._values.get("hashtags", []), picked[0]]
-        self._values["hashtags"] = hashtags_to_send(picked_ids, self._pending_tag)
-        self._display["hashtags"] = " ".join("#" + n for n in self._tag_display_names())
-        self.query_one("#bar", Input).value = ""
-        self._recompute("")
-        self._refresh_view()
-
-    def _tag_display_names(self) -> list[str]:
-        names = getattr(self, "_tag_names_map", {}) or dict(self._hashtags)
-        return [resolve_name(i, names) for i in self._values.get("hashtags", [])]
-
-    # ---- render ----------------------------------------------------------
     def _suggest_renderable(self) -> RenderableType:
-        if self._key not in _ENTITY:
+        if not self._suggests(self._key):
             return Text("")
         labels = [f"{ent[1]}{'  ' + ent[2] if len(ent) > 2 else ''}" for ent in self._suggestions]
         return suggestion_list(labels, self._suggest_idx)
 
-    # ---- submit ----------------------------------------------------------
-    def _submit_request(self) -> tuple[str, str, dict, str] | None:
-        payload = self._edit_payload()
-        if not payload:
-            self.notify("No changes to save.")
-            return None
-        unassign_on_move(payload, self._record)
-        return ("PUT", f"/{self._resource}/{self._record['id']}", payload, "Saving…")
+    # ---- commit ----------------------------------------------------------
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """`⏎`: keep what the bar holds and move on; on a part's HASHTAGS a
+        typed name adds the hashtag and stays for another, and `⏎` with
+        nothing typed moves on."""
+        if not self._ready:
+            return  # nothing to keep until the line is in
+        bar = self.query_one("#bar", Input)
+        text = bar.value.strip()
+        at = self._part_at(self._key)
+        if at is not None and at[1] == "hashtags" and text:
+            if self._keep(text):
+                bar.value = ""
+                self._recompute("")
+                self._refresh_view()
+            return
+        if at is not None and at[1] == "hashtags":
+            self._advance()
+        elif not self._keep(text):
+            return
+        else:
+            self._advance()
+        self._refresh_view()
 
-    def _edit_payload(self) -> dict:
-        payload: dict = {}
-        for key, engine_field in _ENGINE_FIELD.items():
+    def _keep(self, text: str) -> bool:
+        """Keep `text`, the bar's, on the line the bar is on. False, with a
+        note saying why, when it cannot be kept; the bar then stays."""
+        key = self._key
+        at = self._part_at(key)
+        if at is not None:
+            return self._keep_part(*at, text)
+        if key == "date":
+            # read by the save's own reader, so ⏎ takes what `ctrl+s` can send
+            if text and not is_readable_date(text):
+                self.notify(DATE_UNREADABLE, severity="error")
+                return False
+            self._set_value("date", text or date_cls.today().isoformat())
+        elif key == "title":
+            if not self._title_given(text):
+                return False
+            self._set_value("title", text)
+        elif key == "operation":
+            self._set_value("operation", text or None)
+        elif key == "account":
+            picked = self._picked()
+            if picked is None:
+                self.notify(f"No account matches “{text}”.", severity="error")
+                return False
+            self._set_value("account", picked[0], picked[1])
+        return True
+
+    def _keep_part(self, index: int, field: str, part: Part, text: str) -> bool:
+        if field == "amount":
+            cents = parse_amount(text)
+            if cents is None:
+                self.notify("Amount: a signed decimal, e.g. -99.92", severity="error")
+                return False
+            # Mid-form ergonomics guard; mirrors the engine's 422 on a zero
+            # amount (contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules").
+            if cents == 0:
+                self.notify("Amount must be non-zero.", severity="error")
+                return False
+            self._set_part(index, replace(part, amount_cents=cents))
+        elif field in ("category", "hashtags"):
+            picked = self._picked()
+            if picked is None:
+                name = "category" if field == "category" else "hashtag"
+                self.notify(f"No {name} matches “{text}”.", severity="error")
+                return False
+            if field == "category":
+                self._set_part(index, replace(part, category_id=picked[0]))
+            else:
+                # what the form lists is what the save sends: once a real
+                # hashtag is in, the pending one leaves the part
+                tags = hashtags_to_send([*part.hashtag_ids, picked[0]], self._pending_tag)
+                self._set_part(index, replace(part, hashtag_ids=tuple(tags)))
+        else:
+            # an emptied bar empties the note; the save sends it as `""`
+            self._set_part(index, replace(part, note=text or None))
+        return True
+
+    def _keep_typed(self) -> bool:
+        """Before a save: keep what is typed in the bar, when it is not what the
+        line under it already shows. False when it cannot be kept."""
+        key = self._key
+        bar = self.query_one("#bar", Input)
+        if key in self._locked or bar.value == self._bar_value(key):
+            return True
+        if not self._keep(bar.value.strip()):
+            return False
+        at = self._part_at(key)
+        if at is not None and at[1] == "hashtags":  # added: the bar empties for another
+            bar.value = ""
+            self._recompute("")
+        return True
+
+    # ---- adding and dropping parts -------------------------------------------
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """`^n` only where the line's parts may change; `^x` too, and only on
+        a part's line while there are two parts or more."""
+        if action == "add_part":
+            return self._ready and not self._parts_fixed
+        if action == "drop_part":
+            return (
+                self._ready
+                and not self._parts_fixed
+                and self._part_at(self._key) is not None
+                and len(self._parts) > 1
+            )
+        return True
+
+    @property
+    def active_bindings(self):
+        """Textual's, with `^x` last, as the footer reads it: the bar's own
+        `ctrl+x` (cut) comes first in the chain, and the priority binding that
+        replaces it would take its place at the head of the footer."""
+        bindings = super().active_bindings
+        drop = bindings.pop("ctrl+x", None)
+        if drop is not None:
+            bindings["ctrl+x"] = drop
+        return bindings
+
+    def action_add_part(self) -> None:
+        """`ctrl+n`: an empty part at the end, the bar on its AMOUNT."""
+        if self._submitting or not self.check_action("add_part", ()):
+            return
+        self._parts.append(Part())
+        self._refusal = None  # something changed
+        self._relock()
+        self._current = self._sequence().index(part_key(len(self._parts) - 1, "amount"))
+        self._refresh_bar()
+        self._refresh_view()
+
+    def action_drop_part(self) -> None:
+        """`ctrl+x`: drop the part the bar is on, at once; the bar moves to the
+        same line on the part above (part 1's when the first is dropped)."""
+        at = self._part_at(self._key)
+        if self._submitting or at is None or not self.check_action("drop_part", ()):
+            return
+        index, field, _part = at
+        del self._parts[index]
+        self._refusal = None  # something changed
+        self._relock()
+        self._current = self._sequence().index(part_key(max(index - 1, 0), field))
+        if self._key in self._locked:
+            ahead = self._step(1)
+            self._current = ahead if ahead != self._current else self._step(-1)
+        self._refresh_bar()
+        self._refresh_view()
+
+    # ---- render ----------------------------------------------------------
+    def _summary_renderable(self) -> RenderableType:
+        table = self._summary_table(self._line_keys())
+        refs = self._refs
+        if not self._ready or refs is None:
+            return Group(table, Text(""), Text(LOADING_HINT, style="dim"))
+        at = self._part_at(self._key)
+        locks = self._part_locks()
+        blocks: list[RenderableType] = [
+            table,
+            Text(""),
+            *parts_lines(
+                self._parts,
+                refs,
+                editing=at[0] if at is not None else None,
+                locked=locks,
+                flagged=flagged_parts(self._refusal),
+                palette=PALETTE,
+            ),
+            *readonly_lines(locks),
+        ]
+        if len(self._parts) > 1:
+            blocks += [Text(""), count_line(self._parts, self._total, palette=PALETTE)]
+        if self._refusal is not None:
+            blocks += [Text(""), *refusal_lines(self._refusal, palette=PALETTE)]
+        return Group(*blocks)
+
+    # ---- submit ----------------------------------------------------------
+    def _line_fields(self) -> dict:
+        """The line fields the owner changed, under their names in the write;
+        a read-only one is never sent."""
+        fields: dict = {}
+        for key in self._line_keys():
             if key in self._locked or self._values.get(key) == self._original.get(key):
                 continue
             new = self._values.get(key)
             if key == "date":
                 # never empty: an empty date bar commits today
-                payload["date"] = to_canonical_aware(new)
-            elif key == "note":
-                # `""` empties the note; `null` is refused as `NOT_NULL`
-                # (contract: PUT /v1/transactions/{transaction_id})
-                payload["description"] = new or ""
+                fields["date"] = to_canonical_aware(new)
             elif key == "operation":
                 # `null` clears the line's operation code
-                # (contract: PUT /v1/transactions/{transaction_id})
-                payload["operation_code"] = new or None
-            elif key == "hashtags":
-                tags = hashtags_to_send(new or [], self._pending_tag)
-                if tags != (self._original.get("hashtags") or []):
-                    payload["hashtag_ids"] = tags
+                # (contract: PUT /v1/bank-lines/{bank_line_id}, "Body")
+                fields["operation_code"] = new or None
             else:
-                payload[engine_field] = new
-        return payload
+                fields[_ENGINE_FIELD[key]] = new
+        return fields
+
+    def _submit_request(self) -> tuple[str, str, dict, str] | None:
+        """The one `PUT /bank-lines/{id}`: the changed line fields and the
+        line's whole set of parts, a part added and left empty left out. None,
+        with `No changes to save.`, when it would change nothing."""
+        line = self._line
+        if line is None:
+            return None
+        pending = self._pending_tag
+        parts = [p for p in self._parts if not part_empty(p, pending)]
+        entries = [part_payload(p, self._held.get(p.id) if p.id else None, pending) for p in parts]
+        fields = self._line_fields()
+        unassign_on_move(fields, line)
+        kept_ids = {p.id for p in parts if p.id}
+        unchanged = set(self._held) == kept_ids and all(
+            _changes_nothing(entry, self._held.get(str(entry["id"]))) for entry in entries
+        )
+        if not fields and unchanged:
+            self.notify("No changes to save.")
+            return None
+        return ("PUT", f"/bank-lines/{line['id']}", line_body(entries, fields), "Saving…")
+
+    def action_submit(self) -> None:
+        """`ctrl+s`: keep what is typed in the bar first, then the one write."""
+        if self._submitting or not self._ready or not self._keep_typed():
+            return
+        request = self._submit_request()
+        if request is None:
+            return
+        method, path, payload, busy = request
+        self._submitting = True
+        self._refusal = None
+        self.query_one("#hint").update(Text(busy, style="dim"))
+        self._refresh_view()
+        self.run_write(
+            method,
+            path,
+            json_body=payload,
+            on_success=self._done,
+            on_failure=self._refused,
+            on_response=self._answered,
+        )
 
     def _answered(self, body: dict) -> None:
-        # the note reads the engine's answer, never the row as read before the save
+        # the note reads the engine's answer, never the line as read before the save
         self._left_reconciliation = moved_parts([body])[1] > 0
+
+    def _refused(self, err: Exception) -> None:
+        """The refusal stays under the parts, the form open as it was."""
+        self._submitting = False
+        self._refusal = err
+        self._refresh_view()
 
     def _done(self) -> None:
         left = self._left_reconciliation
@@ -541,112 +790,39 @@ class EditFormScreen(FormScreen):
         self.dismiss(True)  # a cancel dismisses with None: the caller reloads only on True
 
 
-# ---- the Edit form on a bank line: `⏎` in "no batch" ----------------------
-#: The line under a split line's total, as pane 2e C2 draws it.
-PARTS_NOTE = "the parts must add up to the total · s in the ledger splits it again to change them"
-
-
-def parts_section(line: dict) -> Group:
-    """A split line's `Parts`, read-only: each part's amount, signed by
-    `signed_cents`, then a rule and the line's own `net_cents` as the total
-    (`bank_line_columns`); the app adds nothing up. The amounts are
-    right-aligned under one another, the rule as wide as the widest plus one,
-    and `total` sits at the left of the total's line."""
-    parts = [p for p in (line.get("parts") or []) if isinstance(p, dict)]
-    amounts = [format_cents(signed_cents(p)) for p in parts]
-    total = format_cents(bank_line_columns(line)[3])
-    widest = max(len(a) for a in [*amounts, total])
-    width = widest + 12
-    lines = [Text.assemble(("Parts", "bold"), ("  read-only", "dim"))]
-    lines += [Text(a.rjust(width), style="dim") for a in amounts]
-    lines.append(Text(("─" * (widest + 1)).rjust(width), style="dim"))
-    lines.append(Text("total" + total.rjust(width - len("total")), style="dim"))
-    lines.append(Text(PARTS_NOTE, style="dim"))
-    return Group(*lines)
-
-
+# ---- the Edit form on a line of "no batch": `⏎` there ---------------------
 class BankLineEditFormScreen(EditFormScreen):
-    """The Edit form on a bank line in the "no batch" list: the bank's columns
-    only (pane 2e C2 of expense-world-bank-lines-whole.html).
+    """The Edit form on a line the "no batch" list holds (Question 1 A of
+    expense-world-split-transaction-screen.html): the same form, with OPERATION
+    among the shared fields and, over the bar, the line as the list shows it,
+    its title and its `net_cents` with the account's currency.
 
-    Every value comes from the line the list already holds, so the form reads
-    no line: the day and title off its first part, its `operation_code` and
-    `account_id`, and on a line never split its one part's amount, signed by
-    `signed_cents`. The heading is the line as the list shows it, its title and
-    its `net_cents` with the account's currency. A split line (`part_count`
-    above 1) shows no amount field: its parts' amounts and the total stand
-    read-only under the summary (`parts_section`). No category, hashtags or
-    note: those are the ledger's.
-
-    The save is the Edit form's: one PUT on the line's first part, carrying
-    only the fields changed; date, title, operation and account reach every
-    part (contract: PUT /v1/transactions/{transaction_id}, "Line fields").
-    """
+    Every value comes from the line the list holds, its `edit_limits`
+    included, so the form reads no line: the day and title off its first part,
+    its `operation_code` and `account_id`."""
 
     def __init__(self, *, line: dict, currency: str | None = None) -> None:
-        self._line = line
         self._currency = currency
-        self._split = bank_line_part_count(line) > 1
         first = (line.get("parts") or [{}])[0]
         record = {
             **first,
-            "amount_cents": signed_cents(first),
+            "bank_line_id": line.get("id"),
             "account_id": line.get("account_id") or first.get("account_id"),
             "operation_code": line.get("operation_code"),
         }
         super().__init__(record=record)
         self.crumb = ("Capture & ledger", "Reconciliations", "Edit")
+        self._take_line(line)
 
-    def _prefill(self, rec: dict) -> None:
-        super()._prefill(rec)
-        shown = set(self._sequence())
-        self._values = {k: v for k, v in self._values.items() if k in shown}
-        self._display = {k: v for k, v in self._display.items() if k in shown}
-        if rec.get("operation_code"):
-            self._values["operation"] = self._display["operation"] = rec["operation_code"]
-        self._original = copy.deepcopy(self._values)
-
-    def _sequence(self) -> list[str]:
-        if self._split:
-            return ["date", "title", "operation", "account"]
-        return ["date", "title", "operation", "amount", "account"]
-
-    def _after_mount(self) -> None:
-        self._load_entities()  # the line is in hand: no bank-line read
+    def _line_keys(self) -> list[str]:
+        return ["date", "title", "operation", "account"]
 
     def _heading(self) -> RenderableType:
-        _day, title, _operation, net_cents = bank_line_columns(self._line)
-        head = Text(title or "(untitled)", style="bold")
+        line = self._line or {}
+        _day, title, _operation, net_cents = bank_line_columns(line)
+        head = Text(str(title or "(untitled)"), style="bold")
         head.append("  ·  ", style="dim")
-        figure = amount_cell(net_cents, PALETTE, AMOUNT_RULE)
-        head.append_text(figure if isinstance(figure, Text) else Text(str(figure)))
+        head.append_text(amount_text(net_cents, PALETTE, AMOUNT_RULE))
         if self._currency:
             head.append(f" {self._currency}", style="dim")
         return head
-
-    def _bar_value(self, key: str) -> str:
-        if key == "operation":
-            return str(self._values.get("operation") or "")
-        return super()._bar_value(key)
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        # Textual calls the handler of every class in the MRO; this one calls the
-        # Edit form's itself, so the message stops here and `⏎` moves one line
-        if event is not None:
-            event.prevent_default()
-        if self._key != "operation":
-            super().on_input_submitted(event)
-            return
-        text = self.query_one("#bar", Input).value.strip()
-        self._values["operation"] = text or None
-        if text:
-            self._display["operation"] = text
-        else:
-            self._display.pop("operation", None)
-        self._advance()
-
-    def _summary_renderable(self) -> RenderableType:
-        summary = super()._summary_renderable()
-        if not self._split:
-            return summary
-        return Group(summary, Text(""), parts_section(self._line))

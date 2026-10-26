@@ -5,7 +5,16 @@ from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.log_bar import LogBarScreen
 from expense.tui.screens.transactions import TransactionsScreen, transaction_rows
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import fake_ledger, render_text, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    bank_line_row,
+    fake_ledger,
+    import_part,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
 ITEMS = [
     {
@@ -17,6 +26,7 @@ ITEMS = [
         "account_id": "acc1",
         "category_id": "cat1",
         "hashtag_ids": ["h1"],
+        "bank_line_id": "bl-1",
         "line_code": "#000001",
         "statement_line": None,
         "statement_place": None,
@@ -66,19 +76,25 @@ def test_transactions_screen_lists_and_opens_detail(monkeypatch):
     monkeypatch.setattr(tx_mod, "load_account_index", lambda: AccountIndex(ACCOUNTS))
     monkeypatch.setattr(tx_mod, "load_category_name_map", lambda: CATEGORIES)
     monkeypatch.setattr(tx_mod, "load_hashtag_name_map", lambda: HASHTAGS)
-    # the edit screen loads entities on mount — stub those too
+    # the Edit form reads the reference lists and the row's line on mount — stub those too
     monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: whole([]))
     monkeypatch.setattr("expense.reads.fetch_hashtags", lambda *a, **k: whole([]))
+    line = bank_line_row(
+        "bl-1", [import_part("t1", 651900, account_id="acc1", line="bl-1")], net_cents=651900
+    )
+    monkeypatch.setattr("expense.reads.fetch_bank_line", lambda *a, **k: line)
     monkeypatch.setattr("expense.config.ensure_loaded", lambda: object())
 
     async def scenario(pilot, app):
         await app.push_screen(TransactionsScreen())
         await wait_for_list(pilot, app)
-        await pilot.press("enter")  # opens the edit screen, pre-filled
+        await pilot.press("enter")  # opens the Edit form, pre-filled
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
-        assert app.screen._resource == "transactions"
-        assert app.screen._values["amount"] == 651900
+        form = app.screen
+        assert form._record["id"] == "t1" and form._values["title"] == "Sueldo marzo"
+        await wait_for(pilot, lambda: form._ready)
+        assert [p.amount_cents for p in form._parts] == [651900]
 
     run_app(scenario)
 

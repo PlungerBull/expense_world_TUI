@@ -71,3 +71,19 @@ def test_the_card_statement_form_fits_a_balance_and_its_currency():
     clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
     assert not clipped
     assert max(len(v) for v in labels.values()) == width - right_pad
+
+
+def test_the_edit_form_fits_each_parts_longest_label_up_to_part_99():
+    """The Edit form names each part's field, `PART 2 CATEGORY`, so it widens
+    the column on its own screen alone, to fit part 99's longest label."""
+    from expense.tui.screens.edit_form import EditFormScreen
+    from expense.tui.widgets.parts_table import FIELDS
+
+    width, right_pad = _field_rule("EditFormScreen")
+    form = EditFormScreen(record={"id": "t1", "bank_line_id": "bl1"})
+    labels = {f"{i}.{field}": form._label(f"{i}.{field}") for i in range(99) for field in FIELDS}
+    labels |= {key: form._label(key) for key in ("date", "title", "operation", "account")}
+    assert labels["98.category"] == "PART 99 CATEGORY"
+    clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
+    assert not clipped
+    assert max(len(v) for v in labels.values()) == width - right_pad

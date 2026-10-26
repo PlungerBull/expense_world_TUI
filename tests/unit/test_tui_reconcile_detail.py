@@ -27,6 +27,7 @@ from tests.unit.helpers import (
     archived_words,
     bank_line_row,
     cursor_page,
+    edit_limits,
     import_part,
     put_answer,
     reconciliation_answer,
@@ -865,9 +866,27 @@ def test_complete_confirms_then_posts(fake_client, monkeypatch):
     run_app(scenario)
 
 
+#: NETFLIX once its reconciliation is completed: every line field locked and its
+#: one part's amount held as the total (tests/contract/test_bank_line_edit_limits.py).
+LOCKED_NETFLIX = {
+    **NETFLIX,
+    "edit_limits": edit_limits(
+        locked_fields=dict.fromkeys(
+            ("title", "date", "account_id", "reconciliation_id", "operation_code"), "LOCKED"
+        ),
+        total_fixed=True,
+        locked_part_fields={"t1": {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
+    ),
+}
+
+
 def test_completed_is_read_only(fake_client, monkeypatch):
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
+    monkeypatch.setattr(
+        "expense.reads.fetch_bank_lines",
+        lambda cfg, **k: cursor_page([LOCKED_NETFLIX] if k.get("reconciliation") == "r1" else []),
+    )
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(completed))

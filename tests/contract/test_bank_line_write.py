@@ -2,7 +2,7 @@
 
 One write gives a bank line its fields and its complete set of parts: a kept part keeps
 its id, a new id makes a new part, and a part left out is deleted
-(contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The split screen saves through
+(contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The Edit form saves through
 it, its body built by expense/bank_line_write.py, so only the engine can say what it
 keeps, takes and refuses. Pinned here:
 
@@ -33,7 +33,7 @@ Elsewhere: `statement_line` and `statement_place` refused in its body
 (test_create_sent_again.py), an opening balance's line, an archived account's line and
 `edit_limits` (test_bank_line_edit_limits.py, and an archived account's rows under the
 transaction routes in test_resources_lifecycle.py), the pending hashtag beside another
-(test_pending_hashtag.py) and the split screen's own path (test_bank_lines.py).
+(test_pending_hashtag.py) and the Edit form's own path (test_bank_lines.py).
 
 Each test builds its own accounts and undoes everything (conftest.py `scratch`). Gating,
 target and the real-ledger guard: conftest.py.

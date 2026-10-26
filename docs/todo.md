@@ -28,19 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Confirm the Edit form's mockup before it is built
-Asked 2026-10-25 · Blocks: task 2 of [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md)
-
-Task 2 builds the Edit form drawn in
-[mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html):
-`⏎` or `s` on any part opens one form with the shared fields on top and every part below, one
-save writes it all, and a locked field reads `read-only`. Your picks are 1 A, 2 A, 3 A, 4 A,
-5 A and 6 A, as the spec lists them.
-- **A.** Build it as picked.
-- **B.** Change something first: say what, and the mockup is redrawn for a pick.
-
-**Recommended:** A, because every question on it is answered and the engine is ready.
-
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
@@ -142,7 +129,7 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A guard against "purchase" in the app's words.** The owner's word is "transaction"
   (2026-10-17); add a test in [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) that
   fails when a user-visible string in `expense/` says "purchase". Code comments and docstrings
-  say "purchase" too (split.py, transactions.py, reconciliations.py, reads.py, bank_import.py,
+  say "purchase" too (transactions.py, reconciliations.py, reads.py, bank_import.py,
   quickadd/route.py, app.tcss): make them "split transaction" or "bank line" first, so the guard
   needs no exemption for comments.
 - **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
@@ -151,10 +138,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   does not), `expense-world-screen-map.html` (linked from nowhere), and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
   `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
-  and the screen map's split pane still draws the typed line the split screen no longer has;
-  `expense-world-split-screen.html` backs the split screen as built,
+  the screen map's split pane and `expense-world-split-screen.html` (linked from the screen map)
+  draw a split screen the app no longer has, `⏎` and `s` opening the Edit form instead;
   `expense-world-wording-picks.html` backs hints and the bulk pick already built (its question 1
-  is task 2 of [specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md), drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
+  is answered by the Edit form, drawn in `expense-world-split-transaction-screen.html`; linked from tui.md, bulk_pick.py and the
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
@@ -183,9 +170,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `GET /reconciliations/{id}` directly; it should name it through `reconciliation_names`
   ([flow.py](../expense/bank_import/flow.py)), so the app's path is proven live and not only
   mocked ([test_bank_import.py](../tests/contract/test_bank_import.py)).
-- **No test covers a split refused with a 5xx.** `refusal_lines` leaves out
-  `Nothing was split.` when the status is 500 or more ([split.py](../expense/tui/screens/split.py));
-  add a unit test in [test_tui_split.py](../tests/unit/test_tui_split.py).
 - **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
   [tests/contract/](../tests/contract/) each define their own; one copy belongs in
   [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.
