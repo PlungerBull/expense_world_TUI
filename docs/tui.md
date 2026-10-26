@@ -689,11 +689,11 @@ shows its name, read-only on its Edit form (below).
 
 **On an archived account's row the ledger offers no `d`** (the row and `d` as screen 1 A of
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) draws them;
-`s` stays on the row, where that screen draws it gone). The engine deletes none of an archived
-account's transactions (contract: POST /v1/accounts/{account_id}/archive), so with the cursor
-on one, whole ledger or filtered from Home, `d Delete` leaves the footer and the key does
-nothing and sends nothing; on the next row of an active account or a person it is back, the
-footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where
+that screen also draws `s` gone, though the app keeps it, below). The engine deletes none of
+an archived account's transactions (contract: POST /v1/accounts/{account_id}/archive), so with
+the cursor on one, whole ledger or filtered from Home, `d Delete` leaves the footer and the key
+does nothing and sends nothing; on the next row of an active account or a person it is back,
+the footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where
 only what the line's `edit_limits` leaves open changes ("On an archived account's line the Edit
 form changes the categorisation alone" below). The row is drawn as any other, with nothing on
 it saying why, and `s`, `c`, `b`, `h`, `⏎` and every other key stay; the engine still judges

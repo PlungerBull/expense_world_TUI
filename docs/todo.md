@@ -38,6 +38,15 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
+### Approve the spec for a held reserved name on the Edit form
+Asked 2026-10-25 · Blocks: [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)
+
+One thing the Edit form's words spec found: nothing yet proves that when one of your categories
+holds a built-in name, the Edit form shows only the engine's words. Tests only, nothing you see
+changes. Approve it, or rewrite it.
+
+**Recommended:** approve it, because it closes a gap no test covers today.
+
 ### The locked-line part of the notes spec is done
 Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
 
@@ -80,8 +89,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
-  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the spec after the Edit form's words,
-  its tasks approved
+  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the next spec, its tasks approved
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
@@ -169,7 +177,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
   commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
-  another bank line already has.` line the sheet import can no longer get.
+  another bank line already has.` line the sheet import can no longer get. Ledger footers still
+  read `s Split` where the app says `s Edit`, in `expense-world-archived-account.html` (whose
+  screen 1 A also draws `s` gone on an archived row), `expense-world-bank-lines-whole.html`,
+  `expense-world-pending-hashtag-home.html` and the "today" pane of
+  `expense-world-split-transaction-screen.html`; the screen map's ledger `?` card reads "Split
+  the cursor row into parts"; `expense-world-enter-and-esc.html` draws the crumb
+  `Transactions ▸ Split`, where it is `▸ Edit`; and pane 7 of
+  `expense-world-pending-hashtag-manage.html` says the Edit form shows the opening balance's
+  note, which it does not.
   Deleting one means removing its links from tui.md and from code and test docstrings in the
   same change.
 - **A whole-file live run of the bank-line tests leaves an empty account.** One
@@ -225,14 +241,17 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Three comments still describe the split screen.** `key_index`'s docstring in
+- **Four comments still describe the split screen.** `key_index`'s docstring in
   [errors.py](../expense/errors.py) says "the split's `parts`"; the
+  [transactions.py](../expense/tui/screens/transactions.py) module docstring says `s` opens the
+  Edit form "on DATE as `⏎` does", though it opens on the first line that can change; the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change; and
   `test_nothing_in_the_app_calls_the_split_route` in
   [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
   gone", where the rule is present tense.
-- **The Edit form's words and keys match what it does**: the spec running now ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
+- **A held reserved name is proven on the Edit form**: a draft spec waiting for the owner's
+  approval ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
   waiting for the owner's approval and two answers
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).

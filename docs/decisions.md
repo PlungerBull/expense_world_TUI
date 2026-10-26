@@ -642,7 +642,8 @@ opening balance or a completed reconciliation, each marked `read-only` with no l
 the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps
 listing only active accounts. The owner picked each from
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) (screens
-1 A, 2 B, 3 A, 4 A). The engine still judges every write.
+1 A, 2 B, 3 A, 4 A); screen 1 A holds for the row and `d`, while `s` stays ("The Edit form's
+keys and words name what it does"). The engine still judges every write.
 
 **Why.** Offering a key the engine always refuses invites a refusal for nothing, and every
 client would meet it. Reading the engine's own flag keeps the rule in the engine: the app adds
@@ -779,3 +780,30 @@ client reads the same answer instead of keeping its own copy of the rules.
 part* — a chain that can land halfway. *Reading the line's reconciliation to decide what is
 locked* — an extra read, and a copy of the engine's rules in the client. *The reason beside
 `read-only`* — the owner kept the picked wording; it can come later as its own change.
+
+## The Edit form's keys and words name what it does (2026-10-25, owner)
+
+**Decision.** (1) **`s` stays on an archived account's ledger row and opens the Edit form as `⏎`
+does**; only `d` leaves the footer there, and the form reads what is read-only from the line's
+`edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). (2) **The words
+follow the form**: the ledger's footer reads `s Edit` and its `?` card "Edit the transaction and
+its parts", the "no batch" `?` card says the same for `⏎`, and a refused part names its field by
+the parts table's column word (`part 1 (category)`, `(hashtags)`, `(note)`, `(amount)`), from
+one mapping derived from the table's columns (`FIELD_WORDS` in
+[parts_table.py](../expense/tui/widgets/parts_table.py)). (3) **An opening balance's hashtag
+refusal on the Edit form shows the engine's words alone**; "Leave the opening balance out of the
+selection." stays on the ledger's bulk `h`, chosen by the refusal's `hashtag_ids` key, while the
+whole-line write names `parts.<i>.hashtag_ids`. The owner picked 1 A, 2 A and 3 A in
+[expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html).
+
+**Why.** `⏎` and `s` open one form, so hiding one of them on a row hides nothing, and the engine
+still judges every write. Words that describe a replaced screen promise the wrong screen. A field
+named by the column the owner sees reads better than the engine's name for it, and needs no
+second list to keep in step. A line about a selection makes no sense on a form that edits one
+transaction, and the engine's words already say what is refused.
+
+**Rejected.** *Keeping `s` hidden on an archived row* — it hides a form `⏎` opens anyway.
+*Keeping `s Split` in the footer* — `s` opens the Edit form; it does not split. *Listing every
+field on the "no batch" card* — three lines for what "the transaction and its parts" says in
+one. *A line of the form's own for the opening balance's hashtag refusal* — rare, its field
+already shows read-only, and the engine's words are enough.
