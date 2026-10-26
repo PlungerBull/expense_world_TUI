@@ -637,8 +637,8 @@ reconciliations don't change (contract: POST /v1/accounts/{account_id}/archive).
 `is_archived` from the accounts read each screen already makes and stops offering what the
 engine would refuse: (1) the ledger hides `d` on such a row and draws the row as any other,
 while `s` stays and opens the Edit form as `⏎` does (owner, 2026-10-25); (2) the Edit form shows read-only the fields the line's `edit_limits` names, as for an
-opening balance or a completed reconciliation, each marked `read-only` with no line saying why
-(owner, 2026-10-25), and offers no `^n` or `^x` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"); (3) a frozen change sent anyway (a screen opened before the archive) shows
+opening balance or a completed reconciliation, each with the engine's sentence saying why ("Notes
+keep the engine's words, and a read-only line says why"), and offers no `^n` or `^x` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"); (3) a frozen change sent anyway (a screen opened before the archive) shows
 the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps
 listing only active accounts. The owner picked each from
 [expense-world-archived-account.html](mockups/expense-world-archived-account.html) (screens
@@ -650,8 +650,8 @@ client would meet it. Reading the engine's own flag keeps the rule in the engine
 no judgement of its own, and a failed accounts read only puts the keys back for the engine to
 refuse. The engine's refusal already says to unarchive first, so the app adds nothing to it.
 
-**Rejected.** *Dimming the archived account's rows* and *a line on the Edit form saying why*
-while some of its lines still change — the owner keeps the screens as they are. *A line naming where to unarchive* — the engine's words
+**Rejected.** *Dimming the archived account's rows* while some of its lines still change —
+the owner keeps the ledger as it is. *A line naming where to unarchive* — the engine's words
 say it. *A question that unarchives and retries* — it would make unfreezing a side effect of an
 edit. *Listing archived accounts on Reconciliations, read-only* — nothing there can change.
 
@@ -768,7 +768,8 @@ part's amount is sent as it is, which the engine does not count as one on an arc
 `read-only` and are dimmed, `^n` and `^x` show only when the parts are not fixed, and the total
 is kept when it is fixed (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The
 form reads no reconciliation and holds no locking rule. (3) **A locked field says `read-only`
-and no more** (owner's pick, 2026-10-25), although `edit_limits` carries a reason for each.
+and the engine's sentence for it** ("Notes keep the engine's words, and a read-only line says
+why").
 
 **Why.** One write lands whole or not at all, so a save never leaves a line half-edited, and a
 retry under the same key never applies twice. The engine works out `edit_limits` with the write's
@@ -778,8 +779,34 @@ client reads the same answer instead of keeping its own copy of the rules.
 **Rejected.** *A transaction's own write for an opening balance's or an archived account's line*
 — two write paths for one form, and the second takes a different set of fields. *One write per
 part* — a chain that can land halfway. *Reading the line's reconciliation to decide what is
-locked* — an extra read, and a copy of the engine's rules in the client. *The reason beside
-`read-only`* — the owner kept the picked wording; it can come later as its own change.
+locked* — an extra read, and a copy of the engine's rules in the client.
+
+## Notes keep the engine's words, and a read-only line says why (2026-10-26, owner)
+
+**Decision.** (1) **Every note shows the engine's words as text**: a toast whose words the app
+did not write is shown with styling off, and words set inside the app's own styling are escaped
+exactly, so a `[` in them never hides part of the message; a guard test refuses a toast that
+would read them as styling. (2) **A read-only line on the Edit form says why, in the engine's
+sentence**: each line field keeps its `read-only`, one line under them gives each distinct
+sentence once with the lines it covers, and each part column's `read-only` line carries its
+sentence after a `·` (pick 1 B of
+[expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)). The
+sentence is the `message` of the line's `edit_limits`, the same words the write refuses that
+field with (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). (3) **A refusal that
+stops a run of writes reads the same everywhere**: the bulk edit shows the LOG bar's `Failed`
+note, both from one helper, and a row refused for its own reason keeps its own note (pick 2 A).
+(4) **The question before completing a reconciliation names all six things it locks** (pick 3 A).
+
+**Why.** The engine's words are its contract with every client; text that vanishes or is
+restyled is a lossy copy of them. The engine sends the reason for each lock in words, so every
+client shows the same sentence and none keeps a table of its own from code to words that could
+drift from the engine's. One problem reading one way on every screen is easier to learn.
+
+**Rejected.** *A table in the app from each reason code to a sentence* — a copy of the engine's
+wording in every client; the engine sends the sentence instead. *The sentence beside every
+read-only line* (pick 1 A) — the same sentence three times on a line in a completed
+reconciliation. *A second sentence in the complete question saying what still changes* (pick
+3 B) — longer, and the Edit form shows it.
 
 ## The Edit form's keys and words name what it does (2026-10-25, owner)
 

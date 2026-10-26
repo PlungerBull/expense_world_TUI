@@ -44,6 +44,11 @@ expense/tui/
                     #   (the import door's preview and result, the Edit form)
                     #   + under_itself() — words wrapping under themselves
                     #   after a head, as the Edit form's read-only sentences do
+                    #   + toast() — a toast whose words the app did not write,
+                    #   shown as text; as_markup() — words set inside the app's
+                    #   own markup, every `[` escaped
+                    #   + run_stopped() — the one note for a refusal that stops
+                    #   a run of writes (the LOG bar's save, the bulk edit)
     parts_table.py  # the Edit form's parts: the Part model, the table, the dim
                     #   `read-only` lines and the engine's sentence for each, the
                     #   line adding the parts up, and a refused save's lines;
@@ -361,7 +366,7 @@ An opening balance also carries no hashtag, not even the pending one
 Its bank line keeps its one part
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A line holding an opening balance keeps its parts").
 The Edit form reads all of it from the line's `edit_limits` ("What is read-only is the line's
-`edit_limits`" above): `account` reads `read-only`, the part's category and hashtags cells are
+`edit_limits`" below): `account` reads `read-only`, the part's category and hashtags cells are
 dimmed under a dim `category  read-only` and `hashtags  read-only`, each with the engine's
 sentence for it, every field move (`tab`,
 `shift+tab` and the arrows) skips them, the save never sends them, and there is no `^n` or
@@ -863,19 +868,6 @@ refused by `b`, `c` or `h`, "Saved" below), and for the
 reasons below a blank line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
-**The engine's words show as text, never as styling.** Every note shows them as sent,
-`[` and all: a `[like this]` or a lone `[` in a refusal, a warning or a name is never read
-as markup and never vanishes. Lines drawn on a screen (under the parts, the import's
-preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
-Rich `Text`. A toast whose message is not a fixed sentence of the app's goes through
-`toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
-title is always text. The one toast that styles the engine's words on purpose, the
-ledger's bulk edit note, writes them into its content markup through `as_markup` there,
-which escapes every `[`. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
-on any other `notify` whose message is not a fixed sentence, and
-[test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py) drives each place with
-a refusal holding brackets.
-
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
 |---|---|---|
 | `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
@@ -937,6 +929,19 @@ and 7 B in
 `name` and the line follows the reason alone.
 `SECRET_NOT_REPLAYABLE` has no line: only creating a sign-in key draws it, and the app never
 creates one.
+
+**The engine's words show as text, never as styling.** Every note shows them as sent,
+`[` and all: a `[like this]` or a lone `[` in a refusal, a warning or a name is never read
+as markup and never vanishes. Lines drawn on a screen (under the parts, the import's
+preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
+Rich `Text`. A toast whose message is not a fixed sentence of the app's goes through
+`toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
+title is always text. The one toast that styles the engine's words on purpose, the
+ledger's bulk edit note, writes them into its content markup through `as_markup` there,
+which escapes every `[`. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
+on any other `notify` whose message is not a fixed sentence, and
+[test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py) drives each place with
+a refusal holding brackets.
 
 **"Saved" means the engine holds the row.** The LOG bar ticks a row only when the engine
 created it, or refused it only because the row's own id is taken (`ID_EXISTS` on its

@@ -28,19 +28,39 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over the locked-field reply to the engine
+Asked 2026-10-26 · Blocks: nothing; the engine waits for it
+
+The notes spec is done: the Edit form shows why each line is read-only in the engine's own
+sentence, and every note shows the engine's words whole. Its reply answers item 7 of the
+engine's hand-off of 2026-10-26. Copy
+[to-engine/caught-up-592f2467fa3df75a-locked-field-words.md](to-engine/caught-up-592f2467fa3df75a-locked-field-words.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
+### Approve the spec for the engine words' leftovers
+Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
+
+What the notes spec turned up: a name or title holding `[like this]` still loses it in lists, a
+backslash can drop from the bulk edit's note, and several tests prove less than they say.
+The only thing you see change is bracketed names showing whole. Approve it or rewrite it.
+
+**Recommended:** approve it, after the engine catch-up, which matters more.
+
 ### Approve the engine catch-up spec
 Asked 2026-10-26 · Blocks: [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
 
-The engine's hand-off of 2026-10-26 is planned into four specs, this one second, after the
-notes spec you made current on 2026-10-26. It fixes the
+The engine's hand-off of 2026-10-26 is planned into four specs; the notes spec is done, so
+this one runs next. It fixes the
 bank download import, which does not work against the engine today, shows the lines a
 statement's close flags, takes a card's other account from the engine, and adds the live tests
 of a held reserved name (the practice engine now has the second practice user). It also makes
 pass the 21 live tests that failed and the 1 that errored on 2026-10-26 after the engine moved,
 Two screens change, each picked from a mockup when it starts. Approve it or rewrite it.
 
-**Recommended:** approve it, to run as soon as the notes spec is done, because the app cannot
-import a bank download until it lands.
+**Recommended:** approve it and make it the current spec, because the app cannot import a
+bank download until it lands.
 
 ### Approve the spec for the sheet import through the engine
 Asked 2026-10-26 · Blocks: [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
@@ -50,7 +70,7 @@ app's own reader goes. It holds three questions: whether the app creates the acc
 categories and hashtags you don't have yet, how you confirm which name goes where, and whether
 renaming an account as it comes in stays. Approve it or rewrite it, and answer them there.
 
-**Recommended:** approve it with the recommended answers, to run third, after the notes spec.
+**Recommended:** approve it with the recommended answers, to run after the engine catch-up.
 
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
@@ -255,15 +275,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
-- **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, run in this
-  order: the notes spec below; the bank download and closing a statement, a draft waiting for
-  the owner's approval
+- **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
+  spec done on 2026-10-26; the rest run in this order: the bank download and closing a
+  statement, a draft waiting for the owner's approval
   ([specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md));
   the sheet import through the engine
   ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), a
   draft with three questions; and the PDF statement below.
-- **Notes that keep the engine's words, and lines that say they are locked**: the current spec
-  ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
+- **Leftovers of the engine's words**: a draft spec waiting for the owner's approval
+  ([specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).

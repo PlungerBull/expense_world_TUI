@@ -2,10 +2,9 @@
 
 Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: the engine's hand-off of
 2026-10-26, its items 1, 3, 4, 6, 8 and 9, and the changed refusal wording of item 7. Its other
-items have specs of their own:
-[notes-that-keep-the-engines-words.md](notes-that-keep-the-engines-words.md) (item 7, a locked
-field's words), run before this one, and, after it,
-[sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
+items have specs of their own: item 7, a locked field's words, was caught up by its own spec on
+2026-10-26, its reply waiting in [to-engine/](../to-engine/) to be handed over; after this one
+come [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
 
 **Status: draft, for the owner to rewrite or approve. Its tasks are drafted when the owner names
@@ -78,8 +77,9 @@ so the live tests can finally see the engine refuse a write with `RESERVED_NAME_
 4. The unit suite, the live suite and the drift check pass: the live suite failed 21 tests and
    errored on 1 on 2026-10-26, every one from the engine's move (the bank import's `rows` gone,
    `review_lines` on the close's answer, the close no longer refusing `UNASSIGNED_IN_PERIOD`,
-   and a statement's last day staying open). The last of these left account
-   `contract-seal-672b2c23` on the practice user, which the practice-data cleaner removes
+   and a statement's last day staying open). The last of these leaves one
+   `contract-seal-…` account on the practice user each live run (five by 2026-10-26), which the
+   practice-data cleaner removes
    ([runtime.md](../runtime.md) "Leftovers").
 
 ## What the engine declined
