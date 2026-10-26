@@ -1,6 +1,7 @@
 # A month's statement closes from the bank's PDF
 
-**Status: draft, for the owner to rewrite or approve; its questions wait on the owner. Its tasks
+**Status: draft, for the owner to rewrite or approve; questions 1 to 6 answered on 2026-10-25,
+questions 7 and 8 wait on the owner. Its tasks
 are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -51,7 +52,12 @@ up to the cent, and each one's starting balance is the last one's ending balance
    already completed, a PDF the engine cannot read) and writes nothing.
 6. **The reconciliation screens do only reconciliation work.** Editing a line from them opens the
    ledger's Edit form, as `⏎` on a "no batch" row does today.
-7. **The engine asks follow the rule** ("Ask the engine to change" in
+7. **An account keeps its card numbers over time.** A card replaced with its balance carried
+   over (a lost card, say) stays the same account: the account records which card number it
+   had until which day and which one after. A card that is closed ends its account, and a new
+   card is a new account. So a PDF's card number, with its dates, names its account. On screen
+   this is a field of the account form, picked from a mockup before it is built.
+8. **The engine asks follow the rule** ("Ask the engine to change" in
    [CLAUDE.md](../../CLAUDE.md)): the PDF is read, matched and closed by the engine; the app
    sends the file and shows the answer.
 
@@ -75,8 +81,16 @@ moved here (its checks 4, 5, 6, 10, 11, 12 and part of 9).
    opening balance apart.
 8. Uploading the PDF of another account, or of a month already completed, is refused with the
    engine's words and writes nothing.
-9. The live contract suite proves the engine's new write, each of its refusals, and that a
-   replay writes once.
+9. A card's bottom charges (interest, insurance, the membership fee, the mailing fee) each land
+   as their own transaction on the statement's last day.
+10. Two identical lines on one day (same currency and amount) on the PDF and two in the ledger
+    match both; two on the PDF and one in the ledger create one; one on the PDF and two in the
+    ledger flag one.
+11. A ledger line dated inside the month that the PDF does not hold does not stop the close.
+12. The owner records a replaced card's new number on its account; the next PDF, under the new
+    number, closes that account's month.
+13. The live contract suite proves the engine's new write, each of its refusals, and that a
+    replay writes once.
 
 ## What the owner settled
 
@@ -90,48 +104,51 @@ moved here (its checks 4, 5, 6, 10, 11, 12 and part of 9).
   ending balance before the PDF, there is nothing to compare against.
 - **Editing goes to the ledger's Edit form** (owner, 2026-10-25): the reconciliation screens
   stick to reconciliation work.
+- **A card's bottom charges are each their own transaction on the statement's last day**
+  (owner, 2026-10-25, question 1): interest, insurance, the membership fee and the mailing fee
+  carry no date on the paper.
+- **An installment purchase is one transaction a month,** each month's installment as the bank
+  bills it (owner, 2026-10-25, question 2, A), so every statement adds up.
+- **A flagged line never stops the close** (owner, 2026-10-25, question 3, A). The engine's rule
+  today refuses a complete while a line dated inside the statement's days is in no
+  reconciliation (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation"),
+  and on a card the days are the bank's processing days while a line carries its purchase day,
+  so a line bought just before the last day and processed after it would stop every month. A
+  month closed from its PDF is judged by the PDF instead: an engine ask.
+- **Matching counts duplicates** (owner, 2026-10-25, question 4): the engine groups the PDF's
+  lines and the ledger's by day, currency and amount and compares how many each group holds, so
+  equal lines on one day are all accounted for: matched up to the smaller count, the PDF's extra
+  ones created, the ledger's extra ones flagged.
+- **An account keeps its card numbers, with their days** (owner, 2026-10-25, question 5): a card
+  replaced with its balance carried over stays the account ("this account was card XXXX up to
+  DD/MM/YYYY, then card YYYY"); a closed card ends its account. Which of the owner's card numbers
+  are which account is set in the app, card by card, once the field exists.
+- **A month can be opened before its PDF** (owner, 2026-10-25, question 6, A): the upload closes
+  the open one, or creates it.
 - **The PDF overturns "no PDF"** in [file-import-plan.md](../file-import-plan.md) (owner,
   2026-10-25), for statements.
 
 ## Questions for the owner
 
-1. **The charges at the bottom of a card statement** (interest, insurance, the membership fee,
-   the mailing fee) carry no date and are in no download.
-   - **A.** The upload creates each one as its own transaction on the statement's last day.
-   - **B.** The upload creates one transaction holding them all, on the last day.
+7. **Picking the account.** A PDF names its card (by number) or its bank account (by its full
+   account number).
+   - **A.** The engine finds the account from that number; you pick only when no account holds
+     it.
+   - **B.** You pick the account each time, as the bank-file import asks, and the engine refuses
+     a PDF of another account.
 
-   **Recommended:** A, because each is a different charge you may want to categorize apart.
-2. **An installment purchase.** The bank bills it one installment a month, as a line of that
-   month's statement.
-   - **A.** Each month's installment is its own transaction, as the bank bills it, so every
-     statement adds up.
-   - **B.** The whole purchase is one transaction on the day you bought it; then a month's
-     statement does not add up while installments are left.
+   **Recommended:** A, because the number names the account for certain once your accounts
+   carry their numbers, and a wrong pick is impossible.
+8. **Is this reading of question 3 right?** A ledger line dated inside the month that is not on
+   its PDF never stops the close, wherever in the month it falls, near the end or not; it stays
+   flagged for you. So the engine's rule that refuses a close while a line inside the days is in
+   no reconciliation changes for a month closed from its PDF.
+   - **A.** Yes.
+   - **B.** No: only a line near the end of the month (bought before the last day, processed
+     after it) may be left out; any other one stops the close until you fix it.
 
-   **Recommended:** A, because the statement can only close when it adds up.
-3. **A flagged line and closing.** A ledger line dated inside a card's month but not on its PDF
-   is usually next month's: bought just before the last day, processed after it.
-   - **A.** Flagged lines never stop the close; they wait for next month's PDF, or for you.
-   - **B.** The month closes only once every flagged line is fixed or deleted.
-
-   **Recommended:** A, because otherwise almost every card month would be stuck on lines that
-   belong to the next one.
-4. **Two identical lines.** Two charges on the same day, same amount, same currency (two parking
-   tickets) can match either ledger line.
-   - **A.** The engine takes either; they are the same to the statement.
-   - **B.** You pick which.
-
-   **Recommended:** A, because nothing tells them apart and the result is the same.
-5. **Which card statements are one account?** Your card statements come under four card
-   numbers. Two changes carry the balance on (a replaced card: the same account), and one starts
-   from zero (a new card). Is each run one account in the app, and which app account is which?
-   **Recommended:** none: only you know.
-6. **Opening the month first.** When no statement is open for the month, the upload creates it.
-   Should opening one beforehand stay possible?
-   - **A.** Yes: open it when you like; the upload closes the open one or creates it.
-   - **B.** No: the upload always creates it; `n` goes from the card's list.
-
-   **Recommended:** A, because it is what you described, and the upload works either way.
+   **Recommended:** A, because the PDF is the bank's own record of the month, and a flagged line
+   stays in front of you either way.
 
 ---
 
