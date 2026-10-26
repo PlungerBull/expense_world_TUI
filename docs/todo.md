@@ -28,6 +28,28 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Confirm the statement screens' mockups before they are built
+Asked 2026-10-25 · Blocks: tasks 7, 8 and 15 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+The last three tasks build what you picked on 2026-10-25, as the spec words each one:
+- **Task 7, the statement's screen**
+  ([mockups/expense-world-statement-screen.html](mockups/expense-world-statement-screen.html)):
+  `⏎` on a statement opens one list, both currencies mixed, with `Amount PEN` and `Amount USD`,
+  `Starting balance` first and `Ending balance` last; `shift+↑↓` moves a line and `ctrl+s`
+  saves the order; the lines still to tick sit under a dotted line, oldest first; `c`, `u` and
+  `d` act on both halves after their questions. Picks 1 A to 5 A and panes 1, 6 and 7.
+- **Task 8, an account with no statement code on the same screen** (pane 5 there): one `Amount`
+  column, its lines oldest first, nothing to move.
+- **Task 15, `e` edits a statement**
+  ([mockups/expense-world-card-statement.html](mockups/expense-world-card-statement.html), task
+  6's question 1 A): a small form with the name, the days and each half's begin and end, one
+  save; on a completed statement only the name changes.
+
+- **A.** Build all three as picked.
+- **B.** Change something first: say which and what, and that mockup is redrawn for a pick.
+
+**Recommended:** A, because every question on them is answered and the engine is ready.
+
 ### Hand over the Edit form's reply to the engine
 Asked 2026-10-25 · Blocks: nothing; the engine waits for it
 
