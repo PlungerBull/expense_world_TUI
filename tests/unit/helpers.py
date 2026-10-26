@@ -374,25 +374,107 @@ def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callabl
     return mark
 
 
-#: A completed reconciliation as `GET /reconciliations/{id}` reads it, every field
-#: present: what `complete_answer` spreads a test's record over.
-_COMPLETED = {
+#: A draft reconciliation as `GET /reconciliations/{id}` reads it, every field present,
+#: on an account without a statement code: what the write answers below spread a
+#: test's record over.
+_DRAFT = {
     "id": "r1",
     "user_id": "u-1",
     "account_id": "acc1",
     "name": "April 2026",
     "date_start": "2026-04-01",
     "date_end": "2026-04-30",
-    "status": 2,
+    "status": 1,
     "beginning_balance_cents": 0,
-    "ending_balance_cents": 0,
-    "difference_cents": 0,
+    "ending_balance_cents": None,
+    "difference_cents": None,
     **NO_STATEMENT,
     "created_at": "2026-04-01T15:00:00Z",
-    "updated_at": "2026-05-02T15:00:00Z",
-    "version": 2,
+    "updated_at": "2026-04-01T15:00:00Z",
+    "version": 1,
     "deleted_at": None,
 }
+#: The same reconciliation completed.
+_COMPLETED = {
+    **_DRAFT,
+    "status": 2,
+    "ending_balance_cents": 0,
+    "difference_cents": 0,
+    "updated_at": "2026-05-02T15:00:00Z",
+    "version": 2,
+}
+#: The same draft deleted: a deleted reconciliation has no twin
+#: (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response").
+_DELETED = {**_DRAFT, "deleted_at": "2026-05-02T15:00:00Z"}
+#: What a create takes from its request body onto the half it makes; the twin
+#: takes `name`, `date_start` and `date_end` from the top level
+#: (contract: POST /v1/reconciliations).
+_CREATE_FIELDS = (
+    "id",
+    "account_id",
+    "name",
+    "date_start",
+    "date_end",
+    "beginning_balance_cents",
+    "ending_balance_cents",
+)
+
+
+def _half(base: dict, record: dict | None) -> dict | None:
+    """`record` spread over `base`; None stays None (a reconciliation with no twin)."""
+    return None if record is None else {**base, **record}
+
+
+@answer_of("POST", "/v1/reconciliations")
+def create_answer(sent: dict | None = None) -> dict:
+    """`POST /reconciliations`'s answer to `sent`, the request body: the draft its top
+    level makes plus `twin`, the draft its `twin` makes over the same name and days, the
+    two naming each other as `twin_id` with an ordered, empty statement each; `twin`
+    is `None` without one (contract: POST /v1/reconciliations, "Response"). A create
+    that becomes an existing half's twin without sending `twin` is a test's own
+    `write_responses` answer."""
+    sent = sent or {}
+    half = {**_DRAFT, **{key: sent[key] for key in _CREATE_FIELDS if key in sent}}
+    other = sent.get("twin")
+    if not other:
+        return {**_added_up(half), "twin": None}
+    twin = {
+        **half,
+        **{key: other[key] for key in _CREATE_FIELDS if key in other},
+        "ending_balance_cents": other.get("ending_balance_cents"),
+    }
+    half.update(ORDERED_ALONE, twin_id=twin["id"])
+    twin.update(ORDERED_ALONE, twin_id=half["id"])
+    return {**_added_up(half), "twin": _added_up(twin)}
+
+
+def _added_up(record: dict) -> dict:
+    """`record` with its `difference_cents` as a fresh create reads it, no transaction
+    assigned yet: ending minus beginning, `None` while the ending balance is
+    (contract: "Reconciliations", "`difference_cents` — the add-up check")."""
+    end = record["ending_balance_cents"]
+    return {
+        **record,
+        "difference_cents": None if end is None else end - record["beginning_balance_cents"],
+    }
+
+
+@answer_of("POST", "/v1/reconciliations/{reconciliation_id}/revert")
+def revert_answer(record: dict | None = None, *, twin: dict | None = None) -> dict:
+    """`POST /reconciliations/{id}/revert`'s answer: the half the path names after the
+    write, `record` spread over a draft, plus `twin`, the statement's other half spread
+    over a draft too, `None` when it has none
+    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)."""
+    return {**_DRAFT, **(record or {}), "twin": _half(_DRAFT, twin)}
+
+
+@answer_of("DELETE", "/v1/reconciliations/{reconciliation_id}")
+def delete_answer(record: dict | None = None, *, twin: dict | None = None) -> dict:
+    """`DELETE /reconciliations/{id}`'s answer: the half the path names as it is after
+    the delete, `record` spread over a deleted draft, plus `twin`, the statement's
+    other half spread over one too, `None` when it has none
+    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
+    return {**_DELETED, **(record or {}), "twin": _half(_DELETED, twin)}
 
 
 @answer_of("POST", "/v1/reconciliations/{reconciliation_id}/complete")
@@ -406,16 +488,96 @@ def complete_answer(
     """`POST /reconciliations/{id}/complete`'s answer: the half the path names after
     the write, `record` spread over a completed reconciliation, plus `warnings` (`[]`
     by default), `coverage_gap` (`None`: no gap) and `twin`, the statement's other
-    half, `None` when it has none. `warnings` and `coverage_gap` are built from one
-    object, so a gap's sentence comes with its `coverage_gap`
+    half spread over a completed one with its own `warnings` (`[]`) and
+    `coverage_gap` (`None`) unless it names them, `None` when it has none. `warnings`
+    and `coverage_gap` are built from one object, so a gap's sentence comes with its
+    `coverage_gap`
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
     return {
         **_COMPLETED,
         **(record or {}),
         "warnings": list(warnings or []),
         "coverage_gap": coverage_gap,
-        "twin": twin,
+        "twin": _half({**_COMPLETED, "warnings": [], "coverage_gap": None}, twin),
     }
+
+
+#: What `FakeClient` answers a write no `write_responses` entry names: a list of
+#: `(method, path pattern, answer)`, one per write the fake answers in the engine's
+#: shape, the pattern a regex matching the path FakeClient sees (the contract's path
+#: without `/v1`, each `{name}` a named group). `answer(client, body, **path_params)`
+#: builds it through the endpoint's `answer_of` builder, so the drift script checks
+#: the bare shape every default answer keeps. Register one with `fake_answer`.
+FAKE_ANSWERS: list[tuple[str, re.Pattern[str], Callable[..., dict]]] = []
+
+
+def fake_answer(method: str, path: str) -> Callable[[Callable[..., dict]], Callable[..., dict]]:
+    """Make `answer` FakeClient's default answer to `method path`, the endpoint as the
+    contract names it (`/v1/...`, `{name}` for each path parameter). The endpoint must
+    have an `answer_of` builder, which `answer` builds its answer through."""
+    endpoint = f"{method} {path}"
+    assert endpoint in ANSWER_BUILDERS, f"{endpoint} has no answer_of builder"
+    pattern = re.compile(re.sub(r"\{(\w+)\}", r"(?P<\1>[^/]+)", path.removeprefix("/v1")))
+
+    def mark(answer: Callable[..., dict]) -> Callable[..., dict]:
+        FAKE_ANSWERS.append((method, pattern, answer))
+        return answer
+
+    return mark
+
+
+def _statement_of(client: "FakeClient", reconciliation_id: str) -> tuple[dict, dict | None]:
+    """The half the path names, as the test serves `GET /reconciliations/{id}` (its id
+    alone when it serves none), and its twin when that names a `twin_id`, read the
+    same way, naming the half back and, as a twin's account holds a statement code,
+    with an ordered statement unless the test serves it otherwise."""
+    served = client.get_responses
+    half = {"id": reconciliation_id, **served.get(f"/reconciliations/{reconciliation_id}", {})}
+    twin_id = half.get("twin_id")
+    if not twin_id:
+        return half, None
+    return half, {
+        **ORDERED_ALONE,
+        "id": twin_id,
+        "twin_id": reconciliation_id,
+        **served.get(f"/reconciliations/{twin_id}", {}),
+    }
+
+
+@fake_answer("POST", "/v1/reconciliations")
+def _created(client: "FakeClient", body: Any) -> dict:
+    return create_answer(body)
+
+
+@fake_answer("POST", "/v1/reconciliations/{reconciliation_id}/revert")
+def _reverted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
+    half, twin = _statement_of(client, reconciliation_id)
+    return revert_answer({**half, "status": 1}, twin=twin and {**twin, "status": 1})
+
+
+@fake_answer("POST", "/v1/reconciliations/{reconciliation_id}/complete")
+def _completed(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
+    half, twin = _statement_of(client, reconciliation_id)
+    return complete_answer({**half, "status": 2}, twin=twin and {**twin, "status": 2})
+
+
+def _gone(record: dict) -> dict:
+    """`record` deleted: `deleted_at` set, no twin, and its lines unassigned, so both
+    counts `0`, or null without a statement code
+    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
+    counts = ("unplaced_count", "shared_place_count")
+    return {
+        **record,
+        "deleted_at": _DELETED["deleted_at"],
+        "twin_id": None,
+        **{key: 0 for key in counts if record.get(key) is not None},
+    }
+
+
+@fake_answer("DELETE", "/v1/reconciliations/{reconciliation_id}")
+def _deleted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
+    half, twin = _statement_of(client, reconciliation_id)
+    return delete_answer(_gone(half), twin=twin and _gone(twin))
 
 
 #: `GET /accounts?include_people=true` in an order no client could derive:
@@ -617,9 +779,16 @@ class FakeClient:
     answer from `get_responses` (miss → EngineError 404, matching the engine's
     not-provisioned behavior). Set `errors["POST"] = exc` to make a verb raise.
 
-    Writes answer `{}` unless `write_responses[path]` says otherwise — needed
-    because `run_write`'s `on_response` reads the engine's own body (`complete`
-    carries a `warnings` envelope).
+    A `post` or `put` answers `write_responses[path]` when the test sets it, exactly
+    that; otherwise, as a `delete` always does, the endpoint's `FAKE_ANSWERS` entry
+    when it has one, in the engine's shape, or else `{}`. `write_responses` is keyed by
+    path alone, so `delete` never reads it: a PUT answer set for a path never comes
+    back on a DELETE of it. `run_write`'s `on_response` reads the
+    engine's own body (`complete` carries a `warnings` envelope). A reconciliation's
+    create, revert, complete and delete have entries: the create answers what it was
+    sent, `twin` included; the other three answer the half the path names, as the
+    test serves `GET /reconciliations/{id}` (or its id alone), with its status after
+    the write, and its twin when that record names a `twin_id`.
 
     `post` and `put` are read through `__getattribute__`, which hands back the
     method checked by `refuse_read_only_fields` — so a function a test assigns to
@@ -656,17 +825,26 @@ class FakeClient:
             return self.get_responses[path]
         raise EngineError("NOT_FOUND", f"no fake response for GET {path}", None, 404, {})
 
+    def _answer(self, method: str, path: str, body: Any = None) -> dict:
+        if method != "DELETE" and path in self.write_responses:
+            return self.write_responses[path]
+        for verb, pattern, answer in FAKE_ANSWERS:
+            match = pattern.fullmatch(path)
+            if verb == method and match:
+                return answer(self, body, **match.groupdict())
+        return {}
+
     def post(self, path: str, json_body: dict | None = None) -> dict:
         self._record("POST", path, json_body)
-        return self.write_responses.get(path, {})
+        return self._answer("POST", path, json_body)
 
     def put(self, path: str, json_body: dict | None = None) -> dict:
         self._record("PUT", path, json_body)
-        return self.write_responses.get(path, {})
+        return self._answer("PUT", path, json_body)
 
     def delete(self, path: str) -> dict:
         self._record("DELETE", path)
-        return {}
+        return self._answer("DELETE", path)
 
     @property
     def requests(self) -> list[tuple[str, str]]:

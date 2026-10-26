@@ -45,9 +45,11 @@ each fixture against the one endpoint it mocks, so a field that is real *somewhe
 passes everywhere: a field real on a transaction but absent from another response
 passes. Only the builders marked with `answer_of` are tied to an endpoint, and for
 them only the required fields are checked, not unknown keys; a fixture no marked
-builder makes (a dict written in a test, `FakeClient`'s `{}`) is checked for
-neither. A nested object or list is checked only where the bare answer holds one,
-so a value a test passes in place of a `None` (a `twin`, a `coverage_gap`) is not.
+builder makes (a dict written in a test, `FakeClient`'s `{}` for a write with no
+default answer) is checked for neither; `FakeClient`'s default answers, its
+`FAKE_ANSWERS`, are built by marked builders. A nested object or list is checked
+only where the bare answer holds one, so a value a test passes in place of a `None`
+(a `twin`, a `coverage_gap`) is not.
 So a clean run means "no field is dead everywhere, and every marked answer carries
 what its endpoint requires", not "every fixture matches its endpoint".
 """

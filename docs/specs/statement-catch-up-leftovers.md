@@ -85,10 +85,6 @@ note in point 9 and the engine ask in point 10.
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
 do and when it passes.
 
-4. **The fake engine answers a reconciliation write as the engine does** (point 4). Passes if
-   `FakeClient` answers a reconciliation's create, revert, delete and complete in the engine's
-   answer shape, `twin` included on a card (contract: POST /v1/reconciliations), the tests that
-   set their own answer keep working, and the unit suite passes.
 5. **One copy of each contract-suite helper** (point 5, first half). Passes if `_live_ids`,
    `_send`, `_batch_into` and `_assign` each exist once, in the contract suite's conftest.py, or
    give way to `Scratch.line`, keeping whichever route a test exists to prove, and the live
@@ -138,3 +134,10 @@ do and when it passes.
   replaces a builder already marked for the same endpoint, and when the contract allows more
   than one object shape for an answer the script says the contract "holds no JSON answer for
   it", which misnames the case (found by task 3's reviewer, 2026-10-25).
+- **A card-statement test builds the create's answer by hand.**
+  `test_saved_it_says_so_and_the_panel_lands_on_the_new_statement` in
+  test_tui_card_statement.py replaces `fake_client.post` to build the card create's answer,
+  which the fake engine now builds by default (found by task 4's builder, 2026-10-25).
+- **The drift check does not check a card's twin half.** It checks the bare answers only, so
+  the `twin` inside a card's answer is never checked against its own schema (found by task 4's
+  builder, 2026-10-25).

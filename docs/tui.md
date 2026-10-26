@@ -1523,6 +1523,18 @@ make rows fit that do not. Width has **no** floor of any kind.
 - **`fake_client` (conftest) patches the lazy-import seams only** —
   `expense.http.ExpenseClient` and `expense.config.ensure_loaded`. Assert on
   `client.calls` / `.posts` / `.puts` ordering.
+- **A `FakeClient` write answers in the engine's shape where helpers.py knows it** — a
+  POST or PUT gets the test's own `write_responses[path]` first, exactly as set; then,
+  as a DELETE always does (`write_responses` is keyed by path alone, so a PUT answer
+  never comes back on a DELETE of the same path), the endpoint's entry in
+  `helpers.FAKE_ANSWERS`; otherwise `{}`. A reconciliation's create, revert,
+  complete and delete have entries, each built by the endpoint's `answer_of` builder, so
+  the drift check covers its shape ([runtime.md](runtime.md) "Working against the live
+  engine", "Fixture drift"): the
+  create answers what it was sent, `twin` included on a card; the other three answer the
+  half the path names, read from the test's `GET /reconciliations/{id}` when it serves
+  one (its id alone otherwise), with its status after the write, and its twin when that
+  record names a `twin_id`.
 - **No request body carries `line_code`, `statement_line` or `statement_place`, at any
   depth** — the engine sets each itself and refuses it in every request body as
   `UNKNOWN_FIELD` (contract: "Transactions (Ledger)", "Bank lines"), while a statement's
