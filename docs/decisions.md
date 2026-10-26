@@ -635,8 +635,8 @@ silently lost.
 hashtags and note change and an empty title or operation code is filled once, and its
 reconciliations don't change (contract: POST /v1/accounts/{account_id}/archive). The app reads
 `is_archived` from the accounts read each screen already makes and stops offering what the
-engine would refuse: (1) the ledger hides `s` and `d` on such a row and draws the row as any
-other; (2) the Edit form shows read-only the fields the line's `edit_limits` names, as for an
+engine would refuse: (1) the ledger hides `d` on such a row and draws the row as any other,
+while `s` stays and opens the Edit form as `⏎` does (owner, 2026-10-25); (2) the Edit form shows read-only the fields the line's `edit_limits` names, as for an
 opening balance or a completed reconciliation, each marked `read-only` with no line saying why
 (owner, 2026-10-25), and offers no `^n` or `^x` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"); (3) a frozen change sent anyway (a screen opened before the archive) shows
 the engine's words alone, with no line of the app's own; (4) the Reconciliations screen keeps

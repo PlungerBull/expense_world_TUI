@@ -38,22 +38,6 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
-### Pick the Edit form's words
-Asked 2026-10-25 · Blocks: tasks 2 and 3 of [specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)
-
-[mockups/expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html) draws
-the exact words. Screen 1, the ledger's `s` in the footer:
-- **A.** `s Edit`.
-- **B.** Keep `s Split`.
-
-Screen 2, the "no batch" `⏎` line on the `?` card:
-- **A.** "Edit the transaction and its parts", the same as `s`.
-- **B.** The full list of fields, on three lines.
-
-Screen 3 has one option, a refused part reading `category` and `hashtags`: say OK.
-
-**Recommended:** 1 A, 2 A and OK, because the words then match the screen they open, on one line.
-
 ### The locked-line part of the notes spec is done
 Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
 
@@ -237,17 +221,14 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Four comments still describe the split screen.** `key_index`'s docstring in
-  [errors.py](../expense/errors.py) says "the split's `parts`"; `check_action` in
-  [transactions.py](../expense/tui/screens/transactions.py) says the engine refuses `s` on an
-  archived account's row, though `s` only opens the Edit form; the
+- **Three comments still describe the split screen.** `key_index`'s docstring in
+  [errors.py](../expense/errors.py) says "the split's `parts`"; the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change; and
   `test_nothing_in_the_app_calls_the_split_route` in
   [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
   gone", where the rule is present tense.
-- **The Edit form's words and keys match what it does**: the spec running now, its tasks 2 and 3
-  waiting on the owner's pick ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
+- **The Edit form's words and keys match what it does**: the spec running now ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
   waiting for the owner's approval and two answers
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).

@@ -38,11 +38,12 @@ the newest 10. It first reads the row's bank line once
 whole, every part in one `DELETE /bank-lines/{id}`
 (contract: DELETE /v1/bank-lines/{bank_line_id}); a row never split asks and
 deletes as any row does. `s` and `d` never act on a selection: while rows are
-selected they are off and out of the footer. They are off too, and out of the
+selected they are off and out of the footer. `d` is off too, and out of the
 footer, while the cursor is on a row of an archived account, whose transactions
-can be neither split nor deleted (contract: POST /v1/accounts/{account_id}/archive);
-the row is drawn as any other, and `c`, `b`, `h` and `⏎` stay. The archived ids
-come with the account names, from the one accounts read of each load
+cannot be deleted (contract: POST /v1/accounts/{account_id}/archive); the row is
+drawn as any other, and `s`, `c`, `b`, `h` and `⏎` stay, `s` opening the Edit
+form, which reads what is read-only from the line's `edit_limits`. The archived
+ids come with the account names, from the one accounts read of each load
 (`reads.load_account_index`).
 
 `esc` clears the selection when there is one; otherwise it goes back to where
@@ -449,9 +450,10 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             # `s` and `d` are off and leave the footer, and `esc` brings them
             # back. Off too while a bulk write runs, so neither overlaps its PUTs
             return False
-        if action in ("delete", "split") and self._on_archived_row():
-            # the engine refuses both on an archived account's transaction
-            # (contract: POST /v1/accounts/{account_id}/archive)
+        if action == "delete" and self._on_archived_row():
+            # the engine deletes none of an archived account's transactions
+            # (contract: POST /v1/accounts/{account_id}/archive); `s` stays, since
+            # the Edit form it opens reads what is read-only from `edit_limits`
             return False
         return True
 
@@ -462,13 +464,13 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         return record is not None and record.get("account_id") in self._archived
 
     def on_cursor_list_highlighted(self, event: CursorList.Highlighted) -> None:
-        self.refresh_bindings()  # re-check `s` and `d` for the row the cursor landed on
+        self.refresh_bindings()  # re-check `d` for the row the cursor landed on
 
     def action_split(self) -> None:
-        """`s` — the Edit form on the row under the cursor, as `⏎` opens it; a
-        save reads the list fresh. Never a selection, nor an archived account's
-        row (`check_action`)."""
-        if self._selected or self._bulk_busy or self._on_archived_row():
+        """`s` — the Edit form on the row under the cursor, as `⏎` opens it, an
+        archived account's row included; a save reads the list fresh. Never a
+        selection, nor while a bulk write runs (`check_action`)."""
+        if self._selected or self._bulk_busy:
             return
         targets = self._targets()
         if not targets:

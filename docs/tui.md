@@ -391,9 +391,9 @@ DATE, or the first line that can change when the line's `edit_limits` makes DATE
 ("What is read-only is the line's `edit_limits`" below). `s Split` sits
 in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
 works on the cursor row only: off, and out of the footer, while rows are selected, while a bulk
-write runs, or while the cursor is on an archived account's row ("On an archived account's row
-the ledger offers no `s` and no `d`" below). The form reads the reference lists and the row's
-bank line, one `GET /bank-lines/{id}` by its `bank_line_id` (`fetch_bank_line` in
+write runs, or on an empty list. On an archived account's row `s` stays and `d` goes ("On an
+archived account's row the ledger offers no `d`" below). The form reads the reference lists and
+the row's bank line, one `GET /bank-lines/{id}` by its `bank_line_id` (`fetch_bank_line` in
 [reads.py](../expense/reads.py)): its `parts` in the engine's order, its signed `net_cents`
 total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
 Each part comes as a magnitude and its `transaction_type`, signed by `signed_cents` in
@@ -680,19 +680,21 @@ ledger's `b` pick offer no archived account (`QuickAddRefs.accounts` in
 `account_id` (contract: POST /v1/accounts/{account_id}/archive). A row already on one still
 shows its name, read-only on its Edit form (below).
 
-**On an archived account's row the ledger offers no `s` and no `d`** (screen 1 A of
-[expense-world-archived-account.html](mockups/expense-world-archived-account.html)). The
-engine splits and deletes none of an archived account's transactions
-(contract: POST /v1/accounts/{account_id}/archive), so with the cursor on one, whole ledger or
-filtered from Home, `s Split` and `d Delete` leave the footer and both keys do nothing and
-send nothing; on the next row of an active account or a person they are back, the footer
-following the cursor. The row is drawn as any other, with nothing on it saying why, and `c`,
-`b`, `h`, `⏎` and every other key stay; the engine still judges each write they send. The
-ledger learns which accounts are archived from the same `GET /accounts` that gives it the
+**On an archived account's row the ledger offers no `d`** (the row and `d` as screen 1 A of
+[expense-world-archived-account.html](mockups/expense-world-archived-account.html) draws them;
+`s` stays on the row, where that screen draws it gone). The engine deletes none of an archived
+account's transactions (contract: POST /v1/accounts/{account_id}/archive), so with the cursor
+on one, whole ledger or filtered from Home, `d Delete` leaves the footer and the key does
+nothing and sends nothing; on the next row of an active account or a person it is back, the
+footer following the cursor. `s` stays on the row and opens the same Edit form `⏎` does, where only what the line's
+`edit_limits` leaves open changes ("On an archived account's line the Edit form changes the
+categorisation alone" below). The row is drawn as any other, with nothing on it saying why, and
+`s`, `c`, `b`, `h`, `⏎` and every other key stay; the engine still judges each write they send.
+The ledger learns which accounts are archived from the same `GET /accounts` that gives it the
 names, one read per load (`reads.load_account_index`), so an account unarchived on
-Manage ▸ Accounts gets its `s` and `d` back at the ledger's next read (`r`, or any reload).
-The `?` card still lists `s` and `d`, as it does while rows are selected: it lists a screen's
-own keys as the screen declares them.
+Manage ▸ Accounts gets its `d` back at the ledger's next read (`r`, or any reload).
+The `?` card still lists `d`, as it does while rows are selected: it lists a screen's own keys
+as the screen declares them.
 
 **On an archived account's line the Edit form changes the categorisation alone**
 (screen 2 B of [expense-world-archived-account.html](mockups/expense-world-archived-account.html),
@@ -1131,9 +1133,9 @@ rhythm), `a` selects every loaded row or clears the selection, `c` / `b` / `h` o
 bulk pick for category / account / hashtags (§2 "The bulk pick is a full screen": type to
 narrow, `↑↓`, `⏎` picks, `esc Cancel`), `esc` clears the selection if there is one,
 else goes back to the screen that opened the ledger. `s` and `d` never follow the
-selection: they are off while one exists, while a bulk write runs, and on an archived
-account's row (§2 "`⏎` and `s` open the Edit form", "On an archived account's row the
-ledger offers no `s` and no `d`", "`d` is the TUI's one destructive key").
+selection: they are off while one exists and while a bulk write runs, and `d` is off on an
+archived account's row too (§2 "`⏎` and `s` open the Edit form", "On an archived account's
+row the ledger offers no `d`", "`d` is the TUI's one destructive key").
 `space` is declared on `CursorList` but is live — key and footer both — only on a
 screen that handles `CursorList.Toggled`, the same `NEEDS_SCREEN_HANDLER` gate `⏎ Open`
 goes through on the `?` card, so the Manage lists neither react to it nor advertise it.

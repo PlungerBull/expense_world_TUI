@@ -1,12 +1,12 @@
-"""The ledger on an archived account's rows: screen 1 A of
-expense-world-archived-account.html.
+"""The ledger on an archived account's rows (tui.md "On an archived account's
+row the ledger offers no `d`").
 
-With the cursor on a transaction whose account is archived, `s` Split and `d`
-Delete leave the footer and do nothing, since the engine refuses both
+With the cursor on a transaction whose account is archived, `d` Delete leaves
+the footer and does nothing, since the engine deletes none of its transactions
 (contract: POST /v1/accounts/{account_id}/archive); the row is drawn as any
-other, and `c`, `b`, `h` and `⏎` stay. The archived ids come from the one
-accounts read the ledger makes for the names (`reads.load_account_index`),
-served here by the fake engine.
+other, and `s`, `c`, `b`, `h` and `⏎` stay, `s` opening the same Edit form `⏎`
+does. The archived ids come from the one accounts read the ledger makes for the
+names (`reads.load_account_index`), served here by the fake engine.
 """
 
 import pytest
@@ -17,7 +17,7 @@ from expense.tui.screens.bulk_pick import BulkPickScreen
 from expense.tui.screens.edit_form import EditFormScreen
 from expense.tui.screens.help import screen_inventory
 from expense.tui.screens.modals import ConfirmModal
-from expense.tui.screens.transactions import TransactionsScreen
+from expense.tui.screens.transactions import LedgerFilter, TransactionsScreen
 from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
@@ -125,8 +125,12 @@ def _keys_shown(screen) -> set[str]:
     return {d for d in ("Split", "Delete") if d in shown}
 
 
-async def _open(pilot, app) -> TransactionsScreen:
-    screen = TransactionsScreen()
+#: The ledger as Home opens it filtered: every row here is on this category.
+FILTER = LedgerFilter("category", "cat-efe", "EFECTIVO")
+
+
+async def _open(pilot, app, flt: LedgerFilter | None = None) -> TransactionsScreen:
+    screen = TransactionsScreen(filter=flt)
     await app.push_screen(screen)
     await wait_for_list(pilot, app)
     screen.query_one(CursorList).focus()
@@ -164,36 +168,63 @@ def test_the_ledger_reads_the_archived_ids_with_the_names_in_one_read(engine):
     run_app(scenario, size=(120, 30))
 
 
-def test_s_and_d_leave_the_footer_on_an_archived_accounts_row_only(engine):
-    """Moving the cursor updates the footer: `s` and `d` show on an active
-    account's row and on a person's, and are gone on the archived account's;
-    `c`, `b`, `h` and `⏎` stay on every row."""
+@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+def test_d_leaves_the_footer_on_an_archived_accounts_row_only_and_s_stays(engine, flt):
+    """Moving the cursor updates the footer: `d` shows on an active account's
+    row and on a person's, and is gone on the archived account's; `s`, `c`,
+    `b`, `h` and `⏎` stay on every row, whole ledger or filtered from Home."""
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app)
+        screen = await _open(pilot, app, flt)
         seen = {}
         for key in ("t-live", "t-old", "t-ana", "t-old", "t-live"):
             await _cursor_on(pilot, screen, key)
-            expect = set() if key == "t-old" else {"Split", "Delete"}
+            expect = {"Split"} if key == "t-old" else {"Split", "Delete"}
             await wait_for(
                 pilot,
                 lambda e=expect: _keys_shown(screen) == e,
                 message=f"{key}: {_footer(screen)}",
             )
             seen[key] = _footer(screen)
-            for always in ("Open", "Category", "Account", "Hashtags"):
+            for always in ("Open", "Split", "Category", "Account", "Hashtags"):
                 assert always in seen[key], (key, always)
-        assert "Split" in seen["t-ana"] and "Delete" in seen["t-ana"]
+        assert "Delete" in seen["t-ana"] and "Delete" not in seen["t-old"]
 
     run_app(scenario, size=(160, 30))
 
 
-def test_s_and_d_on_an_archived_accounts_row_do_nothing_and_send_nothing(engine):
+@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+def test_s_on_an_archived_accounts_row_opens_the_edit_form_as_enter_does(engine, flt):
+    """`s` pushes the Edit form for the cursor row, the same screen on the same
+    record `⏎` opens; the form reads what is read-only from the line's
+    `edit_limits` (test_tui_edit_form.py)."""
+
     async def scenario(pilot, app):
-        screen = await _open(pilot, app)
+        screen = await _open(pilot, app, flt)
         await _cursor_on(pilot, screen, "t-old")
-        before = list(engine.calls)
+        assert screen.check_action("split", ()) is True
         await pilot.press("s")
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+        by_s = app.screen._record
+        await wait_for(pilot, lambda: ("GET", "/bank-lines/bl-t-old") in _sent(engine))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        screen.query_one(CursorList).focus()
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
+        assert by_s is app.screen._record is screen._by_id["t-old"]
+        assert engine.puts == [] and engine.deletes == []
+
+    run_app(scenario, size=(160, 30))
+
+
+@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+def test_d_on_an_archived_accounts_row_does_nothing_and_sends_nothing(engine, flt):
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, flt)
+        await _cursor_on(pilot, screen, "t-old")
+        assert screen.check_action("delete", ()) is False
+        before = list(engine.calls)
         await pilot.press("d")
         await pilot.pause()
         await pilot.pause()
@@ -203,8 +234,7 @@ def test_s_and_d_on_an_archived_accounts_row_do_nothing_and_send_nothing(engine)
         _, groups = screen_inventory(screen)
         own = next(g for g in groups if g.title == "This screen")
         assert {"s", "d"} <= {row.keys for row in own.rows}
-        # called directly too, the actions keep to the cursor row's rule
-        screen.action_split()
+        # called directly too, the action keeps to the cursor row's rule
         screen.action_delete()
         await pilot.pause()
         assert app.screen is screen and engine.calls == before
@@ -253,11 +283,11 @@ def test_the_archived_accounts_row_is_drawn_as_any_other(engine):
     assert frozen == active
 
 
-def test_after_an_unarchive_and_r_s_and_d_are_back_on_the_row(engine):
+def test_after_an_unarchive_and_r_d_is_back_on_the_row(engine):
     async def scenario(pilot, app):
         screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-old")
-        await wait_for(pilot, lambda: _keys_shown(screen) == set())
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split"})
         # the account is unarchived on Manage ▸ Accounts; the next read says so
         engine.get_responses["/accounts"] = whole([dict(a, is_archived=False) for a in ACCOUNTS])
         await pilot.press("r")
@@ -273,8 +303,9 @@ def test_after_an_unarchive_and_r_s_and_d_are_back_on_the_row(engine):
 
 
 def test_the_existing_gates_still_hold_beside_the_archived_rule(engine):
-    """A selection takes `s` and `d` off every row, an active one included, and
-    `esc` brings them back where the row allows them."""
+    """A selection takes `s` and `d` off every row, an active one and an
+    archived one alike, and `esc` brings back what the row allows; a bulk write
+    running takes both off too, and `s` then opens nothing."""
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app)
@@ -284,10 +315,45 @@ def test_the_existing_gates_still_hold_beside_the_archived_rule(engine):
         assert screen.check_action("split", ()) is False
         await pilot.press("escape")
         await wait_for(pilot, lambda: _keys_shown(screen) == {"Split", "Delete"})
+        await _cursor_on(pilot, screen, "t-old")
+        await pilot.press("space")
+        await wait_for(pilot, lambda: _keys_shown(screen) == set())
+        await pilot.press("s")
+        await pilot.pause()
+        assert app.screen is screen
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split"})
         screen._bulk_busy = True
+        assert screen.check_action("split", ()) is False
         assert screen.check_action("delete", ()) is False
         assert screen.check_action("pick", ("category",)) is None
+        screen.action_split()
+        await pilot.pause()
+        assert app.screen is screen
         screen._bulk_busy = False
+
+    run_app(scenario, size=(160, 30))
+
+
+def test_s_and_d_are_off_on_an_empty_ledger(fake_client, monkeypatch):
+    monkeypatch.setattr("expense.reads.ExpenseClient", lambda *a, **k: fake_client)
+    fake_client.get_responses.update(
+        {"/accounts": whole([dict(a) for a in ACCOUNTS]), "/categories": whole(CATEGORIES)}
+    )
+    fake_client.get_responses["/hashtags"] = whole([])
+    fake_ledger(monkeypatch, [])
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen()
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._archived == {"acc-viejo"})
+        await pilot.pause()
+        assert screen.check_action("split", ()) is False
+        assert screen.check_action("delete", ()) is False
+        assert _keys_shown(screen) == set()
+        await pilot.press("s")
+        await pilot.pause()
+        assert app.screen is screen
 
     run_app(scenario, size=(160, 30))
 

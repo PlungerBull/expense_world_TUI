@@ -1,9 +1,10 @@
 # The Edit form's words and keys match what it does
 
 **Status: approved by the owner on 2026-10-25, with A for all three questions, its tasks approved
-the same day and the spec run before "Statement lines come from reconciliations"; tasks 2 and 3
-wait for a pick in
-[mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).**
+the same day and the spec run before "Statement lines come from reconciliations"; the words of
+tasks 2 and 3 picked the same day in
+[mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html):
+1 A, 2 A and 3 A.**
 When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -54,19 +55,15 @@ On 2026-10-25 the owner answered each question with A:
 ## Tasks
 
 Approved by the owner on 2026-10-25. They run in this
-order: 1, 4, 2 and 3. Tasks 2 and 3 are **[UI]**, picked from
+order: 4, 2 and 3. Tasks 2 and 3 are **[UI]**, picked from
 [mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).
 
-1. **`s` on an archived account's row opens the Edit form.** With the cursor on such a row, `s`
-   is in the footer and opens the form as `⏎` does; `d` stays off there, and `s` stays off while
-   rows are selected or a bulk write runs. The comment in `check_action` that says the engine
-   refuses `s` there goes. tui.md "On an archived account's row the ledger offers no `s` and no
-   `d`" says what is now true. Tests for `s` on an archived row and `d` still off on it.
-2. **[UI] The words for `s` and for `⏎` in "no batch"** read as screens 1 and 2 of the mockup
-   are picked: the ledger's footer word and `?` card line for `s`, and the "no batch" `?` card
-   line for `⏎`. tui.md follows. Tests pin each line.
-3. **[UI] A refused part names its category and hashtags in the form's words**, as screen 3 of
-   the mockup is picked: `part 1 (category)` and `part 1 (hashtags)`, as `part 1 (amount)` reads
+2. **[UI] The words for `s` and for `⏎` in "no batch"** read as screens 1 A and 2 A of the
+   mockup draw them: the ledger's footer says `s Edit` and its `?` card line "Edit the
+   transaction and its parts", and the "no batch" `?` card line for `⏎` reads the same. tui.md
+   follows. Tests pin each line.
+3. **[UI] A refused part names its category and hashtags in the form's words**, as screen 3 A of
+   the mockup draws it: `part 1 (category)` and `part 1 (hashtags)`, as `part 1 (amount)` reads
    now. A test for each.
 4. **An opening balance's hashtag refusal on the Edit form shows the engine's words alone.** The
    `OPENING_BALANCE_NOT_TAGGED` refusal shows no app line on the Edit form; the ledger's bulk `h`
