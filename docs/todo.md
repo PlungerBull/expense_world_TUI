@@ -28,18 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the statement catch-up's reply to the engine
-Asked 2026-10-25 · Blocks: nothing; the engine waits for it
-
-The rest of the engine's statement hand-off is answered: every section read, the card list built,
-and the parts with no screen (ordering by hand, the lines still to tick, the statement's edit
-form) proven by the live tests, since you chose the PDF upload instead. With the Edit form's
-reply it covers the whole hand-off, so the engine can mark this client caught up. Copy
-[to-engine/caught-up-bdc9d3f3a540b7ce-statements.md](to-engine/caught-up-bdc9d3f3a540b7ce-statements.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
-
 ### Approve the spec for the statement catch-up's leftovers
 Asked 2026-10-25 · Blocks: [specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)
 
