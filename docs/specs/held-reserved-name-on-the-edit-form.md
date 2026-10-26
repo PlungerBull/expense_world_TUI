@@ -45,7 +45,11 @@ hashtag of the user's may take the name `Pendiente` (contract: "Hashtags"). The 
 live test; the ask is "The practice engine seeds a second practice user whose own category and
 hashtag hold the reserved names", and the live test waits under "Found along the way".
 
-Every task is done; the acceptance check and the librarian's sweep follow.
+Every task is done; the acceptance check and the librarian's sweep follow. The engine's contract
+moved from `bdc9d3f3a540b7ce` to `9063fab000b2e3d6` during the check; the owner chose on
+2026-10-26 to record the new version and finish this spec first, so a failure that move causes
+(the bank-file import, the sheet import, the statement close, the `review_lines` fixture) is out
+of scope here and goes to the engine catch-up spec that follows; any other failure is a task here.
 
 ## Found along the way
 

@@ -28,50 +28,20 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine's contract moved to 309e31fd5c266941
-Asked 2026-10-25 · Blocks: [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md) (the rest of its acceptance check, its librarian sweep) and every new task
+### Ask the engine coders for the catch-up hand-off to 9063fab000b2e3d6
+Asked 2026-10-26 · Blocks: the engine catch-up spec, which comes next
 
-The engine now reads the bank's Excel download itself: the app's bank-file import sends the
-file, not rows it read, so this app's own reader of bank files can go, and until the app
-catches up its bank-file import does not work against this engine. The tester's acceptance
-check of the current spec passed the unit suite, its new test and "nothing you see changes",
-then stopped before the live suite. This client last caught up to `bdc9d3f3a540b7ce`. The
-version check prints:
+The engine moved from `bdc9d3f3a540b7ce`, the version this client last caught up to, to
+`9063fab000b2e3d6`: it reads the bank's Excel download itself, imports your spreadsheet itself,
+closes a statement from its PDF, keeps a statement's last day open until the next statement
+closes, and closes a statement with lines left over by flagging them. The new version is
+recorded, so the version check passes, but the app does not handle these changes yet: its
+bank-file import does not work against this engine, its statement close is the old one, and the
+fixture check reports `review_lines` missing from the statement close's fixture.
+Ask the engine coders for one hand-off file from `bdc9d3f3a540b7ce` to `9063fab000b2e3d6`, and
+copy it into [from-engine/](from-engine/); it becomes the catch-up spec.
 
-```
-the engine's contract version has changed: saved bdc9d3f3a540b7ce, engine 309e31fd5c266941.
-what the contract changed since bdc9d3f3a540b7ce, newest first:
-  309e31fd5c266941  2026-10-25
-    changed: `POST /transactions/import` takes the bank's Excel download itself. The body is exactly `{"dry_run": bool, "account_id": uuid, "file": "<base64>"}`: `account_id` is the account the download is from, `file` the `.xlsx` file in standard base64, at most 5 MB decoded. Malformed base64 is `422` on `file` (`INVALID_FORMAT`), an empty file `EMPTY`, a larger one `OUT_OF_RANGE`. The engine reads the sheet `data`, tells the current-account layout from the card layout by the header row, and reads each row's day, title, currency, amount and operation number; the section gives both layouts and every rule.
-    removed: `rows` on the import body, and with it every field of a row (`id`, `account_id`, `date`, `amount_cents`, `title`, `operation_code`); sending `rows` is `422` (`UNKNOWN_FIELD`). The import no longer refuses a zero amount (`ZERO_AMOUNT`) or a taken id (`ID_EXISTS`); neither is declared on it any more.
-    changed: the engine mints the id of every transaction the import creates, now the second exception in *Client-supplied UUIDs* beside a bank line. A replay under the same key answers the stored response, minted ids included; the same file under a new key matches every row it created.
-    changed: the import's answer. Each entry of `rows` is in file order and carries `row` (the spreadsheet row number, `2` for the first data row), `account_id`, `date`, `amount_cents` (positive), `transaction_type`, `title`, `operation_code` and `transaction_id` (the minted id, on apply, for a `new` row) in place of `id`, then the keys it had. New outcome `skipped` for a row of `0`, counted in the new `counts.skipped`: never matched or created, but refused like any row for a future day or a repeated operation number. `day_mismatches[].unmatched_rows` holds row numbers. Every refusal of a row is keyed `rows.<row>.<field>` with `<row>` the spreadsheet row number; `LINE_CODES_EXHAUSTED` is keyed `rows.<row>.transaction_id`.
-    changed: a card's download sends its rows in the other currency to the account holding the same statement code in that currency; a current account's download takes its own currency only.
-    changed: a current-account row whose title begins with `IMPUESTO ITF` or `MANT. CUENTA` carries no operation code and is matched by day and amount, so its reused number is never a duplicate. Any other operation number on two rows of one file is `DUPLICATE_IN_REQUEST` on every row holding it.
-    added: reasons `UNREADABLE_FILE` (`422` on `file`: not a workbook the engine can read, a part not in UTF-8 included, the message saying why), `UNEXPECTED_LAYOUT` (on `file` for another header, on `rows.<row>.<field>` or `rows.<row>` for a cell the layout does not foresee), `NOT_WHOLE_CENTS` (on `rows.<row>.amount_cents`) and `NO_ACCOUNT_FOR_CURRENCY` (on `rows.<row>.account_id`, the first row of a currency no account takes), all declared on `POST /transactions/import`. `EMPTY` and `OUT_OF_RANGE` on `file` also cover a download with no data row and one with more than 500.
-    changed: wording of `INVALID_FORMAT`, `OUT_OF_RANGE`, `EMPTY`, `DUPLICATE_IN_REQUEST` and `ID_EXISTS` in the error catalogue, and of *Client-supplied UUIDs*, *Which refusal comes first on a create* and *Date inputs*.
-Once the change is handled, record the new version with: python scripts/check_fixture_drift.py --engine-url http://127.0.0.1:8002 --record-version
-```
-
-- **A.** Ask the engine coders for one hand-off file from `bdc9d3f3a540b7ce` to
-  `309e31fd5c266941`, and catch up as the next spec. The current spec waits until then: its
-  live check would fail on the import tests before the catch-up.
-- **B.** Record the new version now and finish the current spec first, the live import tests
-  failing until the catch-up, which follows as its own spec.
-
-**Recommended:** A, because the change moves real behaviour (the bank-file import stops
-working), the hand-off carries what the app must do and how to tell it is done, and the
-current spec's check can only pass cleanly after the catch-up.
-
-### Hand over the ask for a practice user held on the reserved names
-Asked 2026-10-25 · Blocks: the live tests of a held reserved name, under "Found along the way" in [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)
-
-For a live test to see the engine refuse a write because one of your own hashtags or categories
-holds a built-in name, the practice engine needs a second practice user stuck in that state. Copy
-[to-engine/a-practice-user-holds-the-reserved-names.md](to-engine/a-practice-user-holds-the-reserved-names.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
+**Recommended:** none: only you can ask them.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
