@@ -27,7 +27,12 @@ target and the real-ledger guard: conftest.py.
 
 from uuid import uuid4
 
-from tests.contract.conftest import assert_refusal, free_statement_codes, refused
+from tests.contract.conftest import (
+    assert_refusal,
+    free_statement_codes,
+    live_ids,
+    refused,
+)
 
 #: The activity action of an insert (contract: "Activity Log", "Action codes").
 CREATED = 1
@@ -45,11 +50,6 @@ def _item(scratch, account: str, day: str, amount: int, **extra) -> dict:
         "date": scratch.noon(day),
         **extra,
     }
-
-
-def _live_ids(client, account: str) -> set[str]:
-    listed = client.get("/transactions", params={"account_id": account})
-    return {item["id"] for item in listed["items"]}
 
 
 def test_a_create_lands_in_its_reconciliation_in_one_write_with_no_place(client, scratch):
@@ -97,7 +97,7 @@ def test_a_create_into_a_reconciliation_it_cannot_join_is_refused(client, scratc
     completed = scratch.reconciliation(account, "2026-02-01", "2026-02-28")
     scratch.line(account, "2026-02-03", -100, recon=completed)
     client.post(f"/reconciliations/{completed}/complete")
-    held = _live_ids(client, account)
+    held = live_ids(client, account)
 
     for recon, day, reason in (
         (str(uuid4()), "2026-03-06", "INVALID_REFERENCE"),
@@ -108,7 +108,7 @@ def test_a_create_into_a_reconciliation_it_cannot_join_is_refused(client, scratc
         body = _item(scratch, account, day, -100, reconciliation_id=recon)
         err = refused(lambda body=body: client.post("/transactions", json_body=body))
         assert_refusal(err, 422, "VALIDATION_ERROR", "reconciliation_id", reason)
-    assert _live_ids(client, account) == held
+    assert live_ids(client, account) == held
 
 
 def test_a_batch_creates_its_items_and_line_groups_into_reconciliations(client, scratch):
@@ -152,7 +152,7 @@ def test_a_batch_into_reconciliations_it_cannot_join_is_refused(client, scratch)
     completed = scratch.reconciliation(account, "2026-02-01", "2026-02-28")
     scratch.line(account, "2026-02-03", -100, recon=completed)
     client.post(f"/reconciliations/{completed}/complete")
-    held = _live_ids(client, account)
+    held = live_ids(client, account)
 
     items = [
         _item(scratch, account, "2026-03-09", -100, reconciliation_id=str(uuid4())),
@@ -188,4 +188,4 @@ def test_a_batch_into_reconciliations_it_cannot_join_is_refused(client, scratch)
             "transactions.0.reconciliation_id": "LINE_GROUP_FIELDS_DIFFER",
             "transactions.1.reconciliation_id": "LINE_GROUP_FIELDS_DIFFER",
         }, names
-    assert _live_ids(client, account) == held
+    assert live_ids(client, account) == held

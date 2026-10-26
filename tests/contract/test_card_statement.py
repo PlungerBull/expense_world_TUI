@@ -49,6 +49,7 @@ from tests.contract.conftest import (
     free_statement_codes,
     reconciliation_body,
     refused,
+    send_order,
 )
 
 MARCH = ("2026-03-01", "2026-03-31")
@@ -66,10 +67,6 @@ def _listed(client, account: str) -> list[dict]:
 def _order_state(client, recon: str) -> tuple[str | None, int | None, int | None]:
     read = _read(client, recon)
     return read["twin_id"], read["unplaced_count"], read["shared_place_count"]
-
-
-def _send(client, recon: str, places: list[str | None]) -> dict:
-    return client.put(f"/reconciliations/{recon}/statement-order", json_body={"places": places})
 
 
 def _as_read(answer: dict) -> dict:
@@ -133,12 +130,12 @@ def test_each_half_names_the_other_and_both_count_the_statement(client, scratch)
     d1 = scratch.line(dollars, "2026-03-06", -300, -200, recon=rd)
     assert _order_state(client, rs) == (rd, 2, 0)
     assert _order_state(client, rd) == (rs, 2, 0)
-    _send(client, rd, [d1, s1])
+    send_order(client, rd, [d1, s1])
     assert _order_state(client, rs) == (rd, 0, 0)
     late = scratch.line(dollars, "2026-03-20", -400, recon=rd)
     assert _order_state(client, rs) == (rd, 1, 0)
     assert _order_state(client, rd) == (rs, 1, 0)
-    _send(client, rs, [d1, s1, late])
+    send_order(client, rs, [d1, s1, late])
     assert _order_state(client, rd) == (rs, 0, 0)
 
     lone = scratch.account("PEN", lone_code)
@@ -154,8 +151,8 @@ def test_each_half_names_the_other_and_both_count_the_statement(client, scratch)
     jd = scratch.account("USD", joined_code)
     march = scratch.reconciliation(js, *MARCH)
     april = scratch.reconciliation(jd, "2026-04-01", "2026-04-30")
-    _send(client, march, [scratch.line(js, "2026-03-05", -1000, recon=march)])
-    _send(client, april, [scratch.line(jd, "2026-03-06", -300, recon=april)])
+    send_order(client, march, [scratch.line(js, "2026-03-05", -1000, recon=march)])
+    send_order(client, april, [scratch.line(jd, "2026-03-06", -300, recon=april)])
     assert _order_state(client, march) == (None, 0, 0)
     before = _read(client, march)
     moved = client.put(
@@ -191,7 +188,7 @@ def test_complete_and_revert_act_on_both_halves_from_either(client, scratch):
     rs, rd = scratch.card(soles, dollars, *MARCH)
     s1 = scratch.line(soles, "2026-03-05", -1000, recon=rs)
     d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
-    _send(client, rs, [s1, d1])
+    send_order(client, rs, [s1, d1])
 
     versions = {recon: _read(client, recon)["version"] for recon in (rs, rd)}
     done = client.post(f"/reconciliations/{rd}/complete")
@@ -222,7 +219,7 @@ def _completed_then_twinned(client, scratch, soles: str, dollars: str, days) -> 
     and the soles line's."""
     completed = scratch.reconciliation(soles, *days)
     line = scratch.line(soles, days[0], -1000, recon=completed)
-    _send(client, completed, [line])
+    send_order(client, completed, [line])
     client.post(f"/reconciliations/{completed}/complete")
     draft = scratch.reconciliation(dollars, *days)
     assert (_read(client, completed)["status"], _read(client, draft)["status"]) == (2, 1)
@@ -267,7 +264,7 @@ def test_a_half_already_completed_or_already_a_draft_is_left_as_it_is(client, sc
     assert client.get(f"/bank-lines/{line}")["statement_line"] == f"{code}-202604-001"
     assert client.get(f"/bank-lines/{loose}")["statement_line"] is None
     err = _refused_writing_nothing(
-        client, lambda: _send(client, draft, [line, loose]), completed, draft
+        client, lambda: send_order(client, draft, [line, loose]), completed, draft
     )
     assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
 
@@ -369,7 +366,7 @@ def test_complete_and_revert_refusals_name_each_half(client, scratch):
     for recon in (rs, rd):
         err = _refused_writing_nothing(client, complete(recon), rs, rd)
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
-    _send(client, rd, [s1, d1, loose])
+    send_order(client, rd, [s1, d1, loose])
     assert client.post(f"/reconciliations/{rs}/complete")["twin"]["status"] == 2
 
 
@@ -591,7 +588,7 @@ def test_a_delete_from_either_half_deletes_both(client, scratch):
         rs, rd = scratch.card(soles, dollars, start, end)
         s1 = scratch.line(soles, start, -1000, recon=rs)
         d1 = scratch.line(dollars, start, -300, recon=rd)
-        _send(client, rs, [s1, d1])
+        send_order(client, rs, [s1, d1])
         named, other = (rd, rs) if sent_from == "dollars" else (rs, rd)
 
         if sent_from == "soles":
@@ -683,7 +680,7 @@ def test_a_rename_and_a_move_change_both_halves_and_a_balance_one(client, scratc
     rs, rd = scratch.card(soles, dollars, *MARCH)
     s1 = scratch.line(soles, "2026-03-05", -1000, recon=rs)
     d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
-    _send(client, rd, [d1, s1])
+    send_order(client, rd, [d1, s1])
     places = {line: client.get(f"/bank-lines/{line}")["statement_place"] for line in (s1, d1)}
 
     def put(recon: str, body: dict) -> dict:

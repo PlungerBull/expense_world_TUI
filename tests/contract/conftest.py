@@ -48,6 +48,12 @@ def read_signed(client: ExpenseClient, tx_id: str) -> dict:
     return client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
 
 
+def live_ids(client: ExpenseClient, account_id: str) -> set[str]:
+    """The ids of the account's live transactions on the first page of `GET /transactions`."""
+    listed = client.get("/transactions", params={"account_id": account_id})
+    return {item["id"] for item in listed["items"]}
+
+
 def replace_parts(
     client: ExpenseClient, line_id: str, amounts: list[int], written: list[str]
 ) -> list[dict]:
@@ -234,6 +240,13 @@ def reconciliation_body(account_id: str, start: str, end: str, twin: str | None 
     return body
 
 
+def send_order(client: ExpenseClient, recon: str, places: list[str | None]) -> dict:
+    """Sends `places`, the statement's lines top to bottom with `None` for an empty slot,
+    as `recon`'s statement order; the engine's answer
+    (contract: PUT /v1/reconciliations/{reconciliation_id}/statement-order)."""
+    return client.put(f"/reconciliations/{recon}/statement-order", json_body={"places": places})
+
+
 class Scratch:
     """What one test builds on the practice user, undone in reverse dependency order:
     archived accounts unarchived, reconciliations reverted and deleted (each statement
@@ -248,6 +261,7 @@ class Scratch:
         self.transactions: list[str] = []
         self.categories: list[str] = []
         self.hashtags: list[str] = []
+        self._first_part: dict[str, str] = {}
 
     def account(self, currency: str = "PEN", code: str | None = None) -> str:
         body = account_body(currency, code)
@@ -308,26 +322,48 @@ class Scratch:
         y, m, d = (int(part) for part in day.split("-"))
         return datetime(y, m, d, 12, tzinfo=self.zone).isoformat(timespec="seconds")
 
-    def line(self, account_id: str, day: str, *amounts: int, recon: str | None = None) -> str:
-        """A new bank line on `day` holding one part per amount (a batch `line_group`
-        for more than one), assigned whole to `recon` when given; its id."""
-        items = [
-            {
-                "id": str(uuid4()),
-                "title": "contract statement line",
-                "amount_cents": amount,
-                "account_id": account_id,
-                "date": self.noon(day),
-                **({"line_group": "g"} if len(amounts) > 1 else {}),
-            }
-            for amount in amounts
-        ]
+    def _item(self, account_id: str, day: str, amount: int, **fields: str) -> dict:
+        return {
+            "id": str(uuid4()),
+            "title": "contract statement line",
+            "amount_cents": amount,
+            "account_id": account_id,
+            "date": self.noon(day),
+            **fields,
+        }
+
+    def _create(self, items: list[dict]) -> list[dict]:
+        """Creates `items` in one batch; the created items, in request order."""
         self.transactions.extend(item["id"] for item in items)
         created = self.client.post("/transactions/batch", json_body={"transactions": items})
-        first = created["created"][0]
+        for item in created["created"]:
+            self._first_part.setdefault(item["bank_line_id"], item["id"])
+        return created["created"]
+
+    def line(self, account_id: str, day: str, *amounts: int, recon: str | None = None) -> str:
+        """A new bank line on `day` holding one part per amount (a batch `line_group`
+        for more than one), assigned whole to `recon` when given (`assign`); its id."""
+        group = {"line_group": "g"} if len(amounts) > 1 else {}
+        items = [self._item(account_id, day, amount, **group) for amount in amounts]
+        first = self._create(items)[0]
         if recon is not None:
-            self.client.put(f"/transactions/{first['id']}", json_body={"reconciliation_id": recon})
+            self.assign(first["bank_line_id"], recon)
         return first["bank_line_id"]
+
+    def lines_into(self, recon: str, account_id: str, day: str, *amounts: int) -> list[str]:
+        """One batch of one single-part line per amount, all on one instant, each created
+        straight into `recon` by the create itself; the lines' ids, in request order."""
+        items = [self._item(account_id, day, amount, reconciliation_id=recon) for amount in amounts]
+        return [item["bank_line_id"] for item in self._create(items)]
+
+    def assign(self, line_id: str, recon: str) -> None:
+        """Assigns the whole bank line `line_id`, one this Scratch made, to `recon` by
+        sending `reconciliation_id` on its first part, which writes it on every live part
+        of the line
+        (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
+        self.client.put(
+            f"/transactions/{self._first_part[line_id]}", json_body={"reconciliation_id": recon}
+        )
 
     def opening_balance(self, account_id: str, day: str, recon: str | None = None) -> str:
         """The account's opening balance, assigned to `recon` when given; its line's id."""
@@ -337,8 +373,9 @@ class Scratch:
             f"/accounts/{account_id}/opening-balance",
             json_body={"transaction_id": tx_id, "amount_cents": 50000, "date": self.noon(day)},
         )
+        self._first_part[made["bank_line_id"]] = tx_id
         if recon is not None:
-            self.client.put(f"/transactions/{tx_id}", json_body={"reconciliation_id": recon})
+            self.assign(made["bank_line_id"], recon)
         return made["bank_line_id"]
 
     def _quietly(self, call, path: str) -> dict | None:

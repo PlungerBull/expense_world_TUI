@@ -43,7 +43,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from expense.errors import EngineError
-from tests.contract.conftest import reason_on, replace_parts
+from tests.contract.conftest import live_ids, reason_on, replace_parts
 
 LINE_CODE = re.compile(r"^#\d{6}$")
 
@@ -87,11 +87,6 @@ def _tx_body(account_id: str, date: str, amount: int, **extra) -> dict:
         "date": date,
         **extra,
     }
-
-
-def _live_ids(client, account_id: str) -> set[str]:
-    listed = client.get("/transactions", params={"account_id": account_id})
-    return {item["id"] for item in listed["items"]}
 
 
 def _cleanup(client, tx_ids: list[str], account_id: str) -> None:
@@ -225,7 +220,7 @@ def test_line_code_is_in_no_request_body(client):
             err = _refused(lambda send=send, path=path, body=body: send(path, json_body=body))
             assert (err.status, err.code) == (422, "VALIDATION_ERROR"), (method, path)
             assert reason_on(err, key) == "UNKNOWN_FIELD", (method, path, err.reasons)
-        assert _live_ids(client, account) == {original["id"]}
+        assert live_ids(client, account) == {original["id"]}
         assert client.get(f"/transactions/{original['id']}")["line_code"] == original["line_code"]
     finally:
         _cleanup(client, written, account)
@@ -266,7 +261,7 @@ def test_statement_line_is_in_no_request_body(client):
             err = _refused(lambda send=send, path=path, body=body: send(path, json_body=body))
             assert (err.status, err.code) == (422, "VALIDATION_ERROR"), (method, path)
             assert reason_on(err, key) == "UNKNOWN_FIELD", (method, path, err.reasons)
-        assert _live_ids(client, account) == {original["id"]}
+        assert live_ids(client, account) == {original["id"]}
         assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
         read = client.get(f"/transactions/{original['id']}")
         assert read["version"] == original["version"]
@@ -336,7 +331,7 @@ def test_statement_place_is_in_no_request_body_but_the_order(client):
             err = _refused(lambda send=send, path=path, body=body: send(path, json_body=body))
             assert (err.status, err.code) == (422, "VALIDATION_ERROR"), (method, path)
             assert reason_on(err, key) == "UNKNOWN_FIELD", (method, path, err.reasons)
-        assert _live_ids(client, account) == {original["id"]}
+        assert live_ids(client, account) == {original["id"]}
         assert client.get(f"/accounts/{account}")["opening_balance_transaction_id"] is None
         assert client.get(f"/transactions/{original['id']}")["version"] == original["version"]
         line = client.get(f"/bank-lines/{original['bank_line_id']}")
@@ -390,6 +385,6 @@ def test_an_operation_code_in_another_letter_case_is_another_code(client, status
             err = _refused(lambda body=body: client.post("/transactions", json_body=body))
             assert (err.status, err.code) == (409, "CONFLICT")
             assert reason_on(err, "operation_code") == "OPERATION_CODE_EXISTS"
-        assert _live_ids(client, account) == {first["id"], second["id"]}
+        assert live_ids(client, account) == {first["id"], second["id"]}
     finally:
         _cleanup(client, written, account)

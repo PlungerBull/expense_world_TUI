@@ -32,6 +32,7 @@ import pytest
 
 from expense.batch_write import RowResult, post_transaction_batch
 from expense.errors import EngineError
+from tests.contract.conftest import live_ids
 
 
 def _safe(call, *args):
@@ -71,11 +72,6 @@ def _item(account_id: str, date: str, amount: int) -> dict:
     }
 
 
-def _live_ids(client, account_id: str) -> set[str]:
-    listed = client.get("/transactions", params={"account_id": account_id})
-    return {item["id"] for item in listed["items"]}
-
-
 def _cleanup(client, tx_ids: list[str], account_id: str) -> None:
     for tx_id in tx_ids:
         _safe(client.delete, f"/transactions/{tx_id}")
@@ -101,7 +97,7 @@ def test_a_landed_batch_sent_again_names_every_items_id(client):
         keys = [f"transactions.{i}.id" for i in range(len(items))]
         assert err.reasons == dict.fromkeys(keys, "ID_EXISTS")
         assert set(err.fields or {}) == set(keys)
-        assert _live_ids(client, account) == {item["id"] for item in items}
+        assert live_ids(client, account) == {item["id"] for item in items}
     finally:
         _cleanup(client, [item["id"] for item in items], account)
 
@@ -134,7 +130,7 @@ def test_the_batch_writer_settles_landed_and_new_rows_in_two_requests(client, st
         outcome = post_transaction_batch(client, [landed[0], fresh, landed[1]])
         assert outcome.results == [RowResult.EXISTED, RowResult.CREATED, RowResult.EXISTED]
         assert statuses == [409, 201]  # one request, then one more for the new row
-        assert _live_ids(client, account) == {item["id"] for item in [*landed, fresh]}
+        assert live_ids(client, account) == {item["id"] for item in [*landed, fresh]}
     finally:
         _cleanup(client, [item["id"] for item in written], account)
 
@@ -200,7 +196,7 @@ def test_a_landed_line_write_sent_again_writes_nothing_and_a_taken_part_id_is_id
             err = _refused(lambda target=target, body=body: client.put(target, json_body=body))
             assert (err.status, err.code) == (409, "CONFLICT"), taken
             assert err.reasons == {"parts.0.id": "ID_EXISTS"}, taken
-        assert _live_ids(client, account) == {other_id, *(part["id"] for part in parts)}
+        assert live_ids(client, account) == {other_id, *(part["id"] for part in parts)}
         assert {p["id"]: p["version"] for p in client.get(path)["parts"]} == versions
     finally:
         _cleanup(client, [original_id, other_id, *(part["id"] for part in parts)], account)

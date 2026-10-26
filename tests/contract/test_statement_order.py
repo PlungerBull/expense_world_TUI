@@ -50,15 +50,11 @@ conftest.py.
 
 from uuid import uuid4
 
-from tests.contract.conftest import assert_refusal, free_statement_codes, refused
+from tests.contract.conftest import assert_refusal, free_statement_codes, refused, send_order
 
 
 def _order(client, recon: str) -> dict:
     return client.get(f"/reconciliations/{recon}/statement-order")
-
-
-def _send(client, recon: str, places: list[str | None]) -> dict:
-    return client.put(f"/reconciliations/{recon}/statement-order", json_body={"places": places})
 
 
 def _places(order: dict) -> list[tuple[int, str | None]]:
@@ -148,14 +144,14 @@ def test_a_statement_is_ordered_completed_and_numbered(client, scratch):
     assert _unplaced(order) == {opening, single, grouped, income}
     _assert_not_ordered(client, recon)
 
-    sent = _send(client, recon, [grouped, None, single, income])
+    sent = send_order(client, recon, [grouped, None, single, income])
     assert _places(sent) == [(1, grouped), (2, None), (3, single), (4, income)]
     assert _unplaced(sent) == {opening}
     assert _order(client, recon) == sent
     late = scratch.line(account, "2026-03-20", -300, recon=recon)
     assert _unplaced(_order(client, recon)) == {opening, late}
     assert "1 line(s)" in _assert_not_ordered(client, recon)
-    sent = _send(client, recon, [grouped, None, single, income, late])
+    sent = send_order(client, recon, [grouped, None, single, income, late])
     assert _numbered(client, grouped) == (None, 1)
 
     expected = {grouped: 1, single: 3, income: 4, late: 5}
@@ -210,7 +206,7 @@ def test_the_order_list_refusals(client, scratch):
     before = _order(client, recon)
 
     sent = [first, first, elsewhere, unassigned, opening, str(uuid4()), None]
-    err = refused(lambda: _send(client, recon, sent))
+    err = refused(lambda: send_order(client, recon, sent))
     assert (err.status, err.code) == (422, "VALIDATION_ERROR")
     assert err.reasons == {
         "places.1": "DUPLICATE_IN_REQUEST",
@@ -263,13 +259,13 @@ def test_the_order_routes_refuse_a_reconciliation_they_cannot_order(client, scra
     for recon in (str(uuid4()), deleted):
         for call in (
             lambda recon=recon: _order(client, recon),
-            lambda recon=recon: _send(client, recon, [plain_line]),
+            lambda recon=recon: send_order(client, recon, [plain_line]),
         ):
             err = refused(call)
             assert (err.status, err.code) == (404, "NOT_FOUND")
     for call in (
         lambda: client.get("/reconciliations/not-a-uuid/statement-order"),
-        lambda: _send(client, "not-a-uuid", [plain_line]),
+        lambda: send_order(client, "not-a-uuid", [plain_line]),
     ):
         assert_refusal(
             refused(call), 422, "VALIDATION_ERROR", "reconciliation_id", "INVALID_FORMAT"
@@ -277,13 +273,13 @@ def test_the_order_routes_refuse_a_reconciliation_they_cannot_order(client, scra
 
     for call in (
         lambda: _order(client, plain_recon),
-        lambda: _send(client, plain_recon, [plain_line]),
+        lambda: send_order(client, plain_recon, [plain_line]),
     ):
         err = refused(call)
         assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "NO_STATEMENT_CODE")
 
     client.post(f"/accounts/{plain}/archive")
-    err = refused(lambda: _send(client, plain_recon, [plain_line]))
+    err = refused(lambda: send_order(client, plain_recon, [plain_line]))
     assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED")
     client.post(f"/accounts/{plain}/unarchive")
     assert client.get(f"/bank-lines/{plain_line}")["statement_place"] is None
@@ -292,14 +288,14 @@ def test_the_order_routes_refuse_a_reconciliation_they_cannot_order(client, scra
     recon = scratch.reconciliation(coded, "2026-03-01", "2026-03-31")
     line = scratch.line(coded, "2026-03-05", -1000, recon=recon)
     other = scratch.line(coded, "2026-03-06", -2000, recon=recon)
-    _send(client, recon, [line, other])
+    send_order(client, recon, [line, other])
     client.post(f"/accounts/{coded}/archive")
-    err = refused(lambda: _send(client, recon, [other, line]))
+    err = refused(lambda: send_order(client, recon, [other, line]))
     assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "ACCOUNT_ARCHIVED")
     client.post(f"/accounts/{coded}/unarchive")
 
     client.post(f"/reconciliations/{recon}/complete")
-    err = refused(lambda: _send(client, recon, [other, line]))
+    err = refused(lambda: send_order(client, recon, [other, line]))
     assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
     assert _places(_order(client, recon)) == [(1, line), (2, other)]
 
@@ -340,12 +336,12 @@ def test_a_card_statement_is_one_order_across_both_currencies(client, scratch):
     _assert_not_ordered(client, soles_half)
     _assert_not_ordered(client, dollar_half)
 
-    err = refused(lambda: _send(client, dollar_half, [s1, s2]))
+    err = refused(lambda: send_order(client, dollar_half, [s1, s2]))
     assert_refusal(err, 422, "VALIDATION_ERROR", "places", "STATEMENT_LINES_MISSING")
     assert d1 in err.fields["places"]
     assert _order(client, soles_half) == from_soles
 
-    sent = _send(client, dollar_half, [s1, d1, None, s2])
+    sent = send_order(client, dollar_half, [s1, d1, None, s2])
     assert _places(sent) == [(1, s1), (2, d1), (3, None), (4, s2)]
     assert _unplaced(sent) == set()
     assert _order(client, soles_half) == sent
@@ -356,7 +352,7 @@ def test_a_card_statement_is_one_order_across_both_currencies(client, scratch):
     assert _numbered(client, d1) == (f"{code}-202603-002", 2)
     assert _numbered(client, s2) == (f"{code}-202603-004", 4)
     for recon in (soles_half, dollar_half):
-        err = refused(lambda recon=recon: _send(client, recon, [d1, s1, s2]))
+        err = refused(lambda recon=recon: send_order(client, recon, [d1, s1, s2]))
         assert_refusal(err, 409, "CONFLICT", "reconciliation_id", "RECONCILIATION_NOT_DRAFT")
 
 
@@ -374,8 +370,8 @@ def test_two_ordered_halves_joined_by_their_days_hold_one_place_twice(client, sc
     later = scratch.reconciliation(dollars, "2026-04-01", "2026-04-30")
     s1 = scratch.line(soles, "2026-03-05", -1000, recon=march)
     d1 = scratch.line(dollars, "2026-03-10", -300, recon=later)
-    _send(client, march, [s1])
-    _send(client, later, [d1])
+    send_order(client, march, [s1])
+    send_order(client, later, [d1])
 
     client.put(
         f"/reconciliations/{later}",
@@ -388,7 +384,7 @@ def test_two_ordered_halves_joined_by_their_days_hold_one_place_twice(client, sc
     assert "place(s) 1 " in named
     assert "line(s)" not in named
 
-    _send(client, later, [d1, s1])
+    send_order(client, later, [d1, s1])
     client.post(f"/reconciliations/{march}/complete")
     client.post(f"/reconciliations/{later}/complete")
     assert _numbered(client, d1) == (f"{code}-202603-001", 1)
@@ -408,7 +404,7 @@ def test_a_code_change_never_joins_a_completed_half(client, scratch):
     soles = scratch.account("PEN", code)
     soles_half = scratch.reconciliation(soles, "2026-02-26", "2026-03-25")
     s1 = scratch.line(soles, "2026-03-02", -1000, recon=soles_half)
-    _send(client, soles_half, [s1])
+    send_order(client, soles_half, [s1])
     client.post(f"/reconciliations/{soles_half}/complete")
     dollars = scratch.account("USD")
     dollar_half = scratch.reconciliation(dollars, "2026-02-26", "2026-03-25")
@@ -428,7 +424,7 @@ def test_a_code_change_never_joins_a_completed_half(client, scratch):
     assert (_places(order), _unplaced(order)) == ([(1, s1)], {d1})
     _assert_not_ordered(client, soles_half)
 
-    _send(client, dollar_half, [d1, s1])
+    send_order(client, dollar_half, [d1, s1])
     client.post(f"/reconciliations/{soles_half}/complete")
     client.post(f"/reconciliations/{dollar_half}/complete")
     assert _numbered(client, d1) == (f"{code}-202603-001", 1)
@@ -440,25 +436,6 @@ def test_a_code_change_never_joins_a_completed_half(client, scratch):
 
 def _listed(client, **params) -> list[str]:
     return [line["id"] for line in client.get("/bank-lines", params=params)["items"]]
-
-
-def _batch_into(client, scratch, recon: str, account: str, day: str, *amounts: int) -> list[str]:
-    """One batch of one line per amount, every item created straight into `recon`, all
-    on one instant; the lines' ids, in request order."""
-    items = [
-        {
-            "id": str(uuid4()),
-            "title": "contract statement line",
-            "amount_cents": amount,
-            "account_id": account,
-            "date": scratch.noon(day),
-            "reconciliation_id": recon,
-        }
-        for amount in amounts
-    ]
-    scratch.transactions.extend(item["id"] for item in items)
-    created = client.post("/transactions/batch", json_body={"transactions": items})["created"]
-    return [item["bank_line_id"] for item in created]
 
 
 def test_the_unplaced_lines_come_oldest_first_both_currencies_mixed(client, scratch):
@@ -476,7 +453,7 @@ def test_the_unplaced_lines_come_oldest_first_both_currencies_mixed(client, scra
     d05 = scratch.line(dollars, "2026-03-05", -200, recon=rd)
     s10 = scratch.line(soles, "2026-03-10", -300, recon=rs)
     d15 = scratch.line(dollars, "2026-03-15", -400, recon=rd)
-    b1, b2 = _batch_into(client, scratch, rs, soles, "2026-03-12", -500, -600)
+    b1, b2 = scratch.lines_into(rs, soles, "2026-03-12", -500, -600)
 
     expected = [d05, s10, b1, b2, d15, s20]
     for recon in (rs, rd):
@@ -502,10 +479,10 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
     early = scratch.line(account, "2026-03-05", -100, recon=recon)
     middle = scratch.line(account, "2026-03-10", -200, recon=recon)
     late = scratch.line(account, "2026-03-15", -300, recon=recon)
-    _send(client, recon, [late, early, middle])
+    send_order(client, recon, [late, early, middle])
     # Assigned after the list: no place, listed oldest first after the placed lines.
     newest = scratch.line(account, "2026-03-20", -400, recon=recon)
-    (oldest,) = _batch_into(client, scratch, recon, account, "2026-03-02", -500)
+    (oldest,) = scratch.lines_into(recon, account, "2026-03-02", -500)
 
     expected = [late, early, middle, oldest, newest]
     assert _listed(client, reconciliation_id=recon, sort="statement") == expected
@@ -577,10 +554,6 @@ def _needed(client, recon: str, **params) -> list[str]:
     return listed
 
 
-def _assign(client, line: str, recon: str) -> None:
-    client.put(f"/bank-lines/{line}", json_body={"reconciliation_id": recon})
-
-
 def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, scratch):
     """`GET /bank-lines?unassigned_in_period_of=<id>` and its count list the lines a
     statement still needs: on a card both halves' lines, whichever half is named, each
@@ -615,17 +588,17 @@ def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, 
         assert _needed(client, recon) == [d10, s12, s20], recon
         assert _listed(client, unassigned_in_period_of=recon) == [s20, s12, d10], recon
 
-    _assign(client, d10, rd)
-    _assign(client, s12, rs)
+    scratch.assign(d10, rd)
+    scratch.assign(s12, rs)
     assert _needed(client, rd) == [s20]
     for recon, key in ((rs, "transactions"), (rd, "twin.transactions")):
         err = refused(lambda recon=recon: client.post(f"/reconciliations/{recon}/complete"))
         assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNASSIGNED_IN_PERIOD")
-    _assign(client, s20, rs)
+    scratch.assign(s20, rs)
     assert _needed(client, rs) == []
     err = refused(lambda: client.post(f"/reconciliations/{rs}/complete"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
-    _send(client, rs, [s1, d1, d10, s12, s20])
+    send_order(client, rs, [s1, d1, d10, s12, s20])
     assert client.post(f"/reconciliations/{rd}/complete")["twin"]["status"] == 2
 
     for recon in (rs, rd):
@@ -635,7 +608,7 @@ def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, 
     # completed half's days are sealed, so no line comes into them.
     may = ("2026-05-01", "2026-05-31")
     done = scratch.reconciliation(soles, *may)
-    _send(client, done, [scratch.line(soles, "2026-05-03", -100, recon=done)])
+    send_order(client, done, [scratch.line(soles, "2026-05-03", -100, recon=done)])
     client.post(f"/reconciliations/{done}/complete")
     draft = scratch.reconciliation(dollars, *may)
     assert client.get(f"/reconciliations/{draft}")["twin_id"] == done

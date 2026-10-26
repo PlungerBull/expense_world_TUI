@@ -94,7 +94,7 @@ from expense import http as http_module
 from expense.config import Config
 from expense.errors import EngineError
 from expense.formatting import signed_cents
-from tests.contract.conftest import read_signed, reason_on, replace_parts
+from tests.contract.conftest import live_ids, read_signed, reason_on, replace_parts
 
 
 def _safe(call, *args):
@@ -149,11 +149,6 @@ def _post_tx(client, account_id: str, date: str, amount: int, title: str) -> dic
     )
 
 
-def _live_ids(client, account_id: str) -> set[str]:
-    listed = client.get("/transactions", params={"account_id": account_id})
-    return {item["id"] for item in listed["items"]}
-
-
 def test_new_parts_replace_the_line_and_a_re_split_keeps_their_ids(client, statuses):
     """One whole-line write sending only new ids replaces every part on the same line,
     each new part taking the line's title, date and account
@@ -198,7 +193,7 @@ def test_new_parts_replace_the_line_and_a_re_split_keeps_their_ids(client, statu
             assert datetime.fromisoformat(part["date"]) == datetime.fromisoformat(date)
         assert first[0]["category_id"] == groceries
         assert first[0]["description"] == "food"
-        assert _live_ids(client, account) == {p["id"] for p in parts}
+        assert live_ids(client, account) == {p["id"] for p in parts}
         err = _refused(lambda: client.get(f"/transactions/{original['id']}"))
         assert err.status == 404
 
@@ -218,7 +213,7 @@ def test_new_parts_replace_the_line_and_a_re_split_keeps_their_ids(client, statu
         assert [p["version"] for p in kept] == [p["version"] + 1 for p in first]
         assert (kept[0]["category_id"], kept[0]["description"]) == (groceries, "food")
         assert {p["bank_line_id"] for p in kept} == {line}
-        assert _live_ids(client, account) == {p["id"] for p in first}
+        assert live_ids(client, account) == {p["id"] for p in first}
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -353,7 +348,7 @@ def test_an_account_move_on_one_part_moves_the_whole_line(client):
         assert [(p["account_id"], p["reconciliation_id"]) for p in after] == [(away, None)] * 2
         assert after[0]["version"] == loaded[0]["version"] + 1
         assert after[1]["version"] == loaded[1]["version"] + 2
-        assert _live_ids(client, home) == set()
+        assert live_ids(client, home) == set()
 
         # `b` on one part: the whole line comes back.
         loaded = both()
@@ -362,7 +357,7 @@ def test_an_account_move_on_one_part_moves_the_whole_line(client):
         after = both()
         assert [(p["account_id"], p["reconciliation_id"]) for p in after] == [(home, None)] * 2
         assert after[1]["version"] == loaded[1]["version"] + 1
-        assert _live_ids(client, away) == set()
+        assert live_ids(client, away) == set()
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -412,7 +407,7 @@ def test_a_split_line_is_matched_on_re_import(client, code, rule):
         assert again["counts"]["new"] == 0
         assert again["counts"]["matched"] == 1
         assert again["day_mismatches"] == []
-        assert _live_ids(client, account) == {p["id"] for p in parts}
+        assert live_ids(client, account) == {p["id"] for p in parts}
     finally:
         for tx_id in written:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -620,7 +615,7 @@ def test_deleting_a_bank_line_deletes_every_part(client, statuses):
         for part in parts:
             err = _refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
             assert err.status == 404
-        assert _live_ids(client, account) == set()
+        assert live_ids(client, account) == set()
         err = _refused(lambda: client.delete(f"/bank-lines/{line}"))
         assert (err.status, err.code) == (404, "NOT_FOUND")
         err = _refused(lambda: client.delete("/bank-lines/not-a-uuid"))
@@ -659,7 +654,7 @@ def test_a_line_in_a_completed_reconciliation_is_not_deleted(client):
         assert reason_on(err, "bank_line_id") == "IN_COMPLETED_RECONCILIATION"
         kept = client.get(f"/bank-lines/{line}")
         assert (kept["part_count"], kept["net_cents"]) == (2, -10000)
-        assert _live_ids(client, account) == {p["id"] for p in parts}
+        assert live_ids(client, account) == {p["id"] for p in parts}
     finally:
         _safe(client.post, f"/reconciliations/{recon}/revert")
         for tx_id in written:
@@ -835,7 +830,7 @@ def test_a_line_group_whose_items_differ_is_line_group_fields_differ(client):
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         for key in ("transactions.0.title", "transactions.1.title"):
             assert reason_on(err, key) == "LINE_GROUP_FIELDS_DIFFER"
-        assert _live_ids(client, account) == set()
+        assert live_ids(client, account) == set()
     finally:
         for tx_id in ids:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -895,7 +890,7 @@ def test_a_line_group_is_one_line_and_a_re_import_matches_it(client):
         assert (only["outcome"], only["rule"]) == ("matched", "same_day")
         assert only["bank_line_id"] == line
         assert (dry["counts"]["matched"], dry["counts"]["new"]) == (1, 0)
-        assert _live_ids(client, account) == set(ids)
+        assert live_ids(client, account) == set(ids)
     finally:
         for tx_id in ids:
             _safe(client.delete, f"/transactions/{tx_id}")
@@ -1228,13 +1223,13 @@ def test_a_title_on_a_line_in_a_completed_reconciliation_is_read_only_and_never_
         err = _refused(lambda: client.put(f"/bank-lines/{line}", json_body=refused_body))
         assert (err.status, err.code) == (422, "VALIDATION_ERROR")
         assert err.reasons == {"title": "LOCKED"}
-        assert _live_ids(client, account) == {original["id"]}
+        assert live_ids(client, account) == {original["id"]}
         assert client.get(f"/transactions/{original['id']}")["title"] == TOTTUS
 
         saved = _split_titled(client, cfg, line, RENAMED, written)
         assert "title" not in saved._line_fields()
         parts = saved.answer["parts"]
-        assert _live_ids(client, account) == {p["id"] for p in parts}
+        assert live_ids(client, account) == {p["id"] for p in parts}
         for part in parts:
             read = client.get(f"/transactions/{part['id']}")
             assert (read["title"], read["reconciliation_id"]) == (TOTTUS, recon)

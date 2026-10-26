@@ -85,10 +85,6 @@ note in point 9 and the engine ask in point 10.
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
 do and when it passes.
 
-5. **One copy of each contract-suite helper** (point 5, first half). Passes if `_live_ids`,
-   `_send`, `_batch_into` and `_assign` each exist once, in the contract suite's conftest.py, or
-   give way to `Scratch.line`, keeping whichever route a test exists to prove, and the live
-   suite passes against the practice engine.
 6. **One repo-wide guard that nothing names the split route** (point 5, second half). Passes if
    one test over the whole repo replaces the two in test_bank_line_write.py, its docstring in
    the present tense, and it fails when any file names the route.
@@ -141,3 +137,7 @@ do and when it passes.
 - **The drift check does not check a card's twin half.** It checks the bare answers only, so
   the `twin` inside a card's answer is never checked against its own schema (found by task 4's
   builder, 2026-10-25).
+- **Three more repeats in the contract suite.** `_transaction_ids` in test_account_kind.py is
+  `live_ids` under another name; test_bank_line_edit_limits.py reads and sends the statement
+  order inline instead of through `send_order`; `_item` in test_create_into_reconciliation.py
+  repeats `Scratch`'s create body (found by task 5's builder, 2026-10-25).
