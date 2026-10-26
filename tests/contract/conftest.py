@@ -9,13 +9,18 @@ key goes in EXPENSE_PAT, and the reserved-names one, whose key goes in EXPENSE_R
 and run this suite: docs/runtime.md "Working against the live engine".
 """
 
+import base64
+import io
 import os
 import random
+from collections.abc import Iterable
+from contextlib import ExitStack
 from datetime import datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+from openpyxl import Workbook
 
 from expense import config as config_module
 from expense.bank_line_write import line_body, new_part
@@ -192,21 +197,51 @@ def reserved_client():
         yield c
 
 
+#: The words a leftover on the reserved-names practice user is listed under.
+RESERVED_WHOSE = "the reserved-names user's "
+
+
+def leak_targets(fixturenames: Iterable[str]) -> list[tuple[str, Config]]:
+    """Whose records the leak check counts, each with the words its leftovers are listed
+    under: the shared practice user's always, and the reserved-names practice user's too
+    when the test asks for `reserved_client`, the one way a test writes as that user. So a
+    test that does not ask for it never needs EXPENSE_RESERVED_PAT."""
+    targets = [("", _target())]
+    if "reserved_client" in fixturenames:
+        targets.append((RESERVED_WHOSE, reserved_target()))
+    return targets
+
+
+def left_behind(before: dict[str, str], after: dict[str, str], whose: str = "") -> list[str]:
+    """The labels of the records in `after` that `before` lacks, each under `whose`, sorted:
+    `holdings` taken before and after a test (scripts/clean_practice_user.py)."""
+    return sorted(f"{whose}{label}" for record, label in after.items() if record not in before)
+
+
 @pytest.fixture(autouse=True)
-def leaves_nothing():
-    """Fails the test whose teardown leaves an account, category or hashtag it made.
+def leaves_nothing(request):
+    """Fails the test whose teardown leaves an account, category or hashtag it made, on
+    the shared practice user or, for a test asking for `reserved_client`, on the
+    reserved-names one (`leak_targets`).
 
     Autouse, so it is set up before every fixture a test asks for and torn down after
-    them, the `scratch` cleanup included. It reads through a client of its own, so the
+    them, the `scratch` cleanup included. It reads through clients of its own, so the
     `statuses` a test reads never see its calls. What it counts is the cleanup script's
     `holdings`, which leaves out the system rows the engine creates on first need. A
-    leftover is listed by kind and name; scripts/clean_practice_user.py removes it
-    (docs/runtime.md "Working against the live engine")."""
-    with ExpenseClient(_target()) as own:
-        before = CLEANER.holdings(own)
+    leftover is listed by whose it is, kind and name; scripts/clean_practice_user.py
+    removes it (docs/runtime.md "Working against the live engine")."""
+    with ExitStack() as stack:
+        owners = [
+            (whose, stack.enter_context(ExpenseClient(target)))
+            for whose, target in leak_targets(request.fixturenames)
+        ]
+        before = [CLEANER.holdings(own) for _, own in owners]
         yield
-        after = CLEANER.holdings(own)
-    left = sorted(label for record, label in after.items() if record not in before)
+        left = [
+            label
+            for (whose, own), held in zip(owners, before, strict=True)
+            for label in left_behind(held, CLEANER.holdings(own), whose)
+        ]
     if left:
         pytest.fail(f"the test left {len(left)} record(s) behind: {', '.join(left)}")
 
@@ -261,6 +296,22 @@ def assert_refusals(err: EngineError, status: int, code: str, reasons: dict[str,
 def assert_refusal(err: EngineError, status: int, code: str, key: str, reason: str) -> None:
     """The refusal is `status` `code`, keyed on `key` alone, carrying `reason` there."""
     assert_refusals(err, status, code, {key: reason})
+
+
+def workbook(rows: list[list]) -> str:
+    """A made-up `.xlsx`, in standard base64 as the engine's file uploads take it: one
+    sheet named `data` holding `rows` from row 1 down, each cell as given (`None` an empty
+    cell) (contract: POST /v1/transactions/import, "The download"). Never one of the
+    owner's real files: this repo is public."""
+    book = Workbook()
+    sheet = book.active
+    assert sheet is not None
+    sheet.title = "data"
+    for row in rows:
+        sheet.append(row)
+    out = io.BytesIO()
+    book.save(out)
+    return base64.b64encode(out.getvalue()).decode("ascii")
 
 
 def account_body(currency: str = "PEN", code: str | None = None) -> dict:

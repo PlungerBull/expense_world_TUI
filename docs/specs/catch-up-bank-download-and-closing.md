@@ -113,12 +113,8 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Task 4 runs now; tasks 5 and 6 wait for their mockup pick.
+Tasks 5 and 6 wait for their mockup pick.
 
-4. **A held reserved name, live** (point 6). As the reserved-names practice user, a live test
-   draws `RESERVED_NAME_HELD` on each route the engine's check names, reading the routes from the
-   live contract; each refusal writes nothing. The contract suite's leak check (`leaves_nothing`)
-   covers what a test leaves on the reserved-names user too, not only on the shared one.
 5. **[UI] Completing a statement shows the lines it flagged** (point 2). First a mockup of where
    the flagged lines show after complete, each leading to its line
    ([expense-world-statement-flagged-lines.html](../mockups/expense-world-statement-flagged-lines.html));
@@ -178,6 +174,14 @@ Not built in this spec; drafted into a new spec when it is done.
   `expense-world-grouped-refusals.html`; the engine now sends "Period … is sealed by completed
   reconciliation '…'. Revert it to draft to change anything inside it." Same kind as the backlog
   item "A unit fixture quotes an old refusal". (Task 3.)
+- **`RESERVED_NAME_HELD` on the statement-PDF upload.** `POST /v1/reconciliations/import` can
+  answer it, but drawing it live needs a made-up bank statement PDF the engine reads before any
+  row; the live tests of [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md)
+  build one, so that spec draws it. (Task 4.)
+- **The practice-data cleaner speaks of one practice user.** `scripts/clean_practice_user.py`
+  takes its key only from `EXPENSE_PAT`, and [runtime.md](../runtime.md) "Leftovers" says it
+  cleans "the practice user"; a leftover on the reserved-names user is cleaned by passing that
+  user's key as `EXPENSE_PAT`, which no doc says. (Task 4.)
 - **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
   test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
   reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)
