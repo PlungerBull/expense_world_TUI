@@ -595,11 +595,13 @@ def test_an_empty_new_part_is_left_out_and_nothing_else_changed_sends_nothing(en
 # ---- the spec's checks 3 to 6 ----------------------------------------------------
 
 
-def test_check_3_a_new_date_and_a_re_split_go_in_one_write_ids_kept(engine, notes):
+def test_check_3_a_new_date_and_a_re_split_go_in_one_write_ids_kept(engine, notes, monkeypatch):
     """Edit the date and re-split 60 + 40 into 70 + 30: one `PUT
     /bank-lines/bl-9` with the date and both parts under their own ids, their
     new amounts alone; no transaction write and no other route. Saved, the
     ledger reads fresh."""
+    # A typed day takes the machine's zone; pin it so the offset is the same everywhere.
+    monkeypatch.setattr("tzlocal.get_localzone_name", lambda: "America/Lima")
 
     async def scenario(pilot, app):
         ledger, screen = await _open(pilot, app, "p1")
