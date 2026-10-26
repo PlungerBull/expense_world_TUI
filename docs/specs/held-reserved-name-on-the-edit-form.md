@@ -45,13 +45,6 @@ hashtag of the user's may take the name `Pendiente` (contract: "Hashtags"). The 
 live test; the ask is "The practice engine seeds a second practice user whose own category and
 hashtag hold the reserved names", and the live test waits under "Found along the way".
 
-1. **A unit test proves the Edit form shows the engine's words alone for a held reserved
-   name** (point 1). Passes if a unit test on the Edit form has the fake engine refuse the
-   whole-line write (`PUT /bank-lines/{id}`) with `409` `RESERVED_NAME_HELD` keyed
-   `hashtag_ids` itself (contract: "Hashtags"), and proves that the form stays open, shows the
-   engine's words whole with no line of the app's under them (not the category line), says
-   nothing was saved, and sent exactly that one write; the test fails if the category line
-   shows; and the unit suite passes.
 Every task is done; the acceptance check and the librarian's sweep follow.
 
 ## Found along the way
@@ -67,3 +60,8 @@ Not built in this spec; drafted into a new spec when it is done.
   heading the refusal rows still say "pending-hashtag-manage 4 B, both refusals, and 5 B",
   "pending-hashtag-manage 7 B", "archived-account 3 A" and "account-to-person 4 B"; each should
   say what its rows prove instead.
+- **The Edit form's shared hashtag-refusal test proves less than it says.**
+  `test_a_hashtag_refusal_shows_under_the_parts_as_sent` in test_tui_edit_form.py runs every
+  hashtag refusal, `RESERVED_NAME_HELD` among them, but when a reason has no line of the app's
+  it checks nothing, so it would pass with one showing; it also checks neither "Nothing was
+  saved." nor that one write was sent.
