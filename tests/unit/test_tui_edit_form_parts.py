@@ -655,8 +655,9 @@ def test_check_4_a_two_part_line_goes_back_to_one_part_in_one_write(engine):
 
 def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_write(engine):
     """Question 5 A: the line on an archived account opens on PART 1 CATEGORY;
-    date, title, account and both amounts are read-only, `amount  read-only`
-    under the table; no `^n`, no `^x`. Both parts re-categorised: one write,
+    date, title, account and both amounts are read-only, the engine's sentence
+    under the shared fields and beside `amount  read-only` under the table; no
+    `^n`, no `^x`. Both parts re-categorised: one write,
     each part its current amount and its new category, no line field."""
 
     async def scenario(pilot, app):
@@ -675,11 +676,12 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
         "date     2026-10-11  read-only",
         "title    Tottus Jockey Plaza  read-only",
         "account  Ahorro viejo  read-only",
+        "date, title, account: The account is archived. Unarchive it first.",
         "",
         "      amount    category       hashtags        note",
         "▌ 1   -60.00    COMIDA         —               verduras",
         "  2   -40.00    HOGAR          —",
-        "amount  read-only",
+        "amount  read-only · The account is archived. Unarchive it first.",
         "",
         "2 parts  ·  -100.00 of -100.00  ✓",
     ]
@@ -702,8 +704,9 @@ def test_check_5_both_parts_of_an_archived_accounts_line_re_categorised_in_one_w
 
 def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
     """Question 5 A: an opening balance opens on DATE; its account, category and
-    hashtags are read-only, `category  read-only` and `hashtags  read-only`
-    under the table, the two cells dimmed; no `^n`. Its amount and note go in
+    hashtags are read-only, the engine's sentence under the account and beside
+    `category  read-only` and `hashtags  read-only` under the table, the two
+    cells dimmed; no `^n`. Its amount and note go in
     one write under its own id, nothing else."""
 
     async def scenario(pilot, app):
@@ -722,11 +725,13 @@ def test_check_5_an_opening_balances_amount_and_note_in_one_write(engine):
         "date     2026-01-01",
         "title    Saldo inicial",
         "account  Sueldo Soles  read-only",
+        "account: Must not move an opening balance to another account.",
         "",
         "       amount    category       hashtags        note",
         "  1  3,200.00    @Opening       —",
-        "category  read-only",
-        "hashtags  read-only",
+        "category  read-only · Must not move an opening balance out of the "
+        "opening-balance category.",
+        "hashtags  read-only · Must be empty: an opening balance carries no hashtag.",
     ]
     assert footer == [("esc", "Cancel"), ("^s", "Save"), ("⇥", "Field")]
     assert _styles_of(rows[1], "@Opening") == {"dim"}
@@ -776,7 +781,7 @@ def test_check_6_a_line_shows_read_only_exactly_what_its_edit_limits_names(engin
     assert requests == [("GET", f"/bank-lines/{line}")]
     shared = {row.split()[0] for row in summary[:3] if row.endswith("read-only")}
     assert shared == {k for k in READ_ONLY[key] if "." not in k}
-    marked = {row.split()[0] for row in summary[3:] if row.endswith("  read-only")}
+    marked = {row.split()[0] for row in summary[3:] if "  read-only" in row}
     assert marked == {k.split(".")[1] for k in READ_ONLY[key] if "." in k}
 
 
@@ -800,13 +805,14 @@ def test_check_6_a_completed_reconciliations_split_line_opens_on_part_1s_amount(
 
 def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine):
     """Screen 3b: one part, its amount the line's total, read-only and dimmed
-    with `amount  read-only` under the table; the form opens on its category.
+    with `amount  read-only` and the engine's sentence under the table; the form
+    opens on its category.
     With the total fixed and the parts not, `^n` makes two parts and the amounts
     move between them: part 1's amount is no longer read-only."""
 
     async def scenario(pilot, app):
         _ledger, screen = await _open(pilot, app, "s1")
-        one = (screen._key, _summary(screen)[4:], _rows(screen)[1])
+        one = (screen._key, _summary(screen)[5:], _rows(screen)[1])
         await pilot.press("ctrl+n")
         await pilot.pause()
         return one, set(screen._locked), _summary(screen)
@@ -816,7 +822,7 @@ def test_check_6_a_completed_line_of_one_part_holds_its_total_until_split(engine
     assert table == [
         "      amount    category       hashtags        note",
         "▌ 1   -28.00    OCIO           —",
-        "amount  read-only",
+        "amount  read-only · The parts must add up to the line's total.",
     ]
     assert _styles_of(row, "-28.00") == {"dim"}
     assert locked == {"date", "title", "account"}

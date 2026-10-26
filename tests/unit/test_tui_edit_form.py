@@ -13,6 +13,7 @@ The reference lists and the line read are patched on `expense.reads`, so
 """
 
 import threading
+from pathlib import Path
 
 import pytest
 from rich.text import Text
@@ -36,10 +37,12 @@ from expense.tui.screens.edit_form import (
     EditFormScreen,
 )
 from expense.tui.theme import ACCENT
+from expense.tui.widgets.parts_table import readonly_lines
 from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
+    LOCK_MESSAGES,
     edit_limits,
     hashtag_refusal,
     import_part,
@@ -883,6 +886,196 @@ def test_no_field_move_lands_on_a_read_only_line(fake_client, monkeypatch, line)
 
     open_lines = _open(record, steps)
     assert "0.note" in open_lines
+
+
+# ---- why a line is read-only: the engine's sentences, screen 1 B ----------------
+# of mockups/expense-world-read-only-reasons.html. Each locked field comes as
+# `{reason, message}` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields");
+# the form shows the message as sent.
+
+COMPLETED_LIMITS = edit_limits(
+    locked_fields=dict.fromkeys(_ARCHIVED_FIELDS, "LOCKED"),
+    total_fixed=True,
+    locked_part_fields={"tx1": {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
+)
+
+
+def _drawn(record: dict, line: dict, form=None, *, ansi: bool = False) -> list[str]:
+    """The Edit form's summary on `record`'s `line` as an 80-column terminal
+    draws it: rendered at the summary's own width there, its padding taken off;
+    with `ansi`, its escape codes kept."""
+
+    async def scenario(pilot, app):
+        screen = form() if form else EditFormScreen(record=record)
+        await app.push_screen(screen)
+        await _wait_loaded(screen, pilot)
+        summary = screen.query_one("#summary", Static)
+        width = summary.content_region.width
+        text = render_text(summary.content, width=width, ansi=ansi)
+        return [row.rstrip() for row in text.splitlines()], width
+
+    rows, width = run_app(scenario, size=(80, 50))
+    assert width == 74  # 80 columns, less the summary's padding of 3 on each side
+    return rows
+
+
+def test_a_completed_reconciliations_line_says_why_once_under_its_fields(fake_client, monkeypatch):
+    """Date, title and account each still read `read-only`; one line under them
+    names the three in the form's order with the engine's sentence, and the
+    amount's line under the parts carries its own."""
+    line = _line(TXN, limits=COMPLETED_LIMITS)
+    _patch(monkeypatch, line)
+    assert _drawn(TXN, line) == [
+        "date     2026-06-20  read-only",
+        "title    Farmacia  read-only",
+        "account  BCP PEN  read-only",
+        "date, title, account: Locked by completed reconciliation.",
+        "",
+        "      amount    category       hashtags        note",
+        "▌ 1   -42.50    Mascotas       #dog            receta",
+        "amount  read-only · The parts must add up to the line's total.",
+    ]
+
+
+def test_an_archived_accounts_line_says_why_with_the_engines_sentence(fake_client, monkeypatch):
+    line = _line(ON_ARCHIVED, limits=_archived_limits(*_ARCHIVED_FIELDS))
+    _patch(monkeypatch, line)
+    assert _drawn(ON_ARCHIVED, line) == [
+        "date     2026-06-20  read-only",
+        "title    Farmacia  read-only",
+        "account  Old bank  read-only",
+        "date, title, account: The account is archived. Unarchive it first.",
+        "",
+        "      amount    category       hashtags        note",
+        "▌ 1   -42.50    Mascotas       #dog            receta",
+        "amount  read-only · The account is archived. Unarchive it first.",
+    ]
+
+
+def test_an_opening_balances_sentences_wrap_under_themselves(fake_client, monkeypatch):
+    """Three locked lines, three sentences: the account's under the shared
+    fields, each part column's beside its `read-only`, a long one wrapping
+    under the `·` that opens it at 80 columns, as the mockup draws it."""
+    line = _opening_line()
+    _patch(monkeypatch, line)
+    assert _drawn(OPENING, line) == [
+        "date     2026-06-20",
+        "title    Saldo inicial",
+        "account  BCP PEN  read-only",
+        "account: Must not move an opening balance to another account.",
+        "",
+        "       amount    category       hashtags        note",
+        "  1  3,200.00    @Opening       —",
+        "category  read-only · Must not move an opening balance out of the",
+        "                    opening-balance category.",
+        "hashtags  read-only · Must be empty: an opening balance carries no",
+        "                    hashtag.",
+    ]
+
+
+def test_the_no_batch_form_names_its_operation_line_among_the_locked(fake_client, monkeypatch):
+    """The "no batch" form shares the lines: OPERATION, read-only on an
+    archived account's line, is named in the form's order, and a sentence too
+    long for the line wraps under itself."""
+    limits = _archived_limits(*_ARCHIVED_FIELDS, "operation_code")
+    line = _line(ON_ARCHIVED, limits=limits, operation="47391026")
+    _patch(monkeypatch, line)
+    rows = _drawn(ON_ARCHIVED, line, form=lambda: BankLineEditFormScreen(line=line))
+    assert rows[:6] == [
+        "date       2026-06-20  read-only",
+        "title      Farmacia  read-only",
+        "operation  47391026  read-only",
+        "account    Old bank  read-only",
+        "date, title, operation, account: The account is archived. Unarchive it",
+        "                                 first.",
+    ]
+    assert rows[-1] == "amount  read-only · The account is archived. Unarchive it first."
+
+
+def test_line_fields_locked_for_different_reasons_get_a_sentence_each(fake_client, monkeypatch):
+    """Each distinct sentence once, in the form's order of the lines it covers;
+    a field the form has no line for (`reconciliation_id`) is named nowhere."""
+    limits = edit_limits(
+        locked_fields={
+            "reconciliation_id": "LOCKED",
+            "account_id": "ACCOUNT_ARCHIVED",
+            "title": "LOCKED",
+            "date": "ACCOUNT_ARCHIVED",
+        }
+    )
+    line = _line(TXN, limits=limits)
+    _patch(monkeypatch, line)
+    assert _drawn(TXN, line)[3:5] == [
+        "date, account: The account is archived. Unarchive it first.",
+        "title: Locked by completed reconciliation.",
+    ]
+
+
+def test_the_sentences_are_dim_like_the_rest_of_their_lines(fake_client, monkeypatch):
+    """The line naming the read-only fields and a column's `read-only` line
+    with its sentence are dim from end to end."""
+    line = _line(TXN, limits=COMPLETED_LIMITS)
+    _patch(monkeypatch, line)
+    wanted = {
+        "date, title, account: Locked by completed reconciliation.",
+        "amount  read-only · The parts must add up to the line's total.",
+    }
+    seen = set()
+    for row in _drawn(TXN, line, ansi=True):
+        text = Text.from_ansi(row)
+        if text.plain.rstrip() not in wanted:
+            continue
+        seen.add(text.plain.rstrip())
+        dim = {i for span in text.spans if span.style.dim for i in range(span.start, span.end)}
+        shown = {i for i, char in enumerate(text.plain) if not char.isspace()}
+        assert shown <= dim, text.plain
+    assert seen == wanted
+
+
+def test_the_engines_sentence_shows_as_sent_never_as_styling(fake_client, monkeypatch):
+    """`[like this]`, `[/]` and `[bold]` in the engine's words show whole, under
+    the shared fields and beside a part column's `read-only`."""
+    words = "Locked [like this] by [bold]a[/] reconciliation."
+    limits = {
+        **COMPLETED_LIMITS,
+        "locked_fields": {
+            field: {"reason": "LOCKED", "message": words} for field in _ARCHIVED_FIELDS
+        },
+        "locked_part_fields": {"tx1": {"amount_cents": {"reason": "X", "message": words}}},
+    }
+    line = _line(TXN, limits=limits)
+    _patch(monkeypatch, line)
+    rows = _drawn(TXN, line)
+    assert f"date, title, account: {words}" in rows
+    assert f"amount  read-only · {words}" in rows
+
+
+def test_two_parts_locked_in_one_column_for_different_reasons_join_their_sentences():
+    """One line per column: each distinct sentence once, in the parts' order,
+    joined by ` · `; a lock the engine sends no sentence for reads `read-only`."""
+    first, second = LOCK_MESSAGES["ACCOUNT_ARCHIVED"], LOCK_MESSAGES["SPLIT_TOTAL_MISMATCH"]
+    lines = readonly_lines(
+        {
+            0: {"amount": first, "note": None},
+            1: {"amount": second},
+            2: {"amount": first},
+        }
+    )
+    drawn = [render_text(line, width=200).rstrip() for line in lines]
+    assert drawn == [f"amount  read-only · {first} · {second}", "note  read-only"]
+
+
+def test_the_app_keeps_no_table_from_reason_to_sentence():
+    """The sentences come from the engine alone: no file under expense/ holds
+    one of them (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    package = Path(__file__).resolve().parents[2] / "expense"
+    held = {
+        f"{path.relative_to(package)}: {sentence}"
+        for path in package.rglob("*.py")
+        for sentence in LOCK_MESSAGES.values()
+        if sentence in path.read_text(encoding="utf-8")
+    }
+    assert held == set()
 
 
 # ---- the pending hashtag never rides beside a real one -------------------------

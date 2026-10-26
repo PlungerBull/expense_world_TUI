@@ -31,10 +31,15 @@ write would refuse on it as it stands
 field in `locked_fields` and each part field in `locked_part_fields` shows
 `read-only`, dimmed, the bar skipping it, and the form opens on the first line
 that can change; with `parts_fixed` there is no `^n Add part` and no `^x Drop
-part`. With the total fixed and the parts not (a completed reconciliation's
-line), a line of one part has its amount, the total, read-only; once the table
-holds two parts or more, the amounts move between the parts, so none is
-read-only. The form reads no reconciliation and keeps no rule of its own on
+part`. Each locked field carries the engine's sentence for it, shown as sent
+(screen 1 B of mockups/expense-world-read-only-reasons.html): under the line
+fields one dim line per sentence names the lines it covers
+(`date, title, account: <sentence>`, `reason_lines`), and under the parts each
+column's `read-only` line carries its sentences (`amount  read-only · <sentence>`,
+`readonly_lines`). With the total fixed and the parts not (a completed
+reconciliation's line), a line of one part has its amount, the total,
+read-only; once the table holds two parts or more, the amounts move between
+the parts, so none is read-only. The form reads no reconciliation and keeps no rule of its own on
 what a line may change.
 
 `^n` adds an empty part at the end and puts the bar on its AMOUNT; `^x`, on a
@@ -119,11 +124,13 @@ from expense.tui.widgets.parts_table import (
     Part,
     count_line,
     flagged_parts,
+    lock_message,
     part_empty,
     part_from_engine,
     parts_lines,
     readonly_lines,
     real_hashtags,
+    reason_lines,
     refusal_lines,
 )
 from expense.tui.widgets.picker import matching, suggestion_list
@@ -288,6 +295,8 @@ class EditFormScreen(FormScreen):
         # each part read from the line, as the engine holds it, by its id
         self._held: dict[str, dict] = {}
         self._limits: dict = {}
+        # each read-only line field's sentence, as the engine sends it
+        self._line_reasons: dict[str, str | None] = {}
         self._original: dict = {}
         self._refusal: Exception | None = None  # the engine's, until something changes
         self._left_reconciliation = False  # the save's answer flags a part as leaving
@@ -366,18 +375,43 @@ class EditFormScreen(FormScreen):
                 out[index] = frozenset(fields)
         return out
 
+    def _part_reasons(self, locks: dict[int, frozenset[str]]) -> dict[int, dict[str, str | None]]:
+        """Each part's read-only fields in `locks`, with the engine's sentence
+        for each, as `locked_part_fields` sends it for the part's id."""
+        by_id = self._limits.get("locked_part_fields") or {}
+        out: dict[int, dict[str, str | None]] = {}
+        for index, fields in locks.items():
+            part_id = self._parts[index].id
+            named = by_id.get(part_id) or {} if part_id else {}
+            out[index] = {field: lock_message(named.get(ENGINE_FIELDS[field])) for field in fields}
+        return out
+
     def _relock(self) -> None:
-        """The read-only lines, from the line's `edit_limits` alone."""
+        """The read-only lines, from the line's `edit_limits` alone, each line
+        field's with the engine's sentence for it."""
         keys = set(self._line_keys())
-        locked = {
-            _FORM_KEY[field]
-            for field in self._limits.get("locked_fields") or {}
+        named = self._limits.get("locked_fields") or {}
+        self._line_reasons = {
+            _FORM_KEY[field]: lock_message(entry)
+            for field, entry in named.items()
             if _FORM_KEY.get(field) in keys
         }
+        locked = set(self._line_reasons)
         for index, fields in self._part_locks().items():
             locked |= {part_key(index, field) for field in fields}
             self._parts[index] = self._as_read(self._parts[index], fields)
         self._locked = locked
+
+    def _reason_lines(self) -> list[RenderableType]:
+        """Under the shared fields, each sentence once, naming the read-only
+        lines it covers in the form's order."""
+        return reason_lines(
+            [
+                (self._summary_label(key), self._line_reasons[key])
+                for key in self._line_keys()
+                if key in self._line_reasons
+            ]
+        )
 
     def _as_read(self, part: Part, fields: frozenset[str]) -> Part:
         """`part` with each of its read-only `fields` back at the value read from
@@ -689,13 +723,15 @@ class EditFormScreen(FormScreen):
     # ---- render ----------------------------------------------------------
     def _summary_renderable(self) -> RenderableType:
         table = self._summary_table(self._line_keys())
+        reasons = self._reason_lines()
         refs = self._refs
         if not self._ready or refs is None:
-            return Group(table, Text(""), Text(LOADING_HINT, style="dim"))
+            return Group(table, *reasons, Text(""), Text(LOADING_HINT, style="dim"))
         at = self._part_at(self._key)
         locks = self._part_locks()
         blocks: list[RenderableType] = [
             table,
+            *reasons,
             Text(""),
             *parts_lines(
                 self._parts,
@@ -705,7 +741,7 @@ class EditFormScreen(FormScreen):
                 flagged=flagged_parts(self._refusal),
                 palette=PALETTE,
             ),
-            *readonly_lines(locks),
+            *readonly_lines(self._part_reasons(locks)),
         ]
         if len(self._parts) > 1:
             blocks += [Text(""), count_line(self._parts, self._total, palette=PALETTE)]

@@ -42,9 +42,12 @@ expense/tui/
                     #   surfaces and the bulk pick drop under their input
     refusal.py      # hanging() — the `! …` line a screen keeps under a refusal
                     #   (the import door's preview and result, the Edit form)
+                    #   + under_itself() — words wrapping under themselves
+                    #   after a head, as the Edit form's read-only sentences do
     parts_table.py  # the Edit form's parts: the Part model, the table, the dim
-                    #   `read-only` lines, the line adding the parts up, and a
-                    #   refused save's lines; pure builders
+                    #   `read-only` lines and the engine's sentence for each, the
+                    #   line adding the parts up, and a refused save's lines;
+                    #   pure builders
   screens/
     _base.py        # run_write + confirm_delete (EngineWriteMixin), SectionScreen, keymap
     _form.py        # FormScreen base — fields, validation, bar-cycle plumbing
@@ -358,7 +361,8 @@ Its bank line keeps its one part
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A line holding an opening balance keeps its parts").
 The Edit form reads all of it from the line's `edit_limits` ("What is read-only is the line's
 `edit_limits`" above): `account` reads `read-only`, the part's category and hashtags cells are
-dimmed under a dim `category  read-only` and `hashtags  read-only`, every field move (`tab`,
+dimmed under a dim `category  read-only` and `hashtags  read-only`, each with the engine's
+sentence for it, every field move (`tab`,
 `shift+tab` and the arrows) skips them, the save never sends them, and there is no `^n` or
 `^x`; date, title, amount and note save as on any line. `b`, `c` and `h` send such a row like any other, and the engine
 refuses it: its "Refused" note is the engine's words for the field, the row, then the line saying what to do
@@ -429,12 +433,24 @@ for it (`part_empty`).
 **What is read-only is the line's `edit_limits`, and nothing else**
 (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Each field it names carries
 `{reason, message}`: the reason the write refuses that field with and the engine's sentence for
-it, the write's own words; the form reads which fields are named, and the app keeps no table
-from reason to sentence. A line field its
-`locked_fields` names reads dimmed with `read-only` beside its value; a part field its
-`locked_part_fields` names for that part's id is dimmed in its cell, and under the table a dim
-`amount  read-only` (`category`, `hashtags`, `note`) line names each column read-only on some
-part. Every field move skips them, and the form opens on its first line that can change. Where
+it, the write's own words. A line field its `locked_fields` names reads dimmed with
+`read-only` beside its value; a part field its `locked_part_fields` names for that part's id is
+dimmed in its cell, and under the table a dim `amount  read-only` (`category`, `hashtags`,
+`note`) line names each column read-only on some part. **Each says why, in the engine's
+sentence** (screen 1 B of
+[expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)): under
+the line fields, one dim line per distinct sentence names the lines it covers by their names on
+the form, in the form's order, then the sentence
+(`date, title, account: Locked by completed reconciliation.`; a field the form has no line for,
+such as `reconciliation_id`, is named nowhere); under the parts, each column's line carries its
+sentence, `amount  read-only · The parts must add up to the line's total.`, two parts locked in
+one column for different sentences showing each once, joined by ` · `. A long sentence wraps:
+beside a column's `read-only`, under the `·` that opens it; under the shared fields, under its
+own first word. Every sentence is the engine's `message` as sent, shown as text,
+never as styling (`reason_lines` and `readonly_lines` in
+[parts_table.py](../expense/tui/widgets/parts_table.py)); the app keeps no table from reason to
+sentence. The "no batch" Edit form shows the same, OPERATION among the lines it names. Every
+field move skips them, and the form opens on its first line that can change. Where
 `parts_fixed` holds (an opening balance's line, a line on an archived account) neither `^n` nor
 `^x` shows. Where `total_fixed` holds and `parts_fixed` does not (a line in a completed
 reconciliation), an amount `locked_part_fields` names is a one-part line's total: it holds while
@@ -714,11 +730,13 @@ or operation code filled while it is empty
 (contract: PUT /v1/bank-lines/{bank_line_id}, "A line with a part on an archived account keeps its parts and their amounts")
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules"). The form reads it from the line's
 `edit_limits`, as every read-only line ("What is read-only is the line's `edit_limits`"
-above): the line fields it names read `read-only`, each part's amount is dimmed under a dim
-`amount  read-only`, there is no `^n` or `^x`, and the form opens on the first line that can
-change, a title still empty if the engine leaves it open, else part 1's CATEGORY; nothing on
-it says why. Each part's category, hashtags and note change as on any line, and the save sends
-each part at its current amount. The "no batch" Edit form follows the same `edit_limits` on a
+above): the line fields it names read `read-only`, and one line under them names them with the
+engine's sentence, for example `date, title, account: The account is archived. Unarchive it first.`
+(`date, account: …` when the engine leaves an empty title open); each part's amount is dimmed
+under a dim `amount  read-only` with the same sentence beside it, there is no `^n` or `^x`,
+and the form opens on the first line that can change, a title still empty if the engine leaves
+it open, else part 1's CATEGORY. Each part's category, hashtags and note change as on any
+line, and the save sends each part at its current amount. The "no batch" Edit form follows the same `edit_limits` on a
 line of an archived account, which only a list read before the account was archived still
 shows. When the engine refuses anyway (the account archived after the line was read), its
 words stay under the parts ("When the engine says no" below).

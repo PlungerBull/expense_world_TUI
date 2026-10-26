@@ -1,9 +1,11 @@
 """What the engine said, as a screen shows it: its words as text, never as styling.
 
 One copy for every screen that lays a refusal out line by line (`hanging`: the
-bank import's preview and result, and the Edit form's parts), and for every
-toast whose words the app did not write itself (`toast`), or that holds them
-inside the app's own styling (`as_markup`).
+bank import's preview and result, and the Edit form's parts), for words that
+wrap under themselves after a head of the app's own (`under_itself`: the Edit
+form's read-only lines and their sentences), and for every toast whose words
+the app did not write itself (`toast`), or that holds them inside the app's own
+styling (`as_markup`).
 """
 
 from typing import Any
@@ -15,16 +17,22 @@ from textual.app import App
 from textual.widget import Widget
 
 
+def under_itself(head: Text, words: Text) -> RenderableType:
+    """`head`, then `words` beside it, a long `words` wrapping under its own
+    first word, never under `head`."""
+    grid = Table.grid()
+    grid.add_column(no_wrap=True)
+    grid.add_column()
+    grid.add_row(head, words)
+    return grid
+
+
 def hanging(line: Text) -> RenderableType:
     """A `! …` line wraps under its own words, not under the `!`; any other
     line is itself."""
     if not line.plain.startswith("! "):
         return line
-    grid = Table.grid()
-    grid.add_column(no_wrap=True)
-    grid.add_column()
-    grid.add_row(line[:2], line[2:])
-    return grid
+    return under_itself(line[:2], line[2:])
 
 
 def as_markup(words: str) -> str:

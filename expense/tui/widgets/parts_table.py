@@ -2,15 +2,18 @@
 
 Pure builders, no app and no event loop: the part model the form edits, the
 table of the parts (amount, category, hashtags, note), the dim `read-only` lines
-under it, the line adding the parts up against the line's total, and a refused
-save's lines. Screens of mockups/expense-world-split-transaction-screen.html.
+under it and the ones under the shared fields, each with the engine's sentence
+for the lock, the line adding the parts up against the line's total, and a
+refused save's lines. Screens of mockups/expense-world-split-transaction-screen.html;
+the read-only lines' sentences, screen 1 B of
+mockups/expense-world-read-only-reasons.html.
 
 **The only arithmetic is the count line**: the parts' amounts summed against
 the engine's own `net_cents`. It never stops a save; the engine decides whether
 the parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total").
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
 from rich.console import RenderableType
@@ -21,7 +24,7 @@ from expense.formatting import format_cents, resolve_name, signed_cents
 from expense.reads import QuickAddRefs, hashtags_to_send
 from expense.tui.theme import ACCENT, AMOUNT_RULE, Palette
 from expense.tui.widgets.cells import amount_text
-from expense.tui.widgets.refusal import hanging
+from expense.tui.widgets.refusal import hanging, under_itself
 
 #: A cell with nothing in it, as drawn.
 EMPTY = "—"
@@ -42,6 +45,8 @@ ENGINE_FIELDS = {
 #: What a refused key's field reads as after `part N`: the table's column word for
 #: the engine's field, `parts.0.category_id` reading `part 1 (category)`.
 FIELD_WORDS = {engine: field for field, engine in ENGINE_FIELDS.items()}
+#: Between `read-only` and the engine's sentence, and between two sentences.
+SENTENCE_GAP = " · "
 
 #: Columns of the table, as drawn: the marker and number, then each cell at
 #: least as wide as its header leaves room for, and the gap after each.
@@ -185,11 +190,52 @@ def parts_lines(
     return lines
 
 
-def readonly_lines(locked: Mapping[int, frozenset[str]]) -> list[Text]:
-    """`amount  read-only`, dim, for each part field read-only on any part,
-    in the table's column order."""
-    closed = set().union(*locked.values()) if locked else set()
-    return [Text(f"{field}  read-only", style="dim") for field in FIELDS if field in closed]
+def lock_message(entry: object) -> str | None:
+    """The engine's sentence for one locked field, the `message` of its
+    `{reason, message}` (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields");
+    None when it sends none."""
+    message = entry.get("message") if isinstance(entry, Mapping) else None
+    return message if isinstance(message, str) and message else None
+
+
+def readonly_lines(locked: Mapping[int, Mapping[str, str | None]]) -> list[RenderableType]:
+    """For each part field read-only on any part, in the table's column order,
+    a dim `amount  read-only · <sentence>`. `locked` holds each part's
+    read-only fields, by its place in the table, with the engine's sentence for
+    each (None when it sends none). A column's distinct sentences show once
+    each, in the parts' order, joined by ` · `, a long one wrapping under the
+    first `·`; the sentences are text, never styling."""
+    lines: list[RenderableType] = []
+    for field in FIELDS:
+        named = [locked[index] for index in sorted(locked) if field in locked[index]]
+        if not named:
+            continue
+        sentences = list(dict.fromkeys(m for fields in named if (m := fields[field])))
+        head = Text(f"{field}  read-only", style="dim")
+        if not sentences:
+            lines.append(head)
+            continue
+        # the `·` opens the words, so a long sentence wraps under it
+        head.append(" ")
+        words = Text(f"· {SENTENCE_GAP.join(sentences)}", style="dim")
+        lines.append(under_itself(head, words))
+    return lines
+
+
+def reason_lines(named: Sequence[tuple[str, str | None]]) -> list[RenderableType]:
+    """Under the shared fields, one dim line per distinct sentence: the
+    read-only line fields it covers, then the sentence,
+    `date, title, account: <sentence>`. `named` holds each read-only line
+    field in the form's order, as (its name on the form, the engine's sentence
+    or None); a long sentence wraps under itself, and is text, never styling."""
+    covers: dict[str, list[str]] = {}
+    for label, message in named:
+        if message:
+            covers.setdefault(message, []).append(label)
+    return [
+        under_itself(Text(f"{', '.join(labels)}: ", style="dim"), Text(message, style="dim"))
+        for message, labels in covers.items()
+    ]
 
 
 def count_line(parts: list[Part], total: int | None, *, palette: Palette | None = None) -> Text:

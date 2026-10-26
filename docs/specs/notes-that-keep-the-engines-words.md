@@ -86,17 +86,6 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-3. **The Edit form says why beside `read-only`** (What it must do 2), screen 1 B of the
-   mockup. Passes if: each read-only line field still reads `read-only` beside its value, and
-   under the line fields one dim line per distinct sentence names the lines it covers, in the
-   form's order, then the sentence: `date, title, account: Locked by completed reconciliation.`;
-   under the parts, each column's `read-only` line reads `amount  read-only · <sentence>`, two
-   different sentences in one column joined by ` · `; a long sentence wraps under itself; every
-   sentence is the engine's `message` as sent, shown as text, never as styling; unit tests draw
-   a line in a completed reconciliation, an archived account's line and an opening balance's
-   line, each showing the engine's sentences as drawn in the mockup; the app keeps no table
-   from reason to sentence; tui.md "What is read-only is the line's `edit_limits`" says it,
-   linking the mockup.
 4. **The bulk edit's missing-settings note reads like the LOG bar's** (What it must do 3), screen
    2 A of the mockup. Passes if: a refusal that stops a bulk run (`SETTINGS_MISSING`, say) shows
    one note titled `Failed`, its text the LOG bar's for the same refusal, a blank line before
