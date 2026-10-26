@@ -179,18 +179,19 @@ def broken_citations(contract: Contract, files: dict[str, str]) -> list[str]:
     return broken
 
 
-def repo_files() -> dict[str, str]:
-    """Every tracked or new (not ignored) text file, minus the skipped ones."""
+def repo_files(root: Path = REPO_ROOT) -> dict[str, str]:
+    """Every tracked or new (not ignored) text file under `root`, a git work tree,
+    minus the skipped ones, keyed by its path from `root`."""
     listed = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-        cwd=REPO_ROOT,
+        cwd=root,
         capture_output=True,
         text=True,
         check=True,
     ).stdout.splitlines()
     files = {}
     for rel in listed:
-        path = REPO_ROOT / rel
+        path = root / rel
         if rel == SELF or rel.startswith(SKIPPED_DIRS) or not path.is_file():
             continue
         try:

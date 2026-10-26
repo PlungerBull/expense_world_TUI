@@ -5,12 +5,14 @@ fields beside `parts` and nothing else
 """
 
 import re
+import subprocess
 import uuid
 from pathlib import Path
 
 import pytest
 
 from expense.bank_line_write import LINE_FIELDS, kept_part, line_body, new_part
+from tests.contract.test_contract_citations import repo_files
 from tests.unit.helpers import import_part
 
 PACKAGE = Path(__file__).resolve().parents[2] / "expense"
@@ -113,26 +115,38 @@ def test_the_body_refuses_any_key_the_write_does_not_take_as_a_line_field(key):
         line_body([], {key: "x"})
 
 
-#: The removed split route, as a path or a citation names it.
+#: A path or a citation naming the split route: a transaction's own path under
+#: `/transactions/` ending in `/split`. The id stops at a quote, so this
+#: pattern's own line names nothing.
 SPLIT_ROUTE = re.compile(r"/transactions/[^\s\"'`]*/split")
 
 
-def _split_route_hits(folder: Path) -> list[str]:
+def _split_route_hits(root: Path) -> list[str]:
+    """`file:line` for each line under `root`, a git work tree, naming the split
+    route, over every file `repo_files` reads."""
     return [
-        f"{path.relative_to(PACKAGE.parent)}:{number}"
-        for path in sorted(folder.rglob("*.py"))
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        f"{rel}:{number}"
+        for rel, text in sorted(repo_files(root).items())
+        for number, line in enumerate(text.splitlines(), 1)
         if SPLIT_ROUTE.search(line)
     ]
 
 
-def test_nothing_in_the_app_calls_the_split_route():
-    """The split route is gone: every rewrite of a line's parts is the
-    whole-line write."""
-    assert _split_route_hits(PACKAGE) == []
+def test_nothing_in_the_repo_names_the_split_route():
+    """Every rewrite of a line's parts goes through the whole-line write
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"), so no file in the
+    repo (code, tests, scripts, docs, mockups) names a per-transaction split
+    route, as a call or as a citation. The files are the ones the citation check
+    reads: every tracked or new text file but docs/from-engine/, the engine's own
+    words, and the citation check itself."""
+    assert _split_route_hits(PACKAGE.parent) == []
 
 
-def test_no_contract_test_calls_or_cites_the_split_route():
-    """The live contract suite rewrites a line's parts with the whole-line write
-    alone, and cites no part of the removed route."""
-    assert _split_route_hits(PACKAGE.parent / "tests" / "contract") == []
+def test_the_scan_names_each_file_and_line_holding_the_split_route(tmp_path):
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    route = "/transactions/t-1" + "/split"
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "notes.md").write_text(f"one\nsee `POST /v1{route}`\n")
+    (tmp_path / "app.py").write_text(f'client.post("{route}")\n')
+    (tmp_path / "clean.py").write_text('client.put("/bank-lines/bl-1")\n')
+    assert _split_route_hits(tmp_path) == ["app.py:1", "docs/notes.md:2"]

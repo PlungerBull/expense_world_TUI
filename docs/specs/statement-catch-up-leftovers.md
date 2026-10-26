@@ -83,28 +83,20 @@ note in point 9 and the engine ask in point 10.
 ## Tasks
 
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
-do and when it passes.
+do and when it passes. For this spec only (the owner, 2026-10-25): tasks 6, 9 and 12 are built
+as one bundle, and from task 6 on the reviewer reads every change once, after the last task,
+in place of a review per task; the commit gate still runs the unit suite on each commit.
 
-6. **One repo-wide guard that nothing names the split route** (point 5, second half). Passes if
-   one test over the whole repo replaces the two in test_bank_line_write.py, its docstring in
-   the present tense, and it fails when any file names the route.
 7. **The live suite pins two card-statement answers** (point 6). Passes if live tests prove
    that a complete on a card whose halves are both completed writes nothing, and that
    `UNASSIGNED_IN_PERIOD` names both halves at once, and the live suite passes.
 8. **A unit test pins `c`, `u` and `d` on a card half's batch screen** (point 7; after task 4).
    Passes if unit tests drive each key on a card half and prove the one write sent and that the
    screen shows both halves done.
-9. **One way to group accounts by statement code, one way to dim a completed row** (point 8).
-   Passes if `statement_accounts` and `statement_partners` share one grouping, `statement_rows`
-   dims a row from the engine's `status` as `batch_rows` does, and what the screens show is
-   unchanged.
 10. **The create form's note on the opening balance** (point 9). Passes if the hint under
     BEGIN BALANCE reads as pick B of
     [expense-world-opening-balance-note.html](../mockups/expense-world-opening-balance-note.html),
     on the one-account form and on each half of a card's form, with tests, and tui.md says it.
-12. **Words that describe dropped screens say what is** (point 11). Passes if the `⏎` comment
-    in reconciliations.py and the docstrings of test_statement_codes.py and
-    test_statement_order.py describe what the code does, naming no screen that does not exist.
 13. **The practice user's leftovers are cleaned, and the run that leaves them is fixed** (point
     12). Passes if the live run that leaves accounts with statement codes and reconciliations
     behind is found and fixed, those leftovers are removed from the practice user, and after a

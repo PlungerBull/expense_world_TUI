@@ -757,6 +757,22 @@ def account_choices(
     return out
 
 
+def code_holders(items: list, *, archived: bool) -> dict[str, list[tuple[str, str, str]]]:
+    """`statement code → [(id, name, currency), …]` from an accounts read: the
+    accounts holding each code, in the read's order. A person, an account with
+    no code or no id, and (unless `archived`) an archived account hold none.
+    The one grouping `statement_partners` and `statement_accounts` share."""
+    holders: dict[str, list[tuple[str, str, str]]] = {}
+    for row in items:
+        code = row.get("statement_code")
+        held = not row.get("is_person") and (archived or not row.get("is_archived"))
+        if code and row.get("id") and held:
+            holders.setdefault(code, []).append(
+                (row["id"], row.get("name") or "(unnamed)", row.get("currency_code") or "?")
+            )
+    return holders
+
+
 def statement_partners(items: list) -> dict[str, tuple[str, str, str, str]]:
     """Each card account's other half, from an accounts read:
     `account id → (other id, other name, other currency, statement code)`.
@@ -769,23 +785,12 @@ def statement_partners(items: list) -> dict[str, tuple[str, str, str, str]]:
     with no code, a person, and an account whose code no other given live
     account holds, or more than one does, has no entry.
     """
-    holders: dict[str, list[dict]] = {}
-    for row in items:
-        code = row.get("statement_code")
-        live = not row.get("is_person") and not row.get("is_archived")
-        if code and row.get("id") and live:
-            holders.setdefault(code, []).append(row)
     partners: dict[str, tuple[str, str, str, str]] = {}
-    for code, rows in holders.items():
+    for code, rows in code_holders(items, archived=False).items():
         if len(rows) != 2:
             continue
         for mine, other in (rows, rows[::-1]):
-            partners[mine["id"]] = (
-                other["id"],
-                other.get("name") or "(unnamed)",
-                other.get("currency_code") or "?",
-                code,
-            )
+            partners[mine[0]] = (*other, code)
     return partners
 
 
@@ -808,16 +813,9 @@ def statement_accounts(items: list) -> dict[str, StatementAccounts]:
     card account too. People never hold a code (contract: "Bank Accounts",
     "Statement code"), and an account with no code has no entry.
     """
-    holders: dict[str, list[tuple[str, str, str]]] = {}
-    for row in items:
-        code = row.get("statement_code")
-        if code and row.get("id") and not row.get("is_person"):
-            holders.setdefault(code, []).append(
-                (row["id"], row.get("name") or "(unnamed)", row.get("currency_code") or "?")
-            )
     return {
         aid: StatementAccounts(code, tuple(rows))
-        for code, rows in holders.items()
+        for code, rows in code_holders(items, archived=True).items()
         for aid, _name, _currency in rows
     }
 

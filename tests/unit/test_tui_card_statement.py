@@ -12,7 +12,7 @@ from textual.widgets import Input, Static
 from expense import errors
 from expense.errors import EngineError
 from expense.formatting import half_name
-from expense.reads import statement_partners
+from expense.reads import code_holders, statement_partners
 from expense.tui.screens.reconciliations import (
     NewCardStatementScreen,
     NewReconciliationScreen,
@@ -74,6 +74,25 @@ def test_an_archived_account_is_no_ones_other_half():
     (contract: POST /v1/reconciliations), so it makes no card."""
     archived = {**SIG_USD, "is_archived": True}
     assert statement_partners([SIG_PEN, archived]) == {}
+
+
+def test_both_lookups_group_accounts_by_code_one_way():
+    """`code_holders` is the one grouping: a code's accounts in the read's
+    order, a person, a codeless or id-less account left out, and an archived
+    one kept only when asked for."""
+    archived = {**SIG_USD, "is_archived": True}
+    person = _account("acc-ana", "Ana", "USD", "SIG", is_person=True)
+    nameless = {"id": "acc-x", "statement_code": "AHO"}
+    no_id = {**AHORRO, "id": None}
+    items = [archived, SIG_PEN, SUELDO, person, AHORRO, nameless, no_id]
+    assert code_holders(items, archived=True) == {
+        "SIG": [USD_ACCOUNT, PEN_ACCOUNT],
+        "AHO": [("acc-ahorro", "Ahorro PEN", "PEN"), ("acc-x", "(unnamed)", "?")],
+    }
+    assert code_holders(items, archived=False) == {
+        "SIG": [PEN_ACCOUNT],
+        "AHO": [("acc-ahorro", "Ahorro PEN", "PEN"), ("acc-x", "(unnamed)", "?")],
+    }
 
 
 def test_a_half_is_named_after_its_currency():

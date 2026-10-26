@@ -226,15 +226,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
-- **Four comments still describe the split screen.** `key_index`'s docstring in
+- **Three comments still describe the split screen.** `key_index`'s docstring in
   [errors.py](../expense/errors.py) says "the split's `parts`"; the
   [transactions.py](../expense/tui/screens/transactions.py) module docstring says `s` opens the
-  Edit form "on DATE as `⏎` does", though it opens on the first line that can change; the
+  Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
-  DATE, though it opens on the first line that can change; and
-  `test_nothing_in_the_app_calls_the_split_route` in
-  [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
-  gone", where the rule is present tense.
+  DATE, though it opens on the first line that can change.
 - **A held reserved name is proven on the Edit form**: a spec the owner approved on
   2026-10-25, not started
   ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).

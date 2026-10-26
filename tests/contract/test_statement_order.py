@@ -4,9 +4,10 @@ A statement is a reconciliation on an account with a statement code, together wi
 twin for a card: the soles and dollar halves over exactly the same days. The client sends
 its lines top to bottom as one list, both currencies mixed, an empty slot for a paper
 line the ledger lacks; completing needs that order, and a completed line reads
-`<CODE>-<YYYYMM>-<NNN>` (contract: "Reconciliations", "A statement's order"). The
-statement-order screen is built on these two routes and the completion refusal, so only
-the engine can say what they read, take and refuse. Pinned here:
+`<CODE>-<YYYYMM>-<NNN>` (contract: "Reconciliations", "A statement's order"). No screen
+calls these two routes, and the live suite exercises the engine features with no screen
+(CLAUDE.md "Product scope and role"), so this pins what they read, take and refuse, and
+the completion refusal they answer. Pinned here:
 
   · the read: the statement's reconciliations, its places (an empty slot `null`) and
     its unplaced lines, the opening balance always among them; a card's unplaced lines

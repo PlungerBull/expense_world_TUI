@@ -300,7 +300,8 @@ def statement_rows(
             order_cell(item, palette),
         ]
         key = (on.get(open_id) or item).get("id")
-        rows.append((key, cells, "dim" if status == "completed" else ""))
+        completed = all(half.get("status") == 2 for half in halves)
+        rows.append((key, cells, "dim" if completed else ""))
     return rows
 
 
@@ -611,7 +612,8 @@ class ReconciliationsScreen(SectionScreen):
                 self._acct_idx = event.index
                 self._load_batches(event.key)
             return
-        # Interim until the statement's screen (task 7): one half, the open account's or the other
+        # `⏎` on a reconciliation opens its detail; on a statement, the row's key half's: the
+        # open account's, or the other half when the statement has none there.
         item = self._by_id.get(event.key)
         if item:
             self._resume_key = event.key

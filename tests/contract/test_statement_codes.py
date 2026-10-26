@@ -3,8 +3,8 @@
 A statement code is three capital letters naming the bank product an account belongs to,
 and it begins the statement line of every line of the account in a completed
 reconciliation (contract: "Bank Accounts", "Statement code"). Account management sets it
-and the statement-order screen leans on it, so only the engine can say what it takes and
-what it refuses. Pinned here:
+and the reconciliations browse groups accounts and their statements by it, so only the
+engine can say what it takes and what it refuses. Pinned here:
 
   · it is set on the create, changed and cleared (`null`) with `PUT`, on an archived
     account too, and an account without one reads `null`;
