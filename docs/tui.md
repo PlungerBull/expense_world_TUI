@@ -603,11 +603,13 @@ cannot take (contract: POST /v1/transactions/import). Every row of the file goes
 its date. `↵` on the LOG bar's dropped files (§4 "A dropped bank file") reads every file's bytes
 at once, before any screen opens, through `read_file` in
 [flow.py](../expense/bank_import/flow.py). A file that cannot be read from disk (gone, or not
-readable) keeps the bar where it is: the hint reads `not a BCP bank file · File not found: <path>`
-(or `Could not open <path>: <why>`), the footer is `esc Cancel` alone, nothing is sent, and the
-next keystroke clears it. With several files dropped, the hint names the first such file
-(`<name> · not a BCP bank file · …`) and none of them starts. Otherwise each file, in drop
-order, goes through three full screens that replace one another above the LOG bar:
+readable) keeps the bar where it is: the hint reads
+`can't read the file · File not found: <path>` (or
+`can't read the file · Could not open <path>: <why>`), its first words in the error colour, the
+footer is `esc Cancel` alone, nothing is sent, and the next keystroke clears it. With several
+files dropped, the hint names the first such file (`<name> · can't read the file · …`) and none
+of them starts. Otherwise each file, in drop order, goes through three full screens that replace
+one another above the LOG bar:
 
 | Screen | Shows | Keys |
 |---|---|---|

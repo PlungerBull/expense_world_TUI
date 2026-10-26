@@ -18,14 +18,16 @@ import pytest
 from textual.widgets import Input, Static
 
 from expense.bank_import.engine import AnswerCounts, Verdict, answer_rows, preview_line
-from expense.bank_import.flow import account_picks
+from expense.bank_import.flow import ImportRefused, account_picks, read_file
 from expense.errors import EngineError
 from expense.tui.screens.bank_import import (
+    FileProblem,
     ImportAccountScreen,
     ImportPreviewScreen,
     ImportResultScreen,
     account_lines,
     mark_cell,
+    problem_hint,
     reason_cell,
     result_head,
 )
@@ -322,7 +324,7 @@ def test_a_file_gone_from_disk_stays_in_the_bar(fake_client, monkeypatch, tmp_pa
         await pilot.pause()
         assert app.screen is screen
         hint = screen.query_one("#hint", Static).content.plain
-        assert hint == f"not a BCP bank file · File not found: {path}"
+        assert hint == f"can't read the file · File not found: {path}"
         assert _shown(screen) == {"escape": "Cancel"}
         await pilot.press("enter")  # ⏎ does nothing more
         await pilot.pause()
@@ -354,11 +356,44 @@ def test_an_unreadable_second_file_stops_the_drop_before_the_first_starts(
         await pilot.pause()
         assert app.screen is screen
         assert screen.query_one("#hint", Static).content.plain == (
-            f"Otra.xlsx · not a BCP bank file · Could not open {bad}: Permission denied"
+            f"Otra.xlsx · can't read the file · Could not open {bad}: Permission denied"
         )
         assert fake_client.calls == []
 
     run_app(scenario)
+
+
+@pytest.mark.parametrize("several", [False, True], ids=["one file", "several files"])
+def test_the_hint_says_the_file_cannot_be_read_in_both_forms(several, monkeypatch, tmp_path):
+    """Gone or unreadable, one file or several: `can't read the file`, in the
+    error colour, then the disk's own words; with several files, the name first."""
+    gone = tmp_path / "Movimientos.xlsx"
+    locked = tmp_path / "Otra.xlsx"
+
+    def refused(path):
+        try:
+            read_file(path)
+        except ImportRefused as exc:
+            return FileProblem(path, exc)
+        raise AssertionError("read")
+
+    def read_bytes(self):
+        raise PermissionError(13, "Permission denied")
+
+    not_found = refused(gone)
+    monkeypatch.setattr("pathlib.Path.read_bytes", read_bytes)
+    no_open = refused(locked)
+    head = "Otra.xlsx · " if several else ""
+    found_head = "Movimientos.xlsx · " if several else ""
+    for problem, text in (
+        (not_found, f"{found_head}can't read the file · File not found: {gone}"),
+        (no_open, f"{head}can't read the file · Could not open {locked}: Permission denied"),
+    ):
+        hint = problem_hint(problem, name_it=several)
+        assert hint.plain == text
+        (span,) = hint.spans
+        assert hint.plain[span.start : span.end] == "can't read the file"
+        assert str(span.style) == PALETTE.error
 
 
 # ---- which account — pane 1 -------------------------------------------------------

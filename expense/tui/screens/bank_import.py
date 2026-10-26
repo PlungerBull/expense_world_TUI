@@ -149,12 +149,12 @@ def read_dropped(paths: list[Path]) -> tuple[list[DroppedFile], FileProblem | No
 
 def problem_hint(problem: FileProblem, *, name_it: bool) -> Text:
     """What the LOG bar says under a file it cannot send:
-    `not a BCP bank file · File not found: …`. With several files dropped,
+    `can't read the file · File not found: …`. With several files dropped,
     `name_it` puts the file's name first."""
     hint = Text()
     if name_it:
         hint.append(f"{problem.path.name} · ")
-    hint.append("not a BCP bank file", style=PALETTE.error)
+    hint.append("can't read the file", style=PALETTE.error)
     hint.append(f" · {problem.refused}")
     return hint
 

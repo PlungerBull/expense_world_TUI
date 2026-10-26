@@ -107,9 +107,7 @@ file the app cannot open is noted `can't read the file · …` (question 4, B).
 
 ## Tasks
 
-9. **The note for a dropped file the app cannot open** (question 4, B). The LOG bar notes such
-   a file `can't read the file · File not found: <path>` (or `· Could not open <path>: <why>`),
-   never `not a BCP bank file`; [tui.md](../tui.md) and the tests say the same.
+Every task is done; the tester checks again.
 
 ## Reply to the engine
 
