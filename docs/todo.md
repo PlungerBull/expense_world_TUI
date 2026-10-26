@@ -28,7 +28,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-Nothing waits on you right now.
+### Approve the spec for closing a statement from its PDF
+Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
+
+The draft says what you described: a month stays open until its PDF arrives, and uploading the
+PDF closes it, creating the missing lines and flagging the extra ones, the engine doing the
+work. It holds six questions (bottom-of-statement charges, installments, flagged lines and
+closing, identical lines, which cards are one account, opening a month first). Approve it or
+rewrite it, and answer them there.
+
+**Recommended:** approve it with the recommended answers, after answering question 5, which only
+you can.
 
 ---
 
@@ -220,6 +230,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
+- **A month's statement closes from the bank's PDF**: a draft spec waiting for the owner's
+  approval and answers ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import), every question
   answered: [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
