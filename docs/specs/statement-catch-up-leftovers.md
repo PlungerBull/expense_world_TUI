@@ -85,9 +85,6 @@ note in point 9 and the engine ask in point 10.
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
 do and when it passes.
 
-2. **One account-record builder in test_cmd_import.py** (point 2). Passes if the file builds
-   every account record through one helper, no copied record is left, and its tests check
-   what they checked before.
 3. **The complete answer's fixtures carry `coverage_gap`, and the drift check catches a
    required field a fixture leaves out** (point 3). Passes if every unit fixture of the complete
    answer has `coverage_gap`, the drift script reports a fixture that leaves out a field the
@@ -128,4 +125,9 @@ do and when it passes.
 
 ## Found along the way
 
-Nothing yet.
+- **test_cmd_import.py repeats its seeded-account mock.** About 20 tests call
+  `_mock_existing(accounts=[_account()], categories=[], hashtags=[])`, which the file's own
+  `_seeded_account()` already does (found by task 2's builder, 2026-10-25).
+- **Several unit files keep their own account-record builder**, each with its own signature:
+  `_account` in test_cmd_import.py, test_tui_account_kind.py and test_tui_card_statement.py;
+  one shared builder in helpers.py (found by task 2's builder, 2026-10-25).
