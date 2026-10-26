@@ -14,14 +14,22 @@ from enum import Enum
 from expense.formatting import signed_cents
 
 
+def file_field(data: bytes) -> str:
+    """A file's bytes as an import's `file` field: standard base64 (the RFC 4648
+    alphabet, padded, no line breaks) (contract: POST /v1/transactions/import,
+    "Body"). The sheet import sends its workbook the same way
+    (contract: POST /v1/transactions/import-sheet)."""
+    return base64.b64encode(data).decode("ascii")
+
+
 def request_body(account_id: str, data: bytes, *, dry_run: bool) -> dict:
     """Exactly the three keys the engine takes: the account the download is
-    from, and the file's bytes in standard base64 (the RFC 4648 alphabet,
-    padded, no line breaks) (contract: POST /v1/transactions/import, "Body")."""
+    from, and the file's bytes (`file_field`)
+    (contract: POST /v1/transactions/import, "Body")."""
     return {
         "dry_run": dry_run,
         "account_id": account_id,
-        "file": base64.b64encode(data).decode("ascii"),
+        "file": file_field(data),
     }
 
 

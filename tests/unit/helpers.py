@@ -528,6 +528,94 @@ def import_answer(
     }
 
 
+def sheet_name_use(name: str, rows: int = 1, proposed_id: str | None = None, **currency) -> dict:
+    """One name a sheet uses, as an import-sheet answer's `names` lists it: an account
+    `{name, currency_code, rows, proposed_id}` (pass `currency_code=`), a category or
+    hashtag `{name, rows, proposed_id}`
+    (contract: POST /v1/transactions/import-sheet, "Response")."""
+    assert set(currency) <= {"currency_code"}, sorted(currency)
+    return {"name": name, **currency, "rows": rows, "proposed_id": proposed_id}
+
+
+def sheet_row(
+    row: int,
+    amount_cents: int = -1250,
+    *,
+    day: str = "2026-03-05",
+    title: str = "made-up lunch",
+    account_id: str | None = None,
+    outcome: str | None = None,
+    is_opening_balance: bool | None = None,
+    transaction_id: str | None = None,
+    bank_line_id: str | None = None,
+) -> dict:
+    """One row of an import-sheet answer, every key present; `amount_cents` given
+    signed and written as the engine sends it, a magnitude and `transaction_type`
+    (1 out, 2 in; a zero row `0` and `null`). Its account, outcome and opening flag
+    are `null` by default, as a dry run without `names` answers them
+    (contract: POST /v1/transactions/import-sheet, "Response")."""
+    kind = None if amount_cents == 0 else (1 if amount_cents < 0 else 2)
+    return {
+        "row": row,
+        "account_id": account_id,
+        "date": day,
+        "amount_cents": abs(amount_cents),
+        "transaction_type": kind,
+        "title": title,
+        "outcome": outcome,
+        "is_opening_balance": is_opening_balance,
+        "transaction_id": transaction_id,
+        "bank_line_id": bank_line_id,
+    }
+
+
+def sheet_counts(rows: list[dict]) -> dict:
+    """An import-sheet answer's `counts` for `rows`, the rows of each outcome and
+    the opening balances; no split line."""
+    outcomes = [r["outcome"] for r in rows]
+    return {
+        "new": outcomes.count("new"),
+        "matched": outcomes.count("matched"),
+        "sealed": outcomes.count("sealed"),
+        "skipped": outcomes.count("skipped"),
+        "opening_balances": sum(1 for r in rows if r["is_opening_balance"]),
+        "split_lines": 0,
+    }
+
+
+@answer_of("POST", "/v1/transactions/import-sheet")
+def sheet_import_answer(
+    *,
+    accounts: list[dict] | None = None,
+    categories: list[dict] | None = None,
+    hashtags: list[dict] | None = None,
+    rows: list[dict] | None = None,
+    dry_run: bool = True,
+    counts: dict | None = None,
+) -> dict:
+    """`POST /transactions/import-sheet`'s answer: `dry_run` echoed, every name the
+    sheet uses (each a `sheet_name_use`), one row per data row (each a `sheet_row`)
+    and `counts` (by default the rows counted)
+    (contract: POST /v1/transactions/import-sheet, "Response"). The bare answer holds
+    one name of each kind and a row, so the drift script checks each nested shape."""
+    if rows is None:
+        rows = [sheet_row(2)]
+    return {
+        "dry_run": dry_run,
+        "names": {
+            "accounts": (
+                accounts
+                if accounts is not None
+                else [sheet_name_use("made-up acct", currency_code="PEN")]
+            ),
+            "categories": categories if categories is not None else [sheet_name_use("food")],
+            "hashtags": hashtags if hashtags is not None else [sheet_name_use("tag")],
+        },
+        "rows": rows,
+        "counts": counts if counts is not None else sheet_counts(rows),
+    }
+
+
 #: A draft reconciliation as `GET /reconciliations/{id}` reads it, every field present,
 #: on an account without a statement code: what the write answers below spread a
 #: test's record over.

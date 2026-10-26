@@ -67,35 +67,39 @@ What changes for you, from the engine's rules:
 two currencies becomes two accounts under the sheet's same name, one per currency, the currency
 telling them apart (where today the app adds the currency to the name, `BCP Oro PEN`).
 
+**Answered (owner, 2026-10-26), found in task 1:** a dry run sent before every name has an id
+answers no counts, and the engine does not say which names only opening balances use, so the app
+would create a `SALDO INICIAL` category no row needs. Both become engine asks, and task 2 waits
+for them, so the dry run looks as the owner picked.
+
 ---
 
 ## Tasks
 
 Approved by the owner on 2026-10-26.
 
-1. **The sheet import's engine calls, in one shared home.** A module beside the command holds
-   the request and answer of POST /v1/transactions/import-sheet (the file whole, in base64, as
-   the bank import door sends a download) and the names table: each name the engine lists goes
-   to its proposal, a renamed account (the `--account-name` flag, or the rename saved in
-   `sheet_account_names`) to your account of that name and currency, and a name with neither to
-   a new one. The apply runs a dry run first, so a refused sheet creates nothing; then it
-   creates each new name through its own route (an account under the sheet's name and
-   currency, or its rename; a category; a hashtag), then sends the table. Every write carries
-   its idempotency key. Unit tests cover the table, the creates, each refusal it handles, and a
-   refusal after a create. Nothing the user sees changes in this task.
 2. **[UI] The command goes through the engine, and the old reader goes.** `expense import
-   sheet` prints as screens 1 to 3 of
+   sheet` prints as
    [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
-   draw, once the owner picks; `--json` prints the engine's answer, with the names the apply
-   created. The app's own reader of the sheet goes with its tests (the parse, plan, apply,
-   header aliases and currency-split naming), and so does `--chunk-size`; `openpyxl` leaves the
-   app's dependencies and stays only for the tests that build made-up sheets.
-   [commands.md](../commands.md) and [runtime.md](../runtime.md) say what the import does now.
-   Waits on the owner's pick.
-3. **A live test of the sheet import.** A made-up sheet on the practice engine: the dry run
-   lists its names and counts; the apply writes it; a second apply writes nothing and every row
-   comes back matched; a made-up sheet with one bad row is refused whole, naming the row, and
-   nothing is written, no name included; a renamed account lands under its rename.
+   draws it, as the owner picked on 2026-10-26: screen 1 A (three tables, each name with its
+   rows and where it goes), screens 2 and 3 as drawn; `--json` prints the engine's answer,
+   with the names the apply created. The dry run shows the engine's counts, and a name only
+   opening balances use is shown as such, left out of the table and never created. The app's
+   own reader of the sheet goes with its tests (the parse, plan, apply, header aliases and
+   currency-split naming), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
+   and stays only for the tests that build made-up sheets. [commands.md](../commands.md) and
+   [runtime.md](../runtime.md) say what the import does now. With the old reader gone, the
+   command takes its renames and its read timeout from the engine-calls module
+   ([expense/import_/engine.py](../../expense/import_/engine.py)), so each has one copy, and a
+   rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
+   module merges them without a word). **Waits on the engine asks** "The
+   sheet import's dry run counts the rows before every name has an id" and "The sheet import
+   marks the names only opening balances use", and then on their catch-up.
+3. **A live test of the sheet import.** A made-up sheet on the practice engine, through task 1's
+   module: the dry run lists its names and refuses bad rows; the apply writes it; a second
+   apply writes nothing and every row comes back matched; a made-up sheet with one bad row is
+   refused whole, naming the row, and nothing is written, no name included; a renamed account
+   lands under its rename. The dry run's counts get their live test in task 2.
 
 ## Reply to the engine
 

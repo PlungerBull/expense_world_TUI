@@ -45,6 +45,16 @@ two slips in the engine's contract.
 
 **Recommended:** none: only you can hand it over.
 
+### Hand over the two asks for the sheet import's dry run
+Asked 2026-10-26 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
+
+Copy [to-engine/sheet-import-dry-run-counts-without-a-table.md](to-engine/sheet-import-dry-run-counts-without-a-table.md)
+and [to-engine/sheet-import-names-only-opening-balances-use.md](to-engine/sheet-import-names-only-opening-balances-use.md)
+into the engine repo's `docs/from-tui/`, then say so here and they leave the folder. Once the
+engine ships them, its hand-off becomes the catch-up that unblocks task 2.
+
+**Recommended:** none: only you can hand them over.
+
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
@@ -63,19 +73,6 @@ backslash can drop from the bulk edit's note, and several tests prove less than 
 The only thing you see change is bracketed names showing whole. Approve it or rewrite it.
 
 **Recommended:** approve it, after the engine catch-up, which matters more.
-
-### Pick what the sheet import prints
-Asked 2026-10-26 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
-
-[expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html) draws
-the dry run, the apply and a refused sheet. Screen 1 shows the names your sheet uses:
-- **A.** Three tables (accounts, categories, hashtags), each name with its row count and where
-  it goes.
-- **B.** One line per kind, as today, without row counts.
-
-Screens 2 and 3 are drawn once each: say yes, or what to change.
-
-**Recommended:** A, because the row counts show at a glance which names matter.
 
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
