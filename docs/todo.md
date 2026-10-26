@@ -28,22 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### An archived card account with no statements
-Asked 2026-10-26 · Blocks: question 2 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
-
-When a card account is archived before it ever had a statement, should the card's list on
-Reconciliations still show its empty column? The question and its options are in the spec.
-
-**Recommended:** A (no column), because the column was empty anyway.
-
-### The "no batch" caption
-Asked 2026-10-26 · Blocks: question 3 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
-
-Pick how the "no batch" list explains its `!` mark, now that a close no longer stops on those
-lines: [mockups/expense-world-no-batch-caption.html](mockups/expense-world-no-batch-caption.html).
-
-**Recommended:** A (`! dated inside a statement`).
-
 ### Hand over the ask for reading several bank lines at once
 Asked 2026-10-26 · Blocks: nothing; the flagged lines screen reads one line per call until it lands
 
@@ -51,27 +35,6 @@ Copy [to-engine/bank-lines-read-by-ids.md](to-engine/bank-lines-read-by-ids.md) 
 repo's `docs/from-tui/`, then say so here and it leaves the folder.
 
 **Recommended:** none: only you can hand it over.
-
-### The note for a dropped file the app cannot open
-Asked 2026-10-26 · Blocks: question 4 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
-
-The LOG bar says `not a BCP bank file · File not found: <path>` when a dropped file cannot be
-opened, though the app no longer knows whether a file is a bank download. Keep it (A), or say
-`can't read the file · …` (B)?
-
-**Recommended:** B.
-
-### Out-of-date words in CLAUDE.md and the guard
-Asked 2026-10-26 · Blocks: nothing
-
-CLAUDE.md and the guard script's comments and messages still speak of "the practice user's key";
-the reseed now prints two. May the orchestrator change the wording to "both practice users'
-keys", and, in CLAUDE.md, stop calling the bank import door an `.xlsx` reader (the engine reads
-the download now; only the sheet import reads `.xlsx`)? No rule changes.
-- **A.** Yes.
-- **B.** No, leave it.
-
-**Recommended:** A, so the instructions match what the reseed prints.
 
 ### Approve the spec for the engine words' leftovers
 Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)

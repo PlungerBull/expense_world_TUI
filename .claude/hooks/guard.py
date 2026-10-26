@@ -65,7 +65,7 @@ What it blocks:
   the repo), then any of `> /dev/null` and `2>&1`, then at most one `|` into a bare
   `sed`/`grep`/`head`/`tail` stdin filter as above. No `;`, `&&`, `|`-chain, `&`, `$`,
   backtick, `{`, `(`, backslash, env prefix, wrapper, `bash`/`sh`, or other redirect.
-  The script's output carries the practice user's key, so that keeps the key off disk. A
+  The script's output carries both practice users' keys, so that keeps both off disk. A
   command that names it without running it passes on to the other rules only when it is
   the commit-message form of CLAUDE.md "Dev loop" (optionally after `git add … &&`) with
   no `(` or `)` in its body (macOS bash closes `$(` at the first `)`), or
@@ -76,8 +76,8 @@ What it blocks:
   names it (`ln -s`, `cp`, `xargs`, `timeout`, `script`, `bash -x`, a `{ …; }` group) is
   blocked. The script fixes its port (`:8002`), database (`expense_world_test`),
   interpreter and environment itself and takes no options.
-- **The practice user's key stays off disk** (CLAUDE.md "Stay inside this repo": no agent
-  writes the key to a file), wherever the command runs: the seed's own redirects may only
+- **The practice users' keys stay off disk** (CLAUDE.md "Stay inside this repo": no agent
+  writes either key to a file), wherever the command runs: the seed's own redirects may only
   be `/dev/null`, and every command piped straight after it (a pipe as `_shell.py` marks
   one) must be one of the stdin filters above, redirecting only to `/dev/null` — so
   `| sed 's/…/…/'` and `> /dev/null` pass, and `| tee f`, `|(tee f)`, `| cat > f` or
@@ -965,12 +965,12 @@ def check_bash(ctx: Context, command: str) -> str | None:
                     f"{STAY}: only the tester stops processes, in the form `kill <pid>` or "
                     "`lsof -ti :8002 | xargs kill` (and it stops only the engine it started)"
                 )
-        # The practice user's key never reaches a file: the seed and every filter it pipes
+        # The practice users' keys never reach a file: the seed and every filter it pipes
         # into may redirect only to /dev/null, and only stdin filters may read its output.
         if _is_seed(ctx, seg, cwd):
             seed_pipe = True
             if any(raw != "/dev/null" for raw in seg.redirects):
-                return f"{STAY}: the practice user's key never goes to a file (only /dev/null)"
+                return f"{STAY}: the practice users' keys never go to a file (only /dev/null)"
         elif seed_pipe and seg.piped:
             if not _filters_stdin(seg) or seg.inputs or _expands(seg):
                 return (
@@ -978,7 +978,7 @@ def check_bash(ctx: Context, command: str) -> str | None:
                     "(`sed 's/…/…/'`, `grep`, `head`, `tail`), never to a file"
                 )
             if any(raw != "/dev/null" for raw in seg.redirects):
-                return f"{STAY}: the practice user's key never goes to a file (only /dev/null)"
+                return f"{STAY}: the practice users' keys never go to a file (only /dev/null)"
         else:
             seed_pipe = False
         # a bare `cd <dir>` out of the engine checkout reads nothing there
@@ -1005,7 +1005,7 @@ def check_bash(ctx: Context, command: str) -> str | None:
             if not tester_ok:
                 who = (
                     "the tester may only start the :8002 test engine, reseed the practice "
-                    "user and stop what it started"
+                    "users and stop what it started"
                     if ctx.tester
                     else "only the tester goes there, to start the test engine"
                 )
