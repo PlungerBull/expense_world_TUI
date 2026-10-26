@@ -887,7 +887,13 @@ class FakeClient:
         return [path for method, path, _ in self.calls if method == "DELETE"]
 
 
-def run_app(body: Callable, *, size: tuple[int, int] | None = None, setup: bool = False):
+def run_app(
+    body: Callable,
+    *,
+    size: tuple[int, int] | None = None,
+    setup: bool = False,
+    toasts: bool = False,
+):
     """Run `body(pilot, app)` inside a live ExpenseApp and return its result.
 
     Every TUI test needs the same four lines — an app, `run_test`, a pilot, and
@@ -904,6 +910,10 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None, setup: bool 
     there is no settings file it can use. The default is Home, whatever the
     (hermetic, missing) config file says, so a screen test never has to write one.
 
+    `toasts=True` draws each toast on the screen, as the app does outside a
+    test (`run_test` draws none unless asked), for a test that reads what a
+    toast shows (`toasts_shown`).
+
     The ExpenseApp import is function-local: this module stays free of Textual
     at import time so the sheet-import tests do not pay for it (see the module
     docstring).
@@ -912,10 +922,21 @@ def run_app(body: Callable, *, size: tuple[int, int] | None = None, setup: bool 
 
     async def scenario():
         app = ExpenseApp(setup=setup)
-        async with app.run_test(**(dict(size=size) if size else {})) as pilot:
+        options: dict[str, Any] = dict(size=size) if size else {}
+        if toasts:
+            options["notifications"] = True
+        async with app.run_test(**options) as pilot:
             return await body(pilot, app)
 
     return asyncio.run(scenario())
+
+
+def toasts_shown(app) -> list[str]:
+    """What each toast on the screen shows, its title and its message as drawn,
+    oldest first. Needs `run_app(..., toasts=True)`."""
+    from textual.widgets._toast import Toast  # local: see module docstring
+
+    return [toast.render().plain for toast in app.screen.query(Toast)]
 
 
 async def wait_for(

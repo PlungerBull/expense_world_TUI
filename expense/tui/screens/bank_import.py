@@ -73,7 +73,7 @@ from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
-from expense.tui.widgets.refusal import hanging
+from expense.tui.widgets.refusal import hanging, toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: The breadcrumb's trail before the file part.
@@ -340,7 +340,7 @@ class ImportAccountScreen(_ImportScreen):
 
     def _load_failed(self, message: str) -> None:
         self._error = message
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
         self._repaint()
 
     @property
@@ -818,7 +818,7 @@ class ImportPreviewScreen(_ImportScreen):
             # The screen's own next step, not the one "save again" of other saves.
             _relabel(self, "enter", RERUN_KEY)
             message = f"{engine_words(err)}\n\n{RERUN}"
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
         self.refresh_bindings()
         self._repaint()
 

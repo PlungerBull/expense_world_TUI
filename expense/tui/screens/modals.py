@@ -9,6 +9,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Static
 
 from expense.quickadd.money import parse_amount
+from expense.tui.widgets.refusal import toast
 
 
 class ConfirmModal(ModalScreen[bool]):
@@ -112,7 +113,7 @@ class AmountPromptModal(PromptBox[int | None]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         cents = parse_amount(event.value)
         if cents is None:
-            self.notify(self._unreadable, severity="error")
+            toast(self, self._unreadable, severity="error")
             return
         self.dismiss(cents)
 

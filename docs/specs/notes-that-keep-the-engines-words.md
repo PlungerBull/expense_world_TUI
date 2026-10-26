@@ -86,13 +86,6 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-2. **Every note shows the engine's words exactly as sent** (What it must do 1; the "Already
-   settled" pane of the mockup). Passes if: every place the app puts engine words on screen (a
-   toast's message or title, a refusal under a screen, a question, a status line) shows them as
-   text, never as styling; a unit test per place drives a refusal whose message and field words
-   hold `[like this]` and finds them whole; a guard test fails when new app code hands engine
-   words to a toast as styling, its docstring stating what it cannot catch; nothing else in any
-   note changes; tui.md states the rule where it describes refusals.
 3. **The Edit form says why beside `read-only`** (What it must do 2), screen 1 B of the
    mockup. Passes if: each read-only line field still reads `read-only` beside its value, and
    under the line fields one dim line per distinct sentence names the lines it covers, in the
@@ -139,3 +132,24 @@ Not built in this spec; drafted into a new spec when it is done.
 - **Nothing checks the unit fake engine's lock sentences against the contract.** `LOCK_MESSAGES`
   in [helpers.py](../../tests/unit/helpers.py) holds the six sentences; the drift check compares
   keys, not values, so a sentence the engine rewords would drift unseen.
+- **A name or title holding `[like this]` loses it in lists.** A table cell passed as a plain
+  string is read as styling: an account named `BCP [like this]` shows `BCP `. `_cell` in
+  [cursor_list.py](../../expense/tui/widgets/cursor_list.py) passes every list's text through
+  that way, and the bank import preview's title does too
+  ([bank_import.py](../../expense/tui/screens/bank_import.py)). Names and titles in lists should
+  show as sent.
+- **Engine words ending in a backslash lose one in the bulk edit's note.** The app's closing `[/]`
+  follows the words straight after, and the styling reader takes the backslash as escaping it
+  (`refusal_notes` in [transactions.py](../../expense/tui/screens/transactions.py); the limit is
+  stated in `as_markup`'s docstring in [refusal.py](../../expense/tui/widgets/refusal.py)).
+  Closing the style after the line's end, or leaving the last line's style open, shows the same
+  text without the limit.
+- **Toasts of the owner's own typing have no test of their own.** `No account matches "…"`,
+  `Nothing matches "…"`, System's invalid-URL and config-save toasts go through `toast`, but no
+  test types `[like this]` into them.
+- **The test helper `toasts_shown` reads Textual's private `Toast` class**
+  ([helpers.py](../../tests/unit/helpers.py)), which Textual does not export; an upgrade could
+  move it.
+- **tui.md's rule on showing the engine's words sits between a sentence and the table of reasons
+  it introduces** ("When the engine says no" in [tui.md](../tui.md)), so that sentence's "below"
+  points past it.

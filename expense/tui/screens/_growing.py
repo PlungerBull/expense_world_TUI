@@ -31,6 +31,7 @@ from typing import Any
 from expense.errors import format_error
 from expense.reads import items_of
 from expense.tui.widgets.cursor_list import GROW_STEP
+from expense.tui.widgets.refusal import toast
 
 #: `(limit, after) -> the engine's body`, run on a worker thread.
 FetchPage = Callable[[int, str | None], Any]
@@ -109,4 +110,4 @@ class GrowingRead:
         if generation != self._generation:
             return
         self.busy = False
-        self._host.notify(message, title="Failed", severity="error")
+        toast(self._host, message, title="Failed", severity="error")

@@ -329,7 +329,7 @@ def test_a_read_that_fails_leaves_the_lines_read_only(fake_client, notes, reads_
         await wait_for(pilot, lambda: not screen.is_attached)
 
     _form(SUELDO, body)
-    assert notes[0][1] == {"title": "Failed", "severity": "error"}
+    assert notes[0][1] == {"title": "Failed", "severity": "error", "markup": False}
     assert "NOT_FOUND" in notes[0][0]
     assert fake_client.requests == [("PUT", "/accounts/acc-sue")]
 
@@ -480,7 +480,7 @@ def test_screen_6_the_note_says_which_half_went_through_and_resends_only_the_ope
 
     _form(EFECTIVO, body)
     message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error"}
+    assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message == (
         "The account's changes are saved. The opening balance is not:\n"
         "VALIDATION_ERROR — Validation failed\n"
@@ -530,7 +530,7 @@ def test_a_half_refusal_with_a_next_step_ends_with_its_line(fake_client, notes, 
 
     _form(EFECTIVO, body)
     message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error"}
+    assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message == (
         "The account's changes are saved. The opening balance is not:\n"
         f"CONFLICT — stand-in\n  {key}: stand-in field words\n\n{line}"
@@ -662,7 +662,7 @@ def test_screen_7_each_refusal_shows_in_the_engines_words(
 
     _form(record, body)
     message, kw = notes[0]
-    assert kw == {"title": "Failed", "severity": "error"}
+    assert kw == {"title": "Failed", "severity": "error", "markup": False}
     assert message.startswith(f"{error.code} — {error.message}")
     for field, words in (error.fields or {}).items():
         assert f"  {field}: {words}" in message

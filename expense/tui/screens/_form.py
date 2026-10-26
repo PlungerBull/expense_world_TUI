@@ -23,6 +23,7 @@ from textual.widgets import Footer, Input, Label, Static
 
 from expense.tui.screens._base import EngineWriteMixin
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.refusal import toast
 
 #: What `⏎` on an empty title says, on every form that edits one.
 TITLE_REQUIRED = "Title is required."
@@ -342,7 +343,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         """False, with `Title is required.` as an error toast, when the title
         typed (already stripped) is empty: a title is never kept empty."""
         if not text:
-            self.notify(TITLE_REQUIRED, severity="error")
+            toast(self, TITLE_REQUIRED, severity="error")
             return False
         return True
 
@@ -351,7 +352,7 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
         missing one. Every form's save goes through this one check."""
         for key in self._required():
             if key not in self._values:
-                self.notify(self._required_note(key), severity="error")
+                toast(self, self._required_note(key), severity="error")
                 return False
         return True
 
@@ -377,5 +378,5 @@ class FormScreen(EngineWriteMixin, Screen, inherit_bindings=False):
 
     def _failed(self, message: str) -> None:
         self._submitting = False
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
         self._refresh_view()

@@ -29,6 +29,7 @@ from expense.quickadd.names import matches
 from expense.tui.screens._base import screen_fetch_kwargs
 from expense.tui.screens._form import FormScreen, form_bindings
 from expense.tui.screens.modals import ConfirmModal
+from expense.tui.widgets.refusal import toast
 
 _PALETTE = [
     ("#4a90d9", "blue"),
@@ -141,7 +142,7 @@ class BarFormScreen(FormScreen):
         if f.kind == "text":
             if not text:
                 if f.required:
-                    self.notify(f"{f.label.title()} is required.", severity="error")
+                    toast(self, f"{f.label.title()} is required.", severity="error")
                     return
                 self._values.pop(f.key, None)
             else:
@@ -154,7 +155,7 @@ class BarFormScreen(FormScreen):
             return
         picked = self._suggestions[self._suggest_idx] if self._suggestions else None
         if picked is None:
-            self.notify(f"Pick a {f.label.lower()}.", severity="error")
+            toast(self, f"Pick a {f.label.lower()}.", severity="error")
             return
         self._values[f.key] = picked[0]
         self._advance()
@@ -209,7 +210,7 @@ class BarFormScreen(FormScreen):
         raise NotImplementedError
 
     def _done(self) -> None:
-        self.notify(f"{self.NOUN.title()} created.")
+        toast(self, f"{self.NOUN.title()} created.")
         self.dismiss()
 
 
@@ -545,7 +546,7 @@ class EditAccountScreen(NewAccountScreen):
             self._current = self._first_editable()
             self._refresh_bar()
         self._refresh_view()
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         # Textual calls the handler of every class in the MRO; this one calls the
@@ -568,7 +569,7 @@ class EditAccountScreen(NewAccountScreen):
                 self._values["opening"] = cents
         elif not text:
             if "opening" in self._values:
-                self.notify(f"{self._label('as_of').title()} is required.", severity="error")
+                toast(self, f"{self._label('as_of').title()} is required.", severity="error")
                 return
             self._values.pop("as_of", None)
         elif not is_calendar_day(text):
@@ -731,7 +732,8 @@ class EditAccountScreen(NewAccountScreen):
         closing = (
             "" if self._refusal_says_next else "\n\nIt is still in the form: fix it and save again."
         )
-        self.notify(
+        toast(
+            self,
             f"The account's changes are saved. The opening balance is not:\n{message}{closing}",
             title="Failed",
             severity="error",

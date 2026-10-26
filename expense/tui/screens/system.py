@@ -19,6 +19,7 @@ from expense.errors import format_error
 from expense.formatting import redact_token
 from expense.tui.screens._base import SectionScreen
 from expense.tui.screens.modals import PromptModal
+from expense.tui.widgets.refusal import toast
 
 
 def _redact_token(token: str | None) -> str:
@@ -108,12 +109,12 @@ class ConfigScreen(SectionScreen):
             try:
                 config_module.validate_engine_url(updates["engine_url"])
             except ConfigInvalidError as exc:
-                self.notify(str(exc), title="Invalid URL", severity="error")
+                toast(self, str(exc), title="Invalid URL", severity="error")
                 return
         try:
             config_module.save(self._cfg.model_copy(update=updates))
         except Exception as exc:
-            self.notify(format_error(exc), title="Couldn't save", severity="error")
+            toast(self, format_error(exc), title="Couldn't save", severity="error")
             return
         self.notify("Config saved.")
         self._load()
@@ -208,9 +209,9 @@ class AuthScreen(SectionScreen):
             "/auth/bootstrap",
             json_body={"display_name": display_name, "timezone": timezone},
             on_success=lambda: self._done("Provisioned."),
-            on_error=lambda m: self.notify(m, title="Bootstrap failed", severity="error"),
+            on_error=lambda m: toast(self, m, title="Bootstrap failed", severity="error"),
         )
 
     def _done(self, message: str) -> None:
-        self.notify(message)
+        toast(self, message)
         self._load()

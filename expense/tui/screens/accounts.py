@@ -26,6 +26,7 @@ from expense.formatting import format_cents
 from expense.tui.screens._base import DELETE_KEY, ResourceListScreen, list_refusal_text
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, code_cell, swatch
+from expense.tui.widgets.refusal import toast
 
 _HEADERS = ["Name", "Type", "Cur", "Code", "Color", "Balance", "Status"]
 
@@ -148,7 +149,7 @@ class AccountsScreen(ResourceListScreen):
 
     def _toggle_failed(self, message: str) -> None:
         self._toggle_busy = False
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
 
     def rows(self, items: list) -> list:
         return account_rows(items, palette=PALETTE)

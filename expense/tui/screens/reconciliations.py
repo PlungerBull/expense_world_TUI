@@ -111,6 +111,7 @@ from expense.tui.widgets.cells import amount_cell, difference_cell, operation_ce
 from expense.tui.widgets.checklist import CheckList
 from expense.tui.widgets.cursor_list import CursorList
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.refusal import toast
 
 # Status labels + period formatting are owned by expense/formatting.py
 # (format_status / format_period) — one copy, per the §5 rule.
@@ -638,7 +639,7 @@ class ReconciliationsScreen(SectionScreen):
         except Exception as exc:
             if not worker.is_cancelled:
                 self.app.call_from_thread(
-                    self.notify, format_error(exc), title="Failed", severity="error"
+                    toast, self, format_error(exc), title="Failed", severity="error"
                 )
             return
         if worker.is_cancelled:
@@ -796,7 +797,7 @@ class ReconciliationsScreen(SectionScreen):
     def _unfiled_failed(self, message: str) -> None:
         self._unfiled_busy = False
         self._show_batches()
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
 
     def _show_unfiled(self, items: list, total: int, next_cursor: str | None) -> None:
         self._unfiled_busy = False
@@ -990,7 +991,7 @@ class NewReconciliationScreen(FormScreen):
             cfg = config_module.ensure_loaded()
             body = reads.fetch_accounts(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            self.app.call_from_thread(self.notify, format_error(exc), severity="error")
+            self.app.call_from_thread(toast, self, format_error(exc), severity="error")
             return
         accounts = account_choices(items_of(body), include_people=False)
         self.app.call_from_thread(self._set_accounts, accounts)
@@ -1026,7 +1027,7 @@ class NewReconciliationScreen(FormScreen):
         elif key == "account":
             picked = self._suggestions[self._suggest_idx] if self._suggestions else None
             if picked is None:
-                self.notify(f"No account matches “{text}”.", severity="error")
+                toast(self, f"No account matches “{text}”.", severity="error")
                 return
             self._values["account"] = picked[0]
             self._display["account"] = picked[1]
@@ -1036,17 +1037,17 @@ class NewReconciliationScreen(FormScreen):
             # (contract: "Date inputs"), caught here at the field rather
             # than as a 422 on save; the typed text is what gets sent.
             if not text:
-                self.notify(f"{_R_LABELS[key].capitalize()} is required.", severity="error")
+                toast(self, f"{_R_LABELS[key].capitalize()} is required.", severity="error")
                 return
             if not is_calendar_day(text):
-                self.notify(f"{_R_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
+                toast(self, f"{_R_LABELS[key].title()}: use YYYY-MM-DD.", severity="error")
                 return
             self._values[key] = self._display[key] = text
             self._advance()
         elif key in _BEGINS:
             cents = parse_amount(text)
             if cents is None:
-                self.notify(_BEGIN_UNREADABLE, severity="error")
+                toast(self, _BEGIN_UNREADABLE, severity="error")
                 return
             self._values[key] = cents
             self._display[key] = format_cents(cents)
@@ -1056,7 +1057,7 @@ class NewReconciliationScreen(FormScreen):
             if text:
                 cents = parse_amount(text)
                 if cents is None:
-                    self.notify(_END_UNREADABLE, severity="error")
+                    toast(self, _END_UNREADABLE, severity="error")
                     return
                 self._values[key] = cents
                 self._display[key] = format_cents(cents)
@@ -1389,7 +1390,7 @@ class ReconciliationDetailScreen(
             acct_name = resolve_name(self._account_id, load_account_name_map())
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
-                call_while_attached(self, self.notify, format_error(exc), severity="error")
+                call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         rows, checked, part_of = line_rows(assigned, available)
         if worker.is_cancelled:
@@ -1472,7 +1473,7 @@ class ReconciliationDetailScreen(
         # The mixin already dropped the queued intents (they were made against
         # a checklist state the engine just contradicted) — resync to truth:
         # the month too, since a tick before this one may have landed.
-        self.notify(message, title="Couldn't update", severity="error")
+        toast(self, message, title="Couldn't update", severity="error")
         self._land_on = None
         self._load_txns(refresh_record=True)
 
@@ -1562,7 +1563,7 @@ class ReconciliationDetailScreen(
 
     def _balance_failed(self, message: str) -> None:
         self._busy = False
-        self.notify(message, title="Couldn't save", severity="error")
+        toast(self, message, title="Couldn't save", severity="error")
 
     def action_revert(self) -> None:
         # No completed-only pre-guard: the engine treats revert-on-draft as
@@ -1648,7 +1649,7 @@ class ReconciliationDetailScreen(
     def _action_failed(self, message: str, verb: str) -> None:
         self._busy = False
         done = verb.split()[0]
-        self.notify(message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
+        toast(self, message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
         if verb == "completed":
             # Read the reconciliation fresh: a refusal can say what the screen
             # last read is out of date (an ending balance cleared elsewhere),
@@ -1657,7 +1658,7 @@ class ReconciliationDetailScreen(
 
     def _action_done(self, new_status, verb: str) -> None:
         self._busy = False
-        self.notify(f"Reconciliation {verb}.")
+        toast(self, f"Reconciliation {verb}.")
         if verb == "deleted":
             self.dismiss()
             return

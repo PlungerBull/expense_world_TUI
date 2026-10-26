@@ -127,6 +127,7 @@ from expense.tui.widgets.parts_table import (
     refusal_lines,
 )
 from expense.tui.widgets.picker import matching, suggestion_list
+from expense.tui.widgets.refusal import toast
 
 _LABELS = {
     "date": "DATE",
@@ -443,7 +444,7 @@ class EditFormScreen(FormScreen):
             if line is None:
                 line = reads.fetch_bank_line(cfg, str(self._record["bank_line_id"]), **kw)
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            call_while_attached(self, self.notify, format_error(exc), severity="error")
+            call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         call_while_attached(self, self._loaded, refs, line)
 
@@ -569,7 +570,7 @@ class EditFormScreen(FormScreen):
         if key == "date":
             # read by the save's own reader, so ⏎ takes what `ctrl+s` can send
             if text and not is_readable_date(text):
-                self.notify(DATE_UNREADABLE, severity="error")
+                toast(self, DATE_UNREADABLE, severity="error")
                 return False
             self._set_value("date", text or date_cls.today().isoformat())
         elif key == "title":
@@ -581,7 +582,7 @@ class EditFormScreen(FormScreen):
         elif key == "account":
             picked = self._picked()
             if picked is None:
-                self.notify(f"No account matches “{text}”.", severity="error")
+                toast(self, f"No account matches “{text}”.", severity="error")
                 return False
             self._set_value("account", picked[0], picked[1])
         return True
@@ -602,7 +603,7 @@ class EditFormScreen(FormScreen):
             picked = self._picked()
             if picked is None:
                 name = "category" if field == "category" else "hashtag"
-                self.notify(f"No {name} matches “{text}”.", severity="error")
+                toast(self, f"No {name} matches “{text}”.", severity="error")
                 return False
             if field == "category":
                 self._set_part(index, replace(part, category_id=picked[0]))

@@ -243,7 +243,9 @@ def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch
     monkeypatch.setattr(
         AuthScreen,
         "notify",
-        lambda self, message, *, title, severity: notices.append((message, title, severity)),
+        lambda self, message, *, title, severity, markup: notices.append(
+            (message, title, severity, markup)
+        ),
     )
 
     async def scenario(pilot, app):
@@ -258,6 +260,7 @@ def test_bootstrap_blank_name_shows_the_engines_refusal(fake_client, monkeypatch
                 "  display_name: Must not be empty.",
                 "Bootstrap failed",
                 "error",
+                False,
             )
         ]
 

@@ -109,6 +109,7 @@ from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import suggestion_list
+from expense.tui.widgets.refusal import toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: Sigil per reference kind — the character a completion writes back into the
@@ -788,7 +789,7 @@ class LogBarScreen(Screen):
             cfg = config_module.ensure_loaded()
             refs = load_quickadd_refs(cfg, **screen_fetch_kwargs(self.app))
         except Exception as exc:  # surface engine/config errors in-app, don't crash
-            call_while_attached(self, self.notify, format_error(exc), severity="error")
+            call_while_attached(self, toast, self, format_error(exc), severity="error")
             return
         call_while_attached(self, self._set_refs, refs)
 
@@ -1092,7 +1093,7 @@ class LogBarScreen(Screen):
             for index, result in enumerate(outcome.results):
                 written = result in (RowResult.CREATED, RowResult.EXISTED)
                 self._mark(rows[index], written, *_said(own.get(index)))
-            self.notify(format_error(outcome.refusal), title="Failed", severity="error")
+            toast(self, format_error(outcome.refusal), title="Failed", severity="error")
             return
         failed = {i: f for f in outcome.failures for i in f.indices}
         for index, result in enumerate(outcome.results):
@@ -1131,7 +1132,7 @@ class LogBarScreen(Screen):
         if self._pending():
             self.notify("Some rows were not written.", title="Failed", severity="error")
         elif written:
-            self.notify(written)
+            toast(self, written)
         self._refresh_view()
 
     # ---- the three things ↵ does ------------------------------------------
@@ -1208,7 +1209,7 @@ class LogBarScreen(Screen):
         Transactions), which is exactly why that door stayed open.
         """
         if self._staged[index].saved:
-            self.notify(f"Row {index + 1} is written. Edit it from Transactions.")
+            toast(self, f"Row {index + 1} is written. Edit it from Transactions.")
             return
         self._editing = index
         self._set_bar(self._staged[index].line)

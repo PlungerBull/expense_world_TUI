@@ -39,6 +39,7 @@ from textual.widgets import Footer, Input, Label, Static
 
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import matching, suggestion_list
+from expense.tui.widgets.refusal import toast
 
 #: The bar's label for each bulk key's kind.
 LABELS = {"category": "CATEGORY", "account": "ACCOUNT", "hashtags": "HASHTAGS"}
@@ -153,13 +154,13 @@ class BulkPickScreen(Screen[object]):
         needle = event.value.strip()
         if not self._multi:
             if not self._pool:
-                self.notify(f"Nothing matches “{needle}”.", severity="error")
+                toast(self, f"Nothing matches “{needle}”.", severity="error")
                 return
             self.dismiss(self._pool[self._idx][0])
             return
         if needle:
             if not self._pool:
-                self.notify(f"No hashtag matches “{needle}”.", severity="error")
+                toast(self, f"No hashtag matches “{needle}”.", severity="error")
                 return
             self._picked.append(self._pool[self._idx][0])
             self._refresh_picked()

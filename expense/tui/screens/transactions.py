@@ -60,7 +60,6 @@ from rich.console import RenderableType
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
-from textual.markup import escape
 from textual.widget import Widget
 from textual.widgets import Static
 
@@ -105,6 +104,7 @@ from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList, list_table
+from expense.tui.widgets.refusal import as_markup, toast
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
 #: The free-text columns and their share of the width left after Amount, Date,
@@ -239,14 +239,15 @@ def refusal_notes(failed: list[RefusedRow]) -> list[str]:
     and the sheet import share (`formatting.grouped_refusals`): what was
     refused in the error colour, the rows it hit under it (`row 2`, or
     `rows 1, 3`), then the app's lines, dim. Content markup, with the words
-    escaped, so a bracket in the engine's words shows as the engine sent it."""
+    escaped (`as_markup`), so a bracket in the engine's words shows as the
+    engine sent it."""
     refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
     notes = []
     for first, rows, rest in grouped_refusals(refusals):
-        lines = [f"[$error]{escape(first)}[/]"]
+        lines = [f"[$error]{as_markup(first)}[/]"]
         if rows:
             lines.append(rows)
-        lines.extend(f"[dim]{escape(line)}[/]" for line in rest)
+        lines.extend(f"[dim]{as_markup(line)}[/]" for line in rest)
         notes.append("\n".join(lines))
     return notes
 
@@ -516,7 +517,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         """The purchase could not be read: no question, nothing sent, the
         engine's words in the "Failed" note, and `d` again tries again."""
         self._delete_reading = False
-        self.notify(message, title="Failed", severity="error")
+        toast(self, message, title="Failed", severity="error")
 
     def _ask_delete(self, record: dict, line: dict) -> None:
         """The question, then the delete: a split purchase (`part_count` above
@@ -609,7 +610,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
 
     def _refs_failed(self, message: str) -> None:
         self._pending_pick = None
-        self.notify(message, title="Could not load the pickers", severity="error")
+        toast(self, message, title="Could not load the pickers", severity="error")
 
     def _set_refs(self, refs) -> None:
         self._refs = refs
@@ -631,7 +632,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         targets = self._targets()
         options = self._picker_options(kind)
         if not options:
-            self.notify(f"There is nothing to pick — no {kind} exists yet.", severity="warning")
+            toast(self, f"There is nothing to pick — no {kind} exists yet.", severity="warning")
             return
         chosen = set(targets)
         rows = changed_rows([row for row in self._rows if row[0] in chosen])
@@ -710,11 +711,12 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         self._bulk_busy = False
         rows = done if count is None else count
         if rows:
-            self.notify(bulk_receipt(rows, label, left))
-        # One toast per kind of refusal, not per row — see `refusal_notes`.
+            toast(self, bulk_receipt(rows, label, left))
+        # One toast per kind of refusal, not per row — see `refusal_notes`. Its
+        # colours are content markup, the engine's words escaped inside it.
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
         for note in refusal_notes(failed):
-            self.notify(note, title=head, severity="error", timeout=10)
+            self.notify(note, title=head, severity="error", timeout=10, markup=True)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key

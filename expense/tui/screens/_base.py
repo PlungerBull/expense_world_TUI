@@ -38,6 +38,7 @@ from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.screens.help import HelpBindingMixin
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.header import Breadcrumb
+from expense.tui.widgets.refusal import toast
 
 if TYPE_CHECKING:
     from expense.config import Config
@@ -219,7 +220,7 @@ class EngineWriteMixin:
             elif item.on_error is not None:
                 item.on_error(error)
             else:
-                self.notify(error, title="Failed", severity="error")
+                toast(self, error, title="Failed", severity="error")
             self._writes_dropped(item, dropped)
         else:
             # Before on_success: a screen that reads the body typically repaints
@@ -234,7 +235,7 @@ class EngineWriteMixin:
             self._pump_writes()
 
     def _after_write(self, message: str) -> None:
-        self.notify(message)
+        toast(self, message)
 
     def confirm_delete(
         self,
@@ -262,7 +263,7 @@ class EngineWriteMixin:
             if after is not None:
 
                 def on_success() -> None:
-                    self.notify(done)
+                    toast(self, done)
                     after()
 
             self.run_write(
@@ -544,7 +545,7 @@ class SectionScreen(
         return getattr(self, "_by_id", {}).get(cursor_list.cursor_key)
 
     def _after_write(self, message: str) -> None:
-        self.notify(message)
+        toast(self, message)
         self._load()  # re-fetch; content swaps are lock-serialized, no card clash
 
     # ---- subclass hooks --------------------------------------------------

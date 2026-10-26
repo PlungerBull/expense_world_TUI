@@ -109,7 +109,7 @@ def test_new_category_unknown_color_is_still_refused(fake_client, monkeypatch):
         _enter(screen, "Mascotas")
         _enter(screen, "zzzz")
         await pilot.pause()
-        assert toasts == [("Pick a color.", {"severity": "error"})]
+        assert toasts == [("Pick a color.", {"severity": "error", "markup": False})]
         assert screen._key == "color" and "color" not in screen._values
         assert not fake_client.posts
 
@@ -242,7 +242,7 @@ def test_edit_category_without_a_color_is_refused_before_any_put(fake_client, mo
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         await pilot.press("ctrl+s")
         await pilot.pause()
-        assert toasts == [("Color is required.", {"severity": "error"})]
+        assert toasts == [("Color is required.", {"severity": "error", "markup": False})]
         assert not fake_client.puts
 
     run_app(scenario)
@@ -261,7 +261,7 @@ def test_edit_category_unknown_color_is_refused_and_nothing_is_sent(fake_client,
         _enter(screen, "Ocio")
         _enter(screen, "zzzz")
         await pilot.pause()
-        assert toasts == [("Pick a color.", {"severity": "error"})]
+        assert toasts == [("Pick a color.", {"severity": "error", "markup": False})]
         assert not fake_client.puts
 
     run_app(scenario)

@@ -844,6 +844,19 @@ refused by `b`, `c` or `h`, "Saved" below), and for the
 reasons below a blank line and one line of the app's saying what to do. Screens in
 [expense-world-refusal-hints.html](mockups/expense-world-refusal-hints.html).
 
+**The engine's words show as text, never as styling.** Every note shows them as sent,
+`[` and all: a `[like this]` or a lone `[` in a refusal, a warning or a name is never read
+as markup and never vanishes. Lines drawn on a screen (under the parts, the import's
+preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
+Rich `Text`. A toast whose message is not a fixed sentence of the app's goes through
+`toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
+title is always text. The one toast that styles the engine's words on purpose, the
+ledger's bulk edit note, writes them into its content markup through `as_markup` there,
+which escapes every `[`. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
+on any other `notify` whose message is not a fixed sentence, and
+[test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py) drives each place with
+a refusal holding brackets.
+
 | Reason (contract: "Error reasons") | Where you meet it | The line under it |
 |---|---|---|
 | `HAS_TRANSACTIONS` on `account_id` | `d` on Manage ▸ Accounts | `To retire it instead, archive it: press a.` |
@@ -1563,6 +1576,10 @@ make rows fit that do not. Width has **no** floor of any kind.
   subclasses `FakeClient` or calls `helpers.refuse_read_only_fields` in each, as
   `test_every_fake_engine_refuses_read_only_fields` in
   [test_suite_hygiene.py](../tests/unit/test_suite_hygiene.py) checks.
+- **A test that reads what a toast shows runs with `run_app(..., toasts=True)`** and reads
+  `toasts_shown(app)` ([helpers.py](../tests/unit/helpers.py)): each toast's title and
+  message as Textual draws them, markup read. `run_test` draws no toast unless asked; a
+  test that only needs what was sent patches `notify`.
 - **The typed surface is pinned** by
   [test_command_surface.py](../tests/unit/test_command_surface.py) (CLAUDE.md "Testing
   conventions").
