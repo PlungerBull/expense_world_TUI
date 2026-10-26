@@ -101,16 +101,8 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Tasks 1 to 4 run now; tasks 5 and 6 wait for their mockup pick.
+Tasks 2 to 4 run now; tasks 5 and 6 wait for their mockup pick.
 
-1. **The second practice key is handled like the first** (point 7). `scripts/practice-engine up`
-   passes both keys the reseed prints through to the terminal: the shared practice user's and
-   the reserved-names practice user's. [runtime.md](../runtime.md) "Working against the live
-   engine" names the second one and the variable it goes in on the contract suite's command line,
-   good for one check only like the first; [tests/contract/conftest.py](../../tests/contract/conftest.py)
-   gives the tests a client as that user, and a live run without the variable fails those tests
-   naming it. A test in [test_claude_hooks.py](../../tests/unit/test_claude_hooks.py) proves the
-   guard keeps the second key out of files as it does the first.
 2. **A card's other account comes from the engine on Reconciliations** (point 3). Every place
    Reconciliations pairs a card's two accounts (the list's columns, a new card statement's two
    halves) reads the account's `statement_partner_id` (contract: GET /v1/accounts), never matching
@@ -129,10 +121,12 @@ Tasks 1 to 4 run now; tasks 5 and 6 wait for their mockup pick.
    behind.
 4. **A held reserved name, live** (point 6). As the reserved-names practice user, a live test
    draws `RESERVED_NAME_HELD` on each route the engine's check names, reading the routes from the
-   live contract; each refusal writes nothing.
+   live contract; each refusal writes nothing. The contract suite's leak check (`leaves_nothing`)
+   covers what a test leaves on the reserved-names user too, not only on the shared one.
 5. **[UI] Completing a statement shows the lines it flagged** (point 2). First a mockup of where
-   the flagged lines show after complete, each leading to its line; the task waits for the
-   owner's pick. Then: complete goes through whenever the engine takes it, and nothing in the
+   the flagged lines show after complete, each leading to its line
+   ([expense-world-statement-flagged-lines.html](../mockups/expense-world-statement-flagged-lines.html));
+   the task waits for the owner's pick. Then: complete goes through whenever the engine takes it, and nothing in the
    app or its unit tests treats leftover lines as a refusal of complete (the
    `UNASSIGNED_IN_PERIOD` test in
    [test_tui_reconcile_detail.py](../../tests/unit/test_tui_reconcile_detail.py) goes); the fake
@@ -142,7 +136,9 @@ Tasks 1 to 4 run now; tasks 5 and 6 wait for their mockup pick.
    [test_statement_order.py](../../tests/contract/test_statement_order.py)) and prove a close
    flagging a leftover line, on a card on both halves.
 6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
-   door's account list, preview and result, the task waiting for the owner's pick. Then: the door
+   door's account list, preview and result
+   ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)), the
+   task waiting for the owner's pick. Then: the door
    sends the file itself (`dry_run`, `account_id`, `file`; contract: POST /v1/transactions/import)
    and reads no cell of it; [parse.py](../../expense/bank_import/parse.py) and every other piece
    of the app's own bank-file reading go (the sheet import's reader stays: it has its own spec).

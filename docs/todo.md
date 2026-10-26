@@ -28,6 +28,20 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Pick the catch-up's two screens
+Asked 2026-10-26 · Blocks: tasks 5 and 6 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
+
+Two mockups, one per screen that changes. Open each in a browser and pick.
+- [mockups/expense-world-import-whole-file.html](mockups/expense-world-import-whole-file.html):
+  how a row of 0 shows (2A or 2B), and whether a card's file shows each row's currency (3A or
+  3B); panes 1, 4 and 5 are for your check.
+- [mockups/expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html):
+  where the lines a statement's close flagged show (A, a screen of their own, or B, on the
+  statement).
+
+**Recommended:** 2B, 3B and A: a zero row is nothing to look at, a card's preview should say
+where each row lands, and a screen of their own can say what to do with each line.
+
 ### Approve the spec for the engine words' leftovers
 Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
 

@@ -684,6 +684,31 @@ def test_guard_reads_fd_redirects_to_a_file_as_writes(box, command):
     _blocked(box.guard("Bash", {"command": command}, agent="tester"), STAY)
 
 
+# The reseed prints two keys, each under its practice user's heading: the shared one as
+# `EXPENSE_PAT=…`, the reserved-names one as `EXPENSE_RESERVED_PAT=…`, the second key last.
+# Picking out either one on the way to a file is still the output reaching a file.
+BOTH_KEYS_TO_FILE = [
+    " > keys.txt",
+    " | grep EXPENSE_PAT > key.txt",
+    " | grep EXPENSE_RESERVED_PAT > reserved-key.txt",
+    " | grep reserved-names | tee reserved-key.txt",
+    " | sed -n 's/.*EXPENSE_RESERVED_PAT=//p' > reserved-key.txt",
+    " | tail -n 3 > reserved-key.txt",
+    f" 2>&1 | grep -o ewe_pat_ >> {SCRATCH}/keys.txt",
+]
+
+
+@pytest.mark.parametrize("tail", BOTH_KEYS_TO_FILE)
+def test_guard_keeps_both_practice_keys_off_disk_from_the_seed(box, tail):
+    _blocked(box.guard("Bash", {"command": SEED + tail}, agent="tester"), STAY)
+
+
+@pytest.mark.parametrize("agent", EVERY_AGENT)
+@pytest.mark.parametrize("tail", BOTH_KEYS_TO_FILE)
+def test_guard_keeps_both_practice_keys_off_disk_from_the_script(box, agent, tail):
+    _blocked(box.guard("Bash", {"command": f"{PRACTICE} up" + tail}, agent=agent), STAY)
+
+
 HAND_RUN_ENGINE_OPS = [
     "kill 12345",
     "lsof -ti :8002 | xargs kill",

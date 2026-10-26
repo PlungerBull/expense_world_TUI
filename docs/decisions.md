@@ -540,7 +540,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## The practice engine has one script, run in exact shapes (2026-10-16)
 
-**Context.** Sending a tester just to start or stop the practice engine added an agent round trip to every task that needed the contract live. The start's output carries the practice user's key, which must never reach a file.
+**Context.** Sending a tester just to start or stop the practice engine added an agent round trip to every task that needed the contract live. The start's output carries both practice users' keys, which must never reach a file.
 
 **Decision.** `scripts/practice-engine up|down` starts, reseeds and stops the `:8002` engine, and any agent may run it; the orchestrator runs it around tasks. The guard allows only the whole command in a few exact forms, with no chaining, substitution, env prefix or wrapper, so the key stays off disk ([runtime.md](runtime.md) "Working against the live engine"). The script takes no options and runs under `bash -p` with every inherited variable unset and `env -i`, so nothing the caller sets can point it at the live engine or the real ledger.
 

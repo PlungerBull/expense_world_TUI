@@ -4,8 +4,9 @@ These tests hit a real engine and make real writes, so a contract run that would
 the real ledger **refuses to start**. Point it at the disposable practice database
 instead, or set EXPENSE_ALLOW_REAL_LEDGER=1 to say you meant it.
 
-How to seed the practice user, start the test engine on :8002 and run this suite:
-docs/runtime.md "Working against the live engine".
+How to start the test engine on :8002, reseed its two practice users (the shared one, whose
+key goes in EXPENSE_PAT, and the reserved-names one, whose key goes in EXPENSE_RESERVED_PAT)
+and run this suite: docs/runtime.md "Working against the live engine".
 """
 
 import os
@@ -29,6 +30,8 @@ DEFAULT_ENGINE_URL = "http://127.0.0.1:8000"
 
 ENGINE_URL = os.environ.get("EXPENSE_ENGINE_URL", DEFAULT_ENGINE_URL)
 PAT = os.environ.get("EXPENSE_PAT")
+#: The reserved-names practice user's key: the second one the reseed prints.
+RESERVED_PAT = os.environ.get("EXPENSE_RESERVED_PAT")
 ALLOW_REAL_LEDGER = os.environ.get("EXPENSE_ALLOW_REAL_LEDGER") == "1"
 
 LIVE = os.environ.get("PYTEST_LIVE") == "1"
@@ -111,8 +114,9 @@ _REFUSAL = """
 │    rows created here are soft-deleted, never removed       │
 │                                                            │
 │  practice database instead:                                │
-│    ../expense_world_engine/deploy/local/seed-test-user.sh  │
-│    then EXPENSE_PAT=… EXPENSE_ENGINE_URL=http://127.0.0.1:8002
+│    scripts/practice-engine up prints both practice keys    │
+│    then EXPENSE_PAT=… EXPENSE_RESERVED_PAT=…               │
+│    EXPENSE_ENGINE_URL=http://127.0.0.1:8002                │
 │                                                            │
 │  or, to mean it:                                           │
 │    EXPENSE_ALLOW_REAL_LEDGER=1                             │
@@ -160,6 +164,31 @@ def client():
     above has explicitly allowed it.
     """
     with ExpenseClient(_target()) as c:
+        yield c
+
+
+NO_RESERVED_PAT = (
+    "EXPENSE_RESERVED_PAT is not set: pass the reserved-names practice user's key, the second "
+    "one the reseed prints, inline on the contract suite's command line beside EXPENSE_PAT "
+    '(docs/runtime.md "Working against the live engine")'
+)
+
+
+def reserved_target() -> Config:
+    """The resolved target's engine as the reserved-names practice user, whose key comes
+    only from EXPENSE_RESERVED_PAT. Without it, the test asking for it fails: it never
+    skips, so a run that forgets the key cannot pass by leaving the test out."""
+    if not RESERVED_PAT:
+        pytest.fail(NO_RESERVED_PAT, pytrace=False)
+    return Config(engine_url=ENGINE_URL, token=RESERVED_PAT)
+
+
+@pytest.fixture
+def reserved_client():
+    """An ExpenseClient aimed at the resolved target as the reserved-names practice user,
+    the one whose own category and hashtag hold the reserved names. Built like `client`,
+    and covered by the same real-ledger refusal, which runs before any fixture."""
+    with ExpenseClient(reserved_target()) as c:
         yield c
 
 

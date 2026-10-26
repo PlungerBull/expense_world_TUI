@@ -4,12 +4,14 @@
 # engine" is the ops guide this script follows word for word).
 #
 #   scripts/practice-engine up     start it (or reuse the one already on :8002), wait for
-#                                  /health, reseed the practice user and print its fresh key
+#                                  /health, reseed the two practice users and print their
+#                                  fresh keys: the shared practice user's (EXPENSE_PAT) and
+#                                  the reserved-names practice user's (EXPENSE_RESERVED_PAT)
 #   scripts/practice-engine down   stop the practice engine listening on :8002, whoever
 #                                  started it; anything else on the port is left alone
 #
-# The key is printed to the terminal by the engine's own reseed and is never written to a
-# file here. Everything this script touches is fixed in it: port 8002, the
+# Both keys are printed to the terminal by the engine's own reseed and are never written to
+# a file here. Everything this script touches is fixed in it: port 8002, the
 # `expense_world_test` database, the engine checkout's own interpreter. It takes no
 # options, and the caller's environment does not reach anything it runs: `bash -p` skips
 # BASH_ENV and inherited functions, every exported variable is unset below, and the engine,
@@ -87,7 +89,7 @@ up() {
         sleep 1
         waited=$((waited + 1))
     done
-    say "healthy at ${HEALTH}; reseeding the practice user (its key follows)"
+    say "healthy at ${HEALTH}; reseeding the practice users (both keys follow)"
     (cd "${ENGINE}" && clean deploy/local/seed-test-user.sh --force)
 }
 
