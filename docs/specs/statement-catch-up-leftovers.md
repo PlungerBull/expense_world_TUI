@@ -118,10 +118,6 @@ do and when it passes.
     BEGIN BALANCE reads as pick B of
     [expense-world-opening-balance-note.html](../mockups/expense-world-opening-balance-note.html),
     on the one-account form and on each half of a card's form, with tests, and tui.md says it.
-11. **Write the engine ask: the account read names a card's other account** (point 10, the
-    orchestrator's part). Passes if one file in [to-engine/](../to-engine/) asks for it in that
-    folder's shape and says what this client removes once it lands (the grouping by statement
-    code that finds a card's partner).
 12. **Words that describe dropped screens say what is** (point 11). Passes if the `⏎` comment
     in reconciliations.py and the docstrings of test_statement_codes.py and
     test_statement_order.py describe what the code does, naming no screen that does not exist.

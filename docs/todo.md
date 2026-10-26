@@ -28,6 +28,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over the ask for a card's other account
+Asked 2026-10-25 · Blocks: nothing in the current spec; the create form reads the engine's answer in the catch-up after it
+
+To make a card statement, the app has to know which account is the card's other currency. Today
+it works that out itself from every account's statement code; the ask has the engine say it on
+each account, so every app gets the same answer. Copy
+[to-engine/the-account-read-names-a-cards-other-account.md](to-engine/the-account-read-names-a-cards-other-account.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
