@@ -28,6 +28,21 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Confirm the card list's mockup before it is built
+Asked 2026-10-25 · Blocks: task 14 of [specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)
+
+Task 14 builds the list of a card's statements drawn in
+[mockups/expense-world-card-statement.html](mockups/expense-world-card-statement.html), screen 1 A:
+`⏎` on either card account opens the same list, one row per month with `Name`, `Period`,
+`Diff PEN`, `Diff USD`, `Status` and `Order`, `half completed` and `no half` where they apply,
+and `in order` or `not in order` from the engine. An account with a statement code and no
+partner gets the same columns with one `Diff` (task 6's question 3 B). An account with no
+statement code keeps today's list.
+- **A.** Build it as picked.
+- **B.** Change something first: say what, and the mockup is redrawn for a pick.
+
+**Recommended:** A, because every question on it is answered and the engine is ready.
+
 ### Hand over the Edit form's reply to the engine
 Asked 2026-10-25 · Blocks: nothing; the engine waits for it
 
