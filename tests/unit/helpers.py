@@ -507,22 +507,27 @@ def complete_answer(
     *,
     warnings: list[str] | None = None,
     coverage_gap: dict | None = None,
+    review_lines: list[str] | None = None,
     twin: dict | None = None,
 ) -> dict:
     """`POST /reconciliations/{id}/complete`'s answer: the half the path names after
     the write, `record` spread over a completed reconciliation, plus `warnings` (`[]`
-    by default), `coverage_gap` (`None`: no gap) and `twin`, the statement's other
-    half spread over a completed one with its own `warnings` (`[]`) and
-    `coverage_gap` (`None`) unless it names them, `None` when it has none. `warnings`
-    and `coverage_gap` are built from one object, so a gap's sentence comes with its
-    `coverage_gap`
+    by default), `coverage_gap` (`None`: no gap), `review_lines` (the ids of the bank
+    lines the close flagged for review on the half's account, oldest first, `[]` by
+    default) and `twin`, the statement's other half spread over a completed one with
+    its own `warnings` (`[]`), `coverage_gap` (`None`) and `review_lines` (`[]`)
+    unless it names them, `None` when it has none. `warnings` and `coverage_gap` are
+    built from one object, so a gap's sentence comes with its `coverage_gap`
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
     return {
         **_COMPLETED,
         **(record or {}),
         "warnings": list(warnings or []),
         "coverage_gap": coverage_gap,
-        "twin": _half({**_COMPLETED, "warnings": [], "coverage_gap": None}, twin),
+        "review_lines": list(review_lines or []),
+        "twin": _half(
+            {**_COMPLETED, "warnings": [], "coverage_gap": None, "review_lines": []}, twin
+        ),
     }
 
 
@@ -808,7 +813,7 @@ class FakeClient:
     when it has one, in the engine's shape, or else `{}`. `write_responses` is keyed by
     path alone, so `delete` never reads it: a PUT answer set for a path never comes
     back on a DELETE of it. `run_write`'s `on_response` reads the
-    engine's own body (`complete` carries a `warnings` envelope). A reconciliation's
+    engine's own body (`complete` carries `warnings` and `review_lines`). A reconciliation's
     create, revert, complete and delete have entries: the create answers what it was
     sent, `twin` included; the other three answer the half the path names, as the
     test serves `GET /reconciliations/{id}` (or its id alone), with its status after

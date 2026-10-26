@@ -800,8 +800,11 @@ PEOPLE, at its next read of `/dashboard`. The Edit form's `type` line stays read
 **`d` is the TUI's one destructive key** (screens in
 [expense-world-delete.html](mockups/expense-world-delete.html)). It deletes the row under
 the cursor on Manage ▸ Accounts, Categories and Hashtags (a built-in row aside, above), on
-the ledger (whole or filtered from Home) and in the reconciliation's "no batch" list, always
-as the last entry of the screen's footer keys. Cursor row only, never a selection: on the ledger `d` is off, and out
+the ledger (whole or filtered from Home), in the reconciliation's "no batch" list and on a
+statement's flagged lines, always as the last entry of the screen's footer keys but on the
+flagged lines, whose footer ends `d Delete  ↑↓ Move` as pane 1A of
+[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)
+draws it. Cursor row only, never a selection: on the ledger `d` is off, and out
 of the footer, while rows are selected (`esc` clears the selection and it is back),
 while a bulk write runs and on an archived account's row (above). On an
 empty list it does nothing. On Accounts `a Archive` stays as it is: archive puts an account
@@ -816,14 +819,15 @@ screen can bring it back.**
 | Accounts | `Delete this account?` | `Prueba · bank · PEN · 0.00` · `It is for an account made by mistake: no screen can bring it back.` | `Account deleted.` |
 | Categories | `Delete this category?` | `PRUEBA` · `It is for a category made by mistake: no screen can bring it back.` | `Category deleted.` |
 | Hashtags | `Delete this hashtag?` | `#viaje-cusco` · `It is also taken off every transaction that carries it; one with no other hashtag goes to #Pendiente. No screen can bring it back.` | `Hashtag deleted.` |
-| Ledger, and a line never split in the "no batch" list | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
-| Ledger, on a part of a split transaction; a split transaction in the "no batch" list | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
+| Ledger, and a line never split in the "no batch" list or the flagged lines | `Delete this transaction?` | `Cine Plaza · -28.00 · 2026-10-10 · Sueldo Soles` · `It leaves every balance and report, and no screen can bring it back.` | `Transaction deleted.` |
+| Ledger, on a part of a split transaction; a split transaction in the "no batch" list or the flagged lines | `Delete this transaction and its 2 parts?` (the line's real part count) | `FARMACIA · -100.00 · 2026-10-11 · Sueldo Soles` · `No screen can bring it back.` | `Transaction deleted.` |
 | A reconciliation's batch screen (`d` deletes the batch itself) | `Delete reconciliation?` | `Detaches its transactions and removes the batch. Its transactions stay. No screen can bring it back.` | `Reconciliation deleted.` |
 
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the "no batch" list's newest ten. The hashtag question names the
+page, the ledger's newest ten, the "no batch" list's newest ten, the flagged lines read
+again by their ids. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
 off every transaction carrying it, and one left with no hashtag carries the pending hashtag
 (contract: DELETE /v1/hashtags/{hashtag_id}). The question names the pending hashtag as the
@@ -1174,10 +1178,20 @@ them — they are hand-written into the `?` card
   confirm-free (a reversible toggle, not destruction).
 - **`⏎` never changes data.** On the Manage lists it is a literal no-op: no screen
   handles `CursorList.Selected` there, and the help card *drops* the row rather than
-  advertise `⏎ Open` falsely. A widget whose key is off on some rows names the action in
-  its `CARD_FOLLOWS_CHECK`, and the card lists that row only while the widget's
+  advertise `⏎ Open` falsely. A widget or screen whose key is off in some states names
+  the action in its `CARD_FOLLOWS_CHECK`, and the card lists that row only while its
   `check_action` allows it, as the footer does: the Reconciliations panel's `⏎ Open` and
-  `⏎ Edit`, which is on in the "no batch" list alone, on every row.
+  `⏎ Edit`, which is on in the "no batch" list alone, on every row, and a statement's
+  `f Flagged`, on only while lines its complete flagged are left (§2 "The lines a
+  complete flagged for review").
+
+**The flagged lines' screen** ([reconciliations.py](../expense/tui/screens/reconciliations.py)
+`FlaggedLinesScreen`) has no `?`: it does not take `HelpBindingMixin`, and the footer is its
+whole key list, in the order of pane 1A of
+[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
+Its list takes no focus, so the screen holds `⏎`, `d` and `↑↓` itself and the footer keeps
+that order (a focused widget's keys would come first); `pgdn`/`pgup` page and `r` reads
+the flagged lines again, none of them in the footer.
 
 **The import door's exceptions** (§2 "The import door",
 [bank_import.py](../expense/tui/screens/bank_import.py)):
@@ -1364,6 +1378,48 @@ refused complete shows `Couldn't complete` with the engine's words — after a s
 same `c`, under the line `The ending balance is saved. The reconciliation is not
 completed:` — and the screen reads the reconciliation fresh, so the header and the next
 `c` go by what the engine holds.
+
+**The lines a complete flagged for review** (pick 1A of
+[expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)).
+A complete goes through while lines dated in the statement are in no statement: its answer
+names the bank lines it flagged for review on the named half, `review_lines`, and on the
+other half of a card, `twin.review_lines`, each oldest first
+(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"). The app
+keeps no rule of which lines those are, and nothing in it treats them as a refusal of
+complete. When the answer names any, the app pushes a full screen right after the
+complete, `Reconciliations ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
+[reconciliations.py](../expense/tui/screens/reconciliations.py)); when it names none,
+nothing new shows. The engine names the lines only in that answer (a completed statement's
+`GET /bank-lines?unassigned_in_period_of=` lists none), so the screen reads each by its id
+with `GET /bank-lines/{id}` (contract: GET /v1/bank-lines/{bank_line_id}), through
+`reads.fetch_live_bank_lines`, which leaves out a line the engine answers `404` for. It
+reads `<statement> is completed. 3 lines dated up to its last day are in no statement.`,
+the count and the rest of that sentence in the warning colour (`1 line dated up to its
+last day is in no statement.` for one), then three dim lines, the three choices the
+contract gives
+(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "What a client does with a flagged line"):
+`For each: if it belongs to this statement, revert, tick it, complete again.`,
+`If it belongs to a later statement, leave it: tick it there when it comes.` and
+`If it is a mistake, open it to fix it, or delete it.` Under them, the lines in one list,
+`Date · Account · Title · Amount`, both halves together, oldest first by the line's day:
+each line's day, title and signed `net_cents` through `bank_line_columns`, sign-coloured as
+in every bank-line list, and its account by name, on a statement of one account too. The
+footer reads `esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
+the ledger's Edit form (`EditFormScreen`, which reads the line by its id), crumb
+`… ▸ Flagged ▸ Edit`; `d` asks the "no batch" list's question and deletes as it does
+(`ask_line_delete`; "`d` is the TUI's one destructive key" above). After a save or a
+delete the screen reads the ids again, the cursor on row 1: a line the engine no longer
+has leaves the list and the count, and with none left the screen goes back to the
+statement. While the ids are read the list is empty; a read that fails toasts the
+engine's words and keeps what is listed, and `r` reads again.
+
+**Back on the statement**, while it stays open, the line
+`⚑ 3 lines flagged for review: in no statement, dated up to this one's last day  · f shows them`
+sits under the header, in the warning colour with `· f shows them` dim, and `f Flagged`
+is in the footer and on the `?` card only while flagged lines are left; `f` opens the list
+again on them. Both clear on the next status change (a revert) and once no flagged line is
+left. Leaving the statement forgets them: the lines stay in the ledger, in no statement,
+and show in the account's "no batch" list (`u` on the browse).
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in
 [_base.py](../expense/tui/screens/_base.py), splatted into each host's BINDINGS like

@@ -1642,14 +1642,14 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
     and the next `c` goes straight to the question."""
     _patch(monkeypatch)
     fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
-    words = "1 transaction in the period is in no batch."
+    words = "Cannot complete reconciliation with no assigned transactions."
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
         words,
-        {"date_start": "Unassigned rows."},
+        {"transactions": "At least one transaction must be assigned."},
         422,
         {},
-        {"date_start": "UNASSIGNED_IN_PERIOD"},
+        {"transactions": "NO_TRANSACTIONS_ASSIGNED"},
     )
     _fresh_read(monkeypatch, SAVED)
     notices = _notes(monkeypatch)
@@ -1664,7 +1664,8 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
         assert notices[0] == (
             "Couldn't complete",
             "The ending balance is saved. The reconciliation is not completed:\n"
-            f"VALIDATION_ERROR — {words}\n  date_start: Unassigned rows.",
+            f"VALIDATION_ERROR — {words}\n"
+            "  transactions: At least one transaction must be assigned.",
             "error",
         )
         await pilot.pause()

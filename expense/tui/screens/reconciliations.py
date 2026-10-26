@@ -59,10 +59,14 @@ delete is draft-only and just detaches the transactions. Completing also needs t
 ending balance (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
 "The ending balance must be entered"): `c` on a draft that has none first asks
 for it in a box, saves it with PUT /reconciliations/{id}, then asks the usual
-"Complete reconciliation?".
+"Complete reconciliation?". A complete whose answer flags lines for review
+(`review_lines`, a card's other half's too) opens FlaggedLinesScreen on them
+(pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
+working screen keeps a `⚑` line and `f` until its next status change.
 """
 
 import uuid
+from collections.abc import Callable
 from typing import NamedTuple
 
 from rich.text import Text
@@ -137,11 +141,13 @@ def blocking_windows(recons: list[dict], account_id) -> list[tuple[str, str, str
     """`(first_day, last_day, name)` for every batch on this account.
 
     Used only to draw the `!` hint beside a row (see `unfiled_rows`). Drafts are
-    included on purpose: a draft's window is exactly what an unfiled row inside
-    it will refuse when you try to close it, which is the question the flag
-    answers. Completed windows are in here too — an unfiled row inside one is an
-    anomaly the engine's close check would not allow to arise today, and it is
-    precisely what the pane exists to surface in older data.
+    included on purpose: an unfiled row inside a draft's window is one its close
+    will flag for review, not a refusal: the close goes through
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+    Completed windows are in here too: an unfiled row inside one is a line its
+    close flagged, or one dated on its last day, which stays open until the
+    account's next statement is completed (contract: "Transactions (Ledger)",
+    "Sealed periods"), and the pane exists to surface it.
     """
     windows = []
     for r in recons:
@@ -205,6 +211,41 @@ def lone_transaction(line: dict) -> dict | None:
         return None
     part = first_part(line)
     return None if part is None else {**part, "amount_cents": signed_cents(part)}
+
+
+def ask_line_delete(
+    screen: EngineWriteMixin, line: dict, account_name: str, *, after: Callable[[], None]
+) -> None:
+    """`d` on a bank line a list holds: the question, then the delete, through
+    `confirm_delete` (only `y` deletes). A split purchase (`part_count` above 1)
+    goes whole, in one `DELETE /bank-lines/{id}`
+    (contract: DELETE /v1/bank-lines/{bank_line_id}), after the question naming its
+    part count; a line never split goes as its one transaction, in
+    `DELETE /transactions/{id}`, after the ledger's question. Each question says no
+    screen can bring it back. The line in hand is the list's own read, so nothing is
+    read before asking. Deleted, `after` reads the list again. Shared by the "no
+    batch" pane and the flagged lines' screen."""
+    if is_split_line(line):
+        screen.confirm_delete(
+            "bank-lines",
+            line.get("id"),
+            bank_line_delete_question(line),
+            bank_line_delete_message(line, account_name),
+            done="Transaction deleted.",
+            after=after,
+        )
+        return
+    record = lone_transaction(line)
+    if record is None:
+        return
+    screen.confirm_delete(
+        "transactions",
+        record.get("id"),
+        "Delete this transaction?",
+        transaction_delete_message(record, account_name),
+        done="Transaction deleted.",
+        after=after,
+    )
 
 
 def first_part(line: dict) -> dict | None:
@@ -888,13 +929,8 @@ class ReconciliationsScreen(SectionScreen):
         """`d` — delete the line under the cursor, in the unfiled pane only.
 
         Cursor row only, never a selection, and the question says a delete is
-        final. The line in hand is the list's own read, so nothing is read
-        before asking. A split purchase (`part_count` above 1) goes whole, in
-        one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),
-        after the question naming its part count; a line never split goes as
-        its one transaction, in `DELETE /transactions/{id}`, after the ledger's
-        question. Why: docs/decisions.md "Rows in no batch live in the
-        reconciliation view".
+        final (`ask_line_delete`). Why: docs/decisions.md "Rows in no batch
+        live in the reconciliation view".
         """
         if self._mode != "unfiled":
             return
@@ -902,28 +938,7 @@ class ReconciliationsScreen(SectionScreen):
         if line is None:
             return
         acct = self._open_account()
-        account_name = acct[1] if acct else "—"
-        if is_split_line(line):
-            self.confirm_delete(
-                "bank-lines",
-                line.get("id"),
-                bank_line_delete_question(line),
-                bank_line_delete_message(line, account_name),
-                done="Transaction deleted.",
-                after=self._reload_unfiled,
-            )
-            return
-        record = lone_transaction(line)
-        if record is None:
-            return
-        self.confirm_delete(
-            "transactions",
-            record.get("id"),
-            "Delete this transaction?",
-            transaction_delete_message(record, account_name),
-            done="Transaction deleted.",
-            after=self._reload_unfiled,
-        )
+        ask_line_delete(self, line, acct[1] if acct else "—", after=self._reload_unfiled)
 
     def action_new(self) -> None:
         """`n` — a reconciliation for the open account, or, with no panel open,
@@ -1301,7 +1316,11 @@ class ReconciliationDetailScreen(
 ):
     """One batch: header + a bank-line checklist (draft) or read-only list
     (completed). `space` toggles membership; `c`/`u`/`d` complete/revert/delete;
-    `r` refetches the batch + checklist (r = refresh everywhere, never a write)."""
+    `r` refetches the batch + checklist (r = refresh everywhere, never a write).
+
+    A complete whose answer flags lines for review opens `FlaggedLinesScreen` on
+    them; back here, the `⚑` line under the header says how many, and `f` opens
+    that screen again, both until the next status change."""
 
     BINDINGS = [
         ("escape", "back", "Back"),
@@ -1309,8 +1328,11 @@ class ReconciliationDetailScreen(
         ("c", "complete", "Complete"),
         ("u", "revert", "Revert"),
         ("d", "delete", "Delete"),
+        Binding("f", "flagged", "Flagged", tooltip="The lines the complete flagged for review"),
         *HelpBindingMixin.BINDINGS,
     ]
+    #: The `?` card lists `f` only while `check_action` allows it (help.py).
+    CARD_FOLLOWS_CHECK = frozenset({"flagged"})
 
     def __init__(self, record: dict, *, currency: str | None = None) -> None:
         super().__init__()
@@ -1323,6 +1345,9 @@ class ReconciliationDetailScreen(
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
+        # the bank lines the last complete flagged for review, both halves', as
+        # the flagged lines' screen last left them
+        self._flagged: list[str] = []
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
 
@@ -1334,12 +1359,14 @@ class ReconciliationDetailScreen(
         yield Breadcrumb(("Reconciliations", self._record.get("name") or "—"), id="crumb")
         yield Static("", id="rhead")
         yield Static("", id="rwarn")  # the gap report; hidden until a complete carries one
+        yield Static("", id="rflag")  # the flagged lines; hidden until a complete flags one
         yield Container(id="rlist")
         yield Static("", id="rhint")
         yield Footer()
 
     def on_mount(self) -> None:
         self.query_one("#rwarn", Static).display = False
+        self.query_one("#rflag", Static).display = False
         self._render_header()
         # First fetch waits for the first layout pass: _populate sizes the
         # checklist to #rlist's real height (adaptive rows).
@@ -1572,7 +1599,7 @@ class ReconciliationDetailScreen(
                 f"/reconciliations/{self._id}/complete",
                 2,
                 "completed",
-                on_response=self._report_gap,
+                on_response=self._report_close,
                 lead=_BALANCE_SAVED if after_save else "",
             ),
         )
@@ -1666,9 +1693,11 @@ class ReconciliationDetailScreen(
         if self._busy:
             return
         self._busy = True
-        # Any status change invalidates a gap report: it was true of the record
-        # as it stood one write ago (a revert unseals the very window it named).
+        # Any status change invalidates a gap report and the flagged lines: they
+        # were true of the record as it stood one write ago (a revert unseals the
+        # very window they named).
         self._show_warnings([])
+        self._show_flagged([])
         self.run_write(
             method,
             path,
@@ -1676,6 +1705,12 @@ class ReconciliationDetailScreen(
             on_error=lambda m: self._action_failed(f"{lead}\n{m}" if lead else m, verb),
             **kw,
         )
+
+    def _report_close(self, body: dict) -> None:
+        """What `complete` answers beside the record: the uncovered-days report
+        (`_report_gap`) and the lines it flagged for review (`_take_flagged`)."""
+        self._report_gap(body)
+        self._take_flagged(body)
 
     def _report_gap(self, body: dict) -> None:
         """Surface `complete`'s `warnings` — the uncovered-days report.
@@ -1703,6 +1738,65 @@ class ReconciliationDetailScreen(
         line.update(Text("\n".join(f"⚠ {text}" for text in lines), style=PALETTE.warning))
         line.display = True
 
+    def _take_flagged(self, body: dict) -> None:
+        """The ids of the bank lines the close flagged for review, the named
+        half's `review_lines`, then the other half's (`twin.review_lines`)
+        (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+        The screen showing them opens once the complete's success has landed
+        (`_action_done`)."""
+        twin = body.get("twin")
+        halves = [body, twin] if isinstance(twin, dict) else [body]
+        ids: list[str] = []
+        for half in halves:
+            named = half.get("review_lines")
+            if isinstance(named, list):
+                ids.extend(str(line_id) for line_id in named if line_id)
+        self._show_flagged(ids)
+
+    def _show_flagged(self, ids: list[str]) -> None:
+        """The `⚑` line under the header, and `f` with it, while any line the
+        close flagged is still one the engine has; hidden otherwise."""
+        self._flagged = list(ids)
+        line = self.query_one("#rflag", Static)
+        self.refresh_bindings()
+        if not self._flagged:
+            line.display = False
+            line.update("")
+            return
+        line.update(
+            Text.assemble(
+                (
+                    f"⚑ {line_count(len(self._flagged))} flagged for review: in no statement,"
+                    " dated up to this one's last day",
+                    PALETTE.warning,
+                ),
+                ("  · f shows them", "dim"),
+            )
+        )
+        line.display = True
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        # False, not None: hidden from the footer as well as dead
+        if action == "flagged":
+            return bool(self._flagged)
+        return super().check_action(action, parameters)
+
+    def action_flagged(self) -> None:
+        """`f` — the flagged lines' screen again, on the lines still flagged."""
+        if self._flagged:
+            self._open_flagged()
+
+    def _open_flagged(self) -> None:
+        self.app.push_screen(
+            FlaggedLinesScreen(self._flagged, statement=self._record.get("name") or "—"),
+            self._flagged_back,
+        )
+
+    def _flagged_back(self, ids: list[str] | None) -> None:
+        """Back from the flagged lines: the ones the engine still has."""
+        if ids is not None:
+            self._show_flagged(ids)
+
     def _action_failed(self, message: str, verb: str) -> None:
         self._busy = False
         done = verb.split()[0]
@@ -1722,3 +1816,207 @@ class ReconciliationDetailScreen(
         self._record["status"] = new_status
         self._render_header()
         self._load_txns()
+        if verb == "completed" and self._flagged:
+            self._open_flagged()
+
+
+# --------------------------------------------------------------------------- #
+# The lines a complete flagged for review
+# --------------------------------------------------------------------------- #
+def line_count(n: int) -> str:
+    """`1 line`, `3 lines`."""
+    return f"{n} line" if n == 1 else f"{n} lines"
+
+
+#: What to do with a flagged line, under the count (pane 1A of
+#: docs/mockups/expense-world-statement-flagged-lines.html): the three choices
+#: (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "What a client
+#: does with a flagged line").
+FLAGGED_CHOICES = (
+    "For each: if it belongs to this statement, revert, tick it, complete again.",
+    "If it belongs to a later statement, leave it: tick it there when it comes.",
+    "If it is a mistake, open it to fix it, or delete it.",
+)
+_FLAGGED_HEADERS = ["Date", "Account", "Title", "Amount"]
+
+
+def flagged_order(lines: list[dict]) -> list[dict]:
+    """Both halves' flagged lines in one list, oldest first by the line's day:
+    the engine answers each half's oldest first, and a stable sort keeps that
+    order within a day."""
+    return sorted(lines, key=lambda line: bank_line_columns(line)[0])
+
+
+def flagged_rows(lines: list[dict], names: dict, palette: Palette | None = None) -> list:
+    """One row per flagged line, in the order given: its day, its account by
+    name, its title and its signed `net_cents`, as every bank line list shows
+    them (`bank_line_columns`)."""
+    rows = []
+    for line in lines:
+        day, title, _operation, net_cents = bank_line_columns(line)
+        rows.append(
+            (
+                line.get("id"),
+                [
+                    day,
+                    resolve_name(line.get("account_id"), names),
+                    title or "(untitled)",
+                    amount_cell(net_cents, palette, AMOUNT_RULE),
+                ],
+            )
+        )
+    return rows
+
+
+def flagged_head(statement: str, n: int, palette: Palette) -> Text:
+    """`<statement> is completed. N lines dated up to its last day are in no
+    statement.`, then what to do with each, dim."""
+    verb = "is" if n == 1 else "are"
+    text = Text.assemble(
+        (f"{statement} is completed. ", ""),
+        (f"{line_count(n)} dated up to its last day {verb} in no statement.", palette.warning),
+    )
+    for choice in FLAGGED_CHOICES:
+        text.append("\n")
+        text.append(choice, style="dim")
+    return text
+
+
+class _FlaggedList(CursorList):
+    """The flagged lines' list. It takes no focus: its screen holds every key,
+    so the footer reads in the screen's own order (a focused widget's keys come
+    first in a footer)."""
+
+    can_focus = False
+
+
+class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMixin, Screen):
+    """The lines a statement's close flagged for review (pane 1A of
+    docs/mockups/expense-world-statement-flagged-lines.html).
+
+    A complete names them by id alone, on each half
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"),
+    so the screen reads each by its id (`reads.fetch_live_bank_lines`), drops a
+    line the engine no longer has, and lists the rest oldest first, both halves
+    together: `Date · Account · Title · Amount`. `⏎` opens the line in the
+    ledger's Edit form, `d` deletes it after the delete question, and after
+    either the ids are read again. `esc` goes back to the statement, handing it
+    the ids still flagged; with none left the screen goes back on its own.
+    No `?`: the footer is its whole key list."""
+
+    BINDINGS = [
+        Binding("escape", "back", "Back to the statement"),
+        Binding("enter", "open", "Open", tooltip="Open the line in its Edit form"),
+        Binding("d", "delete_line", "Delete", tooltip="Delete the line, after a question"),
+        Binding("down", "move(1)", "Move", key_display="↑↓", tooltip="Down"),
+        Binding("up", "move(-1)", "Up", show=False),
+        Binding("pagedown", "page(1)", "Next", key_display="pgdn", show=False),
+        Binding("pageup", "page(-1)", "Prev", key_display="pgup", show=False),
+        Binding("r", "reload", "Refresh", show=False),
+    ]
+
+    def __init__(self, ids: list[str], *, statement: str) -> None:
+        super().__init__()
+        self._ids = list(ids)
+        self._statement = statement
+        self.crumb = ("Reconciliations", statement, "Flagged")
+        self._lines: list[dict] = []
+        self._names: dict = {}
+        self._list: CursorList | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Breadcrumb(self.crumb, id="crumb")
+        yield Static(flagged_head(self._statement, len(self._ids), PALETTE), id="fhead")
+        yield Container(id="flist")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        # the list sizes itself to #flist's real height: wait for the first layout
+        self.call_after_refresh(self._load)
+
+    def on_resize(self, _event) -> None:
+        if self._list is not None and self._list.is_attached:
+            self._list.set_page_size(self._page_rows())
+
+    def _page_rows(self) -> int:
+        return self.fit_rows("#flist", chrome=self.LIST_FRAME_LINES)
+
+    @work(thread=True, exclusive=True, group="flagged-load")
+    def _load(self) -> None:
+        """Each id still flagged, read by its id, and the accounts' names. A
+        failed read shows the engine's words and keeps what is listed."""
+        from expense import config as config_module
+
+        worker = get_current_worker()
+        try:
+            cfg = config_module.ensure_loaded()
+            kw = screen_fetch_kwargs(self.app)
+            lines = reads.fetch_live_bank_lines(cfg, self._ids, **kw)
+            names = load_account_name_map()
+        except Exception as exc:  # surface engine/config errors in-app, don't crash
+            if not worker.is_cancelled:
+                call_while_attached(self, toast, self, format_error(exc), severity="error")
+            return
+        if worker.is_cancelled:
+            return
+        call_while_attached(self, self._populate, flagged_order(lines), names)
+
+    async def _populate(self, lines: list[dict], names: dict) -> None:
+        """Paint a read, the cursor on row 1; with no line left, back to the
+        statement."""
+        self._lines, self._names = lines, names
+        self._ids = [str(line.get("id")) for line in lines]
+        if not lines:
+            self.dismiss(self._ids)
+            return
+        self.query_one("#fhead", Static).update(flagged_head(self._statement, len(lines), PALETTE))
+        rows = flagged_rows(lines, names, palette=PALETTE)
+        if self._list is not None:
+            self._list.set_rows(rows)
+            self._list.set_cursor(0)
+            return
+        async with self._content_lock():
+            self._list = _FlaggedList(
+                _FLAGGED_HEADERS, rows, align_right={3}, page_size=self._page_rows()
+            )
+            await self.query_one("#flist", Container).mount(self._list)
+
+    def _cursor_line(self) -> dict | None:
+        key = self._list.cursor_key if self._list is not None else None
+        return next((line for line in self._lines if line.get("id") == key), None)
+
+    def action_move(self, delta: int) -> None:
+        if self._list is not None:
+            self._list.action_move(delta)
+
+    def action_page(self, delta: int) -> None:
+        if self._list is not None:
+            self._list.action_page(delta)
+
+    def action_open(self) -> None:
+        """`⏎` — the line in the ledger's Edit form, which reads it fresh by
+        its id; a save reads the flagged lines again."""
+        from expense.tui.screens.edit_form import EditFormScreen
+
+        line = self._cursor_line()
+        part = first_part(line) if line is not None else None
+        if line is None or part is None:
+            return
+        record = {**part, "bank_line_id": line.get("id")}
+        form = EditFormScreen(record=record)
+        form.crumb = (*self.crumb, "Edit")
+        self.app.push_screen(form, lambda saved: saved and self._load())
+
+    def action_delete_line(self) -> None:
+        """`d` — the line under the cursor, after the delete question; deleted,
+        the flagged lines are read again and it is gone."""
+        line = self._cursor_line()
+        if line is not None:
+            name = resolve_name(line.get("account_id"), self._names)
+            ask_line_delete(self, line, name, after=self._load)
+
+    def action_reload(self) -> None:
+        self._load()
+
+    def action_back(self) -> None:
+        self.dismiss(self._ids)

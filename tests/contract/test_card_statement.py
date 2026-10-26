@@ -20,8 +20,12 @@ say them. Pinned here:
     on a complete, no version bump and no activity entry;
   · their refusals, each naming every half it fails on (`twin.` for the other) and
     writing nothing: `ACCOUNT_ARCHIVED`, then `ENDING_BALANCE_REQUIRED`, then
-    `NO_TRANSACTIONS_ASSIGNED`, then `UNASSIGNED_IN_PERIOD`, then `STATEMENT_NOT_ORDERED`,
-    never prefixed; `UNASSIGNED_IN_PERIOD` on both halves at once, each counting its own;
+    `NO_TRANSACTIONS_ASSIGNED`, then `STATEMENT_NOT_ORDERED`, never prefixed; a line in
+    no reconciliation refusing none of them;
+  · the lines a close flags for review (`review_lines`), each half its own account's,
+    oldest first, from the previous statement's last day to the half's last day, from
+    either half: a line in a draft never, a half already completed none, and nothing
+    written on a flagged line;
   · one create making both halves, the twin under the request's name and days and its
     own balances; a half created alone over the other half's days becoming its twin;
   · the create's refusals one check at a time, in the contract's order, nothing written;
@@ -41,7 +45,6 @@ undoes everything (conftest.py `scratch`). Gating, target and the real-ledger gu
 conftest.py.
 """
 
-from functools import partial
 from uuid import uuid4
 
 from expense.errors import EngineError
@@ -55,7 +58,7 @@ from tests.contract.conftest import (
 )
 
 MARCH = ("2026-03-01", "2026-03-31")
-ANSWER_ONLY = ("twin", "warnings", "coverage_gap")
+ANSWER_ONLY = ("twin", "warnings", "coverage_gap", "review_lines")
 
 
 def _read(client, recon: str) -> dict:
@@ -176,11 +179,12 @@ def test_each_half_names_the_other_and_both_count_the_statement(client, scratch)
 def test_complete_and_revert_act_on_both_halves_from_either(client, scratch):
     """Completing from either half completes both in one write, each bumping its own
     `version`, the answer the half the path names plus `twin`, the other half with its
-    own `warnings` and `coverage_gap`
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Atomicity")
+    own `warnings`, `coverage_gap` and `review_lines`, `[]` on both with no line left
+    out (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Atomicity")
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"), and
     both currencies' lines read one statement's codes. Reverting from either half
-    reverts both, its answer carrying `twin` and neither `warnings` nor `coverage_gap`;
+    reverts both, its answer carrying `twin` and none of `warnings`, `coverage_gap` and
+    `review_lines`;
     reverting a statement whose every half is a draft writes nothing
     (contract: POST /v1/reconciliations/{reconciliation_id}/revert, "Response")
     (contract: POST /v1/reconciliations/{reconciliation_id}/revert, "Revert requires nothing")."""
@@ -199,6 +203,7 @@ def test_complete_and_revert_act_on_both_halves_from_either(client, scratch):
         assert half["status"] == 2
         assert half["version"] == versions[half["id"]] + 1
         assert {"warnings", "coverage_gap"} <= set(half)
+        assert half["review_lines"] == []
     assert client.get(f"/bank-lines/{s1}")["statement_line"] == f"{code}-202603-001"
     assert client.get(f"/bank-lines/{d1}")["statement_line"] == f"{code}-202603-002"
 
@@ -207,7 +212,7 @@ def test_complete_and_revert_act_on_both_halves_from_either(client, scratch):
     for half in (back, back["twin"]):
         assert half["status"] == 1
         assert half["version"] == versions[half["id"]] + 2
-        assert not {"warnings", "coverage_gap"} & set(half)
+        assert not {"warnings", "coverage_gap", "review_lines"} & set(half)
 
     drafts = [_read(client, recon) for recon in (rs, rd)]
     again = client.post(f"/reconciliations/{rd}/revert")
@@ -237,6 +242,10 @@ def test_a_half_already_completed_or_already_a_draft_is_left_as_it_is(client, sc
     draft half and leaves the completed one as it is, no `version` bump; the completed
     half's lines are judged with it, the draft's opening balance taking no place
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Atomicity").
+    Only the half it completes flags its leftover lines: the completed half answers
+    `review_lines` `[]` though a line in no reconciliation lies on its last day, which
+    stays open, and the draft half its own account's line
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
     Meanwhile the completed half's lines read their statement lines and the draft
     half's read `null` (contract: "Transactions (Ledger)", "Bank lines"), and no list is
     taken from the draft half (`RECONCILIATION_NOT_DRAFT`)
@@ -251,10 +260,14 @@ def test_a_half_already_completed_or_already_a_draft_is_left_as_it_is(client, sc
     for (soles, dollars), from_completed in zip(pairs, (False, True), strict=True):
         completed, draft, _ = _completed_then_twinned(client, scratch, soles, dollars, MARCH)
         scratch.opening_balance(dollars, MARCH[0], draft)
+        scratch.line(soles, MARCH[1], -50)
+        waiting = scratch.line(dollars, "2026-03-10", -70)
         kept, draft_version = _read(client, completed), _read(client, draft)["version"]
         named, other = (completed, draft) if from_completed else (draft, completed)
         done = client.post(f"/reconciliations/{named}/complete")
         _assert_answers(client, done, named, other)
+        flagged = {half["id"]: half["review_lines"] for half in (done, done["twin"])}
+        assert flagged == {completed: [], draft: [waiting]}
         assert _read(client, completed) == kept
         assert _read(client, draft)["status"] == 2
         assert _read(client, draft)["version"] == draft_version + 1
@@ -334,10 +347,11 @@ def test_complete_and_revert_refusals_name_each_half(client, scratch):
     `twin.reconciliation_id` or both, refused on a revert too, a draft included
     (contract: POST /v1/reconciliations/{reconciliation_id}/revert); then no ending
     balance (`ENDING_BALANCE_REQUIRED`); then no transaction assigned
-    (`NO_TRANSACTIONS_ASSIGNED`); then a transaction dated inside the period left
-    unassigned (`UNASSIGNED_IN_PERIOD`); then the statement not ordered
+    (`NO_TRANSACTIONS_ASSIGNED`); then the statement not ordered
     (`STATEMENT_NOT_ORDERED` on `statement_order`, never prefixed: the order is the
-    whole statement's). Each answers alone while the checks after it would refuse too."""
+    whole statement's). Each answers alone while the checks after it would refuse too.
+    A line dated inside the period and left in no reconciliation refuses none of them:
+    the complete goes through and flags it on its half's `review_lines`."""
     (code,) = free_statement_codes(client, 1)
     soles = scratch.account("PEN", code)
     dollars = scratch.account("USD", code)
@@ -350,8 +364,9 @@ def test_complete_and_revert_refusals_name_each_half(client, scratch):
         return lambda: client.post(f"/reconciliations/{recon}/revert")
 
     # From here on every later check would refuse too: the soles half has no ending
-    # balance, neither half a transaction, and a dollar line in the period is
-    # unassigned; each step below answers alone, so it comes before all of those.
+    # balance, and neither half a transaction nor an order; each step below answers
+    # alone, so it comes before all of those. The dollar line left in no reconciliation
+    # refuses nothing.
     loose = scratch.line(dollars, "2026-03-07", -200)
     client.put(f"/reconciliations/{rs}", json_body={"ending_balance_cents": None})
     client.post(f"/accounts/{dollars}/archive")
@@ -399,52 +414,54 @@ def test_complete_and_revert_refusals_name_each_half(client, scratch):
         assert_refusal(err, 422, "VALIDATION_ERROR", key, "NO_TRANSACTIONS_ASSIGNED")
 
     d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
-    for recon, key in ((rs, "twin.transactions"), (rd, "transactions")):
-        err = _refused_writing_nothing(client, complete(recon), rs, rd)
-        assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNASSIGNED_IN_PERIOD")
-    loose_part = client.get(f"/bank-lines/{loose}")["parts"][0]["id"]
-    client.put(f"/transactions/{loose_part}", json_body={"reconciliation_id": rd})
-
     for recon in (rs, rd):
         err = _refused_writing_nothing(client, complete(recon), rs, rd)
         assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
-    send_order(client, rd, [s1, d1, loose])
-    assert client.post(f"/reconciliations/{rs}/complete")["twin"]["status"] == 2
+    send_order(client, rd, [s1, d1])
+    done = client.post(f"/reconciliations/{rs}/complete")
+    assert (done["status"], done["twin"]["status"]) == (2, 2)
+    assert (done["review_lines"], done["twin"]["review_lines"]) == ([], [loose])
 
 
-def test_unassigned_in_period_names_both_halves_at_once(client, scratch):
-    """With a transaction dated inside its period left unassigned on each half, a
-    complete from either half is refused on both at once, `transactions` for the half
-    the path names and `twin.transactions` for the other, each half counting its own
-    account's rows inside its own period, and nothing is written
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Which half a
-    refusal names")
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation")."""
+def test_a_close_flags_each_halfs_leftover_lines_from_either_half(client, scratch):
+    """A complete goes through with lines left in no reconciliation, and flags them for
+    review: each half's `review_lines` are its own account's live lines in no
+    reconciliation dated from the previous statement's last day to the half's last day,
+    oldest first, `review_lines` for the half the path names and `twin.review_lines`
+    for the other, from either half. A line on the previous statement's last day is
+    flagged, one before it is not, nor one in a draft, nor one after the half's days;
+    with no previous statement only the half's own days count. The engine changes
+    nothing on a flagged line
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
     (code,) = free_statement_codes(client, 1)
     soles = scratch.account("PEN", code)
     dollars = scratch.account("USD", code)
+    february = scratch.reconciliation(soles, "2026-02-01", "2026-02-28")
     rs, rd = scratch.card(soles, dollars, *MARCH)
-    scratch.line(soles, "2026-03-05", -1000, recon=rs)
-    scratch.line(dollars, "2026-03-06", -300, recon=rd)
-    scratch.line(soles, "2026-03-10", -150)
-    scratch.line(dollars, "2026-03-11", -200)
-    scratch.line(dollars, "2026-03-12", -250)
+    s1 = scratch.line(soles, "2026-03-05", -1000, recon=rs)
+    d1 = scratch.line(dollars, "2026-03-06", -300, recon=rd)
+    send_order(client, rs, [s1, d1])
+    s10 = scratch.line(soles, "2026-03-10", -150)
+    edge = scratch.line(soles, "2026-02-28", -120)
+    d12 = scratch.line(dollars, "2026-03-12", -250)
+    d11 = scratch.line(dollars, "2026-03-11", -200)
+    # Never flagged: a soles line before February's last day, one in February's draft
+    # though dated in March, one after March, and a dollar line in February, where the
+    # dollar account has no statement.
+    scratch.line(soles, "2026-02-27", -110)
+    scratch.line(soles, "2026-03-09", -130, recon=february)
+    scratch.line(soles, "2026-04-02", -140)
+    scratch.line(dollars, "2026-02-28", -160)
+    flagged = {rs: [edge, s10], rd: [d11, d12]}
+    lines = [client.get(f"/bank-lines/{line}") for line in (edge, s10, d11, d12)]
 
-    unassigned = "UNASSIGNED_IN_PERIOD"
-    counted = {rs: 1, rd: 2}
     for named, other in ((rs, rd), (rd, rs)):
-        complete = partial(client.post, f"/reconciliations/{named}/complete")
-        err = _refused_writing_nothing(client, complete, rs, rd)
-        assert_refusals(
-            err,
-            422,
-            "VALIDATION_ERROR",
-            {"transactions": unassigned, "twin.transactions": unassigned},
-        )
-        for key, recon in (("transactions", named), ("twin.transactions", other)):
-            assert err.fields[key].startswith(f"{counted[recon]} transaction(s) dated inside"), (
-                err.fields
-            )
+        done = client.post(f"/reconciliations/{named}/complete")
+        assert (done["status"], done["twin"]["status"]) == (2, 2)
+        assert done["review_lines"] == flagged[named]
+        assert done["twin"]["review_lines"] == flagged[other]
+        assert [client.get(f"/bank-lines/{line}") for line in (edge, s10, d11, d12)] == lines
+        client.post(f"/reconciliations/{named}/revert")
 
 
 # ---- one create, both halves ------------------------------------------------------

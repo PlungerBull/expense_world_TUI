@@ -14,8 +14,8 @@ engine:
     completed, is sealed under the statement's own name once it is, and opens
     again when that next statement is reverted;
   · a draft seals nothing, and revert opens the wall again;
-  · a row in the period filed nowhere does not stop `complete`, and its day seals
-    with the rest;
+  · a row in the period filed nowhere does not stop `complete`, whose answer flags
+    its line in `review_lines`, and its day seals with the rest;
   · `warnings` / `coverage_gap` report a skipped stretch, and are empty/null
     when there is none; revert carries neither;
   · periods on one account may not share a day, and may not run backwards.
@@ -264,13 +264,16 @@ def test_a_draft_seals_nothing(client, ledger):
 def test_a_row_filed_nowhere_does_not_stop_complete_and_its_day_seals(client, ledger):
     """A line in no reconciliation is not a refusal of complete
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete): the period
-    completes, and the unfiled row's day is sealed with the rest."""
+    completes, its answer flags the unfiled row's line in `review_lines`, and the
+    unfiled row's day is sealed with the rest."""
     account = ledger.account()
     filed = ledger.row(account, ledger.at(2026, 3, 10))
-    ledger.row(account, ledger.at(2026, 3, 11))
+    unfiled = ledger.row(account, ledger.at(2026, 3, 11))
     period, name = ledger.period(account, "2026-03-01", "2026-03-31", filed)
 
-    assert client.post(f"/reconciliations/{period}/complete")["status"] == 2
+    done = client.post(f"/reconciliations/{period}/complete")
+    assert done["status"] == 2
+    assert done["review_lines"] == [client.get(f"/transactions/{unfiled}")["bank_line_id"]]
     err = ledger.refused_row(account, ledger.at(2026, 3, 11))
     assert reason_on(err, "date") == "SEALED_PERIOD"
     assert name in err.fields["date"]

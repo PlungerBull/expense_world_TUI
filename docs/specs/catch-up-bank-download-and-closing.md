@@ -109,6 +109,14 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
    **Recommended:** A, because the column was empty anyway, and the case needs a card account
    archived before it ever had a statement.
 
+3. **The "no batch" list's caption** (found in task 5). It explains its `!` mark as `! blocks a
+   batch's close`, which is no longer true: a close flags such a line instead. Drawn in
+   [expense-world-no-batch-caption.html](../mockups/expense-world-no-batch-caption.html).
+   - **A.** `! dated inside a statement`: the mark stays, the words say only what is true.
+   - **B.** No mark and no words.
+
+   **Recommended:** A, because the mark still points at the lines worth opening first.
+
 ---
 
 ## Tasks
@@ -116,22 +124,6 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 The owner picked both mockups on 2026-10-26: 2B and 3B for the import door, 1A for the flagged
 lines.
 
-5. **[UI] Completing a statement shows the lines it flagged** (point 2). First a mockup of where
-   the flagged lines show after complete, each leading to its line
-   ([expense-world-statement-flagged-lines.html](../mockups/expense-world-statement-flagged-lines.html)),
-   picked 1A. Then: complete goes through whenever the engine takes it, and nothing in the
-   app or its unit tests treats leftover lines as a refusal of complete (the
-   `UNASSIGNED_IN_PERIOD` test in
-   [test_tui_reconcile_detail.py](../../tests/unit/test_tui_reconcile_detail.py) goes); the fake
-   engine answers a complete with each half's `review_lines` and the `twin`, as the real one does
-   (contract: POST /v1/reconciliations/{reconciliation_id}/complete); a card shows both halves'
-   lines. The live tests stop expecting the refusal ([test_card_statement.py](../../tests/contract/test_card_statement.py),
-   [test_statement_order.py](../../tests/contract/test_statement_order.py)) and prove a close
-   flagging a leftover line, on a card on both halves. [runtime.md](../runtime.md)'s line on the
-   statement-order tests stops naming `UNASSIGNED_IN_PERIOD`, and the sealed-period test of a row
-   filed nowhere checks the close's `review_lines` too. The `blocking_windows` docstring in
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py) stops saying a leftover
-   row refuses the close.
 6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
    door's account list, preview and result
    ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)),
@@ -183,6 +175,14 @@ Not built in this spec; drafted into a new spec when it is done.
   takes its key only from `EXPENSE_PAT`, and [runtime.md](../runtime.md) "Leftovers" says it
   cleans "the practice user"; a leftover on the reserved-names user is cleaned by passing that
   user's key as `EXPENSE_PAT`, which no doc says. (Task 4.)
+- **The flagged lines are read one call each.** The engine has no read of several bank lines by
+  their ids, so the screen of a close's flagged lines reads each line by its own id. Engine ask
+  "The bank-line list reads several lines by their ids in one call", in
+  [to-engine/](../to-engine/). (Task 5.)
+- **A completed statement's footer still offers `c Complete` and `d Delete`.** The picked
+  mockup's statement pane (1A, after `esc`) draws `esc Back  r Refresh  u Revert  f Flagged  ?
+  Keys`; the screen shows `c` and `d` on a completed statement too, as before this spec.
+  (Task 5.)
 - **A tick refusal test fakes a reason the engine lacks.** The first case of the tick-refusal
   test in test_tui_reconcile_detail.py sends `PERIOD_SEALED` ("Period is sealed."); the engine's
   reason is `SEALED_PERIOD`, and a tick is never refused for sealing. (Task 3.)

@@ -36,6 +36,22 @@ Reconciliations still show its empty column? The question and its options are in
 
 **Recommended:** A (no column), because the column was empty anyway.
 
+### The "no batch" caption
+Asked 2026-10-26 · Blocks: question 3 of [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
+
+Pick how the "no batch" list explains its `!` mark, now that a close no longer stops on those
+lines: [mockups/expense-world-no-batch-caption.html](mockups/expense-world-no-batch-caption.html).
+
+**Recommended:** A (`! dated inside a statement`).
+
+### Hand over the ask for reading several bank lines at once
+Asked 2026-10-26 · Blocks: nothing; the flagged lines screen reads one line per call until it lands
+
+Copy [to-engine/bank-lines-read-by-ids.md](to-engine/bank-lines-read-by-ids.md) into the engine
+repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
 ### Two practice keys in CLAUDE.md and the guard
 Asked 2026-10-26 · Blocks: nothing
 

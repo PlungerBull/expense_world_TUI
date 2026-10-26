@@ -70,11 +70,12 @@ NEEDS_SCREEN_HANDLER = {
     "more": "on_cursor_list_more_requested",
 }
 
-#: A widget may name, in a `CARD_FOLLOWS_CHECK` frozenset, the actions whose
-#: card row follows its `check_action`: listed only while it allows them, as
-#: the footer does. For a key that is off in some states (the Reconciliations
-#: panel's `⏎`: `Edit` in the "no batch" list, `Open` on the reconciliations);
-#: every other row of the card lists what the classes declare.
+#: A widget or a screen may name, in a `CARD_FOLLOWS_CHECK` frozenset, the
+#: actions whose card row follows its `check_action`: listed only while it
+#: allows them, as the footer does. For a key that is off in some states (the
+#: Reconciliations panel's `⏎`: `Edit` in the "no batch" list, `Open` on the
+#: reconciliations; a statement's `f`, only while a complete's flagged lines
+#: are left); every other row of the card lists what the classes declare.
 CARD_FOLLOWS_CHECK = "CARD_FOLLOWS_CHECK"
 
 #: Card geometry. `#modal` is 72 wide with `padding: 1 2` and a border, leaving 66
@@ -214,7 +215,12 @@ def screen_inventory(screen) -> tuple[str, list[HelpGroup]]:
     name = crumb[-1] if crumb else type(screen).__name__.removesuffix("Screen")
     title = f"Keys — {name}"
 
-    groups = [HelpGroup("This screen", tuple(key_rows(declared_bindings(type(screen)))))]
+    off = frozenset(
+        action
+        for action in getattr(screen, CARD_FOLLOWS_CHECK, ())
+        if screen.check_action(action, ()) is False
+    )
+    groups = [HelpGroup("This screen", tuple(key_rows(declared_bindings(type(screen)), drop=off)))]
 
     focused = getattr(screen, "focused", None)
     if focused is not None and focused is not screen:

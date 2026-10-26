@@ -260,6 +260,26 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
 
 
+def fetch_live_bank_lines(cfg, ids: Iterable[str], *, verbose: bool = False) -> list[dict]:
+    """Each bank line `ids` names that the engine still has, in the order given:
+    one `fetch_bank_line` each. A `404` is a line no longer live, deleted whole
+    or by its last part (contract: GET /v1/bank-lines/{bank_line_id}), and is
+    left out; any other failure is raised.
+
+    Read by the flagged lines' screen: a complete names the lines it flagged
+    for review by id alone, and once it is done no list names them again
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+    """
+    lines = []
+    for bank_line_id in ids:
+        try:
+            lines.append(fetch_bank_line(cfg, bank_line_id, verbose=verbose))
+        except EngineError as err:
+            if err.status != 404:
+                raise
+    return lines
+
+
 def fetch_bank_lines(
     cfg,
     *,

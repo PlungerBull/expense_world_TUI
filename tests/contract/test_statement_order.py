@@ -22,8 +22,8 @@ the completion refusal they answer. Pinned here:
   · the lines a statement still needs (`GET /bank-lines?unassigned_in_period_of=` and
     its count): both halves of a card from either half, oldest first, an opening
     balance never, none on a completed statement, the draft half's alone beside a
-    completed one, an account without a code its own; empty exactly when the complete
-    is no longer refused `UNASSIGNED_IN_PERIOD`; `CONFLICTING_PARAMETERS` beside any
+    completed one, an account without a code its own; exactly the lines the complete
+    then flags in its two halves' `review_lines`; `CONFLICTING_PARAMETERS` beside any
     other filter, `INVALID_REFERENCE` and `INVALID_FORMAT`;
   · completing is `422` `STATEMENT_NOT_ORDERED` on `statement_order` until every line
     holds its own place: lines with none, a line assigned after the list, and two
@@ -555,17 +555,17 @@ def _needed(client, recon: str, **params) -> list[str]:
     return listed
 
 
-def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, scratch):
+def test_the_lines_a_statement_still_needs_are_what_the_complete_flags(client, scratch):
     """`GET /bank-lines?unassigned_in_period_of=<id>` and its count list the lines a
     statement still needs: on a card both halves' lines, whichever half is named, each
     half's own account's lines dated inside its days and in no reconciliation, an
     opening balance never; with `sort=statement` oldest first, both currencies mixed
     by date, and newest first without it; the count the list's length
     (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines, "Ordering")
-    (contract: GET /v1/bank-lines/count). They are exactly what the complete counts:
-    while one is listed it is refused `UNASSIGNED_IN_PERIOD` on that line's half, and
-    once the list is empty that check passes and the next one answers
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation").
+    (contract: GET /v1/bank-lines/count). They are exactly what the complete flags:
+    it goes through while lines are listed, and its two halves' `review_lines` hold
+    the listed lines, each half its own account's, oldest first
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
     A completed statement lists none; a card with one half completed lists only the
     draft half's lines; an account with no statement code lists its own."""
     (code,) = free_statement_codes(client, 1)
@@ -589,18 +589,14 @@ def test_the_lines_a_statement_still_needs_are_what_the_complete_counts(client, 
         assert _needed(client, recon) == [d10, s12, s20], recon
         assert _listed(client, unassigned_in_period_of=recon) == [s20, s12, d10], recon
 
-    scratch.assign(d10, rd)
     scratch.assign(s12, rs)
-    assert _needed(client, rd) == [s20]
-    for recon, key in ((rs, "transactions"), (rd, "twin.transactions")):
-        err = refused(lambda recon=recon: client.post(f"/reconciliations/{recon}/complete"))
-        assert_refusal(err, 422, "VALIDATION_ERROR", key, "UNASSIGNED_IN_PERIOD")
-    scratch.assign(s20, rs)
-    assert _needed(client, rs) == []
+    assert _needed(client, rd) == [d10, s20]
     err = refused(lambda: client.post(f"/reconciliations/{rs}/complete"))
     assert_refusal(err, 422, "VALIDATION_ERROR", "statement_order", "STATEMENT_NOT_ORDERED")
-    send_order(client, rs, [s1, d1, d10, s12, s20])
-    assert client.post(f"/reconciliations/{rd}/complete")["twin"]["status"] == 2
+    send_order(client, rs, [s1, d1, s12])
+    done = client.post(f"/reconciliations/{rd}/complete")
+    assert (done["status"], done["twin"]["status"]) == (2, 2)
+    assert (done["review_lines"], done["twin"]["review_lines"]) == ([d10], [s20])
 
     for recon in (rs, rd):
         assert _needed(client, recon) == [], recon
