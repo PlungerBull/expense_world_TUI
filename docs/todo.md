@@ -28,16 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the ask that locked lines say why in words
-Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md), its reason beside `read-only`
-
-For the Edit form to say why a line is read-only, the engine has to send a sentence with each
-lock, not only a code. Copy
-[to-engine/edit-limits-say-why-in-words.md](to-engine/edit-limits-say-why-in-words.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
-
 ### Hand over the ask for a practice user held on the reserved names
 Asked 2026-10-25 · Blocks: the live tests of a held reserved name, under "Found along the way" in [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)
 

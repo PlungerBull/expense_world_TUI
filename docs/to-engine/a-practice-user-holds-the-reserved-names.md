@@ -19,7 +19,8 @@ cannot check that the real engine sends it on the key the contract names.
 
 ## The ask
 
-`deploy/local/seed-test-user.sh` also seeds a second practice user, on the same
+The local test-user seed, the script that seeds the practice user and reseeds it with
+`--force`, also seeds a second practice user, on the same
 `expense_world_test` database, that is held on the reserved names:
 
 - a category of the user's own (`system_key` null) named `@Pendiente` and one named `@Opening`;
@@ -34,7 +35,7 @@ first practice user is unchanged.
 
 ## Done when
 
-- After `seed-test-user.sh --force`, the second practice user holds exactly the rows above, and
+- After a `--force` reseed, the second practice user holds exactly the rows above, and
   its PAT is printed beside the first one's.
 - As that user, `POST /transactions` with a category and no `hashtag_ids` returns `409`
   `RESERVED_NAME_HELD` on `hashtag_ids`; with a hashtag and no category it returns `409`
