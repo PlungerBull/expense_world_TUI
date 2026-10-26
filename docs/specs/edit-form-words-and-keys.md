@@ -54,12 +54,7 @@ On 2026-10-25 the owner answered each question with A:
 
 ## Tasks
 
-Approved by the owner on 2026-10-25. Task 3 is **[UI]**, picked from
-[mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).
-
-3. **[UI] A refused part names its category and hashtags in the form's words**, as screen 3 A of
-   the mockup draws it: `part 1 (category)` and `part 1 (hashtags)`, as `part 1 (amount)` reads
-   now. A test for each.
+Every task is done.
 
 ## Found along the way
 

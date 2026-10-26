@@ -39,8 +39,9 @@ ENGINE_FIELDS = {
     "hashtags": "hashtag_ids",
     "note": "description",
 }
-#: What a refused key's field reads as after `part N`.
-FIELD_WORDS = {"amount_cents": "amount"}
+#: What a refused key's field reads as after `part N`: the table's column word for
+#: the engine's field, `parts.0.category_id` reading `part 1 (category)`.
+FIELD_WORDS = {engine: field for field, engine in ENGINE_FIELDS.items()}
 
 #: Columns of the table, as drawn: the marker and number, then each cell at
 #: least as wide as its header leaves room for, and the gap after each.
@@ -213,7 +214,9 @@ def count_line(parts: list[Part], total: int | None, *, palette: Palette | None 
 
 def key_words(key: object) -> str:
     """A refusal's key as the form names it: `parts.1.amount_cents` reads
-    `part 2 (amount)`, `parts.0` reads `part 1`; any other key as sent."""
+    `part 2 (amount)` and `parts.1.hashtag_ids` `part 2 (hashtags)`, each part
+    field by its column's word (`FIELD_WORDS`), a field the table has no column
+    for as sent; `parts.0` reads `part 1`; any other key as sent."""
     index = key_index(key, "parts")
     if index is None:
         return str(key)

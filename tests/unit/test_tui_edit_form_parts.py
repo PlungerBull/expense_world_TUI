@@ -1078,7 +1078,7 @@ REFUSALS = [
         "parts.0.category_id",
         "OPENING_BALANCE_CATEGORY_FIXED",
         "Must not move an opening balance out of the opening-balance category.",
-        "part 1 (category_id)",
+        "part 1 (category)",
         "An opening balance always stays in @Opening.",
     ),
     (
@@ -1086,7 +1086,7 @@ REFUSALS = [
         "parts.0.hashtag_ids",
         "OPENING_BALANCE_NOT_TAGGED",
         "Must be empty: an opening balance carries no hashtag.",
-        "part 1 (hashtag_ids)",
+        "part 1 (hashtags)",
         None,  # edit-form-words-and-keys 3 A: the engine's words alone
     ),
     (
@@ -1284,8 +1284,14 @@ def test_the_line_adds_the_parts_up_against_the_engines_total():
 
 
 def test_a_refused_key_reads_its_part_by_number():
+    """Each part field by its column's word (screen 3 A of
+    mockups/expense-world-edit-form-words.html)."""
     assert key_words("parts.0.amount_cents") == "part 1 (amount)"
-    assert key_words("parts.11.category_id") == "part 12 (category_id)"
+    assert key_words("parts.11.category_id") == "part 12 (category)"
+    assert key_words("parts.1.hashtag_ids") == "part 2 (hashtags)"
+    assert key_words("parts.1.description") == "part 2 (note)"
+    assert key_words("parts.1.note") == "part 2 (note)"
+    assert key_words("parts.0.id") == "part 1 (id)"
     assert key_words("parts.2") == "part 3"
     assert key_words("parts") == "parts"
     assert key_words("title") == "title"

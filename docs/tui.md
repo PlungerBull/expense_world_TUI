@@ -461,9 +461,12 @@ says `No changes to save.` and sends nothing. Saved, it says `Saved.`, or
 ledger reads fresh from the newest 10, cursor on row 1.
 **A refused save stays under the parts** until something changes: the engine's
 `CODE — message` in the error colour, one `! <key>: <words>` line per refused key with
-`parts.<i>.<field>` read as `part i+1 (field)` (`amount_cents` reads `amount`, the index read
-by `key_index` in [errors.py](../expense/errors.py)) and any other key as sent (`! title: …`),
-each hanging under its own words (`hanging` in
+`parts.<i>.<field>` read as `part i+1 (field)`, the field named by its column's word
+(`amount_cents` reads `amount`, `category_id` `category`, `hashtag_ids` `hashtags`,
+`description` `note`, and a part field with no column as sent, e.g. `part 1 (id)`;
+`FIELD_WORDS` in [parts_table.py](../expense/tui/widgets/parts_table.py), the index read by
+`key_index` in [errors.py](../expense/errors.py)) and any other key as sent (`! title: …`), each
+hanging under its own words (`hanging` in
 [refusal.py](../expense/tui/widgets/refusal.py)), then `Nothing was saved.` dim (not under a
 `5xx`), then a blank line and the app's line when the reason has one (`app_lines`; "When the
 engine says no" below). The amounts a `parts.<i>.amount_cents` key names turn the error colour
