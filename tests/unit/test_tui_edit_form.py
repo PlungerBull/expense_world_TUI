@@ -896,7 +896,7 @@ def test_no_field_move_lands_on_a_read_only_line(fake_client, monkeypatch, line)
 COMPLETED_LIMITS = edit_limits(
     locked_fields=dict.fromkeys(_ARCHIVED_FIELDS, "LOCKED"),
     total_fixed=True,
-    locked_part_fields={"tx1": {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
+    locked_part_fields={TXN["id"]: {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
 )
 
 
@@ -1041,7 +1041,7 @@ def test_the_engines_sentence_shows_as_sent_never_as_styling(fake_client, monkey
         "locked_fields": {
             field: {"reason": "LOCKED", "message": words} for field in _ARCHIVED_FIELDS
         },
-        "locked_part_fields": {"tx1": {"amount_cents": {"reason": "X", "message": words}}},
+        "locked_part_fields": {TXN["id"]: {"amount_cents": {"reason": "X", "message": words}}},
     }
     line = _line(TXN, limits=limits)
     _patch(monkeypatch, line)
@@ -1056,9 +1056,9 @@ def test_two_parts_locked_in_one_column_for_different_reasons_join_their_sentenc
     first, second = LOCK_MESSAGES["ACCOUNT_ARCHIVED"], LOCK_MESSAGES["SPLIT_TOTAL_MISMATCH"]
     lines = readonly_lines(
         {
-            0: {"amount": first, "note": None},
-            1: {"amount": second},
-            2: {"amount": first},
+            0: dict(amount=first, note=None),
+            1: dict(amount=second),
+            2: dict(amount=first),
         }
     )
     drawn = [render_text(line, width=200).rstrip() for line in lines]

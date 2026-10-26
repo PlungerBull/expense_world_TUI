@@ -8,6 +8,8 @@ draws. Toasts are read as drawn (`run_app(..., toasts=True)`, `toasts_shown`);
 the rule they follow is guarded in test_toast_words.py.
 """
 
+from dataclasses import replace
+
 import pytest
 import respx
 from textual.content import Content
@@ -230,16 +232,16 @@ LEDGER = [
     }
     for i in range(23)
 ]
-NAMES = {"acc1": "BCP Signature PEN", "kor": "KORAKUEN", "pend": "@Pendiente"}
+NAMES = {"acc1": "BCP Signature PEN", "cat1": "KORAKUEN", "pend": "@Pendiente"}
 REFS = QuickAddRefs(
     accounts=[("acc1", "BCP Signature PEN", "PEN")],
-    categories=[("kor", "KORAKUEN")],
+    categories=[("cat1", "KORAKUEN")],
     hashtags=[],
     account_names={"acc1": "BCP Signature PEN"},
-    category_names={"kor": "KORAKUEN", "pend": "@Pendiente"},
+    category_names={"cat1": "KORAKUEN", "pend": "@Pendiente"},
     hashtag_names={},
     pending=("pend", "@Pendiente"),
-    pickable_categories=[("kor", "KORAKUEN"), ("pend", "@Pendiente")],
+    pickable_categories=[("cat1", "KORAKUEN"), ("pend", "@Pendiente")],
 )
 
 
@@ -359,13 +361,11 @@ def test_a_bulk_receipt_shows_a_name_whole(fake_client, monkeypatch):
     """The receipt after a bulk edit names what the rows went to, as the
     engine holds its name."""
     name = "KORAKUEN [like this]"
-    refs = QuickAddRefs(
-        **{
-            **REFS.__dict__,
-            "categories": [("kor", name)],
-            "category_names": {"kor": name, "pend": "@Pendiente"},
-            "pickable_categories": [("kor", name), ("pend", "@Pendiente")],
-        }
+    refs = replace(
+        REFS,
+        categories=[("cat1", name)],
+        category_names={"cat1": name, "pend": "@Pendiente"},
+        pickable_categories=[("cat1", name), ("pend", "@Pendiente")],
     )
     _stub_ledger(monkeypatch, refs=refs)
 
