@@ -28,15 +28,7 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the Edit form's reply to the engine
-Asked 2026-10-25 · Blocks: nothing; the engine waits for it
-
-The Edit form now saves a whole line in one write and reads what is locked from the engine, and
-every check passed. Copy
-[to-engine/caught-up-bdc9d3f3a540b7ce-edit-form.md](to-engine/caught-up-bdc9d3f3a540b7ce-edit-form.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
+Nothing waits on you right now.
 
 ---
 

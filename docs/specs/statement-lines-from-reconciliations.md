@@ -201,6 +201,11 @@ Written into [to-engine/](../to-engine/) once this spec is done.
   from the engine's, by the owner's calls: check 4 reads the statement line through the engine,
   since no screen shows it, and the engine's check 9 (check 7 here) is proved by the live
   contract suite, since the order screen creates nothing.
+- **The whole range, no gaps** (the engine, on the Edit form's reply, 2026-10-25): the engine
+  moves this client's "read up to" marker past `f5cbc6ab4841f0a7` only once one reply covers every
+  section of its hand-off the Edit form's reply did not. So this reply answers each of them: read
+  and checked, or read and proven by the live contract suite with no screen, by the owner's
+  calls (the statement line never shown, the order screen dropped for the PDF statement).
 - **Contract problems found:** none so far.
 - **Asks this closes:** the twelve listed under "What the engine settled".
 
