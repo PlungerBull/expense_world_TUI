@@ -8,9 +8,10 @@ is deleted.
 
 ## Why
 
-Small things found while doing the statement catch-up's leftovers (2026-10-25), not fixed
-there. All of them are inside the test suites and their tools: nothing you see changes, and no
-engine change is needed.
+Small things found while doing the statement catch-up's leftovers (2026-10-25), and while
+proving a held reserved name on the Edit form (points 9 and 10, 2026-10-25), not fixed there.
+All of them are inside the test suites and their tools: nothing you see changes, and no engine
+change is needed.
 
 ## What it must do
 
@@ -51,6 +52,16 @@ engine change is needed.
 8. **The drift script's docstring points to runtime.md** instead of repeating it: its REQUIRED
    FIELDS and KNOWN LIMITATION blocks copy [runtime.md](../runtime.md) "Fixture drift", where
    its CONTRACT VERSION block already just links there.
+9. **Four test comments say what their rows prove.** In
+   [test_errors.py](../../tests/unit/test_errors.py), the comments heading the refusal rows
+   say "pending-hashtag-manage 4 B, both refusals, and 5 B", "pending-hashtag-manage 7 B",
+   "archived-account 3 A" and "account-to-person 4 B"; each says what its rows prove instead.
+10. **The Edit form's shared hashtag-refusal test checks what it says.**
+    `test_a_hashtag_refusal_shows_under_the_parts_as_sent` in
+    [test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py) runs every hashtag refusal,
+    `RESERVED_NAME_HELD` among them, but when a reason has no line of the app's it checks
+    nothing, so it would pass with one showing. It proves no line of the app's shows for those
+    reasons, and for every reason that "Nothing was saved." shows and one write was sent.
 
 ## How the owner knows it is done
 

@@ -28,59 +28,51 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for the catch-up hand-off to 9063fab000b2e3d6
-Asked 2026-10-26 · Blocks: the engine catch-up spec, which comes next
+### Approve the engine catch-up spec
+Asked 2026-10-26 · Blocks: [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
 
-The engine moved from `bdc9d3f3a540b7ce`, the version this client last caught up to, to
-`9063fab000b2e3d6`: it reads the bank's Excel download itself, imports your spreadsheet itself,
-closes a statement from its PDF, keeps a statement's last day open until the next statement
-closes, and closes a statement with lines left over by flagging them. The new version is
-recorded, so the version check passes, but the app does not handle these changes yet: its
-bank-file import does not work against this engine, its statement close is the old one, and the
-fixture check reports `review_lines` missing from the statement close's fixture. On
-2026-10-26 the live contract suite failed 21 tests and errored on 1, every one from this move:
-the bank import's `rows` gone, `review_lines` on the close's answer, the close no longer
-refusing `UNASSIGNED_IN_PERIOD`, and a statement's last day staying open. The last of these
-left account `contract-seal-672b2c23` on the practice user; the practice-data cleaner removes
-it ([runtime.md](runtime.md) "Leftovers").
-Ask the engine coders for one hand-off file from `bdc9d3f3a540b7ce` to `9063fab000b2e3d6`, and
-copy it into [from-engine/](from-engine/); it becomes the catch-up spec.
+The engine's hand-off of 2026-10-26 is planned into four specs, this one first. It fixes the
+bank download import, which does not work against the engine today, shows the lines a
+statement's close flags, takes a card's other account from the engine, and adds the live tests
+of a held reserved name (the practice engine now has the second practice user). It also makes
+pass the 21 live tests that failed and the 1 that errored on 2026-10-26 after the engine moved,
+and records the engine's version `592f2467fa3df75a`. Two screens change, each picked from a
+mockup when it starts. Approve it or rewrite it.
 
-**Recommended:** none: only you can ask them.
+**Recommended:** approve it and make it the current spec, because the app cannot import a bank
+download until it lands.
 
-### Approve the spec for the live tests of a held reserved name
-Asked 2026-10-26 · Blocks: [specs/held-reserved-name-proven-live.md](specs/held-reserved-name-proven-live.md)
+### Approve the spec for the sheet import through the engine
+Asked 2026-10-26 · Blocks: [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
 
-What the finished reserved-name spec turned up: live tests proving the engine refuses a write
-when one of your own categories or hashtags has a built-in name (the practice engine now has a
-second practice user for it), four test comments that still name an old spec's pick, and one
-Edit form test that checks less than its name says. Nothing you see changes. Approve it or
-rewrite it.
+The engine now reads your spreadsheet itself; `expense import sheet` sends it the file, and the
+app's own reader goes. It holds three questions: whether the app creates the accounts,
+categories and hashtags you don't have yet, how you confirm which name goes where, and whether
+renaming an account as it comes in stays. Approve it or rewrite it, and answer them there.
 
-**Recommended:** approve it, after the engine catch-up, so its live tests run against the
-caught-up suite.
-
-### Approve the spec for the test suites' leftovers
-Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
-
-Eight small things the statement catch-up's leftovers found, all inside the tests and their
-tools: copies to merge, a stale test sentence, the drift check covering more of the engine's
-answers, and the practice-data cleaner reading every page. Nothing you see changes. Approve it
-or rewrite it.
-
-**Recommended:** approve it, after the PDF spec, which matters more.
+**Recommended:** approve it with the recommended answers, to run third, after the notes spec.
 
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
-The draft says what you described: a month stays open until its PDF arrives, and uploading the
-PDF closes it, creating the missing lines and flagging the extra ones, the engine doing the
-work. It holds six questions (bottom-of-statement charges, installments, flagged lines and
-closing, identical lines, which cards are one account, opening a month first). Approve it or
-rewrite it, and answer them there.
+The engine shipped the upload on 2026-10-26, and the draft is rewritten to what shipped: you
+name the account, the engine reads the PDF, creates the missing lines under `@Pendiente`, takes
+out the extra ones, puts every line in the paper's order and completes the month. It holds two
+questions: where you start the upload, and whether a PDF of the wrong account waits for
+accounts to carry their bank numbers (the card numbers and account names you described move to
+their own spec if not). Approve it or rewrite it, and answer them there.
 
-**Recommended:** approve it with the recommended answers, after answering question 5, which only
-you can.
+**Recommended:** approve it with the recommended answers, to run fourth.
+
+### Approve the spec for the test suites' leftovers
+Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
+
+Ten small things, all inside the tests and their tools: copies to merge, stale test sentences
+and comments, a test that checks less than its name says, the drift check covering more of the
+engine's answers, and the practice-data cleaner reading every page. Nothing you see changes.
+Approve it or rewrite it.
+
+**Recommended:** approve it, after the PDF spec, which matters more.
 
 ---
 
@@ -152,6 +144,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   that no longer says what to check; no test draws a row whose amount could not be read; the
   `ImportCounts` docstring says "summary" ([bank_import.py](../expense/tui/screens/bank_import.py),
   [engine.py](../expense/bank_import/engine.py), [flow.py](../expense/bank_import/flow.py)).
+  They go with the import door's rewrite in
+  [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md).
 - **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
   [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
   is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
@@ -261,22 +255,27 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
-- **A held reserved name is proven live, and the refusal tests say what they prove**: a draft
-  spec waiting for the owner's approval
-  ([specs/held-reserved-name-proven-live.md](specs/held-reserved-name-proven-live.md)).
+- **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, run in this
+  order: the bank download and closing a statement, a draft waiting for the owner's approval
+  ([specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md));
+  the notes spec below; the sheet import through the engine
+  ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), a
+  draft with three questions; and the PDF statement below.
 - **Notes that keep the engine's words, and lines that say they are locked**: a spec the owner
-  approved on 2026-10-25, its questions answered, not started; its reason beside `read-only`
-  waits on the engine ask "A bank line's edit limits say why each field is locked, in words"
+  approved on 2026-10-25, its questions answered, not started; the engine shipped its ask on
+  2026-10-26, so all of it can be built
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: a draft spec waiting for the owner's
-  approval and answers ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
+- **A month's statement closes from the bank's PDF**: a draft spec, rewritten to the engine's
+  upload of 2026-10-26, waiting for the owner's approval and answers
+  ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import), every question
-  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md).
+  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). It
+  follows the sheet import through the engine.
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Read-only reasons</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px;overflow-x:auto}
+  pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--text);white-space:pre}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .p{color:var(--pos)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,700px),1fr));gap:16px}
+  .var{margin-top:18px;min-width:0}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+  .sel{color:var(--accent);font-weight:700}
+  .bad{color:var(--neg);font-weight:700}
+  .ds{color:var(--accent)}
+</style>
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Why a line is read-only, and three notes</h1>
+  <p>The screens for the spec <b>Notes that keep the engine's words, and lines that say they are locked</b>. Each screen shows the app <b>as it is today</b> first, then each option. The text that changes is in <span class="sel">blue</span>, and what goes away is in <span class="bad">red</span>.</p>
+  <p>The rows are invented. The reasons beside <code>read-only</code> are the engine's sentences, word for word: the app shows what the engine sends. The terminal is 80 columns wide. Use the button at the top right to see a light terminal.</p>
+</div>
+
+<!-- ============ SCREEN 1 ============ -->
+<div class="pane"><div class="lbl">1 · Why a line is read-only, on the Edit form <span>— Capture &amp; ledger ▸ Transactions ▸ ⏎</span></div>
+<p class="blurb">You open <b>Farmacia</b>, a transaction in a completed reconciliation. Its date, title and account can't change, and neither can its amount while it has one part. Today each of those lines says <code>read-only</code> and nothing more. The engine now sends a sentence with each one, and these options show where it goes. The second row of drawings is an opening balance, whose three locked lines each have a different sentence. An archived account's transaction reads like the first row, with the sentence “The account is archived. Unarchive it first.”</p>
+
+<div class="opt">
+
+<div class="var"><div class="oh">Today · <span>a transaction in a completed reconciliation</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     Mascotas
+     Salud
+     Hogar
+
+   <span class="d">date     2026-06-20  read-only</span>
+   <span class="d">title    Farmacia  read-only</span>
+   <span class="d">account  BCP PEN  read-only</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1</span>   <span class="d">-42.50</span>    Mascotas       #dog            receta
+   <span class="d">amount  read-only</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div></div>
+
+<div class="var"><div class="oh">A · <span>the sentence beside each read-only line</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     Mascotas
+     Salud
+     Hogar
+
+   <span class="d">date     2026-06-20  read-only</span><span class="ds"> · Locked by completed reconciliation.</span>
+   <span class="d">title    Farmacia  read-only</span><span class="ds"> · Locked by completed reconciliation.</span>
+   <span class="d">account  BCP PEN  read-only</span><span class="ds"> · Locked by completed reconciliation.</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1</span>   <span class="d">-42.50</span>    Mascotas       #dog            receta
+   <span class="d">amount  read-only</span><span class="ds"> · The parts must add up to the line's total.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div>
+<p class="cap">Every read-only line says why on its own line, so the date line reads exactly as the spec's check 2 asks. When the lines share a reason, the same sentence shows three times. The sentence is dim on screen, like the rest of the line; it is drawn blue here only to show what is new.</p></div>
+
+<div class="var"><div class="oh">B · <span>each sentence once, naming its lines</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Transactions  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="ab">PART 1 CATEGORY</span>
+
+
+   <span class="d">pick an existing category · ↑↓ highlight · enter select</span>
+
+     Mascotas
+     Salud
+     Hogar
+
+   <span class="d">date     2026-06-20  read-only</span>
+   <span class="d">title    Farmacia  read-only</span>
+   <span class="d">account  BCP PEN  read-only</span>
+   <span class="ds">date, title, account: Locked by completed reconciliation.</span>
+
+   <span class="d">      amount    category       hashtags        note</span>
+   <span class="ab">▌ 1</span>   <span class="d">-42.50</span>    Mascotas       #dog            receta
+   <span class="d">amount  read-only</span><span class="ds"> · The parts must add up to the line's total.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field  <span class="a">^n</span> Add part</pre></div></div>
+<p class="cap">Each line still says <code>read-only</code>. One dim line under them says why, naming the lines it covers; lines with different reasons get one sentence each. Under the parts, each column's line keeps its sentence beside it, as in A. The sentence is dim on screen, like the rest; it is drawn blue here only to show what is new.</p></div>
+
+</div>
+
+<div class="opt">
+
+<div class="var"><div class="oh">Today · <span>an opening balance</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>   <span class="ab">DATE</span>               2026-06-20
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   date     2026-06-20
+   title    Saldo inicial
+   <span class="d">account  BCP PEN  read-only</span>
+
+   <span class="d">       amount    category       hashtags        note</span>
+     1  3,200.00    <span class="d">@Opening</span>       <span class="d">—</span>
+   <span class="d">category  read-only</span>
+   <span class="d">hashtags  read-only</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">The top of the screen (the crumb and the rule) is the same as above and left out.</p></div>
+
+<div class="var"><div class="oh">A · <span>the sentence beside each read-only line</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>   <span class="ab">DATE</span>               2026-06-20
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   date     2026-06-20
+   title    Saldo inicial
+   <span class="d">account  BCP PEN  read-only</span><span class="ds"> · Must not move an opening balance to</span>
+                               <span class="ds">another account.</span>
+
+   <span class="d">       amount    category       hashtags        note</span>
+     1  3,200.00    <span class="d">@Opening</span>       <span class="d">—</span>
+   <span class="d">category  read-only</span><span class="ds"> · Must not move an opening balance out of the</span>
+                       <span class="ds">opening-balance category.</span>
+   <span class="d">hashtags  read-only</span><span class="ds"> · Must be empty: an opening balance carries no</span>
+                       <span class="ds">hashtag.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">A long sentence wraps under itself at 80 columns. On a wider terminal it stays on one line.</p></div>
+
+<div class="var"><div class="oh">B · <span>each sentence once, naming its lines</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>   <span class="ab">DATE</span>               2026-06-20
+
+
+   <span class="d">YYYY-MM-DD · enter to accept, or type a date</span>
+
+
+
+   date     2026-06-20
+   title    Saldo inicial
+   <span class="d">account  BCP PEN  read-only</span>
+   <span class="ds">account: Must not move an opening balance to another account.</span>
+
+   <span class="d">       amount    category       hashtags        note</span>
+     1  3,200.00    <span class="d">@Opening</span>       <span class="d">—</span>
+   <span class="d">category  read-only</span><span class="ds"> · Must not move an opening balance out of the</span>
+                       <span class="ds">opening-balance category.</span>
+   <span class="d">hashtags  read-only</span><span class="ds"> · Must be empty: an opening balance carries no</span>
+                       <span class="ds">hashtag.</span>
+
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">With one locked line on top, B reads almost like A. The parts' lines are the same in both options. Should two parts ever be locked for different reasons in the same column, that column's line lists each sentence once, joined by “ · ”.</p></div>
+
+</div></div>
+
+<!-- ============ SCREEN 2 ============ -->
+<div class="pane"><div class="lbl">2 · A bulk edit stopped by missing settings <span>— Capture &amp; ledger ▸ Transactions ▸ a ▸ b</span></div>
+<p class="blurb">You select every row and move them to an account, but first-time setup was never finished, so the engine refuses the first write and the rest are not sent. The LOG bar shows the same problem with the title <b>Failed</b> and a blank line before <code>Hint:</code>. There is one option: the LOG bar's note, word for word.</p>
+<div class="opt">
+
+<div class="var"><div class="oh">Today · <span>the bulk edit's note</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────────────────┐
+  │ <span class="bad">Refused</span>                                                          │
+  │ <span class="n">SETTINGS_MISSING — User settings have not been provisioned.</span>      │
+  │ <span class="n">  user_settings: Must be provisioned via POST /v1/auth/bootstrap.</span>│
+  │ <span class="n">Hint: First-time setup is not done yet. Open System ▸ Auth &amp;</span>     │
+  │ <span class="n">profile and press b.</span>                                             │
+  └──────────────────────────────────────────────────────────────────┘</pre></div></div></div>
+
+<div class="var"><div class="oh">A · <span>the LOG bar's note</span><span class="rec">only option</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────────────────┐
+  │ <span class="sel">Failed</span>                                                           │
+  │ <span class="n">SETTINGS_MISSING — User settings have not been provisioned.</span>      │
+  │ <span class="n">  user_settings: Must be provisioned via POST /v1/auth/bootstrap.</span>│
+  │                                                                  │
+  │ <span class="n">Hint: First-time setup is not done yet. Open System ▸ Auth &amp;</span>     │
+  │ <span class="n">profile and press b.</span>                                             │
+  └──────────────────────────────────────────────────────────────────┘</pre></div></div>
+<p class="cap">The same note the LOG bar shows. The rows not written stay selected, as today, so pressing the same key again after setup retries them.</p></div>
+
+</div></div>
+
+<!-- ============ SCREEN 3 ============ -->
+<div class="pane"><div class="lbl">3 · The question before completing a reconciliation <span>— Reconciliations ▸ an account ▸ a draft ▸ c</span></div>
+<p class="blurb">You press <code>c</code> on a draft with 3 ticked rows. Today the question names four things it locks. Completing also locks each row's operation number and the reconciliation it is in, and keeps each row's total: its parts can still be rearranged, as long as they add up to the same amount.</p>
+<div class="opt">
+
+<div class="var"><div class="oh">Today</div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────────────┐
+  │                                                              │
+  │   <span class="b">Complete reconciliation?</span>                                   │
+  │                                                              │
+  │   <span class="bad">Locks amount/account/title/date on the 3 ticked rows.</span>      │
+  │                                                              │
+  │   <span class="d">[y] confirm    [enter / n / esc] cancel</span>                     │
+  │                                                              │
+  └──────────────────────────────────────────────────────────────┘</pre></div></div></div>
+
+<div class="var"><div class="oh">A · <span>everything it locks, in one sentence</span><span class="rec">recommended</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────────────┐
+  │                                                              │
+  │   <span class="b">Complete reconciliation?</span>                                   │
+  │                                                              │
+  │   <span class="sel">Locks the amount, date, title, account, operation number</span>   │
+  │   <span class="sel">and reconciliation of the 3 ticked rows.</span>                   │
+  │                                                              │
+  │   <span class="d">[y] confirm    [enter / n / esc] cancel</span>                     │
+  │                                                              │
+  └──────────────────────────────────────────────────────────────┘</pre></div></div>
+<p class="cap">Names all six. An empty title or operation number can still be filled in afterwards; the question doesn't say so.</p></div>
+
+<div class="var"><div class="oh">B · <span>what it locks, then what still changes</span></div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────────────┐
+  │                                                              │
+  │   <span class="b">Complete reconciliation?</span>                                   │
+  │                                                              │
+  │   <span class="sel">Locks the amount, date, title, account, operation number</span>   │
+  │   <span class="sel">and reconciliation of the 3 ticked rows. Their category,</span>   │
+  │   <span class="sel">hashtags and note can still change.</span>                        │
+  │                                                              │
+  │   <span class="d">[y] confirm    [enter / n / esc] cancel</span>                     │
+  │                                                              │
+  └──────────────────────────────────────────────────────────────┘</pre></div></div>
+<p class="cap">One more sentence saying what stays open, so you know the rows aren't frozen.</p></div>
+
+</div></div>
+
+<!-- ============ ALREADY SETTLED ============ -->
+<div class="pane"><div class="lbl">Already settled · the engine's words shown whole <span>— any note carrying an engine refusal</span></div>
+<p class="blurb">The spec settles this one; it is drawn so you can see it. Some notes read square brackets in the engine's words as styling, so the bracketed part disappears. After the change, every note shows the words exactly as the engine sends them. The words below are invented.</p>
+<div class="opt">
+
+<div class="var"><div class="oh">Today</div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────┐
+  │ <span class="b">Couldn't save</span>                                        │
+  │ <span class="n">VALIDATION_ERROR — Must be one of  .</span>                 │
+  └──────────────────────────────────────────────────────┘</pre></div></div></div>
+
+<div class="var"><div class="oh">After</div>
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  ┌──────────────────────────────────────────────────────┐
+  │ <span class="b">Couldn't save</span>                                        │
+  │ <span class="n">VALIDATION_ERROR — Must be one of <span class="sel">[like this]</span>.</span>       │
+  └──────────────────────────────────────────────────────┘</pre></div></div>
+<p class="cap">Only the missing text comes back; nothing else in the note changes.</p></div>
+
+</div></div>
+
+<div class="pick">
+<b>To answer:</b> one letter for screen 1 (A or B) and screen 3 (A or B), and an OK for screen 2 (its only option, A).<br><b>Recommended:</b> 1 B · 2 A · 3 A.
+</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

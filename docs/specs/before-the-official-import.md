@@ -1,6 +1,8 @@
 # The official import
 
-**Status: every question answered (owner, 2026-10-21).** Turning sheet accounts into people
+**Status: every question answered (owner, 2026-10-21); waits on
+[sheet-import-through-the-engine.md](sheet-import-through-the-engine.md), which moves the sheet
+import into the engine, so the steps below follow it.** Turning sheet accounts into people
 is built ([decisions.md](../decisions.md) "An account becomes a person, and back, with one
 key"); the split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
 as one split transaction"). When the import is done, the why moves
@@ -28,8 +30,12 @@ approved by the owner.
   CARLOS, KORAKUEN; four of them hold both currencies, so they become twelve accounts.
 - PARDO (the José Pardo apartment) holds one opening balance of 38,130, the payments made before
   the account was tracked.
-- Two rows of zero (account maintenance on the dollar account) are skipped: the engine refuses
-  zero amounts.
+- Two rows of zero (account maintenance on the dollar account) are skipped: the engine skips
+  every row of zero.
+- The engine coders imported the whole sheet on the practice engine on 2026-10-26: 4,191 rows in
+  one apply. Five of its `COD_EECC` codes differ from the statements' PDFs (a zero row's, and two
+  pairs of identical charges in the opposite order); none needs fixing, since the import never
+  stores a code and the PDFs set every statement line.
 
 ## Decided
 
@@ -49,7 +55,8 @@ approved by the owner.
 
 ## Steps
 
-1. Both specs above are built, engine halves first.
+1. Both specs above are built, engine halves first, and the sheet import goes through the
+   engine ([sheet-import-through-the-engine.md](sheet-import-through-the-engine.md)).
 2. The owner wipes the live database.
 3. The import's dry run, with the four `--account-name` renames: no row skipped but the two
    zero rows, the 9 split groups shown as one movement each, the four bank names listed.

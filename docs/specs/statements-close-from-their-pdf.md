@@ -1,8 +1,14 @@
 # A month's statement closes from the bank's PDF
 
+Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 5 of the engine's
+hand-off of 2026-10-26, the statement upload (`9063fab000b2e3d6`, worded again in
+`9537a3f6276d7d85`). Showing the lines a close flags is built first, in
+[catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+
 **Status: draft, for the owner to rewrite or approve; questions 1 to 6 answered on 2026-10-25,
-questions 7 to 11 wait on the owner. Its tasks
-are drafted when the owner names it the current spec.** When done, the why moves to
+questions 7 and 8 wait on the owner. The engine shipped the upload on 2026-10-26, settling
+several points this draft asked about; it is rewritten to what shipped. Its tasks are drafted
+when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -20,8 +26,8 @@ completed from the app: the engine completes it only once every line has its pla
 paper, and no screen sets the places.
 
 So a month's reconciliation is opened with no statement and stays open; when the PDF arrives,
-uploading it closes the month. The engine does the work (the owner, 2026-10-25: ask the engine,
-never a client-side workaround), so the web and iPhone apps get it for free.
+uploading it closes the month. The engine does the work (contract: POST /v1/reconciliations/import),
+so the web and iPhone apps get it for free; the app sends the file and shows the answer.
 
 What the bank's PDFs hold (read from every statement the owner has, 2026-10-25; every one adds
 up to the cent, and each one's starting balance is the last one's ending balance):
@@ -38,51 +44,45 @@ up to the cent, and each one's starting balance is the last one's ending balance
   month, money out and money in as two columns, with no operation number either; the monthly
   zero-amount maintenance line is not a movement.
 
+The engine read all 62 of the owner's PDFs (42 account, 20 card) and closed each with a
+difference of zero, on 2026-10-26.
+
 ## What it must do
 
 1. **Upload a month's PDF statement** from the app, on any account that holds a statement: a
-   card's or a bank account's.
+   card's or a bank account's. You name the account (for a card, either of its two); where you
+   start the upload is question 7.
 2. **The engine closes the month from it** in one write: it creates the month's statement if
-   none is open (on a card, both currencies' halves, joined), sets each half's starting and
-   ending balance from the PDF, matches each PDF line to a ledger line, creates the lines the
-   ledger lacks, puts every line in the PDF's order, and completes the statement.
-3. **Lines in the ledger that the PDF does not hold are flagged,** never changed or deleted by
-   the upload: they stay out of the statement for the owner to look at, as a bank file's
-   unclaimed lines do ([decisions.md](../decisions.md) "Bank downloads are matched against the ledger, not hashed").
-4. **Before anything is written, the app shows what the upload would do**, as the import door
-   does: the lines matched, the lines it would create, the lines flagged, and the balances; the
-   owner confirms and it is written, or nothing is.
-5. **A refused upload says why in the engine's words** (a PDF of another account, a month
-   already completed, a PDF the engine cannot read) and writes nothing.
+   none is open (on a card, both halves, joined) or fills the open one, sets each half's
+   starting and ending balance from the PDF, matches each PDF line to a ledger line, creates the
+   lines the ledger lacks, puts every line in the PDF's order, and completes the statement.
+3. **Lines in the ledger that the PDF does not hold are never changed or deleted.** A line in
+   the month's open statement that the PDF does not print is taken out of it; a line on a day
+   the PDF covers that is in no statement is flagged by the close, and shows as a close's
+   flagged lines show (built in the catch-up spec).
+4. **Before anything is written, the app shows what the upload would do**: each PDF line,
+   matched, to be created, or an empty `0.00` line; the ledger lines one day off a created line
+   with the same amount, which the engine never pairs, so a likely wrong date shows; the lines
+   it would take out; and each half's balances. You confirm and it is written, or nothing is.
+   The screens are picked from a mockup before they are built.
+5. **A refused upload says why in the engine's words** (a PDF the engine cannot read, one whose
+   lines don't add up to its own totals, a month already completed, an account with no
+   statement code) and writes nothing.
 6. **The reconciliation screens do only reconciliation work.** Editing a line from them opens the
    ledger's Edit form, as `⏎` on a "no batch" row does today.
-7. **An account keeps its card numbers over time.** A card replaced with its balance carried
-   over (a lost card, say) stays the same account: the account records which card number it
-   had until which day and which one after. A card that is closed ends its account, and a new
-   card is a new account. So a PDF's card number, with its dates, names its account. On screen
-   this is a field of the account form, picked from a mockup before it is built.
-8. **An account's name comes from its bank and its number** (owner, 2026-10-25): an account
-   holds its bank and the last 4 digits of its card or account number, and an optional alias;
-   it shows as bank + last 4 digits (`BCP 1234`), or as its alias when it has one. The engine
-   holds the fields and the rule and serves the name to show, so every client shows the same
-   name; the app shows what the engine sends, and the account form edits the bank, the number
-   and the alias (picked from a mockup first).
-9. **The engine asks follow the rule** ("Ask the engine to change" in
-   [CLAUDE.md](../../CLAUDE.md)): the PDF is read, matched and closed by the engine; the app
-   sends the file and shows the answer.
+7. **A live test closes a statement from a made-up PDF**, dry run and apply, and proves each
+   refusal and that a replay writes once. The PDF is made up: never one of your real statements,
+   since this repo is public.
 
 ## How the owner knows it is done
-
-These take the place of the checks the statement catch-up moved here, by the owner's call of
-2026-10-25 ([decisions.md](../decisions.md) "A card's statement is one statement, and a month
-closes from the bank's PDF").
 
 1. The owner uploads a card's PDF for a month with no statement yet: both halves are created
    with the PDF's balances, every line is in the statement in the PDF's order, and the
    statement is completed; each line's statement line (read through the engine, never shown)
    matches its row on the paper.
 2. The same with a month opened beforehand and left open: the upload closes that one.
-3. A PDF line the ledger lacks is created by the upload and lands in the statement.
+3. A PDF line the ledger lacks is created by the upload, under `@Pendiente` and the pending
+   hashtag, and lands in the statement.
 4. A ledger line dated inside the month that the PDF does not hold is shown as flagged after
    the upload, unchanged and outside the statement.
 5. The preview shows all of it before anything is written, and leaving the preview writes
@@ -90,18 +90,17 @@ closes from the bank's PDF").
 6. An account statement (one currency) closes the same way.
 7. The reconciliation screen of a closed statement lists its lines in the PDF's order, its
    opening balance apart.
-8. Uploading the PDF of another account, or of a month already completed, is refused with the
-   engine's words and writes nothing.
+8. Uploading the PDF of a month already completed is refused with the engine's words and writes
+   nothing.
 9. A card's bottom charges (interest, insurance, the membership fee, the mailing fee) each land
    as their own transaction on the statement's last day.
 10. Two identical lines on one day (same currency and amount) on the PDF and two in the ledger
     match both; two on the PDF and one in the ledger create one; one on the PDF and two in the
     ledger flag one.
 11. A ledger line dated inside the month that the PDF does not hold does not stop the close.
-12. The owner records a replaced card's new number on its account; the next PDF, under the new
-    number, closes that account's month.
-13. The live contract suite proves the engine's new write, each of its refusals, and that a
-    replay writes once.
+12. A card month with no dollar line still closes its dollar half, empty.
+13. The live contract suite proves the upload, each of its refusals, and that a replay writes
+    once.
 
 ## What the owner settled
 
@@ -120,74 +119,88 @@ closes from the bank's PDF").
   carry no date on the paper.
 - **An installment purchase is one transaction a month,** each month's installment as the bank
   bills it (owner, 2026-10-25, question 2, A), so every statement adds up.
-- **A flagged line never stops the close** (owner, 2026-10-25, question 3, A). The engine's rule
-  today refuses a complete while a line dated inside the statement's days is in no
-  reconciliation (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Validation"),
-  and on a card the days are the bank's processing days while a line carries its purchase day,
-  so a line bought just before the last day and processed after it would stop every month. A
-  month closed from its PDF is judged by the PDF instead: an engine ask.
-- **Matching counts duplicates** (owner, 2026-10-25, question 4): the engine groups the PDF's
-  lines and the ledger's by day, currency and amount and compares how many each group holds, so
-  equal lines on one day are all accounted for: matched up to the smaller count, the PDF's extra
-  ones created, the ledger's extra ones flagged.
-- **An account keeps its card numbers, with their days** (owner, 2026-10-25, question 5): a card
-  replaced with its balance carried over stays the account ("this account was card XXXX up to
-  DD/MM/YYYY, then card YYYY"); a closed card ends its account. Which of the owner's card numbers
-  are which account is set in the app, card by card, once the field exists.
+- **A flagged line never stops the close** (owner, 2026-10-25, question 3, A), wherever in the
+  month it falls: the engine completes the statement and flags the line
+  (contract: POST /v1/reconciliations/{reconciliation_id}/complete).
+- **Matching counts duplicates** (owner, 2026-10-25, question 4): equal lines on one day are all
+  accounted for, matched one to one up to the smaller count, the PDF's extra ones created, the
+  ledger's extra ones flagged.
 - **A month can be opened before its PDF** (owner, 2026-10-25, question 6, A): the upload closes
   the open one, or creates it.
 - **The PDF overturns "no PDF"** in [file-import-plan.md](../file-import-plan.md) (owner,
   2026-10-25), for statements.
 
+## What the engine settled
+
+From the live contract (contract: POST /v1/reconciliations/import), shipped 2026-10-26:
+
+- **You name the account; the engine never picks it** by the card or account number the paper
+  prints. That account needs a statement code.
+- **A line the upload creates** is filed under `@Pendiente` and the pending hashtag, the paper's
+  text as its title, for you to classify later.
+- **A ledger line one day off a PDF line is never paired**: the PDF line is created, and the
+  preview names the near miss.
+- **A card half with no line closes empty**, the one statement that completes with no
+  transaction.
+- **A completed month is refused**: revert it first, then upload again; the same PDF then
+  matches every line the first upload created.
+
 ## Questions for the owner
 
-Questions 9 to 11 are about the account's name (point 8).
+Questions 7 to 11 of the draft of 2026-10-25 asked how the engine finds the account from the
+PDF's number, whether a flagged line stops the close, and how an account is named from its
+bank and number. The engine settled the first two (above); questions 7 and 8 below replace
+them.
 
-7. **Picking the account.** A PDF names its card (by number) or its bank account (by its full
-   account number).
-   - **A.** The engine finds the account from that number; you pick only when no account holds
-     it.
-   - **B.** You pick the account each time, as the bank-file import asks, and the engine refuses
-     a PDF of another account.
+7. **Where you start the upload.**
+   - **A.** Drop the PDF into the import door, as a bank download: the door tells a PDF from an
+     Excel file and asks which account it is, as it does today.
+   - **B.** From the statement, on Reconciliations.
 
-   **Recommended:** A, because the number names the account for certain once your accounts
-   carry their numbers, and a wrong pick is impossible.
-8. **Is this reading of question 3 right?** A ledger line dated inside the month that is not on
-   its PDF never stops the close, wherever in the month it falls, near the end or not; it stays
-   flagged for you. So the engine's rule that refuses a close while a line inside the days is in
-   no reconciliation changes for a month closed from its PDF.
-   - **A.** Yes.
-   - **B.** No: only a line near the end of the month (bought before the last day, processed
-     after it) may be left out; any other one stops the close until you fix it.
+   **Recommended:** A, because every file from the bank then comes in through one door.
+8. **A PDF of the wrong account.** The engine does not check the paper's number against the
+   account you name, so a PDF of another account in the same currency is not refused: its
+   preview would show almost every line as to be created.
+   - **A.** This spec ships with the preview as the check. Accounts carrying their card and
+     account numbers over time, their names from bank and number, and the engine checking a
+     PDF's number against its account become their own spec after this one (points 7 and 8 and
+     questions 9 to 11 of the draft of 2026-10-25, kept below).
+   - **B.** This spec waits for accounts to carry their numbers, and the engine to check them.
 
-   **Recommended:** A, because the PDF is the bank's own record of the month, and a flagged line
-   stays in front of you either way.
-9. **A card's two accounts.** A card's soles and dollar accounts share one card number, so
-   both would read `BCP 1234`.
-   - **A.** The currency joins the name: `BCP 1234 PEN` and `BCP 1234 USD`.
-   - **B.** Each gets an alias to tell them apart.
+   **Recommended:** A, because the preview already shows a wrong file before anything is
+   written, and closing statements should not wait on account names.
 
-   **Recommended:** A, because it needs no typing and reads like the bank's own columns.
-10. **A replaced card's name.** When a lost card is replaced and the account carries on (point
-    7), its last 4 digits change.
-    - **A.** The name follows the new card (`BCP 1234` becomes `BCP 5678`); an alias stays as it
-      is.
-    - **B.** The name keeps the first card's digits.
+### Kept for their own spec (question 8)
 
-    **Recommended:** A, because the name then matches the card in your wallet and on the next
-    PDF.
-11. **Accounts with no bank number**, such as people, and cash if you keep any.
-    - **A.** They keep a typed name, as today; bank and number are only for bank accounts and
-      cards.
-    - **B.** Every account must have a bank and a number.
-
-    **Recommended:** A, because a person or cash has no bank number to show.
+- **An account keeps its card numbers over time.** A card replaced with its balance carried
+  over (a lost card, say) stays the same account: the account records which card number it had
+  until which day and which one after (owner, 2026-10-25, question 5). A card that is closed
+  ends its account, and a new card is a new account. Which of the owner's card numbers are
+  which account is set in the app, card by card, once the field exists.
+- **An account's name comes from its bank and its number** (owner, 2026-10-25): an account holds
+  its bank and the last 4 digits of its card or account number, and an optional alias; it shows
+  as bank + last 4 digits (`BCP 1234`), or as its alias when it has one. The engine holds the
+  fields and the rule and serves the name to show.
+- Its open questions: a card's two accounts share one number (the currency joins the name, or
+  an alias each); a replaced card's name (follows the new card, or keeps the first); accounts
+  with no bank number, such as people and cash (keep a typed name, or must have one).
 
 ---
 
 ## Tasks
 
 Drafted when the owner names this the current spec.
+
+## Reply to the engine
+
+Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
+
+- **Range:** item 5 of the hand-off (`9063fab000b2e3d6`, `9537a3f6276d7d85`); the range as a
+  whole is confirmed in the reply of
+  [catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+- **The engine's "Done when" checks to report on:** no code reads a PDF itself; the contract
+  tests upload a made-up statement PDF with a dry run and an apply.
+- **The asks it closes:** none; the engine built the upload ahead of this client's ask.
 
 ## Found along the way
 

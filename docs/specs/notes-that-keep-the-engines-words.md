@@ -1,9 +1,14 @@
 # Notes that keep the engine's words, and lines that say they are locked
 
+Catches up to contract `592f2467fa3df75a`, from `309e31fd5c266941`: item 7 of the engine's
+hand-off of 2026-10-26, a locked field's words (`f7a0a0bbcfe62975`). The rest of the hand-off is
+in [catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md), which runs
+first.
+
 **Status: approved by the owner on 2026-10-25, its questions answered; not started. Its tasks
-are drafted when the owner names it the current spec. What it must do 2 waits on the engine ask
-"A bank line's edit limits say why each field is locked, in words".** When done, the why moves to
-[decisions.md](../decisions.md) and this file is deleted.
+are drafted when the owner names it the current spec. The engine shipped the ask "A bank line's
+edit limits say why each field is locked, in words" on 2026-10-26, so all four points can be
+built.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -54,6 +59,17 @@ Four small things found while building the last spec, not fixed there:
   The engine ask "A bank line's edit limits say why each field is locked, in words" carries it;
   the Edit form shows the engine's sentence as sent, and the mockup picks only where it sits.
 
+## What the engine sends
+
+Each locked field now comes with its reason and its sentence, the sentence being the words the
+engine refuses that field with when a write tries to change it
+(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The six sentences, as shipped
+on 2026-10-26: "Locked by completed reconciliation."; "The account is archived. Unarchive it
+first."; "Must not move an opening balance to another account."; "The parts must add up to the
+line's total."; "Must not move an opening balance out of the opening-balance category."; "Must
+be empty: an opening balance carries no hashtag." The Edit form shows the sentence as sent and
+keeps no table of its own from reason to words.
+
 ## Questions for the owner
 
 None open. Where the reason sits beside `read-only` is picked from a mockup when the spec starts.
@@ -63,6 +79,17 @@ None open. Where the reason sits beside `read-only` is picked from a mockup when
 ## Tasks
 
 Drafted when the owner names this the current spec.
+
+## Reply to the engine
+
+Written into [to-engine/](../to-engine/) when the spec is done, with the tester's results.
+
+- **Range:** item 7 of the hand-off (`f7a0a0bbcfe62975`, its example worded again in
+  `592f2467fa3df75a`); the range as a whole is confirmed in the reply of
+  [catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md).
+- **The engine's "Done when" checks to report on:** the app shows each locked field's `message`
+  and keeps no table of its own from code to sentence.
+- **The asks it closes:** "A bank line's edit limits say why each field is locked, in words".
 
 ## Found along the way
 
