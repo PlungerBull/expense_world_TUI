@@ -1,7 +1,7 @@
 # A month's statement closes from the bank's PDF
 
 **Status: draft, for the owner to rewrite or approve; questions 1 to 6 answered on 2026-10-25,
-questions 7 and 8 wait on the owner. Its tasks
+questions 7 to 11 wait on the owner. Its tasks
 are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -61,7 +61,13 @@ up to the cent, and each one's starting balance is the last one's ending balance
    had until which day and which one after. A card that is closed ends its account, and a new
    card is a new account. So a PDF's card number, with its dates, names its account. On screen
    this is a field of the account form, picked from a mockup before it is built.
-8. **The engine asks follow the rule** ("Ask the engine to change" in
+8. **An account's name comes from its bank and its number** (owner, 2026-10-25): an account
+   holds its bank and the last 4 digits of its card or account number, and an optional alias;
+   it shows as bank + last 4 digits (`BCP 1234`), or as its alias when it has one. The engine
+   holds the fields and the rule and serves the name to show, so every client shows the same
+   name; the app shows what the engine sends, and the account form edits the bank, the number
+   and the alias (picked from a mockup first).
+9. **The engine asks follow the rule** ("Ask the engine to change" in
    [CLAUDE.md](../../CLAUDE.md)): the PDF is read, matched and closed by the engine; the app
    sends the file and shows the answer.
 
@@ -135,6 +141,8 @@ closes from the bank's PDF").
 
 ## Questions for the owner
 
+Questions 9 to 11 are about the account's name (point 8).
+
 7. **Picking the account.** A PDF names its card (by number) or its bank account (by its full
    account number).
    - **A.** The engine finds the account from that number; you pick only when no account holds
@@ -154,6 +162,26 @@ closes from the bank's PDF").
 
    **Recommended:** A, because the PDF is the bank's own record of the month, and a flagged line
    stays in front of you either way.
+9. **A card's two accounts.** A card's soles and dollar accounts share one card number, so
+   both would read `BCP 1234`.
+   - **A.** The currency joins the name: `BCP 1234 PEN` and `BCP 1234 USD`.
+   - **B.** Each gets an alias to tell them apart.
+
+   **Recommended:** A, because it needs no typing and reads like the bank's own columns.
+10. **A replaced card's name.** When a lost card is replaced and the account carries on (point
+    7), its last 4 digits change.
+    - **A.** The name follows the new card (`BCP 1234` becomes `BCP 5678`); an alias stays as it
+      is.
+    - **B.** The name keeps the first card's digits.
+
+    **Recommended:** A, because the name then matches the card in your wallet and on the next
+    PDF.
+11. **Accounts with no bank number**, such as people, and cash if you keep any.
+    - **A.** They keep a typed name, as today; bank and number are only for bank accounts and
+      cards.
+    - **B.** Every account must have a bank and a number.
+
+    **Recommended:** A, because a person or cash has no bank number to show.
 
 ---
 
