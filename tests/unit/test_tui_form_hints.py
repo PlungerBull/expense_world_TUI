@@ -104,10 +104,12 @@ ARCHIVED = edit_limits(
     locked_part_fields={"p1": {"amount_cents": "ACCOUNT_ARCHIVED"}},
 )
 #: The same with no title on the line: a title filled while empty is not refused.
-ARCHIVED_NO_TITLE = {
-    **ARCHIVED,
-    "locked_fields": dict.fromkeys(("date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"),
-}
+ARCHIVED_NO_TITLE = edit_limits(
+    locked_fields=dict.fromkeys(("date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"),
+    total_fixed=True,
+    parts_fixed=True,
+    locked_part_fields={"p1": {"amount_cents": "ACCOUNT_ARCHIVED"}},
+)
 OPENING = edit_limits(
     locked_fields={"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
     parts_fixed=True,
@@ -401,13 +403,15 @@ def test_title_says_save_only_when_it_is_the_one_line_left():
     """TITLE with no line after it that can change: `⏎` there saves and the
     hint says so. No engine state closes every part field (a part's note always
     changes), so these `edit_limits` close them all by hand to reach the rule."""
-    every_field = dict.fromkeys(("amount_cents", "category_id", "hashtag_ids", "description"), "X")
-    closed = {**ARCHIVED_NO_TITLE["locked_fields"], "operation_code": "ACCOUNT_ARCHIVED"}
-    limits = {
-        **ARCHIVED_NO_TITLE,
-        "locked_fields": closed,
-        "locked_part_fields": {"p1": every_field},
-    }
+    every_field = ("amount_cents", "category_id", "hashtag_ids", "description")
+    limits = edit_limits(
+        locked_fields=dict.fromkeys(
+            ("date", "account_id", "reconciliation_id", "operation_code"), "ACCOUNT_ARCHIVED"
+        ),
+        total_fixed=True,
+        parts_fixed=True,
+        locked_part_fields={"p1": dict.fromkeys(every_field, "ACCOUNT_ARCHIVED")},
+    )
     line = {**LINE, "parts": [{**_PART, "title": None}], "edit_limits": limits}
     screen = BankLineEditFormScreen(line=line)
     assert [k for k in screen._sequence() if k not in screen._locked] == ["title"]

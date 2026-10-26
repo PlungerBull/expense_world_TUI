@@ -28,18 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Pick the three screens of the notes spec
-Asked 2026-10-26 · Blocks: tasks 3 to 5 of [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
-
-[mockups/expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)
-draws each. Screen 1: where the engine's reason shows beside a `read-only` line on the Edit
-form. Screen 2: the bulk edit's missing-settings note becoming the LOG bar's (one option, an OK).
-Screen 3: the words of the question before completing a reconciliation.
-- **A.** Screen 1 A: the sentence beside every read-only line.
-- **B.** Screen 1 B: each sentence once, naming the lines it covers.
-**Recommended:** 1 B · 2 A · 3 A, because one sentence per reason reads quieter than the same
-sentence three times, and the question's one sentence names all six things it locks.
-
 ### Approve the engine catch-up spec
 Asked 2026-10-26 · Blocks: [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
 

@@ -3,12 +3,16 @@ balance, and the whole-line write's `parts` on the two kinds of line that keep t
 parts.
 
 Every bank line the engine returns carries `edit_limits`: the line fields a write
-would refuse, with the reason; whether the total and the parts are fixed; and, per
-part, the part fields a write would refuse. It is worked out on every read from the
-line's state, a completed reconciliation, an archived account or an opening balance
+would refuse; whether the total and the parts are fixed; and, per part, the part fields
+a write would refuse. Each field named is `{reason, message}`, exactly two strings: the
+reason the write gives it in `reasons` and its sentence in `fields`, word for word. It
+is worked out on every read from the line's state, a completed reconciliation, an
+archived account or an opening balance
 (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The Edit form draws
 those fields read-only before anyone types, so only the engine can say what each
-state closes. Pinned here:
+state closes. Pinned here, the reasons read from each entry's `reason`, and for every
+reason drawn a write changing those fields refused on each with that reason and the
+read's `message` as its words:
 
   · a line nothing closes reads every key of `edit_limits` empty or `false`, on
     `GET /bank-lines/{id}`, on its row of `GET /bank-lines` and on the write's answer;
@@ -58,6 +62,37 @@ from tests.contract.conftest import assert_refusals, free_statement_codes, read_
 #: `edit_limits` of a line nothing closes: every key present, nothing in it
 #: (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
 OPEN = {"locked_fields": {}, "total_fixed": False, "parts_fixed": False, "locked_part_fields": {}}
+
+
+def _reason_of(entry: dict) -> str:
+    """A named field's reason, the entry being exactly `{reason, message}`, two strings
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    assert set(entry) == {"reason", "message"}, entry
+    assert isinstance(entry["reason"], str) and isinstance(entry["message"], str), entry
+    return entry["reason"]
+
+
+def _reasons(limits: dict) -> dict:
+    """`limits` with each named field read down to its `reason`."""
+    by_part = limits["locked_part_fields"]
+    return {
+        **limits,
+        "locked_fields": {k: _reason_of(v) for k, v in limits["locked_fields"].items()},
+        "locked_part_fields": {
+            part: {k: _reason_of(v) for k, v in fields.items()} for part, fields in by_part.items()
+        },
+    }
+
+
+def _assert_the_writes_words(client, line_id: str, body: dict, reasons: dict, said: dict) -> None:
+    """`body` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and on
+    each key of `said` the refusal's words are that `edit_limits` entry's `message`, its
+    reason the entry's `reason`
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    err = refused(lambda: client.put(f"/bank-lines/{line_id}", json_body=body))
+    assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+    for key, entry in said.items():
+        assert (err.reasons[key], err.fields[key]) == (entry["reason"], entry["message"]), key
 
 
 def _line(client, line_id: str) -> dict:
@@ -134,21 +169,47 @@ def test_a_completed_reconciliations_line_is_locked_until_reverted(client, scrat
     client.post(f"/reconciliations/{recon}/complete")
 
     locked = dict.fromkeys(("title", "date", "account_id", "reconciliation_id"), "LOCKED")
-    assert _limits(client, single) == {
+    limits = _limits(client, single)
+    assert _reasons(limits) == {
         "locked_fields": locked,
         "total_fixed": True,
         "parts_fixed": False,
         "locked_part_fields": {single_part: {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
     }
-    assert _limits(client, split) == {
+    assert _reasons(_limits(client, split)) == {
         "locked_fields": locked,
         "total_fixed": True,
         "parts_fixed": False,
         "locked_part_fields": {},
     }
 
+    line_fields = limits["locked_fields"]
+    moved = {
+        "title": "contract moved title",
+        "date": scratch.noon("2026-05-20"),
+        "account_id": scratch.account(),
+        "reconciliation_id": None,
+    }
+    _assert_the_writes_words(client, single, moved, locked, line_fields)
+    amount = limits["locked_part_fields"][single_part]["amount_cents"]
+    _assert_the_writes_words(
+        client,
+        single,
+        {"parts": [{"id": single_part, "amount_cents": -3000}]},
+        {"parts": "SPLIT_TOTAL_MISMATCH", "parts.0.amount_cents": "SPLIT_TOTAL_MISMATCH"},
+        {"parts.0.amount_cents": amount},
+    )
+
     client.put(f"/bank-lines/{single}", json_body={"operation_code": f"OP-{uuid4().hex[:10]}"})
-    assert _limits(client, single)["locked_fields"] == {**locked, "operation_code": "LOCKED"}
+    filled = _limits(client, single)["locked_fields"]
+    assert {k: _reason_of(v) for k, v in filled.items()} == {**locked, "operation_code": "LOCKED"}
+    _assert_the_writes_words(
+        client,
+        single,
+        {"operation_code": f"OP-{uuid4().hex[:10]}"},
+        {"operation_code": "LOCKED"},
+        {"operation_code": filled["operation_code"]},
+    )
 
     client.post(f"/reconciliations/{recon}/revert")
     assert _limits(client, single) == OPEN
@@ -168,14 +229,34 @@ def test_an_archived_accounts_line_is_frozen_until_unarchived(client, scratch):
     scratch.archive(account)
 
     archived = {"amount_cents": "ACCOUNT_ARCHIVED"}
-    assert _limits(client, line) == {
-        "locked_fields": dict.fromkeys(
-            ("title", "date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"
-        ),
+    line_fields = dict.fromkeys(
+        ("title", "date", "account_id", "reconciliation_id"), "ACCOUNT_ARCHIVED"
+    )
+    limits = _limits(client, line)
+    assert _reasons(limits) == {
+        "locked_fields": line_fields,
         "total_fixed": True,
         "parts_fixed": True,
         "locked_part_fields": {one: archived, two: archived},
     }
+
+    moved = {
+        "title": "contract moved title",
+        "date": scratch.noon("2026-05-20"),
+        "account_id": account,
+        "reconciliation_id": None,
+    }
+    _assert_the_writes_words(client, line, moved, line_fields, limits["locked_fields"])
+    _assert_the_writes_words(
+        client,
+        line,
+        {"parts": [{"id": one, "amount_cents": -5000}, {"id": two, "amount_cents": -3000}]},
+        {"parts.0.amount_cents": "ACCOUNT_ARCHIVED", "parts.1.amount_cents": "ACCOUNT_ARCHIVED"},
+        {
+            "parts.0.amount_cents": limits["locked_part_fields"][one]["amount_cents"],
+            "parts.1.amount_cents": limits["locked_part_fields"][two]["amount_cents"],
+        },
+    )
 
     client.post(f"/accounts/{account}/unarchive")
     assert _limits(client, line) == OPEN
@@ -191,17 +272,37 @@ def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratc
     line = scratch.opening_balance(account, "2026-01-01")
     (opening,) = scratch.transactions[-1:]
 
-    assert _limits(client, line) == {
+    limits = _limits(client, line)
+    part_fields = {
+        "category_id": "OPENING_BALANCE_CATEGORY_FIXED",
+        "hashtag_ids": "OPENING_BALANCE_NOT_TAGGED",
+    }
+    assert _reasons(limits) == {
         "locked_fields": {"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
         "total_fixed": False,
         "parts_fixed": True,
-        "locked_part_fields": {
-            opening: {
-                "category_id": "OPENING_BALANCE_CATEGORY_FIXED",
-                "hashtag_ids": "OPENING_BALANCE_NOT_TAGGED",
-            }
-        },
+        "locked_part_fields": {opening: part_fields},
     }
+
+    _assert_the_writes_words(
+        client,
+        line,
+        {"account_id": scratch.account()},
+        {"account_id": "OPENING_BALANCE_ACCOUNT_FIXED"},
+        limits["locked_fields"],
+    )
+    amount = read_signed(client, opening)["amount_cents"]
+    sent = {"category_id": scratch.category(), "hashtag_ids": [scratch.hashtag()]}
+    _assert_the_writes_words(
+        client,
+        line,
+        {"parts": [{"id": opening, "amount_cents": amount, **sent}]},
+        {f"parts.0.{field}": reason for field, reason in part_fields.items()},
+        {
+            f"parts.0.{field}": entry
+            for field, entry in limits["locked_part_fields"][opening].items()
+        },
+    )
 
 
 # ---- is_opening_balance, on every bank-line read ----------------------------------

@@ -72,10 +72,9 @@ keeps no table of its own from reason to words.
 
 ## Questions for the owner
 
-Three mockup picks, in
-[expense-world-read-only-reasons.html](../mockups/expense-world-read-only-reasons.html): where
-the reason sits beside `read-only` (screen 1), an OK for the bulk edit's note (screen 2), and the
-words of the complete question (screen 3). Tasks 3 to 5 wait on them.
+None open. The owner picked the three screens of
+[expense-world-read-only-reasons.html](../mockups/expense-world-read-only-reasons.html) on
+2026-10-26: 1 B, 2 A and 3 A.
 
 ---
 
@@ -87,16 +86,6 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-1. **The app reads a locked field as the engine sends it.** Each entry of `edit_limits`'
-   `locked_fields` and `locked_part_fields` is `{reason, message}`
-   (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Nothing you see changes.
-   Passes if: the unit fake engine's `edit_limits` (tests/unit/helpers.py) answers every entry
-   in that shape, with the contract's sentence for each reason, and every unit test that builds
-   one goes through it; the Edit form locks the same lines as before from the new shape; the live
-   test of `edit_limits` (tests/contract/test_bank_line_edit_limits.py) passes against `:8002`,
-   reading `reason` where it read the bare code and checking, for each reason it draws, that the
-   read's `message` is the write's words on that field; the app keeps no table from reason to
-   sentence; tui.md says what `edit_limits` carries.
 2. **Every note shows the engine's words exactly as sent** (What it must do 1; the "Already
    settled" pane of the mockup). Passes if: every place the app puts engine words on screen (a
    toast's message or title, a refusal under a screen, a question, a status line) shows them as
@@ -104,12 +93,28 @@ knows it is done" 4); this spec's acceptance check reports them and does not fai
    hold `[like this]` and finds them whole; a guard test fails when new app code hands engine
    words to a toast as styling, its docstring stating what it cannot catch; nothing else in any
    note changes; tui.md states the rule where it describes refusals.
-3. **The Edit form says why beside `read-only`** (What it must do 2), as the owner picks on
-   screen 1 of the mockup. Waits on that pick.
+3. **The Edit form says why beside `read-only`** (What it must do 2), screen 1 B of the
+   mockup. Passes if: each read-only line field still reads `read-only` beside its value, and
+   under the line fields one dim line per distinct sentence names the lines it covers, in the
+   form's order, then the sentence: `date, title, account: Locked by completed reconciliation.`;
+   under the parts, each column's `read-only` line reads `amount  read-only · <sentence>`, two
+   different sentences in one column joined by ` · `; a long sentence wraps under itself; every
+   sentence is the engine's `message` as sent, shown as text, never as styling; unit tests draw
+   a line in a completed reconciliation, an archived account's line and an opening balance's
+   line, each showing the engine's sentences as drawn in the mockup; the app keeps no table
+   from reason to sentence; tui.md "What is read-only is the line's `edit_limits`" says it,
+   linking the mockup.
 4. **The bulk edit's missing-settings note reads like the LOG bar's** (What it must do 3), screen
-   2 of the mockup. Waits on the owner's OK.
+   2 A of the mockup. Passes if: a refusal that stops a bulk run (`SETTINGS_MISSING`, say) shows
+   one note titled `Failed`, its text the LOG bar's for the same refusal, a blank line before
+   `Hint:`; the two screens build it in one shared place, not two copies; a row's own refusal
+   keeps its `Refused` or `N of M refused` note; the bulk edit's settings-missing unit test pins
+   the new note; tui.md says it.
 5. **The question before completing a reconciliation names everything it locks** (What it must
-   do 4), as the owner picks on screen 3 of the mockup. Waits on that pick.
+   do 4), screen 3 A of the mockup. Passes if: the question reads `Locks the amount, date, title,
+   account, operation number and reconciliation of the 3 ticked rows.` (`row` for one); a unit
+   test pins it; the reconciliations.py module docstring and tui.md say what complete locks in
+   the same terms.
 
 ## Reply to the engine
 
@@ -125,3 +130,12 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **The live `edit_limits` test never reads a refused write back.** Its module docstring says
+  every refusal writes nothing, but the writes refused on locked line fields and on locked part
+  amounts, categories and hashtags are checked only by their refusal; the next read comes after
+  a revert or an unarchive, so a refused write applied in part would go unseen
+  ([test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py)).
+- **Nothing checks the unit fake engine's lock sentences against the contract.** `LOCK_MESSAGES`
+  in [helpers.py](../../tests/unit/helpers.py) holds the six sentences; the drift check compares
+  keys, not values, so a sentence the engine rewords would drift unseen.

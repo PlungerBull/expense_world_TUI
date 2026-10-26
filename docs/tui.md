@@ -427,7 +427,10 @@ A part added and left with nothing in it is left out of the save; a part holding
 pending hashtag counts as empty, since the table never shows it and the save sends no hashtag
 for it (`part_empty`).
 **What is read-only is the line's `edit_limits`, and nothing else**
-(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). A line field its
+(contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Each field it names carries
+`{reason, message}`: the reason the write refuses that field with and the engine's sentence for
+it, the write's own words; the form reads which fields are named, and the app keeps no table
+from reason to sentence. A line field its
 `locked_fields` names reads dimmed with `read-only` beside its value; a part field its
 `locked_part_fields` names for that part's id is dimmed in its cell, and under the table a dim
 `amount  read-only` (`category`, `hashtags`, `note`) line names each column read-only on some

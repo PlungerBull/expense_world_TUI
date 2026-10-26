@@ -262,6 +262,29 @@ def import_part(
     }
 
 
+#: The sentence the engine sends beside each lock's reason in `edit_limits`, the
+#: write's own words on that field (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
+#: The fake engine's copy only: the app shows the sentence as sent and holds none of these.
+LOCK_MESSAGES = {
+    "LOCKED": "Locked by completed reconciliation.",
+    "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
+    "OPENING_BALANCE_ACCOUNT_FIXED": "Must not move an opening balance to another account.",
+    "SPLIT_TOTAL_MISMATCH": "The parts must add up to the line's total.",
+    "OPENING_BALANCE_CATEGORY_FIXED": (
+        "Must not move an opening balance out of the opening-balance category."
+    ),
+    "OPENING_BALANCE_NOT_TAGGED": "Must be empty: an opening balance carries no hashtag.",
+}
+
+
+def _locks(reasons: dict[str, str]) -> dict[str, dict[str, str]]:
+    """Each field's reason as the engine sends it: `{reason, message}`."""
+    return {
+        field: {"reason": reason, "message": LOCK_MESSAGES[reason]}
+        for field, reason in reasons.items()
+    }
+
+
 def edit_limits(
     *,
     locked_fields: dict[str, str] | None = None,
@@ -270,15 +293,16 @@ def edit_limits(
     locked_part_fields: dict[str, dict[str, str]] | None = None,
 ) -> dict:
     """A bank line's `edit_limits`, every key present: the line fields a write
-    would refuse with their reasons, whether the total and the parts are fixed,
-    and per part id the part fields a write would refuse
-    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The default
-    is a line nothing closes."""
+    would refuse, whether the total and the parts are fixed, and per part id the
+    part fields a write would refuse, each field named as `{reason, message}`
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Callers give
+    each field its reason; the message is the contract's sentence for it
+    (`LOCK_MESSAGES`). The default is a line nothing closes."""
     return {
-        "locked_fields": dict(locked_fields or {}),
+        "locked_fields": _locks(locked_fields or {}),
         "total_fixed": total_fixed,
         "parts_fixed": parts_fixed,
-        "locked_part_fields": {k: dict(v) for k, v in (locked_part_fields or {}).items()},
+        "locked_part_fields": {k: _locks(v) for k, v in (locked_part_fields or {}).items()},
     }
 
 
