@@ -17,7 +17,9 @@ account, review, apply. Rows land under `@Pendiente` and `#Pendiente`; classific
 manual, in Home's bulk `space` + `c`/`b`/`h`. The LOG bar stays for what has no bank row (cash,
 people).
 
-**BCP only** — no second bank, no CSV, no PDF, no format abstraction. Both export shapes (card:
+**BCP only** — no second bank, no CSV, no format abstraction. The bank's PDF comes in only as a
+month's statement, which closes that month's reconciliation (owner, 2026-10-25; a draft spec:
+[statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). Both export shapes (card:
 no operation number, ISO dates, mixed PEN/USD; current account: operation number, `dd/mm/yyyy`)
 already parse ([bank_import/parse.py](../expense/bank_import/parse.py)).
 
@@ -36,7 +38,7 @@ response → rows live once, in [bank_import/engine.py](../expense/bank_import/e
 | Import provenance + undo | A wrong-account import is fixed with bulk `b` in Home. |
 | A per-row override in the preview | Every verdict is a fact (the same operation code, or the same account, exact day and total, titles playing no part), not a guess (contract: POST /v1/transactions/import, "Matching"). |
 | Bulk "assign everything shown" on the reconciliation screen | Revisit if monthly closing proves tedious — the draft screen already lists exactly the rows it would assign. |
-| Other banks, CSV, PDF | BCP only. |
+| Other banks, CSV | BCP only; the bank's PDF comes in only as a month's statement (§1). |
 
 The TUI door is the only way a bank file comes in ([decisions.md](decisions.md) "The TUI is the only surface").
 

@@ -28,6 +28,27 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over the statement catch-up's reply to the engine
+Asked 2026-10-25 · Blocks: nothing; the engine waits for it
+
+The rest of the engine's statement hand-off is answered: every section read, the card list built,
+and the parts with no screen (ordering by hand, the lines still to tick, the statement's edit
+form) proven by the live tests, since you chose the PDF upload instead. With the Edit form's
+reply it covers the whole hand-off, so the engine can mark this client caught up. Copy
+[to-engine/caught-up-bdc9d3f3a540b7ce-statements.md](to-engine/caught-up-bdc9d3f3a540b7ce-statements.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
+### Approve the spec for the statement catch-up's leftovers
+Asked 2026-10-25 · Blocks: [specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)
+
+Twelve small things the catch-up found: test guards and copies, two comments, a note on the
+create form, an engine ask for a card's other account, and the practice data's leftovers.
+Nothing you use changes but the note, which gets a mockup. Approve it or rewrite it.
+
+**Recommended:** approve it, after the PDF spec, which matters more.
+
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
@@ -56,9 +77,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **Statement lines come from reconciliations, and a card statement is one statement** (the
-  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the next spec, its tasks approved
-  ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
+- **Leftovers from the statement catch-up**: a draft spec waiting for the owner's approval
+  ([specs/statement-catch-up-leftovers.md](specs/statement-catch-up-leftovers.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
   leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
@@ -135,6 +155,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   needs no exemption for comments.
 - **Mockups that back no open work.** The rule is a mockup lives only while it backs open work;
   most in [mockups/](mockups/) back screens already built, among them
+  `expense-world-statement-screen.html` and `expense-world-statement-order.html` (screens the owner
+  dropped on 2026-10-25 for the PDF statement; they link only each other and the card-statement
+  mockup), the panes of `expense-world-card-statement.html` that draw them (screen 3, its
+  `o Order` footer and `shift+↑↓`, and the `e` form of "Three more things"; its panes 1 A, 2 A
+  and question 3 B back what is built, linked from tui.md, decisions.md, reconciliations.py and
+  two unit tests),
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
   does not), `expense-world-screen-map.html` (linked from nowhere), and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and

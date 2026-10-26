@@ -15,6 +15,10 @@ the PDF already holds everything a reconciliation needs: each currency's startin
 balance, every line, and the lines' order on the paper. On a card, one PDF holds both
 currencies, so it is also what joins the card's soles and dollar halves into one statement.
 
+Until this lands, no reconciliation holding lines on an account with a statement code can be
+completed from the app: the engine completes it only once every line has its place on the
+paper, and no screen sets the places.
+
 So a month's reconciliation is opened with no statement and stays open; when the PDF arrives,
 uploading it closes the month. The engine does the work (the owner, 2026-10-25: ask the engine,
 never a client-side workaround), so the web and iPhone apps get it for free.
@@ -63,8 +67,9 @@ up to the cent, and each one's starting balance is the last one's ending balance
 
 ## How the owner knows it is done
 
-These take the place of the checks [statement-lines-from-reconciliations.md](statement-lines-from-reconciliations.md)
-moved here (its checks 4, 5, 6, 10, 11, 12 and part of 9).
+These take the place of the checks the statement catch-up moved here, by the owner's call of
+2026-10-25 ([decisions.md](../decisions.md) "A card's statement is one statement, and a month
+closes from the bank's PDF").
 
 1. The owner uploads a card's PDF for a month with no statement yet: both halves are created
    with the PDF's balances, every line is in the statement in the PDF's order, and the

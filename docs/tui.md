@@ -1261,6 +1261,13 @@ complete, revert, delete or balance save that had ticks queued behind it, under 
 `Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks
 amount/account/title/date on the N ticked rows.` (N the rows ticked, and `1 ticked row` for
 one), `u` reverts, `d` deletes the reconciliation, `r` reads it again, `esc` goes back.
+**On a half of a card statement** the screen shows that half alone, its own lines and figures,
+while `c`, `u` and `d` act on both halves in one write, from either half
+(contract: POST /v1/reconciliations/{reconciliation_id}/complete)
+(contract: DELETE /v1/reconciliations/{reconciliation_id}).
+On an account with a statement code the engine completes nothing until every line of the
+statement has a place in its order (contract: POST /v1/reconciliations/{reconciliation_id}/complete),
+and no screen sets the order ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
 **`c` needs the ending balance**: the engine completes no reconciliation without it
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
 On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The

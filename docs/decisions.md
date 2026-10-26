@@ -807,3 +807,34 @@ transaction, and the engine's words already say what is refused.
 field on the "no batch" card* — three lines for what "the transaction and its parts" says in
 one. *A line of the form's own for the opening balance's hashtag refusal* — rare, its field
 already shows read-only, and the engine's words are enough.
+
+## A card's statement is one statement, and a month closes from the bank's PDF (2026-10-25, owner)
+
+**Decision.** (1) **A card is two bank accounts, one per currency, sharing a statement code**,
+and the engine acts on a card's month as one statement: one create makes both halves, and a
+complete, revert, delete or `PUT` on either half writes both
+(contract: "Reconciliations", "A statement's order"). (2) **An account with a statement code
+lists its statements from one `GET /reconciliations?statement_of=`**, one row per statement, the
+other half found by its `twin_id` among the same items, never by days or names; what the row
+shows is in [tui.md](tui.md) "The Reconciliations browse". The owner picked 1 A and question 3 B
+in [expense-world-card-statement.html](mockups/expense-world-card-statement.html). (3) **The
+statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
+**No screen orders a statement, ticks the lines it still needs or edits a statement's name, days
+and balances.** A month's reconciliation stays open until the bank's PDF statement arrives, and
+uploading the PDF closes it, the engine reading, matching and completing
+([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)). Until
+then the live contract suite proves each of those engine parts ([runtime.md](runtime.md)
+"Working against the live engine").
+
+**Why.** A statement is one thing on paper, so it is one row and one write, and the engine, not
+each client, knows which halves belong together. The owner checks a month against the bank's
+PDF, not by linking rows one at a time; the PDF already holds each currency's balances, every
+line and the paper's order, so reading it replaces every hand step.
+
+**Rejected.** *A heading per statement with its two halves under it* (1 B) — three lines a month
+show a third as many months. *Pairing a card's halves in the app by code and days* — a copy of a
+rule the engine holds. *A screen to put a statement in order with `shift+↑↓`, the lines still
+to tick under it, and an `e` form for the name, days and balances* — picked, then replaced by the
+PDF upload before it was built: each is a hand step the PDF does. *Ticking lines into an open
+month by date as they are imported* — with no ending balance before the PDF there is nothing to
+compare them against.
