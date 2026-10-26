@@ -867,3 +867,26 @@ mapped to endpoints; marking the builders that stand for an answer checks those 
 probe remembering to delete what it made* — a second practice user cannot leak into this one at
 all. *A one-line hint, "0.00 on the first one"*, and *calling the paper's figure the "starting
 balance"* — the first is not the exact rule, the second changes words already in use.
+
+## A held reserved name is the engine's words alone, proven on each side (2026-10-25, owner)
+
+**Decision.** (1) **When the Edit form's whole-line write is refused with `RESERVED_NAME_HELD`
+on `hashtag_ids`, the form shows the engine's words alone**, with "Nothing was saved." and the
+one write sent; the engine sends this refusal on the transaction's hashtags as a whole, never
+on one part's (contract: "Hashtags").
+`test_a_held_reserved_name_shows_the_engines_words_alone_under_the_parts` in
+[test_tui_edit_form_parts.py](../tests/unit/test_tui_edit_form_parts.py) pins it. (2) **The
+live proof that the engine sends it runs as a second practice user**, seeded by the practice
+engine with its own category and hashtag holding the built-in names, never as the practice user
+the suite shares. (3) **A test comment says what its case proves**, never which spec's pick it
+came from.
+
+**Why.** The engine's words already say what to do, so a line of the app's would only repeat
+them. The shared practice user cannot reach a held reserved name: its pending hashtag already
+exists and can never be deleted, and no hashtag of a user's may take the name `Pendiente`
+(contract: "Hashtags"). A pick's name means nothing once its spec is deleted.
+
+**Rejected.** *A line of the form's own for the refusal* — the engine's words are enough.
+*Faking the state on the shared practice user* — the engine allows no way into it. *Holding the
+spec open for the live test* — the owner chose to finish the unit half first and ask the engine
+for the second practice user.

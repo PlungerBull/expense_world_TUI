@@ -37,11 +37,28 @@ closes a statement from its PDF, keeps a statement's last day open until the nex
 closes, and closes a statement with lines left over by flagging them. The new version is
 recorded, so the version check passes, but the app does not handle these changes yet: its
 bank-file import does not work against this engine, its statement close is the old one, and the
-fixture check reports `review_lines` missing from the statement close's fixture.
+fixture check reports `review_lines` missing from the statement close's fixture. On
+2026-10-26 the live contract suite failed 21 tests and errored on 1, every one from this move:
+the bank import's `rows` gone, `review_lines` on the close's answer, the close no longer
+refusing `UNASSIGNED_IN_PERIOD`, and a statement's last day staying open. The last of these
+left account `contract-seal-672b2c23` on the practice user; the practice-data cleaner removes
+it ([runtime.md](runtime.md) "Leftovers").
 Ask the engine coders for one hand-off file from `bdc9d3f3a540b7ce` to `9063fab000b2e3d6`, and
 copy it into [from-engine/](from-engine/); it becomes the catch-up spec.
 
 **Recommended:** none: only you can ask them.
+
+### Approve the spec for the live tests of a held reserved name
+Asked 2026-10-26 · Blocks: [specs/held-reserved-name-proven-live.md](specs/held-reserved-name-proven-live.md)
+
+What the finished reserved-name spec turned up: live tests proving the engine refuses a write
+when one of your own categories or hashtags has a built-in name (the practice engine now has a
+second practice user for it), four test comments that still name an old spec's pick, and one
+Edit form test that checks less than its name says. Nothing you see changes. Approve it or
+rewrite it.
+
+**Recommended:** approve it, after the engine catch-up, so its live tests run against the
+caught-up suite.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
@@ -244,9 +261,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   Edit form "on DATE as `⏎` does", though it opens on the first line that can change; and the
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
-- **A held reserved name is proven on the Edit form**: the current spec, approved with its
-  tasks on 2026-10-25
-  ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
+- **A held reserved name is proven live, and the refusal tests say what they prove**: a draft
+  spec waiting for the owner's approval
+  ([specs/held-reserved-name-proven-live.md](specs/held-reserved-name-proven-live.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a spec the owner
   approved on 2026-10-25, its questions answered, not started; its reason beside `read-only`
   waits on the engine ask "A bank line's edit limits say why each field is locked, in words"
