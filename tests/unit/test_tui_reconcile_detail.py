@@ -26,6 +26,7 @@ from tests.unit.helpers import (
     archived_refusal,
     archived_words,
     bank_line_row,
+    complete_answer,
     cursor_page,
     edit_limits,
     import_part,
@@ -1113,9 +1114,19 @@ GAP = (
 )
 
 
+#: The `coverage_gap` built from the same object as `GAP` (contract: POST
+#: /v1/reconciliations/{reconciliation_id}/complete, "Response"): its two days.
+GAP_DAYS = {
+    "first_uncovered_day": "2026-02-25",
+    "last_uncovered_day": "2026-04-01",
+    "unfiled_count": 0,
+}
+
+
 def _complete_with_warnings(fake_client, warnings: list[str]) -> None:
-    fake_client.write_responses["/reconciliations/r1/complete"] = reconciliation_answer(
-        {**DRAFT, "status": 2, "warnings": warnings}
+    """The complete's answer: `GAP` comes with its `coverage_gap`, no warning with none."""
+    fake_client.write_responses["/reconciliations/r1/complete"] = complete_answer(
+        {**DRAFT, "status": 2}, warnings=warnings, coverage_gap=GAP_DAYS if warnings else None
     )
 
 
@@ -1442,9 +1453,7 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
     completes."""
     _patch(monkeypatch)
     fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
-    fake_client.write_responses[COMPLETE_PATH] = reconciliation_answer(
-        {**SAVED, "status": 2, "warnings": []}
-    )
+    fake_client.write_responses[COMPLETE_PATH] = complete_answer({**SAVED, "status": 2})
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):

@@ -39,7 +39,8 @@ def drift(tmp_path, monkeypatch):
     """The script with its saved-version file and fixture folder moved into tmp_path.
 
     The fixture folder holds one fixture whose keys the mocked contract serves, so
-    the drift half of every run here is clean and the version decides the exit.
+    the drift half of every run here is clean and the version decides the exit. No
+    builder is marked as an endpoint's answer, so the required-field half is clean too.
     """
     module = load_drift_script()
     fixtures = tmp_path / "unit"
@@ -47,6 +48,7 @@ def drift(tmp_path, monkeypatch):
     (fixtures / "test_sample.py").write_text('ROW = {"name": "Cash", "currency": "PEN"}\n')
     monkeypatch.setattr(module, "UNIT_TESTS", fixtures)
     monkeypatch.setattr(module, "SAVED_VERSION_FILE", tmp_path / "engine-contract-version")
+    monkeypatch.setattr(module, "answer_builders", dict)
     return module
 
 
@@ -289,3 +291,144 @@ def test_non_object_info_is_refused_cleanly(drift, info):
 
     with pytest.raises(SystemExit, match="published no info.version"):
         drift.main(["--engine-url", PRACTICE])
+
+
+# ---- a marked answer missing a field its endpoint requires --------------------
+
+CLOSE = "POST /v1/things/{thing_id}/close"
+
+
+def _answer_contract(version=SAVED):
+    """A contract whose `CLOSE` answers a Thing: `name`, `gap` (a Gap or null) and
+    `items` (a list of Items) required, and Gap and Item each requiring their own."""
+    gap = dict(properties=dict(first={}, count={}), required=["first", "count"])
+    item = dict(properties=dict(id={}), required=["id"])
+    thing = dict(
+        properties=dict(
+            name={},
+            gap=dict(anyOf=[{"$ref": "#/components/schemas/Gap"}, dict(type="null")]),
+            items=dict(type="array", items={"$ref": "#/components/schemas/Item"}),
+        ),
+        required=["name", "gap", "items"],
+    )
+    json_answer = dict(schema={"$ref": "#/components/schemas/Thing"})
+    close = dict(responses={"200": dict(content={"application/json": json_answer})})
+    doc = _contract(version)
+    doc["components"]["schemas"].update(Thing=thing, Gap=gap, Item=item)
+    doc["paths"] = {CLOSE.split(" ")[1]: dict(post=close)}
+    return doc
+
+
+def _serve_answers():
+    return respx.get(f"{PRACTICE}/openapi.json").mock(
+        return_value=httpx.Response(200, json=_answer_contract())
+    )
+
+
+def _mark_close(drift, monkeypatch, answer):
+    """One builder, `close_answer`, marked as standing for `CLOSE`'s answer."""
+
+    def close_answer():
+        return answer
+
+    monkeypatch.setattr(drift, "answer_builders", lambda: {CLOSE: close_answer})
+
+
+@respx.mock
+def test_an_answer_with_every_required_field_passes(drift, monkeypatch, capsys):
+    _serve_answers()
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    _mark_close(drift, monkeypatch, dict(name="x", gap=None, items=[]))
+
+    assert drift.main(["--engine-url", PRACTICE]) == 0
+    assert "no marked answer leaves out a field its endpoint requires." in capsys.readouterr().out
+
+
+@respx.mock
+def test_an_answer_missing_a_required_field_fails_and_names_it(drift, monkeypatch, capsys):
+    _serve_answers()
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    _mark_close(drift, monkeypatch, dict(name="x", items=[]))
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    out = capsys.readouterr().out
+    assert "fields the contract requires on an answer, that its fixture leaves out:" in out
+    assert f"  {CLOSE}: gap (close_answer)" in out
+    assert "no fixture claims a field the engine does not serve." in out  # the other half
+
+
+@respx.mock
+def test_a_nested_object_or_list_item_is_checked_against_its_own_schema(drift, monkeypatch, capsys):
+    _serve_answers()
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    _mark_close(drift, monkeypatch, dict(name="x", gap=dict(first="d"), items=[dict(id=1), {}]))
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith(f"  {CLOSE}")]
+    assert lines == [
+        f"  {CLOSE}: gap.count (close_answer)",
+        f"  {CLOSE}: items[1].id (close_answer)",
+    ]
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "endpoint", ["POST /v1/things/{thing_id}/open", "GET /v1/things/{thing_id}/close"]
+)
+def test_an_endpoint_the_contract_does_not_answer_is_reported(drift, monkeypatch, capsys, endpoint):
+    _serve_answers()
+    drift.SAVED_VERSION_FILE.write_text(SAVED + "\n")
+    monkeypatch.setattr(drift, "answer_builders", lambda: {endpoint: lambda: dict(name="x")})
+
+    assert drift.main(["--engine-url", PRACTICE]) == 1
+    assert f"  {endpoint}: the contract holds no JSON answer for it" in capsys.readouterr().out
+
+
+def test_a_value_the_contract_allows_two_object_shapes_for_is_not_guessed():
+    drift = load_drift_script()
+    doc = _answer_contract()
+    other = dict(properties=dict(last={}), required=["last"])
+    doc["components"]["schemas"]["Other"] = other
+    either = [{"$ref": "#/components/schemas/Gap"}, {"$ref": "#/components/schemas/Other"}]
+    doc["components"]["schemas"]["Thing"]["properties"]["gap"] = dict(anyOf=either)
+    schema = drift.answer_schema(doc, CLOSE)
+
+    assert drift.missing_required(doc, schema, dict(name="x", gap={}, items=[])) == []
+
+
+def test_the_script_reads_the_builders_helpers_marks():
+    """With no patch, the script's builders are helpers.py's registry, the complete's
+    answer among them, each giving a dict when called bare."""
+    from tests.unit import helpers
+
+    builders = load_drift_script().answer_builders()
+
+    assert builders == helpers.ANSWER_BUILDERS
+    assert "POST /v1/reconciliations/{reconciliation_id}/complete" in builders
+    assert all(isinstance(build(), dict) for build in builders.values())
+
+
+def test_a_marked_builder_refuses_an_answer_with_fewer_keys_than_its_bare_one(monkeypatch):
+    from tests.unit import helpers
+
+    monkeypatch.setattr(helpers, "ANSWER_BUILDERS", {})
+
+    @helpers.answer_of("POST", "/v1/things/{thing_id}/close")
+    def close_answer(record=None):
+        return record if record is not None else dict(name="x", gap=None)
+
+    assert helpers.ANSWER_BUILDERS == {CLOSE: close_answer}
+    assert close_answer(dict(name="y", gap=None, more=1)) == dict(name="y", gap=None, more=1)
+    with pytest.raises(AssertionError, match=r"close_answer dropped \['gap'\]"):
+        close_answer(dict(name="y"))
+
+
+def test_the_complete_answer_keeps_its_fields_whatever_the_record():
+    from tests.unit.helpers import complete_answer
+
+    gap = dict(first_uncovered_day="2026-02-25", last_uncovered_day="2026-03-31", unfiled_count=3)
+    answer = complete_answer(dict(id="r9", status=2), warnings=["a gap"], coverage_gap=gap)
+
+    assert set(complete_answer()) <= set(answer)
+    assert (answer["id"], answer["warnings"], answer["coverage_gap"]) == ("r9", ["a gap"], gap)
+    assert complete_answer()["coverage_gap"] is None and complete_answer()["twin"] is None

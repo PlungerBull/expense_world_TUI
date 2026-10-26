@@ -340,9 +340,82 @@ ORDERED_ALONE = {"twin_id": None, "unplaced_count": 0, "shared_place_count": 0}
 def reconciliation_answer(record: dict, twin: dict | None = None) -> dict:
     """A reconciliation write's answer: the half the path names, after the write, plus
     `twin`, the statement's other half, `None` when it has none
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")
-    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response")."""
+    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response")
+    (contract: POST /v1/reconciliations). A complete's answer is `complete_answer`."""
     return {**record, "twin": twin}
+
+
+#: Every fixture builder that stands for an engine endpoint's answer, keyed by that
+#: endpoint as the contract names it, `METHOD /v1/path`. scripts/check_fixture_drift.py
+#: calls each with no arguments and reports any field the contract requires on that
+#: answer that the bare answer leaves out. Mark a builder with `answer_of`.
+ANSWER_BUILDERS: dict[str, Callable[..., dict]] = {}
+
+
+def answer_of(method: str, path: str) -> Callable[[Callable[..., dict]], Callable[..., dict]]:
+    """Mark a builder as standing for the answer of `method path`, in `ANSWER_BUILDERS`.
+
+    The drift script checks the bare answer, `builder()`, so every call has to keep
+    each of its keys: what a test passes is spread over it, never in place of it.
+    The marked builder asserts that on every call, so a test cannot get an answer
+    with fewer fields than the one the script checked."""
+
+    def mark(builder: Callable[..., dict]) -> Callable[..., dict]:
+        @functools.wraps(builder)
+        def build(*args: Any, **kwargs: Any) -> dict:
+            answer = builder(*args, **kwargs)
+            dropped = sorted(set(builder()) - set(answer))
+            assert not dropped, f"{builder.__name__} dropped {dropped} from its bare answer"
+            return answer
+
+        ANSWER_BUILDERS[f"{method} {path}"] = build
+        return build
+
+    return mark
+
+
+#: A completed reconciliation as `GET /reconciliations/{id}` reads it, every field
+#: present: what `complete_answer` spreads a test's record over.
+_COMPLETED = {
+    "id": "r1",
+    "user_id": "u-1",
+    "account_id": "acc1",
+    "name": "April 2026",
+    "date_start": "2026-04-01",
+    "date_end": "2026-04-30",
+    "status": 2,
+    "beginning_balance_cents": 0,
+    "ending_balance_cents": 0,
+    "difference_cents": 0,
+    **NO_STATEMENT,
+    "created_at": "2026-04-01T15:00:00Z",
+    "updated_at": "2026-05-02T15:00:00Z",
+    "version": 2,
+    "deleted_at": None,
+}
+
+
+@answer_of("POST", "/v1/reconciliations/{reconciliation_id}/complete")
+def complete_answer(
+    record: dict | None = None,
+    *,
+    warnings: list[str] | None = None,
+    coverage_gap: dict | None = None,
+    twin: dict | None = None,
+) -> dict:
+    """`POST /reconciliations/{id}/complete`'s answer: the half the path names after
+    the write, `record` spread over a completed reconciliation, plus `warnings` (`[]`
+    by default), `coverage_gap` (`None`: no gap) and `twin`, the statement's other
+    half, `None` when it has none. `warnings` and `coverage_gap` are built from one
+    object, so a gap's sentence comes with its `coverage_gap`
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
+    return {
+        **_COMPLETED,
+        **(record or {}),
+        "warnings": list(warnings or []),
+        "coverage_gap": coverage_gap,
+        "twin": twin,
+    }
 
 
 #: `GET /accounts?include_people=true` in an order no client could derive:

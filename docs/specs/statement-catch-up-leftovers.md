@@ -85,11 +85,6 @@ note in point 9 and the engine ask in point 10.
 Approved by the owner on 2026-10-25. One task at a time, in this order; each says what it must
 do and when it passes.
 
-3. **The complete answer's fixtures carry `coverage_gap`, and the drift check catches a
-   required field a fixture leaves out** (point 3). Passes if every unit fixture of the complete
-   answer has `coverage_gap`, the drift script reports a fixture that leaves out a field the
-   contract marks required on its answer, with a unit test proving it, and a run against the
-   practice engine is clean.
 4. **The fake engine answers a reconciliation write as the engine does** (point 4). Passes if
    `FakeClient` answers a reconciliation's create, revert, delete and complete in the engine's
    answer shape, `twin` included on a card (contract: POST /v1/reconciliations), the tests that
@@ -131,3 +126,15 @@ do and when it passes.
 - **Several unit files keep their own account-record builder**, each with its own signature:
   `_account` in test_cmd_import.py, test_tui_account_kind.py and test_tui_card_statement.py;
   one shared builder in helpers.py (found by task 2's builder, 2026-10-25).
+- **A unit fixture quotes an old `GAP` warning.** The sentence in
+  test_tui_reconcile_detail.py ("…sealed by nothing", 2026-02-25 to 2026-04-01) predates the
+  contract's wording, and its last day is the period's first day (found by task 3's builder,
+  2026-10-25).
+- **More answer builders could be marked for the drift check.** Only the complete answer
+  carries `@answer_of`; `put_answer`, `bank_line_row` and the create answer could too, and a
+  marked answer's extra keys could be checked against its own endpoint (found by task 3's
+  builder, 2026-10-25).
+- **Two small edges of the drift check's answer markers.** `answer_of` in helpers.py silently
+  replaces a builder already marked for the same endpoint, and when the contract allows more
+  than one object shape for an answer the script says the contract "holds no JSON answer for
+  it", which misnames the case (found by task 3's reviewer, 2026-10-25).

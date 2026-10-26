@@ -81,7 +81,7 @@ def _bodies(field: str) -> list[tuple[dict, list[str]]]:
             [f"body.{field}"],
         ),
         ({"amount_cents": 1000, "date": "2026-10-01", field: None}, [f"body.{field}"]),
-        ({"name": "Octubre", "expected_version": 2, field: value}, [f"body.{field}"]),
+        ({"name": "Octubre", "date_end": "2026-10-31", field: value}, [f"body.{field}"]),
     ]
 
 
