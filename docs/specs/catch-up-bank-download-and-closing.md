@@ -7,7 +7,7 @@ items have specs of their own: item 7, a locked field's words, was caught up by 
 come [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) (item 2) and
 [statements-close-from-their-pdf.md](statements-close-from-their-pdf.md) (item 5).
 
-**Status: current (owner, 2026-10-26); its tasks wait for the owner's approval.** When done,
+**Status: current.** The owner approved the tasks on 2026-10-26; the loop runs on it. When done,
 the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -101,8 +101,7 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Drafted 2026-10-26; the loop runs them once the owner approves them. Tasks 1 to 4 can run now;
-tasks 5 and 6 wait for their mockup pick.
+Tasks 1 to 4 run now; tasks 5 and 6 wait for their mockup pick.
 
 1. **The second practice key is handled like the first** (point 7). `scripts/practice-engine up`
    passes both keys the reseed prints through to the terminal: the shared practice user's and

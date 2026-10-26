@@ -37,15 +37,6 @@ The only thing you see change is bracketed names showing whole. Approve it or re
 
 **Recommended:** approve it, after the engine catch-up, which matters more.
 
-### Approve the engine catch-up's tasks
-Asked 2026-10-26 · Blocks: [specs/catch-up-bank-download-and-closing.md](specs/catch-up-bank-download-and-closing.md)
-
-The catch-up is the current spec. Its six tasks are in its "Tasks" section: four run now, and
-the two that change a screen (the import door, and what a statement's close flagged) each wait
-for a mockup pick. Approve the tasks or change them.
-
-**Recommended:** approve them.
-
 ### Approve the spec for the sheet import through the engine
 Asked 2026-10-26 · Blocks: [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
 
