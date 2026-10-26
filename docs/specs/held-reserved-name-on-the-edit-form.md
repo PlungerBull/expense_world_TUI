@@ -1,8 +1,7 @@
 # A held reserved name is proven on the Edit form
 
-**Status: drafted by the orchestrator on 2026-10-25 from what the spec "The Edit form's words
-and keys match what it does" found along the way; waiting on the owner to rewrite or approve
-it.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
+**Status: approved by the owner on 2026-10-25; not started. Its tasks are drafted when the
+owner names it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file is deleted.
 
 ---
 
@@ -39,7 +38,7 @@ None.
 
 ## Tasks
 
-Drafted once the owner approves the spec.
+Drafted when the owner names this the current spec.
 
 ## Found along the way
 

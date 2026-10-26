@@ -1,8 +1,7 @@
 # Notes that keep the engine's words, and lines that say they are locked
 
-**Status: drafted by the orchestrator on 2026-10-24 from what the spec
-"Notes and hints that say what is true, and the bulk pick as a screen" found along the way;
-waiting on the owner to rewrite or approve it, and to answer its questions.** When done, the why moves to
+**Status: approved by the owner on 2026-10-25, its questions answered; not started. Its tasks
+are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -14,9 +13,10 @@ Four small things found while building the last spec, not fixed there:
 - When the engine refuses something, most app notes show its words as text the screen may treat
   as styling. A `[` in those words could make part of the message vanish. The bulk edit's note
   is already safe; the others are not.
-- On a transaction inside a completed reconciliation, the Edit form lets you change its date,
-  title, amount, account and operation number, but the engine refuses each change only when you
-  save. The form should say so up front, as it does for an archived account's transaction.
+- The Edit form marks every line that can't change `read-only`, and says no more: on a
+  transaction in a completed reconciliation you see its date is `read-only`, but not why. The
+  engine already sends a reason for each locked field with the line
+  (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
 - When missing settings stop a bulk edit, its note is titled "Refused"; the LOG bar's, for the
   same problem, is titled "Failed" and has a blank line before "Hint:".
 - When you complete a reconciliation, the question says it locks the amount, account, title and
@@ -25,43 +25,43 @@ Four small things found while building the last spec, not fixed there:
 ## What it must do
 
 1. **Every note shows the engine's words exactly as sent**, `[` and all, never read as styling.
-2. **On a transaction in a completed reconciliation, the Edit form shows the lines that can't
-   change as read-only**, with a hint saying why, before you type anything (question 1).
-3. **The bulk edit's missing-settings note reads like the LOG bar's** (question 2).
+2. **The Edit form says why beside `read-only`**, e.g. "its reconciliation is completed", from
+   the reason the engine sends; the wording on screen is picked from a mockup before it is built
+   (question 1).
+3. **The bulk edit's missing-settings note reads like the LOG bar's**: titled "Failed", with a
+   blank line before "Hint:".
 4. **The question before completing a reconciliation names everything it locks.**
 
 ## How the owner knows it is done
 
 1. A refusal whose words hold `[like this]` shows them whole in its note.
-2. Opening a transaction in a completed reconciliation, its DATE line says it can't change and
-   why, and `⏎` there doesn't let you type a new date.
+2. Opening a transaction in a completed reconciliation, its DATE line says `read-only` and why.
 3. A bulk edit stopped by missing settings shows the same note the LOG bar shows.
 4. The complete question names the operation number among what it locks.
 
+## What the owner settled
+
+- **The reason beside `read-only`** (owner, 2026-10-25): the Edit form already shows a completed
+  reconciliation's lines read-only; this spec adds why, after a mockup pick.
+- **The bulk edit's missing-settings note is the LOG bar's** (owner, 2026-10-25): one problem,
+  one note.
+
 ## Questions for the owner
 
-1. **A transaction in a completed reconciliation: what does the Edit form do?**
-   - **A.** The lines that can't change (date, title, amount, account, operation number) show
-     as read-only, with a hint like "read-only · its
-     reconciliation is completed, so this can't change". An empty title or operation number can
-     still be filled once, and category, hashtags and note stay editable, as the engine allows
-     (contract: PUT /v1/transactions/{transaction_id}, "Field locking").
-   - **B.** Leave it as today: you can type a new date, and the engine refuses it when you save.
+1. **Which read-only lines say why?**
+   - **A.** Every one: a completed reconciliation's lines, an opening balance's, an archived
+     account's, each with the reason the engine sends for it.
+   - **B.** Only a completed reconciliation's lines; the others keep plain `read-only`.
 
-   **Recommended:** A, because it matches how an archived account's transaction already
-   behaves, and you find out before typing. The hint's exact wording gets a mockup to pick from
-   before it is built.
-2. **The bulk edit's missing-settings note:**
-   - **A.** Same as the LOG bar's: titled "Failed", blank line before "Hint:".
-   - **B.** Leave it as it is.
-
-   **Recommended:** A: one problem, one note.
+   **Recommended:** A, because the engine gives a reason for every locked line, so one rule
+   covers them all and the app copies no rule of its own. Asked with the mockup, when the spec
+   starts.
 
 ---
 
 ## Tasks
 
-Drafted once the owner approves the spec and answers its questions.
+Drafted when the owner names this the current spec.
 
 ## Found along the way
 

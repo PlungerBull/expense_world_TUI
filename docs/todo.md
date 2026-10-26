@@ -60,40 +60,6 @@ into the engine repo's `docs/from-tui/`, then say so here and it leaves the fold
 
 **Recommended:** none: only you can hand it over.
 
-### Approve the spec for a held reserved name on the Edit form
-Asked 2026-10-25 · Blocks: [specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)
-
-One thing the Edit form's words spec found: nothing yet proves that when one of your categories
-holds a built-in name, the Edit form shows only the engine's words. Tests only, nothing you see
-changes. Approve it, or rewrite it.
-
-**Recommended:** approve it, because it closes a gap no test covers today.
-
-### The locked-line part of the notes spec is done
-Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
-
-That draft's point 2 asks the Edit form to show a completed reconciliation's lines as read-only.
-The Edit form now does that for every locked line, marked `read-only` as you picked, with no
-reason beside it.
-- **A.** Drop point 2 and its question 1 from that spec; the rest stays.
-- **B.** Keep point 2, to add the reason beside `read-only` (e.g. "its reconciliation is
-  completed"); a mockup comes for a pick first.
-
-**Recommended:** A, because you picked plain `read-only` today; B can come later as its own spec.
-
-### Amounts follow your number format
-Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
-
-You asked to work as normal apps do: the app reads your Mac's region by default, and an
-optional setting on your account wins when it is set, so every device agrees. Your Mac's region
-is English (Peru): dot for decimals, comma for thousands, as your bank files write them. Under
-it, `1,5` is not a number (a comma marks thousands, three digits after it), so it is refused
-instead of saved as 15.00. The account setting is an ask to the engine. One choice is yours:
-- **A.** Your format is used for amounts you type and for every amount the app shows.
-- **B.** Only for amounts you type; the app keeps showing `13,853.20`.
-
-**Recommended:** A, because that is what normal apps do: one format, both ways.
-
 ---
 
 ## Backlog
@@ -273,13 +239,19 @@ ships (its why moves to [decisions.md](decisions.md)).
   `test_nothing_in_the_app_calls_the_split_route` in
   [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
   gone", where the rule is present tense.
-- **A held reserved name is proven on the Edit form**: a draft spec waiting for the owner's
-  approval ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
-- **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
-  waiting for the owner's approval and two answers
+- **A held reserved name is proven on the Edit form**: a spec the owner approved on
+  2026-10-25, not started
+  ([specs/held-reserved-name-on-the-edit-form.md](specs/held-reserved-name-on-the-edit-form.md)).
+- **Notes that keep the engine's words, and lines that say they are locked**: a spec the owner
+  approved on 2026-10-25, not started; one question waits for its mockup
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).
-- **Move the official data into the app** (a wipe and one fresh sheet import). Open questions:
-  [specs/before-the-official-import.md](specs/before-the-official-import.md).
+- **Amounts follow your number format.** The app reads the Mac's region by default, and an
+  optional setting on the owner's account wins when set, so every device agrees (an engine
+  ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
+  Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
+  Needs a spec.
+- **Move the official data into the app** (a wipe and one fresh sheet import), every question
+  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).
