@@ -28,6 +28,38 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand over the Edit form's reply to the engine
+Asked 2026-10-25 · Blocks: nothing; the engine waits for it
+
+The Edit form now saves a whole line in one write and reads what is locked from the engine, and
+every check passed. Copy
+[to-engine/caught-up-bdc9d3f3a540b7ce-edit-form.md](to-engine/caught-up-bdc9d3f3a540b7ce-edit-form.md)
+into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder.
+
+**Recommended:** none: only you can hand it over.
+
+### Approve the spec for the Edit form's words and keys
+Asked 2026-10-25 · Blocks: [specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)
+
+Three small things the new Edit form left behind: `s` hidden on an archived account's rows, a
+few words still describing the old split screen, and one refusal line that reads wrong on the
+form. Approve the spec, or rewrite it, and answer its three questions (A, A and A recommended).
+
+**Recommended:** approve it with A, A and A, because each brings the words and keys in line with
+the form you picked.
+
+### The locked-line part of the notes spec is done
+Asked 2026-10-25 · Blocks: [specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)
+
+That draft's point 2 asks the Edit form to show a completed reconciliation's lines as read-only.
+The Edit form now does that for every locked line, marked `read-only` as you picked, with no
+reason beside it.
+- **A.** Drop point 2 and its question 1 from that spec; the rest stays.
+- **B.** Keep point 2, to add the reason beside `read-only` (e.g. "its reconciliation is
+  completed"); a mockup comes for a pick first.
+
+**Recommended:** A, because you picked plain `read-only` today; B can come later as its own spec.
+
 ### Amounts follow your number format
 Asked 2026-10-23 · Blocks: the fix for `1,5` saved as 15.00
 
@@ -57,11 +89,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **A code comment speaks of a "phase".** The `Staged` docstring in
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
-- **The Edit form saves a whole line in one write** (the Edit form's part of the catch-up to
-  contract `bdc9d3f3a540b7ce`): the current spec, runs first
-  ([specs/edit-form-saves-a-whole-line.md](specs/edit-form-saves-a-whole-line.md)).
 - **Statement lines come from reconciliations, and a card statement is one statement** (the
-  rest of the catch-up to contract `bdc9d3f3a540b7ce`): runs after the Edit form spec
+  rest of the catch-up to contract `bdc9d3f3a540b7ce`): the next spec, its tasks approved
   ([specs/statement-lines-from-reconciliations.md](specs/statement-lines-from-reconciliations.md)).
 - **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
   names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
@@ -201,6 +230,17 @@ ships (its why moves to [decisions.md](decisions.md)).
   `edit_form.py`, `create_forms.py`, `setup.py`, `app.py`. Move them, checking first whether a
   write's `on_success` must still run after a dismiss, and add a guard in
   `test_suite_hygiene.py` that refuses a raw `call_from_thread` in `expense/tui/screens/`.
+- **Four comments still describe the split screen.** `key_index`'s docstring in
+  [errors.py](../expense/errors.py) says "the split's `parts`"; `check_action` in
+  [transactions.py](../expense/tui/screens/transactions.py) says the engine refuses `s` on an
+  archived account's row, though `s` only opens the Edit form; the
+  [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
+  DATE, though it opens on the first line that can change; and
+  `test_nothing_in_the_app_calls_the_split_route` in
+  [test_bank_line_write.py](../tests/unit/test_bank_line_write.py) says "The split route is
+  gone", where the rule is present tense.
+- **The Edit form's words and keys match what it does**: a draft spec waiting for the owner's
+  approval and three answers ([specs/edit-form-words-and-keys.md](specs/edit-form-words-and-keys.md)).
 - **Notes that keep the engine's words, and lines that say they are locked**: a draft spec
   waiting for the owner's approval and two answers
   ([specs/notes-that-keep-the-engines-words.md](specs/notes-that-keep-the-engines-words.md)).

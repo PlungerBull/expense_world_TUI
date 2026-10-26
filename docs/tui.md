@@ -385,8 +385,10 @@ reconciliation reads `2 rows → … · 2 left their reconciliation`, and both p
 read `2 rows`; `c` and `h` count the rows they wrote.
 **`⏎` and `s` open the Edit form** ([edit_form.py](../expense/tui/screens/edit_form.py),
 [expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html),
-picks 1 A to 6 A). `⏎` on any ledger row and `s` on the cursor row open the same full screen,
-its crumb `Capture & ledger ▸ Transactions ▸ Edit`, the bar on DATE either way. `s Split` sits
+picks 1 A and 3 A to 6 A). `⏎` on any ledger row and `s` on the cursor row open the same full
+screen, its crumb `Capture & ledger ▸ Transactions ▸ Edit`, the bar on the same line either way:
+DATE, or the first line that can change when the line's `edit_limits` makes DATE read-only
+("What is read-only is the line's `edit_limits`" below). `s Split` sits
 in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
 works on the cursor row only: off, and out of the footer, while rows are selected, while a bulk
 write runs, or while the cursor is on an archived account's row ("On an archived account's row

@@ -242,15 +242,15 @@ Decisions whose why lives elsewhere:
 
 **Context.** `⏎` walks down a bar form line by line. On the Edit form's ACCOUNT and CATEGORY it took the first name in the list, so walking past a transaction could move it to another account or category; a read-only line still took typing; and `⏎` saved only on the last line, so a form whose remaining lines were locked could be saved only with `ctrl+s`.
 
-**Decision.** (1) **ACCOUNT and CATEGORY start on the row's own value**, in the list's usual order, so `⏎` with nothing typed keeps it (owner's pick 1 A, [mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). (2) **`@Pendiente` is in the Edit form's category list**, where the engine lists it, and a row in it starts highlighted there (pick 3 A); the Edit form and the bulk `c` pick share one list, `pickable_categories` ([reads.py](../expense/reads.py)), in the engine's order, `@Opening` never in it. (3) **`esc` on a split part keeps every hashtag added with `⏎`** (pick 2 A): `⏎` is how the screen says "keep this". (4) **A read-only line takes nothing**: the shared bar, `FormBar` ([_form.py](../expense/tui/screens/_form.py)), refuses typing, paste and delete there, and every field a bank line's `edit_limits` names opens read-only, showing what it holds. (5) **`⏎` saves when no line ahead can change**, as `ctrl+s` does. (6) **A form's own `on_input_submitted` calls `event.prevent_default()`** when a class under it has one: Textual runs each class's handler along the MRO otherwise, so one `⏎` moved two lines; a guard test holds it ([tui.md](tui.md) "The bar forms' keys").
+**Decision.** (1) **ACCOUNT and CATEGORY start on the row's own value**, in the list's usual order, so `⏎` with nothing typed keeps it (owner's pick 1 A, [mockups/expense-world-enter-and-esc.html](mockups/expense-world-enter-and-esc.html)). (2) **`@Pendiente` is in the Edit form's category list**, where the engine lists it, and a row in it starts highlighted there (pick 3 A); the Edit form and the bulk `c` pick share one list, `pickable_categories` ([reads.py](../expense/reads.py)), in the engine's order, `@Opening` never in it. (3) **A read-only line takes nothing**: the shared bar, `FormBar` ([_form.py](../expense/tui/screens/_form.py)), refuses typing, paste and delete there, and every field a bank line's `edit_limits` names opens read-only, showing what it holds. (4) **`⏎` saves when no line ahead can change**, as `ctrl+s` does. (5) **A form's own `on_input_submitted` calls `event.prevent_default()`** when a class under it has one: Textual runs each class's handler along the MRO otherwise, so one `⏎` moved two lines; a guard test holds it ([tui.md](tui.md) "The bar forms' keys").
 
-**Rejected.** Leaving `@Pendiente` out of the Edit form's list with nothing highlighted (pick 3 B): the Edit form and the bulk pick would offer different lists, and the Edit form could never send a row back to waiting. Dropping the hashtags on `esc` (pick 2 B): it would undo what `⏎` already kept.
+**Rejected.** Leaving `@Pendiente` out of the Edit form's list with nothing highlighted (pick 3 B): the Edit form and the bulk pick would offer different lists, and the Edit form could never send a row back to waiting.
 
 ## One reader for every amount, refusing what it cannot read for sure (2026-10-23, owner)
 
 **Context.** `13.853,20` was saved as 13.85: the amount reader dropped every comma, and the bank importer kept its own copy of that reader. A `nan` or `inf` cell crashed both importers.
 
-**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field and in both importers (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"). (2) **Both importers read an amount cell with the typed fields' reader**, so a rule lands everywhere at once; `nan`, `inf` and an overflowing amount refuse their row and the rest of the file imports. (3) **A split part added on the screen and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (4) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
+**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field and in both importers (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"). (2) **Both importers read an amount cell with the typed fields' reader**, so a rule lands everywhere at once; `nan`, `inf` and an overflowing amount refuse their row and the rest of the file imports. (3) **A part added on the Edit form and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (4) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
 
 **Rejected.** Reading `13.853,20` as thirteen thousand: whether a dot or a comma marks the decimals is a guess, and a guess that is wrong saves a wrong amount silently. Letting an emptied saved part drop: it would take a part out of a split without the person asking.
 
@@ -754,3 +754,28 @@ not sent for another row.`, so "refused" only ever means the engine said no.
 *The engine's words alone* — its words are often general (`Must not be null.`), so two lines
 could read the same with nothing to say which field each is about. *Grouping by the top-level
 message* — it carries a count, so one kind sent twice would read as two.
+
+## The Edit form saves a whole line in one write, and the engine says what is locked (2026-10-25, owner)
+
+**Decision.** (1) **Every save from the Edit form on a bank line is one
+`PUT /bank-lines/{bank_line_id}`**: the line's fields and its full set of parts together, a kept
+part keeping its id, an opening balance's line and an archived account's line included
+(contract: PUT /v1/bank-lines/{bank_line_id}, "The parts' rules"). A kept part's hashtags are
+sent only when they changed, since the engine counts any sent hashtags as a change; each kept
+part's amount is sent as it is, which the engine does not count as one on an archived account.
+(2) **What is read-only comes from the line's `edit_limits` alone**: the fields it names read
+`read-only` and are dimmed, `^n` and `^x` show only when the parts are not fixed, and the total
+is kept when it is fixed (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). The
+form reads no reconciliation and holds no locking rule. (3) **A locked field says `read-only`
+and no more** (owner's pick, 2026-10-25), although `edit_limits` carries a reason for each.
+
+**Why.** One write lands whole or not at all, so a save never leaves a line half-edited, and a
+retry under the same key never applies twice. The engine works out `edit_limits` with the write's
+own rules on every read, so the form can never offer what the write would refuse, and every
+client reads the same answer instead of keeping its own copy of the rules.
+
+**Rejected.** *A transaction's own write for an opening balance's or an archived account's line*
+— two write paths for one form, and the second takes a different set of fields. *One write per
+part* — a chain that can land halfway. *Reading the line's reconciliation to decide what is
+locked* — an extra read, and a copy of the engine's rules in the client. *The reason beside
+`read-only`* — the owner kept the picked wording; it can come later as its own change.

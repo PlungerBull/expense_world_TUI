@@ -8,9 +8,8 @@ takes, a bank line's read says what a write would refuse, the engine lists the l
 still needs, the reconciliation list reads a whole card from either account, and one save of a
 card statement writes both halves' balances", shipped 2026-10-24 and 2026-10-25, breaking. Its
 Edit form's part (the whole-line write from the line editor, `parts` on an opening balance's line
-and an archived account's line, and what a line's read says is locked) is
-[edit-form-saves-a-whole-line.md](edit-form-saves-a-whole-line.md), which runs first, as the
-owner chose on 2026-10-25.
+and an archived account's line, and what a line's read says is locked) is done, as
+[decisions.md](../decisions.md) "The Edit form saves a whole line in one write, and the engine says what is locked" records, with its own reply to the engine.
 
 **Status: tasks 6 and 9 to 12 done; tasks 16, 14, 7, 8 and 15 approved by the owner on
 2026-10-25.** When done, the why moves to [decisions.md](../decisions.md) and
@@ -247,8 +246,7 @@ each picked from its mockup in [mockups/](../mockups/).
 Written into [to-engine/](../to-engine/) once this spec is done.
 
 - **Covers:** contract `f5cbc6ab4841f0a7` (exclusive) to `bdc9d3f3a540b7ce` (inclusive), all of
-  the hand-off named above but its Edit form's part, which
-  [edit-form-saves-a-whole-line.md](edit-form-saves-a-whole-line.md) answers.
+  the hand-off named above but its Edit form's part, answered by its own reply.
 - **Done when, checked:** the engine's checks 1 to 4, 7 to 12, 15 and 16, as "How the owner
   knows it is done" words them; its checks 5, 6, 13 and 14 are the Edit form spec's. Two differ
   from the engine's, by the owner's calls: check 4 reads the statement line through the engine,
