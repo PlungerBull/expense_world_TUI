@@ -86,7 +86,16 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-Every task is done; the acceptance check runs next.
+6. **The drift check's fixture check passes on this spec's tests.** The tester's acceptance
+   check of 2026-10-26 found the fixture check flagging seven keys this spec's tests added, none
+   of them an engine field: `amount`, `note`, `tx1`, `kor`, `category_names`,
+   `pickable_categories` and `markup` (test_tui_edit_form.py, test_tui_engine_words.py,
+   test_tui_create_forms.py, test_tui_opening_balance.py). Passes if: `check_fixture_drift.py`
+   against `:8002` reports only the known `review_lines (complete_answer)` gap, each of the seven
+   either reshaped out of the tests or listed in `KNOWN_LOCAL` with a note saying what writes it
+   (an entry only while a fixture still writes it, as
+   `test_known_local_exemptions_still_match` guards); no key an engine answer could hold is
+   exempted.
 
 ## Reply to the engine
 
