@@ -976,6 +976,14 @@ def _card_enter_rows(screen) -> list[str]:
     return [row.description for g in keyed for row in g.rows if row.keys == "⏎"]
 
 
+def _card_group(screen, title: str) -> list[tuple[str, str]]:
+    """One group of the `?` card, row by row, in order."""
+    from expense.tui.screens.help import screen_inventory
+
+    _, groups = screen_inventory(screen)
+    return [(row.keys, row.description) for g in groups if g.title == title for row in g.rows]
+
+
 async def _cursor_on(pilot, screen, key: str) -> None:
     screen._batch_list.set_cursor(screen._batch_list.index_of(key))
     await pilot.pause()
@@ -996,8 +1004,14 @@ def test_enter_edits_every_row_in_no_batch_in_the_footer_the_card_and_the_key(mo
             await _cursor_on(pilot, screen, key)
             assert _enter_label(app) == "Edit", key
             assert "enter" in _footer_keys(app), key
-            assert _card_enter_rows(screen) == [
-                "Edit the row: its date, title, operation, amount or account"
+            # screen 2 A of expense-world-edit-form-words.html: the ledger's `s` words
+            assert _card_enter_rows(screen) == ["Edit the transaction and its parts"], key
+            assert _card_group(screen, "Moving around") == [
+                ("⏎", "Edit the transaction and its parts"),
+                ("↓", "Down"),
+                ("pgdn", "Load the next 10 rows under these"),
+                ("pgdn", "Next page"),
+                ("pgup", "Previous page"),
             ], key
         await _cursor_on(pilot, screen, "bl-farm")
         await pilot.press("enter")

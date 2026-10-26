@@ -388,8 +388,10 @@ read `2 rows`; `c` and `h` count the rows they wrote.
 picks 1 A and 3 A to 6 A). `⏎` on any ledger row and `s` on the cursor row open the same full
 screen, its crumb `Capture & ledger ▸ Transactions ▸ Edit`, the bar on the same line either way:
 DATE, or the first line that can change when the line's `edit_limits` makes DATE read-only
-("What is read-only is the line's `edit_limits`" below). `s Split` sits
-in the ledger's footer before `d Delete`, whole ledger or filtered from Home, and like `d` it
+("What is read-only is the line's `edit_limits`" below). `s Edit` sits
+in the ledger's footer before `d Delete`, whole ledger or filtered from Home, its `?` card line
+"Edit the transaction and its parts" (screen 1 A of
+[expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html)), and like `d` it
 works on the cursor row only: off, and out of the footer, while rows are selected, while a bulk
 write runs, or on an empty list. On an archived account's row `s` stays and `d` goes ("On an
 archived account's row the ledger offers no `d`" below). The form reads the reference lists and
@@ -529,8 +531,10 @@ a hint, not a ruling** — it marks a row whose date falls inside a batch window
 already holds, so it costs no request; the engine stays the authority at close time.
 
 **Keys**: `esc` swaps back to the panel. `⏎ Edit`, on every row, opens the Edit form on the
-line and its parts (below). `d` deletes the line under the cursor after a
-question (pane 3b, and "`d` is the TUI's one destructive key" below), with the line the list
+line and its parts (below); the `?` card words it "Edit the transaction and its parts", as the
+ledger's `s` (screen 2 A of
+[expense-world-edit-form-words.html](mockups/expense-world-edit-form-words.html)). `d` deletes
+the line under the cursor after a question (pane 3b, and "`d` is the TUI's one destructive key" below), with the line the list
 already holds, so nothing is read before asking: a split transaction (`part_count` above 1)
 asks the ledger's question for a split transaction and goes whole in one
 `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}),

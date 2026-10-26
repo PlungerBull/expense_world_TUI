@@ -91,7 +91,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
   once every row is loaded; on a 30-row terminal it clips its last line
   ([reconciliations.py](../expense/tui/screens/reconciliations.py)). One row per key that works,
-  with a test.
+  with a test. Two tests pin today's cards whole, the doubled rows included, and change with the
+  fix: the ledger's `CARD_THIS_SCREEN` (doubled `esc`) in
+  [test_tui_ledger_archived.py](../tests/unit/test_tui_ledger_archived.py) and the "no batch"
+  "Moving around" group (doubled `pgdn`) in
+  [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py).
 - **A huge amount reads, then crashes what prints it.** `parse_amount`
   ([quickadd/money.py](../expense/quickadd/money.py)) reads a finite `1e5000`, typed or in either
   importer's file, as an integer of over 4,300 digits, and printing it (the bank preview, a row's

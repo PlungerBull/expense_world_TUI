@@ -225,7 +225,7 @@ class _PanelList(CursorList):
             "enter",
             "edit_row",
             "Edit",
-            tooltip="Edit the row: its date, title, operation, amount or account",
+            tooltip="Edit the transaction and its parts",
         ),
         Binding("enter", "select", "Open"),
     ]

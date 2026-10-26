@@ -54,14 +54,9 @@ On 2026-10-25 the owner answered each question with A:
 
 ## Tasks
 
-Approved by the owner on 2026-10-25. They run in this order: 2 and 3. Both are **[UI]**,
-picked from
+Approved by the owner on 2026-10-25. Task 3 is **[UI]**, picked from
 [mockups/expense-world-edit-form-words.html](../mockups/expense-world-edit-form-words.html).
 
-2. **[UI] The words for `s` and for `⏎` in "no batch"** read as screens 1 A and 2 A of the
-   mockup draw them: the ledger's footer says `s Edit` and its `?` card line "Edit the
-   transaction and its parts", and the "no batch" `?` card line for `⏎` reads the same. tui.md
-   follows. Tests pin each line.
 3. **[UI] A refused part names its category and hashtags in the form's words**, as screen 3 A of
    the mockup draws it: `part 1 (category)` and `part 1 (hashtags)`, as `part 1 (amount)` reads
    now. A test for each.

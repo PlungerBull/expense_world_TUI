@@ -291,7 +291,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
             "Back",
             tooltip="Clear the selection, else go back",
         ),
-        Binding("s", "split", "Split", tooltip="Split the cursor row into parts"),
+        Binding("s", "split", "Edit", tooltip="Edit the transaction and its parts"),
         DELETE_KEY,
     ]
     crumb = ("Capture & ledger", "Transactions")

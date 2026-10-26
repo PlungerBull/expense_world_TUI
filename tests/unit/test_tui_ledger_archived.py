@@ -116,13 +116,43 @@ def engine(fake_client, monkeypatch):
     return fake_client
 
 
+#: The ledger's footer with the cursor on an active account's row, slot by slot.
+FOOTER_ON_AN_ACTIVE_ROW = [
+    ("⏎", "Open"),
+    ("space", "Select"),
+    ("esc", "Back"),
+    ("r", "Refresh"),
+    ("?", "Keys"),
+    ("+", "Add"),
+    ("a", "All/none"),
+    ("c", "Category"),
+    ("b", "Account"),
+    ("h", "Hashtags"),
+    ("s", "Edit"),
+    ("d", "Delete"),
+]
+#: The `?` card's "This screen" rows of the ledger, in order.
+CARD_THIS_SCREEN = [
+    ("+", "Add"),
+    ("a", "Select every loaded row, or none"),
+    ("c", "Set the category of the selection"),
+    ("b", "Move the selection to an account"),
+    ("h", "Replace the selection's hashtags"),
+    ("s", "Edit the transaction and its parts"),
+    ("d", "Delete"),
+    ("r", "Refresh"),
+    ("esc", "Clear the selection, else go back"),
+    ("esc", "Back"),
+]
+
+
 def _footer(screen) -> list[str]:
     return [k.description for k in screen.query_one(Footer).query(FooterKey)]
 
 
 def _keys_shown(screen) -> set[str]:
     shown = set(_footer(screen))
-    return {d for d in ("Split", "Delete") if d in shown}
+    return {d for d in ("Edit", "Delete") if d in shown}
 
 
 #: The ledger as Home opens it filtered: every row here is on this category.
@@ -179,16 +209,42 @@ def test_d_leaves_the_footer_on_an_archived_accounts_row_only_and_s_stays(engine
         seen = {}
         for key in ("t-live", "t-old", "t-ana", "t-old", "t-live"):
             await _cursor_on(pilot, screen, key)
-            expect = {"Split"} if key == "t-old" else {"Split", "Delete"}
+            expect = {"Edit"} if key == "t-old" else {"Edit", "Delete"}
             await wait_for(
                 pilot,
                 lambda e=expect: _keys_shown(screen) == e,
                 message=f"{key}: {_footer(screen)}",
             )
             seen[key] = _footer(screen)
-            for always in ("Open", "Split", "Category", "Account", "Hashtags"):
+            for always in ("Open", "Edit", "Category", "Account", "Hashtags"):
                 assert always in seen[key], (key, always)
         assert "Delete" in seen["t-ana"] and "Delete" not in seen["t-old"]
+
+    run_app(scenario, size=(160, 30))
+
+
+def _footer_pairs(screen) -> list[tuple[str, str]]:
+    return [(k.key_display, k.description) for k in screen.query_one(Footer).query(FooterKey)]
+
+
+@pytest.mark.parametrize("flt", [None, FILTER], ids=["whole", "filtered"])
+def test_the_footer_says_s_edit_and_the_card_says_what_the_form_does(engine, flt):
+    """Screen 1 A of expense-world-edit-form-words.html: the footer reads
+    `s Edit` before `d Delete`, and the `?` card's line for `s` reads "Edit the
+    transaction and its parts"; every other footer slot and card row keeps its
+    words and its place."""
+
+    async def scenario(pilot, app):
+        screen = await _open(pilot, app, flt)
+        await _cursor_on(pilot, screen, "t-live")
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit", "Delete"})
+        assert _footer_pairs(screen) == FOOTER_ON_AN_ACTIVE_ROW
+        _, groups = screen_inventory(screen)
+        own = next(g for g in groups if g.title == "This screen")
+        assert [(row.keys, row.description) for row in own.rows] == CARD_THIS_SCREEN
+        assert [row.description for row in own.rows if row.keys == "s"] == [
+            "Edit the transaction and its parts"
+        ]
 
     run_app(scenario, size=(160, 30))
 
@@ -287,7 +343,7 @@ def test_after_an_unarchive_and_r_d_is_back_on_the_row(engine):
     async def scenario(pilot, app):
         screen = await _open(pilot, app)
         await _cursor_on(pilot, screen, "t-old")
-        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split"})
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit"})
         # the account is unarchived on Manage ▸ Accounts; the next read says so
         engine.get_responses["/accounts"] = whole([dict(a, is_archived=False) for a in ACCOUNTS])
         await pilot.press("r")
@@ -295,7 +351,7 @@ def test_after_an_unarchive_and_r_d_is_back_on_the_row(engine):
         await wait_for_list(pilot, app)
         screen.query_one(CursorList).focus()
         await _cursor_on(pilot, screen, "t-old")
-        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split", "Delete"})
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit", "Delete"})
         await pilot.press("s")
         await wait_for(pilot, lambda: isinstance(app.screen, EditFormScreen))
 
@@ -314,7 +370,7 @@ def test_the_existing_gates_still_hold_beside_the_archived_rule(engine):
         await wait_for(pilot, lambda: _keys_shown(screen) == set())
         assert screen.check_action("split", ()) is False
         await pilot.press("escape")
-        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split", "Delete"})
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit", "Delete"})
         await _cursor_on(pilot, screen, "t-old")
         await pilot.press("space")
         await wait_for(pilot, lambda: _keys_shown(screen) == set())
@@ -322,7 +378,7 @@ def test_the_existing_gates_still_hold_beside_the_archived_rule(engine):
         await pilot.pause()
         assert app.screen is screen
         await pilot.press("escape")
-        await wait_for(pilot, lambda: _keys_shown(screen) == {"Split"})
+        await wait_for(pilot, lambda: _keys_shown(screen) == {"Edit"})
         screen._bulk_busy = True
         assert screen.check_action("split", ()) is False
         assert screen.check_action("delete", ()) is False
