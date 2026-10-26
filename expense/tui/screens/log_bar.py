@@ -109,7 +109,7 @@ from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import suggestion_list
-from expense.tui.widgets.refusal import toast
+from expense.tui.widgets.refusal import run_stopped, toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
 #: Sigil per reference kind — the character a completion writes back into the
@@ -1085,15 +1085,16 @@ class LogBarScreen(Screen):
         A refusal that stopped the run (`outcome.refusal`) holds for every further
         write (`errors.refuses_every_write`): `SETTINGS_MISSING`, about the
         account, or `LINE_CODES_EXHAUSTED`, named on the first row that needed a
-        new line. It is said once, as a toast, and no row carries it; a row
-        refused for its own reason earlier in the save keeps that refusal.
+        new line. It is said once, in the note every run of writes says its
+        stop in (`refusal.run_stopped`), and no row carries it; a row refused
+        for its own reason earlier in the save keeps that refusal.
         """
         if outcome.refusal is not None:
             own = {i: f for f in outcome.failures if not f.stops_run for i in f.indices}
             for index, result in enumerate(outcome.results):
                 written = result in (RowResult.CREATED, RowResult.EXISTED)
                 self._mark(rows[index], written, *_said(own.get(index)))
-            toast(self, format_error(outcome.refusal), title="Failed", severity="error")
+            run_stopped(self, outcome.refusal)
             return
         failed = {i: f for f in outcome.failures for i in f.indices}
         for index, result in enumerate(outcome.results):

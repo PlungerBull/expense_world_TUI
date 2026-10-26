@@ -337,6 +337,24 @@ def test_a_refused_bulk_edit_shows_the_words_whole(fake_client, monkeypatch):
     run_app(scenario, size=(120, 35), toasts=True)
 
 
+def test_a_bulk_edit_the_engine_stops_shows_the_words_whole(fake_client, monkeypatch):
+    """A refusal every row would draw too (`SETTINGS_MISSING`) stops the bulk
+    edit: one "Failed" toast, the LOG bar's."""
+    _stub_ledger(monkeypatch)
+    fake_client.errors["PUT"] = refusal("SETTINGS_MISSING", 422, "user_settings")
+
+    async def scenario(pilot, app):
+        screen = await _open_ledger(pilot, app)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press(*"kor", "enter")
+        shown = await toast_with_words(pilot, app)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+        assert shown.startswith("Failed") and whole_in(shown)
+
+    run_app(scenario, size=(120, 35), toasts=True)
+
+
 def test_a_bulk_receipt_shows_a_name_whole(fake_client, monkeypatch):
     """The receipt after a bulk edit names what the rows went to, as the
     engine holds its name."""

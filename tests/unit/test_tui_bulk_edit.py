@@ -631,23 +631,41 @@ def test_an_opening_balance_in_the_selection_is_refused_with_where_to_change_it(
     run_app(scenario, size=(120, 30))
 
 
+def _settings_missing() -> EngineError:
+    """The refusal about the account, not the row, that stops a bulk run."""
+    return EngineError(
+        "SETTINGS_MISSING",
+        "User settings have not been provisioned.",
+        {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
+        422,
+        {},
+        reasons={"user_settings": "NOT_PROVISIONED"},
+    )
+
+
+#: The LOG bar's note for the same refusal, word for word
+#: (test_tui_log_bar.py's settings-missing test), screen 2 A of
+#: expense-world-read-only-reasons.html.
+SETTINGS_MISSING_NOTE = (
+    "Failed",
+    "SETTINGS_MISSING — User settings have not been provisioned.\n"
+    "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
+    "\n"
+    "Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.",
+)
+
+
 def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monkeypatch):
     """A refusal about the account, not the row: every later PUT would draw it
-    too, so none goes out and the hint is on screen once."""
+    too, so none goes out, and it shows once in the LOG bar's note: `Failed`,
+    the engine's words, a blank line, the hint."""
     _stub_ledger(monkeypatch)
     toasts: list[tuple[str, str]] = []
     puts: list[str] = []
 
     def put(path, json_body=None):
         puts.append(path)
-        raise EngineError(
-            "SETTINGS_MISSING",
-            "User settings have not been provisioned.",
-            {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
-            422,
-            {},
-            reasons={"user_settings": "NOT_PROVISIONED"},
-        )
+        raise _settings_missing()
 
     fake_client.put = put
 
@@ -666,18 +684,53 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
         await wait_for(pilot, lambda: not screen._bulk_busy)
 
         assert puts == ["/transactions/t1"]
-        # about the account, not the row: whole, on a line naming no row, as
-        # the LOG bar says a refusal that stops its save
-        assert [(t, _plain(m)) for t, m in toasts] == [
-            (
-                "Refused",
-                "SETTINGS_MISSING — User settings have not been provisioned.\n"
-                "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
-                "Hint: First-time setup is not done yet. "
-                "Open System ▸ Auth & profile and press b.",
-            )
-        ]
+        # about the account, not the row: the note the LOG bar shows when the
+        # same refusal stops its save, naming no row
+        assert toasts == [SETTINGS_MISSING_NOTE]
         # the refused row and the two never sent stay selected for the retry
+        assert screen._selected == {"t1", "t2", "t3"}
+
+    run_app(scenario, size=(120, 30))
+
+
+def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypatch):
+    """Row 1 is refused for its own reason, then missing settings stop the run
+    at row 2: both notes show, the row's under `Refused` and the stop's under
+    `Failed`, the stop in no row's note; row 3 is never sent, and all three stay
+    selected for the retry."""
+    _stub_ledger(monkeypatch)
+    toasts: list[tuple[str, str]] = []
+    puts: list[str] = []
+
+    def put(path, json_body=None):
+        puts.append(path)
+        if path.endswith("/t1"):
+            raise EngineError(
+                "CONFLICT", "account is locked by a completed reconciliation", None, 409, {}
+            )
+        raise _settings_missing()
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        monkeypatch.setattr(
+            screen,
+            "notify",
+            lambda message, title="", **kw: toasts.append((title, str(message))),
+        )
+        await _open(app, pilot, screen)
+        await pilot.press("a", "b")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: len(toasts) == 2)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+        assert puts == ["/transactions/t1", "/transactions/t2"]
+        assert [(t, _plain(m)) for t, m in toasts[:1]] == [
+            ("Refused", "CONFLICT — account is locked by a completed reconciliation\nrow 1")
+        ]
+        assert toasts[1:] == [SETTINGS_MISSING_NOTE]
         assert screen._selected == {"t1", "t2", "t3"}
 
     run_app(scenario, size=(120, 30))
@@ -695,14 +748,7 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
     def put(path, json_body=None):
         puts.append(path)
         if path.endswith("/t2"):
-            raise EngineError(
-                "SETTINGS_MISSING",
-                "User settings have not been provisioned.",
-                {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
-                422,
-                {},
-                reasons={"user_settings": "NOT_PROVISIONED"},
-            )
+            raise _settings_missing()
         return real_put(path, json_body=json_body)
 
     fake_client.put = put

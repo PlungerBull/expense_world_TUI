@@ -267,7 +267,8 @@ move a completed reconciliation locks) is named by number and does not stop the 
 in a note read as the LOG bar reads one ("Refused rows read one line per kind of error" below).
 The one refusal that does stop them is `SETTINGS_MISSING`
 ([runtime.md](runtime.md) "Bulk writes"): the rows after it are never sent, and stay
-selected with the refused one.
+selected with the refused one, and it shows once, in the note the LOG bar shows for it
+("Refused rows read one line per kind of error" below).
 A row stays selected only if the fresh read brings it back among the newest 10; further down
 it drops out of the selection.
 
@@ -973,13 +974,28 @@ numbered them before the write, and the app's line saying what to do, dim. Every
 hit is named. A refusal with no field words (a `401`, `404` or `5xx`, or a `409`/`422`
 naming no key; `errors.is_keyed_refusal`) reads whole, as a refusal naming no row: the
 engine's code and message first, the rows it met under them, its field lines and the app's
-line after. A refusal of every further write (`SETTINGS_MISSING`) reads whole too and names no
-row; a lost connection reads in the shared text, the rows it met under it.
+line after. A lost connection reads in the shared text, the rows it met under it.
 
 ```
 2 of 3 refused
 account_id: Locked by completed reconciliation.
 rows 1, 3
+```
+
+A refusal of every further write (`SETTINGS_MISSING`) is no row's and is not counted among
+them: it shows after them, once, in the note the LOG bar shows when the same refusal stops its
+save (screen 2 A of
+[expense-world-read-only-reasons.html](mockups/expense-world-read-only-reasons.html)), one
+copy for both (`run_stopped` in [refusal.py](../expense/tui/widgets/refusal.py)): titled
+`Failed`, the engine's words whole, then, after a blank line, the line saying what to do. A
+row refused for its own reason before the stop keeps its own note.
+
+```
+Failed
+SETTINGS_MISSING — User settings have not been provisioned.
+  user_settings: Must be provisioned via POST /v1/auth/bootstrap.
+
+Hint: First-time setup is not done yet. Open System ▸ Auth & profile and press b.
 ```
 
 **A bank account's statement code is a line of its own on New and Edit** (screens 1 A, 1b A,

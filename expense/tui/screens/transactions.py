@@ -104,7 +104,7 @@ from expense.tui.screens.edit_form import EditFormScreen, moved_parts, unassign_
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.cursor_list import CursorList, list_table
-from expense.tui.widgets.refusal import as_markup, toast
+from expense.tui.widgets.refusal import as_markup, run_stopped, toast
 
 _HEADERS = ["Title", "Description", "Amount", "Date", "Account", "Cat", "Hashtags"]
 #: The free-text columns and their share of the width left after Amount, Date,
@@ -219,15 +219,12 @@ def refused_row(exc: Exception) -> tuple[Hashable | None, str]:
     A refusal naming what it refused by key (`errors.is_keyed_refusal`) reads
     in the engine's words for the row, the app's lines under them
     (`errors.row_note`), and rows refused alike share a kind
-    (`errors.refusal_kind`). A refusal every further write would draw too
-    (`errors.refuses_every_write`) is about the account, not the row: it reads
-    whole (`format_error`) on a line of its own naming no row, as the LOG bar
-    says one. Anything else (a `401`, a `5xx`, a refusal naming no key, a lost
-    connection) reads whole in the shared text, code and message first, as the
-    LOG bar says a refusal naming no row, and rows that met the same words
-    share a line."""
-    if refuses_every_write(exc):
-        return None, format_error(exc)
+    (`errors.refusal_kind`). Anything else (a `401`, a `5xx`, a refusal naming
+    no key, a lost connection) reads whole in the shared text, code and message
+    first, as the LOG bar says a refusal naming no row, and rows that met the
+    same words share a line. A refusal every further write would draw too
+    (`errors.refuses_every_write`) is about the account, not the row, so it is
+    no row's: the bulk edit says it in its own note (`refusal.run_stopped`)."""
     if isinstance(exc, EngineError) and is_keyed_refusal(exc):
         return refusal_kind(exc), row_note(exc)
     words = format_error(exc)
@@ -664,6 +661,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         intent is independent of its neighbours'. An account-wide refusal
         (`errors.refuses_every_write`) is the exception: every later row would
         draw it too, so the run stops there and the rows after it are never sent.
+        It is kept apart (`stop`), as no row's refusal, with the rows it held
+        back (`held`): the one it met and every one never sent after it.
 
         The receipt counts what landed. A move (`move`) counts the parts the
         engine says it moved, and those that left their reconciliation, across
@@ -677,7 +676,8 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         numbers = {key: n for n, (key, *_) in enumerate(self._rows, start=1)}
         answers: list[dict] = []
         failed: list[RefusedRow] = []
-        unsent: list[object] = []
+        held: list[object] = []
+        stop: Exception | None = None
         try:
             cfg = config_module.ensure_loaded()
             with ExpenseClient(cfg, verbose=self.app._verbose) as client:
@@ -685,15 +685,16 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
                     try:
                         answers.append(client.put(f"/transactions/{key}", json_body=body))
                     except Exception as exc:
-                        failed.append((key, numbers.get(key, 0), *refused_row(exc)))
                         if refuses_every_write(exc):
-                            unsent = [later for later, _body in writes[sent:]]
+                            stop = exc
+                            held = [key, *(later for later, _body in writes[sent:])]
                             break
+                        failed.append((key, numbers.get(key, 0), *refused_row(exc)))
         except Exception as exc:
             failed.append((None, 0, None, format_error(exc)))
         count, left = moved_parts(answers) if move else (len(answers), 0)
         self.app.call_from_thread(
-            self._bulk_finished, len(answers), failed, label, left, unsent, count
+            self._bulk_finished, len(answers), failed, label, left, held, count, stop
         )
 
     def _bulk_finished(
@@ -702,12 +703,17 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         failed: list[RefusedRow],
         label: str,
         left: int = 0,
-        unsent: tuple | list = (),
+        held: tuple | list = (),
         count: int | None = None,
+        stop: Exception | None = None,
     ) -> None:
         """`done` writes landed; the receipt says `count` rows (`done` when
         not given) and `left` of them left their reconciliation. A move that
-        changed nothing (`count` 0) shows no receipt; its refusals still show."""
+        changed nothing (`count` 0) shows no receipt; its refusals still show.
+        Rows refused for their own reason (`failed`) read under `Refused`, or
+        `2 of 3 refused` counting the rows that landed and those; a refusal
+        that stopped the run (`stop`) reads after them, once, in the LOG bar's
+        note (`refusal.run_stopped`)."""
         self._bulk_busy = False
         rows = done if count is None else count
         if rows:
@@ -717,13 +723,16 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
         for note in refusal_notes(failed):
             self.notify(note, title=head, severity="error", timeout=10, markup=True)
+        if stop is not None:
+            run_stopped(self, stop)
         # the rows that went through no longer belong to a filtered list — they
         # leave at once. A refused row stays selected if the
         # fresh read brings it back, so once its lock is lifted the same key
         # retries exactly it; one past the newest 10 is dropped by `build`.
-        # So does a row never sent because an account-wide refusal stopped the
-        # run: the retry covers the refused row and every row after it.
-        self._selected = {key for key, *_ in failed if key is not None} | set(unsent)
+        # So do the rows an account-wide refusal held back (`held`): the one it
+        # stopped the run on and those never sent after it, so the retry covers
+        # every one of them.
+        self._selected = {key for key, *_ in failed if key is not None} | set(held)
         self._reload_fresh()
 
     # ---- single-row doors ----------------------------------------------------

@@ -86,12 +86,6 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-4. **The bulk edit's missing-settings note reads like the LOG bar's** (What it must do 3), screen
-   2 A of the mockup. Passes if: a refusal that stops a bulk run (`SETTINGS_MISSING`, say) shows
-   one note titled `Failed`, its text the LOG bar's for the same refusal, a blank line before
-   `Hint:`; the two screens build it in one shared place, not two copies; a row's own refusal
-   keeps its `Refused` or `N of M refused` note; the bulk edit's settings-missing unit test pins
-   the new note; tui.md says it.
 5. **The question before completing a reconciliation names everything it locks** (What it must
    do 4), screen 3 A of the mockup. Passes if: the question reads `Locks the amount, date, title,
    account, operation number and reconciliation of the 3 ticked rows.` (`row` for one); a unit
@@ -142,3 +136,8 @@ Not built in this spec; drafted into a new spec when it is done.
 - **tui.md's rule on showing the engine's words sits between a sentence and the table of reasons
   it introduces** ("When the engine says no" in [tui.md](../tui.md)), so that sentence's "below"
   points past it.
+- **Two bulk-edit tests check less than the stop note's rules.** No test pins `N of M refused`
+  when two or more rows are refused for their own reason before missing settings stop the run
+  (the row the stop met is not counted among them), and the mid-run stop's test checks the
+  selection alone, not the receipt for the row that landed, the `Failed` note, or that no
+  `Refused` note shows ([test_tui_bulk_edit.py](../../tests/unit/test_tui_bulk_edit.py)).
