@@ -113,12 +113,13 @@ door's rule of leaving out rows dated before 2026 goes (owner, 2026-10-26).
 
 ## Tasks
 
-Tasks 5 and 6 wait for their mockup pick.
+The owner picked both mockups on 2026-10-26: 2B and 3B for the import door, 1A for the flagged
+lines.
 
 5. **[UI] Completing a statement shows the lines it flagged** (point 2). First a mockup of where
    the flagged lines show after complete, each leading to its line
-   ([expense-world-statement-flagged-lines.html](../mockups/expense-world-statement-flagged-lines.html));
-   the task waits for the owner's pick. Then: complete goes through whenever the engine takes it, and nothing in the
+   ([expense-world-statement-flagged-lines.html](../mockups/expense-world-statement-flagged-lines.html)),
+   picked 1A. Then: complete goes through whenever the engine takes it, and nothing in the
    app or its unit tests treats leftover lines as a refusal of complete (the
    `UNASSIGNED_IN_PERIOD` test in
    [test_tui_reconcile_detail.py](../../tests/unit/test_tui_reconcile_detail.py) goes); the fake
@@ -133,8 +134,8 @@ Tasks 5 and 6 wait for their mockup pick.
    row refuses the close.
 6. **[UI] A bank download goes to the engine whole** (point 1). First a mockup of the import
    door's account list, preview and result
-   ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)), the
-   task waiting for the owner's pick. Then: the door
+   ([expense-world-import-whole-file.html](../mockups/expense-world-import-whole-file.html)),
+   picked 2B and 3B. Then: the door
    sends the file itself (`dry_run`, `account_id`, `file`; contract: POST /v1/transactions/import)
    and reads no cell of it; [parse.py](../../expense/bank_import/parse.py) and every other piece
    of the app's own bank-file reading go (the sheet import's reader stays: it has its own spec).
