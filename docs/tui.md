@@ -1319,9 +1319,12 @@ ticking down a statement (`space`, `↓`, `space`…) never lands on another row
 tick drops the ticks queued behind it, shows `Couldn't update` with the engine's words and
 reads the reconciliation and its lines again, the cursor on row 1; so does a refused
 complete, revert, delete or balance save that had ticks queued behind it, under its own
-`Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks
-amount/account/title/date on the N ticked rows.` (N the rows ticked, and `1 ticked row` for
-one), `u` reverts, `d` deletes the reconciliation, `r` reads it again, `esc` goes back.
+`Couldn't …` note. `c` completes, after the question `Complete reconciliation?` · `Locks the
+amount, date, title, account, operation number and reconciliation of the N ticked rows.` (N
+the rows ticked, and `1 ticked row` for one): completing makes those six read-only on each
+ticked row, an empty title or operation number staying fillable
+(contract: PUT /v1/transactions/{transaction_id}, "Field locking");
+`u` reverts, `d` deletes the reconciliation, `r` reads it again, `esc` goes back.
 **On a half of a card statement** the screen shows that half alone, its own lines and figures,
 while `c`, `u` and `d` act on both halves in one write, from either half
 (contract: POST /v1/reconciliations/{reconciliation_id}/complete)

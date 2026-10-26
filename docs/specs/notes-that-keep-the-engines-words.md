@@ -86,11 +86,7 @@ fixture lacks `review_lines`). Those failures are the catch-up's, which runs nex
 ([catch-up-bank-download-and-closing.md](catch-up-bank-download-and-closing.md) "How the owner
 knows it is done" 4); this spec's acceptance check reports them and does not fail on them.
 
-5. **The question before completing a reconciliation names everything it locks** (What it must
-   do 4), screen 3 A of the mockup. Passes if: the question reads `Locks the amount, date, title,
-   account, operation number and reconciliation of the 3 ticked rows.` (`row` for one); a unit
-   test pins it; the reconciliations.py module docstring and tui.md say what complete locks in
-   the same terms.
+Every task is done; the acceptance check runs next.
 
 ## Reply to the engine
 
@@ -141,3 +137,9 @@ Not built in this spec; drafted into a new spec when it is done.
   (the row the stop met is not counted among them), and the mid-run stop's test checks the
   selection alone, not the receipt for the row that landed, the `Failed` note, or that no
   `Refused` note shows ([test_tui_bulk_edit.py](../../tests/unit/test_tui_bulk_edit.py)).
+- **The old words for what complete locks remain in a test and two mockups.** The docstring of
+  [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py)
+  says completion locks "amount/account/title/date"; the complete question in
+  `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html`
+  ([mockups/](../mockups/)) still reads the old sentence. The app and the live contract lock six
+  things: amount, date, title, account, operation number and reconciliation.

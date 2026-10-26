@@ -49,8 +49,10 @@ so a purchase split into parts is one row with its total. `space` toggles
 membership (PUT `reconciliation_id` on one part, which moves the whole line)
 and reads the batch and its list again; `c`/`u`/`d` complete/revert/delete;
 `r` refetches the batch + checklist. Complete
-needs ≥1 transaction and locks amount/account/title/date on them; delete is
-draft-only and just detaches the transactions. Completing also needs the
+needs ≥1 transaction and locks the amount, date, title, account, operation
+number and reconciliation of each, an empty title or operation number staying
+fillable (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
+delete is draft-only and just detaches the transactions. Completing also needs the
 ending balance (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
 "The ending balance must be entered"): `c` on a draft that has none first asks
 for it in a box, saves it with PUT /reconciliations/{id}, then asks the usual
@@ -1509,7 +1511,8 @@ class ReconciliationDetailScreen(
         rows = "row" if n == 1 else "rows"
         self._confirm(
             "Complete reconciliation?",
-            f"Locks amount/account/title/date on the {n} ticked {rows}.",
+            "Locks the amount, date, title, account, operation number and reconciliation"
+            f" of the {n} ticked {rows}.",
             lambda: self._status_action(
                 "POST",
                 f"/reconciliations/{self._id}/complete",
