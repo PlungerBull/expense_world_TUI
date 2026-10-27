@@ -7,7 +7,7 @@ first on request", covering `6687b18541c068e3`, `872eff6cfffc787a`, `7a90cdeb492
 contract change; that answer is in
 [sheet-import-through-the-engine.md](sheet-import-through-the-engine.md).
 
-**Status: draft, for the owner to approve.** When done, the why moves to
+**Status: approved by the owner on 2026-10-27, running.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -64,7 +64,7 @@ the engine's words, row number included.
 
 ## Tasks
 
-Drafted 2026-10-27, for the owner to approve.
+Approved by the owner on 2026-10-27.
 
 1. **The flagged lines come from one read.** The flagged lines' screen reads the ids the close
    flagged with `GET /bank-lines?ids=…&sort=date_asc`, through the shared bank-line read in

@@ -28,19 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the catch-up spec for reading bank lines by their ids
-Asked 2026-10-27 · Blocks: every new task, and so [specs/catch-up-bank-lines-by-ids.md](specs/catch-up-bank-lines-by-ids.md), then [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md) (its acceptance check fails only on the moved version)
-
-The engine's hand-off for `592f2467fa3df75a` to `46e2fdf6e11d7548` arrived on 2026-10-27 and is
-drafted into its catch-up spec with three tasks: the flagged lines' screen reads its lines in one
-call, the tests quote the engine's new words for a future-dated import row, and live tests prove
-the new reads and record the new version. Nothing you see changes but the bank import's line
-for a future-dated row, which now shows the engine's words, row number included. Approve the
-tasks or rewrite them.
-
-**Recommended:** approve it and run it first: until it records the new version, no other work
-can start.
-
 ### Answer the sheet import's question 4
 Asked 2026-10-27 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
 
