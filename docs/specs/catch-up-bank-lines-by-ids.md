@@ -66,13 +66,6 @@ the engine's words, row number included.
 
 Approved by the owner on 2026-10-27.
 
-2. **The engine's current words for a future-dated row.** The unit tests' fake engines send
-   "Row <n>: Must not be in the future." on an import row
-   ([test_tui_bank_import.py](../../tests/unit/test_tui_bank_import.py),
-   [test_sheet_import_engine.py](../../tests/unit/test_sheet_import_engine.py)), the bank
-   import's refusal test expects that line alone, and [tui.md](../tui.md) no longer gives a
-   `FUTURE_DATE` as words that name no row. A refusal whose words name no row still keeps its
-   key.
 3. **Live tests of the new reads, and the version recorded.** The bank-line list by `ids`: the
    live lines among the ids sent, in the list's shape, deleted and unknown ids left out, `/count`
    agreeing, combined with `account_id`, refused beside `unassigned_in_period_of` and over 200

@@ -698,9 +698,10 @@ the preview, under its title, in the engine's words (`refusal_lines` and `failur
 [bank_import.py](../expense/tui/screens/bank_import.py)): `CODE — message`, then one `!` line
 per refused key in the engine's order, then `Nothing was written.` dim. The engine names a
 refused row by its key, `rows.<row>` or `rows.<row>.<field>` by spreadsheet row. When the
-row's words begin `Row <row>:`, as the refusals made before anything is read from the ledger
-do (contract: POST /v1/transactions/import, "Rejected up front with `422`"), its line is `! `
-and the engine's words alone; when they do not (a `FUTURE_DATE`'s words, a `409`), the line
+row's words begin `Row <row>:`, as every refusal made before anything is read from the ledger
+does, a `FUTURE_DATE` included
+(contract: POST /v1/transactions/import, "Rejected up front with `422`"), its line is `! `
+and the engine's words alone; when they do not (a `409`'s words need not begin so), the line
 keeps the key, `! rows.<row>.<field>: <words>`, so the row is never lost. Any other key
 (`file`, refused whole: not a download, unreadable, empty, over 500 rows; `account_id`) shows
 as `! <key>: <words>` too (`_names_its_row` in

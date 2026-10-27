@@ -1022,9 +1022,10 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
     fake_client, monkeypatch, tmp_path
 ):
     """4 a: `CODE — message`, then each refused row in the engine's words,
-    alone when they begin `Row <n>:`, after the row's key when they do not
-    (the engine's `FUTURE_DATE` words name no row), then `Nothing was
-    written.`; `esc Back`, and `⏎` sends nothing more."""
+    alone, as they begin `Row <n>:` (a `FUTURE_DATE` included), then `Nothing
+    was written.`; `esc Back`, and `⏎` sends nothing more. Words that do not
+    begin `Row <n>:` keep the row's key
+    (`test_a_refused_apply_shows_the_engines_words_and_what_to_do`)."""
     path = _bank_file(tmp_path)
     _patch(monkeypatch)
     fake_client.errors["POST"] = EngineError(
@@ -1033,7 +1034,7 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
         {
             "rows.12.amount_cents": "Row 12: Monto holds 'abc', not a number.",
             "rows.15.operation_code": "Row 15: operation number 0001 is on row 3 too.",
-            "rows.16.date": "Must not be in the future.",
+            "rows.16.date": "Row 16: Must not be in the future.",
         },
         422,
         {},
@@ -1055,7 +1056,7 @@ def test_rows_the_engine_refuses_show_in_its_words_and_nothing_is_written(
             "VALIDATION_ERROR — Import validation failed.",
             "! Row 12: Monto holds 'abc', not a number.",
             "! Row 15: operation number 0001 is on row 3 too.",
-            "! rows.16.date: Must not be in the future.",
+            "! Row 16: Must not be in the future.",
             "Nothing was written.",
         ]
         assert _shown(preview) == {"escape": "Back"}

@@ -61,7 +61,7 @@ ROWS_REFUSED = error_body(
     {
         "rows.4.amount_cents": "Row 4: MONTO holds 'abc', not a number.",
         "rows.6.amount_cents": "Row 6: MONTO -1.234 is not a whole number of cents.",
-        "rows.5.date": "Must not be in the future.",
+        "rows.5.date": "Row 5: Must not be in the future.",
     },
     {
         "rows.4.amount_cents": "UNEXPECTED_LAYOUT",
