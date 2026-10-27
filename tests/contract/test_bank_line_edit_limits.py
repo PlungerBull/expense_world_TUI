@@ -39,10 +39,14 @@ read's `message` as its words:
     changed in one write, each sent its current amount, every id kept; an amount
     changed, the same size in the other direction included, is `ACCOUNT_ARCHIVED` on
     that part's `parts.<i>.amount_cents`, and a part added or left out
-    `ACCOUNT_ARCHIVED` on `parts`.
+    `ACCOUNT_ARCHIVED` on `parts`;
+  · each reason's sentence the one the unit tests' fake engine sends for it
+    (`LOCK_MESSAGES` in tests/unit/helpers.py), and its six reasons all that the three
+    kinds of closed line give.
 
-Every refusal writes nothing: the line reads as it did, and a part it would have
-created does not exist. An opening balance's line holds one part, so leaving it out
+Every refusal writes nothing, each read back after it: the line reads as it did, its
+parts as the transaction reads return them, and a part it would have created does not
+exist. An opening balance's line holds one part, so leaving it out
 always comes with another part sent: `parts` holds at least one
 (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts").
 
@@ -55,9 +59,11 @@ Gating, target and the real-ledger guard: conftest.py.
 
 from uuid import uuid4
 
+from expense.errors import EngineError
 from expense.formatting import signed_cents
 from expense.reads import pending_hashtag_of
 from tests.contract.conftest import assert_refusals, free_statement_codes, read_signed, refused
+from tests.unit.helpers import LOCK_MESSAGES
 
 #: `edit_limits` of a line nothing closes: every key present, nothing in it
 #: (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
@@ -84,19 +90,36 @@ def _reasons(limits: dict) -> dict:
     }
 
 
-def _assert_the_writes_words(client, line_id: str, body: dict, reasons: dict, said: dict) -> None:
-    """`body` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and on
-    each key of `said` the refusal's words are that `edit_limits` entry's `message`, its
-    reason the entry's `reason`
-    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
-    err = refused(lambda: client.put(f"/bank-lines/{line_id}", json_body=body))
-    assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-    for key, entry in said.items():
-        assert (err.reasons[key], err.fields[key]) == (entry["reason"], entry["message"]), key
-
-
 def _line(client, line_id: str) -> dict:
     return client.get(f"/bank-lines/{line_id}")
+
+
+def _refused_unwritten(client, line_id: str, body: dict, reasons: dict) -> EngineError:
+    """`body` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and
+    nothing is written: the line reads back as it did, every part as `GET /transactions/{id}`
+    returns it included, and no part `body` named under a new id exists
+    (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Returns the refusal."""
+    before = _line(client, line_id)
+    held = {p["id"] for p in before["parts"]}
+    err = refused(lambda: client.put(f"/bank-lines/{line_id}", json_body=body))
+    assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
+    assert _line(client, line_id) == before
+    for part in body.get("parts", []):
+        if part["id"] not in held:
+            gone = refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
+            assert gone.status == 404, part
+    return err
+
+
+def _assert_the_writes_words(client, line_id: str, body: dict, reasons: dict, said: dict) -> None:
+    """`body` sent to the line is refused with exactly `reasons` and writes nothing
+    (`_refused_unwritten`), and on each key of `said` the refusal's words are that
+    `edit_limits` entry's `message`, its reason the entry's `reason`
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    err = _refused_unwritten(client, line_id, body, reasons)
+    for key, entry in said.items():
+        assert (err.reasons[key], err.fields[key]) == (entry["reason"], entry["message"]), key
 
 
 def _limits(client, line_id: str) -> dict:
@@ -115,18 +138,45 @@ def _new_id(scratch) -> str:
 
 
 def _assert_writes_nothing(client, line_id: str, parts: list[dict], reasons: dict) -> None:
-    """`parts` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and
-    nothing is written: the line reads as it did, and no part it named under a new id
-    exists (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")."""
-    before = _line(client, line_id)
-    held = {p["id"] for p in before["parts"]}
-    err = refused(lambda: _write(client, line_id, parts))
-    assert_refusals(err, 422, "VALIDATION_ERROR", reasons)
-    assert _line(client, line_id) == before
-    for part in parts:
-        if part["id"] not in held:
-            err = refused(lambda part=part: client.get(f"/transactions/{part['id']}"))
-            assert err.status == 404, part
+    """`parts` sent to the line is refused with exactly `reasons` and writes nothing
+    (`_refused_unwritten`)."""
+    _refused_unwritten(client, line_id, {"parts": parts}, reasons)
+
+
+def _completed_lines(client, scratch) -> tuple[str, str, str, str]:
+    """A line of one part and a split line in a reconciliation then completed, on a new
+    account: the reconciliation's id, the line of one part's, its part's and the split
+    line's."""
+    account = scratch.account()
+    recon = scratch.reconciliation(account, "2026-05-01", "2026-05-31")
+    single = scratch.line(account, "2026-05-06", -2500, recon=recon)
+    (single_part,) = scratch.transactions[-1:]
+    split = scratch.line(account, "2026-05-07", -6000, -4000, recon=recon)
+    client.post(f"/reconciliations/{recon}/complete")
+    return recon, single, single_part, split
+
+
+def _archived_line(scratch) -> tuple[str, str, str, str]:
+    """A split line on a new account then archived: the account's id, the line's and its
+    two parts'."""
+    account = scratch.account()
+    line = scratch.line(account, "2026-05-08", -6000, -4000)
+    one, two = scratch.transactions[-2:]
+    scratch.archive(account)
+    return account, line, one, two
+
+
+def _opening_line(scratch) -> tuple[str, str]:
+    """A new account's opening balance: its line's id and its one part's."""
+    line = scratch.opening_balance(scratch.account(), "2026-01-01")
+    (opening,) = scratch.transactions[-1:]
+    return line, opening
+
+
+def _entries(limits: dict) -> list[dict]:
+    """Every named field's `{reason, message}` in `limits`, the line's and each part's."""
+    parts = limits["locked_part_fields"].values()
+    return [*limits["locked_fields"].values(), *(e for fields in parts for e in fields.values())]
 
 
 # ---- edit_limits, on each kind of line --------------------------------------------
@@ -161,12 +211,7 @@ def test_a_completed_reconciliations_line_is_locked_until_reverted(client, scrat
     the revert the next read names nothing
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
     (contract: POST /v1/reconciliations/{reconciliation_id}/revert)."""
-    account = scratch.account()
-    recon = scratch.reconciliation(account, "2026-05-01", "2026-05-31")
-    single = scratch.line(account, "2026-05-06", -2500, recon=recon)
-    (single_part,) = scratch.transactions[-1:]
-    split = scratch.line(account, "2026-05-07", -6000, -4000, recon=recon)
-    client.post(f"/reconciliations/{recon}/complete")
+    recon, single, single_part, split = _completed_lines(client, scratch)
 
     locked = dict.fromkeys(("title", "date", "account_id", "reconciliation_id"), "LOCKED")
     limits = _limits(client, single)
@@ -223,10 +268,7 @@ def test_an_archived_accounts_line_is_frozen_until_unarchived(client, scratch):
     open. After the unarchive the next read names nothing
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")
     (contract: POST /v1/accounts/{account_id}/unarchive)."""
-    account = scratch.account()
-    line = scratch.line(account, "2026-05-08", -6000, -4000)
-    one, two = scratch.transactions[-2:]
-    scratch.archive(account)
+    account, line, one, two = _archived_line(scratch)
 
     archived = {"amount_cents": "ACCOUNT_ARCHIVED"}
     line_fields = dict.fromkeys(
@@ -268,9 +310,7 @@ def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratc
     `OPENING_BALANCE_CATEGORY_FIXED` on `category_id` and `OPENING_BALANCE_NOT_TAGGED`
     on `hashtag_ids`, its amount and note left open
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
-    account = scratch.account()
-    line = scratch.opening_balance(account, "2026-01-01")
-    (opening,) = scratch.transactions[-1:]
+    line, opening = _opening_line(scratch)
 
     limits = _limits(client, line)
     part_fields = {
@@ -303,6 +343,23 @@ def test_an_opening_balances_line_keeps_its_account_and_its_parts(client, scratc
             for field, entry in limits["locked_part_fields"][opening].items()
         },
     )
+
+
+def test_each_locks_sentence_is_the_unit_fake_engines(client, scratch):
+    """The reasons `edit_limits` gives on a line in a completed reconciliation, an archived
+    account's line and an opening balance's line are the six the unit tests' fake engine
+    knows, each with the sentence it sends for it, word for word (`LOCK_MESSAGES` in
+    tests/unit/helpers.py): the Edit form the unit tests draw shows the live engine's words
+    (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields")."""
+    _, single, _, _ = _completed_lines(client, scratch)
+    _, archived, _, _ = _archived_line(scratch)
+    opening, _ = _opening_line(scratch)
+    said = {
+        (entry["reason"], entry["message"])
+        for line in (single, archived, opening)
+        for entry in _entries(_limits(client, line))
+    }
+    assert said == set(LOCK_MESSAGES.items())
 
 
 # ---- is_opening_balance, on every bank-line read ----------------------------------

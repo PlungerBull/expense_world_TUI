@@ -265,6 +265,8 @@ def import_part(
 #: The sentence the engine sends beside each lock's reason in `edit_limits`, the
 #: write's own words on that field (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields").
 #: The fake engine's copy only: the app shows the sentence as sent and holds none of these.
+#: The live suite fails when one differs from the engine's words
+#: (tests/contract/test_bank_line_edit_limits.py).
 LOCK_MESSAGES = {
     "LOCKED": "Locked by completed reconciliation.",
     "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
