@@ -42,7 +42,7 @@ its own that creates them first.
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
 Small things the bank download and closing catch-up turned up: old engine words still quoted in
-tests and docs, five mockups drawing old screens, and a completed statement's footer still
+tests and docs, six mockups drawing old screens, and a completed statement's footer still
 offering `c Complete` and `d Delete`; and, from the catch-up of 2026-10-27, whether the "no
 batch" list now lists oldest first, as the engine can since 2026-10-26. The footer and that order
 are the two things you see change, and their questions are in the spec. Approve it or rewrite it,
@@ -68,10 +68,11 @@ Set aside by the owner on 2026-10-26: not to run now.
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
-Eleven small things, all inside the tests and their tools: copies to merge, stale test sentences
-and comments, a test that checks less than its name says, the drift check covering more of the
-engine's answers, the practice-data cleaner reading every page, and a live test of a statement
-upload's words for a future-dated line. Nothing you see changes.
+Thirteen small things, all inside the tests and their tools: copies to merge, stale test
+sentences and comments, a test that checks less than its name says, the drift check covering more
+of the engine's answers, the practice-data cleaner reading every page, a live test of a statement
+upload's words for a future-dated line, and two heads pinned showing a bracketed name whole.
+Nothing you see changes.
 Approve it or rewrite it.
 
 **Recommended:** approve it, after the PDF spec, which matters more.
@@ -251,10 +252,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26; the rest run in this
   order: the sheet import through the engine
-  ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), a
-  draft with three questions; and the PDF statement below.
-- **Leftovers of the engine's words**: a draft spec waiting for the owner's approval
-  ([specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)).
+  ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), the
+  current spec, waiting on its question 4; and the PDF statement below.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).

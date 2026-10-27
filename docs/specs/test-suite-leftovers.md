@@ -10,7 +10,8 @@ is deleted.
 
 Small things found while doing the statement catch-up's leftovers (2026-10-25), and while
 proving a held reserved name on the Edit form (points 9 and 10, 2026-10-25), and while catching
-up with reading bank lines by their ids (point 11, 2026-10-27), not fixed there.
+up with reading bank lines by their ids (point 11, 2026-10-27), and while making lists show
+bracketed names whole (points 12 and 13, 2026-10-27), not fixed there.
 All of them are inside the test suites and their tools: nothing you see changes, and no engine
 change is needed.
 
@@ -68,6 +69,18 @@ change is needed.
     /reconciliations/import as on the other two imports (contract version `46e2fdf6e11d7548`),
     but the live suite drives that route only for a held reserved name; one test sends a made-up
     statement PDF with a future-dated line and checks the words.
+12. **One shared step reads a refused write back in the live suite.**
+    [test_bank_line_write.py](../../tests/contract/test_bank_line_write.py) (around lines 233
+    and 293) writes by hand the refused-then-unchanged read that `_refused_unwritten` in
+    [test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py) does;
+    one shared step in the contract [conftest.py](../../tests/contract/conftest.py) serves both.
+13. **Two heads are pinned showing a bracketed name whole.** The bank import's account list
+    (`account_lines`) and its `Preview · <account>` head
+    ([bank_import.py](../../expense/tui/screens/bank_import.py)), and the reconciliation
+    detail's head naming the statement and its account
+    ([reconciliations.py](../../expense/tui/screens/reconciliations.py)), show `[like this]`
+    whole in the app (the tester's check of 2026-10-27), but no test in
+    [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) pins them.
 
 ## How the owner knows it is done
 

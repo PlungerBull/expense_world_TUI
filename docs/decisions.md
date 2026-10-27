@@ -813,6 +813,28 @@ read-only line* (pick 1 A) — the same sentence three times on a line in a comp
 reconciliation. *A second sentence in the complete question saying what still changes* (pick
 3 B) — longer, and the Edit form shows it.
 
+## A list shows a name as the engine holds it, `[` and all (2026-10-27, owner)
+
+**Decision.** Every list cell that holds a name or a title is drawn as plain words, never read
+as styling: one helper, `list_cell` in
+[cursor_list.py](../expense/tui/widgets/cursor_list.py), draws a cell the app styled (a swatch, a
+coloured amount, a mark) as built and anything else as words, and every table goes through it,
+the ledger, Manage ▸ Accounts, the reconciliation tick list and the LOG bar's staged rows among
+them; Home's balances and the bank import preview build their names as words too. An account
+named `BCP [like this]` shows as `BCP [like this]` everywhere
+([expense-world-bracketed-names.html](mockups/expense-world-bracketed-names.html)). The bulk
+edit's note sets the engine's words so the app's own styling never closes straight after them,
+which keeps a trailing `\` whole. The guards are
+[test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py) and
+[test_toast_words.py](../tests/unit/test_toast_words.py).
+
+**Why.** A name is the owner's words, held by the engine; a list that hides part of it shows a
+different name from the one every other client shows. One helper for every cell means a new list
+gets this by default, instead of each screen escaping its own names.
+
+**Rejected.** *Escaping each name where a screen builds its row* — every new list would have to
+remember it, and one that forgot would lose text silently.
+
 ## The Edit form's keys and words name what it does (2026-10-25, owner)
 
 **Decision.** (1) **`s` stays on an archived account's ledger row and opens the Edit form as `⏎`

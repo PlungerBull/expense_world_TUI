@@ -36,6 +36,8 @@ expense/tui/
     cursor_list.py  # CursorList — arrow-key list, window + growing modes
                     #   + list_table() — the table it draws, which the bulk pick
                     #   also draws the ledger's rows with
+                    #   + list_cell() — a list cell as drawn: plain words as
+                    #   text, `[` and all; a styled Text as built
                     #   + CursorOptionList — the home menu
     checklist.py    # CheckList — the reconciliation tick-list, one bank line per row
     picker.py       # suggestion_list() — the scrolling name list the quick-add
@@ -990,7 +992,9 @@ title is always text. The one toast that styles the engine's words on purpose, t
 ledger's bulk edit note, writes its lines into content markup through `as_markup` there,
 which escapes every `[` and never puts a tag straight after the words, so a backslash
 ending them shows too. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
-on any other `notify` whose message is not a fixed sentence, and
+on any other `notify` whose message is not a fixed sentence and drives each toast showing
+what the owner typed or chose (a name or pick that matches nothing, the settings path in
+System ▸ Config's failed save) with `[like this]` in it, finding it whole, and
 [test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py) drives each place with
 a refusal holding brackets.
 

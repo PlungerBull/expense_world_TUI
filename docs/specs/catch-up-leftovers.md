@@ -46,7 +46,11 @@ what a statement's close flags and took a card's other account from the engine (
   `expense-world-grouped-refusals.html` (the old sealed sentence) and
   `expense-world-import-door.html` ("not a BCP bank file", and a movement count on its account
   list) in [mockups/](../mockups/). `expense-world-import-report.html` still draws the
-  `Before 2026` and `Couldn't read the row` rows the app no longer shows.
+  `Before 2026` and `Couldn't read the row` rows the app no longer shows. And the
+  "u · the question" pane of `expense-world-card-statement.html` reads "Unlocks their
+  transactions and balances. The order stays."; the app asks "Unlocks the assigned transactions
+  and this batch's balances." ([reconciliations.py](../../expense/tui/screens/reconciliations.py);
+  found while tidying the engine's words' leftovers, 2026-10-27).
 
 - **Found while catching up with reading bank lines by their ids (2026-10-27).** The comment
   over `UNFILED_FILTER` in
@@ -68,7 +72,7 @@ what a statement's close flags and took a card's other account from the engine (
    gone, the hand-built download body using the shared helpers, the "no batch" comment saying
    newest first is the engine's order when none is asked for, and the ids read split by the
    engine's own bound on ids.
-5. **The five mockups draw the words the app shows**, or are deleted with their links if they
+5. **The six mockups draw the words the app shows**, or are deleted with their links if they
    back no open work (the rule in [todo.md](../todo.md) "Mockups that back no open work").
 6. **The "no batch" list lists in the order question 2 decides.**
 
