@@ -18,13 +18,10 @@ change is needed.
 ## What it must do
 
 1. **One account-record builder for the unit suite**: `_account` in
-   [test_cmd_import.py](../../tests/unit/test_cmd_import.py),
    [test_tui_account_kind.py](../../tests/unit/test_tui_account_kind.py) and
    [test_tui_card_statement.py](../../tests/unit/test_tui_card_statement.py) each build the
    engine's account record their own way; one builder in
-   [helpers.py](../../tests/unit/helpers.py). And about 20 tests in test_cmd_import.py repeat
-   `_mock_existing(accounts=[_account()], categories=[], hashtags=[])`, which the file's own
-   `_seeded_account()` does.
+   [helpers.py](../../tests/unit/helpers.py).
 2. **The fake engine's answers are used, not rebuilt**:
    `test_saved_it_says_so_and_the_panel_lands_on_the_new_statement` in test_tui_card_statement.py
    builds the card create's answer by hand, which the fake engine builds already.

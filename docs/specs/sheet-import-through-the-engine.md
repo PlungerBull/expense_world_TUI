@@ -93,30 +93,18 @@ missing is refused, writes nothing and names that step (2 A); and screens 1 to 5
 [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html) are
 approved as drawn.
 
+**Answered (owner, 2026-10-27), found in task 2:** the engine sends how many split lines a sheet
+makes but not how many of its rows they hold, so screens 3 and 4 read `split transactions 3`
+without the mockup's `(8 rows)`. That count becomes the engine ask "The sheet import's counts say
+how many sheet rows its split lines come from", and the `(N rows)` shows once it lands.
+
 ---
 
 ## Tasks
 
 Approved by the owner on 2026-10-26.
 
-2. **[UI] The command goes through the engine, and the old reader goes.** `expense import
-   sheet` prints as
-   [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
-   draws it: three tables, each name with its rows and where it goes (screen 1 A, owner,
-   2026-10-26); while names are missing the dry run shows no counts and names the step that
-   creates them, which imports nothing, and once every name exists it shows the engine's
-   counts (question 4, C, owner, 2026-10-27); the step is `--create-names` (pick 1 A), and
-   `--apply` with names missing is refused, naming it (pick 2 A); screens 1 to 5 as drawn;
-   `--json` prints the engine's answer, with the names the step created. The app's
-   own reader of the sheet goes with its tests (the parse, plan, apply, header aliases and
-   currency-split naming; the live `test_sheet_import_split_groups.py` drives it too, and its
-   entry in runtime.md goes with it), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
-   and stays only for the tests that build made-up sheets. [commands.md](../commands.md) and
-   [runtime.md](../runtime.md) say what the import does now. With the old reader gone, the
-   command takes its renames and its read timeout from the engine-calls module
-   ([expense/import_/engine.py](../../expense/import_/engine.py)), so each has one copy, and a
-   rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
-   module merges them without a word).
+Every task is done; the acceptance check runs next.
 
 ## Reply to the engine
 
@@ -134,3 +122,11 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **A comment in errors.py names the wrong function.** The comment above `_ENVELOPE_ERRORS` in
+  [errors.py](../../expense/errors.py) says "EngineError stays a dedicated branch in render()";
+  that branch lives in `json_body` and `exit_code_of`. (Task 2.)
+- **The batch chunk size is reached only by tests.** `batch_write`'s `chunk_size` and
+  `require_sendable_chunk_size` ([batch_write.py](../../expense/batch_write.py)) are reached
+  only by tests now that the sheet import sends no batches; the LOG bar always uses the default.
+  (Task 2.)

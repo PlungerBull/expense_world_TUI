@@ -120,14 +120,6 @@ KNOWN_LOCAL = frozenset(
         "hashtags",
         # the launch tests' record of whether the app opened on the setup screen
         "setup",
-        # `expense import sheet --json` plan keys: the plan is client-composed (it
-        # aggregates many engine calls), so its shape is ours, not the engine's.
-        # `source_name` is the raw sheet CUENTA behind a derived account name.
-        "source_name",
-        # a `skipped` entry's sheet line number and why the row was left out
-        # (`bad-amount`, ...); the import's own row checks write them, not the engine
-        "line",
-        "reason",
         # Textual widget geometry, faked by the adaptive-rows tests so
         # `fit_rows` can be measured without an event loop
         "content_size",

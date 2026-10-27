@@ -1,8 +1,8 @@
 """The shared batch poster — one atomic chunk, then its unnamed rows again when it is refused.
 
-The TUI's LOG bar and the `.xlsx` importer share this one copy (docs/decisions.md
-"What a half-written batch means"). These tests are its own spec;
-`tests/unit/test_cmd_import.py` covers what the importer does with it.
+The TUI's LOG bar sends through it (docs/decisions.md "What a half-written
+batch means"). These tests are its own spec; `tests/unit/test_tui_log_bar.py`
+covers what the LOG bar does with it.
 """
 
 import pytest

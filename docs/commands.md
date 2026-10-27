@@ -33,47 +33,69 @@ The settings file is `~/.expense-config` (chmod 600), or the path `EXPENSE_CONFI
 | `engine_url` | Base URL of the engine (`http://127.0.0.1:8000`) |
 | `token` | PAT (prefix `ewe_pat_`). Sent verbatim as `Authorization: Bearer <token>`. |
 | `main_currency` | Mirrored from `/v1/auth/me` for formatting hints |
-| `sheet_account_names` | The ledger name per sheet account leg, keyed `SHEET_NAME:CUR` (`expense import sheet --account-name`) |
+| `sheet_account_names` | The ledger name per sheet account, keyed `SHEET_NAME:CUR` (`expense import sheet --account-name`) |
 
 ---
 
 ## `expense import sheet`
 
-- `import sheet <file.xlsx> [--apply] [--chunk-size N] [--account-name SHEET_NAME:CUR=LEDGER_NAME ...] [--json]` — the personal sheet → engine. Reads `.xlsx` via `openpyxl`, one of the app's core dependencies. Parses, resolves names to ids, plans, then writes through `POST /transactions/batch` ([runtime.md](runtime.md) "Write semantics"). A dry run unless `--apply` is passed. Package: [expense/import_/](../expense/import_/).
-- **Amounts:** the `Monto` cell is read as the TUI reads a typed amount, which [tui.md](tui.md) "One reader for every typed amount" spells out for a number cell and a text cell. A cell that is not an amount skips its row as `bad-amount`, with the cell as its detail, and the rest of the sheet imports.
-- **Opening balances:** rows marked `SALDO INICIAL` (case/whitespace-insensitive) in the title or category column go to `POST /v1/accounts/{id}/opening-balance` instead of the batch; their category/hashtag cells are discarded. One per (account, currency): extra rows are skipped as `duplicate-opening` (first line wins) and listed in the dry run. At apply time a refused opening balance counts as already present when it is a seed an earlier run wrote: refused only because its own `transaction_id` is taken (`ID_EXISTS`), which a seed sent again answers before any other refusal (contract: POST /v1/accounts/{account_id}/opening-balance). Any other refusal, a different opening balance on the account (`OPENING_BALANCE_EXISTS`) included, is a failure, printed in the engine's words.
-- **`COD_EECC` only groups split transactions; it is not stored.** The optional `COD_EECC` column (`SIG-202603-029`) tells which rows were one bank movement: rows sharing one, compared by its exact text with spaces trimmed (letter case counts), go as the items of one `line_group` in one `POST /transactions/batch`, so the engine makes them the parts of one bank line, one movement sharing one line code (contract: POST /v1/transactions/batch, "Line groups"). A row with a blank `COD_EECC`, or one no other row has, is a movement of its own, and a sheet without the column imports every row that way. The code is never sent, so no transaction or bank line the import creates has a statement line: a statement line comes only from a reconciliation. A batch chunk never cuts a group ([runtime.md](runtime.md) "Bulk writes"), so one longer than `--chunk-size` goes whole, as one bigger request.
-  - **A group goes whole or not at all.** It is skipped whole when its rows differ on account (name and currency), date or title, which the engine refuses in a group (same citation), and when the parse skipped one of its rows for any reason but a zero amount (a bad date, an unknown currency, a missing category, …), so the movement never lands without a part. Its other rows count as `split-mismatch` on the `Skipped N row(s) — …` line, and a line under it says why, naming the `COD_EECC`: one per field that differs, giving the group's first row and each row that differs from it (`SIG-202603-029: line 3120 is 2026-03-14, line 3122 is 2026-03-15.`; an account reads `BCP [PEN]`, a title in quotes), or one for unreadable rows (`SIG-202603-029: line 3122 can't be read, so lines 3120, 3121 wait for it.`). The rest imports; once the sheet is fixed, a re-run brings the whole group in. A zero-amount part is only dropped, and the rest of its group goes; a group left with one row goes as that row alone. A part not sent because a resource it needs was not created keeps its whole group back.
-  - **What it prints.** The dry run's first line counts the movements the rows make (`Parsed 4184 transactions to import, as 4175 movements.`), and a line under the skipped rows counts the split transactions (`9 split transactions (18 rows) come in as one movement each.`, or `1 split transaction (3 rows) comes in as one movement.`; no line when there is none). `--apply` prints the whole `Skipped N row(s) — …` block too, every reason included (`zero-amount` as well), with its lines under it, before it writes. `--json` carries `movements`, `split_transactions`, `split_rows` and `split_mismatches` (those lines as text), and each `split-mismatch` row's `COD_EECC` as its `detail`; the `--apply` JSON carries `skipped` and `split_mismatches` too.
-  - **What failed** prints under `Failures (N rows):`, one line per kind of failure: what went wrong, then the sheet lines it hit, `rows 3, 5, 7, 11` for several or `row 77` for one; the rest of a refused chunk goes again ([runtime.md](runtime.md) "Bulk writes"). Screens 1 A and 3 A in [expense-world-grouped-refusals.html](mockups/expense-world-grouped-refusals.html):
+- `import sheet <file.xlsx> [--create-names | --apply] [--account-name SHEET_NAME:CUR=LEDGER_NAME ...] [--json]` — the personal sheet → the engine. The app sends the file whole, in base64, as the import door sends a bank download, and reads no cell of it: the engine reads the workbook, matches every row against the ledger and writes everything or nothing (contract: POST /v1/transactions/import-sheet). Package: [expense/import_/](../expense/import_/), every step in [engine.py](../expense/import_/engine.py). Every step reads the settings file once, before the file, and needs it.
+- **The sheet is the engine's layout:** a sheet named `data`, the twelve headers from `description` to `COD_EECC` in order, a row numbered as the spreadsheet numbers it (contract: POST /v1/transactions/import-sheet, "The sheet"). Rows sharing a `COD_EECC` are the parts of one split transaction, on one bank line (contract: POST /v1/transactions/import-sheet, "Splits"); a row whose `CATEGORY` reads exactly `SALDO INICIAL` is its account's opening balance as the engine decides it (contract: POST /v1/transactions/import-sheet, "Opening balances"). To the app `SALDO INICIAL` is a name like any other: listed, created by the create step, and, when only opening balances use it, an unused category you may delete.
+- **Every name needs an id first.** The engine never looks a name up and never creates one; for each account (a name in one currency), category and hashtag the sheet uses it proposes yours of that name, and it answers outcomes and counts only with a table giving every name its id (contract: POST /v1/transactions/import-sheet, "Names"). So the import is three steps of one command, each first sending the sheet as a dry run without a table: a refused sheet stops every step there, nothing created. The steps, as screens 1 to 5 of [expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html) draw them:
+  1. **The dry run** (no flag) writes nothing. It prints one table per kind, `Accounts`, `Categories` and `Hashtags`, each name with its rows and where it goes: `yours` (the engine's proposal, or your account of a rename) or `missing`; a renamed account shows its ledger name first (`Sueldo Soles  missing`). Each table's columns are as wide as its longest name. While a name is missing it shows no counts and names the step that creates them, the same file as typed (quoted when it needs it):
 
-    ```
-    Transactions: created 4153, already-present 0, failed 8
-    Failures (8 rows):
-      date: Must not be null. row 77
-      Part of a split transaction refused for another row. rows 4, 12
-      Not sent: category 'NEW' was not created. rows 2, 9, 14, 30
-      Part of a split transaction not sent for another row. row 31
-    ```
+     ```
+     No counts yet: the engine counts once every name exists.
 
-    `N` counts the transaction and opening-balance rows that failed.
-    - **A row the engine refuses** reads in the engine's words for it, and rows refused alike share one line, wherever they were sent ([runtime.md](runtime.md) "How refused rows read"). The other rows of a split transaction the engine refused one part of share the app's line `Part of a split transaction refused for another row.`.
-    - **A row held back** because a resource it needs was not created shares one line per resource, `Not sent: category 'NEW' was not created.` (an account or a hashtag the same way). The resource is named as the import resolves it, as its line under `Resource failures (N):` names it (`category 'NEW': CODE — message`; an account by the name and currency it is created under, `account 'BCP Oro PEN' (PEN)`), so rows whose cells spell it `NEW` and `new` share one line, under the spelling the sheet uses first. A split transaction goes whole or not at all, so its other rows share `Part of a split transaction not sent for another row.`.
-    - **Lines of their own**, never joined, their words as they stand: a refusal naming no row (`FORBIDDEN — nope rows 2, 3`), an opening balance not sent (`sheet line 9: opening balance not sent — account 'BCP Oro PEN' (PEN) was not created`, the account named as on a held-back row's line) or refused (`sheet line 9 (opening balance): CODE — message`), a stop, and the line naming the sheet lines never sent.
-    - **`--json`** keeps one entry per failure, rows not grouped: `chunk` (`-1` before or beside the batch), `lines` (its sheet lines), `words` (as the line prints them) and `detail` (the engine's whole answer, `CODE — message` and one `key: words` line per field; empty for a line the app writes).
-  - **`LIMIT_REACHED` (`LINE_CODES_EXHAUSTED`) ends the run**: every line code has been given, so nothing more is sent. At the batch, the row it names (and its split transaction's other parts) fails against its sheet line, in the engine's words, and one line names the sheet lines never sent, in runs that skip every line already settled: `sheet lines 5-6, 9-4188 were not sent` (`sheet line 5 was not sent` for one); a connection lost mid-run names them the same way, after the error; the summary counts the rows not sent as failed, and the exit code is 1. At an opening balance it prints as `SETTINGS_MISSING` does, `Error:` and the engine's words alone, and no transaction is sent.
-- **Accounts match by name and currency** (the name ignoring case and leading or trailing spaces) against every account the ledger holds, archived accounts and people included, so an account turned into a person or archived is reused, never created again; one the ledger lacks is created at apply time with its name and currency. An account name is unique per currency across bank accounts and people (contract: "People / Person Accounts").
-- **Categories and hashtags match by name** (ignoring case and leading or trailing spaces); one the ledger lacks is created at apply time with just its name. A created category is sent no colour, so it takes the engine's default (contract: POST /v1/categories).
-- **Sheet and column matching is tolerant.** The worksheet name (`Data`) matches ignoring case and leading or trailing spaces. Columns match by header name, each field accepting several spellings — the alias table is [expense/import_/mapping.py](../expense/import_/mapping.py) `FIELD_HEADERS`; no label may serve two fields (guard: `test_header_aliases_are_unambiguous`).
-- **Multi-currency account names split.** A `CUENTA` name used under two currencies becomes two accounts, each renamed with its currency (`BCP Oro` → `BCP Oro PEN` + `BCP Oro USD`). A name used under one currency passes through verbatim; a name already ending in its currency is not doubled. Rows resolve by the raw sheet name, so re-runs stay idempotent.
-- **Renaming an account leg.** `--account-name "BCP:PEN=Sueldo Soles"` (repeatable) writes the sheet's `BCP` rows in PEN, and its opening balance, to a ledger account named `Sueldo Soles` instead of the derived name; other legs keep theirs (`BCP USD`). The sheet name matches ignoring case and leading or trailing spaces, the currency is upper-cased, and the ledger name is everything after the first `=`. **It is remembered:** each rename is saved to `sheet_account_names` in the config (dry run included) and applied on every later run, so a re-run without the flag reuses `Sueldo Soles` instead of creating `BCP PEN`; passing the flag again for the same leg replaces the saved name. With no config file yet the rename applies to that run only. The dry run shows a renamed leg as `Sueldo Soles [PEN]  (from "BCP")`; `--json` carries it as `name` + `source_name`. A malformed value, a leg the sheet does not have, or a rename that lands two sheet legs on one ledger account (same name and currency) is a usage error (exit 2): nothing is written and nothing saved.
-- **Exit codes:** 0 for a dry run, and for an apply where no transaction row or resource create failed; 1 when one did, when the file cannot be read, or when the engine refused the run; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
+     9 names don't exist yet. Create them with:
+       expense import sheet libro.xlsx --create-names
+     Dry run — nothing written.
+     ```
+
+     Once every name exists, it sends the sheet again as a dry run with the table and prints the engine's counts under the tables, then the rows of zero and the rows on a closed statement's day, each line only when there are any:
+
+     ```
+     Rows: 1,961 · new 1,954 · matched 0 · sealed 0 · skipped 7
+     Opening balances 4 · split transactions 3
+
+     Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
+     Sealed, on a closed statement's day: rows 40, 41
+
+     Dry run — nothing written. Run again with --apply to import.
+     ```
+
+  2. **`--create-names`** creates every missing account, category and hashtag through its own route and imports nothing: an account under its ledger name (its rename, else the sheet's name, never with the currency added) in the sheet's currency, a category or hashtag under the sheet's name with no colour, so it takes the engine's default (contract: POST /v1/accounts) (contract: POST /v1/categories) (contract: POST /v1/hashtags). Two of the sheet's names the engine holds as one (`Travel` and `travel`, compared trimmed and in any letter case, an account's per currency) are created once. It prints `Created 4 accounts, 3 categories, 2 hashtags.` (a kind with none left out, one in the singular) and `Nothing imported. Run the dry run again to see the counts.`; run again, `Created no names: every one is yours.` A create the engine refuses stops the step: the names created before it are printed first (`Created 1 account.`), then the refusal as every engine error prints; under `--json` both are one document ("Sanctioned exceptions" below). With `--apply` it is a usage error (exit 2), since it imports nothing: `--create-names creates names and imports nothing, so it never goes with --apply.`
+  3. **`--apply`** imports, sending the table with the sheet; the engine's answer is what happened. While a name is missing it is refused and sends nothing more:
+
+     ```
+     Not imported — nothing written.
+     9 names don't exist yet. Create them with:
+       expense import sheet libro.xlsx --create-names
+     then run the dry run to see the counts.
+     ```
+
+     Otherwise it prints `Written: new 1,954 · matched 0 · sealed 0 · skipped 7`, the opening balances and split transactions line, and the rows of zero and on a closed day as the dry run lists them. The same sheet sent again matches every row and writes nothing (contract: POST /v1/transactions/import-sheet, "Matching"); when rows matched and none is new or sealed it prints `Nothing new: every row is already in the ledger.` in place of the lists; a sheet whose rows are all zero gets its list instead.
+- **A sheet with bad rows** is refused whole, on any of the three steps, and nothing is written or created (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`"). The `422` `VALIDATION_ERROR` whose every key is a row's (`rows.<row>…`), the refusal the sheet itself causes, prints every refused row in the engine's words, rows refused alike sharing one line through the same grouping as the LOG bar's ([runtime.md](runtime.md) "How refused rows read"): words that begin with their row (`Row 77: …`) read whole for one row, and once, without the row, before every row refused alike; any other row key reads `field: words`, then its rows. `N` counts the rows:
+
+  ```
+  Refused — nothing written. 4 rows:
+    Row 77: FECHA is empty.
+    Row 120: MONTO is not a whole number of cents.
+    The day is after today. rows 1958, 1959
+
+  Fix the sheet and run it again.
+  ```
+
+  A file refused whole (contract: POST /v1/transactions/import-sheet, "The file refused whole"), a refused table entry (an archived account the engine proposed, `INVALID_REFERENCE`) and every refusal fixing the sheet does not clear print as every engine error ("Output conventions" below), never with `Fix the sheet and run it again.`: a `409` `CONCURRENT_CHANGE` on `rows.<row>`, which clears by sending the sheet again (contract: POST /v1/transactions/import-sheet, "Concurrency"), a `409` `OPENING_BALANCE_EXISTS` (contract: POST /v1/transactions/import-sheet, "Opening balances") and the `422` `LIMIT_REACHED` once the line codes are used up (contract: POST /v1/transactions/import-sheet, "On apply").
+- **Renaming an account.** `--account-name "BCP:PEN=Sueldo Soles"` (repeatable) puts the sheet's `BCP` rows in PEN on a ledger account named `Sueldo Soles`: yours of that name in that currency (archived accounts and people included), else a missing one the create step creates under it. The sheet name matches ignoring case and leading or trailing spaces, the currency is upper-cased, and the ledger name is everything after the first `=`. **It is remembered:** once checked against the sheet's names, each rename is saved to `sheet_account_names` in the config (dry run included) and applied on every later run; passing the flag again for the same account replaces the saved name. A malformed value is a usage error before anything is sent; an account the sheet does not have, or a rename that puts two of the sheet's accounts on one ledger account (same name and currency), is a usage error once the engine has listed the sheet's names: nothing is created, imported or saved (exit 2).
+- **`--json`** prints the engine's answer as it sent it: the dry run's last answer (with the table once every name exists) and the apply's. `--create-names --json` prints `{"created": {"accounts": [...], "categories": [...], "hashtags": [...]}}`, the engine's answer to each create by kind, and, stopped part way, the `error` that stopped it beside them. A refusal is the engine's body; `--apply --json` while a name is missing is `{"error": {"code": "NAMES_MISSING", "message": "Not imported — nothing written. 9 names don't exist yet.", "fields": null, "reasons": null}}`.
+- **Exit codes:** 0 for a dry run, a create step and an apply that went through; 1 when the file cannot be read, the engine refused the sheet or a write, or `--apply` met a missing name; 2 for a usage error; 3 for a missing or unreadable settings file; 6 when the engine cannot be reached ([decisions.md](decisions.md) "Connection errors get exit code 6, off the click collision on 2").
 
 ### Sanctioned exceptions
 
 Deliberate, reviewed deviations — do not re-flag in future reviews:
 
-- **`import sheet --json`** — emits a client-composed plan/result summary. The import is a composite of many engine calls (resolve, create, batch) with no single engine response to pass through. [`expense/commands/import_cmd.py`]
+- **`import sheet --create-names --json`** and **`import sheet --apply --json` with a name missing** — client-composed: the create step is many engine calls, printed as the engine's answer to each under `created`, and the refused apply sends nothing, so its `NAMES_MISSING` envelope is the app's, in the engine's envelope shape (`errors.error_envelope`). A create step stopped part way prints both, `{"created": {"accounts": [...], "categories": [...], "hashtags": [...]}, "error": {...}}`: the engine's answer to each name created before the stop, then the `error` of what stopped it, the engine's own for a refusal, the app's envelope for the engine out of reach (exit 6). [`expense/commands/import_cmd.py`]
 
 ---
 
@@ -84,8 +106,9 @@ Deliberate, reviewed deviations — do not re-flag in future reviews:
   Error: VALIDATION_ERROR — Amount must not be zero.
     amount_cents: Must not be zero.
   ```
-  The engine's words alone, here and on every refused row or resource the report lists: the
-  import adds no line of its own (no hint, no key to press, no screen to open) —
-  `errors.engine_text` in [expense/errors.py](../expense/errors.py). The lines the app adds
+  The engine's words alone, here and on every refused row: the import adds no line of the
+  TUI's (no hint, no key to press, no screen to open) — `errors.engine_text` in
+  [expense/errors.py](../expense/errors.py); its own lines are the refused rows' head and
+  `Fix the sheet and run it again.` ("A sheet with bad rows" above). The lines the app adds
   under a refusal are the TUI's ([tui.md](tui.md) "When the engine says no").
-- **`--json`** — two-space indent, keys in insertion order, UTF-8 written as UTF-8 (`Café`, not `Café`). An engine error under `--json` is the engine's body verbatim. One serialiser, [expense/jsonout.py](../expense/jsonout.py), for the plan, the result and the error envelope.
+- **`--json`** — two-space indent, keys in insertion order, UTF-8 written as UTF-8 (`Café`, not `Café`). An engine error under `--json` is the engine's body verbatim. One serialiser, [expense/jsonout.py](../expense/jsonout.py), for the engine's answer, the names created and the error envelope.

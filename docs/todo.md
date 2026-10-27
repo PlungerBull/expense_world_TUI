@@ -28,6 +28,15 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
+### Hand the split-rows ask to the engine
+Asked 2026-10-27 · Blocks: the `(N rows)` on the sheet import's count line
+
+The file [to-engine/sheet-import-split-rows-count.md](to-engine/sheet-import-split-rows-count.md)
+asks the engine to say how many sheet rows a sheet's split purchases are made from. Copy it into
+the engine repo's `docs/from-tui/`, then tell me, and it leaves the outbox.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
@@ -85,10 +94,6 @@ ships (its why moves to [decisions.md](decisions.md)).
   `saved` means instead.
 - **Leftovers in the test suites**: a draft spec waiting for the owner's approval
   ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)).
-- **No test pins a renamed or currency-split account on a `Not sent:` line.** The sheet import
-  names a held-back row's account as it was created (`account 'BCP Oro PEN' (PEN)`, a renamed
-  leg by its new name), as [commands.md](commands.md) says; only a hand-run check proved it. Add
-  the test in [test_grouped_refusals.py](../tests/unit/test_grouped_refusals.py).
 - **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
   Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
   once every row is loaded; on a 30-row terminal it clips its last line

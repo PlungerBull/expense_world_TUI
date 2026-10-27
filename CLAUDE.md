@@ -13,7 +13,7 @@ This app is **the first of four clients** sharing the same engine (engine → te
 - **The app is a contract validator.** Each screen is a real-world test of the engine endpoints it calls, and the live contract suite ([tests/contract/](tests/contract/)) exercises the rest, including the engine features with no screen. If a 422 hint, sign convention, idempotency replay, or field-locking semantic is wrong, we want to find out here, not via mobile users.
 - **No terminal-only shortcuts.** Anything that would only make sense for this client (e.g. re-implementing engine logic client-side) is rejected. The pattern has to generalize to the next client.
 - **Idempotency, error envelope, sign convention, date handling are shared infrastructure** (RFC 3339, signed amounts, structured error envelope) — used faithfully so iOS and web inherit working patterns.
-- **What stays specific to this client:** [expense/dates.py](expense/dates.py) (date forgiveness), [expense/quickadd/](expense/quickadd/) (the one-line quick-add grammar of the LOG bar), [expense/import_/](expense/import_/) (the `.xlsx` reader of the owner's spreadsheet) and [expense/bank_import/](expense/bank_import/) (the import door, which sends a bank download to the engine whole), `~/.expense-config` (token storage).
+- **What stays specific to this client:** [expense/dates.py](expense/dates.py) (date forgiveness), [expense/quickadd/](expense/quickadd/) (the one-line quick-add grammar of the LOG bar), [expense/import_/](expense/import_/) (the sheet import, which sends the owner's spreadsheet to the engine whole) and [expense/bank_import/](expense/bank_import/) (the import door, which sends a bank download to the engine whole), `~/.expense-config` (token storage).
 
 Scale, distribution, multi-tenancy, billing, onboarding, localization are not this repo's concern — they land on web/iOS.
 
@@ -50,7 +50,7 @@ Docs must outlive any one contributor, session, or AI model: **(1) fresh-clone t
 ## Tech stack
 
 - **Language:** Python 3.11+ · **TUI:** Textual · **Typed entry point:** Typer · **HTTP:** httpx
-- **Importers:** `expense import sheet` ([expense/import_/](expense/import_/)) and the TUI's import door for bank files ([expense/bank_import/](expense/bank_import/)), which sends the bank's download to the engine whole; the sheet import reads `.xlsx` via `openpyxl` (a core dependency)
+- **Importers:** `expense import sheet` ([expense/import_/](expense/import_/)) and the TUI's import door for bank files ([expense/bank_import/](expense/bank_import/)), which sends the bank's download to the engine whole; the sheet import sends its `.xlsx` whole too, so `openpyxl` is only a dev dependency, for the tests that build made-up sheets
 - **Config storage:** `~/.expense-config` (chmod 600) — the app's only local state
 - **No local cache, no offline write queue.** Every read and write is a live call against the engine: one source of truth means no conflict resolution and no staleness, and every client inherits the same `request → wait → done` contract.
 

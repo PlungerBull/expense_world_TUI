@@ -36,8 +36,6 @@ what a statement's close flags and took a card's other account from the engine (
     `unfiled_rows` docstring still says "the engine is the authority at close time", though the
     close decides nothing about these lines
     ([reconciliations.py](../../expense/tui/screens/reconciliations.py)).
-  - `read_workbook`'s `sheet_name` keyword has no caller passing it since the bank door stopped
-    reading files ([reader.py](../../expense/import_/reader.py)).
   - [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) builds its
     download's header and body by hand, where the contract conftest's shared `download_body` and
     `CURRENT_HEADER` do it.
@@ -68,8 +66,7 @@ what a statement's close flags and took a card's other account from the engine (
    tick-refusal test's reason.
 2. **A completed statement's footer shows only the keys that work on it**, as question 1 decides.
 3. **The cleaner's doc says how to clean either practice user.**
-4. **The small things are tidied**: the `!` helper named for what it marks, the unused keyword
-   gone, the hand-built download body using the shared helpers, the "no batch" comment saying
+4. **The small things are tidied**: the `!` helper named for what it marks, the hand-built download body using the shared helpers, the "no batch" comment saying
    newest first is the engine's order when none is asked for, and the ids read split by the
    engine's own bound on ids.
 5. **The six mockups draw the words the app shows**, or are deleted with their links if they

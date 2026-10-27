@@ -383,6 +383,17 @@ def key_index(key: object, collection: str) -> int | None:
     return None
 
 
+def names_its_row(key: object, message: str) -> bool:
+    """True when a `rows.<row>…` key's words already begin `Row <row>:`, as
+    the import's refusals made up front do
+    (contract: POST /v1/transactions/import, "Rejected up front with `422`")
+    (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
+    Any other row refusal keeps its key, so its row is never lost. The bank
+    import's preview and the sheet import both read a row's words this way."""
+    row = key_index(key, "rows")
+    return row is not None and message.startswith(f"Row {row}:")
+
+
 def key_field(key: object, collection: str) -> str | None:
     """The field a refusal's key names on an item of a list the request sent:
     `<collection>.<i>.<field>` gives `field`; `<collection>.<i>`, which names the
@@ -425,28 +436,47 @@ _ENVELOPE_ERRORS: dict[type[Exception], tuple[str, int]] = {
 _HANDLED_ERRORS: tuple[type[Exception], ...] = (EngineError, *_ENVELOPE_ERRORS)
 
 
+def error_envelope(code: str, message: str) -> dict[str, Any]:
+    """The engine's envelope shape for an error the app reports itself: its
+    code and message, no `fields` and no `reasons`."""
+    return {"error": {"code": code, "message": message, "fields": None, "reasons": None}}
+
+
+def json_body(err: Exception) -> dict[str, Any]:
+    """An error as `--json` prints it: an engine refusal's body as sent, or
+    the app's envelope (`error_envelope`) for an error `handle_errors` takes.
+    Any other error is raised."""
+    if isinstance(err, EngineError):
+        return err.raw_body
+    for exc_type, (code, _exit_code) in _ENVELOPE_ERRORS.items():
+        if isinstance(err, exc_type):
+            return error_envelope(code, str(err))
+    raise err
+
+
+def exit_code_of(err: Exception) -> int:
+    """The exit code an error `handle_errors` takes ends the command with: 1
+    for an engine refusal, else its family's (`_ENVELOPE_ERRORS`). Any other
+    error is raised."""
+    if isinstance(err, EngineError):
+        return 1
+    for exc_type, (_code, exit_code) in _ENVELOPE_ERRORS.items():
+        if isinstance(err, exc_type):
+            return exit_code
+    raise err
+
+
 def render(err: Exception, *, json_mode: bool) -> tuple[str, int, bool]:
     """Render an error.
 
     Returns (output_text, exit_code, use_stderr).
-    JSON mode writes to stdout so output is pipe-friendly; human mode writes to
-    stderr, in the engine's words alone (`engine_text`).
+    JSON mode writes to stdout so output is pipe-friendly (`json_body`); human
+    mode writes to stderr, in the engine's words alone (`engine_text`).
     """
-    if isinstance(err, EngineError):
-        if json_mode:
-            return json_text(err.raw_body), 1, False
-        return "Error: " + engine_text(err), 1, True
-
-    for exc_type, (code, exit_code) in _ENVELOPE_ERRORS.items():
-        if isinstance(err, exc_type):
-            if json_mode:
-                envelope = {
-                    "error": {"code": code, "message": str(err), "fields": None, "reasons": None}
-                }
-                return json_text(envelope), exit_code, False
-            return "Error: " + engine_text(err), exit_code, True
-
-    raise err
+    exit_code = exit_code_of(err)
+    if json_mode:
+        return json_text(json_body(err)), exit_code, False
+    return "Error: " + engine_text(err), exit_code, True
 
 
 def handle_errors(fn):

@@ -10,8 +10,7 @@ SUPPORTED_CURRENCIES: tuple[str, ...] = ("PEN", "USD")
 
 
 # The minor-unit scale: how many minor units make one major unit. Consumed by
-# quickadd/money.py (both directions), formatting.format_cents and
-# commands/import_cmd (`expense import sheet`).
+# quickadd/money.py (both directions) and formatting.format_cents.
 #
 # ⚠️ One constant for every currency is correct ONLY because the tuple above is
 # locked to {USD, PEN}, which are both exponent 2. Centralizing makes the

@@ -430,8 +430,8 @@ def rows_phrase(numbers: Iterable[int]) -> str:
 def grouped_refusals(
     refusals: Iterable[tuple[Hashable | None, str, Iterable[int]]],
 ) -> list[tuple[str, str, list[str]]]:
-    """One line per kind of refusal, as the sheet import's Failures and the LOG
-    bar's lines under the table both print it.
+    """One line per kind of refusal, as the LOG bar's lines under the table
+    and the sheet import's refused rows both print it.
 
     `(kind, words, rows)` in, in the order met; `(first, rows, rest)` out, one
     per kind, in the order each kind was first met: `first` is the first line

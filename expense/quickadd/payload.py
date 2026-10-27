@@ -28,7 +28,7 @@ def transaction_payload(
     """`POST /transactions` body. Only valid for a line routing did not refuse.
 
     `row_id` is client-minted so a replayed write cannot double-apply — the
-    same contract `expense import sheet` and every other create already use.
+    same contract every other create already uses.
     `pending_hashtag_id` is `QuickAddRefs.pending_hashtag_id`, None when the
     user has none yet.
     """

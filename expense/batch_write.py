@@ -3,8 +3,7 @@
 `POST /transactions/batch` is all-or-nothing: one bad row in a chunk and none
 of the chunk is written
 (contract: POST /v1/transactions/batch, "No partial success"). This module,
-shared by `expense import sheet` and the TUI's LOG bar rather than kept in two
-copies, turns that into partial progress: a refused chunk's named rows are set
+the TUI's LOG bar's writer, turns that into partial progress: a refused chunk's named rows are set
 aside and the rest go again as one batch, until a batch lands or no row is left.
 
 **The engine names every row it refuses.** A batch is judged in four steps and
@@ -47,11 +46,9 @@ words for each; one naming no row (`SETTINGS_MISSING`) fails the send's rows as
 one group. `outcome.refusal` holds it, for the caller to report once.
 
 **The result is index-aligned with the items handed in**, and carries no
-vocabulary of its own: the importer maps an index to a sheet line, the LOG bar
-maps it to a staged row, and neither phrasing leaks into the other. The
+vocabulary of its own: the LOG bar maps an index to a staged row. The
 refusals' words are the caller's choice too (`error_text`): the engine's alone
-by default, as the importer prints them; the LOG bar adds the app's line saying
-what to do.
+by default; the LOG bar adds the app's line saying what to do.
 """
 
 from collections.abc import Callable, Hashable

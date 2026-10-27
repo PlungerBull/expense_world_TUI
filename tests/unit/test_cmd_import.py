@@ -1,1435 +1,859 @@
-"""respx-mocked apply tests + the dry run for `expense import sheet`."""
+"""`expense import sheet`: what the terminal prints, screen by screen, as
+docs/mockups/expense-world-sheet-import-engine.html draws it (screens 1 to 5,
+pick 1 A `--create-names`, pick 2 A the apply refused while a name is missing).
+
+The engine is respx: every answer is the fake engine's `sheet_import_answer`
+(tests/unit/helpers.py), every refusal an envelope shaped as the practice
+engine sends it. The sheet's bytes never matter to the app, so the file is any
+bytes on disk.
+"""
 
 import json
-from pathlib import Path
 
 import httpx
-import openpyxl
 import pytest
 import respx
 from typer.testing import CliRunner
 
 from expense import config as config_module
-from expense.batch_write import ENGINE_BATCH_MAX, BatchFailure, BatchOutcome, RowResult
-from expense.commands import import_cmd
-from expense.errors import EngineError
-from expense.http import ExpenseClient
-from expense.import_ import apply as apply_mod
-from expense.import_ import plan as plan_mod
-from expense.import_.parse import OpeningRow, ParsedRow
-from expense.import_.reader import RawRow, SheetData
 from tests.unit.helpers import ENGINE_URL as BASE
-from tests.unit.helpers import error_response, real_cli_app
+from tests.unit.helpers import (
+    error_body,
+    real_cli_app,
+    sheet_import_answer,
+    sheet_name_use,
+    sheet_row,
+    strip_panel,
+)
 
 runner = CliRunner()
+cli_app = real_cli_app()
+IMPORT = f"{BASE}/v1/transactions/import-sheet"
+FILE = "libro.xlsx"
+#: The three commands: the dry run, the create step, the apply.
+STEPS = [[], ["--create-names"], ["--apply"]]
+STEP_IDS = ["dry", "create", "apply"]
 
 
-def _prow(line: int, **over: object) -> ParsedRow:
-    base = dict(
-        line=line,
-        title="Groomers",
-        category="WANTS",
-        hashtag="Salidas",
-        date_iso="2022-12-01",
-        amount_cents=-4400,
-        currency="PEN",
-        account="BCP PEN",
-        description=None,
-    )
-    base.update(over)
-    return ParsedRow(**base)  # type: ignore[arg-type]
+@pytest.fixture
+def sheet(configured, tmp_path, monkeypatch):
+    """A file named as the mockup names it, in the working folder."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / FILE).write_bytes(b"PK\x03\x04 a made-up workbook")
 
 
-def _said(result: apply_mod.ApplyResult) -> list[tuple[int, str, tuple[int, ...]]]:
-    """Each failure as (chunk, the words its line shows, the sheet lines it covers)."""
-    return [(f.chunk, f.words, f.lines) for f in result.failures]
+def _run(*args: str, file: str = FILE):
+    return runner.invoke(cli_app, ["import", "sheet", file, *args])
 
 
-def _plan(rows: list[ParsedRow]) -> plan_mod.ImportPlan:
-    return plan_mod.build_plan(rows, [], [])
+def _out(result) -> str:
+    return result.stdout + result.stderr
 
 
-def _orow(line: int, **over: object) -> OpeningRow:
-    base = dict(
-        line=line,
-        title="SALDO INICIAL",
-        account="BCP PEN",
-        currency="PEN",
-        date_iso="2022-12-01",
-        amount_cents=350000,
-    )
-    base.update(over)
-    return OpeningRow(**base)  # type: ignore[arg-type]
+def _body(request: httpx.Request) -> dict:
+    return json.loads(request.content)
 
 
-def _account(**over: object) -> dict:
-    """One row of `GET /v1/accounts`, whole as the engine serves it (contract: GET /v1/accounts).
+# ---- the mockup's made-up sheet ----------------------------------------------------
+def _names(*, yours: bool) -> dict:
+    """Screen 1's names (`yours` False, `BCP` PEN renamed to `Sueldo Soles`), or
+    screen 3's, every one proposed."""
 
-    By default it is BCP PEN, the account `_prow` and `_orow` book to, under id `acc-pen`:
-    a plain bank account with no statement code and no opening balance yet. A test names
-    only the fields it changes, by their engine names; a name the engine does not serve fails.
-    """
-    base = {
-        "id": "acc-pen",
-        "user_id": "user-1",
-        "name": "BCP PEN",
-        "currency_code": "PEN",
-        "is_person": False,
-        "color": "#3b82f6",
-        "statement_code": None,
-        "current_balance_cents": 0,
-        "current_balance_home_cents": 0,
-        "opening_balance_transaction_id": None,
-        "is_archived": False,
-        "sort_order": 0,
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "version": 1,
-        "deleted_at": None,
+    def p(ident: str) -> str | None:
+        return ident if yours else None
+
+    return {
+        "accounts": [
+            sheet_name_use("BCP", 1204, p("acc-bcp-pen"), currency_code="PEN"),
+            sheet_name_use("BCP", 311, "acc-bcp-usd", currency_code="USD"),
+            sheet_name_use("Interbank", 402, p("acc-ib"), currency_code="PEN"),
+            sheet_name_use("Ana", 38, p("acc-ana-pen"), currency_code="PEN"),
+            sheet_name_use("Ana", 6, p("acc-ana-usd"), currency_code="USD"),
+        ],
+        "categories": [
+            sheet_name_use("Comida", 1010, p("cat-comida")),
+            sheet_name_use("Transporte", 435, p("cat-transporte")),
+            sheet_name_use("Casa", 512, "cat-casa"),
+            sheet_name_use("SALDO INICIAL", 4, p("cat-saldo")),
+        ],
+        "hashtags": [
+            sheet_name_use("Personal", 1722, p("tag-personal")),
+            sheet_name_use("Trabajo", 239, p("tag-trabajo")),
+        ],
     }
-    unknown = set(over) - set(base)
-    assert not unknown, f"not an account field: {sorted(unknown)}"
-    return {**base, **over}
 
 
-def _whole_list(rows: list):
-    """The engine's shape: the list whole, and a 422 for any paging."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        paging = sorted({"limit", "offset"} & set(request.url.params))
-        if paging:
-            return error_response(
-                422,
-                "VALIDATION_ERROR",
-                "unknown query parameter",
-                {name: "Not a parameter of this endpoint." for name in paging},
-                {name: "UNKNOWN_PARAMETER" for name in paging},
-            )
-        return httpx.Response(200, json={"items": rows})
-
-    return respond
+def _answer(*, yours: bool, dry_run: bool = True, rows=None, counts=None) -> dict:
+    return sheet_import_answer(
+        **_names(yours=yours),
+        rows=rows if rows is not None else [sheet_row(2)],
+        dry_run=dry_run,
+        counts=counts,
+    )
 
 
-def _mock_existing(*, accounts: list, categories: list, hashtags: list) -> None:
-    respx.get(f"{BASE}/v1/accounts").mock(side_effect=_whole_list(accounts))
-    respx.get(f"{BASE}/v1/categories").mock(side_effect=_whole_list(categories))
-    respx.get(f"{BASE}/v1/hashtags").mock(side_effect=_whole_list(hashtags))
+#: Screen 3's counts: 1,961 rows, 7 of them zero.
+SKIPPED = [14, 90, 311, 1201, 1202, 1555, 1960]
+COUNTS = {
+    "new": 1954,
+    "matched": 0,
+    "sealed": 0,
+    "skipped": 7,
+    "opening_balances": 4,
+    "split_lines": 3,
+}
+
+
+def _counted_rows(outcome: str = "new", *, sealed: tuple[int, ...] = ()) -> list[dict]:
+    rows = []
+    for r in range(2, 1963):
+        if r in SKIPPED:
+            rows.append(sheet_row(r, 0, outcome="skipped", account_id="acc-ib"))
+        elif r in sealed:
+            rows.append(sheet_row(r, outcome="sealed", account_id="acc-ib"))
+        else:
+            rows.append(sheet_row(r, outcome=outcome, account_id="acc-ib"))
+    return rows
+
+
+#: The renamed account as `GET /accounts` lists it once it exists.
+SUELDO = {"id": "acc-sueldo", "name": "Sueldo Soles", "currency_code": "PEN", "is_archived": False}
+
+
+def _engine(first: dict | httpx.Response, tabled: dict | httpx.Response | None = None):
+    """The import route: a body without `names` answers `first`, one with them
+    `tabled`."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        reply = tabled if "names" in _body(request) else first
+        assert reply is not None, "the table was sent"
+        return reply if isinstance(reply, httpx.Response) else httpx.Response(200, json=reply)
+
+    return respx.post(IMPORT).mock(side_effect=answer)
+
+
+def _accounts(items: list[dict]) -> respx.Route:
+    return respx.get(f"{BASE}/v1/accounts").mock(
+        return_value=httpx.Response(200, json={"items": items})
+    )
+
+
+def _made(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(201, json={**_body(request), "is_archived": False})
+
+
+def _creates() -> dict[str, respx.Route]:
+    return {
+        path: respx.post(f"{BASE}/v1/{path}").mock(side_effect=_made)
+        for path in ("accounts", "categories", "hashtags")
+    }
+
+
+def _sent() -> list[tuple[str, bool | None, bool]]:
+    """Every POST: its path, and for the import its `dry_run` and whether the
+    table went with it."""
+    out = []
+    for call in respx.calls:
+        if call.request.method != "POST":
+            continue
+        body = _body(call.request)
+        out.append((call.request.url.path, body.get("dry_run"), "names" in body))
+    return out
+
+
+def _saved() -> dict[str, str]:
+    return config_module.ensure_loaded().sheet_account_names
+
+
+SCREEN_1 = """\
+Accounts (5)
+  SHEET NAME   CUR    ROWS   GOES TO
+  BCP          PEN   1,204   Sueldo Soles  missing
+  BCP          USD     311   yours
+  Interbank    PEN     402   missing
+  Ana          PEN      38   missing
+  Ana          USD       6   missing
+
+Categories (4)
+  SHEET NAME       ROWS   GOES TO
+  Comida          1,010   missing
+  Transporte        435   missing
+  Casa              512   yours
+  SALDO INICIAL       4   missing
+
+Hashtags (2)
+  SHEET NAME    ROWS   GOES TO
+  Personal     1,722   missing
+  Trabajo        239   missing
+
+No counts yet: the engine counts once every name exists.
+
+9 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+Dry run — nothing written.
+"""
+
+
+# ---- screen 1: the first dry run ---------------------------------------------------
+@respx.mock
+def test_the_first_dry_run_lists_every_name_and_the_step_that_creates_the_missing(sheet):
+    """Screen 1 with --account-name: the renamed account shows its new name,
+    `SALDO INICIAL` is a name like any other, no counts, the create step's
+    command line; only the dry run without the table is sent, and the rename
+    is remembered."""
+    route = _engine(_answer(yours=False))
+    accounts = _accounts([])
+    creates = _creates()
+    result = _run("--account-name", "BCP:PEN=Sueldo Soles")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == SCREEN_1
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert route.call_count == 1 and accounts.call_count == 1
+    assert all(r.call_count == 0 for r in creates.values())
+    assert _saved() == {"BCP:PEN": "Sueldo Soles"}
 
 
 @respx.mock
-def test_apply_reuses_existing_and_creates_rest(configured):
-    rows = [
-        _prow(2),  # BCP PEN reused; WANTS + Salidas created
-        _prow(
-            3,
-            account="BCP USD",
-            currency="USD",
-            amount_cents=-10000,
-            category="PERROS",
-            hashtag="Viajes",
-        ),
-    ]
-    plan = _plan(rows)
-    _mock_existing(
-        accounts=[
-            _account(),
-            _account(id="acc-usd", name="BCP USD", currency_code="USD"),
-        ],
-        categories=[{"id": "cat-susc", "name": "Suscripciones"}],
-        hashtags=[],
-    )
-    acc_route = respx.post(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(201, json={"id": "new-acc"})
-    )
-    cat_route = respx.post(f"{BASE}/v1/categories").mock(
-        return_value=httpx.Response(201, json={"id": "c"})
-    )
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=200)
-
-    assert (res.accounts_reused, res.accounts_created) == (2, 0)
-    assert not acc_route.called
-    assert res.categories_created == 2  # WANTS, PERROS
-    # a created category carries no color key at all: the engine gives its default
-    cat_bodies = [json.loads(c.request.content) for c in cat_route.calls]
-    assert sorted(b["name"] for b in cat_bodies) == ["PERROS", "WANTS"]
-    assert all(set(b) == {"id", "name"} for b in cat_bodies)
-    assert res.hashtags_created == 2  # Salidas, Viajes
-
-    body = json.loads(batch_route.calls.last.request.content)
-    items = body["transactions"]
-    assert len(items) == 2
-    pen = next(i for i in items if i["account_id"] == "acc-pen")
-    usd = next(i for i in items if i["account_id"] == "acc-usd")
-    assert "exchange_rate" not in pen
-    assert "exchange_rate" not in usd  # engine converts at read time; field is rejected
-    assert len(pen["hashtag_ids"]) == 1
-    assert pen["id"] == plan_mod.tx_id_for(rows[0])  # deterministic
-    assert result.tx_created == 2
+def test_the_create_steps_command_line_keeps_the_file_as_typed(sheet, tmp_path):
+    """Without a rename the account keeps the sheet's name and your accounts
+    are not read; a path with a space is quoted so it can be pasted."""
+    (tmp_path / "mi libro.xlsx").write_bytes(b"made up")
+    _engine(_answer(yours=False))
+    accounts = _accounts([])
+    result = _run(file="mi libro.xlsx")
+    assert result.exit_code == 0, _out(result)
+    assert "  BCP          PEN   1,204   missing\n" in result.stdout
+    assert "  expense import sheet 'mi libro.xlsx' --create-names\n" in result.stdout
+    assert "9 names don't exist yet. Create them with:\n" in result.stdout
+    assert accounts.call_count == 0
 
 
 @respx.mock
-def test_apply_split_currency_account_creates_both_legs(configured):
-    """The engine sees suffixed names; rows still resolve by the raw sheet name.
-
-    This is the guard on the two keyspaces in `_resolve_each`: accounts are
-    MATCHED engine-side by their derived name but INDEXED sheet-side by the
-    CUENTA cell. Collapsing them would send every "BCP Oro" row to one leg (or
-    to none at all).
-    """
-    rows = [
-        _prow(2, account="BCP Oro", currency="PEN", amount_cents=-4400),
-        _prow(3, account="BCP Oro", currency="USD", amount_cents=-10000),
-    ]
-    plan = _plan(rows)
-    _mock_existing(accounts=[], categories=[], hashtags=[])
-    acc_route = respx.post(f"{BASE}/v1/accounts").mock(return_value=httpx.Response(201, json={}))
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
+def test_one_missing_name_reads_in_the_singular(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, "acc-bcp", currency_code="PEN")],
+        categories=[sheet_name_use("Comida", 2, "cat-comida")],
+        hashtags=[sheet_name_use("Nuevo", 2)],
+    )
+    _engine(answer)
+    result = _run()
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout.endswith(
+        "1 name doesn't exist yet. Create it with:\n"
+        "  expense import sheet libro.xlsx --create-names\n"
+        "Dry run — nothing written.\n"
     )
 
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=200)
 
-    assert res.accounts_created == 2
-    posted = [json.loads(c.request.content) for c in acc_route.calls]
-    assert [(p["name"], p["currency_code"]) for p in posted] == [
-        ("BCP Oro PEN", "PEN"),
-        ("BCP Oro USD", "USD"),
-    ]
-    # Colour and order are left to the engine's defaults: the import sends only
-    # what the sheet says, so neither key is in the body (contract: POST /v1/accounts).
-    assert all(set(p) == {"id", "name", "currency_code"} for p in posted)
-    # Account ids are client-minted, so the posted bodies are the source of truth.
-    pen_id, usd_id = posted[0]["id"], posted[1]["id"]
-    assert pen_id != usd_id
-
-    items = json.loads(batch_route.calls.last.request.content)["transactions"]
-    by_id = {i["id"]: i["account_id"] for i in items}
-    assert by_id[plan_mod.tx_id_for(rows[0])] == pen_id
-    assert by_id[plan_mod.tx_id_for(rows[1])] == usd_id
-    assert result.tx_created == 2
-
-
+# ---- screen 2: creating the names --------------------------------------------------
 @respx.mock
-def test_apply_split_currency_reuses_existing_suffixed_accounts(configured):
-    """A second run finds the renamed legs already there and creates nothing."""
-    rows = [
-        _prow(2, account="BCP Oro", currency="PEN"),
-        _prow(3, account="BCP Oro", currency="USD"),
-    ]
-    plan = _plan(rows)
-    _mock_existing(
-        accounts=[
-            _account(id="acc-oro-pen", name="BCP Oro PEN"),
-            _account(id="acc-oro-usd", name="BCP Oro USD", currency_code="USD"),
-        ],
-        categories=[],
-        hashtags=[],
-    )
-    acc_route = respx.post(f"{BASE}/v1/accounts").mock(
-        return_value=httpx.Response(201, json={"id": "unexpected"})
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        apply_mod.apply_plan(client, plan, res, chunk_size=200)
-
-    assert (res.accounts_reused, res.accounts_created) == (2, 0)
-    assert not acc_route.called
-    items = json.loads(batch_route.calls.last.request.content)["transactions"]
-    assert {i["account_id"] for i in items} == {"acc-oro-pen", "acc-oro-usd"}
-
-
-@respx.mock
-def test_apply_seeds_opening_balances(configured):
-    """Opening rows POST to /accounts/{id}/opening-balance, not the batch."""
-    rows = [_prow(2)]
-    openings = [
-        _orow(3),
-        _orow(
-            4,
-            account="Interbank USD",
-            currency="USD",
-            amount_cents=100000,
-        ),
-    ]
-    plan = plan_mod.build_plan(rows, openings, [])
-    _mock_existing(
-        accounts=[
-            _account(),
-            _account(id="acc-usd", name="Interbank USD", currency_code="USD"),
-        ],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    pen_route = respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=httpx.Response(201, json={"id": "seed-1"})
-    )
-    usd_route = respx.post(f"{BASE}/v1/accounts/acc-usd/opening-balance").mock(
-        return_value=httpx.Response(201, json={"id": "seed-2"})
-    )
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.opening_created == 2
-    assert result.opening_failed == 0
-    body = json.loads(pen_route.calls.last.request.content)
-    assert body["transaction_id"] == plan.opening_ids[3]
-    assert body["amount_cents"] == 350000
-    assert body["title"] == "SALDO INICIAL"
-    assert body["date"].startswith("2022-12-01")
-    assert "exchange_rate" not in body
-    usd_body = json.loads(usd_route.calls.last.request.content)
-    assert "exchange_rate" not in usd_body
-
-
-def _seeded_account() -> None:
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-
-
-def _opening_refusal(key: str, reason: str, message: str = "stand-in") -> httpx.Response:
-    """A refused opening balance, keyed by the thing refused (contract: "Error reasons")."""
-    return error_response(409, "CONFLICT", message, {key: "stand-in field words"}, {key: reason})
-
-
-@pytest.mark.parametrize(
-    ("key", "reason"),
-    [
-        ("category_id", "CONCURRENT_CHANGE"),
-        ("category_id", "RESERVED_NAME_HELD"),
-        ("account_id", "ID_EXISTS"),  # a taken id, but not under its own key
-    ],
-)
-@respx.mock
-def test_opening_any_other_409_is_a_failure(configured, key, reason):
-    """Only its own `transaction_id` already taken means the seed landed; any
-    other refusal is reported in the engine's words alone."""
-    plan = plan_mod.build_plan([], [_orow(2)], [])
-    _seeded_account()
-    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=_opening_refusal(key, reason)
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
-    assert [(c, w) for c, w, _ in _said(result)] == [
-        (-1, f"sheet line 2 (opening balance): CONFLICT — stand-in\n  {key}: stand-in field words")
-    ]
-
-
-@respx.mock
-def test_opening_balance_exists_is_a_failure_and_reads_no_account(configured):
-    """A seed sent again answers `ID_EXISTS` on its own `transaction_id` before
-    the account is read (contract: POST /v1/accounts/{account_id}/opening-balance),
-    so `OPENING_BALANCE_EXISTS` means another opening balance is on the account: a
-    failure in the engine's words, and the account is not read."""
-    plan = plan_mod.build_plan([], [_orow(2)], [])
-    _seeded_account()
-    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=_opening_refusal("account_id", "OPENING_BALANCE_EXISTS")
-    )
-    read = respx.get(f"{BASE}/v1/accounts/acc-pen")
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert read.call_count == 0
-    assert (result.opening_skipped_existing, result.opening_failed) == (0, 1)
-    assert [(c, w) for c, w, _ in _said(result)] == [
-        (
-            -1,
-            "sheet line 2 (opening balance): CONFLICT — stand-in\n"
-            "  account_id: stand-in field words",
+def test_the_create_step_creates_every_missing_name_and_imports_nothing(sheet):
+    """Screen 2: the renamed account is created under its new name; the sheet
+    goes only as a dry run without the table, first."""
+    config_module.save(
+        config_module.ensure_loaded().model_copy(
+            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
         )
-    ]
+    )
+    _engine(_answer(yours=False))
+    _accounts([])
+    creates = _creates()
+    result = _run("--create-names")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Created 4 accounts, 3 categories, 2 hashtags.\n"
+        "Nothing imported. Run the dry run again to see the counts.\n"
+    )
+    assert _sent()[0] == ("/v1/transactions/import-sheet", True, False)
+    assert [path for path, *_ in _sent()[1:]] == ["/v1/accounts"] * 4 + ["/v1/categories"] * 3 + [
+        "/v1/hashtags"
+    ] * 2
+    sent = [_body(c.request) for c in creates["accounts"].calls]
+    made = [(a["name"], a["currency_code"]) for a in sent]
+    assert made == [("Sueldo Soles", "PEN"), ("Interbank", "PEN"), ("Ana", "PEN"), ("Ana", "USD")]
+    categories = [_body(c.request)["name"] for c in creates["categories"].calls]
+    assert categories == ["Comida", "Transporte", "SALDO INICIAL"]
 
 
 @respx.mock
-def test_opening_replay_of_its_own_id_counts_already_present(configured):
-    """`ID_EXISTS` on its own `transaction_id` (minted from the row, so the same
-    on every run) is a skip, not a failure."""
-    plan = plan_mod.build_plan([], [_orow(2)], [])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=_opening_refusal("transaction_id", "ID_EXISTS")
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.opening_created == 0
-    assert result.opening_skipped_existing == 1
-    assert result.opening_failed == 0
-    assert result.failures == []
+def test_the_create_step_run_again_creates_nothing(sheet):
+    _engine(_answer(yours=True))
+    creates = _creates()
+    result = _run("--create-names")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == "Created no names: every one is yours.\n"
+    assert all(r.call_count == 0 for r in creates.values())
 
 
 @respx.mock
-def test_opening_engine_error_reports_sheet_line(configured):
-    plan = plan_mod.build_plan([], [_orow(7)], [])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
+def test_one_name_of_one_kind_created_reads_in_the_singular(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        categories=[sheet_name_use("Comida", 2, "cat-comida")],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
     )
-    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=error_response(
+    _engine(answer)
+    _creates()
+    result = _run("--create-names")
+    assert result.stdout.splitlines()[0] == "Created 1 account."
+
+
+@respx.mock
+def test_the_create_step_with_the_apply_is_a_usage_error(sheet):
+    result = _run("--create-names", "--apply")
+    assert result.exit_code == 2, _out(result)
+    words = strip_panel(_out(result))
+    assert "Invalid value" not in words
+    assert (
+        "Error --create-names creates names and imports nothing, so it never goes with --apply."
+        in words
+    )
+    assert not respx.calls
+
+
+@respx.mock
+def test_a_create_refused_part_way_says_what_was_created_then_the_engines_words(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        categories=[sheet_name_use("@Opening", 2)],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    _engine(answer)
+    creates = _creates()
+    creates["categories"].mock(
+        return_value=httpx.Response(
             422,
-            "VALIDATION_ERROR",
-            "Transaction validation failed.",
-            {"date": "Must not be in the future."},
-            {"date": "FUTURE_DATE"},
+            json=error_body(
+                "VALIDATION_ERROR",
+                "Invalid input.",
+                {"name": "This name is reserved."},
+                {"name": "RESERVED_NAME"},
+            ),
         )
     )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.opening_failed == 1
-    ((_, message, lines),) = _said(result)
-    assert "sheet line 7" in message and "opening balance" in message and lines == (7,)
-
-
-def _conflict(key: str = "transactions.0.id", reason: str = "ID_EXISTS") -> httpx.Response:
-    """The batch 409, keyed by item index (contract: "Error reasons"). The
-    default is a replay: the first row's own id, already in the ledger."""
-    return error_response(
-        409, "CONFLICT", "id exists", {key: "stand-in field words"}, {key: reason}
+    result = _run("--create-names")
+    assert result.exit_code == 1
+    assert result.stdout == "Created 1 account.\n"
+    assert result.stderr == (
+        "Error: VALIDATION_ERROR — Invalid input.\n  name: This name is reserved.\n"
     )
 
 
-def _all_taken(request: httpx.Request) -> httpx.Response:
-    """A batch sent again whole: `409` `ID_EXISTS` on every item's id
-    (contract: POST /v1/transactions/batch)."""
-    sent = json.loads(request.content)["transactions"]
-    keys = [f"transactions.{i}.id" for i in range(len(sent))]
-    return error_response(
+# ---- screen 3: the dry run once every name exists ----------------------------------
+SCREEN_3 = """\
+Accounts (5)
+  SHEET NAME   CUR    ROWS   GOES TO
+  BCP          PEN   1,204   Sueldo Soles  yours
+  BCP          USD     311   yours
+  Interbank    PEN     402   yours
+  Ana          PEN      38   yours
+  Ana          USD       6   yours
+
+Categories (4)
+  SHEET NAME       ROWS   GOES TO
+  Comida          1,010   yours
+  Transporte        435   yours
+  Casa              512   yours
+  SALDO INICIAL       4   yours
+
+Hashtags (2)
+  SHEET NAME    ROWS   GOES TO
+  Personal     1,722   yours
+  Trabajo        239   yours
+
+Rows: 1,961 · new 1,954 · matched 0 · sealed 0 · skipped 7
+Opening balances 4 · split transactions 3
+
+Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
+
+Dry run — nothing written. Run again with --apply to import.
+"""
+
+
+@respx.mock
+def test_the_dry_run_once_every_name_exists_shows_the_engines_counts(sheet):
+    """Screen 3: the remembered rename finds your account; the dry run goes
+    again with the table, still a dry run, and nothing is created."""
+    config_module.save(
+        config_module.ensure_loaded().model_copy(
+            update={"sheet_account_names": {"BCP:PEN": "Sueldo Soles"}}
+        )
+    )
+    route = _engine(_answer(yours=True), _answer(yours=True, rows=_counted_rows(), counts=COUNTS))
+    _accounts([SUELDO])
+    creates = _creates()
+    result = _run()
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == SCREEN_3
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)] + [
+        ("/v1/transactions/import-sheet", True, True)
+    ]
+    sent = _body(route.calls[1].request)["names"]["accounts"][0]
+    assert sent == {"name": "BCP", "account_id": "acc-sueldo", "currency_code": "PEN"}
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@respx.mock
+def test_rows_on_a_closed_statements_day_are_listed_under_the_zero_rows(sheet):
+    counts = {**COUNTS, "new": 1952, "sealed": 2}
+    rows = _counted_rows(sealed=(40, 41))
+    _engine(_answer(yours=True), _answer(yours=True, rows=rows, counts=counts))
+    result = _run()
+    assert result.exit_code == 0, _out(result)
+    assert (
+        "Opening balances 4 · split transactions 3\n\n"
+        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
+        "Sealed, on a closed statement's day: rows 40, 41\n\n"
+        "Dry run — nothing written. Run again with --apply to import.\n"
+    ) in result.stdout
+
+
+@respx.mock
+def test_a_dry_run_with_no_zero_or_closed_rows_lists_none(sheet):
+    rows = [sheet_row(2, outcome="new", account_id="acc-ib")]
+    _engine(_answer(yours=True), _answer(yours=True, rows=rows))
+    result = _run()
+    assert result.stdout.endswith(
+        "Rows: 1 · new 1 · matched 0 · sealed 0 · skipped 0\n"
+        "Opening balances 0 · split transactions 0\n\n"
+        "Dry run — nothing written. Run again with --apply to import.\n"
+    )
+
+
+@respx.mock
+def test_a_table_the_engine_refuses_prints_as_every_engine_error(sheet):
+    """An archived account the engine proposed is refused in the table."""
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"names.accounts.0.account_id": "Must reference an active, non-archived account."},
+        {"names.accounts.0.account_id": "INVALID_REFERENCE"},
+    )
+    _engine(_answer(yours=True), httpx.Response(422, json=refusal))
+    result = _run()
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr == (
+        "Error: VALIDATION_ERROR — Import validation failed.\n"
+        "  names.accounts.0.account_id: Must reference an active, non-archived account.\n"
+    )
+
+
+# ---- pick 2 A: the apply while a name is missing -----------------------------------
+@respx.mock
+def test_the_apply_while_a_name_is_missing_is_refused_and_names_the_step(sheet):
+    _engine(_answer(yours=False))
+    creates = _creates()
+    result = _run("--apply")
+    assert result.exit_code == 1
+    assert result.stdout == (
+        "Not imported — nothing written.\n"
+        "9 names don't exist yet. Create them with:\n"
+        "  expense import sheet libro.xlsx --create-names\n"
+        "then run the dry run to see the counts.\n"
+    )
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+# ---- screen 4: the apply, then the same sheet again --------------------------------
+@respx.mock
+def test_the_apply_writes_and_says_what_was_written(sheet):
+    _engine(
+        _answer(yours=True),
+        _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS),
+    )
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Written: new 1,954 · matched 0 · sealed 0 · skipped 7\n"
+        "Opening balances 4 · split transactions 3\n\n"
+        "Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960\n"
+    )
+    assert _sent() == [
+        ("/v1/transactions/import-sheet", True, False),
+        ("/v1/transactions/import-sheet", False, True),
+    ]
+
+
+@respx.mock
+def test_the_same_sheet_applied_again_matches_every_row_and_writes_nothing_new(sheet):
+    counts = {**COUNTS, "new": 0, "matched": 1954}
+    _engine(
+        _answer(yours=True),
+        _answer(yours=True, dry_run=False, rows=_counted_rows("matched"), counts=counts),
+    )
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Written: new 0 · matched 1,954 · sealed 0 · skipped 7\n"
+        "Opening balances 4 · split transactions 3\n\n"
+        "Nothing new: every row is already in the ledger.\n"
+    )
+
+
+@respx.mock
+def test_a_sheet_of_zero_rows_only_applied_lists_them_and_never_says_nothing_new(sheet):
+    rows = [sheet_row(r, 0, outcome="skipped", account_id="acc-ib") for r in (2, 3)]
+    _engine(_answer(yours=True), _answer(yours=True, dry_run=False, rows=rows))
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
+    assert result.stdout == (
+        "Written: new 0 · matched 0 · sealed 0 · skipped 2\n"
+        "Opening balances 0 · split transactions 0\n\n"
+        "Skipped, amount zero: rows 2, 3\n"
+    )
+
+
+# ---- screen 5: a sheet with bad rows -----------------------------------------------
+ROWS_REFUSED = error_body(
+    "VALIDATION_ERROR",
+    "Import validation failed.",
+    {
+        "rows.77.date": "Row 77: FECHA is empty.",
+        "rows.120.amount_cents": "Row 120: MONTO is not a whole number of cents.",
+        "rows.1958.date": "Row 1958: The day is after today.",
+        "rows.1959.date": "Row 1959: The day is after today.",
+    },
+    {
+        "rows.77.date": "UNEXPECTED_LAYOUT",
+        "rows.120.amount_cents": "NOT_WHOLE_CENTS",
+        "rows.1958.date": "FUTURE_DATE",
+        "rows.1959.date": "FUTURE_DATE",
+    },
+)
+
+SCREEN_5 = """\
+Refused — nothing written. 4 rows:
+  Row 77: FECHA is empty.
+  Row 120: MONTO is not a whole number of cents.
+  The day is after today. rows 1958, 1959
+
+Fix the sheet and run it again.
+"""
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_a_bad_row_stops_every_step_and_lists_each_refusal_by_row(sheet, step):
+    _engine(httpx.Response(422, json=ROWS_REFUSED))
+    creates = _creates()
+    result = _run(*step)
+    assert result.exit_code == 1
+    assert result.stdout == SCREEN_5
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_a_file_refused_whole_prints_as_every_engine_error(sheet, step):
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "The file is not the sheet's layout.",
+        {"file": "Row 1 must be the twelve headers description … COD_EECC."},
+        {"file": "UNEXPECTED_LAYOUT"},
+    )
+    _engine(httpx.Response(422, json=refusal))
+    result = _run(*step)
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr == (
+        "Error: VALIDATION_ERROR — The file is not the sheet's layout.\n"
+        "  file: Row 1 must be the twelve headers description … COD_EECC.\n"
+    )
+
+
+@respx.mock
+def test_a_row_refusal_whose_words_do_not_name_its_row_keeps_its_field(sheet):
+    """Two rows that would both be one account's opening balance."""
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {
+            "rows.2.category": "Another row is this account's opening balance.",
+            "rows.9.category": "Another row is this account's opening balance.",
+        },
+        dict.fromkeys(["rows.2.category", "rows.9.category"], "DUPLICATE_IN_REQUEST"),
+    )
+    _engine(_answer(yours=True), httpx.Response(422, json=refusal))
+    result = _run("--apply")
+    assert result.exit_code == 1
+    assert result.stdout == (
+        "Refused — nothing written. 2 rows:\n"
+        "  category: Another row is this account's opening balance. rows 2, 9\n\n"
+        "Fix the sheet and run it again.\n"
+    )
+
+
+#: Row refusals fixing the sheet does not clear, each as the contract keys it
+#: (contract: POST /v1/transactions/import-sheet, "Concurrency")
+#: (contract: POST /v1/transactions/import-sheet, "Opening balances")
+#: (contract: POST /v1/transactions/import-sheet, "On apply").
+NOT_THE_SHEETS = {
+    "concurrent-change": (
         409,
         "CONFLICT",
-        f"{len(keys)} of these ids are already taken.",
-        dict.fromkeys(keys, "A transaction with this id already exists."),
-        dict.fromkeys(keys, "ID_EXISTS"),
-    )
-
-
-def _sent_ids(route) -> list[list[str]]:
-    return [
-        [item["id"] for item in json.loads(call.request.content)["transactions"]]
-        for call in route.calls
-    ]
-
-
-def _refused(index: int, field: str, message: str, reason: str) -> httpx.Response:
-    """The batch 422: each refused item field keyed `transactions.<index>.<field>`,
-    its reason under the same key (contract: POST /v1/transactions/batch)."""
-    key = f"transactions.{index}.{field}"
-    return error_response(422, "VALIDATION_ERROR", "Invalid input.", {key: message}, {key: reason})
-
-
-def _zero(index: int = 0) -> httpx.Response:
-    return _refused(index, "amount_cents", "Must not be zero.", "ZERO_AMOUNT")
-
-
-@respx.mock
-def test_batch_409_is_non_fatal(configured):
-    plan = _plan([_prow(2)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=lambda request: _conflict()
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_created == 0
-    assert result.tx_skipped_existing == 1
-    assert result.tx_failed == 0
-    assert batch_route.call_count == 1  # the 409 settles the row: nothing goes again
+        "rows.12",
+        "Row 12: Its line changed while the import ran; send it again.",
+        "CONCURRENT_CHANGE",
+    ),
+    "opening-balance-exists": (
+        409,
+        "CONFLICT",
+        "rows.2.account_id",
+        "The account already has an opening balance on another day.",
+        "OPENING_BALANCE_EXISTS",
+    ),
+    "line-codes-exhausted": (
+        422,
+        "LIMIT_REACHED",
+        "rows.5.transaction_id",
+        "Every bank line code has been given.",
+        "LINE_CODES_EXHAUSTED",
+    ),
+}
 
 
 @pytest.mark.parametrize(
-    ("key", "reason"),
-    [
-        ("category_id", "CONCURRENT_CHANGE"),
-        ("category_id", "RESERVED_NAME_HELD"),
-        ("transactions.0.operation_code", "OPERATION_CODE_EXISTS"),
-    ],
+    ("status", "code", "key", "words", "reason"),
+    list(NOT_THE_SHEETS.values()),
+    ids=list(NOT_THE_SHEETS),
 )
 @respx.mock
-def test_batch_409_other_than_a_replay_is_a_failure(configured, key, reason):
-    """Never "already present" for a row the engine refused for another reason."""
-    plan = _plan([_prow(2)])
-    _seeded_account()
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=lambda request: _conflict(key, reason)
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 1)
-    (failure,) = result.failures
-    # a row's refusal is keyed by its field alone; one naming no row keeps its key
-    field = key.removeprefix("transactions.0.")
-    assert failure.detail.endswith(f"CONFLICT — id exists\n  {field}: stand-in field words")
-    assert failure.lines == (2,)
+def test_a_row_refusal_the_sheet_does_not_cause_prints_as_every_engine_error(
+    sheet, status, code, key, words, reason
+):
+    refusal = error_body(code, "The import was refused.", {key: words}, {key: reason})
+    _engine(_answer(yours=True), httpx.Response(status, json=refusal))
+    result = _run("--apply")
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr == f"Error: {code} — The import was refused.\n  {key}: {words}\n"
+    assert "Fix the sheet" not in _out(result)
 
 
 @respx.mock
-def test_a_chunk_mixing_imported_and_new_rows_sends_the_new_ones_once_more(configured):
-    """Appending rows to an already-imported sheet must import the new rows: the
-    409 names the imported one, and the new one goes again alone, under a new
-    idempotency key since the body differs."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _seeded_account()
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_conflict(), httpx.Response(201, json={"created": []})]
+def test_one_refused_row_reads_in_the_singular(sheet):
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Import validation failed.",
+        {"rows.77.date": "Row 77: FECHA is empty."},
+        {"rows.77.date": "UNEXPECTED_LAYOUT"},
     )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_skipped_existing == 1
-    assert result.tx_created == 1
-    assert result.tx_failed == 0
-    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[3]]]
-    first, second = (c.request.headers["X-Idempotency-Key"] for c in batch_route.calls)
-    assert first != second
-
-
-@respx.mock
-def test_a_re_run_of_an_imported_sheet_costs_one_request_per_chunk(configured):
-    """Every row already in: each chunk's one request is refused `ID_EXISTS` on
-    every item, and nothing goes again."""
-    plan = _plan([_prow(line, amount_cents=-100 * line) for line in range(2, 7)])
-    _seeded_account()
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=_all_taken)
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=2)
-
-    assert batch_route.call_count == 3  # five rows in chunks of two
-    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 5, 0)
-    assert result.failures == []
-
-
-@respx.mock
-def test_a_refused_row_beside_an_imported_one_reports_its_sheet_line(configured):
-    """The engine answers what the request shows first: the zero amount on the
-    new row (step 1), then, sent again alone, the imported row's taken id (step 2)
-    (contract: "Base Conventions", "Which refusal comes first on a create")."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_zero(1), _conflict()]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_skipped_existing == 1
-    assert result.tx_failed == 1
-    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
-    # the engine's words for that row, against its sheet line
-    assert _said(result) == [(0, "amount_cents: Must not be zero.", (3,))]
-    assert result.failures[0].detail == (
-        "VALIDATION_ERROR — Invalid input.\n  amount_cents: Must not be zero."
-    )
-
-
-@respx.mock
-def test_a_connection_error_on_a_second_send_stops_the_run(configured):
-    plan = _plan([_prow(line, amount_cents=-100 * line) for line in (2, 3, 4, 5)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_conflict(), httpx.ConnectError("down")]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=2)
-
-    assert result.tx_skipped_existing == 1  # the first send named it
-    assert result.tx_created == 0
-    assert result.tx_failed == 3  # the row sent again + the never-sent chunk 1
-    assert batch_route.call_count == 2  # the chunk, then its new row alone
-    assert len(result.failures) == 1
-    assert "CONNECTION_ERROR: could not reach engine" in result.failures[0].words
-    assert result.failures[0].words.endswith("— sheet lines 3-5 were not sent")
-
-
-@respx.mock
-def test_a_chunk_422_isolates_its_bad_row(configured):
-    """One invalid row must not sink its whole chunk, and must name its sheet line."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[_zero(index=1), httpx.Response(201, json={"created": []})]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_created == 1  # the valid row still landed
-    assert result.tx_failed == 1
-    assert _sent_ids(batch_route) == [[plan.tx_ids[2], plan.tx_ids[3]], [plan.tx_ids[2]]]
-    assert result.failures[0].lines == (3,)
-
-
-@respx.mock
-def test_row_failure_keeps_engine_fields_detail(configured):
-    """A 422's per-field detail must survive into the failure line — never
-    reformat lossily."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=0)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(side_effect=[_zero(1), _conflict()])
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_failed == 1
-    (failure,) = result.failures
-    assert failure.lines == (3,)  # the row is findable in the workbook
-    assert failure.words == "amount_cents: Must not be zero."  # the field, then its words
-    assert "\n  amount_cents: Must not be zero." in failure.detail  # fields preserved
-
-
-@respx.mock
-def test_an_unknown_hashtag_names_its_sheet_line(configured):
-    """The engine keys an unknown hashtag on its item (`transactions.<index>.hashtag_ids`)
-    and reports it with the other item failures; the chunk is refused whole, the
-    good row goes again and lands, and the refused one is named by its sheet line."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    unknown = "Some hashtag IDs are invalid."
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[
-            _refused(1, "hashtag_ids", unknown, "INVALID_REFERENCE"),
-            httpx.Response(201, json={"created": []}),
-        ]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_created == 1 and result.tx_failed == 1
-    (failure,) = result.failures
-    assert failure.lines == (3,) and failure.words == f"hashtag_ids: {unknown}"
-    assert f"\n  hashtag_ids: {unknown}" in failure.detail
-
-
-@respx.mock
-def test_chunk_level_auth_failure_reports_line_range_without_per_row_hammering(configured):
-    """A non-409/422 chunk error fails once with the sheet line range."""
-    plan = _plan([_prow(2), _prow(3, amount_cents=-5500)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=error_response(403, "FORBIDDEN", "nope", None)
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert result.tx_failed == 2
-    assert batch_route.call_count == 1  # every row would 403 identically — not sent again
-    assert _said(result) == [(0, "FORBIDDEN — nope", (2, 3))]
-
-
-@respx.mock
-def test_chunking_splits_batches(configured):
-    rows = [_prow(line) for line in range(2, 452)]  # 450 distinct rows
-    plan = _plan(rows)
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        apply_mod.apply_plan(client, plan, res, chunk_size=200)
-
-    sizes = [len(json.loads(c.request.content)["transactions"]) for c in batch_route.calls]
-    assert sizes == [200, 200, 50]
-
-
-@respx.mock
-def test_a_chunk_size_above_the_engines_limit_is_refused_before_any_write(configured):
-    """A programming error: nothing goes out, the opening balance included."""
-    plan = plan_mod.build_plan([_prow(2)], [_orow(3)], [])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    opening_route = respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=httpx.Response(201, json={"id": "ob"})
-    )
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        sent_before = len(respx.calls)
-        with pytest.raises(ValueError, match="above the engine's limit"):
-            apply_mod.apply_plan(client, plan, res, chunk_size=ENGINE_BATCH_MAX + 1)
-    assert not opening_route.called
-    assert not batch_route.called
-    assert len(respx.calls) == sent_before
-
-
-def test_import_sheet_refuses_a_chunk_size_flag_above_the_engines_limit(configured):
-    """The flag's ceiling is the engine's limit, read from its one home."""
-    over = CliRunner().invoke(
-        cli_app, ["import", "sheet", "whatever.xlsx", "--chunk-size", str(ENGINE_BATCH_MAX + 1)]
-    )
-    assert over.exit_code == 2
-    assert f"1<=x<={ENGINE_BATCH_MAX}" in over.output
-
-
-@respx.mock
-def test_batch_connection_failure_marks_remaining_failed_and_stops(configured):
-    plan = _plan([_prow(2), _prow(3), _prow(4)])
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[httpx.Response(201, json={"created": []}), httpx.ConnectError("down")]
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=1)
-
-    assert result.tx_created == 1
-    assert result.tx_failed == 2  # the failing chunk plus the unsent one
-    assert result.failures and result.failures[0].chunk == 1
-    assert "could not reach engine" in result.failures[0].words
-    assert batch_route.call_count == 2  # loop broke; third chunk never sent
-
-
-@respx.mock
-def test_resolve_failure_collected_and_dependent_rows_skipped(configured):
-    """One resource that fails to create no longer aborts the whole import: it's
-    collected, its dependent rows are skipped pre-flight, and the rest still
-    land."""
-    rows = [
-        _prow(2, category="WANTS", hashtag="Salidas"),
-        _prow(3, category="NEEDS", hashtag="Salidas", amount_cents=-5500),
+    _engine(httpx.Response(422, json=refusal))
+    result = _run()
+    assert result.stdout.splitlines()[:2] == [
+        "Refused — nothing written. 1 row:",
+        "  Row 77: FECHA is empty.",
     ]
-    plan = _plan(rows)
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-
-    def cat_post(request: httpx.Request) -> httpx.Response:
-        if json.loads(request.content)["name"] == "WANTS":
-            return error_response(
-                422,
-                "VALIDATION_ERROR",
-                "bad name",
-                {"name": "Must not be blank."},
-                {"name": "INVALID_FORMAT"},
-            )
-        return httpx.Response(201, json={"id": "cat-ok"})
-
-    respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)  # does NOT raise
-        result = apply_mod.apply_plan(client, plan, res)
-
-    assert res.categories_created == 1  # NEEDS still created after WANTS failed
-    assert len(res.resolve_failures) == 1
-    assert "WANTS" in res.resolve_failures[0] and "bad name" in res.resolve_failures[0]
-    # the WANTS row (line 2) is skipped pre-flight; the NEEDS row (line 3) lands
-    assert result.tx_created == 1
-    assert result.tx_failed == 1
-    assert any(c < 0 and lines == (2,) for c, _, lines in _said(result))
-    # only the NEEDS row (line 3) reached the batch; the WANTS row never did
-    sent = json.loads(batch_route.calls.last.request.content)["transactions"]
-    assert [i["id"] for i in sent] == [plan.tx_ids[3]]
-
-
-# --- Typed surface ---------------------------------------------------------
-
-_HEADERS = [
-    "Descripcion",
-    "CATEGORY",
-    "HASHTAG",
-    "Fecha",
-    "Monto",
-    "Cuenta",
-    "T.C.",
-    "Moneda",
-    "Solarizado",
-    "Estado Cuenta",
-    "Notas",
-]
-_CELLS = ["Groomers", "WANTS", "Salidas", 44896, -44, "BCP PEN", "None", "PEN", -44, "None", "None"]
-
-
-#: The REAL command tree, not a hand-wired stand-in: a hand-mounted command
-#: would stay green through a rename of the group (`import`) or the subcommand
-#: (`sheet`). Driving the real app costs a Textual import on a targeted run and
-#: buys the only coverage those names have.
-cli_app = real_cli_app()
 
 
 @respx.mock
-def test_dry_run_writes_nothing(configured, monkeypatch):
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
-    )
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
-    assert result.exit_code == 0
-    assert "Dry run" in result.output
-    assert not respx.calls  # nothing hit the engine
+def test_the_engine_out_of_reach_exits_6(sheet):
+    respx.post(IMPORT).mock(side_effect=httpx.ConnectError("connection refused"))
+    result = _run()
+    assert result.exit_code == 6
+    assert "could not reach engine" in result.stderr
 
 
-def _sheet_xlsx(tmp_path, *amounts: object) -> str:
-    """A real workbook, one `_CELLS` row per amount, from line 2 on."""
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Data"
-    ws.append(_HEADERS)
-    for amount in amounts:
-        cells = list(_CELLS)
-        cells[_HEADERS.index("Monto")] = amount
-        ws.append(cells)
-    path = tmp_path / "sheet.xlsx"
-    wb.save(path)
-    return str(path)
+# ---- --json ------------------------------------------------------------------------
+@respx.mock
+def test_json_prints_the_engines_answer_on_the_dry_run(sheet):
+    first = _answer(yours=False)
+    _engine(first)
+    result = _run("--json")
+    assert result.exit_code == 0, _out(result)
+    assert json.loads(result.stdout) == first
 
 
 @respx.mock
-@pytest.mark.parametrize("amount", ["nan", "NaN", "inf", "-inf", "Infinity", "13.853,20"])
-def test_a_text_amount_that_is_not_one_skips_its_row_and_the_rest_import(
-    configured, tmp_path, amount
-):
-    """openpyxl and all: the text cell is one `bad-amount` row, never a crash."""
-    result = runner.invoke(
-        cli_app, ["import", "sheet", _sheet_xlsx(tmp_path, -44, amount, "13,853.20"), "--json"]
-    )
-    assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
-    assert payload["valid_rows"] == 2
-    assert payload["skipped"] == [{"line": 3, "reason": "bad-amount", "detail": amount}]
-    assert not respx.calls
+def test_json_prints_the_counted_answer_once_every_name_exists(sheet):
+    counted = _answer(yours=True, rows=_counted_rows(), counts=COUNTS)
+    _engine(_answer(yours=True), counted)
+    result = _run("--json")
+    assert json.loads(result.stdout) == counted
 
 
 @respx.mock
-@pytest.mark.parametrize("amount", [float("nan"), float("inf"), float("-inf")], ids=repr)
-def test_a_nan_or_inf_number_cell_skips_its_row_and_the_rest_import(
-    configured, monkeypatch, amount
-):
-    """openpyxl's writer cannot store a float NaN, so the workbook read is
-    stood in for; everything after it is the command's own."""
-    odd = list(_CELLS)
-    odd[_HEADERS.index("Monto")] = amount
-    rows = [RawRow(2, list(_CELLS)), RawRow(3, odd), RawRow(4, list(_CELLS))]
-    monkeypatch.setattr(
-        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=_HEADERS, rows=rows)
-    )
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx"])
-    assert result.exit_code == 0, result.output
-    assert "Parsed 2 transactions to import" in result.output
-    assert "Skipped 1 row(s) — bad-amount" in result.output
-    assert not respx.calls
+def test_json_prints_the_apply_answer(sheet):
+    applied = _answer(yours=True, dry_run=False, rows=_counted_rows(), counts=COUNTS)
+    _engine(_answer(yours=True), applied)
+    result = _run("--apply", "--json")
+    assert result.exit_code == 0, _out(result)
+    assert json.loads(result.stdout) == applied
 
 
 @respx.mock
-def test_dry_run_json_emits_plan(configured, monkeypatch):
-    """--json emits the raw plan (and suppresses the human dry-run trailer)."""
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
-    )
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--json"])
-    assert result.exit_code == 0
-    payload = json.loads(result.output)  # pure JSON, no trailer mixed in
-    assert payload["valid_rows"] == 1
-    assert payload["skipped"] == []
-    assert payload["accounts"] == [{"name": "BCP PEN", "currency": "PEN", "source_name": "BCP PEN"}]
-    assert set(payload["categories"]) == {"WANTS"}
-    assert set(payload["hashtags"]) == {"Salidas"}
-    assert "Dry run" not in result.output
-    assert not respx.calls
-
-
-@respx.mock
-def test_apply_happy_path_writes_and_nothing_else(configured, monkeypatch):
-    """`import --apply` ends at the last write — no post-write refresh of any kind."""
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
-    )
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-    assert result.exit_code == 0, result.output
-    assert "Transactions: created 1" in result.output
-    assert not [c for c in respx.calls if c.request.url.path == "/v1/sync"]
-
-
-@respx.mock
-def test_a_re_run_after_an_account_became_a_person_reuses_it(configured, monkeypatch):
-    """The owner turns ALEJO PEN into a person and runs the sheet again: the
-    engine lists a person only on `include_people=true` and refuses a second
-    account of that name and currency (contract: "People / Person Accounts"),
-    so the import asks for people and archived accounts and reuses the person."""
-    alejo = ["Almuerzo", "WANTS", "Salidas", 44896, -20, "ALEJO PEN", "None", "PEN", -20]
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(
-            headers=_HEADERS,
-            rows=[RawRow(2, list(_CELLS)), RawRow(3, [*alejo, "None", "None"])],
-        ),
-    )
-    bank = _account()
-    person = _account(id="acc-alejo", name=" alejo pen ", is_person=True)
-
-    def accounts(request: httpx.Request) -> httpx.Response:
-        people = request.url.params.get("include_people") == "true"
-        return httpx.Response(200, json={"items": [bank, person] if people else [bank]})
-
-    list_route = respx.get(f"{BASE}/v1/accounts").mock(side_effect=accounts)
-    respx.get(f"{BASE}/v1/categories").mock(
-        return_value=httpx.Response(200, json={"items": [{"id": "cat", "name": "WANTS"}]})
-    )
-    respx.get(f"{BASE}/v1/hashtags").mock(
-        return_value=httpx.Response(200, json={"items": [{"id": "tag", "name": "Salidas"}]})
-    )
-    create_route = respx.post(f"{BASE}/v1/accounts").mock(
-        return_value=error_response(
-            409,
-            "CONFLICT",
-            "An account named 'ALEJO PEN' already exists in PEN.",
-            {"name": "Taken."},
-            {"name": "NAME_EXISTS"},
-        )
-    )
-    batch_route = respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert result.exit_code == 0, result.output
-    assert not create_route.called
-    assert "Accounts:   created 0, reused 2" in result.output
-    assert "Transactions: created 2, already-present 0, failed 0" in result.output
-    assert "Failures" not in result.output and "Resource failures" not in result.output
-    sent = json.loads(batch_route.calls.last.request.content)["transactions"]
-    assert {i["title"]: i["account_id"] for i in sent} == {
-        "Groomers": "acc-pen",
-        "Almuerzo": "acc-alejo",
+def test_json_prints_the_engines_answer_to_each_name_created(sheet):
+    _engine(_answer(yours=False))
+    creates = _creates()
+    result = _run("--create-names", "--json")
+    assert result.exit_code == 0, _out(result)
+    printed = json.loads(result.stdout)
+    assert list(printed) == ["created"]
+    answers = {
+        kind: [json.loads(_made(c.request).content) for c in creates[kind].calls]
+        for kind in ("accounts", "categories", "hashtags")
     }
-    assert [dict(c.request.url.params) for c in list_route.calls] == [
-        {"include_archived": "true", "include_people": "true"}
-    ]
+    assert printed["created"] == answers
+    assert [a["name"] for a in printed["created"]["accounts"]] == ["BCP", "Interbank", "Ana", "Ana"]
 
 
 @respx.mock
-def test_apply_reads_the_settings_file_once(configured, monkeypatch):
+def test_json_on_a_create_refused_part_way_keeps_the_names_created_and_the_refusal(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        categories=[sheet_name_use("@Opening", 2)],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    refusal = error_body(
+        "VALIDATION_ERROR",
+        "Invalid input.",
+        {"name": "This name is reserved."},
+        {"name": "RESERVED_NAME"},
+    )
+    _engine(answer)
+    creates = _creates()
+    creates["categories"].mock(return_value=httpx.Response(422, json=refusal))
+    result = _run("--create-names", "--json")
+    assert result.exit_code == 1
+    account = json.loads(_made(creates["accounts"].calls[0].request).content)
+    assert json.loads(result.stdout) == {
+        "created": {"accounts": [account], "categories": [], "hashtags": []},
+        **refusal,
+    }
+    assert result.stderr == ""
+
+
+@respx.mock
+def test_json_on_the_engine_out_of_reach_part_way_keeps_the_names_created(sheet):
+    answer = sheet_import_answer(
+        accounts=[sheet_name_use("BCP", 2, currency_code="PEN")],
+        categories=[sheet_name_use("Comida", 2)],
+        hashtags=[sheet_name_use("Casa", 2, "tag-casa")],
+    )
+    _engine(answer)
+    creates = _creates()
+    creates["categories"].mock(side_effect=httpx.ConnectError("connection refused"))
+    result = _run("--create-names", "--json")
+    assert result.exit_code == 6
+    printed = json.loads(result.stdout)
+    assert [a["name"] for a in printed["created"]["accounts"]] == ["BCP"]
+    assert printed["error"]["code"] == "CONNECTION_ERROR"
+
+
+@respx.mock
+def test_json_on_a_refused_sheet_is_the_engines_body(sheet):
+    _engine(httpx.Response(422, json=ROWS_REFUSED))
+    result = _run("--apply", "--json")
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == ROWS_REFUSED
+
+
+@respx.mock
+def test_json_on_the_apply_while_a_name_is_missing_is_an_error_envelope(sheet):
+    _engine(_answer(yours=False))
+    result = _run("--apply", "--json")
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == {
+        "error": {
+            "code": "NAMES_MISSING",
+            "message": "Not imported — nothing written. 9 names don't exist yet.",
+            "fields": None,
+            "reasons": None,
+        }
+    }
+
+
+# ---- --account-name ----------------------------------------------------------------
+@respx.mock
+def test_a_rename_is_remembered_and_a_flag_replaces_it(sheet):
+    _engine(_answer(yours=False))
+    _accounts([])
+    assert _run("--account-name", "bcp:pen=Old").exit_code == 0
+    assert _saved() == {"bcp:PEN": "Old"}
+    result = _run("--account-name", "BCP:PEN=Sueldo Soles")
+    assert result.exit_code == 0, _out(result)
+    assert _saved() == {"BCP:PEN": "Sueldo Soles"}
+    result = _run()
+    assert "  BCP          PEN   1,204   Sueldo Soles  missing\n" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["BCP=Sueldo", "BCP:PEN", "BCP:PEN="],
+)
+@respx.mock
+def test_a_malformed_rename_is_a_usage_error_before_anything_is_sent(sheet, value):
+    before = config_module.config_path().read_text()
+    result = _run("--account-name", value)
+    assert result.exit_code == 2, _out(result)
+    assert "is not SHEET_NAME:CURRENCY=LEDGER_NAME" in strip_panel(_out(result))
+    assert config_module.config_path().read_text() == before
+    assert not respx.calls
+
+
+@pytest.mark.parametrize("step", STEPS, ids=STEP_IDS)
+@respx.mock
+def test_a_rename_putting_two_sheet_accounts_on_one_is_a_usage_error(sheet, step):
+    """Checked against the engine's list of the sheet's names; nothing is
+    created, imported or saved."""
+    _engine(_answer(yours=False))
+    _accounts([])
+    creates = _creates()
+    before = config_module.config_path().read_text()
+    result = _run("--account-name", "BCP:PEN=interbank", *step)
+    assert result.exit_code == 2, _out(result)
+    words = strip_panel(_out(result))
+    assert "Invalid value for '--account-name'" in words
+    assert '"BCP" and "Interbank" would both be written as "Interbank" [PEN].' in words
+    assert config_module.config_path().read_text() == before
+    assert _sent() == [("/v1/transactions/import-sheet", True, False)]
+    assert all(r.call_count == 0 for r in creates.values())
+
+
+@respx.mock
+def test_a_rename_for_an_account_the_sheet_lacks_is_a_usage_error(sheet):
+    _engine(_answer(yours=False))
+    _accounts([])
+    result = _run("--account-name", "BCP:EUR=Euros")
+    assert result.exit_code == 2, _out(result)
+    assert 'the sheet has no account "BCP" in EUR.' in strip_panel(_out(result))
+    assert _saved() == {}
+
+
+# ---- the file and the settings -----------------------------------------------------
+@respx.mock
+def test_a_missing_file_is_refused_before_anything_is_sent(sheet):
+    result = _run(file="gone.xlsx")
+    assert result.exit_code == 1
+    assert result.stderr == "Error: File not found: gone.xlsx\n"
+    assert not respx.calls
+
+
+def test_no_settings_file_exits_3(tmp_path, monkeypatch):
+    monkeypatch.setenv("EXPENSE_CONFIG", str(tmp_path / "none"))
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / FILE).write_bytes(b"made up")
+    result = _run()
+    assert result.exit_code == 3
+    assert "No config found" in result.stderr
+
+
+@respx.mock
+def test_the_settings_file_is_read_once(sheet, monkeypatch):
     """The settings file may be a pipe (docs/runtime.md "Working against the
-    live engine"), which gives its contents to the first read only, so
-    `import sheet --apply` reads it once and reuses what it read."""
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(headers=_HEADERS, rows=[RawRow(2, list(_CELLS))]),
-    )
-    settings = config_module.config_path()
+    live engine"), readable once."""
     reads = []
-    real_read_text = Path.read_text
+    real = config_module.load
 
-    def read_once(self, *args, **kwargs):
-        if self == settings:
-            reads.append(self)
-            if len(reads) > 1:
-                return ""  # what a drained pipe gives a second reader
-        return real_read_text(self, *args, **kwargs)
+    def counting():
+        reads.append(1)
+        return real()
 
-    monkeypatch.setattr(Path, "read_text", read_once)
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert result.exit_code == 0, result.output
+    monkeypatch.setattr(config_module, "load", counting)
+    _engine(_answer(yours=True), _answer(yours=True, dry_run=False))
+    result = _run("--apply")
+    assert result.exit_code == 0, _out(result)
     assert len(reads) == 1
-    assert "Transactions: created 1" in result.output
-
-
-@respx.mock
-def test_apply_json_result_with_failures(configured, monkeypatch):
-    """--apply --json emits the raw result envelope and still exits 1 on failures."""
-    second_cells = list(_CELLS)
-    second_cells[4] = -55  # different amount → distinct transaction
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(
-            headers=_HEADERS, rows=[RawRow(2, list(_CELLS)), RawRow(3, second_cells)]
-        ),
-    )
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[httpx.Response(201, json={"created": []}), httpx.ConnectError("down")]
-    )
-
-    result = runner.invoke(
-        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "1", "--json"]
-    )
-    assert result.exit_code == 1
-    payload = json.loads(result.output)
-    assert payload["accounts_reused"] == 1 and payload["accounts_created"] == 0
-    assert payload["tx_created"] == 1 and payload["tx_failed"] == 1
-    assert payload["failures"][0]["chunk"] == 1
-    assert "could not reach engine" in payload["failures"][0]["words"]
-    assert payload["failures"][0]["lines"] == [3]
-
-
-@respx.mock
-def test_apply_cli_reports_summary_on_connection_failure(configured, monkeypatch):
-    """A mid-run connection drop still renders the summary and exits 1."""
-    second_cells = list(_CELLS)
-    second_cells[4] = -55  # different amount → distinct transaction
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(
-            headers=_HEADERS, rows=[RawRow(2, list(_CELLS)), RawRow(3, second_cells)]
-        ),
-    )
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(return_value=httpx.Response(201, json={"id": "c"}))
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=[httpx.Response(201, json={"created": []}), httpx.ConnectError("down")]
-    )
-
-    result = runner.invoke(
-        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "1"]
-    )
-    assert result.exit_code == 1
-    assert "Transactions: created 1" in result.output
-    assert "failed 1" in result.output
-    assert "Failures (1 row):\n  CONNECTION_ERROR: could not reach engine" in result.output
-
-
-@respx.mock
-def test_apply_cli_exits_1_and_reports_resource_failure(configured, monkeypatch):
-    """A resource create failure is rendered and forces a non-zero exit."""
-    second = list(_CELLS)
-    second[1] = "NEEDS"  # distinct category
-    second[4] = -55  # distinct amount → distinct row
-    monkeypatch.setattr(
-        import_cmd,
-        "read_workbook",
-        lambda path, **k: SheetData(
-            headers=_HEADERS, rows=[RawRow(2, list(_CELLS)), RawRow(3, second)]
-        ),
-    )
-    _mock_existing(
-        accounts=[_account()],
-        categories=[],
-        hashtags=[],
-    )
-
-    def cat_post(request: httpx.Request) -> httpx.Response:
-        if json.loads(request.content)["name"] == "WANTS":
-            return error_response(
-                422,
-                "VALIDATION_ERROR",
-                "bad",
-                {"name": "Must not be blank."},
-                {"name": "INVALID_FORMAT"},
-            )
-        return httpx.Response(201, json={"id": "cat-ok"})
-
-    respx.post(f"{BASE}/v1/categories").mock(side_effect=cat_post)
-    respx.post(f"{BASE}/v1/hashtags").mock(return_value=httpx.Response(201, json={"id": "h"}))
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=httpx.Response(201, json={"created": []})
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-    assert result.exit_code == 1
-    assert "Resource failures" in result.output
-    assert "WANTS" in result.output
-    # the dependent row was skipped, on a line of its own
-    assert "Failures (1 row):\n  Not sent: category 'WANTS' was not created. row 2\n" in (
-        result.output
-    )
-
-
-# ---------------------------------------------------------------------------
-# Before first-time setup
-# ---------------------------------------------------------------------------
-# `SETTINGS_MISSING` is about the account, not about the write that drew it, so
-# the first one ends the run and is reported once — wherever it lands.
-
-_SETTINGS_MISSING = (
-    422,
-    "SETTINGS_MISSING",
-    "User settings have not been provisioned.",
-    {"user_settings": "Must be provisioned via POST /v1/auth/bootstrap."},
-    {"user_settings": "NOT_PROVISIONED"},
-)
-#: The engine's words alone: the typed import adds no line of the app's.
-_SETTINGS_MISSING_HUMAN = (
-    "Error: SETTINGS_MISSING — User settings have not been provisioned.\n"
-    "  user_settings: Must be provisioned via POST /v1/auth/bootstrap.\n"
-)
-
-
-def _three_row_sheet(monkeypatch) -> None:
-    """Three rows, each with its own category, so a resource pass has three creates."""
-    rows = []
-    for line, (category, amount) in enumerate([("WANTS", -44), ("NEEDS", -55), ("FUN", -66)], 2):
-        cells = list(_CELLS)
-        cells[1], cells[4] = category, amount
-        rows.append(RawRow(line, cells))
-    monkeypatch.setattr(
-        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=_HEADERS, rows=rows)
-    )
-
-
-def _writes() -> list[str]:
-    return [c.request.url.path for c in respx.calls if c.request.method != "GET"]
-
-
-@respx.mock
-def test_apply_stops_on_settings_missing_at_a_resource_create(configured, monkeypatch):
-    _three_row_sheet(monkeypatch)
-    _mock_existing(accounts=[], categories=[], hashtags=[])
-    respx.post(f"{BASE}/v1/accounts").mock(return_value=error_response(*_SETTINGS_MISSING))
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert result.exit_code == 1
-    assert result.output == _SETTINGS_MISSING_HUMAN
-    assert _writes() == ["/v1/accounts"]  # no category, hashtag, opening or batch after it
-
-
-@respx.mock
-def test_apply_stops_on_settings_missing_at_the_batch(configured, monkeypatch):
-    _three_row_sheet(monkeypatch)
-    _mock_existing(
-        accounts=[_account()],
-        categories=[{"id": f"c{n}", "name": n} for n in ("WANTS", "NEEDS", "FUN")],
-        hashtags=[{"id": "h", "name": "Salidas"}],
-    )
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        return_value=error_response(*_SETTINGS_MISSING)
-    )
-
-    result = runner.invoke(
-        cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--chunk-size", "2"]
-    )
-
-    assert result.exit_code == 1
-    assert result.output == _SETTINGS_MISSING_HUMAN
-    assert _writes() == ["/v1/transactions/batch"]  # nothing sent again, no second chunk
-
-
-def test_fold_outcome_raises_a_refusal_stopped_run_and_folds_nothing():
-    """A run an account-wide refusal stopped is no connection error: the fold
-    raises the refusal itself and leaves the result as it found it."""
-    refusal = EngineError(_SETTINGS_MISSING[1], _SETTINGS_MISSING[2], _SETTINGS_MISSING[3], 422, {})
-    items = [{"id": "a"}, {"id": "b"}]
-    outcome = BatchOutcome(
-        results=[RowResult.FAILED, RowResult.UNSENT],
-        failures=[BatchFailure((0,), "refused", 0, refusal, whole_chunk=True)],
-        stop_chunk_index=0,
-        refusal=refusal,
-    )
-    result = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
-
-    with pytest.raises(EngineError) as raised:
-        apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
-
-    assert raised.value is refusal
-    assert (result.tx_created, result.tx_skipped_existing, result.tx_failed) == (0, 0, 0)
-    assert result.failures == []
-
-
-def test_fold_outcome_labels_only_a_connection_stop_a_connection_error():
-    items = [{"id": "a"}, {"id": "b"}]
-    outcome = BatchOutcome(
-        results=[RowResult.CREATED, RowResult.UNSENT], stop_error="down", stop_chunk_index=1
-    )
-    result = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
-
-    apply_mod._fold_outcome(outcome, items, {"a": 2, "b": 3}, result)
-
-    assert (result.tx_created, result.tx_failed) == (1, 1)
-    assert _said(result) == [(1, "CONNECTION_ERROR: down — sheet line 3 was not sent", (3,))]
-
-    clean = apply_mod.ApplyResult(resolve=apply_mod.ResolveResult({}, {}, {}))
-    apply_mod._fold_outcome(
-        BatchOutcome(results=[RowResult.CREATED] * 2), items, {"a": 2, "b": 3}, clean
-    )
-    assert clean.tx_created == 2 and clean.failures == []
-
-
-@respx.mock
-def test_apply_settings_missing_json_is_the_engines_body(configured, monkeypatch):
-    _three_row_sheet(monkeypatch)
-    _mock_existing(accounts=[], categories=[], hashtags=[])
-    refusal = error_response(*_SETTINGS_MISSING)
-    respx.post(f"{BASE}/v1/accounts").mock(return_value=refusal)
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply", "--json"])
-
-    assert result.exit_code == 1
-    assert json.loads(result.stdout) == refusal.json()
-    assert "Hint" not in result.output
-
-
-@respx.mock
-def test_settings_missing_at_an_opening_balance_ends_the_run(configured):
-    plan = plan_mod.build_plan([_prow(2)], [_orow(7), _orow(8, account="BBVA PEN")], [])
-    _mock_existing(
-        accounts=[
-            _account(),
-            _account(id="acc-bbva", name="BBVA PEN"),
-        ],
-        categories=[{"id": "c", "name": "WANTS"}],
-        hashtags=[{"id": "h", "name": "Salidas"}],
-    )
-    respx.post(f"{BASE}/v1/accounts/acc-pen/opening-balance").mock(
-        return_value=error_response(*_SETTINGS_MISSING)
-    )
-
-    cfg = config_module.ensure_loaded()
-    with ExpenseClient(cfg) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        with pytest.raises(EngineError) as raised:
-            apply_mod.apply_plan(client, plan, res)
-
-    assert raised.value.code == "SETTINGS_MISSING"
-    assert _writes() == ["/v1/accounts/acc-pen/opening-balance"]  # no second seed, no batch
-
-
-# ---------------------------------------------------------------------------
-# The printed report is the engine's words alone
-# ---------------------------------------------------------------------------
-
-
-@respx.mock
-def test_the_printed_report_carries_no_app_keys_or_hint_lines(configured, monkeypatch):
-    """Every refusal the run meets is printed as the engine wrote it: no line
-    of the app's saying what to do, no key to press, no screen to open."""
-    from expense.errors import NEXT_STEPS
-
-    _three_row_sheet(monkeypatch)
-    _mock_existing(
-        accounts=[_account()],
-        categories=[{"id": "c1", "name": "WANTS"}, {"id": "c2", "name": "NEEDS"}],
-        hashtags=[{"id": "h", "name": "Salidas"}],
-    )
-    respx.post(f"{BASE}/v1/categories").mock(
-        return_value=error_response(
-            409,
-            "CONFLICT",
-            "Name already exists.",
-            {"name": "Must be unique."},
-            {"name": "NAME_EXISTS"},
-        )
-    )
-    respx.post(f"{BASE}/v1/transactions/batch").mock(
-        side_effect=lambda request: _conflict("category_id", "RESERVED_NAME_HELD")
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert "'FUN': CONFLICT — Name already exists." in result.output
-    assert "  name: Must be unique." in result.output
-    assert "CONFLICT — id exists" in result.output
-    assert "already-present 0, failed 3" in result.output  # FUN's row, plus two refused
-    lines = [line for step in NEXT_STEPS.values() for line in (step.line, step.on_list) if line]
-    lines += [line for step in NEXT_STEPS.values() for line in step.by_key.values()]
-    for line in lines:
-        assert line not in result.output
-    for app_word in ("Hint", "press", "▸", "save again"):
-        assert app_word not in result.output
-
-
-@respx.mock
-def test_a_run_ending_refusal_prints_the_engine_words_alone(configured, monkeypatch):
-    """A refusal that ends the run (here a `401` on the first read) prints the
-    engine's words and nothing of the app's: no key to set on a screen."""
-    _three_row_sheet(monkeypatch)
-    respx.get(f"{BASE}/v1/accounts").mock(
-        return_value=error_response(401, "UNAUTHORIZED", "Missing or invalid token")
-    )
-
-    result = runner.invoke(cli_app, ["import", "sheet", "whatever.xlsx", "--apply"])
-
-    assert result.exit_code == 1
-    assert result.output == "Error: UNAUTHORIZED — Missing or invalid token\n"

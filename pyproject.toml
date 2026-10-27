@@ -18,7 +18,6 @@ dependencies = [
     "pydantic>=2.6",
     "tzlocal>=5.2",
     "textual>=0.80",
-    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +29,8 @@ dev = [
     "mypy>=1.14",
     "pytest-cov>=5",
     "pytest-xdist>=3.6",
+    # Builds the made-up sheets the tests send; the app never reads a workbook.
+    "openpyxl>=3.1",
 ]
 
 [project.scripts]

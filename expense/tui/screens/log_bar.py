@@ -10,9 +10,9 @@ id, a version and possibly a reconciliation freezing four of its fields, so
 correcting one is a PUT of what changed, not a line retyped from scratch.
 
 **The save** is `ctrl+s`: every staged row goes to `POST /transactions/batch`,
-in chunks, through `expense/batch_write.py` — the same writer `expense import sheet` uses,
-which sends a refused chunk's unnamed rows again because a refused batch writes none of its
-rows (contract: POST /v1/transactions/batch, "No partial success"). What that means
+in chunks, through `expense/batch_write.py`, which sends a refused chunk's unnamed rows
+again because a refused batch writes none of its rows
+(contract: POST /v1/transactions/batch, "No partial success"). What that means
 when only some of it lands is four
 calls, recorded in docs/decisions.md "What a half-written batch means": the
 screen stays and the ticks are the receipt, a retry re-sends only the rows

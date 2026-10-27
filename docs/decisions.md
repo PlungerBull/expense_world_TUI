@@ -76,7 +76,7 @@ Decisions whose why lives elsewhere:
 
 ## Split transactions, the pending hashtag and system rows (2026-10-17)
 
-**Decision.** (1) **Each part of a split transaction is its own ledger row** (owner, 2026-10-17): the transaction's title, its own amount, category, hashtags and note. `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part, and the Edit form says so before a part's title, date or account is saved (contract: PUT /v1/transactions/{transaction_id}). (2) **`⏎` and `s` on any part open one Edit form: the line's shared fields on top and a table of every part below, and one save writes the whole line** (owner, 2026-10-25, [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html)), from one read of the bank line: its parts, the engine's total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}). Parts change in that one place: a kept part keeps its id, `^n` adds one and `^x` drops one, so a line never split keeps its one transaction as part 1 (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The form shows how much of that total the typed parts leave, red until it is 0, as a guide only: `^s` always sends, and the engine's `SPLIT_TOTAL_MISMATCH` decides whether the parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). **The title is the transaction's, one field written onto every part in the same write**, sent only when it differs from the transaction's (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); an emptied title is refused, so a save never removes a title. (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`: every transaction carries at least one hashtag, so Home has no "(no hashtags)" row, and a screen that tags a row sends only the real hashtags. (4) **The built-in rows keep their names** (owner, 2026-10-16): no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"); a name the engine keeps for a system row is refused with one line, "That name belongs to a system row: pick another." (5) **The spreadsheet import groups split rows by their `COD_EECC`** ("The sheet import brings a split purchase in as one split transaction").
+**Decision.** (1) **Each part of a split transaction is its own ledger row** (owner, 2026-10-17): the transaction's title, its own amount, category, hashtags and note. `c` and `h` change only the selected parts; the bank's fields (title, date, account, bank code) belong to every part, and the Edit form says so before a part's title, date or account is saved (contract: PUT /v1/transactions/{transaction_id}). (2) **`⏎` and `s` on any part open one Edit form: the line's shared fields on top and a table of every part below, and one save writes the whole line** (owner, 2026-10-25, [mockups/expense-world-split-transaction-screen.html](mockups/expense-world-split-transaction-screen.html)), from one read of the bank line: its parts, the engine's total and its `edit_limits` (contract: GET /v1/bank-lines/{bank_line_id}). Parts change in that one place: a kept part keeps its id, `^n` adds one and `^x` drops one, so a line never split keeps its one transaction as part 1 (contract: PUT /v1/bank-lines/{bank_line_id}, "Parts"). The form shows how much of that total the typed parts leave, red until it is 0, as a guide only: `^s` always sends, and the engine's `SPLIT_TOTAL_MISMATCH` decides whether the parts add up (contract: PUT /v1/bank-lines/{bank_line_id}, "The total"). **The title is the transaction's, one field written onto every part in the same write**, sent only when it differs from the transaction's (contract: PUT /v1/bank-lines/{bank_line_id}, "Body"); an emptied title is refused, so a save never removes a title. (3) **The pending hashtag is a hashtag like the others**, found by its `system_key`: every transaction carries at least one hashtag, so Home has no "(no hashtags)" row, and a screen that tags a row sends only the real hashtags. (4) **The built-in rows keep their names** (owner, 2026-10-16): no screen offers a rename or a delete on `@Opening`, `@Pendiente` or the pending hashtag, because the engine refuses both (contract: PUT /v1/categories/{category_id}, "A system category keeps its name"); a name the engine keeps for a system row is refused with one line, "That name belongs to a system row: pick another." (5) **The spreadsheet import's split rows are grouped by their `COD_EECC`** ("The sheet import brings a split purchase in as one split transaction").
 
 **Rejected.** *One ledger row per split transaction, its parts inside* — a category or hashtag belongs to a part, so one row for all the parts hides what `c` and `h` change; the engine declined a ledger read by bank line too. *Holding `^s` until the parts add up* — a business rule checked in the client, which every client would copy; the engine already refuses and says by how much. *One typed line per part, in the LOG bar's grammar* — a part keeps the transaction's title, account and date, so most of the grammar only led to refusals, and the owner found it hard to read. *Every part's fields in one long form* — the table shows every part at a glance. *Renaming a split transaction from the Edit form after the split* — two writes, and the first can land without the second. *Offering `e` on system categories* — the engine refuses a rename, so the key would only lead to a refusal.
 
@@ -154,7 +154,7 @@ Decisions whose why lives elsewhere:
 
 ## Opening balances are an engine concept (`@Opening` system category), not a client convention (2026-07-20)
 
-**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). The sheet importer routes rows marked `SALDO INICIAL` in the **title or the category** column to it (deduped per account and currency).
+**Decision.** `POST /accounts/{id}/opening-balance` seeds a balance as a transaction under the `@Opening` system category (`system_key = 'opening_balance'`, its name fixed by the engine); flow reports exclude it entirely, so no phantom income appears and visible rows sum to net. One per account (409). Which rows of the owner's sheet are opening balances is the engine's to find when it reads the sheet (contract: POST /v1/transactions/import-sheet).
 
 **Rejected.** *A user category plus a naming convention* — invisible to the engine, so reports can never exclude it, and every client invents its own name. *An opening-balance param on `POST /accounts` only* — never fires for accounts that already exist. *Keep the `@Opening` row visible in panels* — visible rows would no longer sum to the total.
 
@@ -271,12 +271,6 @@ Decisions whose why lives elsewhere:
 **Decision.** (1) **The grammar legend is a permanent row** (`$account · @category · #tag · ±amount · //note · when     ↵ stages the line`) that never changes; everything that does change lives on the `#hint` row above it. (2) **A bare `$`/`@`/`#` opens the full list** — it stands unresolved carrying every candidate. (3) **Matching is accent-blind** via one `fold()` ([quickadd/names.py](../expense/quickadd/names.py)). (4) **Day + month means this year**: `28Aug`, `28/ago`, `1set`, `15DEC` — separator optional, month any prefix of three letters or more in English or Spanish (no three-letter prefix reaches two months); an explicit year wins.
 
 **Rejected.** *A bare numeric `28/08`* — `1/2` in a title would silently become a date; the month must be letters. *A four-row key block* — costs the peek four rows. *A live checklist legend* — declined for a row that is the same every time you look.
-
-## Importer ids are positional — the sheet is append-only, and the rows in no batch are the check (2026-09-12)
-
-**Decision.** `expense import sheet` derives each id as `uuid5(IMPORT_NAMESPACE, stable_row_key(row))`, and the key includes the row number — without it, two identical purchases on one day would collapse into one and the second would be lost. So **the sheet is append-only below the last imported row**: insert, delete or re-sort above it and every row below gets a new id and imports twice. The check is the account's rows in no batch (`u` on the Reconciliations browse) after every import: a duplicate lands outside any closed period, so it cannot hide in `difference_cents`.
-
-**Rejected.** *A duplicate-group counter instead of the line* — better in isolation and the fix if the sheet ever must be edited in place; not worth changing every existing id. *An importer guard storing the last row count* — state the app does not keep, and a sheet can legitimately shrink.
 
 ## A sparse line is a ledger row under `@Pendiente` (2026-09-12)
 
@@ -665,40 +659,51 @@ edit. *Listing archived accounts on Reconciliations, read-only* — nothing ther
 **Context.** One bank movement split across categories is several rows in the owner's sheet,
 and the rows of one movement share a `COD_EECC` (`SIG-202603-029`). The sheet has no column for
 the engine's bank line or the bank's operation number, so `COD_EECC` is the only way to tell from
-it which rows were one movement. Imported row by row, each would become a movement of its own,
-and a later bank upload would add the movement again.
+it which rows were one movement.
 
-**Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, sent as one
-`line_group` (contract: POST /v1/transactions/batch, "Line groups"); a chunk never cuts a group.
-(2) **`COD_EECC` only groups; it is stored nowhere** (owner, 2026-10-23): no row the import
-sends carries a statement line. A movement's statement line gives its place in the statement's
-order and comes only from a reconciliation. (3) **A group goes whole or not at all:** a group
-whose rows differ on account, date or title, or with a row the import cannot read, is skipped
-whole as `split-mismatch` and named under the `Skipped` line, and the rest imports; once the
-sheet is fixed, a re-run brings the group in. A zero-amount row is only dropped, since it
-changes nothing. (4) **The dry run counts the groups in one line** ([commands.md](commands.md) "What it
-prints"); the groups are checked in the app after the import. (5) **A refused batch is read item by item:** a row named `ID_EXISTS` on
-its own id is already there, a row named by another refusal fails, and the rest go again as one
-batch, so a re-run costs one request per chunk; a refused part fails its whole group. This rests
-on the engine answering a taken id before any other conflict (contract: "Base Conventions", "Which refusal comes first on a create").
-(6) **Letter case counts in a `COD_EECC`:** rows group by its exact text, trimmed, so `SIG-1`
-and `sig-1` are two movements. This is the owner's rule for every match (2026-10-22): a field a
-person types, a name, is matched without regard to case; a field from the bank or a program, an
-operation code or a statement code, is matched exactly. A bank file's operation numbers are
-compared the same way.
+**Decision.** (1) **Rows sharing a `COD_EECC` come in as one split transaction**, grouped by the
+engine, which reads the whole sheet (contract: POST /v1/transactions/import-sheet); the app
+shows the count the engine sends ([commands.md](commands.md) "`expense import sheet`"), and the
+groups are checked in the app after the import. (2) **`COD_EECC` only groups** (owner,
+2026-10-23): a movement's statement line gives its place in the statement's order and comes only
+from a reconciliation. (3) **Letter case counts in a `COD_EECC`:** `SIG-1` and `sig-1` are two
+movements. This is the owner's rule for every match (2026-10-22): a field a person types, a
+name, is matched without regard to case; a field from the bank or a program, an operation code
+or a statement code, is matched exactly. A bank file's operation numbers are compared the same
+way.
 
 **Rejected.** *Keeping `COD_EECC` as each line's statement line* — a statement line comes only
 from a reconciliation, and 2,275 hand-typed codes in the ledger would clash with the ones a
 reconciliation makes. *Creating each month's reconciliations and their statement order at the
-import, read from `COD_EECC`* (owner, 2026-10-24) — reconciling is the owner's call, made later;
-an imported line has no statement line until its month is reconciled and ordered in the app.
-*Folding case
-in a `COD_EECC` or an operation code* — they come from a program, not a person, and a client
-that folded them would merge two movements the engine keeps apart. *Stopping the whole import on
-a differing group* — one slip in the sheet would hold back thousands of good rows. *Letting a
-group's readable rows in without its unreadable one* — the split lands with a part missing.
-*Listing every group on the dry run* — the owner checks them in the app. *Re-sending a refused
-batch row by row* — one request per row, now that the engine names every item it refuses.
+import, read from `COD_EECC`* (owner, 2026-10-24) — reconciling is the owner's call, made later.
+*Folding case in a `COD_EECC` or an operation code* — they come from a program, not a person,
+and a client that folded them would merge two movements the engine keeps apart. *Listing every
+group on the dry run* — the owner checks them in the app.
+
+## The sheet import creates its names in a step of its own, and a dry run never writes (2026-10-27, owner)
+
+**Context.** The engine reads the whole sheet and writes everything or nothing, but it never
+creates a name, and it answers a dry run's counts only once every account, category and hashtag
+the sheet uses has an id (contract: POST /v1/transactions/import-sheet, "Names"). On the
+official import into an empty ledger every name is new.
+
+**Decision.** `expense import sheet` runs in four steps ([commands.md](commands.md) "`expense
+import sheet`"): (1) a dry run lists every name as `yours` or `missing`, with no counts while one
+is missing, and names the step that creates them; (2) `--create-names` checks the sheet with a
+dry run, then creates each missing name and imports nothing, so a refused sheet creates nothing;
+(3) the dry run then shows the engine's counts; (4) `--apply` writes the import, and is refused,
+naming the step, while a name is still missing, so the owner always sees the counts before
+anything is imported (question 4 C, picks 1 A and 2 A, drawn in
+[expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html)).
+The count of rows a sheet's split lines hold waits on the engine (to-engine
+"The sheet import's counts say how many sheet rows its split lines come from").
+
+**Rejected.** *A dry run with no counts* (question 4 A) — the owner would see the numbers only
+after the one-time import. *A dry run that creates the missing names* (4 B) — a preview that
+writes. *`--apply` creating what is missing* (pick 2 B) — an import made without its counts
+seen. *A command of its own for the step* (pick 1 B) — `import sheet` stays the only command.
+*The app counting the split rows itself* — only possible after an apply, and the grouping is the
+engine's rule.
 
 ## An account becomes a person, and back, with one key (2026-10-22, owner)
 
@@ -717,9 +722,10 @@ the engine's words,** and `HAS_OPENING_BALANCE` adds what to do: empty the openi
 reconciliation checks the ledger against a bank statement and a person sends none (owner,
 2026-10-22): `HAS_RECONCILIATION` adds `On Reconciliations, press d on each of its
 reconciliations; a completed one needs u first.`, because the engine's words cannot say that a
-completed one goes back to draft before it is deleted. (3) **The sheet import finds people and archived
-accounts too** when it matches by name and currency, so a re-run after a conversion reuses the
-person instead of creating the name again and failing its rows.
+completed one goes back to draft before it is deleted. (3) **The sheet import never matches names itself:** the
+engine proposes an existing account for each sheet name
+(contract: POST /v1/transactions/import-sheet), so a re-run after a conversion is the engine's
+to match.
 
 **Rejected.** *Teaching the import which sheet names are people* — a list to keep in step with
 the sheet, while a plain account action also fixes any account created as the wrong kind.
@@ -746,15 +752,11 @@ where every other line of the form is checked at `⏎`.
 
 ## Refused rows read one line per kind of error (2026-10-22, owner)
 
-**Decision.** When a save of several rows is refused, the sheet import's `Failures` block, the
-LOG bar's lines under the table and the ledger's bulk `c`, `b` and `h` note read one line per
+**Decision.** When a save of several rows is refused, the LOG bar's lines under the table and the ledger's bulk `c`, `b` and `h` note read one line per
 kind of error, from one shared helper: the field the engine names, its
 words, then the rows it hit (`date: Must not be null. row 77`, `rows 3, 5, 7`). Rows are one kind
 when the engine's code, fields and reasons for them are the same, never by its top-level message,
-which counts the items. The engine's whole answer stays in the import's `--json`. A split refused
-for one row shows that row's line, and its other rows read `Part of a split transaction refused
-for another row.`; rows the app holds back read `Not sent: …` and `Part of a split transaction
-not sent for another row.`, so "refused" only ever means the engine said no.
+which counts the items.
 
 **Rejected.** *One line per row* — a refusal that hits many rows repeats itself line after line.
 *The engine's words alone* — its words are often general (`Must not be null.`), so two lines

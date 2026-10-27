@@ -134,18 +134,13 @@ def test_extra_fields_ignored(tmp_config):
     assert not hasattr(loaded, "future_field")
 
 
-def test_corrupt_config_renders_clean_cli_error(tmp_config, monkeypatch):
-    """A corrupt config exits 3 with the recovery hint — no traceback."""
+def test_corrupt_config_renders_clean_cli_error(tmp_config):
+    """A corrupt config exits 3 with the recovery hint — no traceback. The
+    settings are read before the file, so no file is needed."""
     from typer.testing import CliRunner
 
-    from expense.commands import import_cmd
-    from expense.import_.reader import SheetData
     from tests.unit.helpers import real_cli_app
 
-    monkeypatch.setattr(
-        import_cmd, "read_workbook", lambda path, **k: SheetData(headers=[], rows=[])
-    )
-    monkeypatch.setattr(import_cmd, "parse_sheet", lambda sheet: ([], [], []))
     cli_app = real_cli_app()
 
     tmp_config.write_text("{not valid json")

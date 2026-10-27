@@ -1,4 +1,4 @@
-"""The `expense` command: alone it opens the app; `expense import sheet` reads the sheet.
+"""The `expense` command: alone it opens the app; `expense import sheet` sends the sheet.
 
 Those are the only two typed entry points (docs/decisions.md "The TUI is the only
 surface"); everything else is done in the app.

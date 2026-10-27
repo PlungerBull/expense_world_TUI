@@ -66,6 +66,7 @@ from expense.errors import (
     format_error,
     is_keyed_refusal,
     key_index,
+    names_its_row,
 )
 from expense.formatting import format_cents, signed_cents
 from expense.reads import items_of
@@ -568,15 +569,6 @@ def changed_while_running(err: Exception) -> bool:
     )
 
 
-def _names_its_row(key: object, message: str) -> bool:
-    """True when a `rows.<row>…` key's words already begin `Row <row>:`, as
-    the engine's refusals made up front do
-    (contract: POST /v1/transactions/import, "Rejected up front with `422`").
-    Any other row refusal keeps its key on screen, so its row is never lost."""
-    row = key_index(key, "rows")
-    return row is not None and message.startswith(f"Row {row}:")
-
-
 def refusal_lines(err: EngineError) -> list[Text]:
     """A refusal as the preview shows it (expense-world-import-whole-file.html
     4): `CODE — message`, then a `!` line per refused key in the engine's
@@ -585,7 +577,7 @@ def refusal_lines(err: EngineError) -> list[Text]:
     `account_id`, a row whose words do not name it) shows before its words."""
     lines = [Text(f"{err.code} — {err.message}", style=PALETTE.error)]
     for key, message in (err.fields or {}).items():
-        words = str(message) if _names_its_row(key, str(message)) else f"{key}: {message}"
+        words = str(message) if names_its_row(key, str(message)) else f"{key}: {message}"
         lines.append(Text(f"! {words}", style=PALETTE.error))
     lines.append(Text(NOTHING_WRITTEN, style="dim"))
     return lines

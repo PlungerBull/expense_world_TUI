@@ -12,9 +12,9 @@ httpx==0.28.1
 pydantic==2.13.3
 tzlocal==5.3.1
 textual==8.2.7
-openpyxl==3.1.5
 
 # dev
+openpyxl==3.1.5
 pytest==9.0.3
 pytest-cov==7.1.0
 pytest-xdist==3.8.0

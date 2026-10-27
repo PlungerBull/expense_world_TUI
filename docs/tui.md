@@ -128,13 +128,9 @@ the cursor stays (the box stays open), and on the LOG bar it is no amount, so `�
 line with a note naming the first signed number it couldn't read, as typed:
 `can't read -13.853,20 as an amount`. A line with no signed number at all is refused with
 `the line has no amount — a number needs a sign to be one`. `nan`, `inf`, `Infinity`
-and an amount whose cents overflow (`1e999999`) are unreadable too. The sheet import reads an
-amount cell through the same reader, by `amount_to_cents` in
-[import_/parse.py](../expense/import_/parse.py): a text cell as typed, a number cell as its
-value, so a cell that is not an amount (`13.853,20`, `nan`, `inf`, as text or as a number)
-refuses its own row and the rest of the file is read, as [commands.md](commands.md)
-"`expense import sheet`" says. A bank download's cells are the engine's to read (§2 "The
-import door").
+and an amount whose cents overflow (`1e999999`) are unreadable too. A spreadsheet's cells
+are the engine's to read: a bank download's (§2 "The import door") and the owner's sheet's
+([commands.md](commands.md) "`expense import sheet`").
 
 **Async / workers.** Textual runs on asyncio; the engine client is synchronous, and
 stays that way. It is called inside a Textual worker (`@work(thread=True)`) so the UI

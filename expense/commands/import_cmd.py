@@ -1,365 +1,404 @@
-"""`expense import sheet <file>` — bulk-import transactions from an .xlsx.
+"""`expense import sheet <file>` — the owner's spreadsheet, sent to the engine whole.
 
-Dry-run by default: parses the sheet and prints what it would do, writing
-nothing. With --apply, resolves-or-creates accounts/categories/hashtags by name
-and writes transactions through the atomic batch endpoint.
+The engine reads the sheet and answers (expense/import_/engine.py); this module
+only prints the answer, as docs/mockups/expense-world-sheet-import-engine.html
+draws it, and saves the renames `--account-name` gives.
 """
 
-from collections import Counter
+import shlex
+from pathlib import Path
 
+import click
 import typer
 
 from expense import config as config_module
-from expense.batch_write import CHUNK_SIZE, ENGINE_BATCH_MAX
+from expense.bank_import.flow import ImportRefused, read_file
 from expense.context import get_verbose
-from expense.currencies import MINOR_UNIT_SCALE
-from expense.errors import handle_errors
-from expense.formatting import grouped_refusals
-from expense.http import ExpenseClient
-from expense.import_ import apply as apply_mod
-from expense.import_ import plan as plan_mod
-from expense.import_.parse import ImportFormatError, parse_sheet
-from expense.import_.reader import ImportFileError, read_workbook
+from expense.errors import (
+    EngineError,
+    error_envelope,
+    exit_code_of,
+    handle_errors,
+    json_body,
+    key_field,
+    key_index,
+    names_its_row,
+)
+from expense.formatting import grouped_refusals, rows_phrase
+from expense.import_.engine import (
+    ACCOUNT,
+    CATEGORY,
+    HASHTAG,
+    NameEntry,
+    RenameRefused,
+    SheetImport,
+    Step,
+    import_sheet,
+    merge_renames,
+    parse_account_name,
+)
 from expense.jsonout import emit_json
-
-
-def _skipped_json(plan: plan_mod.ImportPlan) -> dict:
-    return {
-        "skipped": [{"line": s.line, "reason": s.reason, "detail": s.detail} for s in plan.skipped],
-        "split_mismatches": plan.split_mismatches,
-    }
-
-
-def _render_skipped(plan: plan_mod.ImportPlan) -> None:
-    """The `Skipped N row(s) — …` line, and under it why each held-back split
-    transaction waits: a line per field its rows differ on, or one naming its
-    unreadable rows and the rows that wait for them (`SIG-202603-029: line 3122
-    can't be read, so lines 3120, 3121 wait for it.`; `line … waits` for one
-    row, `… for them` for several unreadable). Nothing when no row is skipped."""
-    if not plan.skipped:
-        return
-    counts = Counter(s.reason for s in plan.skipped)
-    detail = ", ".join(f"{reason}: {n}" for reason, n in sorted(counts.items()))
-    typer.echo(f"Skipped {len(plan.skipped)} row(s) — {detail}")
-    for line in plan.split_mismatches:
-        typer.echo(f"  {line}")
-
-
-def _split_line(plan: plan_mod.ImportPlan) -> str | None:
-    """How many split transactions come in, and from how many rows; None for none."""
-    groups = len(plan.groups)
-    if groups == 0:
-        return None
-    if groups == 1:
-        return f"1 split transaction ({plan.split_rows} rows) comes in as one movement."
-    return f"{groups} split transactions ({plan.split_rows} rows) come in as one movement each."
-
-
-# sanctioned exception — see commands.md "Sanctioned exceptions": import's
-# --json (plan and result below) is client-composed; the pipeline aggregates
-# many engine calls, so there is no single engine response to pass through.
-def _render_plan(plan: plan_mod.ImportPlan, *, json_output: bool) -> None:
-    if json_output:
-        emit_json(
-            {
-                "valid_rows": len(plan.rows),
-                "movements": plan.movements,
-                "split_transactions": len(plan.groups),
-                "split_rows": plan.split_rows,
-                **_skipped_json(plan),
-                "accounts": [
-                    {"name": a.name, "currency": a.currency, "source_name": a.source_name}
-                    for a in plan.accounts
-                ],
-                "categories": plan.categories,
-                "hashtags": plan.hashtags,
-                "opening_balances": [
-                    {
-                        "line": o.line,
-                        "account": o.account,
-                        "currency": o.currency,
-                        "amount_cents": o.amount_cents,
-                        "date": o.date_iso,
-                    }
-                    for o in plan.openings
-                ],
-            }
-        )
-        return
-
-    movements = "movement" if plan.movements == 1 else "movements"
-    typer.echo(f"Parsed {len(plan.rows)} transactions to import, as {plan.movements} {movements}.")
-    _render_skipped(plan)
-    split = _split_line(plan)
-    if split is not None:
-        typer.echo(split)
-
-    typer.echo(f"\nAccounts to ensure ({len(plan.accounts)}):")
-    for spec in sorted(plan.accounts, key=lambda s: (s.name.casefold(), s.currency)):
-        # A name that spans currencies is split into one account per currency
-        # and renamed, and --account-name renames a leg outright; show where
-        # each renamed leg came from so this list is self-explaining.
-        origin = f'  (from "{spec.source_name}")' if spec.name != spec.source_name else ""
-        typer.echo(f"  {spec.name} [{spec.currency}]{origin}")
-
-    typer.echo(f"\nCategories to ensure ({len(plan.categories)}):")
-    typer.echo(f"  {', '.join(sorted(plan.categories))}")
-    typer.echo(f"\nHashtags to ensure ({len(plan.hashtags)}):")
-    typer.echo(f"  {', '.join(sorted(plan.hashtags))}")
-
-    if plan.openings:
-        typer.echo(f"\nOpening balances to seed ({len(plan.openings)}):")
-        for o in sorted(plan.openings, key=lambda r: (r.account.casefold(), r.currency)):
-            sign = "-" if o.amount_cents < 0 else ""
-            whole, frac = divmod(abs(o.amount_cents), MINOR_UNIT_SCALE)
-            major = f"{whole:,}.{frac:02d}"
-            typer.echo(f"  {o.account} [{o.currency}]: {sign}{major} on {o.date_iso}")
-
 
 _ACCOUNT_NAME_HINT = "'--account-name'"
 
+#: kind → (the table's title, its noun for one, for several).
+_NOUNS = {
+    ACCOUNT: ("Accounts", "account", "accounts"),
+    CATEGORY: ("Categories", "category", "categories"),
+    HASHTAG: ("Hashtags", "hashtag", "hashtags"),
+}
 
-def _parse_account_name(value: str) -> tuple[str, str, str]:
-    """`"BCP:PEN=Sueldo Soles"` → `("BCP", "PEN", "Sueldo Soles")`.
-
-    The ledger name is everything after the first `=`; the currency is what
-    follows the last `:` before it, so a sheet name may itself hold a colon.
-    """
-    left, eq, ledger = value.partition("=")
-    sheet, colon, currency = left.rpartition(":")
-    sheet, currency, ledger = sheet.strip(), currency.strip().upper(), ledger.strip()
-    if not eq or not colon or not sheet or not currency or not ledger:
-        raise typer.BadParameter(
-            f'{value!r} is not SHEET_NAME:CURRENCY=LEDGER_NAME (e.g. "BCP:PEN=Sueldo Soles").',
-            param_hint=_ACCOUNT_NAME_HINT,
-        )
-    return sheet, currency, ledger
+#: Between two columns of a names table.
+_GAP = "   "
 
 
-def _key_of_saved(saved_key: str) -> tuple[str, str] | None:
-    """A `sheet_account_names` key ("BCP:PEN") as a `plan.account_key`."""
-    sheet, colon, currency = saved_key.rpartition(":")
-    return plan_mod.account_key(sheet, currency) if colon and sheet and currency else None
+def _plural(count: int, one: str, many: str) -> str:
+    return f"{count:,} {one if count == 1 else many}"
 
 
-def _account_names(
-    saved: dict[str, str], flags: list[tuple[str, str, str]]
-) -> tuple[dict[str, str], dict[tuple[str, str], str]]:
-    """Merge the saved renames with this run's flags; a flag replaces a saved
-    entry for the same sheet leg, whatever its casing. Returns the dict to
-    save and the plan-side map keyed by `plan.account_key`."""
-    merged = dict(saved)
-    for sheet, currency, ledger in flags:
-        leg = plan_mod.account_key(sheet, currency)
-        for old in [k for k in merged if _key_of_saved(k) == leg]:
-            del merged[old]
-        merged[f"{sheet}:{currency}"] = ledger
-    by_leg: dict[tuple[str, str], str] = {}
-    for saved_key, ledger in merged.items():
-        leg_of = _key_of_saved(saved_key)
-        if leg_of is not None:
-            by_leg[leg_of] = ledger
-    return merged, by_leg
+# ---------------------------------------------------------------------------
+# the names tables (screens 1 and 3)
+# ---------------------------------------------------------------------------
+def _table_lines(kind: str, entries: list[NameEntry]) -> list[str]:
+    """One kind's table: its title and count, the column heads, then a line per
+    name: the sheet's name, an account's currency, its rows, and where it goes
+    (a renamed account's ledger name before it)."""
+    title = _NOUNS[kind][0]
+    names = [e.name for e in entries]
+    rows = [f"{e.rows:,}" for e in entries]
+    name_w = max([len("SHEET NAME"), *map(len, names)])
+    rows_w = max([len("ROWS"), *map(len, rows)])
+    currency = kind == ACCOUNT
+
+    def line(name: str, cur: str, count: str, goes: str) -> str:
+        cells = [name.ljust(name_w), *([cur.ljust(3)] if currency else []), count.rjust(rows_w)]
+        return "  " + _GAP.join([*cells, goes])
+
+    out = [f"{title} ({len(entries)})", line("SHEET NAME", "CUR", "ROWS", "GOES TO")]
+    for entry, count in zip(entries, rows, strict=True):
+        goes = entry.goes.value
+        if entry.renamed_to is not None:
+            goes = f"{entry.renamed_to}  {goes}"
+        out.append(line(entry.name, entry.currency or "", count, goes))
+    return out
 
 
-def _check_account_names(
-    plan: plan_mod.ImportPlan,
-    flags: list[tuple[str, str, str]],
-    renamed: dict[tuple[str, str], str],
-) -> None:
-    """Refuse a flag naming a sheet leg the sheet does not have, and a rename
-    that lands two sheet legs on one ledger account."""
-    legs = {plan_mod.account_key(a.source_name, a.currency) for a in plan.accounts}
-    for sheet, currency, _ledger in flags:
-        if plan_mod.account_key(sheet, currency) not in legs:
-            raise typer.BadParameter(
-                f'the sheet has no account "{sheet}" in {currency}.',
-                param_hint=_ACCOUNT_NAME_HINT,
-            )
-    seen: dict[tuple[str, str], plan_mod.AccountSpec] = {}
-    for spec in plan.accounts:
-        other = seen.setdefault(plan_mod.account_key(spec.name, spec.currency), spec)
-        if other is spec:
-            continue
-        pair = {plan_mod.account_key(s.source_name, s.currency) for s in (spec, other)}
-        if pair & renamed.keys():
-            raise typer.BadParameter(
-                f'"{other.source_name}" and "{spec.source_name}" would both be written as '
-                f'"{spec.name}" [{spec.currency}].',
-                param_hint=_ACCOUNT_NAME_HINT,
-            )
+def _print_tables(result: SheetImport) -> None:
+    for kind in (ACCOUNT, CATEGORY, HASHTAG):
+        entries = [e for e in result.table if e.kind == kind]
+        for text in _table_lines(kind, entries):
+            typer.echo(text)
+        typer.echo("")
 
 
-def _render_result(
-    plan: plan_mod.ImportPlan, result: apply_mod.ApplyResult, *, json_output: bool
-) -> None:
-    res = result.resolve
-    if json_output:
-        emit_json(
-            {
-                **_skipped_json(plan),
-                "accounts_created": res.accounts_created,
-                "accounts_reused": res.accounts_reused,
-                "categories_created": res.categories_created,
-                "categories_reused": res.categories_reused,
-                "hashtags_created": res.hashtags_created,
-                "hashtags_reused": res.hashtags_reused,
-                "resolve_failures": res.resolve_failures,
-                "tx_created": result.tx_created,
-                "tx_skipped_existing": result.tx_skipped_existing,
-                "tx_failed": result.tx_failed,
-                "opening_created": result.opening_created,
-                "opening_skipped_existing": result.opening_skipped_existing,
-                "opening_failed": result.opening_failed,
-                "failures": [
-                    {"chunk": f.chunk, "lines": list(f.lines), "words": f.words, "detail": f.detail}
-                    for f in result.failures
-                ],
-            }
-        )
-        return
-
-    typer.echo(f"Accounts:   created {res.accounts_created}, reused {res.accounts_reused}")
-    typer.echo(f"Categories: created {res.categories_created}, reused {res.categories_reused}")
-    typer.echo(f"Hashtags:   created {res.hashtags_created}, reused {res.hashtags_reused}")
-    if res.resolve_failures:
-        typer.echo(f"Resource failures ({len(res.resolve_failures)}):")
-        for message in res.resolve_failures:
-            typer.echo(f"  {message}")
-    if result.opening_created or result.opening_skipped_existing or result.opening_failed:
-        typer.echo(
-            f"Opening balances: seeded {result.opening_created}, "
-            f"already-present {result.opening_skipped_existing}, "
-            f"failed {result.opening_failed}"
-        )
-    typer.echo(
-        f"Transactions: created {result.tx_created}, "
-        f"already-present {result.tx_skipped_existing}, failed {result.tx_failed}"
+# ---------------------------------------------------------------------------
+# the counts (screens 3 and 4)
+# ---------------------------------------------------------------------------
+def _counts_lines(result: SheetImport, head: str) -> list[str]:
+    """The engine's counts: `head` (`Rows: 1,961` on the dry run, `Written:`
+    on the apply) and each outcome, then the opening balances and the split
+    transactions."""
+    c = result.counts
+    outcomes = (
+        f"new {c.new:,} · matched {c.matched:,} · sealed {c.sealed:,} · skipped {c.skipped:,}"
     )
-    if result.failures:
-        rows = result.tx_failed + result.opening_failed
-        typer.echo(f"Failures ({rows} {'row' if rows == 1 else 'rows'}):")
-        refusals = [(f.kind, f.words, f.lines) for f in result.failures]
-        for first, hit, rest in grouped_refusals(refusals):
-            typer.echo(f"  {first} {hit}" if hit else f"  {first}")
-            for line in rest:
-                typer.echo(f"  {line}")
+    return [
+        f"{head} {outcomes}",
+        f"Opening balances {c.opening_balances:,} · split transactions {c.split_lines:,}",
+    ]
+
+
+def _row_lists(result: SheetImport) -> list[str]:
+    """The rows of zero and the rows on a closed statement's day, by their
+    spreadsheet row, a line for each there is."""
+    lines = []
+    for outcome, label in (
+        ("skipped", "Skipped, amount zero"),
+        ("sealed", "Sealed, on a closed statement's day"),
+    ):
+        rows = [r.row for r in result.rows if r.outcome == outcome]
+        if rows:
+            lines.append(f"{label}: {rows_phrase(rows)}")
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# names still missing (screen 1, pick 2 A)
+# ---------------------------------------------------------------------------
+def _create_command(file: str) -> str:
+    return f"expense import sheet {shlex.quote(file)} --create-names"
+
+
+def _missing_count(result: SheetImport) -> str:
+    """`9 names don't exist yet.`, or `1 name doesn't exist yet.`"""
+    count = len(result.missing)
+    if count == 1:
+        return "1 name doesn't exist yet."
+    return f"{count:,} names don't exist yet."
+
+
+def _missing_lines(result: SheetImport, file: str) -> list[str]:
+    them = "it" if len(result.missing) == 1 else "them"
+    return [f"{_missing_count(result)} Create {them} with:", f"  {_create_command(file)}"]
+
+
+# ---------------------------------------------------------------------------
+# a refused sheet (screen 5)
+# ---------------------------------------------------------------------------
+def _rows_refusal(err: Exception) -> bool:
+    """A refusal the sheet itself causes: the `422` `VALIDATION_ERROR` the
+    engine answers for its rows, every refused key a `rows.<row>…` one
+    (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
+    Fixing the sheet is what clears it. Every other refusal prints as every
+    engine error: a `409` such as `CONCURRENT_CHANGE`, which clears by sending
+    the sheet again as it is
+    (contract: POST /v1/transactions/import-sheet, "Concurrency"), or the
+    `422` `LIMIT_REACHED` once the line codes are used up
+    (contract: POST /v1/transactions/import-sheet, "On apply")."""
+    return (
+        isinstance(err, EngineError)
+        and err.status == 422
+        and err.code == "VALIDATION_ERROR"
+        and bool(err.fields)
+        and all(key_index(key, "rows") is not None for key in err.fields or {})
+    )
+
+
+def _refused_lines(err: EngineError) -> list[str]:
+    """The refused rows, one line per kind of refusal in the engine's order:
+    words that name their row (`Row 77: …`) read whole for one row, and once,
+    without the row, before every row refused alike (`… rows 1958, 1959`);
+    any other key reads `field: words`, then its rows."""
+    fields = err.fields or {}
+    reasons = err.reasons or {}
+    found: list[tuple[tuple, str, str | None, int]] = []
+    for key, message in fields.items():
+        row = key_index(key, "rows")
+        assert row is not None
+        text = str(message)
+        name = key_field(key, "rows")
+        if names_its_row(key, text):
+            words, alone = text[len(f"Row {row}:") :].strip(), text
+        else:
+            words, alone = (f"{name}: {text}" if name else text), None
+        found.append(((name, reasons.get(key), words), words, alone, row))
+    rows_of: dict[tuple, set[int]] = {}
+    for kind, _words, _alone, row in found:
+        rows_of.setdefault(kind, set()).add(row)
+    refusals: list[tuple[object, str, list[int]]] = []
+    for kind, words, alone, row in found:
+        if alone is not None and len(rows_of[kind]) == 1:
+            refusals.append((None, alone, []))
+        else:
+            refusals.append((kind, words, [row]))
+    rows = {row for *_rest, row in found}
+    lines = [f"Refused — nothing written. {_plural(len(rows), 'row', 'rows')}:"]
+    for first, hit, rest in grouped_refusals(refusals):
+        lines.append(f"  {first} {hit}" if hit else f"  {first}")
+        lines.extend(f"  {line}" for line in rest)
+    return [*lines, "", "Fix the sheet and run it again."]
+
+
+# ---------------------------------------------------------------------------
+# --json
+# ---------------------------------------------------------------------------
+def _created_json(result: SheetImport) -> dict:
+    """The engine's answer to each create, by kind."""
+    return {
+        _NOUNS[kind][2]: [c.answer for c in result.created if c.kind == kind]
+        for kind in (ACCOUNT, CATEGORY, HASHTAG)
+    }
+
+
+def _created_line(result: SheetImport) -> str:
+    parts = [
+        _plural(n, one, many)
+        for kind, (_title, one, many) in _NOUNS.items()
+        if (n := sum(1 for c in result.created if c.kind == kind))
+    ]
+    return f"Created {', '.join(parts)}."
+
+
+#: `--apply` while a name is missing, under `--json`: nothing is sent, so there is
+#: no engine answer to pass through; the app's envelope (`errors.error_envelope`).
+NAMES_MISSING = "NAMES_MISSING"
+
+#: Before anything is written: the head of every refusal that writes nothing.
+_NOT_IMPORTED = "Not imported — nothing written."
+
+
+def _print_dry_run(result: SheetImport, file: str) -> None:
+    """Screen 1 while a name is missing, else screen 3."""
+    _print_tables(result)
+    if not result.counted:
+        typer.echo("No counts yet: the engine counts once every name exists.")
+        typer.echo("")
+        for line in _missing_lines(result, file):
+            typer.echo(line)
+        typer.echo("Dry run — nothing written.")
+        return
+    for line in _counts_lines(result, f"Rows: {len(result.rows):,} ·"):
+        typer.echo(line)
+    typer.echo("")
+    lists = _row_lists(result)
+    for line in lists:
+        typer.echo(line)
+    if lists:
+        typer.echo("")
+    typer.echo("Dry run — nothing written. Run again with --apply to import.")
+
+
+def _print_applied(result: SheetImport) -> None:
+    """Screen 4: what was written, then the rows of zero and on a closed day,
+    or, when rows matched and none is new or sealed, that every row is already
+    in the ledger."""
+    for line in _counts_lines(result, "Written:"):
+        typer.echo(line)
+    typer.echo("")
+    counts = result.counts
+    if counts.matched and counts.new == 0 and counts.sealed == 0:
+        typer.echo("Nothing new: every row is already in the ledger.")
+        return
+    for line in _row_lists(result):
+        typer.echo(line)
+
+
+def _print_created(result: SheetImport) -> None:
+    """Screen 2."""
+    if not result.created:
+        typer.echo("Created no names: every one is yours.")
+        return
+    typer.echo(_created_line(result))
+    typer.echo("Nothing imported. Run the dry run again to see the counts.")
+
+
+def _refuse_missing(result: SheetImport, file: str, *, json_output: bool) -> None:
+    """Pick 2 A: `--apply` while a name is missing writes nothing and names
+    the create step. Exit 1."""
+    if json_output:
+        emit_json(error_envelope(NAMES_MISSING, f"{_NOT_IMPORTED} {_missing_count(result)}"))
+    else:
+        typer.echo(_NOT_IMPORTED)
+        for line in _missing_lines(result, file):
+            typer.echo(line)
+        typer.echo("then run the dry run to see the counts.")
+    raise typer.Exit(code=1)
 
 
 @handle_errors
 def run_import(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="Path to the .xlsx spreadsheet to import."),
-    apply: bool = typer.Option(
-        False, "--apply", help="Actually write to the engine. Default is a dry-run preview."
-    ),
-    chunk_size: int = typer.Option(
-        CHUNK_SIZE,
-        "--chunk-size",
-        min=1,
-        max=ENGINE_BATCH_MAX,
+    create_names: bool = typer.Option(
+        False,
+        "--create-names",
         help=(
-            "Transactions per batch request. A split transaction larger than this "
-            "goes whole, as one bigger request."
+            "Create every account, category and hashtag the sheet uses that you lack. "
+            "Imports nothing."
         ),
     ),
-    json_output: bool = typer.Option(False, "--json", help="Emit the plan/result as JSON."),
+    apply: bool = typer.Option(
+        False, "--apply", help="Import the sheet. Default is a dry run that writes nothing."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Print the engine's answer as JSON."),
     account_name: list[str] = typer.Option(
         [],
         "--account-name",
         metavar="SHEET_NAME:CUR=LEDGER_NAME",
         help=(
-            "Write a sheet account's CUR leg under another ledger name. Repeatable; "
+            "Put a sheet account's CUR rows on a ledger account of another name. Repeatable; "
             "remembered in the config for every later run."
         ),
     ),
 ) -> None:
-    """Import transactions from an .xlsx spreadsheet (dry-run by default).
+    """Import your spreadsheet through the engine (a dry run by default).
 
-    Parses the sheet, then resolves-or-creates accounts/categories/hashtags by
-    name and writes transactions in atomic batches. Without --apply it only
-    prints what it would do and writes nothing.
+    The file goes to the engine whole; the engine reads it, matches every row
+    against the ledger, and writes everything or nothing. The app reads no
+    cell of it.
 
-    Rows marked "SALDO INICIAL" (case/space-insensitive) in EITHER the title or
-    the category column are opening balances: they seed the account via the
-    engine's opening-balance endpoint (@Opening system category, excluded from
-    flow reports) instead of importing as ordinary transactions. Their
-    category/hashtag cells may be blank and are discarded either way; one per
-    account — extras are skipped as duplicate-opening in the preview.
+    The dry run lists every account (a name in one currency), category and
+    hashtag the sheet uses, its rows, and whether it is yours or missing. While
+    one is missing it shows no counts, since the engine counts only once every
+    name exists, and gives the command that creates them: --create-names,
+    which creates every missing name and imports nothing. Once every name
+    exists, the dry run shows the engine's counts, and --apply imports; with a
+    name missing, --apply is refused and writes nothing. Sending the same
+    sheet again writes nothing: every row is matched.
 
-    An account name used under more than one currency becomes one account per
-    currency, each renamed with its currency suffix ("BCP Oro" holding PEN and
-    USD rows becomes "BCP Oro PEN" and "BCP Oro USD"). The dry-run names the
-    origin of every renamed leg.
+    One bad row stops the whole import, and every refused row is listed in the
+    engine's words; nothing is written and no name is created.
 
-    --account-name "SHEET_NAME:CUR=LEDGER_NAME" writes one sheet account's
-    currency leg under a ledger name of your choosing instead ("BCP:PEN=Sueldo
-    Soles"); the sheet name matches case- and space-insensitively. The rename
-    is saved to the config and applied on every later run, so a re-run without
-    the flag reuses the renamed account; passing it again for the same leg
-    replaces the saved name. A leg the sheet does not have, or two legs landing
-    on one ledger account, is a usage error and nothing is saved.
+    --account-name "SHEET_NAME:CUR=LEDGER_NAME" puts one sheet account's rows
+    in that currency on a ledger account of your choosing ("BCP:PEN=Sueldo
+    Soles"). It is saved to the config and applied on every later run; passing
+    it again for the same account replaces the saved name. An account the
+    sheet does not have, or two sheet accounts put on one, is a usage error and
+    nothing is saved.
 
-    Rows sharing a COD_EECC come in as one movement, a split transaction with
-    a part per row; a row with a blank or unshared one comes in alone, and so
-    does every row of a sheet without the column. COD_EECC only groups: it is
-    not stored, and no imported row gets a statement line. The rows of a split
-    transaction must share account, date and title, and every one must be
-    readable: a group that does not, or that has a row skipped for any reason
-    but a zero amount, is skipped whole as split-mismatch, a line naming its
-    COD_EECC and why, and the rest imports. A zero-amount row is only dropped
-    from its group.
+    Example: expense import sheet Presupuesto.xlsx
 
-    Re-running --apply is safe for unchanged and appended sheets: transaction
-    ids derive from each row's content plus its line number, so already-imported
-    rows are skipped and new rows still land. When the engine refuses a batch it
-    names every row it refuses: rows already imported are skipped, each rejected
-    row is reported with its sheet line, and the rest are sent again as one
-    batch. A full re-run costs one request per batch, plus one for a batch
-    mixing imported and new rows. Inserting or deleting rows mid-sheet shifts
-    every later line number — shifted rows get new ids and re-import as
-    duplicates; append new rows at the bottom instead.
+    Example: expense import sheet Presupuesto.xlsx --create-names
 
-    Example: expense import sheet ~/Downloads/Presupuesto.xlsx
+    Example: expense import sheet Presupuesto.xlsx --apply
 
-    Example: expense import sheet ~/Downloads/Presupuesto.xlsx --account-name "BCP:PEN=Sueldo Soles"
+    Example: expense import sheet Presupuesto.xlsx --account-name "BCP:PEN=Sueldo Soles"
     """
-    flags = [_parse_account_name(value) for value in account_name]
+    if create_names and apply:
+        raise click.UsageError(
+            "--create-names creates names and imports nothing, so it never goes with --apply."
+        )
     try:
-        sheet = read_workbook(file)
-        parsed, openings, skipped = parse_sheet(sheet)
-    except (ImportFileError, ImportFormatError) as exc:
+        flags = [parse_account_name(value) for value in account_name]
+    except RenameRefused as exc:
+        raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc
+
+    # Read once: the settings file may be a pipe.
+    cfg = config_module.require(config_module.load())
+    try:
+        data = read_file(Path(file))
+    except ImportRefused as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
-    saved_cfg = config_module.load()
-    saved = dict(saved_cfg.sheet_account_names) if saved_cfg is not None else {}
-    merged, renamed = _account_names(saved, flags)
-    plan = plan_mod.build_plan(parsed, openings, skipped, account_names=renamed)
-    _check_account_names(plan, flags, renamed)
-    # Remembered on a dry run too: the flag was checked against this sheet.
-    # With no config yet there is nowhere to keep it; --apply needs one anyway.
-    if saved_cfg is not None and merged != saved:
-        saved_cfg.sheet_account_names = merged
-        config_module.save(saved_cfg)
+    saved = dict(cfg.sheet_account_names)
+    merged, renames = merge_renames(saved, flags)
+    step = Step.APPLY if apply else Step.CREATE_NAMES if create_names else Step.DRY_RUN
+    try:
+        result = import_sheet(
+            cfg, data, step=step, renames=renames, flags=flags, verbose=get_verbose(ctx)
+        )
+    except RenameRefused as exc:
+        raise typer.BadParameter(str(exc), param_hint=_ACCOUNT_NAME_HINT) from exc
+    # Remembered once the renames were checked against this sheet, a dry run's too.
+    if result.table and merged != saved:
+        cfg.sheet_account_names = merged
+        config_module.save(cfg)
 
-    if not apply:
-        _render_plan(plan, json_output=json_output)
-        if not json_output:
-            typer.echo("\nDry run — nothing written. Re-run with --apply to write.")
+    if result.error is not None:
+        if result.created and json_output:
+            emit_json({"created": _created_json(result), **json_body(result.error)})
+            raise typer.Exit(code=exit_code_of(result.error))
+        if result.created:
+            typer.echo(_created_line(result))
+        if isinstance(result.error, EngineError) and _rows_refusal(result.error):
+            if not json_output:
+                for line in _refused_lines(result.error):
+                    typer.echo(line)
+                raise typer.Exit(code=1)
+        raise result.error
+
+    if step is Step.CREATE_NAMES:
+        if json_output:
+            emit_json({"created": _created_json(result)})
+        else:
+            _print_created(result)
         return
-
-    # The settings read above, not a second read: the file may be a pipe.
-    cfg = config_module.require(saved_cfg)
-    verbose = get_verbose(ctx)
-    if not json_output:
-        _render_skipped(plan)  # before the writes: the rest imports without them
-    # Batches of up to `chunk_size` rows can take a while on a cold/slow engine;
-    # give the read timeout plenty of headroom beyond the 60s default.
-    with ExpenseClient(cfg, verbose=verbose, timeout_read=300.0) as client:
-        res = apply_mod.resolve_or_create(client, plan)
-        result = apply_mod.apply_plan(client, plan, res, chunk_size=chunk_size)
-
-    _render_result(plan, result, json_output=json_output)
-    if result.tx_failed > 0 or result.resolve.resolve_failures:
-        raise typer.Exit(code=1)
+    if step is Step.APPLY and not result.counted:
+        _refuse_missing(result, file, json_output=json_output)
+    if json_output:
+        emit_json(result.answer)
+    elif step is Step.APPLY:
+        _print_applied(result)
+    else:
+        _print_dry_run(result, file)
