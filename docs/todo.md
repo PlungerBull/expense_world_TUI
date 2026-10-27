@@ -28,29 +28,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### The engine's contract moved to 872eff6cfffc787a
-Asked 2026-10-26 · Blocks: every new task, and so [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md) (its acceptance check fails only on this) and [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
+### Get the engine's hand-off file for 592f2467fa3df75a to 872eff6cfffc787a
+Asked 2026-10-26 · Blocks: every new task, and so [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md) (its acceptance check fails only on the moved version) and [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
 
-This client last caught up to `592f2467fa3df75a`. The version check prints:
+You chose on 2026-10-26 to catch up next with the engine's contract, which moved from
+`592f2467fa3df75a` (this client's last catch-up) to `872eff6cfffc787a`: the shipped ask for
+reading several bank lines at once (`?ids=` on `GET /bank-lines`) and an oldest-first order
+(`?sort=date_asc`). Ask the engine coders for one hand-off file covering that range, and copy it
+into [from-engine/](from-engine/); it becomes the catch-up spec, and the new version is
+recorded in that spec's work.
 
-```
-the engine's contract version has changed: saved 592f2467fa3df75a, engine 872eff6cfffc787a.
-what the contract changed since 592f2467fa3df75a, newest first:
-  872eff6cfffc787a  2026-10-26
-    added: `?sort=date_asc` on `GET /bank-lines`: oldest first, the exact reverse of the default `date_desc`, its tie-breaks reversed too (the line's `date`, then the `created_at` of its parts, then the line's `id`, each ascending), so the list read oldest first is the newest-first list read backwards, line for line. It is taken with every filter, `ids`, `reconciliation_id` and `unassigned_in_period_of` included, and needs none. Its cursors are its own: a `date_asc` cursor is `422` on `after` (`INVALID_CURSOR`) without `sort`, with `sort=date_desc` or with `sort=statement`, and a cursor from any of those is refused the same way with `sort=date_asc`. `GET /bank-lines/count` still takes no `sort`.
-  6687b18541c068e3  2026-10-26
-    added: `?ids=<id>,<id>,…` on `GET /bank-lines` and `GET /bank-lines/count`: the lines among up to 200 comma-separated bank line ids, each in the list's shape and order. An id naming no live line of yours (deleted, unknown, another user's) is left out, never refused. More than 200 entries is `422` on `ids` (`OUT_OF_RANGE`); an empty `ids`, an empty entry or an entry that is not a UUID is `422` on `ids` (`INVALID_FORMAT`). It combines with every other filter except `unassigned_in_period_of`, and a cursor is bound to it like any filter.
-    changed: `?unassigned_in_period_of=` is now also `422` (`CONFLICTING_PARAMETERS`) beside `ids`, and its refusal's message reads "Must be sent alone: it sets the lines, the accounts, the dates and the assignment itself."
-```
-
-It is the ask for reading several bank lines at once, shipped. One live test fails on it:
-`test_a_reconciliations_lines_list_in_the_statement_order` expects `sort=date_asc` beside
-`reconciliation_id` to be refused, which the engine now takes.
-
-- **A.** Ask the engine coders for one hand-off file from `592f2467fa3df75a` to `872eff6cfffc787a`; catching up becomes the next spec (the flagged lines screen reads its lines in one call, the live test follows the contract).
-- **B.** Not now: the loop stays stopped until you choose.
-
-**Recommended:** A, because it is small, it is your own ask landing, and every spec's acceptance check waits on it.
+**Recommended:** none: only you can ask for it.
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
