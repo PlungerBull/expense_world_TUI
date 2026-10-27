@@ -160,43 +160,38 @@ None open.
 
 ## Tasks
 
-Drafted 2026-10-27, waiting on the owner's approval. Tasks 3 and 4 wait on task 1's mockup being
-picked.
+Approved by the owner on 2026-10-27. The screens of tasks 3 and 4 are picked in
+[expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
+screens 1 to 4 as drawn, 5 A and 6 A.
 
-1. **Mockup of the screens not yet drawn (orchestrator).** The preview of an upload (a card and
-   an account statement, matched, new and empty rows, near misses, lines taken out, each half's
-   balances); a refused upload; the screen after it is written; a closed statement's screen in
-   the paper's order, its opening balance apart; and, as questions drawn as panes: what the
-   statement screen keeps on an account with a statement code, where ticking and completing by
-   hand can no longer close a month; and what a drop of several PDFs, or a PDF beside a bank
-   download, does. Parks until the owner picks.
-   *Passes if:* the mockup is in [mockups/](../mockups/), linked from this spec, every pane
-   drawn from the live contract's answer (contract: POST /v1/reconciliations/import), and each
-   open choice is a lettered pane with a recommendation.
-2. **The live tests of the upload (builder).** A made-up statement PDF built by the tests (never
-   a real one), a card's and an account's; then dry run and apply, every refusal the contract
-   lists that a made-up file can provoke (the future-dated line's words among them), a replay
-   answering once, and the same paper after a revert creating nothing.
-   *Passes if:* the live suite runs them green against the practice engine; no real statement
-   enters the repo; and if the engine cannot read a made-up PDF built from the contract's
-   description, the builder stops and reports what is missing, which becomes an engine ask.
-3. **The upload in the app (builder, after task 1's pick).** A PDF dropped on the LOG bar (A1),
+3. **The upload in the app (builder).** A PDF dropped on the LOG bar (A1),
    its account (A2), the preview, the apply, the screen after it and each refusal in the
-   engine's words, as the mockup is picked; the upload's request built in one shared home beside
+   engine's words (screens 1 to 3), several files dropped together going one by one, each its
+   own way (6 A); the upload's request built in one shared home beside
    the bank download's ([flow.py](../../expense/bank_import/flow.py)).
    *Passes if:* unit tests drive each screen's happy path and each refusal against the fake
    engine; a dry run writes nothing and `esc` on the preview sends nothing; one idempotency key
    per apply; tui.md says what the screens do.
-4. **The statement screen after a close (builder, after task 1's pick).** A statement's lines in
+4. **The statement screen after a close (builder).** A statement's lines in
    the paper's order (contract: GET /v1/bank-lines, "Ordering"), its opening balance apart;
-   editing a line opens the ledger's Edit form; and what the picked pane decides for ticking and
-   completing on an account with a statement code.
-   *Passes if:* unit tests pin the order, the opening balance's place, the Edit form opening and
-   the picked keys; tui.md says so.
+   editing a line opens the ledger's Edit form; and an open statement on an account with a
+   statement code waiting for its PDF, with no ticking and no `c` (5 A); screen 4.
+   *Passes if:* unit tests pin the order, the place-less lines listed apart, the Edit form
+   opening and the keys of 5 A, and an account with no statement code keeping its tick-list;
+   tui.md says so.
 5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) no
    longer says "no PDF"; [commands.md](../commands.md) and [runtime.md](../runtime.md) follow if
    they name the bank files the app takes.
    *Passes if:* no doc says the app takes no PDF, and each fact has one home.
+6. **The card's live tests (builder), waiting on the engine ask "Publish one made-up sample
+   statement PDF per paper, so every client can test the statement upload".** The savings
+   paper's live tests are done; a made-up card paper is refused, since the contract does not
+   print its column header. Once the samples land: a card's two halves closed by one paper,
+   the empty dollar half, the undated fee lines, `NO_ACCOUNT_FOR_CURRENCY` for the card's
+   other currency, and the suite's own probed copy of the savings layout replaced by the
+   published sample or layout.
+   *Passes if:* those live tests run green against the practice engine, built from what the
+   engine publishes, with no real statement in the repo.
 
 ## Reply to the engine
 

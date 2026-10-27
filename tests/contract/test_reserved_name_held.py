@@ -31,11 +31,10 @@ and the key it names:
     names both keys and no order between them (contract: POST /v1/transactions/import);
   · POST /v1/transactions/import-sheet, the apply of a made-up sheet whose row is an
     account's opening balance, on `rows.<row>.category_id`
-    (contract: POST /v1/transactions/import-sheet).
-
-Not drawn here: POST /v1/reconciliations/import (contract: POST /v1/reconciliations/import),
-which reads a BCP statement PDF, checks it against the totals it prints, and refuses anything
-else before a row is filed; no made-up statement PDF exists in this repo yet.
+    (contract: POST /v1/transactions/import-sheet);
+  · POST /v1/reconciliations/import, the apply of a made-up savings statement PDF
+    (`savings_paper` in conftest.py) whose row is new, which needs both, on `category_id`
+    or `hashtag_ids`, whichever it needs first (contract: POST /v1/reconciliations/import).
 
 After each refusal, nothing was written: the account's transaction count, the bank line or
 transaction it would have changed, and the user's categories and hashtags read as before.
@@ -56,9 +55,13 @@ from expense.bank_line_write import line_body, new_part
 from expense.http import ExpenseClient
 from expense.import_.engine import request_body
 from tests.contract.conftest import (
+    PaperRow,
     Scratch,
     assert_refusal,
+    free_statement_codes,
     refused,
+    savings_paper,
+    send_statement,
     sheet_file,
     sheet_row,
     workbook,
@@ -267,3 +270,24 @@ def test_a_sheet_creating_an_opening_balance_is_refused(reserved_client, made):
         lambda: reserved_client.post("/transactions/import-sheet", json_body=body),
         "rows.2.category_id",
     )
+
+
+def test_a_statement_pdf_creating_a_row_is_refused(reserved_client, made):
+    code = free_statement_codes(reserved_client, 1)[0]
+    account = made.account("PEN", code)
+    paper = savings_paper(
+        [PaperRow(date(2026, 5, 4), "CONTRACT RESERVED", AMOUNT)],
+        start=date(2026, 5, 1),
+        end=date(2026, 5, 31),
+        before_cents=10000,
+    )
+    dry = send_statement(reserved_client, account, paper, dry_run=True)
+    assert [row["outcome"] for row in dry["rows"]] == ["new"]
+    _refused_writing_nothing(
+        reserved_client,
+        account,
+        lambda: send_statement(reserved_client, account, paper, dry_run=False),
+        "category_id",
+        "hashtag_ids",
+    )
+    assert reserved_client.get("/reconciliations", params={"account_id": account})["items"] == []

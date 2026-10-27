@@ -41,14 +41,16 @@ and answer them there.
 **Recommended:** approve it with 1 B (drop `c` only) and 2 B (oldest first), after the sheet
 import and the PDF specs.
 
-### Approve the PDF spec's tasks
-Asked 2026-10-27 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
+### Hand over the ask for sample statement PDFs
+Asked 2026-10-27 · Blocks: task 6 of [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
-The spec is approved and current, every question answered. Its five tasks are drafted in its
-"Tasks" section: a mockup of the screens not yet drawn, the live tests of the upload, the upload
-in the app, the statement screen after a close, and the docs. Approve them or change them.
+The live tests can make up a savings statement the engine reads, but not a card's: the engine
+needs one exact line of column headings that its published rules never print. The ask
+[to-engine/sample-statement-pdfs.md](to-engine/sample-statement-pdfs.md) asks the engine coders
+for one made-up sample PDF per kind of statement, and for the exact layout. Copy it into the
+engine repo's `docs/from-tui/` and say when it is done.
 
-**Recommended:** approve them as drafted.
+**Recommended:** hand it over now; tasks 3 to 5 do not wait on it.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
@@ -194,8 +196,7 @@ ships (its why moves to [decisions.md](decisions.md)).
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: the current spec, its tasks waiting for
-  the owner's approval
+- **A month's statement closes from the bank's PDF**: the current spec
   ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import), every question
   answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). The

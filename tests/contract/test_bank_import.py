@@ -50,6 +50,7 @@ from tests.contract.conftest import (
     refused,
     replace_parts,
     send_download,
+    transaction_count,
 )
 
 TITLE = "DLC*RIDES LIMA PE"
@@ -57,10 +58,6 @@ TITLE = "DLC*RIDES LIMA PE"
 
 def _code() -> str:
     return f"OP{uuid4().hex[:10]}"
-
-
-def _count(client, account_id: str) -> int:
-    return client.get("/transactions/count", params={"account_id": account_id})["count"]
 
 
 def _noon(zone: ZoneInfo, month: int, day: int) -> str:
@@ -82,13 +79,6 @@ def _post(scratch, account: str, month: int, day: int, amount: int, **fields) ->
         },
     )
     return tx_id
-
-
-def _written(scratch, answer: dict) -> list[str]:
-    """The transactions an apply created, cleaned up with the scratch."""
-    ids = [row["transaction_id"] for row in answer["rows"] if row["transaction_id"]]
-    scratch.transactions.extend(ids)
-    return ids
 
 
 def _completed(scratch, account: str, anchor: str, start: str, end: str, ending: int) -> str:
@@ -136,16 +126,16 @@ def test_the_apply_writes_what_the_dry_run_showed_and_the_same_file_then_matches
     assert (dry["rows"][1]["amount_cents"], dry["rows"][1]["transaction_type"]) == (651900, 2)
     assert first["operation_code"] == code and first["transaction_id"] is None
     assert dry["counts"]["new"] == 2
-    assert _count(client, account) == 0
+    assert transaction_count(client, account) == 0
 
     applied = send_download(client, account, rows, dry_run=False)
-    made = _written(scratch, applied)
+    made = scratch.took(applied)
     shown = ("row", "account_id", "date", "amount_cents", "transaction_type", "title", "outcome")
     assert [{k: r[k] for k in shown} for r in applied["rows"]] == [
         {k: r[k] for k in shown} for r in dry["rows"]
     ]
     assert applied["counts"] == dry["counts"]
-    assert len(made) == 2 and _count(client, account) == 2
+    assert len(made) == 2 and transaction_count(client, account) == 2
     written = client.get(f"/transactions/{made[0]}")
     assert (written["operation_code"], written["title"]) == (code, TITLE)
 
@@ -156,7 +146,7 @@ def test_the_apply_writes_what_the_dry_run_showed_and_the_same_file_then_matches
     assert only["retitled"] is False
     assert again["counts"]["retitled"] == 0
     assert again["day_mismatches"] == []
-    assert _count(client, account) == 2
+    assert transaction_count(client, account) == 2
 
 
 def test_a_cards_download_lands_each_currency_on_its_own_account(scratch):
@@ -180,7 +170,7 @@ def test_a_cards_download_lands_each_currency_on_its_own_account(scratch):
     ]
     for dry_run in (True, False):
         answer = send_download(client, soles, rows, dry_run=dry_run)
-        made = _written(scratch, answer)  # cleaned up whatever the checks below find
+        made = scratch.took(answer)  # cleaned up whatever the checks below find
         assert [(r["row"], r["account_id"], r["outcome"]) for r in answer["rows"]] == [
             (2, soles, "new"),
             (3, dollars, "new"),
@@ -190,7 +180,7 @@ def test_a_cards_download_lands_each_currency_on_its_own_account(scratch):
     assert sorted((t["account_id"], t["amount_cents"]) for t in landed) == sorted(
         [(soles, -4900), (dollars, -2117), (soles, -420)]
     )
-    assert (_count(client, soles), _count(client, dollars)) == (2, 1)
+    assert (transaction_count(client, soles), transaction_count(client, dollars)) == (2, 1)
 
 
 def test_a_row_of_zero_is_skipped_and_never_written(scratch):
@@ -203,7 +193,7 @@ def test_a_row_of_zero_is_skipped_and_never_written(scratch):
     ]
     for dry_run in (True, False):
         answer = send_download(client, account, rows, dry_run=dry_run)
-        _written(scratch, answer)  # cleaned up whatever the checks below find
+        scratch.took(answer)  # cleaned up whatever the checks below find
         skipped, new = answer["rows"]
         assert (skipped["row"], skipped["outcome"]) == (2, "skipped")
         assert (skipped["amount_cents"], skipped["transaction_type"]) == (0, None)
@@ -211,7 +201,7 @@ def test_a_row_of_zero_is_skipped_and_never_written(scratch):
         assert new["outcome"] == "new"
         assert (answer["counts"]["skipped"], answer["counts"]["new"]) == (1, 1)
         assert answer["day_mismatches"] == []
-    assert _count(client, account) == 1
+    assert transaction_count(client, account) == 1
 
 
 def test_a_future_dated_row_is_refused_naming_its_row(scratch):
@@ -230,7 +220,7 @@ def test_a_future_dated_row_is_refused_naming_its_row(scratch):
         err = refused(lambda dry_run=dry_run: send_download(client, account, rows, dry_run=dry_run))
         assert_refusal(err, 422, "VALIDATION_ERROR", "rows.3.date", "FUTURE_DATE")
         assert err.fields["rows.3.date"] == "Row 3: Must not be in the future."
-    assert _count(client, account) == 0
+    assert transaction_count(client, account) == 0
 
 
 def test_a_leftover_ledger_line_is_reported_on_its_day(scratch):
@@ -323,7 +313,7 @@ def test_a_row_inside_a_completed_period_comes_back_sealed(scratch):
     assert only["sealed_by"] == period
     assert only["transaction_id"] is None
     assert body["counts"]["sealed"] == 1
-    assert _count(client, account) == 1  # the anchor only
+    assert transaction_count(client, account) == 1  # the anchor only
 
 
 def test_a_code_matched_line_moves_every_part_to_the_banks_day(scratch):
@@ -372,7 +362,7 @@ def test_a_completed_reconciliation_stops_the_move_and_the_rest_imports(scratch)
     ]
     for dry_run in (True, False):
         body = send_download(client, account, rows, dry_run=dry_run)
-        made = _written(scratch, body)  # cleaned up whatever the checks below find
+        made = scratch.took(body)  # cleaned up whatever the checks below find
         stopped, new = body["rows"]
         assert stopped["outcome"] == "matched" and stopped["rule"] == "operation_code"
         assert stopped["redated"] is False
@@ -384,5 +374,5 @@ def test_a_completed_reconciliation_stops_the_move_and_the_rest_imports(scratch)
         assert body["counts"]["redated"] == 0
         assert _day_of(client, zone, reconciled).date().isoformat() == "2026-02-27"
     # the stopped move is not an error: the file's other row is written
-    assert len(made) == 1 and _count(client, account) == 2
+    assert len(made) == 1 and transaction_count(client, account) == 2
     assert read_signed(client, made[0])["amount_cents"] == -1000

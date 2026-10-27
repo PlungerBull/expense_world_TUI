@@ -15,6 +15,7 @@ import os
 import random
 from collections.abc import Iterable
 from contextlib import ExitStack
+from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -59,6 +60,11 @@ def read_signed(client: ExpenseClient, tx_id: str) -> dict:
     be compared or sent back as is: write responses carry the magnitude and
     `transaction_type` (contract: "Base Conventions", "Sign convention — responses")."""
     return client.get(f"/transactions/{tx_id}", params={"debit_as_negative": "true"})
+
+
+def transaction_count(client: ExpenseClient, account_id: str) -> int:
+    """The account's live transactions, as `GET /transactions/count` counts them."""
+    return client.get("/transactions/count", params={"account_id": account_id})["count"]
 
 
 def live_ids(client: ExpenseClient, account_id: str) -> set[str]:
@@ -387,6 +393,220 @@ def sheet_file(rows: list[list]) -> bytes:
     return base64.b64decode(workbook([SHEET_HEADER, *rows]))
 
 
+# ---- made-up statement PDFs ----
+#
+# The contract names what a BCP paper holds, in words (contract: POST /v1/reconciliations/import,
+# "The paper"). Where each thing sits on the page it does not state: the layout below is what
+# the engine's dry-run answers show it reads, learnt from the page, line and cell its
+# `UNEXPECTED_LAYOUT` messages name. The engine ask "Publish one made-up sample statement PDF
+# per paper, so every client can test the statement upload" asks for it to be stated.
+
+#: Every character of a made-up paper is Courier, whose characters are all one width, at
+#: this size, so a line is a row of character cells: the engine's answers show it reads a
+#: savings account's paper as such a grid, each of its columns a range of cells.
+_PDF_FONT_SIZE = 7
+#: Where the cells start, how far apart two lines print (closer lines read as one), and the
+#: page's top and bottom margins, all in points.
+_PDF_LEFT = 20
+_PDF_LINE = 15
+_PDF_MARGIN = 40
+
+
+def _pdf_text(text: str) -> bytes:
+    """`text` as a PDF string literal's bytes, its delimiters escaped."""
+    escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return escaped.encode("latin-1")
+
+
+def pdf_file(pages: list[list[list[tuple[str, float]]]]) -> bytes:
+    """A made-up PDF of `pages`, each a list of lines from the top down, each line its
+    layers: `(text, rise)`, `text` printed from the first cell of the grid, `rise` points
+    above the line's baseline. Every page is as tall as its lines need. Never one of the
+    owner's real statements: this repo is public."""
+    objects: list[bytes] = [
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>",
+        b"",  # the page tree, written once its pages are numbered
+    ]
+    kids: list[int] = []
+    for lines in pages:
+        height = 2 * _PDF_MARGIN + _PDF_LINE * len(lines)
+        ops = []
+        for index, layers in enumerate(lines):
+            baseline = height - _PDF_MARGIN - _PDF_LINE * index
+            for text, rise in layers:
+                if text.strip():
+                    at = str(baseline + rise).encode()
+                    ops.append(
+                        b"BT /F1 %d Tf %d %s Td (%s) Tj ET"
+                        % (_PDF_FONT_SIZE, _PDF_LEFT, at, _pdf_text(text))
+                    )
+        stream = b"\n".join(ops)
+        objects.append(b"<< /Length %d >>\nstream\n%s\nendstream" % (len(stream), stream))
+        objects.append(
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 %d] "
+            b"/Resources << /Font << /F1 1 0 R >> >> /Contents %d 0 R >>" % (height, len(objects))
+        )
+        kids.append(len(objects))
+    objects[1] = b"<< /Type /Pages /Kids [%s] /Count %d >>" % (
+        b" ".join(b"%d 0 R" % kid for kid in kids),
+        len(kids),
+    )
+    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    out += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    out += b"trailer\n<< /Size %d /Root %d 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        len(objects),
+        xref,
+    )
+    return bytes(out)
+
+
+def _cells(*placed: tuple[int, str]) -> str:
+    """One line of the grid: each `(cell, text)` written from that cell on."""
+    line = ""
+    for cell, text in placed:
+        line = line.ljust(cell)
+        line = line[:cell] + text + line[cell + len(text) :]
+    return line
+
+
+def _ending(cell: int, text: str) -> tuple[int, str]:
+    """`text` placed so that its last character falls in `cell`: an amount, right-aligned."""
+    return cell - len(text) + 1, text
+
+
+#: A savings account's paper, as its cells, as the engine's answers show it reads them (the
+#: contract does not state them): the processing date, the value date, the description (up to
+#: `_TEXT_WIDTH` characters), and the amount, out ending in `_OUT_END` or in ending in
+#: `_IN_END`. The engine reads the header word for word, and the totals line's amounts only
+#: under its `CARGOS` and `ABONOS`, so they end in the same cells.
+_PROCESSED, _VALUED, _TEXT, _TEXT_WIDTH, _OUT_END, _IN_END = 14, 20, 26, 18, 67, 86
+_SAVINGS_HEADER = _cells(
+    (0, "FECHA PROC."),
+    (12, "FECHA VALOR"),
+    (_TEXT, "DESCRIPCION"),
+    _ending(_OUT_END, "CARGOS / DEBE"),
+    _ending(_IN_END, "ABONOS / HABER"),
+)
+#: How far above its label, in points, a totals line's amounts print. The engine's answers
+#: show it reads the label standing alone on its line and the amounts beside it a little off
+#: its baseline; on the label's own baseline they join its line, and the label does not read.
+#: The contract does not state it.
+_BESIDE = 3
+_MONTHS = ("ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SET", "OCT", "NOV", "DIC")
+_SAVINGS_CURRENCIES = {"PEN": ("Soles", "SOLES"), "USD": ("Dolares", "US DOLARES")}
+
+
+def paper_amount(cents: int) -> str:
+    """`cents` as the paper prints an amount, unsigned: `1,234.50`."""
+    whole, part = divmod(abs(cents), 100)
+    return f"{whole:,}.{part:02d}"
+
+
+def paper_day(day: date) -> str:
+    """`day` as a row of the paper prints it: `05MAR`."""
+    return f"{day.day:02d}{_MONTHS[day.month - 1]}"
+
+
+@dataclass(frozen=True)
+class PaperRow:
+    """One row of a made-up savings paper: its day (its processing and value date both), its
+    description, and its amount in cents, signed: negative out (`CARGOS`), positive in
+    (`ABONOS`), `0` a row of `0.00`, printed in the out column."""
+
+    day: date
+    description: str
+    amount_cents: int
+
+
+def savings_paper(
+    rows: list[PaperRow],
+    *,
+    start: date,
+    end: date,
+    before_cents: int,
+    currency: str = "PEN",
+    closing_cents: int | None = None,
+    rows_per_page: int = 40,
+) -> bytes:
+    """A made-up BCP savings account statement (`Estado de Cuenta de Ahorros`) in
+    `currency`, over `start` to `end`, holding what the contract says such a paper holds
+    (contract: POST /v1/reconciliations/import, "The paper"): its previous balance
+    `before_cents` (`SALDO ANTERIOR`), its `rows` out (`CARGOS`) and in (`ABONOS`) in paper
+    order, and its closing balance (`SALDO`). Its totals out and in and its closing balance
+    are the rows' own, so it reads; `closing_cents` prints another closing balance, which
+    the rows do not add up to. Laid out as the comments above say, `rows_per_page` to a
+    page: every page carries the title, the currency, the period, its `n DE m`, the header
+    and the totals' labels (`TOTAL MOVIMIENTO`, `SALDO`), whose amounts print on the last
+    page only. Never one of the owner's real statements: this repo is public; every name and
+    number in it is made up by the test."""
+    assert all(len(row.description) <= _TEXT_WIDTH for row in rows), "a description too long"
+    out = sum(-row.amount_cents for row in rows if row.amount_cents < 0)
+    into = sum(row.amount_cents for row in rows if row.amount_cents > 0)
+    closing = before_cents + into - out if closing_cents is None else closing_cents
+    word, printed = _SAVINGS_CURRENCIES[currency]
+    period = f"DEL {start:%d/%m/%y} AL {end:%d/%m/%y}"
+    chunks = [rows[i : i + rows_per_page] for i in range(0, len(rows), rows_per_page)] or [[]]
+    pages = []
+    for number, chunk in enumerate(chunks, start=1):
+        last = number == len(chunks)
+        lines = [
+            _cells((80, f"{number} DE {len(chunks)}")),
+            f"Estado de Cuenta de Ahorros {word}",
+            "MONEDA",
+            printed,
+            period,
+            _SAVINGS_HEADER,
+        ]
+        if number == 1:
+            lines.append(
+                _cells((_TEXT, "SALDO ANTERIOR"), _ending(_IN_END, paper_amount(before_cents)))
+            )
+        for row in chunk:
+            end_cell = _IN_END if row.amount_cents > 0 else _OUT_END
+            lines.append(
+                _cells(
+                    (_PROCESSED, paper_day(row.day)),
+                    (_VALUED, paper_day(row.day)),
+                    (_TEXT, row.description),
+                    _ending(end_cell, paper_amount(row.amount_cents)),
+                )
+            )
+        totals = _cells(_ending(_OUT_END, paper_amount(out)), _ending(_IN_END, paper_amount(into)))
+        balance = _cells(_ending(_IN_END, paper_amount(closing)))
+        lines += [
+            "",
+            [(_cells((_TEXT, "TOTAL MOVIMIENTO")), 0), (totals if last else "", _BESIDE)],
+            [(_cells((_TEXT, "SALDO")), 0), (balance if last else "", _BESIDE)],
+        ]
+        pages.append([[(line, 0)] if isinstance(line, str) else line for line in lines])
+    return pdf_file(pages)
+
+
+def statement_body(account_id: str, paper: bytes, *, dry_run: bool) -> dict:
+    """The `POST /reconciliations/import` body for `paper`: exactly its three keys, the
+    file in standard base64 (contract: POST /v1/reconciliations/import)."""
+    return {
+        "dry_run": dry_run,
+        "account_id": account_id,
+        "file": base64.b64encode(paper).decode("ascii"),
+    }
+
+
+def send_statement(client: ExpenseClient, account_id: str, paper: bytes, *, dry_run: bool) -> dict:
+    """`paper` sent whole as `account_id`'s statement; the engine's answer."""
+    return client.post(
+        "/reconciliations/import", json_body=statement_body(account_id, paper, dry_run=dry_run)
+    )
+
+
 def account_body(currency: str = "PEN", code: str | None = None) -> dict:
     """A `POST /accounts` body under a fresh id, with `statement_code` when given."""
     new_id = str(uuid4())
@@ -558,6 +778,19 @@ class Scratch:
         if recon is not None:
             self.assign(made["bank_line_id"], recon)
         return made["bank_line_id"]
+
+    def took(self, answer: dict) -> list[str]:
+        """Takes on what an upload's answer says it wrote, a bank download's
+        (`send_download`) or a statement's (`send_statement`): every transaction it created
+        and, for a statement, every half it created or filled, so cleanup reverts and
+        deletes them. Sent on a dry run too, it takes on nothing. The created transactions'
+        ids, in row order."""
+        for half in answer.get("halves", []):
+            if half["reconciliation_id"] not in (None, *self.reconciliations):
+                self.reconciliations.append(half["reconciliation_id"])
+        created = [row["transaction_id"] for row in answer["rows"] if row["transaction_id"]]
+        self.transactions.extend(created)
+        return created
 
     def _quietly(self, call, path: str) -> dict | None:
         try:
