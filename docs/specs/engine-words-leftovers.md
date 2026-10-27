@@ -78,10 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-6. **The two mockups draw the complete question as the app asks it.**
-   `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html` in
-   [mockups/](../mockups/) are redrawn, or deleted with their links where they back no open work
-   (the rule in [todo.md](../todo.md) "Mockups that back no open work").
 7. **[UI] The two lists that draw their own tables show names whole too** (found in task 1; the
    spec's point 1 asks for every list). The reconciliation tick list's bank line title
    ([checklist.py](../../expense/tui/widgets/checklist.py)) and the LOG bar's staged table's
@@ -101,3 +97,8 @@ Not built in this spec; drafted into a new spec when it is done.
   [test_bank_line_write.py](../../tests/contract/test_bank_line_write.py) (around lines 233 and
   293) writes the refused-then-unchanged read that `_refused_unwritten` in
   test_bank_line_edit_limits.py now does; one shared step in the contract conftest. (Task 4.)
+- **A mockup draws an old revert question.** The "u · the question" pane of
+  `expense-world-card-statement.html` in [mockups/](../mockups/) reads "Unlocks their
+  transactions and balances. The order stays."; the app asks "Unlocks the assigned transactions
+  and this batch's balances." ([reconciliations.py](../../expense/tui/screens/reconciliations.py)).
+  (Task 6.)
