@@ -1433,9 +1433,14 @@ complete. When the answer names any, the app pushes a full screen right after th
 complete, `Reconciliations ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
 [reconciliations.py](../expense/tui/screens/reconciliations.py)); when it names none,
 nothing new shows. The engine names the lines only in that answer (a completed statement's
-`GET /bank-lines?unassigned_in_period_of=` lists none), so the screen reads each by its id
-with `GET /bank-lines/{id}` (contract: GET /v1/bank-lines/{bank_line_id}), through
-`reads.fetch_live_bank_lines`, which leaves out a line the engine answers `404` for. It
+`GET /bank-lines?unassigned_in_period_of=` lists none), so the screen reads them by those
+ids in one list read, `GET /bank-lines?ids=…&sort=date_asc` with a `limit` covering them,
+through `reads.fetch_bank_lines_by_ids` in [reads.py](../expense/reads.py), built on
+`fetch_bank_lines`; it reads no line by its id. The engine leaves out a line it no longer
+has (contract: GET /v1/bank-lines, "Left out, never refused"). One read takes at most 200
+ids (contract: GET /v1/bank-lines, "At most 200 ids") and the contract states no bound on
+how many lines a close flags, so more than 200 ids are read 200 at a time, in the order the
+close sent them, each read's lines after the one before. The screen
 reads `<statement> is completed. 3 lines dated up to its last day are in no statement.`,
 the count and the rest of that sentence in the warning colour (`1 line dated up to its
 last day is in no statement.` for one), then three dim lines, the three choices the
@@ -1444,10 +1449,12 @@ contract gives
 `For each: if it belongs to this statement, revert, tick it, complete again.`,
 `If it belongs to a later statement, leave it: tick it there when it comes.` and
 `If it is a mistake, open it to fix it, or delete it.` Under them, the lines in one list,
-`Date · Account · Title · Amount`, both halves together, oldest first by the line's day:
-each line's day, title and signed `net_cents` through `bank_line_columns`, sign-coloured as
-in every bank-line list, and its account by name, on a statement of one account too. The
-footer reads `esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
+`Date · Account · Title · Amount`, both halves together, in the engine's order: oldest
+first (contract: GET /v1/bank-lines, "Ordering"), within each read of 200 when there are
+more; the app sorts nothing itself. Each row shows the line's day, title and signed
+`net_cents` through `bank_line_columns`, sign-coloured as in every bank-line list, and its
+account by name, on a statement of one account too. The footer reads
+`esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
 the ledger's Edit form (`EditFormScreen`, which reads the line by its id), crumb
 `… ▸ Flagged ▸ Edit`; `d` asks the "no batch" list's question and deletes as it does
 (`ask_line_delete`; "`d` is the TUI's one destructive key" above). After a save or a

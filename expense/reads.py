@@ -260,66 +260,82 @@ def fetch_bank_line(cfg, bank_line_id: str, *, verbose: bool = False) -> dict:
     return fetch_body(cfg, path=f"/bank-lines/{bank_line_id}", params=None, verbose=verbose)
 
 
-def fetch_live_bank_lines(cfg, ids: Iterable[str], *, verbose: bool = False) -> list[dict]:
-    """Each bank line `ids` names that the engine still has, in the order given:
-    one `fetch_bank_line` each. A `404` is a line no longer live, deleted whole
-    or by its last part (contract: GET /v1/bank-lines/{bank_line_id}), and is
-    left out; any other failure is raised.
-
-    Read by the flagged lines' screen: a complete names the lines it flagged
-    for review by id alone, and once it is done no list names them again
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
-    """
-    lines = []
-    for bank_line_id in ids:
-        try:
-            lines.append(fetch_bank_line(cfg, bank_line_id, verbose=verbose))
-        except EngineError as err:
-            if err.status != 404:
-                raise
-    return lines
-
-
 def fetch_bank_lines(
     cfg,
     *,
+    ids: Iterable[str] | None = None,
     account: str | None = None,
     reconciliation: str | None = None,
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
+    sort: str | None = None,
     after: str | None = None,
     limit: int | None = None,
     verbose: bool = False,
 ) -> dict:
     """GET /v1/bank-lines → the raw engine body: one row per bank line, each
-    the shape `fetch_bank_line` reads, newest first (contract: GET /v1/bank-lines).
+    the shape `fetch_bank_line` reads (contract: GET /v1/bank-lines).
 
     Read by the reconciliation batch screen and the "no batch" list, which list
-    a purchase as one row and never half of it. Each filter applies to a whole
-    line. Cursor-paged like `fetch_transactions`, with `limit` counting lines,
-    but it takes no `sort`, no `search` and no `debit_as_negative`: the engine
-    refuses any parameter it does not list, and `net_cents` is signed already.
+    a purchase as one row and never half of it, and through
+    `fetch_bank_lines_by_ids` by the flagged lines' screen. Each filter applies
+    to a whole line; `ids` lists the lines among those bank line ids, sent
+    comma-joined (contract: GET /v1/bank-lines, "Filters"). `sort` is
+    `date_desc` (newest first, the engine's default when none is sent),
+    `date_asc` or `statement` (contract: GET /v1/bank-lines, "Ordering").
+    Cursor-paged like `fetch_transactions`, with `limit` counting lines, but it
+    takes no `search` and no `debit_as_negative`: the engine refuses any
+    parameter it does not list, and `net_cents` is signed already.
     """
     return fetch_body(
         cfg,
         path="/bank-lines",
         params={
             **_line_filter_params(
+                ids=ids,
                 account=account,
                 reconciliation=reconciliation,
                 unreconciled=unreconciled,
                 date_from=date_from,
                 date_to=date_to,
             ),
-            **query_params(after=after, limit=limit),
+            **query_params(sort=sort, after=after, limit=limit),
         },
         verbose=verbose,
     )
 
 
+def fetch_bank_lines_by_ids(
+    cfg, ids: Iterable[str], *, sort: str | None = None, verbose: bool = False
+) -> list[dict]:
+    """The live bank lines among `ids`, through `fetch_bank_lines`: one read per
+    200 ids, the most one read takes, each with a `limit` of its own ids so every
+    line it names fits on its one page (contract: GET /v1/bank-lines, "At most
+    200 ids"). An id naming no live line (deleted, unknown) is left out, never
+    refused (contract: GET /v1/bank-lines, "Left out, never refused").
+
+    Each read lists its lines in `sort`'s order, never in the order the ids are
+    sent (contract: GET /v1/bank-lines, "Ordering"). The reads go in the order
+    `ids` gives, and their answers are joined in that order, so the result is in
+    `sort`'s order only within each read of 200.
+
+    Read by the flagged lines' screen: a complete names the lines it flagged for
+    review by id alone, with no bound on how many
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+    """
+    ids = list(ids)
+    lines: list[dict] = []
+    for start in range(0, len(ids), ENGINE_PAGE_CAP):
+        chunk = ids[start : start + ENGINE_PAGE_CAP]
+        body = fetch_bank_lines(cfg, ids=chunk, sort=sort, limit=len(chunk), verbose=verbose)
+        lines.extend(items_of(body))
+    return lines
+
+
 def _line_filter_params(
     *,
+    ids: Iterable[str] | None,
     account: str | None,
     reconciliation: str | None,
     unreconciled: bool,
@@ -327,8 +343,10 @@ def _line_filter_params(
     date_to: str | None,
 ) -> dict:
     """The filters `GET /bank-lines` and `/bank-lines/count` share — one copy,
-    so the list and its count describe the same lines (contract: GET /v1/bank-lines/count)."""
+    so the list and its count describe the same lines (contract: GET /v1/bank-lines/count).
+    `ids` goes comma-joined, as the engine reads it."""
     return query_params(
+        ids=None if ids is None else ",".join(ids),
         account_id=account,
         reconciliation_id=reconciliation,
         unreconciled=unreconciled,
@@ -340,6 +358,7 @@ def _line_filter_params(
 def count_bank_lines(
     cfg,
     *,
+    ids: Iterable[str] | None = None,
     account: str | None = None,
     reconciliation: str | None = None,
     unreconciled: bool = False,
@@ -358,6 +377,7 @@ def count_bank_lines(
         cfg,
         path="/bank-lines/count",
         params=_line_filter_params(
+            ids=ids,
             account=account,
             reconciliation=reconciliation,
             unreconciled=unreconciled,

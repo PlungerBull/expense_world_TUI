@@ -932,9 +932,10 @@ the statement, a `⚑` line under the header and `f` open the list again while f
 left (contract: POST /v1/reconciliations/{reconciliation_id}/complete). The owner picked 1 A in
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
 Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
-lines a close flags. (2) **The screen reads each flagged line by its id**, one call per line,
-because the engine names them only in the close's answer; the engine ask "The bank-line list
-reads several lines by their ids in one call" makes it one call. (3) **A card's other account is
+lines a close flags. (2) **The screen reads the flagged lines by their ids in one list call**,
+oldest first in the engine's order, because the engine names them only in the close's answer
+(contract: GET /v1/bank-lines, "Filters"); the close states no bound on how many it flags while
+`ids` takes at most 200, so more are read 200 at a time in the close's order. (3) **A card's other account is
 the engine's `statement_partner_id`** everywhere the app pairs a card (the import door's account
 list, Reconciliations), never a match of statement codes (contract: GET /v1/accounts). (4) **An
 archived card account with no statement gets no column** on the card's statement list (owner,

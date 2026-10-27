@@ -1840,13 +1840,6 @@ FLAGGED_CHOICES = (
 _FLAGGED_HEADERS = ["Date", "Account", "Title", "Amount"]
 
 
-def flagged_order(lines: list[dict]) -> list[dict]:
-    """Both halves' flagged lines in one list, oldest first by the line's day:
-    the engine answers each half's oldest first, and a stable sort keeps that
-    order within a day."""
-    return sorted(lines, key=lambda line: bank_line_columns(line)[0])
-
-
 def flagged_rows(lines: list[dict], names: dict, palette: Palette | None = None) -> list:
     """One row per flagged line, in the order given: its day, its account by
     name, its title and its signed `net_cents`, as every bank line list shows
@@ -1896,11 +1889,12 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
 
     A complete names them by id alone, on each half
     (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"),
-    so the screen reads each by its id (`reads.fetch_live_bank_lines`), drops a
-    line the engine no longer has, and lists the rest oldest first, both halves
-    together: `Date · Account · Title · Amount`. `⏎` opens the line in the
-    ledger's Edit form, `d` deletes it after the delete question, and after
-    either the ids are read again. `esc` goes back to the statement, handing it
+    so the screen reads them by those ids, oldest first, both halves together
+    (`reads.fetch_bank_lines_by_ids`, `sort=date_asc`), and lists them in the
+    engine's order: `Date · Account · Title · Amount`. A line the engine no
+    longer has is left out of the read, so it drops from the list. `⏎` opens
+    the line in the ledger's Edit form, `d` deletes it after the delete
+    question, and after either the ids are read again. `esc` goes back to the statement, handing it
     the ids still flagged; with none left the screen goes back on its own.
     No `?`: the footer is its whole key list."""
 
@@ -1943,15 +1937,17 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
 
     @work(thread=True, exclusive=True, group="flagged-load")
     def _load(self) -> None:
-        """Each id still flagged, read by its id, and the accounts' names. A
-        failed read shows the engine's words and keeps what is listed."""
+        """The lines still flagged, read by their ids oldest first, and the
+        accounts' names. More than 200 ids are read 200 at a time, so the order
+        is oldest first within each read only (`reads.fetch_bank_lines_by_ids`).
+        A failed read shows the engine's words and keeps what is listed."""
         from expense import config as config_module
 
         worker = get_current_worker()
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            lines = reads.fetch_live_bank_lines(cfg, self._ids, **kw)
+            lines = reads.fetch_bank_lines_by_ids(cfg, self._ids, sort="date_asc", **kw)
             names = load_account_name_map()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
@@ -1959,13 +1955,15 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             return
         if worker.is_cancelled:
             return
-        call_while_attached(self, self._populate, flagged_order(lines), names)
+        call_while_attached(self, self._populate, lines, names)
 
     async def _populate(self, lines: list[dict], names: dict) -> None:
         """Paint a read, the cursor on row 1; with no line left, back to the
-        statement."""
+        statement. The ids still flagged keep the close's order, so the next
+        read splits them as the close sent them."""
         self._lines, self._names = lines, names
-        self._ids = [str(line.get("id")) for line in lines]
+        live = {str(line.get("id")) for line in lines}
+        self._ids = [line_id for line_id in self._ids if line_id in live]
         if not lines:
             self.dismiss(self._ids)
             return

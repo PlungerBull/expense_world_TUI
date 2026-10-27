@@ -1024,8 +1024,34 @@ def test_the_line_list_and_its_count_take_the_same_filters():
 
     from expense.reads import count_bank_lines, fetch_bank_lines
 
-    list_params = set(inspect.signature(fetch_bank_lines).parameters) - {"after", "limit"}
+    list_only = {"sort", "after", "limit"}
+    list_params = set(inspect.signature(fetch_bank_lines).parameters) - list_only
     assert list_params == set(inspect.signature(count_bank_lines).parameters)
+
+
+@respx.mock
+def test_bank_lines_by_ids_send_the_ids_comma_joined_with_a_limit_covering_them(configured):
+    """One `GET /bank-lines` with the ids comma-joined, the `sort` asked for and a
+    `limit` of exactly the ids sent; the answer's lines as the engine lists them
+    (contract: GET /v1/bank-lines, "At most 200 ids"). No id, no read."""
+    from expense import config as config_module
+    from expense.reads import fetch_bank_lines_by_ids
+
+    lines = [{"id": "l-b"}, {"id": "l-a"}]
+    route = respx.get(f"{BASE}/v1/bank-lines").mock(
+        return_value=httpx.Response(200, json={"items": lines, "limit": 3, "next_cursor": None})
+    )
+    cfg = config_module.ensure_loaded()
+    got = fetch_bank_lines_by_ids(cfg, ["l-a", "l-b", "l-gone"], sort="date_asc")
+    assert got == lines
+    assert route.call_count == 1
+    assert dict(route.calls.last.request.url.params) == {
+        "ids": "l-a,l-b,l-gone",
+        "sort": "date_asc",
+        "limit": "3",
+    }
+    assert fetch_bank_lines_by_ids(cfg, [], sort="date_asc") == []
+    assert route.call_count == 1
 
 
 @pytest.mark.parametrize(

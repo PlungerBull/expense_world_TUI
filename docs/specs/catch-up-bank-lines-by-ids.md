@@ -66,14 +66,6 @@ the engine's words, row number included.
 
 Approved by the owner on 2026-10-27.
 
-1. **The flagged lines come from one read.** The flagged lines' screen reads the ids the close
-   flagged with `GET /bank-lines?ids=…&sort=date_asc`, through the shared bank-line read in
-   [reads.py](../../expense/reads.py), on opening and after each edit or delete;
-   `fetch_live_bank_lines` and `flagged_order` go, with their tests. The contract states no
-   bound on how many lines a close flags (contract: POST
-   /v1/reconciliations/{reconciliation_id}/complete, "Response"), and `ids` takes at most 200,
-   so more than 200 ids are read 200 at a time, in the order the close sent them; the reply
-   names the gap. Unit tests cover one read, a line dropped after a delete, and a refused read.
 2. **The engine's current words for a future-dated row.** The unit tests' fake engines send
    "Row <n>: Must not be in the future." on an import row
    ([test_tui_bank_import.py](../../tests/unit/test_tui_bank_import.py),
