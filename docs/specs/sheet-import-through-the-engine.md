@@ -104,7 +104,8 @@ how many sheet rows its split lines come from", and the `(N rows)` shows once it
 
 Approved by the owner on 2026-10-26.
 
-Every task is done; the acceptance check runs next.
+Every task is done. The tester's acceptance check passed on 2026-10-27 at contract version
+`46e2fdf6e11d7548`, the real command run on made-up sheets; the doc sweep runs next.
 
 ## Reply to the engine
 
