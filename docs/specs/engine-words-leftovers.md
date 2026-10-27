@@ -78,11 +78,8 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-8. **A test pins a bracketed name on Home** (from the tester's acceptance check of 2026-10-26).
-   Home's balances show `BCP [like this]` whole in the app, but no unit test puts a bracketed
-   account name on Home ([home.py](../../expense/tui/screens/home.py) `home_options`); one does.
-   The acceptance check runs again after it, the contract version recorded at
-   `46e2fdf6e11d7548` on 2026-10-27.
+Every task is done; the acceptance check runs again, the contract version recorded at
+`46e2fdf6e11d7548` on 2026-10-27.
 
 ## Found along the way
 

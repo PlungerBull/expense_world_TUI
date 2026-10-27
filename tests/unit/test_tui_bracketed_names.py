@@ -3,15 +3,16 @@
 A plain cell is words, never content markup: `BCP [like this]` keeps its
 brackets, and a `[/]` or a lone `[` neither vanishes nor breaks the list. The
 app's own styled cells (`Text`: a swatch, a coloured amount, a mark) keep their
-styling. Pinned where the owner meets it: Manage ▸ Accounts, the ledger, the
-bank import's preview, the reconciliation tick list and the LOG bar's staged
-rows (mockup expense-world-bracketed-names.html).
+styling. Pinned where the owner meets it: Home's balances, Manage ▸ Accounts,
+the ledger, the bank import's preview, the reconciliation tick list and the LOG
+bar's staged rows (mockup expense-world-bracketed-names.html).
 """
 
 import re
 
 import pytest
 from rich.text import Text
+from textual.widgets import OptionList
 
 import expense.tui.screens.transactions as tx_mod
 from expense.reads import AccountIndex
@@ -21,6 +22,7 @@ from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cells import swatch
 from expense.tui.widgets.cursor_list import CursorList, list_table
 from tests.unit.helpers import (
+    HOME_DASHBOARD,
     bank_line_row,
     cursor_page,
     fake_ledger,
@@ -28,6 +30,7 @@ from tests.unit.helpers import (
     import_row,
     render_text,
     run_app,
+    stub_home_month,
     wait_for,
     wait_for_list,
     whole,
@@ -84,6 +87,32 @@ def test_the_apps_own_styled_cells_keep_their_styling():
         colour = render_text(built, ansi=True).split(glyph)[0]  # its escape, drawn alone
         assert colour and colour + glyph in shown, shown
     assert NAME in render_text(table, width=80)
+
+
+@pytest.mark.parametrize("words", BRACKETED)
+def test_home_shows_a_bracketed_balance_name_whole(monkeypatch, words):
+    """Home's balances: a bank account and a person as the engine holds them,
+    the balance after each where it was."""
+    account = {**HOME_DASHBOARD["bank_accounts"][0], "name": words}
+    person = {"id": "p1", "name": words, "currency_code": "PEN", "current_balance_cents": -150000}
+    dashboard = {
+        **HOME_DASHBOARD,
+        "bank_accounts": [account, *HOME_DASHBOARD["bank_accounts"][1:]],
+        "people": [person],
+    }
+    stub_home_month(monkeypatch, dashboard=dashboard)
+
+    async def scenario(pilot, app):
+        home = app.screen
+        await wait_for(pilot, lambda: home._data is not None)
+        await pilot.pause()
+        option_list = app.query_one(OptionList)
+        options = [option_list.get_option_at_index(i) for i in range(option_list.option_count)]
+        shown = {o.id: render_text(o.prompt, width=120).strip() for o in options if o.id}
+        for row_id, balance in (("account:a-pen", "5,145.82 PEN"), ("account:p1", "-1,500.00 PEN")):
+            assert re.split(r"\s{2,}", shown[row_id]) == [words, balance], shown[row_id]
+
+    run_app(scenario)
 
 
 def test_manage_accounts_shows_a_bracketed_name_whole(monkeypatch):

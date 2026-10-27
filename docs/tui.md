@@ -982,8 +982,8 @@ itself (a swatch, a coloured amount, a mark) is a `Text` it builds and is drawn 
 The bank import's preview builds its title as `Text` itself and the LOG bar's peek builds
 every cell as `Text`, and
 [test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py) pins a bracketed
-name in Manage ▸ Accounts, the ledger, the import preview, the tick list and the LOG bar's
-staged rows.
+name in Home's balances, Manage ▸ Accounts, the ledger, the import preview, the tick list
+and the LOG bar's staged rows.
 A toast whose message is not a fixed sentence of the app's goes through
 `toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
 title is always text. The one toast that styles the engine's words on purpose, the
