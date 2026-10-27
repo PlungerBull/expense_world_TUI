@@ -152,7 +152,8 @@ PDF's number, whether a flagged line stops the close, and how an account is name
 bank and number. The engine settled the first two (above); questions 7 and 8 below replace
 them.
 
-7. **Where you start the upload.**
+7. **Where you start the upload.** Both drawn in
+   [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html).
    - **A.** Drop the PDF into the import door, as a bank download: the door tells a PDF from an
      Excel file and asks which account it is, as it does today.
    - **B.** From the statement, on Reconciliations.

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Statement PDF upload</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>Closing a month from the bank's PDF · where the upload starts</h1>
+  <p>Question 7 of the PDF statement spec: where you start uploading a month's PDF. Both ways end on the same screen: the preview of what the upload would do, which is drawn later, once this is picked. Nothing is written before you confirm on the preview.</p>
+  <p>The example is a card statement; the names and file are invented. Use the button at the top right for a light terminal.</p>
+</div>
+<div class="qs"><h2>To pick</h2><p><b>A</b> or <b>B</b>.</p></div>
+
+<div class="pane"><div class="lbl">A · The import door <span>— drop the PDF on the LOG bar, as a bank download is dropped today</span></div>
+<p class="blurb">The PDF goes in where every other file from the bank goes in. The bar sees a PDF and says so; <code>⏎</code> asks which account it is, the same list a download gets.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">A1 · <span>the PDF dropped on the LOG bar</span><span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Home</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="d">… Home, as it is …</span>
+
+
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+  <span class="a">LOG</span>  /Users/me/Downloads/BCP\ Visa\ 1492\ 2026-10.pdf
+       <span class="a">statement PDF</span> <span class="d">· BCP Visa 1492 2026-10.pdf · ⏎ upload it</span>
+
+ <span class="d">esc Cancel  ⏎ Upload</span></pre></div></div><p class="cap">Dragging the file onto the terminal types its path, as it does for a download today.</p></div>
+<div class="var"><div class="oh">A2 · <span>⏎: which account is this statement?</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  <span class="b">Upload a statement</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this statement?  <span class="d">BCP Visa 1492 2026-10.pdf</span>
+
+<span class="rev">    Signature                   PEN + USD    </span>
+    Sueldo Soles                PEN
+    Cuenta Digital Dólares      USD
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">A card is one line, both currencies, as the download's list shows it. <code>⏎</code> goes to the preview.</p></div>
+</div></div>
+
+<div class="pane"><div class="lbl">B · From the statement <span>— on Reconciliations, a key on the account</span></div>
+<p class="blurb">You go to the account on Reconciliations first, so the account is already known; the app then asks for the file.</p>
+<div class="opt wide">
+<div class="var"><div class="oh">B1 · <span>Reconciliations, an account open: a new key</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  Reconciliations  ▸  <span class="b">Signature PEN</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Reconciliations · Signature PEN + Signature USD · SIG · <span class="d">oldest → newest</span>
+   <span class="d">──────────────────────────────────────────────────────────────────────────────────</span>
+    Name             Period                    Diff PEN   Diff USD   Status
+<span class="d">    Agosto 2026      2026-07-26 → 2026-08-25          —          —   completed</span>
+<span class="d">    Septiembre 2026  2026-08-26 → 2026-09-25          —          —   completed</span>
+<span class="rev">    Octubre 2026     2026-09-26 → 2026-10-25          —          —   draft       </span>
+
+ <span class="d">esc Close the panel  ⏎ Open  n New  </span><span class="ab">p Upload PDF</span><span class="d">  u No batch  ? Keys</span></pre></div></div><p class="cap"><code>p</code> uploads for the open account, whichever row the cursor is on: the engine finds the month from the paper.</p></div>
+<div class="var"><div class="oh">B2 · <span>p: where is the file?</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Reconciliations  ▸  Signature PEN  ▸  <span class="b">Upload</span>
+<span class="d">────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+  Upload a statement PDF · Signature PEN + Signature USD
+
+  FILE   /Users/me/Downloads/BCP\ Visa\ 1492\ 2026-10.pdf<span class="rev"> </span>
+         <span class="d">drop the PDF here, or type its path</span>
+
+ <span class="d">esc Cancel  ⏎ Upload</span></pre></div></div><p class="cap">The same drag of the file onto the terminal, into this field. <code>⏎</code> goes to the preview.</p></div>
+</div></div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>
