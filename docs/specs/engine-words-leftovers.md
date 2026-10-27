@@ -78,12 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-3. **The unit tests prove what they say.** Each toast of the owner's own typing (`No account
-   matches "…"`, `Nothing matches "…"`, System's invalid-URL and config-save toasts) is tested
-   with `[like this]` typed and shows it whole. The bulk edit's stop note is pinned with two or
-   more rows refused for their own reason before missing settings stop the run (`N of M
-   refused`), and the mid-run stop's test checks the receipt, the `Failed` note and that no
-   `Refused` note shows ([test_tui_bulk_edit.py](../../tests/unit/test_tui_bulk_edit.py)).
 4. **The live tests prove what they say.** The live `edit_limits` test reads each refused write
    back and finds it unwritten
    ([test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py)); a

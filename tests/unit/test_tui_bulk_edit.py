@@ -666,12 +666,29 @@ SETTINGS_MISSING_NOTE = (
 )
 
 
+def _record_toasts(monkeypatch, screen) -> list[tuple[str, str, str, bool]]:
+    """Each toast `screen` raises, as `(title, words, severity, markup)`: a note
+    written as content markup read back to its words (`_plain`), any other as
+    sent."""
+    toasts: list[tuple[str, str, str, bool]] = []
+
+    def notify(message, title="", severity="information", markup=True, **kw):
+        words = _plain(message) if markup else str(message)
+        toasts.append((title, words, severity, markup))
+
+    monkeypatch.setattr(screen, "notify", notify)
+    return toasts
+
+
+#: The stop's note as `_record_toasts` reads it: `run_stopped`'s, as text.
+STOP_TOAST = (*SETTINGS_MISSING_NOTE, "error", False)
+
+
 def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monkeypatch):
     """A refusal about the account, not the row: every later PUT would draw it
     too, so none goes out, and it shows once in the LOG bar's note: `Failed`,
     the engine's words, a blank line, the hint."""
     _stub_ledger(monkeypatch)
-    toasts: list[tuple[str, str]] = []
     puts: list[str] = []
 
     def put(path, json_body=None):
@@ -682,11 +699,7 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
+        toasts = _record_toasts(monkeypatch, screen)
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
@@ -697,7 +710,7 @@ def test_settings_missing_stops_the_bulk_edit_at_the_first_row(fake_client, monk
         assert puts == ["/transactions/t1"]
         # about the account, not the row: the note the LOG bar shows when the
         # same refusal stops its save, naming no row
-        assert toasts == [SETTINGS_MISSING_NOTE]
+        assert toasts == [STOP_TOAST]
         # the refused row and the two never sent stay selected for the retry
         assert screen._selected == {"t1", "t2", "t3"}
 
@@ -710,7 +723,6 @@ def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypat
     `Failed`, the stop in no row's note; row 3 is never sent, and all three stay
     selected for the retry."""
     _stub_ledger(monkeypatch)
-    toasts: list[tuple[str, str]] = []
     puts: list[str] = []
 
     def put(path, json_body=None):
@@ -725,11 +737,7 @@ def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypat
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
-        monkeypatch.setattr(
-            screen,
-            "notify",
-            lambda message, title="", **kw: toasts.append((title, str(message))),
-        )
+        toasts = _record_toasts(monkeypatch, screen)
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
@@ -738,10 +746,15 @@ def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypat
         await wait_for(pilot, lambda: not screen._bulk_busy)
 
         assert puts == ["/transactions/t1", "/transactions/t2"]
-        assert [(t, _plain(m)) for t, m in toasts[:1]] == [
-            ("Refused", "CONFLICT — account is locked by a completed reconciliation\nrow 1")
+        assert toasts == [
+            (
+                "Refused",
+                "CONFLICT — account is locked by a completed reconciliation\nrow 1",
+                "error",
+                True,
+            ),
+            STOP_TOAST,
         ]
-        assert toasts[1:] == [SETTINGS_MISSING_NOTE]
         assert screen._selected == {"t1", "t2", "t3"}
 
     run_app(scenario, size=(120, 30))
@@ -751,8 +764,11 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
     fake_client, monkeypatch
 ):
     """The run stops at row 2: row 1 went through and leaves the selection, row 2
-    was refused and row 3 was never sent, so those two stay selected."""
+    was refused and row 3 was never sent, so those two stay selected. The
+    receipt counts row 1, the stop's `Failed` note follows it, and no
+    `Refused` note shows, since no row was refused for its own reason."""
     _stub_ledger(monkeypatch)
+    _answer_moves(fake_client, [ITEMS[0]])
     puts: list[str] = []
     real_put = fake_client.put
 
@@ -766,6 +782,7 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
 
     async def scenario(pilot, app):
         screen = TransactionsScreen(filter=FILTER)
+        toasts = _record_toasts(monkeypatch, screen)
         await _open(app, pilot, screen)
         await pilot.press("a", "b")
         await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
@@ -775,6 +792,85 @@ def test_settings_missing_mid_run_keeps_the_refused_and_unsent_rows_selected(
 
         assert puts == ["/transactions/t1", "/transactions/t2"]
         assert screen._selected == {"t2", "t3"}
+        assert toasts == [("", "1 row → BCP Oro PEN", "information", False), STOP_TOAST]
+        assert not any("refused" in title.lower() for title, *_ in toasts)
+
+    run_app(scenario, size=(120, 30))
+
+
+#: Five rows: the ledger's three, then two more.
+FIVE = [
+    *ITEMS,
+    *(
+        {**ITEMS[0], "id": f"t{i}", "title": title, "line_code": f"#{i:06d}"}
+        for i, title in ((4, "TAMBO"), (5, "PLAZA VEA"))
+    ),
+]
+
+
+def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkeypatch):
+    """Five rows onto BCP Oro PEN: row 1 moves, rows 2 and 3 are refused for
+    reasons of their own, missing settings stop the run at row 4, and row 5 is
+    never sent. The receipt counts row 1; each own refusal reads in its note
+    under `2 of 3 refused`, counting the rows that landed and those refused,
+    never the one the stop met nor the one it held back; then the stop's
+    `Failed` note, once. Rows 2 to 5 stay selected for the retry."""
+    _stub_ledger(monkeypatch, FIVE)
+    _answer_moves(fake_client, [FIVE[0]])
+    puts: list[str] = []
+    real_put = fake_client.put
+
+    def put(path, json_body=None):
+        puts.append(path)
+        if path.endswith("/t2"):
+            raise EngineError(
+                "CONFLICT", "account is locked by a completed reconciliation", None, 409, {}
+            )
+        if path.endswith("/t3"):
+            raise EngineError(
+                "VALIDATION_ERROR",
+                "Fields are locked by a completed reconciliation.",
+                {"account_id": "Locked by completed reconciliation."},
+                422,
+                {},
+                reasons={"account_id": "LOCKED"},
+            )
+        if path.endswith("/t4"):
+            raise _settings_missing()
+        return real_put(path, json_body=json_body)
+
+    fake_client.put = put
+
+    async def scenario(pilot, app):
+        screen = TransactionsScreen(filter=FILTER)
+        toasts = _record_toasts(monkeypatch, screen)
+        await _open(app, pilot, screen)
+        await pilot.press("a")
+        await wait_for(pilot, lambda: screen._selected == {f"t{i}" for i in range(1, 6)})
+        await pilot.press("b")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press("o", "r", "o", "enter")
+        await wait_for(pilot, lambda: len(puts) == 4)
+        await wait_for(pilot, lambda: not screen._bulk_busy)
+
+        assert puts == [f"/transactions/t{i}" for i in range(1, 5)]
+        assert toasts == [
+            ("", "1 row → BCP Oro PEN", "information", False),
+            (
+                "2 of 3 refused",
+                "CONFLICT — account is locked by a completed reconciliation\nrow 2",
+                "error",
+                True,
+            ),
+            (
+                "2 of 3 refused",
+                "account_id: Locked by completed reconciliation.\nrow 3",
+                "error",
+                True,
+            ),
+            STOP_TOAST,
+        ]
+        assert screen._selected == {"t2", "t3", "t4", "t5"}
 
     run_app(scenario, size=(120, 30))
 
