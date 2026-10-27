@@ -66,15 +66,7 @@ the engine's words, row number included.
 
 Approved by the owner on 2026-10-27.
 
-3. **Live tests of the new reads, and the version recorded.** The bank-line list by `ids`: the
-   live lines among the ids sent, in the list's shape, deleted and unknown ids left out, `/count`
-   agreeing, combined with `account_id`, refused beside `unassigned_in_period_of` and over 200
-   ids. `?sort=date_asc`: the newest-first list in reverse, beside a statement too, its cursors
-   its own. The failing case in
-   [test_statement_order.py](../../tests/contract/test_statement_order.py) follows the
-   contract. A future-dated row on the bank import and the sheet import names its row. The
-   contract version is recorded with `--record-version` at `46e2fdf6e11d7548`, and the fixture
-   check passes.
+Every task is done; the acceptance check and the doc sweep follow.
 
 ## Reply to the engine
 
@@ -92,3 +84,8 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **No live test checks a statement upload's words for a future-dated line.** The engine moved
+  them to "Row <place>: Must not be in the future." on `rows.<place>.date` for POST
+  /reconciliations/import too, in the same version; the live suite drives that route only for a
+  held reserved name, and checking the new words needs a made-up statement PDF.

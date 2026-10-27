@@ -6,7 +6,8 @@ everything or nothing (contract: POST /v1/transactions/import-sheet). It never
 creates a name: the module creates each one the sheet uses that the caller lacks,
 then sends the table giving every name its id
 (contract: POST /v1/transactions/import-sheet, "Names"). A bad row refuses the
-whole sheet, keyed by its row, before any name is created
+whole sheet, keyed by its row, its message naming the row, a day after today's included,
+before any name is created
 (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
 The same sheet sent again matches every row and writes nothing
 (contract: POST /v1/transactions/import-sheet, "Matching").
@@ -154,8 +155,9 @@ def test_a_made_up_sheet_dry_run_apply_and_sent_again(client, target):
         )
         assert bad.error.fields["rows.8.currency"].startswith("Row 8:")
         assert bad.error.fields["rows.9.amount_cents"].startswith("Row 9:")
-        # Row 10's FUTURE_DATE is not a rule of the sheet's own, the only messages the
-        # contract says begin `Row <row>:`, so its words are not checked.
+        # A day after today names its row in the engine's words
+        # (contract: POST /v1/transactions/import-sheet, "Rejected up front with `422`").
+        assert bad.error.fields["rows.10.date"] == "Row 10: Must not be in the future."
         assert CLEANER.holdings(client) == before
 
         # The apply creates every name, an account per currency under one name, and

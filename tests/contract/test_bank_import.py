@@ -14,6 +14,8 @@ this repo is public. Each goes out through the app's own body,
     soles account and its dollar rows on the dollar account the engine pairs
     with it;
   · a row of 0 is `skipped`: read, counted, never written;
+  · a row dated after today refuses the whole download, dry run and apply alike,
+    `FUTURE_DATE` on `rows.<row>.date`, its message naming the row, nothing written;
   · a day where the ledger holds a line the file does not is a
     `day_mismatches` entry: both totals signed, the leftover line as exactly
     `bank_line_id`, its `line_code`, its signed `net_cents` and its `parts`,
@@ -42,8 +44,10 @@ from zoneinfo import ZoneInfo
 from tests.contract.conftest import (
     CARD_HEADER,
     CURRENT_HEADER,
+    assert_refusal,
     free_statement_codes,
     read_signed,
+    refused,
     replace_parts,
     send_download,
 )
@@ -208,6 +212,25 @@ def test_a_row_of_zero_is_skipped_and_never_written(scratch):
         assert (answer["counts"]["skipped"], answer["counts"]["new"]) == (1, 1)
         assert answer["day_mismatches"] == []
     assert _count(client, account) == 1
+
+
+def test_a_future_dated_row_is_refused_naming_its_row(scratch):
+    """A row dated after today is `422` `FUTURE_DATE` on `rows.<row>.date`, the row
+    the spreadsheet's own, its message `Row <row>: Must not be in the future.`, and the
+    whole download is refused with nothing written, on the dry run and the apply
+    (contract: POST /v1/transactions/import, "Rejected up front with `422`")."""
+    client = scratch.client
+    account = scratch.account()
+    rows = [
+        CURRENT_HEADER,
+        ["05/03/2026", TITLE, "S/", -25.9, _code()],
+        ["19/03/2099", "PAGO FUTURO", "S/", -10, _code()],
+    ]
+    for dry_run in (True, False):
+        err = refused(lambda dry_run=dry_run: send_download(client, account, rows, dry_run=dry_run))
+        assert_refusal(err, 422, "VALIDATION_ERROR", "rows.3.date", "FUTURE_DATE")
+        assert err.fields["rows.3.date"] == "Row 3: Must not be in the future."
+    assert _count(client, account) == 0
 
 
 def test_a_leftover_ledger_line_is_reported_on_its_day(scratch):

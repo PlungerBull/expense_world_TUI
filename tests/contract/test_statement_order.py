@@ -18,9 +18,12 @@ the completion refusal they answer. Pinned here:
     created straight into it among them; paged by a cursor bound to the order; every
     line oldest first on an account without a code; `REQUIRED` on `reconciliation_id`
     without one, `CONFLICTING_PARAMETERS` with `unreconciled`, `INVALID_FORMAT` on any
-    other `sort`, and `UNKNOWN_PARAMETER` for `sort` on the count;
+    other `sort`, and `UNKNOWN_PARAMETER` for `sort` on the count; with `sort=date_asc`
+    the newest-first list read backwards, its cursors refused with the statement order
+    and the statement order's with it;
   · the lines a statement still needs (`GET /bank-lines?unassigned_in_period_of=` and
-    its count): both halves of a card from either half, oldest first, an opening
+    its count): both halves of a card from either half, oldest first by
+    `sort=statement` and by `sort=date_asc` alike, an opening
     balance never, none on a completed statement, the draft half's alone beside a
     completed one, an account without a code its own; exactly the lines the complete
     then flags in its two halves' `review_lines`; `CONFLICTING_PARAMETERS` beside any
@@ -469,7 +472,9 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
     """`GET /bank-lines?reconciliation_id=&sort=statement` lists the lines holding a
     place by place, then the rest oldest first, a line created straight into the
     reconciliation among them; it pages by cursor, a cursor bound to its order; on an
-    account without a statement code every line is unplaced, oldest first. Refused:
+    account without a statement code every line is unplaced, oldest first. Beside the
+    reconciliation `sort=date_asc` is taken: the newest-first list read backwards, its
+    cursor and the statement order's each refused by the other. Refused:
     without `reconciliation_id` (`REQUIRED`), with `unreconciled` too
     (`CONFLICTING_PARAMETERS`), any other `sort` (`INVALID_FORMAT`); the count takes no
     `sort` (`UNKNOWN_PARAMETER`) (contract: GET /v1/bank-lines, "Ordering")
@@ -487,7 +492,10 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
 
     expected = [late, early, middle, oldest, newest]
     assert _listed(client, reconciliation_id=recon, sort="statement") == expected
-    assert _listed(client, reconciliation_id=recon) == [newest, late, middle, early, oldest]
+    newest_first = [newest, late, middle, early, oldest]
+    assert _listed(client, reconciliation_id=recon) == newest_first
+    # Oldest first is taken beside a statement too: the newest-first list read backwards.
+    assert _listed(client, reconciliation_id=recon, sort="date_asc") == newest_first[::-1]
 
     # Paged by cursor, the cursor bound to the order.
     pages, after = [], None
@@ -506,10 +514,15 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
     default_cursor = client.get("/bank-lines", params={"reconciliation_id": recon, "limit": 1})[
         "next_cursor"
     ]
+    oldest_cursor = client.get(
+        "/bank-lines", params={"reconciliation_id": recon, "sort": "date_asc", "limit": 1}
+    )["next_cursor"]
     for params in (
         {"reconciliation_id": recon, "after": statement_cursor},
         {"reconciliation_id": recon, "sort": "date_desc", "after": statement_cursor},
         {"reconciliation_id": recon, "sort": "statement", "after": default_cursor},
+        {"reconciliation_id": recon, "sort": "date_asc", "after": statement_cursor},
+        {"reconciliation_id": recon, "sort": "statement", "after": oldest_cursor},
     ):
         err = refused(lambda params=params: client.get("/bank-lines", params=params))
         assert_refusal(err, 422, "VALIDATION_ERROR", "after", "INVALID_CURSOR")
@@ -530,11 +543,11 @@ def test_a_reconciliations_lines_list_in_the_statement_order(client, scratch):
             "unreconciled",
             "CONFLICTING_PARAMETERS",
         ),
-        ({"sort": "date_asc", "reconciliation_id": recon}, "sort", "INVALID_FORMAT"),
+        ({"sort": "oldest", "reconciliation_id": recon}, "sort", "INVALID_FORMAT"),
     ):
         err = refused(lambda params=params: client.get("/bank-lines", params=params))
         assert_refusal(err, 422, "VALIDATION_ERROR", key, reason)
-    for sort in ("statement", "date_desc"):
+    for sort in ("statement", "date_desc", "date_asc"):
         err = refused(
             lambda sort=sort: client.get(
                 "/bank-lines/count", params={"reconciliation_id": recon, "sort": sort}
@@ -559,8 +572,8 @@ def test_the_lines_a_statement_still_needs_are_what_the_complete_flags(client, s
     """`GET /bank-lines?unassigned_in_period_of=<id>` and its count list the lines a
     statement still needs: on a card both halves' lines, whichever half is named, each
     half's own account's lines dated inside its days and in no reconciliation, an
-    opening balance never; with `sort=statement` oldest first, both currencies mixed
-    by date, and newest first without it; the count the list's length
+    opening balance never; with `sort=statement` or `sort=date_asc` oldest first, both
+    currencies mixed by date, and newest first without it; the count the list's length
     (contract: GET /v1/bank-lines, "Filters") (contract: GET /v1/bank-lines, "Ordering")
     (contract: GET /v1/bank-lines/count). They are exactly what the complete flags:
     it goes through while lines are listed, and its two halves' `review_lines` hold
@@ -588,6 +601,8 @@ def test_the_lines_a_statement_still_needs_are_what_the_complete_flags(client, s
     for recon in (rs, rd):
         assert _needed(client, recon) == [d10, s12, s20], recon
         assert _listed(client, unassigned_in_period_of=recon) == [s20, s12, d10], recon
+        oldest = _listed(client, unassigned_in_period_of=recon, sort="date_asc")
+        assert oldest == [d10, s12, s20], recon
 
     scratch.assign(s12, rs)
     assert _needed(client, rd) == [d10, s20]
