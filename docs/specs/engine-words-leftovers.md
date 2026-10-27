@@ -1,8 +1,9 @@
 # Leftovers of the engine's words: lists that keep them, and tests that prove them
 
-**Status: draft, for the owner to rewrite or approve. Its tasks are drafted when the owner names
-it the current spec.** When done, the why moves to [decisions.md](../decisions.md) and this file
-is deleted.
+**Status: approved, the current spec while
+[sheet-import-through-the-engine.md](sheet-import-through-the-engine.md) waits on the engine
+(owner, 2026-10-26).** When done, the why moves to [decisions.md](../decisions.md) and this
+file is deleted.
 
 ---
 
@@ -75,7 +76,40 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Approved by the owner on 2026-10-26.
+
+1. **[UI] Every list shows names and titles whole.** A name or title the engine holds shows as
+   it is, `[` and all, never read as styling, in every list drawn through
+   [cursor_list.py](../../expense/tui/widgets/cursor_list.py) and in the bank import preview's
+   title ([bank_import.py](../../expense/tui/screens/bank_import.py)), as
+   [expense-world-bracketed-names.html](../mockups/expense-world-bracketed-names.html) draws it
+   (approved 2026-10-26). The app's own styled cells (swatches, marks) keep their styling.
+   Tests pin `BCP [like this]` whole in Manage ▸ Accounts, the ledger and the bank import
+   preview; [tui.md](../tui.md) says it.
+2. **The bulk edit's note keeps a trailing backslash.** Engine words ending in `\` show whole in
+   `refusal_notes` ([transactions.py](../../expense/tui/screens/transactions.py)); the limit in
+   `as_markup`'s docstring ([refusal.py](../../expense/tui/widgets/refusal.py)) is lifted or no
+   longer reached, and a test pins it.
+3. **The unit tests prove what they say.** Each toast of the owner's own typing (`No account
+   matches "…"`, `Nothing matches "…"`, System's invalid-URL and config-save toasts) is tested
+   with `[like this]` typed and shows it whole. The bulk edit's stop note is pinned with two or
+   more rows refused for their own reason before missing settings stop the run (`N of M
+   refused`), and the mid-run stop's test checks the receipt, the `Failed` note and that no
+   `Refused` note shows ([test_tui_bulk_edit.py](../../tests/unit/test_tui_bulk_edit.py)).
+4. **The live tests prove what they say.** The live `edit_limits` test reads each refused write
+   back and finds it unwritten
+   ([test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py)); a
+   check fails when the unit fake engine's lock sentences (`LOCK_MESSAGES` in
+   [helpers.py](../../tests/unit/helpers.py)) differ from the live engine's.
+5. **Small test tidies.** `toasts_shown` reads no private Textual class, or says why it must;
+   the `readonly_lines` test says why it writes column words as keywords
+   ([test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py)); the docstring of
+   [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py)
+   names the six locked things.
+6. **The two mockups draw the complete question as the app asks it.**
+   `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html` in
+   [mockups/](../mockups/) are redrawn, or deleted with their links where they back no open work
+   (the rule in [todo.md](../todo.md) "Mockups that back no open work").
 
 ## Found along the way
 

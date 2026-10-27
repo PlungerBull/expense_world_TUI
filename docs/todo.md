@@ -65,15 +65,6 @@ question is in the spec. Approve it or rewrite it, and answer it there.
 
 **Recommended:** approve it with B (drop `c` only), after the sheet import and the PDF specs.
 
-### Approve the spec for the engine words' leftovers
-Asked 2026-10-26 · Blocks: [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md)
-
-What the notes spec turned up: a name or title holding `[like this]` still loses it in lists, a
-backslash can drop from the bulk edit's note, and several tests prove less than they say.
-The only thing you see change is bracketed names showing whole. Approve it or rewrite it.
-
-**Recommended:** approve it, after the engine catch-up, which matters more.
-
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
@@ -84,7 +75,9 @@ questions: where you start the upload, and whether a PDF of the wrong account wa
 accounts to carry their bank numbers (the card numbers and account names you described move to
 their own spec if not). Approve it or rewrite it, and answer them there.
 
-**Recommended:** approve it with the recommended answers, to run fourth.
+Set aside by the owner on 2026-10-26: not to run now.
+
+**Recommended:** approve it with the recommended answers when you take it up again.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
