@@ -40,6 +40,7 @@ from tests.unit.helpers import (
     fake_ledger,
     render_text,
     run_app,
+    styled_stretches,
     toasts_shown,
     wait_for,
     wait_for_list,
@@ -136,10 +137,7 @@ def test_words_written_as_markup_read_back_as_sent(words, styles):
     lines = [(words, style) for style in styles]
     content = Content.from_markup(as_markup(lines))
     assert content.plain == "\n".join(words for _ in styles)
-    styled = [
-        (span.start, content.plain[span.start : span.end].rstrip("\n"), str(span.style))
-        for span in content.spans
-    ]
+    styled = styled_stretches(as_markup(lines))
     starts = [n * (len(words) + 1) for n in range(len(styles))]
     lines_at = zip(starts, styles, strict=True)
     # a style over a line break alone shows nothing, so only words are compared

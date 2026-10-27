@@ -96,8 +96,9 @@ def _line(client, line_id: str) -> dict:
 
 def _refused_unwritten(client, line_id: str, body: dict, reasons: dict) -> EngineError:
     """`body` sent to the line is `422` `VALIDATION_ERROR` with exactly `reasons`, and
-    nothing is written: the line reads back as it did, every part as `GET /transactions/{id}`
-    returns it included, and no part `body` named under a new id exists
+    nothing is written: one read of the line (`GET /bank-lines/{id}`) gives back what it gave
+    before, its parts included as that read shapes them, each as `GET /transactions/{id}`
+    returns it, not by a second read; and no part `body` named under a new id exists
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Refusals, in order")
     (contract: GET /v1/bank-lines/{bank_line_id}, "Response fields"). Returns the refusal."""
     before = _line(client, line_id)
@@ -135,12 +136,6 @@ def _new_id(scratch) -> str:
     new_id = str(uuid4())
     scratch.transactions.append(new_id)
     return new_id
-
-
-def _assert_writes_nothing(client, line_id: str, parts: list[dict], reasons: dict) -> None:
-    """`parts` sent to the line is refused with exactly `reasons` and writes nothing
-    (`_refused_unwritten`)."""
-    _refused_unwritten(client, line_id, {"parts": parts}, reasons)
 
 
 def _completed_lines(client, scratch) -> tuple[str, str, str, str]:
@@ -457,29 +452,29 @@ def test_an_opening_balances_line_refuses_another_category_a_hashtag_and_a_new_s
     assert pending is not None
 
     kept = {"id": opening, "amount_cents": amount}
-    _assert_writes_nothing(
+    _refused_unwritten(
         client,
         line,
-        [{**kept, "category_id": scratch.category()}],
+        {"parts": [{**kept, "category_id": scratch.category()}]},
         {"parts.0.category_id": "OPENING_BALANCE_CATEGORY_FIXED"},
     )
     for tags in ([scratch.hashtag()], [pending[0]]):
-        _assert_writes_nothing(
+        _refused_unwritten(
             client,
             line,
-            [{**kept, "hashtag_ids": tags}],
+            {"parts": [{**kept, "hashtag_ids": tags}]},
             {"parts.0.hashtag_ids": "OPENING_BALANCE_NOT_TAGGED"},
         )
-    _assert_writes_nothing(
+    _refused_unwritten(
         client,
         line,
-        [kept, {"id": _new_id(scratch), "amount_cents": 1000}],
+        {"parts": [kept, {"id": _new_id(scratch), "amount_cents": 1000}]},
         {"parts": "OPENING_BALANCE_NOT_SPLIT"},
     )
-    _assert_writes_nothing(
+    _refused_unwritten(
         client,
         line,
-        [{"id": _new_id(scratch), "amount_cents": amount}],
+        {"parts": [{"id": _new_id(scratch), "amount_cents": amount}]},
         {"parts": "OPENING_BALANCE_NOT_SPLIT"},
     )
 
@@ -541,15 +536,19 @@ def test_an_archived_accounts_line_refuses_a_new_amount_and_a_new_set(client, sc
         ([{"id": one, "amount_cents": 6000}, {"id": two, "amount_cents": -4000}], "parts.0"),
         ([{"id": one, "amount_cents": -6000}, {"id": two, "amount_cents": -3000}], "parts.1"),
     ):
-        _assert_writes_nothing(client, line, parts, {f"{key}.amount_cents": archived})
-    _assert_writes_nothing(
+        _refused_unwritten(client, line, {"parts": parts}, {f"{key}.amount_cents": archived})
+    _refused_unwritten(
         client,
         line,
-        [
-            {"id": one, "amount_cents": -6000},
-            {"id": two, "amount_cents": -4000},
-            {"id": _new_id(scratch), "amount_cents": -1000},
-        ],
+        {
+            "parts": [
+                {"id": one, "amount_cents": -6000},
+                {"id": two, "amount_cents": -4000},
+                {"id": _new_id(scratch), "amount_cents": -1000},
+            ]
+        },
         {"parts": archived},
     )
-    _assert_writes_nothing(client, line, [{"id": one, "amount_cents": -6000}], {"parts": archived})
+    _refused_unwritten(
+        client, line, {"parts": [{"id": one, "amount_cents": -6000}]}, {"parts": archived}
+    )

@@ -15,7 +15,9 @@ What this pins, and why each is a contract claim rather than a client one:
     that shape is only correct while the engine keeps refusing.
   · `complete` without an ending balance is a 422 and writes nothing; a draft
     may still be saved without one.
-  · completion locks the assigned transaction's amount/account/title/date, and
+  · completion locks the assigned transaction's six fields, `amount_cents`,
+    `account_id`, `title`, `date`, `operation_code` and `reconciliation_id`
+    (contract: PUT /v1/transactions/{transaction_id}, "Field locking"), and
     revert unlocks them. This is the field-locking semantic docs/runtime.md
     promises, and the only place it is exercised end to end.
   · delete cascade-unassigns; the transaction survives.

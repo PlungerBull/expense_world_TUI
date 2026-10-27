@@ -47,6 +47,7 @@ from tests.unit.helpers import (
     put_answer,
     render_text,
     run_app,
+    styled_stretches,
     wait_for,
     wait_for_list,
     wait_for_loaded,
@@ -141,14 +142,9 @@ def _plain(note: str) -> str:
 
 
 def _coloured(note: str) -> list[tuple[str, str]]:
-    """What a refusal note shows in a style, as `(words, style)` in order: the
-    markup read, each styled stretch's words without the line break that may
-    end it, since a line break shows no colour."""
-    content = Content.from_markup(note)
-    return [
-        (content.plain[span.start : span.end].rstrip("\n"), str(span.style))
-        for span in content.spans
-    ]
+    """What a refusal note shows in a style, as `(words, style)` in order
+    (`styled_stretches`)."""
+    return [(words, style) for _, words, style in styled_stretches(note)]
 
 
 def _answer_unchanged(fake_client, row: dict) -> None:

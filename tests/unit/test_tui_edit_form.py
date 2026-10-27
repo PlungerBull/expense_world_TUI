@@ -1054,6 +1054,7 @@ def test_two_parts_locked_in_one_column_for_different_reasons_join_their_sentenc
     """One line per column: each distinct sentence once, in the parts' order,
     joined by ` · `; a lock the engine sends no sentence for reads `read-only`."""
     first, second = LOCK_MESSAGES["ACCOUNT_ARCHIVED"], LOCK_MESSAGES["SPLIT_TOTAL_MISMATCH"]
+    # Column words as keywords: the drift check would take quoted keys for engine fields.
     lines = readonly_lines(
         {
             0: dict(amount=first, note=None),

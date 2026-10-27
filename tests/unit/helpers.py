@@ -1158,10 +1158,27 @@ def run_app(
 
 def toasts_shown(app) -> list[str]:
     """What each toast on the screen shows, its title and its message as drawn,
-    oldest first. Needs `run_app(..., toasts=True)`."""
-    from textual.widgets._toast import Toast  # local: see module docstring
+    oldest first. Needs `run_app(..., toasts=True)`.
 
-    return [toast.render().plain for toast in app.screen.query(Toast)]
+    The toasts are found by their CSS type name, `Toast`, the selector Textual's
+    own default CSS styles them by: the class itself lives in the private
+    `textual.widgets._toast` and is not exported from `textual.widgets`."""
+    return [toast.render().plain for toast in app.screen.query("Toast")]
+
+
+def styled_stretches(markup: str) -> list[tuple[int, str, str]]:
+    """Each styled stretch of content markup as drawn, in order: `(start, words,
+    style)`, its words without the line break that may end it, since a line
+    break shows no colour.
+
+    The Content import is function-local: see the module docstring."""
+    from textual.content import Content
+
+    content = Content.from_markup(markup)
+    return [
+        (span.start, content.plain[span.start : span.end].rstrip("\n"), str(span.style))
+        for span in content.spans
+    ]
 
 
 async def wait_for(

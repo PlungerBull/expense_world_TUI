@@ -78,17 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-5. **Small test tidies.** `toasts_shown` reads no private Textual class, or says why it must;
-   the `readonly_lines` test says why it writes column words as keywords
-   ([test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py)); the docstring of
-   [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py)
-   names the six locked things; the step that reads a note's styled stretches has one copy in
-   [helpers.py](../../tests/unit/helpers.py), where `_coloured` in test_tui_bulk_edit.py and
-   the `styled` list in test_tui_engine_words.py each write it (found in task 2). In
-   [test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py),
-   `_refused_unwritten`'s docstring says it reads the line once, its parts as
-   `GET /transactions/{id}` shapes them, and `_assert_writes_nothing`, a one-line wrapper, goes,
-   its callers calling `_refused_unwritten` (found in task 4).
 6. **The two mockups draw the complete question as the app asks it.**
    `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html` in
    [mockups/](../mockups/) are redrawn, or deleted with their links where they back no open work
