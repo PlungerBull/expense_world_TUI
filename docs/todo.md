@@ -28,26 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand the split-rows ask to the engine
-Asked 2026-10-27 · Blocks: the `(N rows)` on the sheet import's count line
-
-The file [to-engine/sheet-import-split-rows-count.md](to-engine/sheet-import-split-rows-count.md)
-asks the engine to say how many sheet rows a sheet's split purchases are made from. Copy it into
-the engine repo's `docs/from-tui/`, then tell me, and it leaves the outbox.
-
-**Recommended:** none: only you can hand it over.
-
-### Hand the sheet import's reply to the engine
-Asked 2026-10-27 · Blocks: nothing; the engine waits for it
-
-The file
-[to-engine/caught-up-46e2fdf6e11d7548-sheet-import.md](to-engine/caught-up-46e2fdf6e11d7548-sheet-import.md)
-tells the engine the terminal app now sends your sheet to it whole. Copy it into the engine
-repo's `docs/from-tui/` along with the split-rows ask above, then tell me, and both leave the
-outbox.
-
-**Recommended:** none: only you can hand it over.
-
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
