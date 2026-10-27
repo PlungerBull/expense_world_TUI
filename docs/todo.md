@@ -28,15 +28,17 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Answer the sheet import's question 4
+### Pick the sheet import's two new choices
 Asked 2026-10-27 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
 
-The engine declined both sheet-import asks on 2026-10-26: it gives the dry run's counts only once
-every account, category and hashtag the sheet uses exists. The question, with its three options,
-is in the spec: a dry run with no counts, a dry run that creates the missing names, or a step of
-its own that creates them first.
+You picked C for question 4: a step of its own creates the missing names, and the dry run never
+writes. The mockup
+([mockups/expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html))
+is redrawn for it, with two picks, both in the spec: what the step is called, and whether
+`--apply` with names still missing is refused or creates them. Approve the screens, or say what
+to change.
 
-**Recommended:** C (a step of its own), for the reason the spec gives.
+**Recommended:** 1 A (`--create-names`) and 2 A (refused, naming the step).
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)

@@ -77,86 +77,145 @@
 <div class="head">
   <h1>Sheet import · through the engine</h1>
   <p><code>expense import sheet</code> sends your spreadsheet to the engine whole; the engine reads it and answers. This is what the terminal prints. Every name, row and amount here is made up; the refusal words stand in for the engine's own, which the app shows as the engine writes them.</p>
-  <p>As you answered: a name you don't have yet is <b>created by the app on <code>--apply</code></b>; running again with <code>--apply</code> is your confirmation; <code>--account-name</code> stays and is remembered; an account used in two currencies is <b>two accounts with the same name</b>.</p>
-  <p>Pick <b>one letter for screen 1</b>, and say yes or no to screens 2 and 3. The button at the top right shows a light terminal.</p>
+  <p>As you answered: the engine counts rows only once every account, category and hashtag the sheet uses exists, so <b>a step of its own creates the missing names</b>, and the dry run never writes (question 4, C). <code>--account-name</code> stays and is remembered; an account used in two currencies is <b>two accounts with the same name</b>.</p>
+  <p>The flow, for an import into an empty ledger: <b>dry run</b> (lists what's missing) → <b>create the names</b> → <b>dry run</b> (now with counts) → <b>--apply</b>.</p>
+  <p>Pick <b>one letter for the step's name</b> and <b>one for --apply with names missing</b>, and say yes or no to the screens. The button at the top right shows a light terminal.</p>
 </div>
 
 <div class="pane">
-  <div class="lbl">Screen 1 · the dry run <span>— expense import sheet libro.xlsx --account-name "BCP:PEN=Sueldo Soles"</span></div>
-  <div class="blurb">Every name the sheet uses, how many rows use it, and what it goes to: one you have, or <code>new</code>, created when you apply. Then the engine's counts. Rows of zero and rows on a closed day are listed under the counts.</div>
-  <div class="opt">
-    <div>
-      <div class="oh">A · three tables <span class="rec">recommended</span></div>
-      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class="b">Accounts (5)</span>
+  <div class="lbl">Screen 1 · the first dry run <span>— expense import sheet libro.xlsx --account-name "BCP:PEN=Sueldo Soles"</span></div>
+  <div class="blurb">Every name the sheet uses, how many rows use it, and what it goes to: one you have (<code>yours</code>), or <code>missing</code>. No counts yet, and it says the one command that creates what's missing. Shown here with name A.</div>
+  <div class="opt"><div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class="b">Accounts (5)</span>
   <span class="d">SHEET NAME   CUR    ROWS   GOES TO</span>
-  BCP          PEN   1,204   <span class="a">Sueldo Soles</span>  <span class="d">(renamed, new)</span>
+  BCP          PEN   1,204   <span class="a">Sueldo Soles</span>  <span class="w">missing</span>
   BCP          USD     311   <span class="p">yours</span>
-  Interbank    PEN     402   <span class="w">new</span>
-  Ana          PEN      38   <span class="w">new</span>
-  Ana          USD       6   <span class="w">new</span>
+  Interbank    PEN     402   <span class="w">missing</span>
+  Ana          PEN      38   <span class="w">missing</span>
+  Ana          USD       6   <span class="w">missing</span>
 
 <span class="b">Categories (4)</span>
   <span class="d">SHEET NAME     ROWS   GOES TO</span>
-  Comida        1,010   <span class="w">new</span>
-  Transporte      435   <span class="w">new</span>
+  Comida        1,010   <span class="w">missing</span>
+  Transporte      435   <span class="w">missing</span>
   Casa            512   <span class="p">yours</span>
-  SALDO INICIAL     4   <span class="d">opening balances only</span>
+  SALDO INICIAL     4   <span class="w">missing</span>
 
 <span class="b">Hashtags (2)</span>
   <span class="d">SHEET NAME     ROWS   GOES TO</span>
-  Personal      1,722   <span class="w">new</span>
-  Trabajo         239   <span class="w">new</span>
+  Personal      1,722   <span class="w">missing</span>
+  Trabajo         239   <span class="w">missing</span>
 
-Rows: 1,961 · <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
-Opening balances 4 · split transactions 3 (8 rows)
+<span class="d">No counts yet: the engine counts once every name exists.</span>
 
-Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
-
-<span class="d">Dry run — nothing written. Run again with --apply to write;
-8 new names are created first.</span></pre></div></div>
-    </div>
-    <div>
-      <div class="oh">B · one line per kind <span class="ref">like today</span></div>
-      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class="b">Accounts (5)</span>, 1 yours, 4 new:
-  BCP [PEN] → <span class="a">Sueldo Soles</span> <span class="w">new</span> · BCP [USD] <span class="p">yours</span>
-  Interbank [PEN] <span class="w">new</span> · Ana [PEN] <span class="w">new</span> · Ana [USD] <span class="w">new</span>
-
-<span class="b">Categories (4)</span>, 1 yours, 2 new:
-  Comida <span class="w">new</span> · Transporte <span class="w">new</span> · Casa <span class="p">yours</span>
-  SALDO INICIAL <span class="d">opening balances only</span>
-
-<span class="b">Hashtags (2)</span>, 2 new:
-  Personal <span class="w">new</span> · Trabajo <span class="w">new</span>
-
-Rows: 1,961 · <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
-Opening balances 4 · split transactions 3 (8 rows)
-
-Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
-
-<span class="d">Dry run — nothing written. Run again with --apply to write;
-8 new names are created first.</span></pre></div></div>
-      <div class="cap">No row counts per name; shorter when the sheet uses many categories.</div>
-    </div>
-  </div>
-  <div class="cap">A row on a closed day would add a line under the counts: <code>Sealed, on a closed statement's day: rows 40, 41</code>.</div>
+<span class="w">9 names don't exist yet.</span> Create them with:
+  expense import sheet libro.xlsx --create-names
+<span class="d">Dry run — nothing written.</span></pre></div></div></div></div>
 </div>
 
 <div class="pane">
-  <div class="lbl">Screen 2 · the apply, then the same sheet again</div>
-  <div class="blurb">The apply creates the new names, then the engine writes everything or nothing. Sending the same sheet again writes nothing: every row is matched.</div>
+  <div class="lbl">Screen 2 · creating the names</div>
+  <div class="blurb">Creates every missing account, category and hashtag, and imports nothing. A name it creates is an ordinary one you can rename or delete; <code>SALDO INICIAL</code>, used only by opening balances, ends up an unused category you may delete. Run again, it creates nothing.</div>
+  <div class="opt">
+    <div><div class="oh">Names created</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Created 4 accounts, 3 categories, 2 hashtags.
+<span class="d">Nothing imported. Run the dry run again to see the counts.</span></pre></div></div></div>
+    <div><div class="oh">Run again</div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Created no names: every one is yours.</pre></div></div></div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 3 · the dry run once every name exists</div>
+  <div class="blurb">Every name is <code>yours</code>, and the engine's counts follow. Rows of zero and rows on a closed day are listed under the counts.</div>
+  <div class="opt"><div><div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class="b">Accounts (5)</span>
+  <span class="d">SHEET NAME   CUR    ROWS   GOES TO</span>
+  BCP          PEN   1,204   <span class="a">Sueldo Soles</span>  <span class="p">yours</span>
+  BCP          USD     311   <span class="p">yours</span>
+  Interbank    PEN     402   <span class="p">yours</span>
+  Ana          PEN      38   <span class="p">yours</span>
+  Ana          USD       6   <span class="p">yours</span>
+
+<span class="b">Categories (4)</span>
+  <span class="d">SHEET NAME     ROWS   GOES TO</span>
+  Comida        1,010   <span class="p">yours</span>
+  Transporte      435   <span class="p">yours</span>
+  Casa            512   <span class="p">yours</span>
+  SALDO INICIAL     4   <span class="p">yours</span>
+
+<span class="b">Hashtags (2)</span>
+  <span class="d">SHEET NAME     ROWS   GOES TO</span>
+  Personal      1,722   <span class="p">yours</span>
+  Trabajo         239   <span class="p">yours</span>
+
+Rows: 1,961 · <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
+Opening balances 4 · split transactions 3 (8 rows)
+
+Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960
+
+<span class="d">Dry run — nothing written. Run again with --apply to import.</span></pre></div></div></div></div>
+  <div class="cap">A row on a closed day would add a line under the counts: <code>Sealed, on a closed statement's day: rows 40, 41</code>.</div>
+</div>
+
+<div class="qs">
+  <h2>Pick 1 · the step's name</h2>
+  What you type to create the missing names, and the line the first dry run ends with.
+</div>
+<div class="pane" style="margin-top:14px">
+  <div class="opt">
+    <div>
+      <div class="oh">A · a flag on the same command <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class='d'>$</span> expense import sheet libro.xlsx --create-names</pre></div></div>
+      <div class="cap">Same command as the dry run and the apply, one word more; <code>import sheet</code> stays the only command.</div>
+    </div>
+    <div>
+      <div class="oh">B · a command of its own</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class='d'>$</span> expense import names libro.xlsx</pre></div></div>
+      <div class="cap">Reads as its own job, but adds a second command to remember.</div>
+    </div>
+    <div>
+      <div class="oh">C · a shorter flag</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class='d'>$</span> expense import sheet libro.xlsx --prepare</pre></div></div>
+      <div class="cap">Shorter, but says less about what it writes.</div>
+    </div>
+  </div>
+</div>
+
+<div class="qs">
+  <h2>Pick 2 · --apply while names are still missing</h2>
+  If you skip the create step and run <code>--apply</code> straight away.
+</div>
+<div class="pane" style="margin-top:14px">
+  <div class="opt">
+    <div>
+      <div class="oh">A · refused, pointing to the step <span class="rec">recommended</span></div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre><span class="nb">Not imported — nothing written.</span>
+9 names don't exist yet. Create them with:
+  expense import sheet libro.xlsx --create-names
+then run the dry run to see the counts.</pre></div></div>
+      <div class="cap">You always see the counts before anything is imported.</div>
+    </div>
+    <div>
+      <div class="oh">B · creates them, then imports</div>
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Created 4 accounts, 3 categories, 2 hashtags.
+Written: <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
+Opening balances 4 · split transactions 3 (8 rows)</pre></div></div>
+      <div class="cap">One command fewer, but you import without having seen the counts.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane">
+  <div class="lbl">Screen 4 · the apply, then the same sheet again</div>
+  <div class="blurb">The engine writes everything or nothing. Sending the same sheet again writes nothing: every row is matched.</div>
   <div class="opt">
     <div>
       <div class="oh">First --apply</div>
-      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Created 4 accounts, 2 categories, 2 hashtags.
-Written: <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Written: <span class="p">new 1,954</span> · matched 0 · sealed 0 · skipped 7
 Opening balances 4 · split transactions 3 (8 rows)
 
 Skipped, amount zero: rows 14, 90, 311, 1201, 1202, 1555, 1960</pre></div></div>
     </div>
     <div>
       <div class="oh">--apply again</div>
-      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Created no names: every one is yours.
-Written: new 0 · <span class="p">matched 1,954</span> · sealed 0 · skipped 7
+      <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">zsh</span></div><div class="app"><pre>Written: new 0 · <span class="p">matched 1,954</span> · sealed 0 · skipped 7
 Opening balances 4 · split transactions 3 (8 rows)
 
 Nothing new: every row is already in the ledger.</pre></div></div>
@@ -165,8 +224,8 @@ Nothing new: every row is already in the ledger.</pre></div></div>
 </div>
 
 <div class="pane">
-  <div class="lbl">Screen 3 · a sheet with bad rows <span>— dry run or apply</span></div>
-  <div class="blurb">One bad row stops the whole import. Every refusal is listed, in the engine's words; rows refused alike share one line. On <code>--apply</code> the check runs before any name is created, so a refused sheet leaves nothing behind.</div>
+  <div class="lbl">Screen 5 · a sheet with bad rows <span>— any of the three commands</span></div>
+  <div class="blurb">One bad row stops the whole thing. Every refusal is listed, in the engine's words; rows refused alike share one line. The create step checks the sheet first too, so a refused sheet creates no names.</div>
   <div class="opt">
     <div>
       <div class="oh">Rows refused</div>
@@ -187,8 +246,9 @@ Fix the sheet and run it again.</pre></div></div>
 </div>
 
 <div class="pick">To answer, say:<ul>
-  <li><b>Screen 1:</b> A or B</li>
-  <li><b>Screen 2 and screen 3:</b> yes, or what to change</li>
+  <li><b>Pick 1, the step's name:</b> A, B or C</li>
+  <li><b>Pick 2, --apply with names missing:</b> A or B</li>
+  <li><b>Screens 1 to 5:</b> yes, or what to change</li>
 </ul></div>
 <script>
 document.querySelector('.theme').addEventListener('click',function(){

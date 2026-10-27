@@ -81,24 +81,30 @@ creates for a name only opening balances use, like `SALDO INICIAL`, is an ordina
 category, which you may delete. So the dry run you picked (screen 1 A, with its counts) can only
 show counts once every name exists.
 
-**Question 4 — How does the dry run show its counts, now that every name must exist first?**
-For your official import into an empty ledger every name is new, so this decides whether you
-ever see the counts before the import is written.
+**Answered (owner, 2026-10-27), question 4: C, a step of its own creates the names.** The dry
+run never writes: while names are missing it lists them, with no counts, and says the command
+that creates them; that step creates every missing account, category and hashtag (`SALDO
+INICIAL` with the rest) and imports nothing; once every name exists, the dry run shows the
+engine's counts; then `--apply` imports.
 
-- **A. The dry run shows no counts.** It shows the names table and what each name goes to; the
-  counts show only in what `--apply` wrote. A dry run writes nothing, but you see how many rows
-  are new or matched only after the import.
-- **B. The dry run creates the missing names, then shows the counts.** One command, the counts
-  before the import, but a dry run writes: the names it created stay even if you never import
-  (each one deletable), `SALDO INICIAL` included.
-- **C. A step of its own creates the names.** The dry run lists the names still missing and says
-  which command creates them; once they exist, the dry run shows the counts; then `--apply`
-  writes the import. A dry run never writes and you see the counts first, at one more command
-  (its name is yours to pick). `SALDO INICIAL` is created with the rest.
+**Pick 1 — What is the step called?** Drawn in
+[expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html).
 
-**Recommended:** C, because a dry run stays a dry run, and you still see every count before
-anything is imported. Whichever you pick, screen 1 of the mockup is redrawn for it and picked
-before it is built.
+- **A.** A flag on the same command: `expense import sheet libro.xlsx --create-names`.
+- **B.** A command of its own: `expense import names libro.xlsx`.
+- **C.** A shorter flag: `expense import sheet libro.xlsx --prepare`.
+
+**Recommended:** A, because it says what it writes and `import sheet` stays the only command.
+
+**Pick 2 — What does `--apply` do while names are still missing?** Drawn in the same mockup.
+
+- **A.** It is refused, writes nothing, and names the step to run first.
+- **B.** It creates the names, then imports.
+
+**Recommended:** A, because you then always see the counts before anything is imported.
+
+The mockup's screens 1 to 5 (the first dry run, creating the names, the dry run with counts, the
+apply, a sheet with bad rows) are approved with these picks, or changed as you say.
 
 ---
 
@@ -109,10 +115,11 @@ Approved by the owner on 2026-10-26.
 2. **[UI] The command goes through the engine, and the old reader goes.** `expense import
    sheet` prints as
    [expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html)
-   draws it, as the owner picked on 2026-10-26: screen 1 A (three tables, each name with its
-   rows and where it goes), screens 2 and 3 as drawn; `--json` prints the engine's answer,
-   with the names the apply created. The dry run shows the engine's counts, and a name only
-   opening balances use is shown as such, left out of the table and never created. The app's
+   draws it: three tables, each name with its rows and where it goes (screen 1 A, owner,
+   2026-10-26); while names are missing the dry run shows no counts and names the step that
+   creates them, which imports nothing, and once every name exists it shows the engine's
+   counts (question 4, C, owner, 2026-10-27); `--json` prints the engine's answer, with the
+   names the step created. The app's
    own reader of the sheet goes with its tests (the parse, plan, apply, header aliases and
    currency-split naming; the live `test_sheet_import_split_groups.py` drives it too, and its
    entry in runtime.md goes with it), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
@@ -121,9 +128,8 @@ Approved by the owner on 2026-10-26.
    command takes its renames and its read timeout from the engine-calls module
    ([expense/import_/engine.py](../../expense/import_/engine.py)), so each has one copy, and a
    rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
-   module merges them without a word). **Waits on the owner's answer to question 4**, then on
-   screen 1 of the mockup redrawn for it and picked: the engine declined both of this spec's
-   asks on 2026-10-26, so the dry run's counts need every name created first.
+   module merges them without a word). **Waits on the owner's picks 1 and 2 and the
+   mockup redrawn for question 4 approved.**
 
 ## Reply to the engine
 
