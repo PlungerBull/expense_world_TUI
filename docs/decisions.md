@@ -24,7 +24,7 @@ Decisions whose why lives elsewhere:
 
 **Context.** The LOG bar saves every staged row through `POST /transactions/batch`, in chunks, via [expense/batch_write.py](../expense/batch_write.py). A batch can partly fail.
 
-**Decision.** (1) **A successful save stays on the screen**: written rows show a `✓` and are cleared the moment the next line is staged, so the list only ever holds rows about to be written. (2) **A partial failure ticks what landed and retries only the rest.** Failed rows keep their marker and the engine's message; `ctrl+s` covers only rows without a `✓`. A refusal that holds for every further write is said once, on no row ("Missing settings stop a multi-write run"). This is safe because **`row_id` is minted at stage time and reused on every attempt** — a row whose response was lost replays as `409` with reason `ID_EXISTS` on that row's own id, which the save reads as *written*; every other `409` is a refusal (`is_own_id_replay` in [errors.py](../expense/errors.py)). (3) **`ctrl+s` never touches an unstaged line in the bar** — `↵` is the only thing that stages. (4) **The discard card's `ctrl+s save first` saves and then leaves, unless the save fails**, in which case the screen stays so the error can be read. The row's **`date` is frozen at stage time** too, so a batch saved across midnight does not change day. A saved row cannot be lifted back into the bar — correcting a written row is the edit form's job. The batch mechanics are shared with the `.xlsx` importer in `batch_write.py`, not copied: a refused chunk's named rows settle, each `ID_EXISTS` on its own id as written and every other refusal as failed, and the rest go again as one batch.
+**Decision.** (1) **A successful save stays on the screen**: written rows show a `✓` and are cleared the moment the next line is staged, so the list only ever holds rows about to be written. (2) **A partial failure ticks what landed and retries only the rest.** Failed rows keep their marker and the engine's message; `ctrl+s` covers only rows without a `✓`. A refusal that holds for every further write is said once, on no row ("Missing settings stop a multi-write run"). This is safe because **`row_id` is minted at stage time and reused on every attempt** — a row whose response was lost replays as `409` with reason `ID_EXISTS` on that row's own id, which the save reads as *written*; every other `409` is a refusal (`is_own_id_replay` in [errors.py](../expense/errors.py)). (3) **`ctrl+s` never touches an unstaged line in the bar** — `↵` is the only thing that stages. (4) **The discard card's `ctrl+s save first` saves and then leaves, unless the save fails**, in which case the screen stays so the error can be read. The row's **`date` is frozen at stage time** too, so a batch saved across midnight does not change day. A saved row cannot be lifted back into the bar — correcting a written row is the edit form's job. The batch mechanics live in `batch_write.py`: a refused chunk's named rows settle, each `ID_EXISTS` on its own id as written and every other refusal as failed, and the rest go again as one batch.
 
 **Rejected.** *Dismiss on success* — throws away the confirmation. *Keep ticked rows until you leave* — mixes history with intent and the per-currency total stops describing the batch. *Re-send the whole list on retry* — safe, but hides a partial failure behind a wall of 409s. *Auto-stage the bar's line on save* — writes something unfinished. *Save and stay after `esc`* — the user pressed `esc`.
 
@@ -248,9 +248,9 @@ Decisions whose why lives elsewhere:
 
 ## One reader for every amount, refusing what it cannot read for sure (2026-10-23, owner)
 
-**Context.** `13.853,20` was saved as 13.85: the amount reader dropped every comma, and the bank importer kept its own copy of that reader. A `nan` or `inf` cell crashed both importers.
+**Context.** Whether a dot or a comma marks an amount's decimals depends on who typed it: `13.853,20` is thirteen thousand to one person and an unreadable number to another.
 
-**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field and in both importers (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"). (2) **Both importers read an amount cell with the typed fields' reader**, so a rule lands everywhere at once; `nan`, `inf` and an overflowing amount refuse their row and the rest of the file imports. (3) **A part added on the Edit form and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (4) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
+**Decision.** (1) **An amount with a comma after its dot is refused**, never guessed, on every typed amount field (owner, 2026-10-15); a comma before the dot is a thousands mark ([tui.md](tui.md) "One reader for every typed amount"); both importers send their file whole, so the engine reads their amounts. (2) **A part added on the Edit form and left with only the pending hashtag drops**, as an empty one does; **a part read from the line never drops**, whatever is emptied, since only `ctrl+x` should take a saved part out. (3) **A Manage Edit screen sends `color` only when another swatch was picked**, so stepping past the line never rewrites a colour no swatch shows.
 
 **Rejected.** Reading `13.853,20` as thirteen thousand: whether a dot or a comma marks the decimals is a guess, and a guess that is wrong saves a wrong amount silently. Letting an emptied saved part drop: it would take a part out of a split without the person asking.
 
@@ -455,7 +455,7 @@ The counts are the engine's: each move's answer lists every part of the bank lin
 
 ## Missing settings stop a multi-write run (2026-10-11)
 
-**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every request its settings preconditions name (contract: "Base Conventions", "Settings preconditions"). The LOG bar save, the sheet importer and a bulk edit each make several writes in one run, and a `422` on a batch normally names its bad rows, so the batch settles them and sends the rest again ([runtime.md](runtime.md) "Bulk writes").
+**Context.** Before first-time setup the engine answers `422 SETTINGS_MISSING` on every request its settings preconditions name (contract: "Base Conventions", "Settings preconditions"). The LOG bar save and a bulk edit each make several writes in one run, and a `422` on a batch normally names its bad rows, so the batch settles them and sends the rest again ([runtime.md](runtime.md) "Bulk writes").
 
 **Decision.** `SETTINGS_MISSING` is about the account, not a row: the first one ends the run, is reported once with its hint, and nothing further is sent. `LIMIT_REACHED` with reason `LINE_CODES_EXHAUSTED` ends a run the same way: once the line codes are used up, every write that needs a new line is refused (contract: POST /v1/transactions/batch), so the row it names fails in the engine's words and nothing further is sent. Both are one predicate in [expense/errors.py](../expense/errors.py), next to the hint's one home.
 
@@ -687,21 +687,20 @@ creates a name, and it answers a dry run's counts only once every account, categ
 the sheet uses has an id (contract: POST /v1/transactions/import-sheet, "Names"). On the
 official import into an empty ledger every name is new.
 
-**Decision.** `expense import sheet` runs in four steps ([commands.md](commands.md) "`expense
-import sheet`"): (1) a dry run lists every name as `yours` or `missing`, with no counts while one
-is missing, and names the step that creates them; (2) `--create-names` checks the sheet with a
-dry run, then creates each missing name and imports nothing, so a refused sheet creates nothing;
-(3) the dry run then shows the engine's counts; (4) `--apply` writes the import, and is refused,
-naming the step, while a name is still missing, so the owner always sees the counts before
-anything is imported (question 4 C, picks 1 A and 2 A, drawn in
-[expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html)).
-The count of rows a sheet's split lines hold waits on the engine (to-engine
-"The sheet import's counts say how many sheet rows its split lines come from").
+**Decision.** `expense import sheet` runs in three steps
+([commands.md](commands.md) "`expense import sheet`"): (1) the dry run lists every name as
+`yours` or `missing`, with no counts while one is missing, and names the step that creates
+them; (2) `--create-names` checks the sheet with a dry run, then creates each missing name and
+imports nothing, so a refused sheet creates nothing, after which the dry run shows the engine's
+counts; (3) `--apply` writes the import, and is refused, naming the step, while a name is still
+missing, so the owner always sees the counts before anything is imported. The count of rows a
+sheet's split lines hold waits on the engine (to-engine "The sheet import's counts say how many
+sheet rows its split lines come from").
 
-**Rejected.** *A dry run with no counts* (question 4 A) — the owner would see the numbers only
-after the one-time import. *A dry run that creates the missing names* (4 B) — a preview that
-writes. *`--apply` creating what is missing* (pick 2 B) — an import made without its counts
-seen. *A command of its own for the step* (pick 1 B) — `import sheet` stays the only command.
+**Rejected.** *A dry run with no counts* — the owner would see the numbers only after the
+one-time import. *A dry run that creates the missing names* — a preview that writes. *`--apply`
+creating what is missing* — an import made without its counts seen. *A command of its own for
+the step* — `import sheet` stays the only command.
 *The app counting the split rows itself* — only possible after an apply, and the grouping is the
 engine's rule.
 
@@ -709,7 +708,7 @@ engine's rule.
 
 **Context.** The owner's sheet records loans the way the app does: every movement with a person
 is mirrored in an account named after that person, and its balance is the debt (ALEJO, ALONSO,
-LC, ALEX, LIDIA, MATILDE, CARLOS and KORAKUEN; twelve accounts once split by currency). The sheet
+LC, ALEX, LIDIA, MATILDE, CARLOS and KORAKUEN, each in one account per currency). The sheet
 import creates every sheet account as a bank account.
 
 **Decision.** (1) **The owner turns an account into a person in the app,** not in the import:

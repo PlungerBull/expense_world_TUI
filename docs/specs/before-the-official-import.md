@@ -1,8 +1,7 @@
 # The official import
 
-**Status: every question answered (owner, 2026-10-21); waits on
-[sheet-import-through-the-engine.md](sheet-import-through-the-engine.md), which moves the sheet
-import into the engine, so the steps below follow it.** Turning sheet accounts into people
+**Status: every question answered (owner, 2026-10-21); the sheet import goes through the
+engine (done on 2026-10-27), so the steps below are ready to run.** Turning sheet accounts into people
 is built ([decisions.md](../decisions.md) "An account becomes a person, and back, with one
 key"); the split purchases' grouping is built ([decisions.md](../decisions.md) "The sheet import brings a split purchase in
 as one split transaction"). When the import is done, the why moves
@@ -50,18 +49,21 @@ approved by the owner.
 | 7 | Archive the closed accounts (both Interbank accounts, Alcancía)? | Yes, done by the owner in the app after the import (2026-10-21). |
 | 8 | Is the sheet frozen after the import? | The app is the record; the sheet is not imported again (2026-10-21). |
 | 9 | The engine's exchange rates or the sheet's? | The engine's: `T.C.` and `Solarizado` are ignored, and the soles totals of dollar rows differ slightly from the sheet's (2026-10-21). |
-| — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account leg") (2026-10-17). |
+| — | Account names | The BCP accounts carry the bank's names: `Sueldo Soles`, `Cuenta Digital Dólares`, `VISA Infinite Sapphire PEN`, `VISA Infinite Sapphire USD` (the sheet import's `--account-name`, [commands.md](../commands.md) "Renaming an account") (2026-10-17). |
 | — | People | Imported as bank accounts, then turned into people in the app with `t` on Manage ▸ Accounts ([decisions.md](../decisions.md) "An account becomes a person, and back, with one key") (2026-10-21). |
 
 ## Steps
 
 1. Both specs above are built, engine halves first, and the sheet import goes through the
-   engine ([sheet-import-through-the-engine.md](sheet-import-through-the-engine.md)).
+   engine (done on 2026-10-27).
 2. The owner wipes the live database.
-3. The import's dry run, with the four `--account-name` renames: no row skipped but the two
-   zero rows, the 9 split groups shown as one movement each, the four bank names listed.
-4. The import with `--apply`, finishing with no failures.
-5. In the app: the twelve person accounts turned into people, and the three closed accounts
+3. The import's dry run, with the four `--account-name` renames: every name listed as missing,
+   the four bank names among them.
+4. `--create-names` creates them, importing nothing.
+5. The dry run again: no row skipped but the two zero rows, and the 9 split purchases counted
+   as 9 split transactions.
+6. The import with `--apply`, refused by nothing.
+7. In the app: the twelve person accounts turned into people, and the three closed accounts
    archived.
 
 ## How the owner knows it is done

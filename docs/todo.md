@@ -37,6 +37,17 @@ the engine repo's `docs/from-tui/`, then tell me, and it leaves the outbox.
 
 **Recommended:** none: only you can hand it over.
 
+### Hand the sheet import's reply to the engine
+Asked 2026-10-27 · Blocks: nothing; the engine waits for it
+
+The file
+[to-engine/caught-up-46e2fdf6e11d7548-sheet-import.md](to-engine/caught-up-46e2fdf6e11d7548-sheet-import.md)
+tells the engine the terminal app now sends your sheet to it whole. Copy it into the engine
+repo's `docs/from-tui/` along with the split-rows ask above, then tell me, and both leave the
+outbox.
+
+**Recommended:** none: only you can hand it over.
+
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
@@ -166,7 +177,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   and question 3 B back what is built, linked from tui.md, decisions.md, reconciliations.py and
   two unit tests),
   `expense-world-bank-lines-whole.html` (whose pane 2c still shows a part count the built row
-  does not), `expense-world-screen-map.html` (linked from nowhere), and
+  does not), `expense-world-screen-map.html` (linked from nowhere; its `#sheet` pane draws the
+  app reading the `.xlsx` itself), `expense-world-sheet-import-engine.html` (backs the sheet
+  import built on 2026-10-27; linked from commands.md, import_cmd.py and test_cmd_import.py),
+  and
   `expense-world-bank-import-10b.html`; `expense-world-import-door.html` (screens 3, 4 and 6) and
   `expense-world-bank-lines-upload.html` (screens 1 to 3) still draw the import's old preview,
   the screen map's split pane and `expense-world-split-screen.html` (linked from the screen map)
@@ -176,9 +190,10 @@ ships (its why moves to [decisions.md](decisions.md)).
   docstrings of test_tui_form_hints.py, test_tui_edit_form.py and test_tui_bulk_edit.py), and
   `expense-world-opening-balance-note.html` backs the begin balance hint already built (panes
   1 B and 2 B; linked from tui.md, decisions.md and test_tui_form_hints.py), and
-  `expense-world-grouped-refusals.html` backs refused-row lines already built (linked from
-  commands.md, tui.md and a test docstring), and still draws a `Must not be a statement line
-  another bank line already has.` line the sheet import can no longer get. Ledger footers still
+  `expense-world-grouped-refusals.html` backs the LOG bar's refused-row lines already built
+  (screens 2 A and 3 A, linked from tui.md and a test docstring), and its screens 1 and 3 draw
+  the old sheet import's `--apply` output (`Accounts: created 0, reused 31`, a `Failures` block),
+  which the app no longer prints. Ledger footers still
   read `s Split` where the app says `s Edit`, in `expense-world-archived-account.html` (whose
   screen 1 A also draws `s` gone on an archived row), `expense-world-bank-lines-whole.html`,
   `expense-world-pending-hashtag-home.html` and the "today" pane of
@@ -245,10 +260,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   [edit_form.py](../expense/tui/screens/edit_form.py) module docstring says the form opens on
   DATE, though it opens on the first line that can change.
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
-  spec and the bank download and closing a statement done on 2026-10-26; the rest run in this
-  order: the sheet import through the engine
-  ([specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)), the
-  current spec, waiting on its question 4; and the PDF statement below.
+  spec and the bank download and closing a statement done on 2026-10-26, the sheet import
+  through the engine on 2026-10-27; the PDF statement below is what is left.
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
@@ -258,8 +271,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   upload of 2026-10-26, waiting for the owner's approval and answers
   ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import), every question
-  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). It
-  follows the sheet import through the engine.
+  answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). The
+  sheet import through the engine it waited on is done (2026-10-27).
 - **Bank files become the intake** — rows arrive as BCP `.xlsx` downloads through the TUI
   import door; the first real bank import follows the official import. Plan:
   [file-import-plan.md](file-import-plan.md).

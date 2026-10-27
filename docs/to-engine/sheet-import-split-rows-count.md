@@ -5,10 +5,10 @@ Raised 2026-10-27.
 ## Why
 
 A split purchase in the owner's sheet is several rows sharing one `COD_EECC`, and the sheet
-import brings it in as one bank line with a part per row (contract: POST
-/v1/transactions/import-sheet). Its answer's `counts` say how many such lines there are
-(`split_lines`), but nothing in the answer says how many of the sheet's rows they hold: a row
-carries no group key, and on a dry run a new row has no `bank_line_id` to group by.
+import brings it in as one bank line with a part per row
+(contract: POST /v1/transactions/import-sheet). Its answer's `counts` say how many such lines
+there are (`split_lines`), but nothing in the answer says how many of the sheet's rows they
+hold: a row carries no group key, and on a dry run a new row has no `bank_line_id` to group by.
 
 The owner reads the dry run to check the sheet before the one-time official import, and wants
 to see "split transactions 3 (8 rows)": three split purchases, made from eight sheet rows. It

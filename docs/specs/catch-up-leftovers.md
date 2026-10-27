@@ -39,6 +39,17 @@ what a statement's close flags and took a card's other account from the engine (
   - [test_reserved_name_held.py](../../tests/contract/test_reserved_name_held.py) builds its
     download's header and body by hand, where the contract conftest's shared `download_body` and
     `CURRENT_HEADER` do it.
+  - Found while the sheet import went through the engine (2026-10-27): the batch helper keeps
+    what only the old sheet import used. `chunk_size`, `require_sendable_chunk_size` and the
+    `engine_text` default in [batch_write.py](../../expense/batch_write.py) serve no caller but
+    the tests, since the LOG bar always passes its own; and a test docstring in
+    [test_batch_write.py](../../tests/unit/test_batch_write.py) calls the default "the
+    importer's". The comment above `_ENVELOPE_ERRORS` in [errors.py](../../expense/errors.py)
+    says EngineError is a branch in `render()`, where it is in `json_body` and `exit_code_of`.
+    Two comments in [import_cmd.py](../../expense/commands/import_cmd.py) carry "pick 2 A" tags
+    instead of saying what they mean. And
+    [test_tui_setup.py](../../tests/unit/test_tui_setup.py) keeps the old "openpyxl is required
+    for `expense import`" words as a guard's fixture text.
 - **Mockups that draw old words:** `expense-world-split-transaction-screen.html` (a part's amount
   stating both totals), `expense-world-edit-part.html` ("Another part of this bank line …"),
   `expense-world-grouped-refusals.html` (the old sealed sentence) and
@@ -66,7 +77,8 @@ what a statement's close flags and took a card's other account from the engine (
    tick-refusal test's reason.
 2. **A completed statement's footer shows only the keys that work on it**, as question 1 decides.
 3. **The cleaner's doc says how to clean either practice user.**
-4. **The small things are tidied**: the `!` helper named for what it marks, the hand-built download body using the shared helpers, the "no batch" comment saying
+4. **The small things are tidied**: the `!` helper named for what it marks, the hand-built download body using the shared helpers, the batch helper keeping only what a
+   caller uses, the stale comments and tags said plainly, the "no batch" comment saying
    newest first is the engine's order when none is asked for, and the ids read split by the
    engine's own bound on ids.
 5. **The six mockups draw the words the app shows**, or are deleted with their links if they
