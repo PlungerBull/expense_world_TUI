@@ -41,6 +41,32 @@ and answer them there.
 **Recommended:** approve it with 1 B (drop `c` only) and 2 B (oldest first), after the sheet
 import and the PDF specs.
 
+### The engine is reworking cards and statements: wait with task 4?
+Asked 2026-10-27 · Blocks: task 4 of [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
+
+The engine's hand-off of 2026-10-27 says its next change makes a card one thing holding its two
+accounts, and its statement one thing for the whole card, reworking the statement routes and
+the statement upload. Task 4 builds the statement screen on today's routes: lines in the paper's
+order, and no ticking on card and BCP accounts.
+- **A.** Wait: build task 4 once the rework lands, on its routes.
+- **B.** Build it now, and redo what the rework changes.
+
+**Recommended:** A, because task 4 is exactly what the rework changes; tasks 3's upload
+screens are built and stay.
+
+### The contract moved to f0ee03d6faa96af1: approve its catch-up spec
+Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
+
+This client has caught up to `46e2fdf6e11d7548`. The engine's hand-off of 2026-10-27 covers
+`f91a1e0ae626c712` and `f0ee03d6faa96af1`: the sheet import counts the rows its split
+transactions come from (`counts.split_rows`), two refusals' descriptions name the sheet's
+`COD_EECC`, and a malformed cursor is always refused. The version check could not run: the
+practice engine does not start while the engine checkout is mid-edit, at 2026-10-27. The draft
+spec holds one question, the words of the sheet import's counts line. Approve it or rewrite it,
+and answer it there.
+
+**Recommended:** approve it with 1 A, and run it next, once the practice engine starts again.
+
 ### Hand over the ask for sample statement PDFs
 Asked 2026-10-27 · Blocks: task 6 of [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
@@ -48,9 +74,11 @@ The live tests can make up a savings statement the engine reads, but not a card'
 needs one exact line of column headings that its published rules never print. The ask
 [to-engine/sample-statement-pdfs.md](to-engine/sample-statement-pdfs.md) asks the engine coders
 for one made-up sample PDF per kind of statement, and for the exact layout. Copy it into the
-engine repo's `docs/from-tui/` and say when it is done.
+engine repo's `docs/from-tui/` and say when it is done. The engine's hand-off of 2026-10-27
+already names it as planned for its next change; if you have handed it over, say so and it
+leaves the outbox.
 
-**Recommended:** hand it over now; tasks 3 to 5 do not wait on it.
+**Recommended:** hand it over, or confirm you did.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
@@ -191,6 +219,8 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
+- **The engine catch-up of 2026-10-27** (to `f0ee03d6faa96af1`): a draft spec waiting for the
+  owner's approval ([specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
