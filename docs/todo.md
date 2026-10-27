@@ -28,17 +28,28 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Get the engine's hand-off file for 592f2467fa3df75a to 872eff6cfffc787a
-Asked 2026-10-26 · Blocks: every new task, and so [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md) (its acceptance check fails only on the moved version) and [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
+### Approve the catch-up spec for reading bank lines by their ids
+Asked 2026-10-27 · Blocks: every new task, and so [specs/catch-up-bank-lines-by-ids.md](specs/catch-up-bank-lines-by-ids.md), then [specs/engine-words-leftovers.md](specs/engine-words-leftovers.md) (its acceptance check fails only on the moved version)
 
-You chose on 2026-10-26 to catch up next with the engine's contract, which moved from
-`592f2467fa3df75a` (this client's last catch-up) to `872eff6cfffc787a`: the shipped ask for
-reading several bank lines at once (`?ids=` on `GET /bank-lines`) and an oldest-first order
-(`?sort=date_asc`). Ask the engine coders for one hand-off file covering that range, and copy it
-into [from-engine/](from-engine/); it becomes the catch-up spec, and the new version is
-recorded in that spec's work.
+The engine's hand-off for `592f2467fa3df75a` to `46e2fdf6e11d7548` arrived on 2026-10-27 and is
+drafted into its catch-up spec with three tasks: the flagged lines' screen reads its lines in one
+call, the tests quote the engine's new words for a future-dated import row, and live tests prove
+the new reads and record the new version. Nothing you see changes but the bank import's line
+for a future-dated row, which now shows the engine's words, row number included. Approve the
+tasks or rewrite them.
 
-**Recommended:** none: only you can ask for it.
+**Recommended:** approve it and run it first: until it records the new version, no other work
+can start.
+
+### Answer the sheet import's question 4
+Asked 2026-10-27 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
+
+The engine declined both sheet-import asks on 2026-10-26: it gives the dry run's counts only once
+every account, category and hashtag the sheet uses exists. The question, with its three options,
+is in the spec: a dry run with no counts, a dry run that creates the missing names, or a step of
+its own that creates them first.
+
+**Recommended:** C (a step of its own), for the reason the spec gives.
 
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)

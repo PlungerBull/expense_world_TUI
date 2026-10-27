@@ -81,8 +81,9 @@ Approved by the owner on 2026-10-26.
 8. **A test pins a bracketed name on Home** (from the tester's acceptance check of 2026-10-26).
    Home's balances show `BCP [like this]` whole in the app, but no unit test puts a bracketed
    account name on Home ([home.py](../../expense/tui/screens/home.py) `home_options`); one does.
-   Waits, with the rest of the acceptance check, on the catch-up that "Get the engine's hand-off
-   file for 592f2467fa3df75a to 872eff6cfffc787a" in [todo.md](../todo.md) starts.
+   Waits, with the rest of the acceptance check, on
+   [catch-up-bank-lines-by-ids.md](catch-up-bank-lines-by-ids.md), which records the moved
+   contract version.
 
 ## Found along the way
 

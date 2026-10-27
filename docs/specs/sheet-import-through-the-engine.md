@@ -72,6 +72,34 @@ answers no counts, and the engine does not say which names only opening balances
 would create a `SALDO INICIAL` category no row needs. Both become engine asks, and task 2 waits
 for them, so the dry run looks as the owner picked.
 
+**The engine declined both asks on 2026-10-26**, with no contract change. Whether a row is an
+opening balance depends on the account its name goes to, and on whether two of the sheet's
+names go to one account, so the engine answers outcomes and counts only once every account,
+category and hashtag the sheet uses has an id, and never guesses before. A dry run sent without
+the table lists the names and the rows, with no outcomes and every count `0`. A category the app
+creates for a name only opening balances use, like `SALDO INICIAL`, is an ordinary unused
+category, which you may delete. So the dry run you picked (screen 1 A, with its counts) can only
+show counts once every name exists.
+
+**Question 4 — How does the dry run show its counts, now that every name must exist first?**
+For your official import into an empty ledger every name is new, so this decides whether you
+ever see the counts before the import is written.
+
+- **A. The dry run shows no counts.** It shows the names table and what each name goes to; the
+  counts show only in what `--apply` wrote. A dry run writes nothing, but you see how many rows
+  are new or matched only after the import.
+- **B. The dry run creates the missing names, then shows the counts.** One command, the counts
+  before the import, but a dry run writes: the names it created stay even if you never import
+  (each one deletable), `SALDO INICIAL` included.
+- **C. A step of its own creates the names.** The dry run lists the names still missing and says
+  which command creates them; once they exist, the dry run shows the counts; then `--apply`
+  writes the import. A dry run never writes and you see the counts first, at one more command
+  (its name is yours to pick). `SALDO INICIAL` is created with the rest.
+
+**Recommended:** C, because a dry run stays a dry run, and you still see every count before
+anything is imported. Whichever you pick, screen 1 of the mockup is redrawn for it and picked
+before it is built.
+
 ---
 
 ## Tasks
@@ -93,15 +121,9 @@ Approved by the owner on 2026-10-26.
    command takes its renames and its read timeout from the engine-calls module
    ([expense/import_/engine.py](../../expense/import_/engine.py)), so each has one copy, and a
    rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
-   module merges them without a word). **Waits on the engine asks** "The
-   sheet import's dry run counts the rows before every name has an id" and "The sheet import
-   marks the names only opening balances use", and then on their catch-up. The engine coders
-   answered on 2026-10-26 that they will build the first differently: a dry run takes a table
-   that maps only the accounts and then answers every outcome and count exactly, and each
-   category and hashtag carries a flag, `null` until the accounts are mapped, saying whether
-   only opening balances use it. So the accounts must exist before the dry run, where the
-   owner's answer to question 1 creates them at the apply; how the app gets them created first
-   is a question for the owner at the catch-up, once the shipped contract shows the shape.
+   module merges them without a word). **Waits on the owner's answer to question 4**, then on
+   screen 1 of the mockup redrawn for it and picked: the engine declined both of this spec's
+   asks on 2026-10-26, so the dry run's counts need every name created first.
 
 ## Reply to the engine
 
@@ -112,8 +134,9 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   whole, …".
 - **The engine's "Done when" checks to report on:** no code reads the sheet itself; the contract
   tests upload a made-up sheet with a dry run and an apply.
-- **The asks it closes:** "The sheet import's dry run counts the rows before every name has an
-  id" and "The sheet import marks the names only opening balances use", once shipped.
+- **The asks it closes:** none. The engine declined "The sheet import's dry run counts the rows
+  before every name has an id" and "The sheet import marks the names only opening balances use"
+  on 2026-10-26; the reply says how the app shows the dry run without them.
 
 ## Found along the way
 
