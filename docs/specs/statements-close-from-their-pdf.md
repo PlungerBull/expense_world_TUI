@@ -5,10 +5,8 @@ hand-off of 2026-10-26, the statement upload (`9063fab000b2e3d6`, worded again i
 `9537a3f6276d7d85`). Showing the lines a close flags was built first, in
 the catch-up of the bank download and closing a statement (done on 2026-10-26).
 
-**Status: draft, for the owner to rewrite or approve; questions 1 to 6 answered on 2026-10-25,
-questions 7 and 8 wait on the owner. The engine shipped the upload on 2026-10-26, settling
-several points this draft asked about; it is rewritten to what shipped. Its tasks are drafted
-when the owner names it the current spec.** When done, the why moves to
+**Status: approved and named the current spec by the owner on 2026-10-27, every question
+answered; its tasks wait on the owner's approval.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
 ---
@@ -50,8 +48,9 @@ difference of zero, on 2026-10-26.
 ## What it must do
 
 1. **Upload a month's PDF statement** from the app, on any account that holds a statement: a
-   card's or a bank account's. You name the account (for a card, either of its two); where you
-   start the upload is question 7.
+   card's or a bank account's. You drop the PDF on the LOG bar, as a bank download is dropped,
+   and pick its account (for a card, its one line): screens A1 and A2 of
+   [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html).
 2. **The engine closes the month from it** in one write: it creates the month's statement if
    none is open (on a card, both halves, joined) or fills the open one, sets each half's
    starting and ending balance from the PDF, matches each PDF line to a ledger line, creates the
@@ -71,7 +70,8 @@ difference of zero, on 2026-10-26.
 6. **The reconciliation screens do only reconciliation work.** Editing a line from them opens the
    ledger's Edit form, as `⏎` on a "no batch" row does today.
 7. **A live test closes a statement from a made-up PDF**, dry run and apply, and proves each
-   refusal and that a replay writes once. The PDF is made up: never one of your real statements,
+   refusal and that a replay writes once; one refusal is a line dated in the future, named
+   "Row <place>: Must not be in the future." on `rows.<place>.date`. The PDF is made up: never one of your real statements,
    since this repo is public.
 
 ## How the owner knows it is done
@@ -99,8 +99,8 @@ difference of zero, on 2026-10-26.
     ledger flag one.
 11. A ledger line dated inside the month that the PDF does not hold does not stop the close.
 12. A card month with no dollar line still closes its dollar half, empty.
-13. The live contract suite proves the upload, each of its refusals, and that a replay writes
-    once.
+13. The live contract suite proves the upload, each of its refusals (a future-dated line's
+    words among them), and that a replay writes once.
 
 ## What the owner settled
 
@@ -127,6 +127,13 @@ difference of zero, on 2026-10-26.
   ledger's extra ones flagged.
 - **A month can be opened before its PDF** (owner, 2026-10-25, question 6, A): the upload closes
   the open one, or creates it.
+- **The upload starts from the LOG bar** (owner, 2026-10-27, question 7, A): the PDF is
+  dropped as a bank download is, and its account picked from the same list; screens A1 and A2
+  of [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html)
+  are approved.
+- **The preview is the check against a wrong account's PDF** (owner, 2026-10-27, question 8,
+  A): accounts carrying their numbers, and the engine checking a PDF's number against its
+  account, are their own spec after this one ("Found along the way").
 - **The PDF overturns "no PDF"** in [file-import-plan.md](../file-import-plan.md) (owner,
   2026-10-25), for statements.
 
@@ -147,50 +154,49 @@ From the live contract (contract: POST /v1/reconciliations/import), shipped 2026
 
 ## Questions for the owner
 
-Questions 7 to 11 of the draft of 2026-10-25 asked how the engine finds the account from the
-PDF's number, whether a flagged line stops the close, and how an account is named from its
-bank and number. The engine settled the first two (above); questions 7 and 8 below replace
-them.
-
-7. **Where you start the upload.** Both drawn in
-   [expense-world-statement-pdf-upload.html](../mockups/expense-world-statement-pdf-upload.html).
-   - **A.** Drop the PDF into the import door, as a bank download: the door tells a PDF from an
-     Excel file and asks which account it is, as it does today.
-   - **B.** From the statement, on Reconciliations.
-
-   **Recommended:** A, because every file from the bank then comes in through one door.
-8. **A PDF of the wrong account.** The engine does not check the paper's number against the
-   account you name, so a PDF of another account in the same currency is not refused: its
-   preview would show almost every line as to be created.
-   - **A.** This spec ships with the preview as the check. Accounts carrying their card and
-     account numbers over time, their names from bank and number, and the engine checking a
-     PDF's number against its account become their own spec after this one (points 7 and 8 and
-     questions 9 to 11 of the draft of 2026-10-25, kept below).
-   - **B.** This spec waits for accounts to carry their numbers, and the engine to check them.
-
-   **Recommended:** A, because the preview already shows a wrong file before anything is
-   written, and closing statements should not wait on account names.
-
-### Kept for their own spec (question 8)
-
-- **An account keeps its card numbers over time.** A card replaced with its balance carried
-  over (a lost card, say) stays the same account: the account records which card number it had
-  until which day and which one after (owner, 2026-10-25, question 5). A card that is closed
-  ends its account, and a new card is a new account. Which of the owner's card numbers are
-  which account is set in the app, card by card, once the field exists.
-- **An account's name comes from its bank and its number** (owner, 2026-10-25): an account holds
-  its bank and the last 4 digits of its card or account number, and an optional alias; it shows
-  as bank + last 4 digits (`BCP 1234`), or as its alias when it has one. The engine holds the
-  fields and the rule and serves the name to show.
-- Its open questions: a card's two accounts share one number (the currency joins the name, or
-  an alias each); a replaced card's name (follows the new card, or keeps the first); accounts
-  with no bank number, such as people and cash (keep a typed name, or must have one).
+None open.
 
 ---
 
 ## Tasks
 
-Drafted when the owner names this the current spec.
+Drafted 2026-10-27, waiting on the owner's approval. Tasks 3 and 4 wait on task 1's mockup being
+picked.
+
+1. **Mockup of the screens not yet drawn (orchestrator).** The preview of an upload (a card and
+   an account statement, matched, new and empty rows, near misses, lines taken out, each half's
+   balances); a refused upload; the screen after it is written; a closed statement's screen in
+   the paper's order, its opening balance apart; and, as questions drawn as panes: what the
+   statement screen keeps on an account with a statement code, where ticking and completing by
+   hand can no longer close a month; and what a drop of several PDFs, or a PDF beside a bank
+   download, does. Parks until the owner picks.
+   *Passes if:* the mockup is in [mockups/](../mockups/), linked from this spec, every pane
+   drawn from the live contract's answer (contract: POST /v1/reconciliations/import), and each
+   open choice is a lettered pane with a recommendation.
+2. **The live tests of the upload (builder).** A made-up statement PDF built by the tests (never
+   a real one), a card's and an account's; then dry run and apply, every refusal the contract
+   lists that a made-up file can provoke (the future-dated line's words among them), a replay
+   answering once, and the same paper after a revert creating nothing.
+   *Passes if:* the live suite runs them green against the practice engine; no real statement
+   enters the repo; and if the engine cannot read a made-up PDF built from the contract's
+   description, the builder stops and reports what is missing, which becomes an engine ask.
+3. **The upload in the app (builder, after task 1's pick).** A PDF dropped on the LOG bar (A1),
+   its account (A2), the preview, the apply, the screen after it and each refusal in the
+   engine's words, as the mockup is picked; the upload's request built in one shared home beside
+   the bank download's ([flow.py](../../expense/bank_import/flow.py)).
+   *Passes if:* unit tests drive each screen's happy path and each refusal against the fake
+   engine; a dry run writes nothing and `esc` on the preview sends nothing; one idempotency key
+   per apply; tui.md says what the screens do.
+4. **The statement screen after a close (builder, after task 1's pick).** A statement's lines in
+   the paper's order (contract: GET /v1/bank-lines, "Ordering"), its opening balance apart;
+   editing a line opens the ledger's Edit form; and what the picked pane decides for ticking and
+   completing on an account with a statement code.
+   *Passes if:* unit tests pin the order, the opening balance's place, the Edit form opening and
+   the picked keys; tui.md says so.
+5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) no
+   longer says "no PDF"; [commands.md](../commands.md) and [runtime.md](../runtime.md) follow if
+   they name the bank files the app takes.
+   *Passes if:* no doc says the app takes no PDF, and each fact has one home.
 
 ## Reply to the engine
 
@@ -206,3 +212,18 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- **Accounts carry their numbers, and a PDF is checked against its account** (question 8,
+  A): a spec of its own after this one, holding the three points below.
+  - **An account keeps its card numbers over time.** A card replaced with its balance carried
+    over (a lost card, say) stays the same account: the account records which card number it had
+    until which day and which one after (owner, 2026-10-25, question 5). A card that is closed
+    ends its account, and a new card is a new account. Which of the owner's card numbers are
+    which account is set in the app, card by card, once the field exists.
+  - **An account's name comes from its bank and its number** (owner, 2026-10-25): an account holds
+    its bank and the last 4 digits of its card or account number, and an optional alias; it shows
+    as bank + last 4 digits (`BCP 1234`), or as its alias when it has one. The engine holds the
+    fields and the rule and serves the name to show.
+  - Its open questions: a card's two accounts share one number (the currency joins the name, or
+    an alias each); a replaced card's name (follows the new card, or keeps the first); accounts
+    with no bank number, such as people and cash (keep a typed name, or must have one).

@@ -41,19 +41,14 @@ and answer them there.
 **Recommended:** approve it with 1 B (drop `c` only) and 2 B (oldest first), after the sheet
 import and the PDF specs.
 
-### Approve the spec for closing a statement from its PDF
-Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
+### Approve the PDF spec's tasks
+Asked 2026-10-27 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
 
-The engine shipped the upload on 2026-10-26, and the draft is rewritten to what shipped: you
-name the account, the engine reads the PDF, creates the missing lines under `@Pendiente`, takes
-out the extra ones, puts every line in the paper's order and completes the month. It holds two
-questions: where you start the upload, and whether a PDF of the wrong account waits for
-accounts to carry their bank numbers (the card numbers and account names you described move to
-their own spec if not). Approve it or rewrite it, and answer them there.
+The spec is approved and current, every question answered. Its five tasks are drafted in its
+"Tasks" section: a mockup of the screens not yet drawn, the live tests of the upload, the upload
+in the app, the statement screen after a close, and the docs. Approve them or change them.
 
-Set aside by the owner on 2026-10-26: not to run now.
-
-**Recommended:** approve it with the recommended answers when you take it up again.
+**Recommended:** approve them as drafted.
 
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
@@ -62,12 +57,11 @@ Eighteen small things, all inside the tests and their tools: copies to merge, st
 sentences and comments, tests that check less than they say or fail at random in CI, the drift
 check covering more of the engine's answers, the practice-data cleaner reading every page, the
 guard checking a test-engine start whole, and two heads pinned showing a bracketed name whole.
-Nothing you see changes. On 2026-10-27 you moved the future-dated line's live test out (it
-waits on the PDF spec) and brought in the backlog's test-only items. Approve it, and say
-whether it runs before or after the PDF spec.
+Nothing you see changes. On 2026-10-27 you moved the future-dated line's live test into
+the PDF spec and brought in the backlog's test-only items. Approve it; it runs after
+the PDF spec, the current one.
 
-**Recommended:** approve it and run it now: the PDF spec is set aside, and this one waits on
-no answer.
+**Recommended:** approve it.
 
 ---
 
@@ -88,13 +82,6 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **Leftovers in the test suites**: a draft spec waiting for the owner's approval
   ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)); every backlog item that
   lives only in the tests and their tools is in it.
-- **A live test checks a statement upload's words for a future-dated line.** The engine names
-  the line, "Row <place>: Must not be in the future." on `rows.<place>.date`, on POST
-  /reconciliations/import as on the other two imports (contract version `46e2fdf6e11d7548`);
-  no live test sends a statement PDF yet, since none made up exists in this repo. It needs the
-  made-up statement PDF that point 7 of
-  [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md) builds,
-  so it comes after that spec, as its own spec.
 - **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
   Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
   once every row is loaded; on a 30-row terminal it clips its last line
@@ -207,8 +194,8 @@ ships (its why moves to [decisions.md](decisions.md)).
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).
   Under English (Peru), `1,5` is not a number, so it is refused instead of saved as 15.00.
   Needs a spec.
-- **A month's statement closes from the bank's PDF**: a draft spec, rewritten to the engine's
-  upload of 2026-10-26, waiting for the owner's approval and answers
+- **A month's statement closes from the bank's PDF**: the current spec, its tasks waiting for
+  the owner's approval
   ([specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)).
 - **Move the official data into the app** (a wipe and one fresh sheet import), every question
   answered: [specs/before-the-official-import.md](specs/before-the-official-import.md). The
