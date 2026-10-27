@@ -95,7 +95,13 @@ Approved by the owner on 2026-10-26.
    rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
    module merges them without a word). **Waits on the engine asks** "The
    sheet import's dry run counts the rows before every name has an id" and "The sheet import
-   marks the names only opening balances use", and then on their catch-up.
+   marks the names only opening balances use", and then on their catch-up. The engine coders
+   answered on 2026-10-26 that they will build the first differently: a dry run takes a table
+   that maps only the accounts and then answers every outcome and count exactly, and each
+   category and hashtag carries a flag, `null` until the accounts are mapped, saying whether
+   only opening balances use it. So the accounts must exist before the dry run, where the
+   owner's answer to question 1 creates them at the apply; how the app gets them created first
+   is a question for the owner at the catch-up, once the shipped contract shows the shape.
 
 ## Reply to the engine
 
@@ -106,12 +112,8 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   whole, …".
 - **The engine's "Done when" checks to report on:** no code reads the sheet itself; the contract
   tests upload a made-up sheet with a dry run and an apply.
-- **The asks it closes:** none; the sheet import is the owner's own work.
-- **Contract problems found:** under "Rejected up front with `422`", the contract says "a
-  message of the sheet's own rules begins `Row <row>:`" and lists `FUTURE_DATE` beneath it, but
-  the engine's `FUTURE_DATE` message is "Must not be in the future.", with no row (its key,
-  `rows.<row>.date`, carries it). Either `FUTURE_DATE` is not one of the sheet's own rules and
-  the wording should say so, or its message lacks the prefix (found in task 3's review).
+- **The asks it closes:** "The sheet import's dry run counts the rows before every name has an
+  id" and "The sheet import marks the names only opening balances use", once shipped.
 
 ## Found along the way
 

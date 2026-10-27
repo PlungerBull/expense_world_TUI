@@ -78,14 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-1. **[UI] Every list shows names and titles whole.** A name or title the engine holds shows as
-   it is, `[` and all, never read as styling, in every list drawn through
-   [cursor_list.py](../../expense/tui/widgets/cursor_list.py) and in the bank import preview's
-   title ([bank_import.py](../../expense/tui/screens/bank_import.py)), as
-   [expense-world-bracketed-names.html](../mockups/expense-world-bracketed-names.html) draws it
-   (approved 2026-10-26). The app's own styled cells (swatches, marks) keep their styling.
-   Tests pin `BCP [like this]` whole in Manage ▸ Accounts, the ledger and the bank import
-   preview; [tui.md](../tui.md) says it.
 2. **The bulk edit's note keeps a trailing backslash.** Engine words ending in `\` show whole in
    `refusal_notes` ([transactions.py](../../expense/tui/screens/transactions.py)); the limit in
    `as_markup`'s docstring ([refusal.py](../../expense/tui/widgets/refusal.py)) is lifted or no
@@ -110,6 +102,16 @@ Approved by the owner on 2026-10-26.
    `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html` in
    [mockups/](../mockups/) are redrawn, or deleted with their links where they back no open work
    (the rule in [todo.md](../todo.md) "Mockups that back no open work").
+7. **[UI] The two lists that draw their own tables show names whole too** (found in task 1; the
+   spec's point 1 asks for every list). The reconciliation tick list's bank line title
+   ([checklist.py](../../expense/tui/widgets/checklist.py)) and the LOG bar's staged table's
+   account and category names (`_reference_cell` and `_category_cell` in
+   [log_bar.py](../../expense/tui/screens/log_bar.py)) show `[like this]` whole, as
+   [expense-world-bracketed-names.html](../mockups/expense-world-bracketed-names.html) draws it
+   (approved 2026-10-26), through the one helper task 1 made for list cells; tests pin both.
+   [tui.md](../tui.md)'s words-as-text paragraph then holds for every list as it reads, and
+   [cursor_list.py](../../expense/tui/widgets/cursor_list.py)'s module docstring says its
+   cells are strings or `Text`, not "the column strings".
 
 ## Found along the way
 

@@ -414,7 +414,7 @@ def preview_table(lines: list[PreviewLine], pick: AccountPick) -> Table:
         cells: list[RenderableType] = [
             str(row.row),
             row.date_iso,
-            row.title or EMPTY,
+            Text(row.title or EMPTY),  # the engine's words, never read as markup
             amount_cell(row.amount_cents, PALETTE, AMOUNT_RULE),
         ]
         if pick.is_card:

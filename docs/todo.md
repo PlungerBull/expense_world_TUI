@@ -28,33 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Hand over the ask for reading several bank lines at once
-Asked 2026-10-26 · Blocks: nothing; the flagged lines screen reads one line per call until it lands
-
-Copy [to-engine/bank-lines-read-by-ids.md](to-engine/bank-lines-read-by-ids.md) into the engine
-repo's `docs/from-tui/`, then say so here and it leaves the folder.
-
-**Recommended:** none: only you can hand it over.
-
-### Hand over the catch-up reply for the bank download and closing a statement
-Asked 2026-10-26 · Blocks: nothing; the engine learns this client caught up to `592f2467fa3df75a`
-
-Copy [to-engine/caught-up-592f2467fa3df75a-bank-download-and-closing.md](to-engine/caught-up-592f2467fa3df75a-bank-download-and-closing.md)
-into the engine repo's `docs/from-tui/`, then say so here and it leaves the folder. It reports
-two slips in the engine's contract.
-
-**Recommended:** none: only you can hand it over.
-
-### Hand over the two asks for the sheet import's dry run
-Asked 2026-10-26 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md), and so [specs/before-the-official-import.md](specs/before-the-official-import.md)
-
-Copy [to-engine/sheet-import-dry-run-counts-without-a-table.md](to-engine/sheet-import-dry-run-counts-without-a-table.md)
-and [to-engine/sheet-import-names-only-opening-balances-use.md](to-engine/sheet-import-names-only-opening-balances-use.md)
-into the engine repo's `docs/from-tui/`, then say so here and they leave the folder. Once the
-engine ships them, its hand-off becomes the catch-up that unblocks task 2.
-
-**Recommended:** none: only you can hand them over.
-
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 

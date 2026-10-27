@@ -971,7 +971,14 @@ creates one.
 `[` and all: a `[like this]` or a lone `[` in a refusal, a warning or a name is never read
 as markup and never vanishes. Lines drawn on a screen (under the parts, the import's
 preview, the LOG bar's rows, a question, the "Could not load." banner, a status line) are
-Rich `Text`. A toast whose message is not a fixed sentence of the app's goes through
+Rich `Text`. Lists show names and titles as the engine holds them: `list_table` in
+[cursor_list.py](../expense/tui/widgets/cursor_list.py), which draws every `CursorList` and
+the bulk pick's rows, draws a plain cell as `Text`, so `BCP [like this]`, a `[/]` or a lone
+`[` shows as typed; a cell the app styles itself (a swatch, a coloured amount, a mark) is a
+`Text` it builds and is drawn as built. The import preview's title is `Text` too, and
+[test_tui_bracketed_names.py](../tests/unit/test_tui_bracketed_names.py) pins a bracketed
+name in Manage ▸ Accounts, the ledger and the import preview.
+A toast whose message is not a fixed sentence of the app's goes through
 `toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
 title is always text. The one toast that styles the engine's words on purpose, the
 ledger's bulk edit note, writes them into its content markup through `as_markup` there,

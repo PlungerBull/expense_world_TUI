@@ -61,7 +61,8 @@ class Row(NamedTuple):
     """One list row.
 
     ``key`` identifies the row (carried on ``Selected``/``Highlighted``);
-    ``cells`` are the column values — plain strings or Rich renderables like a
+    ``cells`` are the column values — plain strings, shown as the words they
+    hold (never read as markup), or Rich ``Text`` the app styled itself, like a
     colored swatch; ``base_style`` is the Rich style applied when the row is not
     the cursor (e.g. ``"dim"`` for archived rows).
     """
@@ -81,9 +82,12 @@ class Row(NamedTuple):
 RowInput = Row | tuple
 
 
-def _cell(value: object) -> object:
-    # pass Rich renderables (e.g. a Text swatch) through; stringify the rest.
-    return value if isinstance(value, (str, Text)) else str(value)
+def _cell(value: object) -> Text:
+    """A cell as the table draws it. A `Text` (a swatch, a coloured amount, a
+    mark: the app's own styling) is drawn as built; anything else is words, a
+    name or a title as the engine holds it, drawn as `Text` so a `[like this]`,
+    a `[/]` or a lone `[` shows as it is, never read as markup."""
+    return value if isinstance(value, Text) else Text(str(value))
 
 
 def list_table(
