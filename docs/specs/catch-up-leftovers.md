@@ -1,6 +1,6 @@
 # Leftovers of the bank download and closing catch-up
 
-**Status: draft, for the owner to rewrite or approve; question 1 waits on the owner. Its tasks
+**Status: draft, for the owner to rewrite or approve; questions 1 and 2 wait on the owner. Its tasks
 are drafted when the owner names it the current spec.** When done, the why moves to
 [decisions.md](../decisions.md) and this file is deleted.
 
@@ -48,6 +48,16 @@ what a statement's close flags and took a card's other account from the engine (
   list) in [mockups/](../mockups/). `expense-world-import-report.html` still draws the
   `Before 2026` and `Couldn't read the row` rows the app no longer shows.
 
+- **Found while catching up with reading bank lines by their ids (2026-10-27).** The comment
+  over `UNFILED_FILTER` in
+  [reconciliations.py](../../expense/tui/screens/reconciliations.py) says newest first is the
+  engine's one order for bank lines; the engine also takes `sort=date_asc` now, so it is only
+  the order when no `sort` is sent. And `fetch_bank_lines_by_ids` in
+  [reads.py](../../expense/reads.py) splits the ids by the engine's largest page, a separate
+  rule from the most ids one read takes (contract: GET /v1/bank-lines, "At most 200 ids"); both
+  are 200 today, but each rule wants its own name. Whether the "no batch" list now lists oldest
+  first is question 2.
+
 ## What it must do
 
 1. **The tests and docs quote the engine's current words**: the sealed sentence, and the
@@ -55,14 +65,18 @@ what a statement's close flags and took a card's other account from the engine (
 2. **A completed statement's footer shows only the keys that work on it**, as question 1 decides.
 3. **The cleaner's doc says how to clean either practice user.**
 4. **The small things are tidied**: the `!` helper named for what it marks, the unused keyword
-   gone, the hand-built download body using the shared helpers.
+   gone, the hand-built download body using the shared helpers, the "no batch" comment saying
+   newest first is the engine's order when none is asked for, and the ids read split by the
+   engine's own bound on ids.
 5. **The five mockups draw the words the app shows**, or are deleted with their links if they
    back no open work (the rule in [todo.md](../todo.md) "Mockups that back no open work").
+6. **The "no batch" list lists in the order question 2 decides.**
 
 ## How the owner knows it is done
 
 1. On a completed statement, the footer shows what question 1 decided.
-2. The unit suite, the live suite and the drift check pass.
+2. A statement's "no batch" list shows its lines in the order question 2 decided.
+3. The unit suite, the live suite and the drift check pass.
 
 ## Questions for the owner
 
@@ -75,6 +89,16 @@ what a statement's close flags and took a card's other account from the engine (
 
    **Recommended:** B: `c` does nothing there, while `d` leads you to the engine's own words on
    what to do, and the app guesses no engine rule.
+
+2. **The order of the "no batch" list.** It lists an account's lines in no statement newest
+   first, because the engine could list bank lines no other way. Since 2026-10-26 the engine
+   can list them oldest first too, as the flagged lines already show.
+   - **A.** Keep newest first: the lines you bought last are on top.
+   - **B.** Oldest first, as a bank statement and the flagged lines read: the oldest leftovers,
+     most likely forgotten, are on top.
+
+   **Recommended:** B: the list is checked against a statement, which reads oldest first, and
+   the flagged lines already do.
 
 ---
 

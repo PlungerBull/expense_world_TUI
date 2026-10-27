@@ -9,7 +9,8 @@ is deleted.
 ## Why
 
 Small things found while doing the statement catch-up's leftovers (2026-10-25), and while
-proving a held reserved name on the Edit form (points 9 and 10, 2026-10-25), not fixed there.
+proving a held reserved name on the Edit form (points 9 and 10, 2026-10-25), and while catching
+up with reading bank lines by their ids (point 11, 2026-10-27), not fixed there.
 All of them are inside the test suites and their tools: nothing you see changes, and no engine
 change is needed.
 
@@ -62,6 +63,11 @@ change is needed.
     `RESERVED_NAME_HELD` among them, but when a reason has no line of the app's it checks
     nothing, so it would pass with one showing. It proves no line of the app's shows for those
     reasons, and for every reason that "Nothing was saved." shows and one write was sent.
+11. **A live test checks a statement upload's words for a future-dated line.** The engine names
+    the line, "Row <place>: Must not be in the future." on `rows.<place>.date`, on POST
+    /reconciliations/import as on the other two imports (contract version `46e2fdf6e11d7548`),
+    but the live suite drives that route only for a held reserved name; one test sends a made-up
+    statement PDF with a future-dated line and checks the words.
 
 ## How the owner knows it is done
 

@@ -84,7 +84,7 @@ Decisions whose why lives elsewhere:
 
 **Decision.** (1) **The reconciliation screens list bank lines, not ledger rows** (owner, 2026-10-17): one row per bank line, in the bank's columns only (date · title · operation · amount) with the line's total, and nothing marks a split, because the bank sees one movement (contract: GET /v1/bank-lines). (2) **A tick is one write on any part**; the engine puts every part in the reconciliation or takes every part out, so no screen shows half a line ticked (contract: PUT /v1/transactions/{transaction_id}). (3) **`d` on any part of a split transaction deletes the whole line**, from the ledger or from "no batch", after a question naming how many parts go: "Delete this transaction and its N parts? No screen can bring it back." (contract: DELETE /v1/bank-lines/{bank_line_id}). `b` moves the whole line, as the engine does. (4) **`⏎` in "no batch" opens the Edit form**, as on the ledger (owner, 2026-10-25): the line's fields on top and every part below, saved in one write. (5) **The app's word is "transaction"** (owner, 2026-10-17), for a split one too; a variant of a form keeps that form's name.
 
-**Rejected.** *Category and hashtags on the reconciliation rows* — a reconciliation checks the bank's movements, and the owner wants only the bank's columns. *A part count or a split mark on the row* — nothing in a reconciliation depends on how a transaction is split. *Oldest first in "no batch"* — the engine's line list has one order, newest first, and the owner accepted it. *Deleting one part with `d`* — the bank holds one movement, so deleting a part would leave the line's total short of the bank's; re-splitting changes the parts. *A form of its own for a split transaction* — a new screen name for a variant of the Edit form.
+**Rejected.** *Category and hashtags on the reconciliation rows* — a reconciliation checks the bank's movements, and the owner wants only the bank's columns. *A part count or a split mark on the row* — nothing in a reconciliation depends on how a transaction is split. *Oldest first in "no batch"* — newest first is the engine's order when none is asked for, and the owner accepted it. *Deleting one part with `d`* — the bank holds one movement, so deleting a part would leave the line's total short of the bank's; re-splitting changes the parts. *A form of its own for a split transaction* — a new screen name for a variant of the Edit form.
 
 ## TUI writes: FIFO queue in EngineWriteMixin, error drops the queue (2026-07-08)
 
@@ -935,8 +935,8 @@ Nothing in the app treats leftover lines as a refusal of complete, and it keeps 
 lines a close flags. (2) **The screen reads the flagged lines by their ids in one list call**,
 oldest first in the engine's order, because the engine names them only in the close's answer
 (contract: GET /v1/bank-lines, "Filters"); the close states no bound on how many it flags while
-`ids` takes at most 200, so more are read 200 at a time in the close's order. (3) **A card's other account is
-the engine's `statement_partner_id`** everywhere the app pairs a card (the import door's account
+`ids` takes at most 200, so more are read 200 at a time in the close's order. (3) **A card's
+other account is the engine's `statement_partner_id`** everywhere the app pairs a card (the import door's account
 list, Reconciliations), never a match of statement codes (contract: GET /v1/accounts). (4) **An
 archived card account with no statement gets no column** on the card's statement list (owner,
 question 2, A). (5) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
@@ -950,9 +950,12 @@ that draw `RESERVED_NAME_HELD` ([runtime.md](runtime.md) "Working against the li
 engine rules; a copy in each client drifts. A line dated in a statement but in none is often a
 later statement's, so stopping the close on it blocked the owner for a line that was fine. The
 flagged lines are only named in the close's answer, so a screen right after it is the one place
-the owner sees them all.
+the owner sees them all. The engine reads and orders them because a read per line and a sort of
+the client's own are what every client would otherwise copy (2026-10-27).
 
-**Rejected.** *The flagged lines listed on the statement itself* (1 B) — they sit among the
+**Rejected.** *One read per flagged line, sorted by the app* — a call per line and an ordering
+rule copied in each client; the engine's `ids` filter and `sort=date_asc` replace both. *The
+flagged lines listed on the statement itself* (1 B) — they sit among the
 statement's own lines, where each needs keys of its own. *A column for an archived card account
 with no statement* — it would always be empty. *Dropping the `!` mark* (question 3, B) — the
 mark points at the lines worth opening first; the caption only had to stop saying they block.

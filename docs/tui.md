@@ -550,8 +550,9 @@ as on a reconciliation's batch screen (below): `bank_line_columns` in
 transaction split into parts is **one row**, its title alone and its total; nothing on the row
 says it is split, and its parts are not listed. No category, hashtags or note.
 
-The list is **newest first**, the one order the engine's line list has (contract: GET /v1/bank-lines),
-and the caption says so: `In no batch · <account>   ·   N of M loaded · newest first   ·
+The list is **newest first**, the engine's order when no `sort` is sent
+(contract: GET /v1/bank-lines, "Ordering"), and the caption says so:
+`In no batch · <account>   ·   N of M loaded · newest first   ·
 ! dated inside a statement`. It reads ten lines at a time and grows like the ledger (§5,
 `GrowingRead`); M is `GET /bank-lines/count` with the same filters (`count_bank_lines`),
 read together with the first rows, and counts a split transaction once

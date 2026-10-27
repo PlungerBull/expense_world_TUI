@@ -43,10 +43,13 @@ Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftove
 
 Small things the bank download and closing catch-up turned up: old engine words still quoted in
 tests and docs, five mockups drawing old screens, and a completed statement's footer still
-offering `c Complete` and `d Delete`. That footer is the one thing you see change, and its
-question is in the spec. Approve it or rewrite it, and answer it there.
+offering `c Complete` and `d Delete`; and, from the catch-up of 2026-10-27, whether the "no
+batch" list now lists oldest first, as the engine can since 2026-10-26. The footer and that order
+are the two things you see change, and their questions are in the spec. Approve it or rewrite it,
+and answer them there.
 
-**Recommended:** approve it with B (drop `c` only), after the sheet import and the PDF specs.
+**Recommended:** approve it with 1 B (drop `c` only) and 2 B (oldest first), after the sheet
+import and the PDF specs.
 
 ### Approve the spec for closing a statement from its PDF
 Asked 2026-10-25 · Blocks: [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md)
@@ -65,9 +68,10 @@ Set aside by the owner on 2026-10-26: not to run now.
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
-Ten small things, all inside the tests and their tools: copies to merge, stale test sentences
+Eleven small things, all inside the tests and their tools: copies to merge, stale test sentences
 and comments, a test that checks less than its name says, the drift check covering more of the
-engine's answers, and the practice-data cleaner reading every page. Nothing you see changes.
+engine's answers, the practice-data cleaner reading every page, and a live test of a statement
+upload's words for a future-dated line. Nothing you see changes.
 Approve it or rewrite it.
 
 **Recommended:** approve it, after the PDF spec, which matters more.
