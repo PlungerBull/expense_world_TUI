@@ -87,24 +87,11 @@ that creates them; that step creates every missing account, category and hashtag
 INICIAL` with the rest) and imports nothing; once every name exists, the dry run shows the
 engine's counts; then `--apply` imports.
 
-**Pick 1 — What is the step called?** Drawn in
-[expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html).
-
-- **A.** A flag on the same command: `expense import sheet libro.xlsx --create-names`.
-- **B.** A command of its own: `expense import names libro.xlsx`.
-- **C.** A shorter flag: `expense import sheet libro.xlsx --prepare`.
-
-**Recommended:** A, because it says what it writes and `import sheet` stays the only command.
-
-**Pick 2 — What does `--apply` do while names are still missing?** Drawn in the same mockup.
-
-- **A.** It is refused, writes nothing, and names the step to run first.
-- **B.** It creates the names, then imports.
-
-**Recommended:** A, because you then always see the counts before anything is imported.
-
-The mockup's screens 1 to 5 (the first dry run, creating the names, the dry run with counts, the
-apply, a sheet with bad rows) are approved with these picks, or changed as you say.
+**Answered (owner, 2026-10-27), picks 1 and 2 and the screens:** the step is a flag on the same
+command, `expense import sheet <file> --create-names` (1 A); `--apply` while names are still
+missing is refused, writes nothing and names that step (2 A); and screens 1 to 5 of
+[expense-world-sheet-import-engine.html](../mockups/expense-world-sheet-import-engine.html) are
+approved as drawn.
 
 ---
 
@@ -118,8 +105,9 @@ Approved by the owner on 2026-10-26.
    draws it: three tables, each name with its rows and where it goes (screen 1 A, owner,
    2026-10-26); while names are missing the dry run shows no counts and names the step that
    creates them, which imports nothing, and once every name exists it shows the engine's
-   counts (question 4, C, owner, 2026-10-27); `--json` prints the engine's answer, with the
-   names the step created. The app's
+   counts (question 4, C, owner, 2026-10-27); the step is `--create-names` (pick 1 A), and
+   `--apply` with names missing is refused, naming it (pick 2 A); screens 1 to 5 as drawn;
+   `--json` prints the engine's answer, with the names the step created. The app's
    own reader of the sheet goes with its tests (the parse, plan, apply, header aliases and
    currency-split naming; the live `test_sheet_import_split_groups.py` drives it too, and its
    entry in runtime.md goes with it), and so does `--chunk-size`; `openpyxl` leaves the app's dependencies
@@ -128,8 +116,7 @@ Approved by the owner on 2026-10-26.
    command takes its renames and its read timeout from the engine-calls module
    ([expense/import_/engine.py](../../expense/import_/engine.py)), so each has one copy, and a
    rename that puts two sheet accounts on one account stays a usage error, as today (task 1's
-   module merges them without a word). **Waits on the owner's picks 1 and 2 and the
-   mockup redrawn for question 4 approved.**
+   module merges them without a word).
 
 ## Reply to the engine
 

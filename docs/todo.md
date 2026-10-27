@@ -28,18 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Pick the sheet import's two new choices
-Asked 2026-10-27 · Blocks: task 2 of [specs/sheet-import-through-the-engine.md](specs/sheet-import-through-the-engine.md)
-
-You picked C for question 4: a step of its own creates the missing names, and the dry run never
-writes. The mockup
-([mockups/expense-world-sheet-import-engine.html](mockups/expense-world-sheet-import-engine.html))
-is redrawn for it, with two picks, both in the spec: what the step is called, and whether
-`--apply` with names still missing is refused or creates them. Approve the screens, or say what
-to change.
-
-**Recommended:** 1 A (`--create-names`) and 2 A (refused, naming the step).
-
 ### Approve the spec for the catch-up's leftovers
 Asked 2026-10-26 · Blocks: [specs/catch-up-leftovers.md](specs/catch-up-leftovers.md)
 
