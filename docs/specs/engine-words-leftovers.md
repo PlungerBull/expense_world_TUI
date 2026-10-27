@@ -78,17 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-7. **[UI] The two lists that draw their own tables show names whole too** (found in task 1; the
-   spec's point 1 asks for every list). The reconciliation tick list's bank line title
-   ([checklist.py](../../expense/tui/widgets/checklist.py)) and the LOG bar's staged table's
-   account and category names (`_reference_cell` and `_category_cell` in
-   [log_bar.py](../../expense/tui/screens/log_bar.py)) show `[like this]` whole, as
-   [expense-world-bracketed-names.html](../mockups/expense-world-bracketed-names.html) draws it
-   (approved 2026-10-26), through the one helper task 1 made for list cells; tests pin both.
-   [tui.md](../tui.md)'s words-as-text paragraph then holds for every list as it reads, and
-   [cursor_list.py](../../expense/tui/widgets/cursor_list.py)'s module docstring says its
-   cells are strings or `Text`, not "the column strings".
-
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.

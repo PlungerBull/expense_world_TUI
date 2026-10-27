@@ -2,8 +2,9 @@
 
 Reused by every list screen (transactions, accounts, categories...).
 Rows are `(key, cells)` pairs: `key` identifies the row (e.g. a record id) and
-is carried on the `Selected` message; `cells` are the column strings. `_build()`
-is pure, so formatting is unit-testable without an event loop.
+is carried on the `Selected` message; `cells` are the column values, plain
+strings or Rich `Text` (`list_cell` says how each is drawn). `_build()` is
+pure, so formatting is unit-testable without an event loop.
 
 Every list renders at most `page_size` rows — min(20, what fits the terminal)
 (the screen measures and calls `set_page_size` on resize); `pgdn`/`pgup` page. Two modes share the
@@ -48,6 +49,7 @@ __all__ = [
     "CursorOptionList",
     "Row",
     "RowInput",
+    "list_cell",
     "list_table",
     "page_indicator",
 ]
@@ -82,11 +84,13 @@ class Row(NamedTuple):
 RowInput = Row | tuple
 
 
-def _cell(value: object) -> Text:
-    """A cell as the table draws it. A `Text` (a swatch, a coloured amount, a
-    mark: the app's own styling) is drawn as built; anything else is words, a
-    name or a title as the engine holds it, drawn as `Text` so a `[like this]`,
-    a `[/]` or a lone `[` shows as it is, never read as markup."""
+def list_cell(value: object) -> Text:
+    """A list cell as its table draws it. A `Text` (a swatch, a coloured
+    amount, a mark: the app's own styling) is drawn as built; anything else is
+    words, a name or a title as the engine holds it, drawn as `Text` so a
+    `[like this]`, a `[/]` or a lone `[` shows as it is, never read as markup.
+    Called by `list_table`, the reconciliation tick list (checklist.py) and
+    the LOG bar's staged rows (`staged_table` in screens/log_bar.py)."""
     return value if isinstance(value, Text) else Text(str(value))
 
 
@@ -119,7 +123,7 @@ def list_table(
     for r, item in enumerate(rows):
         row = Row.coerce(item)
         style = CURSOR_STYLE if r == cursor else row.base_style
-        t.add_row(*[_cell(c) for c in row.cells], style=style)
+        t.add_row(*[list_cell(c) for c in row.cells], style=style)
     return t
 
 

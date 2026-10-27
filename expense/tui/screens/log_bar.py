@@ -107,6 +107,7 @@ from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
+from expense.tui.widgets.cursor_list import list_cell
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.picker import suggestion_list
 from expense.tui.widgets.refusal import run_stopped, toast
@@ -427,7 +428,10 @@ def staged_table(
             Text(header, style="dim"), justify="right" if index == 3 else "left", no_wrap=True
         )
     for index, cells in enumerate(staged_rows(entries, refs, palette=palette, today=today)):
-        table.add_row(*cells, style=CURSOR_STYLE if index == picked else "")
+        # The account and category are names as the engine holds them: shown
+        # as typed, `[` and all.
+        shown = [list_cell(c) for c in cells]
+        table.add_row(*shown, style=CURSOR_STYLE if index == picked else "")
     return table
 
 

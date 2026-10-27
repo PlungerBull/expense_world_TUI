@@ -3,8 +3,9 @@
 A plain cell is words, never content markup: `BCP [like this]` keeps its
 brackets, and a `[/]` or a lone `[` neither vanishes nor breaks the list. The
 app's own styled cells (`Text`: a swatch, a coloured amount, a mark) keep their
-styling. Pinned where the owner meets it: Manage ▸ Accounts, the ledger and the
-bank import's preview (mockup expense-world-bracketed-names.html).
+styling. Pinned where the owner meets it: Manage ▸ Accounts, the ledger, the
+bank import's preview, the reconciliation tick list and the LOG bar's staged
+rows (mockup expense-world-bracketed-names.html).
 """
 
 import re
@@ -15,14 +16,19 @@ from rich.text import Text
 import expense.tui.screens.transactions as tx_mod
 from expense.reads import AccountIndex
 from expense.tui.screens.accounts import AccountsScreen
+from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 from expense.tui.screens.transactions import TransactionsScreen
 from expense.tui.widgets.cells import swatch
 from expense.tui.widgets.cursor_list import CursorList, list_table
 from tests.unit.helpers import (
+    bank_line_row,
+    cursor_page,
     fake_ledger,
+    import_part,
     import_row,
     render_text,
     run_app,
+    wait_for,
     wait_for_list,
     whole,
 )
@@ -37,9 +43,17 @@ from tests.unit.test_tui_bank_import import (
     _preview,
     _previewed,
 )
+from tests.unit.test_tui_log_bar import ACCOUNTS as LOG_ACCOUNTS
+from tests.unit.test_tui_log_bar import _open as _open_log_bar
+from tests.unit.test_tui_log_bar import _patch as _patch_log_bar
+from tests.unit.test_tui_log_bar import _type
+from tests.unit.test_tui_reconcile_detail import DRAFT
 from tests.unit.test_tui_transactions import ITEMS as LEDGER_ITEMS
 
 NAME = "BCP [like this]"
+#: Words that lose something when read as markup: a whole tag pair, a closing
+#: tag with nothing to close (Rich refuses it outright), a bold pair.
+BRACKETED = [NAME, "[/]", "[bold]x[/bold]"]
 
 
 @pytest.mark.parametrize("words", [NAME, "[/]", "a lone [ here", "[bold]x[/bold]", "[[x]]"])
@@ -124,3 +138,73 @@ def test_the_bank_import_preview_shows_a_bracketed_title_whole(fake_client, monk
         assert re.split(r"\s{2,}", lines[2]) == ["2", "2026-09-12", NAME, "6,519.00", "✓", "New"]
 
     run_app(scenario, size=(120, 40))
+
+
+@pytest.mark.parametrize("title", BRACKETED)
+def test_the_tick_list_shows_a_bracketed_bank_line_title_whole(fake_client, monkeypatch, title):
+    """The reconciliation's tick list: the bank line's title as the engine
+    holds it, the date before it and the operation and amount after it where
+    they were."""
+    part = {
+        **import_part("t1", -10000, account_id="acc1", line="l1", day="2026-04-11", title=title),
+        "reconciliation_id": None,
+    }
+    line = bank_line_row(
+        "l1", [part], net_cents=-10000, operation_code="48201764", account_id="acc1"
+    )
+
+    def fetch(cfg, **k):
+        return cursor_page([line] if k.get("account") == "acc1" else [])
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", fetch)
+    monkeypatch.setattr("expense.reads.fetch_reconciliations", lambda *a, **k: whole([DRAFT]))
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(dict(DRAFT))
+        await app.push_screen(screen)
+        await wait_for(pilot, lambda: screen._list is not None)
+        lines = render_text(screen._list._build(), width=100).splitlines()
+        row = next(ln for ln in lines if "2026-04-11" in ln)
+        assert re.split(r"\s{2,}", row.strip()) == [
+            "[ ]",
+            "2026-04-11",
+            title,
+            "48201764",
+            "-100.00",
+        ]
+
+    run_app(scenario)
+
+
+@pytest.mark.parametrize(("account", "category"), [(NAME, "Comida [/]"), ("[/]", "[bold]x[/bold]")])
+def test_the_log_bar_shows_a_bracketed_account_and_category_whole(
+    fake_client, monkeypatch, account, category
+):
+    """The LOG bar's staged row: the account and the category as the engine
+    holds them, typed into the bar by those names; the columns around them are
+    where they were."""
+    _patch_log_bar(monkeypatch)
+    accounts = [{**LOG_ACCOUNTS[0], "name": account}]
+    categories = {"items": [{"id": "cat1", "name": category, "is_system": False}]}
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(accounts))
+    monkeypatch.setattr("expense.reads.fetch_categories", lambda *a, **k: categories)
+
+    async def scenario(pilot, app):
+        screen = await _open_log_bar(app, pilot)
+        _type(screen, f"almuerzo -20 ${account} @{category} #TAXI")
+        screen.on_input_submitted()
+        assert len(screen._staged) == 1
+        lines = render_text(screen._staged_renderable(), width=160).splitlines()
+        row = next(ln for ln in lines if "almuerzo" in ln)
+        assert re.split(r"\s{2,}", row.strip())[2:] == [
+            "almuerzo",
+            "-20.00",
+            account,
+            category,
+            "#TAXI",
+        ], row
+
+    run_app(scenario)

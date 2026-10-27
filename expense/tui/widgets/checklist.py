@@ -30,6 +30,7 @@ from textual.message import Message
 from expense.reads import DEFAULT_PAGE_ROWS
 from expense.tui.theme import AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, operation_cell
+from expense.tui.widgets.cursor_list import list_cell
 from expense.tui.widgets.windowed import CURSOR_STYLE, WindowedList
 
 
@@ -127,7 +128,9 @@ class CheckList(WindowedList):
                 else:
                     mark = Text("[ ]", style="dim")
                 cells = [mark, *cells]
-            t.add_row(*cells, style=CURSOR_STYLE if i == self._cursor else "")
+            # The title is the bank's words: shown as typed, `[` and all.
+            shown = [list_cell(c) for c in cells]
+            t.add_row(*shown, style=CURSOR_STYLE if i == self._cursor else "")
         return t
 
     def action_toggle(self) -> None:
