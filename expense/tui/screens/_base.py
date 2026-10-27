@@ -13,7 +13,7 @@ Owns the breadcrumb header, the bounded content card, the worker-backed fetch
 import asyncio
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from rich.console import Group
@@ -47,6 +47,18 @@ if TYPE_CHECKING:
 def screen_fetch_kwargs(app) -> dict:
     """The standard TUI read kwargs: verbosity off the app."""
     return dict(verbose=app._verbose)
+
+
+def relabel(screen: Screen, key: str, description: str) -> None:
+    """Give one of the screen's own bindings a footer word decided at run time
+    (`Cancel both`, `Import 9 rows`, the LOG bar's `Upload`). The screen's
+    binding map is its own copy, so this touches no other screen."""
+    bindings = screen._bindings.key_to_bindings.get(key)
+    if bindings:
+        screen._bindings.key_to_bindings[key] = [
+            replace(b, description=description) for b in bindings
+        ]
+        screen.refresh_bindings()
 
 
 def call_while_attached(node: Widget, callback: Callable, *args, **kwargs) -> None:

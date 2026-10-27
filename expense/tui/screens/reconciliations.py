@@ -1744,14 +1744,7 @@ class ReconciliationDetailScreen(
         (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
         The screen showing them opens once the complete's success has landed
         (`_action_done`)."""
-        twin = body.get("twin")
-        halves = [body, twin] if isinstance(twin, dict) else [body]
-        ids: list[str] = []
-        for half in halves:
-            named = half.get("review_lines")
-            if isinstance(named, list):
-                ids.extend(str(line_id) for line_id in named if line_id)
-        self._show_flagged(ids)
+        self._show_flagged(review_line_ids(body))
 
     def _show_flagged(self, ids: list[str]) -> None:
         """The `⚑` line under the header, and `f` with it, while any line the
@@ -1763,16 +1756,7 @@ class ReconciliationDetailScreen(
             line.display = False
             line.update("")
             return
-        line.update(
-            Text.assemble(
-                (
-                    f"⚑ {line_count(len(self._flagged))} flagged for review: in no statement,"
-                    " dated up to this one's last day",
-                    PALETTE.warning,
-                ),
-                ("  · f shows them", "dim"),
-            )
-        )
+        line.update(flagged_note(len(self._flagged)))
         line.display = True
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
@@ -1826,6 +1810,35 @@ class ReconciliationDetailScreen(
 def line_count(n: int) -> str:
     """`1 line`, `3 lines`."""
     return f"{n} line" if n == 1 else f"{n} lines"
+
+
+def review_line_ids(body: dict) -> list[str]:
+    """The ids of the bank lines a close flagged for review, the named half's
+    `review_lines`, then the other half's (`twin.review_lines`)
+    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+    A statement upload's apply answers its close the same way, as its
+    `reconciliation` (contract: POST /v1/reconciliations/import)."""
+    twin = body.get("twin")
+    halves = [body, twin] if isinstance(twin, dict) else [body]
+    ids: list[str] = []
+    for half in halves:
+        named = half.get("review_lines")
+        if isinstance(named, list):
+            ids.extend(str(line_id) for line_id in named if line_id)
+    return ids
+
+
+def flagged_note(n: int) -> Text:
+    """The `⚑` line of a close that flagged `n` lines, and `f` beside it: on a
+    statement after its complete, and after a statement PDF closed it."""
+    return Text.assemble(
+        (
+            f"⚑ {line_count(n)} flagged for review: in no statement,"
+            " dated up to this one's last day",
+            PALETTE.warning,
+        ),
+        ("  · f shows them", "dim"),
+    )
 
 
 #: What to do with a flagged line, under the count (pane 1A of

@@ -255,7 +255,12 @@ NEXT_STEPS: dict[tuple[str, str], NextStep] = {
     ("CONFLICT", "HAS_RECONCILIATION"): NextStep(
         "On Reconciliations, press d on each of its reconciliations; a completed one needs u first."
     ),
-    ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep("Press u to revert it, then d again."),
+    # On `file`, a statement PDF's month already completed: the upload closes a
+    # month only from a draft or from none (contract: POST /v1/reconciliations/import).
+    ("CONFLICT", "RECONCILIATION_NOT_DRAFT"): NextStep(
+        "Press u to revert it, then d again.",
+        by_key={"file": "Revert it first, then drop the PDF again."},
+    ),
     ("CONFLICT", "ID_EXISTS"): NextStep(_APP_FAULT),
     ("CONFLICT", "IDEMPOTENCY_KEY_REUSED"): NextStep(_APP_FAULT),
     # An opening balance stays on its account and in @Opening; the refusal is a

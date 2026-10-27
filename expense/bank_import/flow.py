@@ -1,5 +1,8 @@
 """The steps of a bank import: read the dropped file's bytes, list the accounts
 as picks, make the one call, and name the reconciliations that stop a move.
+A statement PDF takes the same read and the same picks, then its own call
+(`statement_call`) and the one read of the ledger lines its answer names by id
+(`statement_lines`).
 
 No typer and no printing: a file that cannot be read from disk is
 `ImportRefused`, whose message is the sentence the door shows.
@@ -135,6 +138,34 @@ def import_call(client, pick: AccountPick, data: bytes, *, dry_run: bool) -> dic
     return client.post(
         "/transactions/import", json_body=request_body(pick.account_id, data, dry_run=dry_run)
     )
+
+
+def statement_call(client, pick: AccountPick, data: bytes, *, dry_run: bool) -> dict:
+    """`POST /reconciliations/import` on a client the caller opened: the PDF
+    and the pick's account, with the body of the download's call
+    (`request_body`). A card's soles account is named; the engine closes both
+    halves from either (contract: POST /v1/reconciliations/import). The apply
+    is this one call, not a dry run followed by a write; the client's
+    idempotency key covers a retry."""
+    return client.post(
+        "/reconciliations/import",
+        json_body=request_body(pick.account_id, data, dry_run=dry_run),
+    )
+
+
+def statement_lines(cfg, ids: list[str], *, verbose: bool) -> tuple[dict[str, dict], str | None]:
+    """bank line id → the line, for the lines a statement's answer names by id
+    alone: those taken out and the near misses. One read by their ids
+    (`reads.fetch_bank_lines_by_ids`), never while drawing; none when there are
+    no ids. A failed read never hides what the upload does: the reason is
+    returned for one line under the counts, and the lines go unread."""
+    if not ids:
+        return {}, None
+    try:
+        lines = reads.fetch_bank_lines_by_ids(cfg, ids, verbose=verbose)
+    except (EngineError, EngineConnectionError) as err:
+        return {}, format_error(err)
+    return {str(line.get("id")): line for line in lines}, None
 
 
 def reconciliation_names(

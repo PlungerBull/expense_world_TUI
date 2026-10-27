@@ -94,6 +94,7 @@ def test_the_door_reads_no_cell_of_the_file():
     door = [
         *(PACKAGE / "bank_import").glob("*.py"),
         PACKAGE / "tui" / "screens" / "bank_import.py",
+        PACKAGE / "tui" / "screens" / "statement_upload.py",
     ]
     for path in door:
         imported = _imports(path)

@@ -87,7 +87,11 @@ expense/tui/
     bank_import.py  # the import door behind the LOG bar: a dropped bank file →
                     #   which account → preview → result, one file after another.
                     #   Reads, previews and applies through expense/bank_import/
-                    #   (flow.py)
+                    #   (flow.py); a statement PDF among the files goes its own way
+    statement_upload.py # the statement upload behind the same door: a dropped PDF →
+                    #   which account → preview → the month closed, `f` its
+                    #   flagged lines. Through expense/bank_import/ (flow.py,
+                    #   statement.py)
     create_forms.py # BarFormScreen + New{Account,Category,Hashtag} small forms
                     #   New account carries a TYPE field (bank/person, prefilled
                     #   bank) that picks POST /accounts vs POST /people; the
@@ -611,7 +615,8 @@ readable) keeps the bar where it is: the hint reads
 footer is `esc Cancel` alone, nothing is sent, and the next keystroke clears it. With several
 files dropped, the hint names the first such file (`<name> · can't read the file · …`) and none
 of them starts. Otherwise each file, in drop order, goes through three full screens that replace
-one another above the LOG bar:
+one another above the LOG bar: a download through the three below, a statement PDF through the
+statement upload's own three ("A statement PDF closes its month" below):
 
 | Screen | Shows | Keys |
 |---|---|---|
@@ -732,6 +737,81 @@ unchanged when the drop is imported.
 `⏎ Home` leaves the bar for Home, through the bar's discard question when rows are staged
 and unwritten, and Home reads afresh: this month's window, every category folded, the
 cursor on the first category (`HomeScreen.start_fresh`).
+
+**A statement PDF closes its month**
+([statement_upload.py](../expense/tui/screens/statement_upload.py), screens A1 and A2 of
+[expense-world-statement-pdf-upload.html](mockups/expense-world-statement-pdf-upload.html), screens
+1 to 3 and pane 6A of
+[expense-world-statement-pdf-screens.html](mockups/expense-world-statement-pdf-screens.html)). A
+`.pdf` dropped on the LOG bar (§4 "A dropped bank file") is a month's statement: the app sends
+it whole and reads nothing in it, and the engine reads the paper, matches each of its rows to a
+ledger line, creates the lines the ledger lacks, takes out of the month's open statement the
+lines the paper does not print, puts every line in the paper's order and completes the
+statement, creating it (on a card, both halves) or filling its open draft
+(contract: POST /v1/reconciliations/import). The request is the download's (`request_body` in
+[engine.py](../expense/bank_import/engine.py)), sent by `statement_call` in
+[flow.py](../expense/bank_import/flow.py) to `POST /reconciliations/import`; the answer reads
+through [statement.py](../expense/bank_import/statement.py). The account is the one you pick: the
+engine never picks it by the number the paper prints, and the app matches, adds up and guesses
+nothing. Its three full screens replace one another above the LOG bar, as a download's do:
+
+| Screen | Shows | Keys |
+|---|---|---|
+| **Which account is this statement?** | crumb `Upload a statement` (`Upload a statement ▸ file 2 of 2` when several files were dropped); the file's name dim beside the question; the download's account list (`account_picks`), a card's two accounts one line. Picking a card sends its soles account; the engine closes both halves from either | `esc Cancel  ⏎ Pick  ↑↓ Move` |
+| **Preview · <account> · nothing written yet** | crumb `Capture & ledger ▸ Upload ▸ <file>`; the account is a card's line with its currencies (`BCP Signature PEN + USD`) or the account's name. Under the title the statement's `name · date_start → date_end ·` and, dim, `a new statement` (every half created) or `a draft, filled from the paper` (a half fills an open draft); then `begin  end` dim and one line per half, its currency and the paper's balances (`halves`). Then the table `#  date  title  amount  cur`, one row per row of the paper in its order, numbered by its `place`, `cur` only on a card's paper (two halves), the row's own `currency`; each row's mark and reason (below), and after a card's undated line (`fee`) dim `· a fee, dated the last day`; `… N more · pgdn` when the rows outrun the screen. Under a new row, one warning-colour line per ledger line one day off it with the same total (`near_misses`): `! <day> <title> <amount> in the ledger is one day off: not paired`. Then `Taken out · in the statement, not on the paper; they stay in the ledger` and each line taken out under the table's columns (`taken_out`), left out when none is; then the counts (below), and dim `new ones go under @Pendiente and #Pendiente` while a row is new | `⏎ Close <name>`, `pgdn`/`pgup` (hinted in the body), `esc Cancel` |
+| **✓ <name> closed · <account>** | `new ones under @Pendiente and #Pendiente` dim on the same line while a line was created; the counts in the past tense; and, when the close flagged ledger lines dated in the month that are in no statement (the apply's `reconciliation.review_lines`, both halves'), the flagged line `⚑ N lines flagged for review: in no statement, dated up to this one's last day  · f shows them`, as on a statement after its complete. No table | `esc Back  ⏎ Home  f Flagged` (`f` only with lines flagged; `⏎ Next file` while a file follows) |
+
+Each row's mark and reason come from its `outcome`: `✓ In the ledger` (the mark in the success
+colour, the reason dim) for `matched`, `+ New` (accent) for `new`, created on `⏎` under
+`@Pendiente` and the pending hashtag, `· Empty` (dim) for `empty`, a row of `0.00` whose place
+stays empty, its amount in no colour. Every other amount is coloured by its sign. The title column
+takes what the screen leaves once the widest row's mark, reason and fee note have their room, so
+no row wraps; only a screen too narrow for the paper's longest title cuts one, with `…`. The answer names the near misses and the lines taken out by id alone, so the
+preview's worker reads them once by their ids (`statement_lines` in
+[flow.py](../expense/bank_import/flow.py), `reads.fetch_bank_lines_by_ids`), never while drawing,
+and not at all when there are none. When the read fails, a near miss keeps its day with `—` for
+its title and the row's own amount (its total is the same), the taken-out block keeps its head,
+and a dim `! could not read the ledger lines: <why>` sits under the counts.
+
+**The counts** are the engine's `counts` and its rows for the total:
+`10 rows · 5 in the ledger · 4 new · 1 empty · 1 taken out`, the `new` count in the accent colour
+when not zero, `empty` and `taken out` only when not zero. After the close they read
+`10 rows · 5 were in the ledger · 4 created · 1 empty · 1 taken out`. The screen after the close
+reads the apply's answer, not the dry run's.
+
+`⏎ Close <name>` sends the same PDF on the same account as the apply — one
+`POST /reconciliations/import` with `dry_run: false` through the shared HTTP client (its
+idempotency key covers a retry); a repeated `⏎` while it is on its way sends nothing more, and
+`esc` on the preview sends nothing. `f` on the screen after the close opens the flagged lines'
+screen on the lines it flagged ("The flagged lines' screen" in §4); back from it, the `⚑` line
+counts the lines still flagged.
+
+**A refused upload** (screen 2) shows under `Preview · <account>` the engine's words as a refused
+download does (`refusal_lines` and `failure_lines` in
+[bank_import.py](../expense/tui/screens/bank_import.py)): `CODE — message`, a `!` line per refused
+key (`! file: …` for a paper the engine cannot read, misread or that does not add up, or a
+period or month another statement holds; `! account_id: …` for an account with no statement
+code, archived, or of another currency; a row's `rows.<place>.date` future date as the engine's
+`Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the app's
+line when "When the engine says no" gives one: for `RECONCILIATION_NOT_DRAFT` on `file`, a month
+already completed, `Revert it first, then drop the PDF again.` The footer is `esc Back` on the
+last (or only) file, and keeps `esc Cancel both` / `esc Cancel all` while files follow; `⏎` sends
+nothing. A refusal met by the apply shows under the preview the same way. When it is a `409
+CONFLICT` with `CONCURRENT_CHANGE` on any key, a matched line, the statement's draft or a name the
+upload files under changed while it ran
+(contract: POST /v1/reconciliations/import, "Concurrency"), the line under it is
+`It changed while the upload ran: ⏎ checks the paper against the ledger again.` and the footer
+`esc Cancel  ⏎ Preview again`: `⏎` runs the dry run again, and only the next `⏎` writes.
+
+**Several files of both kinds** (pane 6A) go one by one, in drop order, each its own way: a
+download through the import door, a PDF through the statement upload (`first_screen` in
+[bank_import.py](../expense/tui/screens/bank_import.py)), each asking its account. They share one
+run: the crumb's `file 1 of 2` (`Upload a statement ▸ file 2 of 2` on a PDF's account list,
+`Upload ▸ file 2 of 2` on its preview and result), the `esc Cancel both` / `Cancel all` words,
+`⏎ Next file` after each written file, and the way back to the LOG bar. The two previews share
+their failure, `⏎ Preview again` and `esc` steps (`PreviewScreen` in
+[bank_import.py](../expense/tui/screens/bank_import.py)), and the two screens after an apply their
+`⏎` and `esc` (`ResultScreen`).
 
 **Accounts stand in the engine's order everywhere.** Manage ▸ Accounts, the LOG bar's `$`
 picker, the Edit form's account field, the ledger's `b` pick, the Reconciliations
@@ -926,10 +1006,12 @@ reasons below a blank line and one line of the app's saying what to do. Screens 
 | `CONCURRENT_CHANGE`, on a list | `d` on an account, a category, a hashtag or a reconciliation; saving the ending balance at `c` on a reconciliation's batch screen | `It changed at the same moment: press r, then try again.` |
 | `CONCURRENT_CHANGE`, elsewhere | saving an opening balance, the LOG bar, the Edit form, or `h` on ledger rows | `It changed at the same moment: save again.` |
 | `CONCURRENT_CHANGE` on `rows.<row>` | a bank file's apply, when a ledger line a file row matched changed while it ran (§2 "The import door") | `It changed while the import ran: ⏎ checks the file against the ledger again.` |
+| `CONCURRENT_CHANGE`, on any key | a statement PDF's apply, when a matched line, the statement's draft or a name it files under changed while it ran (§2 "A statement PDF closes its month") | `It changed while the upload ran: ⏎ checks the paper against the ledger again.` |
 | `RESERVED_NAME_HELD` | saving an opening balance, the LOG bar, the Edit form, a bank file | `One of your categories has a built-in category's name: rename it on Manage ▸ Categories, then save again.` |
 | `RESERVED_NAME_HELD` on `hashtag_ids` or `hashtag_id` | a transaction's hashtags on its Edit form, `h` on ledger rows, the LOG bar; `d` on Manage ▸ Hashtags | none: one of your hashtags holds the pending hashtag's name, and the engine's message names the remedy |
 | `OPENING_BALANCE_EXISTS` | saving an opening balance on the account's Edit form | `It got one meanwhile: close the form and open it again to change it.` |
 | `RECONCILIATION_NOT_DRAFT` | `d` on a reconciliation's batch screen | `Press u to revert it, then d again.` |
+| `RECONCILIATION_NOT_DRAFT` on `file` | a statement PDF whose month is already completed, on its dry run or its apply (§2 "A statement PDF closes its month") | `Revert it first, then drop the PDF again.` |
 | `OPENING_BALANCE_ACCOUNT_FIXED` (a `VALIDATION_ERROR`) | `b` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `To move an opening balance, set it on the other account's Edit form.` |
 | `OPENING_BALANCE_CATEGORY_FIXED` (a `VALIDATION_ERROR`) | `c` on ledger rows that include an opening balance; its Edit form, should the refusal reach it | `An opening balance always stays in @Opening.` |
 | `ENDING_BALANCE_REQUIRED` (a `VALIDATION_ERROR`) | `c` on a reconciliation's batch screen, when its ending balance was cleared elsewhere | `Press c again: the app asks for it first.` |
@@ -943,10 +1025,12 @@ The line is chosen by the error's `code` and reason alone, never by the HTTP sta
 route or the engine's wording ([decisions.md](decisions.md) "Hints are chosen by the
 engine's reasons, never its wording"). The choice lives in one table, `NEXT_STEPS` in
 [errors.py](../expense/errors.py), read by the shared error text `format_error`, so every
-screen that reports a failure through it shows the line. One row is the import door's own:
+screen that reports a failure through it shows the line. Two rows are the import door's own:
 `CONCURRENT_CHANGE` on a `rows.<row>` key is picked by `changed_while_running` in
-[bank_import.py](../expense/tui/screens/bank_import.py), which shows its line in place of
-`format_error`'s, since what follows is `⏎ Preview again`. A write sent from a list (every
+[bank_import.py](../expense/tui/screens/bank_import.py), and on any key of a statement PDF's
+apply by `changed_meanwhile` in [statement_upload.py](../expense/tui/screens/statement_upload.py);
+each shows its line in place of `format_error`'s, since what follows is `⏎ Preview again`.
+`RECONCILIATION_NOT_DRAFT` picks its line by its key: `file` (a statement PDF) or any other. A write sent from a list (every
 `d`, `t` on Manage ▸ Accounts, and the ending balance saved at `c` on a reconciliation's
 batch screen, where `r` reads it again) asks for the list's line (`list_refusal_text` in
 [_base.py](../expense/tui/screens/_base.py)). `HAS_TRANSACTIONS` is the one reason two
@@ -1244,14 +1328,17 @@ the flagged lines again, none of them in the footer.
 - **`⏎ Import N rows` writes.** On the preview `⏎` is the apply — the one key on an import
   screen that changes data, named in the footer with the count it writes. After the apply
   met a ledger line changed while it ran, `⏎ Preview again` reads the dry run afresh and
-  writes nothing.
+  writes nothing. On a statement PDF's preview the apply is `⏎ Close <name>`, named with
+  the statement it closes (§2 "A statement PDF closes its month").
+- **`f Flagged` after a statement PDF's close** opens the flagged lines' screen on the lines
+  the close flagged, and shows only while it flagged some.
 - **The preview's `pgdn`/`pgup` are hinted in the body, not the footer.** The
   `… N more · pgdn` / `… N above · pgup` line under the table says where more rows are; the
   footer keeps to `esc` and `⏎`.
 - **No `r` on the import screens.** Each reads once, when it opens — the account list, the
-  preview's dry run and the names of the reconciliations that stop a move (read again only by
-  `⏎ Preview again`); dropping the file on the LOG bar
-  again reads them all afresh.
+  preview's dry run and the names of the reconciliations that stop a move, or a statement's
+  near misses and lines taken out (read again only by `⏎ Preview again`); dropping the file
+  on the LOG bar again reads them all afresh.
 - **No `?` on the import screens.** They do not take `HelpBindingMixin`; the footer is their
   whole key list.
 
@@ -1496,15 +1583,23 @@ one line separated by spaces; VS Code's terminal single-quotes the path for bash
 drop. A path pasted or typed by hand may also be raw, spaces and all. One pure function,
 `dropped_bank_files` in [dropped.py](../expense/tui/dropped.py), reads every form: the
 line is bank files only when **every** word is an absolute (or `~/`) path to an existing
-`.xlsx` file, any letter case; one word that is not leaves the whole line quick-add.
-Typing, pasting and dropping reach it as the same text. While it holds, quick-add stands
-down — no token colouring, no picker, no refusal, no account peek (hidden, still on its
-last account), no legend row — and the hint reads `bank file · <name> · ⏎ import it`,
-or `bank files · <n> · ⏎ import them, one by one` with each name on its own indented
-line. The footer reads `esc Cancel  ⏎ Import` (`ctrl+s` is off while files are in the
-bar). `↵` stages nothing: it hands the paths to `LogBarScreen.import_bank_files`, which
-starts the import door (§2 "The import door"). Editing the line back to anything else
-returns the bar to quick-add on the same keystroke.
+`.xlsx` file (the bank's download) or `.pdf` file (a month's statement), any letter case;
+one word that is not leaves the whole line quick-add. Which kind a file is goes by its name
+alone (`is_statement`). Typing, pasting and dropping reach it as the same text. While it
+holds, quick-add stands down — no token colouring, no picker, no refusal, no account peek
+(hidden, still on its last account), no legend row — and the hint reads
+`bank file · <name> · ⏎ import it`, or for a statement PDF `statement PDF · <name> · ⏎ upload it`
+(screen A1 of
+[expense-world-statement-pdf-upload.html](mockups/expense-world-statement-pdf-upload.html)).
+Several downloads read `bank files · <n> · ⏎ import them, one by one` with each name on its own
+indented line; several files with a PDF among them read `files · <n> · ⏎ take them, one by one`,
+each name followed by its kind, `· bank download` or `· statement PDF` (pane 6A of
+[expense-world-statement-pdf-screens.html](mockups/expense-world-statement-pdf-screens.html)).
+The footer reads `esc Cancel  ⏎ Import`, or `esc Cancel  ⏎ Upload` for one statement PDF
+(`ctrl+s` is off while files are in the bar). `↵` stages nothing: it hands the paths to
+`LogBarScreen.import_bank_files`, which starts each file's way in drop order (§2 "The import
+door", "A statement PDF closes its month"). Editing the line back to anything else returns
+the bar to quick-add on the same keystroke.
 
 **The Edit form's own keys** ([edit_form.py](../expense/tui/screens/edit_form.py)): the bar
 form's keymap (`form_bindings`, "The bar forms' keys" below) with two more, each shown only

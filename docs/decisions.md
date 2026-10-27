@@ -982,3 +982,39 @@ flagged lines listed on the statement itself* (1 B) — they sit among the
 statement's own lines, where each needs keys of its own. *A column for an archived card account
 with no statement* — it would always be empty. *Dropping the `!` mark* (question 3, B) — the
 mark points at the lines worth opening first; the caption only had to stop saying they block.
+
+## A statement PDF comes in through the import door, and its preview is the check (2026-10-27, owner)
+
+**Decision.** (1) **A month's PDF is dropped on the LOG bar**, as a bank download is, and its
+account is picked from the download's own list; several files dropped together go one by one,
+each its own way. A file's kind is its name's ending alone, and the engine judges what is inside
+(contract: POST /v1/reconciliations/import). The owner picked A1, A2 in
+[expense-world-statement-pdf-upload.html](mockups/expense-world-statement-pdf-upload.html) and
+screens 1 to 4, 5 A and 6 A in
+[expense-world-statement-pdf-screens.html](mockups/expense-world-statement-pdf-screens.html).
+(2) **Both uploads send one body**, built in one place, since the contract gives both routes the
+same three keys, and their screens share one preview and one result screen; what differs is
+what each shows. (3) **A `CONCURRENT_CHANGE` on the apply leads to a fresh preview, never a
+resend**, whatever key the engine names, because the contract says to send it again after the
+ledger moved. (4) **The preview is the check against another account's PDF**: the engine does
+not compare the paper's number with the account picked, and a wrong paper shows almost every
+row as new before anything is written. (5) **The upload's small details follow the download's
+screens**: no `+` on an amount, the counts line naming only what is not zero beyond `in the
+ledger` and `new`, `file n of m` in a run of several files, and a refusal's envelope code over a
+`!` line per key. (6) **The live suite makes its statement PDFs itself**, with no PDF library,
+and covers the savings paper only, since the contract does not print the card's column header;
+the engine ask "Publish one made-up sample statement PDF per paper, so every client can test the
+statement upload" asks for both papers' samples and layouts.
+
+**Why.** Every file from the bank then comes in through one door, so there is one place to learn.
+The engine reads and matches the paper, so the app only sends it and shows the answer. A preview
+shows a wrong file before anything is written, and checking numbers belongs to accounts carrying
+them, a spec of its own. A test PDF needs fixed-width text at exact points, which a few lines of
+the suite's own code write without adding a dependency.
+
+**Rejected.** *Starting the upload from the statement on Reconciliations* (B) — a key and a path
+field on another screen, for what a drop already does. *A PDF dropped only on its own* (6 B) — a
+month's download and its PDF could not go in together. *Keeping the tick-list on an open
+statement of an account with a statement code* (5 B) — ticking cannot close the month there.
+*Waiting for accounts to carry their numbers* (question 8, B) — closing statements would wait on
+account names.

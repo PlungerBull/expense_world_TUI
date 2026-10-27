@@ -592,12 +592,9 @@ def savings_paper(
 
 def statement_body(account_id: str, paper: bytes, *, dry_run: bool) -> dict:
     """The `POST /reconciliations/import` body for `paper`: exactly its three keys, the
-    file in standard base64 (contract: POST /v1/reconciliations/import)."""
-    return {
-        "dry_run": dry_run,
-        "account_id": account_id,
-        "file": base64.b64encode(paper).decode("ascii"),
-    }
+    file in standard base64 (contract: POST /v1/reconciliations/import), built by the
+    statement upload's own `request_body`, the body of both uploads."""
+    return request_body(account_id, paper, dry_run=dry_run)
 
 
 def send_statement(client: ExpenseClient, account_id: str, paper: bytes, *, dry_run: bool) -> dict:

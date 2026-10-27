@@ -25,9 +25,14 @@ several-files words from docs/mockups/expense-world-import-door.html.
 The screens replace one another (`switch_screen`), so the stack is always
 `… → LOG bar → the current import screen`, and leaving any of them lands on
 the LOG bar, which decides what happens next (`LogBarScreen.import_closed`).
+
+A drop can hold statement PDFs beside downloads: each file goes its own way, in
+drop order (`first_screen`). A PDF goes through the statement upload
+(`statement_upload.py`), which shares this run, its account list and its way
+back to the LOG bar.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from rich.console import Group, RenderableType
@@ -70,15 +75,18 @@ from expense.errors import (
 )
 from expense.formatting import format_cents, signed_cents
 from expense.reads import items_of
-from expense.tui.screens._base import screen_fetch_kwargs
+from expense.tui.dropped import is_statement
+from expense.tui.screens._base import relabel, screen_fetch_kwargs
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE
 from expense.tui.widgets.cells import amount_cell
 from expense.tui.widgets.header import Breadcrumb
 from expense.tui.widgets.refusal import hanging, toast
 from expense.tui.widgets.windowed import CURSOR_STYLE
 
-#: The breadcrumb's trail before the file part.
+#: The breadcrumb's trail before the file part: a download's, and a statement
+#: PDF's (docs/mockups/expense-world-statement-pdf-screens.html).
 CRUMB = ("Capture & ledger", "Import")
+UPLOAD_CRUMB = ("Capture & ledger", "Upload")
 
 #: Where the new rows land — the category and the hashtag an import never sets.
 PENDING = "@Pendiente"
@@ -107,7 +115,7 @@ PREVIEW_CHROME = 13
 MIN_PAGE = 3
 
 
-def _plural(n: int, one: str, many: str) -> str:
+def plural(n: int, one: str, many: str) -> str:
     return one if n == 1 else many
 
 
@@ -186,11 +194,18 @@ class ImportRun:
     def has_next(self) -> bool:
         return self.index + 1 < len(self.files)
 
+    @property
+    def position(self) -> str:
+        """`file 1 of 2`: where the current file stands among several."""
+        return f"file {self.index + 1} of {len(self.files)}"
+
     def crumb(self) -> tuple[str, ...]:
-        """`… › Import › <file name>`, or `… › Import › file 1 of 2`."""
+        """`… › Import › <file name>`, or `… › Import › file 1 of 2`; a
+        statement PDF's `… › Upload › …`."""
+        trail = UPLOAD_CRUMB if is_statement(self.current.path) else CRUMB
         if self.several:
-            return (*CRUMB, f"file {self.index + 1} of {len(self.files)}")
-        return (*CRUMB, self.current.path.name)
+            return (*trail, self.position)
+        return (*trail, self.current.path.name)
 
     @property
     def left(self) -> int:
@@ -206,19 +221,7 @@ class ImportRun:
         return "Cancel both" if self.left == 2 else "Cancel"
 
 
-def _relabel(screen: Screen, key: str, description: str) -> None:
-    """Give one of the screen's own bindings a footer word decided at run time
-    (`Cancel both`, `Import 9 rows`). The screen's binding map is its own copy,
-    so this touches no other screen."""
-    bindings = screen._bindings.key_to_bindings.get(key)
-    if bindings:
-        screen._bindings.key_to_bindings[key] = [
-            replace(b, description=description) for b in bindings
-        ]
-        screen.refresh_bindings()
-
-
-class _ImportScreen(Screen):
+class ImportScreen(Screen):
     """What the three screens share: the breadcrumb, one body, the footer, and
     the way back to the LOG bar."""
 
@@ -228,8 +231,11 @@ class _ImportScreen(Screen):
         #: The LOG bar the drop came from — `import_closed` is told how it ended.
         self._owner = owner
 
+    def crumb(self) -> tuple[str, ...]:
+        return self._run.crumb()
+
     def compose(self) -> ComposeResult:
-        yield Breadcrumb(self._run.crumb(), id="crumb")
+        yield Breadcrumb(self.crumb(), id="crumb")
         yield Static("", id="import-body")
         yield Footer()
 
@@ -248,7 +254,7 @@ class _ImportScreen(Screen):
     def _next_file(self) -> None:
         """On to the next file's account list; nothing is written here."""
         self._run.index += 1
-        self.app.switch_screen(ImportAccountScreen(self._run, self._owner))
+        self.app.switch_screen(first_screen(self._run, self._owner))
 
     def _close(self, *, home: bool = False) -> None:
         """Back to the LOG bar; it decides what the bar and the stack do next."""
@@ -273,8 +279,21 @@ def account_lines(picks: list[AccountPick], cursor: int) -> list[Text]:
     ]
 
 
-class ImportAccountScreen(_ImportScreen):
+def first_screen(run: ImportRun, owner) -> Screen:
+    """The current file's first screen, its account list: a download's, or a
+    statement PDF's (`statement_upload.py`), each going its own way."""
+    if is_statement(run.current.path):
+        from expense.tui.screens.statement_upload import StatementAccountScreen
+
+        return StatementAccountScreen(run, owner)
+    return ImportAccountScreen(run, owner)
+
+
+class ImportAccountScreen(ImportScreen):
     """Which account is this file? Asked every time; nothing is remembered."""
+
+    #: The question, and the gap before the file's name beside it.
+    QUESTION = "Which account is this file?   "
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -289,7 +308,7 @@ class ImportAccountScreen(_ImportScreen):
         self._error: str | None = None
 
     def on_mount(self) -> None:
-        _relabel(self, "escape", self._run.cancel_label())
+        relabel(self, "escape", self._run.cancel_label())
         super().on_mount()
         if self._run.picks is None:
             self._load_accounts()
@@ -328,7 +347,7 @@ class ImportAccountScreen(_ImportScreen):
 
     def body(self) -> RenderableType:
         lines: list[RenderableType] = [
-            Text.assemble("Which account is this file?   ", (self._run.current.path.name, "dim")),
+            Text.assemble(self.QUESTION, (self._run.current.path.name, "dim")),
             Text(""),
         ]
         if self._error is not None:
@@ -350,8 +369,11 @@ class ImportAccountScreen(_ImportScreen):
     def action_pick(self) -> None:
         if not self._picks:
             return
-        pick = self._picks[self._cursor]
-        self.app.switch_screen(ImportPreviewScreen(self._run, self._owner, pick))
+        self.app.switch_screen(self.next_screen(self._picks[self._cursor]))
+
+    def next_screen(self, pick: AccountPick) -> Screen:
+        """The screen `⏎` opens on the picked account: the dry run's preview."""
+        return ImportPreviewScreen(self._run, self._owner, pick)
 
     def action_cancel(self) -> None:
         self._close()
@@ -430,14 +452,14 @@ def counts_lines(counts: AnswerCounts, *, done: bool) -> list[Text]:
     the bank's title`, then, when there are any, `1 closed · 1 skipped` under
     it. `done` says it in the past tense, as the screen after importing does.
     Every figure is the engine's: its `counts`, and its rows for the total."""
-    kept = Text(f"{counts.rows} {_plural(counts.rows, 'row', 'rows')} · ")
+    kept = Text(f"{counts.rows} {plural(counts.rows, 'row', 'rows')} · ")
     kept.append(f"{counts.new} new", style=PALETTE.success if counts.new else "")
     kept.append(f" · {counts.matched} in the ledger")
     if counts.redated:
-        verb = "moved" if done else _plural(counts.redated, "moves", "move")
+        verb = "moved" if done else plural(counts.redated, "moves", "move")
         kept.append(f" · {counts.redated} {verb} to the bank's day")
     if counts.retitled:
-        verb = "took" if done else _plural(counts.retitled, "takes", "take")
+        verb = "took" if done else plural(counts.retitled, "takes", "take")
         kept.append(f" · {counts.retitled} {verb} the bank's title")
     left: list[str] = []
     if counts.sealed:
@@ -498,9 +520,11 @@ def day_label(day: DayMismatch, *, name_account: bool) -> str:
     return f"{day.date_iso} · {day.account_name}" if name_account else day.date_iso
 
 
-def _amount(cents: int, width: int = 0) -> Text:
-    """A signed amount, sign-coloured, right-aligned in `width`."""
-    cell = amount_cell(cents, PALETTE, AMOUNT_RULE)
+def padded_amount(cents: object, width: int = 0, rule: str = AMOUNT_RULE) -> Text:
+    """A signed amount coloured by `rule` (the sign's colours by default; `—`
+    dim for none), right-aligned in `width`. The download's days and the
+    statement upload's table and balances draw their amounts with it."""
+    cell = amount_cell(cents, PALETTE, rule)
     text = cell if isinstance(cell, Text) else Text(cell)
     return Text(" " * max(0, width - len(text.plain))) + text
 
@@ -518,7 +542,7 @@ def preview_days(
     n = len(days)
     lines = [
         Text(
-            f"! {n} {_plural(n, 'day', 'days')} where the file and the ledger disagree",
+            f"! {n} {plural(n, 'day', 'days')} where the file and the ledger disagree",
             style=PALETTE.warning,
         )
     ]
@@ -534,9 +558,9 @@ def preview_days(
     amount_w = max((len(format_cents(r.amount_cents)) for r in every), default=0)
     for label, day, flagged in zip(labels, days, behind, strict=True):
         head = Text(f"    {label.ljust(label_w)}   file ")
-        head.append_text(_amount(day.file_net_cents, file_w))
+        head.append_text(padded_amount(day.file_net_cents, file_w))
         head.append(" · ledger after import ", style="dim")
-        head.append_text(_amount(day.ledger_net_cents, ledger_w))
+        head.append_text(padded_amount(day.ledger_net_cents, ledger_w))
         lines.append(head)
         for r in flagged:
             line = Text("      ")
@@ -545,7 +569,7 @@ def preview_days(
                 line.append(tag.ljust(tag_w), style=ACCENT)
                 line.append("   ")
             line.append(f"{r.title.ljust(title_w)}  ")
-            line.append_text(_amount(r.amount_cents, amount_w))
+            line.append_text(padded_amount(r.amount_cents, amount_w))
             where = (
                 "in the file, not found" if r.row is not None else "in the ledger, not in the file"
             )
@@ -583,16 +607,16 @@ def refusal_lines(err: EngineError) -> list[Text]:
     return lines
 
 
-def failure_lines(err: Exception) -> list[Text]:
+def failure_lines(err: Exception, *, again: str | None = None) -> list[Text]:
     """An engine refusal, or any other failure, as the screen shows it.
 
     A refusal naming what it refused is `refusal_lines`, then, after a blank
-    line, what `⏎` does next when a row changed while the import ran (screen
-    4 A), or else the app's line for the refusal when it has one (`app_lines`);
-    anything else is the app's own error text."""
+    line, `again`, what `⏎` does next when the apply met something changed
+    while it ran (screen 4 A), or else the app's line for the refusal when it
+    has one (`app_lines`); anything else is the app's own error text."""
     if isinstance(err, EngineError) and is_keyed_refusal(err):
         lines = refusal_lines(err)
-        after = [RERUN] if changed_while_running(err) else app_lines(err)
+        after = [again] if again else app_lines(err)
         if after:
             lines.append(Text(""))
             lines.extend(Text(line) for line in after)
@@ -600,12 +624,13 @@ def failure_lines(err: Exception) -> list[Text]:
     return [Text(format_error(err), style=PALETTE.error)]
 
 
-class ImportPreviewScreen(_ImportScreen):
-    """The engine's dry run of this file on this account. Nothing is written
-    until `⏎`. With nothing new (screen 6 A), `⏎` opens the next file's
-    account list when a file follows, and does nothing on the last one. When
-    the apply meets a ledger line changed while it ran, `⏎ Preview again`
-    asks for a fresh dry run; nothing is sent again without one."""
+class PreviewScreen(ImportScreen):
+    """What both previews share, a download's and a statement PDF's: the dry
+    run asked on open, `⏎` the apply, a failure shown in the engine's words,
+    and, when the apply met something changed while it ran, `⏎ Preview again`
+    asking for a fresh dry run; nothing is sent again without one. `esc` goes
+    back unless the apply is on its way. Each preview says what its call is
+    (`_ask`), what it draws, when it can apply and what changed means."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -614,9 +639,100 @@ class ImportPreviewScreen(_ImportScreen):
         Binding("pageup", "page(-1)", "Earlier rows", key_display="pgup", show=False),
     ]
 
+    #: The line under a refusal the apply met because something changed while
+    #: it ran, saying what `⏎` does next.
+    RERUN_LINE = RERUN
+
     def __init__(self, run: ImportRun, owner, pick: AccountPick) -> None:
         super().__init__(run, owner)
         self._pick = pick
+        self._failure: list[Text] = []
+        self._writing = False
+        #: The apply met something changed while it ran: `⏎` previews again.
+        self._rerun = False
+
+    def on_mount(self) -> None:
+        relabel(self, "escape", self._run.cancel_label())
+        super().on_mount()
+        self._ask(dry_run=True)
+
+    # ---- what each preview says ----------------------------------------------
+    def _ask(self, dry_run: bool) -> None:
+        """The one call, the dry run or the apply, in a worker."""
+        raise NotImplementedError
+
+    def changed(self, err: Exception) -> bool:
+        """Whether `err` is the apply meeting something changed while it ran."""
+        raise NotImplementedError
+
+    def _forget_answer(self) -> None:
+        """Drop the dry run's answer before a fresh one."""
+        raise NotImplementedError
+
+    @property
+    def can_apply(self) -> bool:
+        raise NotImplementedError
+
+    def _moves_on(self) -> bool:
+        """`⏎` with nothing to write: True when it moved on instead."""
+        return False
+
+    # ---- shared ----------------------------------------------------------------
+    @property
+    def can_rerun(self) -> bool:
+        """The apply met something changed while it ran: `⏎` previews again."""
+        return self._rerun and not self._writing
+
+    def _failed(self, err: Exception) -> None:
+        self._writing = False
+        self._rerun = self.changed(err)
+        self._failure = failure_lines(err, again=self.RERUN_LINE if self._rerun else None)
+        message = format_error(err)
+        if isinstance(err, EngineError) and self._rerun:
+            # The screen's own next step, not the one "save again" of other saves.
+            relabel(self, "enter", RERUN_KEY)
+            message = f"{engine_words(err)}\n\n{self.RERUN_LINE}"
+        elif not self._run.has_next:
+            # Nothing of this file can be written: esc only goes back (pane 4).
+            relabel(self, "escape", "Back")
+        toast(self, message, title="Failed", severity="error")
+        self.refresh_bindings()
+        self._repaint()
+
+    def action_apply(self) -> None:
+        if self.can_rerun:
+            # The ledger moved under the apply: what is new may have moved too,
+            # so the file is checked again before anything is written.
+            self._rerun = False
+            self._failure = []
+            self._forget_answer()
+            self.refresh_bindings()
+            self._repaint()
+            self._ask(dry_run=True)
+            return
+        if self._moves_on() or not self.can_apply:
+            return
+        self._writing = True
+        self.refresh_bindings()
+        self._repaint()
+        self._ask(dry_run=False)
+
+    def action_cancel(self) -> None:
+        if self._writing:
+            self.notify("Writing — one moment.")
+            return
+        self._close()
+
+
+class ImportPreviewScreen(PreviewScreen):
+    """The engine's dry run of this file on this account. Nothing is written
+    until `⏎`. With nothing new (screen 6 A), `⏎` opens the next file's
+    account list when a file follows, and does nothing on the last one. When
+    the apply meets a ledger line changed while it ran, `⏎ Preview again`
+    asks for a fresh dry run; nothing is sent again without one."""
+
+    def __init__(self, run: ImportRun, owner, pick: AccountPick) -> None:
+        super().__init__(run, owner, pick)
         #: Every row the engine read, with its verdict and reason; None until
         #: the dry run answers.
         self._lines: list[PreviewLine] | None = None
@@ -625,16 +741,7 @@ class ImportPreviewScreen(_ImportScreen):
         self._counts: AnswerCounts | None = None
         #: Why the reconciliations that stop a move could not be named.
         self._names_error: str | None = None
-        self._failure: list[Text] = []
-        self._writing = False
-        #: The apply met a ledger line changed while it ran: `⏎` previews again.
-        self._rerun = False
         self._start = 0
-
-    def on_mount(self) -> None:
-        _relabel(self, "escape", self._run.cancel_label())
-        super().on_mount()
-        self._ask(dry_run=True)
 
     # ---- state ---------------------------------------------------------------
     @property
@@ -661,10 +768,18 @@ class ImportPreviewScreen(_ImportScreen):
             and self._run.has_next
         )
 
-    @property
-    def can_rerun(self) -> bool:
-        """The apply met a ledger line changed while it ran: `⏎` previews again."""
-        return self._rerun and not self._writing
+    def changed(self, err: Exception) -> bool:
+        return changed_while_running(err)
+
+    def _forget_answer(self) -> None:
+        self._lines, self._mismatches, self._counts = None, [], None
+        self._start = 0
+
+    def _moves_on(self) -> bool:
+        if self.can_skip:
+            self._next_file()
+            return True
+        return False
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "apply":
@@ -729,14 +844,14 @@ class ImportPreviewScreen(_ImportScreen):
         self._names_error = names_error
         new = self.new_count
         if new:
-            _relabel(self, "enter", f"Import {new} {_plural(new, 'row', 'rows')}")
+            relabel(self, "enter", f"Import {new} {plural(new, 'row', 'rows')}")
         elif self._run.has_next:
             # Nothing to write, a file still to come: ⏎ moves on to it, and
             # esc still stops this file and the ones after it.
-            _relabel(self, "enter", "Next file")
+            relabel(self, "enter", "Next file")
         else:
             # Nothing to write and no file after: esc only goes back (screen 6 A).
-            _relabel(self, "escape", "Back")
+            relabel(self, "escape", "Back")
         self.refresh_bindings()
         self._repaint()
 
@@ -745,45 +860,7 @@ class ImportPreviewScreen(_ImportScreen):
         self._run.imported += 1
         self.app.switch_screen(ImportResultScreen(self._run, self._owner, self._pick, counts))
 
-    def _failed(self, err: Exception) -> None:
-        self._writing = False
-        self._failure = failure_lines(err)
-        self._rerun = changed_while_running(err)
-        message = format_error(err)
-        if isinstance(err, EngineError) and self._rerun:
-            # The screen's own next step, not the one "save again" of other saves.
-            _relabel(self, "enter", RERUN_KEY)
-            message = f"{engine_words(err)}\n\n{RERUN}"
-        elif not self._run.has_next:
-            # Nothing of this file can be written: esc only goes back (pane 4).
-            _relabel(self, "escape", "Back")
-        toast(self, message, title="Failed", severity="error")
-        self.refresh_bindings()
-        self._repaint()
-
     # ---- keys ----------------------------------------------------------------
-    def action_apply(self) -> None:
-        if self.can_rerun:
-            # The ledger moved under the apply: what is new may have moved too,
-            # so the file is checked again before anything is written.
-            self._rerun = False
-            self._failure = []
-            self._lines, self._mismatches, self._counts = None, [], None
-            self._start = 0
-            self.refresh_bindings()
-            self._repaint()
-            self._ask(dry_run=True)
-            return
-        if self.can_skip:
-            self._next_file()
-            return
-        if not self.can_apply:
-            return
-        self._writing = True
-        self.refresh_bindings()
-        self._repaint()
-        self._ask(dry_run=False)
-
     def action_page(self, delta: int) -> None:
         total = len(self._lines or [])
         size = self._page_size()
@@ -792,12 +869,6 @@ class ImportPreviewScreen(_ImportScreen):
         self._start = max(0, self._start + delta * size)
         self.refresh_bindings()
         self._repaint()
-
-    def action_cancel(self) -> None:
-        if self._writing:
-            self.notify("Writing — one moment.")
-            return
-        self._close()
 
     # ---- render --------------------------------------------------------------
     def _notes(self) -> list[Text]:
@@ -857,39 +928,26 @@ def result_head(pick: AccountPick, counts: AnswerCounts) -> Text:
     #Pendiente` — the engine's `new`."""
     new = counts.new
     head = Text("✓ ", style=PALETTE.success)
-    head.append(f"{new} {_plural(new, 'row', 'rows')} imported", style="bold")
+    head.append(f"{new} {plural(new, 'row', 'rows')} imported", style="bold")
     head.append(f" · {pick.name}")
     head.append(f"   new ones under {PENDING} and {PENDING_HASHTAG}", style="dim")
     return head
 
 
-class ImportResultScreen(_ImportScreen):
-    """What the apply wrote: its title line and the engine's counts, in the
-    past tense. `⏎` opens the next file's account list, or goes Home after the
-    last; `esc` returns to the LOG bar."""
+class ResultScreen(ImportScreen):
+    """What both screens after an apply share, a download's and a statement
+    PDF's: `⏎` opens the next file's account list (`⏎ Next file`), or goes Home
+    after the last; `esc` returns to the LOG bar. Each draws its own body."""
 
     BINDINGS = [
         Binding("escape", "back", "Back"),
         Binding("enter", "next", "Home"),
     ]
 
-    def __init__(self, run: ImportRun, owner, pick: AccountPick, counts: AnswerCounts) -> None:
-        super().__init__(run, owner)
-        self._pick = pick
-        #: The engine's counts of the apply.
-        self._counts = counts
-
     def on_mount(self) -> None:
         if self._run.has_next:
-            _relabel(self, "enter", "Next file")
+            relabel(self, "enter", "Next file")
         super().on_mount()
-
-    def body(self) -> RenderableType:
-        return Group(
-            result_head(self._pick, self._counts),
-            Text(""),
-            counts_block(counts_lines(self._counts, done=True)),
-        )
 
     def action_next(self) -> None:
         if self._run.has_next:
@@ -899,3 +957,21 @@ class ImportResultScreen(_ImportScreen):
 
     def action_back(self) -> None:
         self._close()
+
+
+class ImportResultScreen(ResultScreen):
+    """What the apply wrote: its title line and the engine's counts, in the
+    past tense."""
+
+    def __init__(self, run: ImportRun, owner, pick: AccountPick, counts: AnswerCounts) -> None:
+        super().__init__(run, owner)
+        self._pick = pick
+        #: The engine's counts of the apply.
+        self._counts = counts
+
+    def body(self) -> RenderableType:
+        return Group(
+            result_head(self._pick, self._counts),
+            Text(""),
+            counts_block(counts_lines(self._counts, done=True)),
+        )

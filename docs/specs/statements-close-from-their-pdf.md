@@ -164,14 +164,6 @@ Approved by the owner on 2026-10-27. The screens of tasks 3 and 4 are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
 screens 1 to 4 as drawn, 5 A and 6 A.
 
-3. **The upload in the app (builder).** A PDF dropped on the LOG bar (A1),
-   its account (A2), the preview, the apply, the screen after it and each refusal in the
-   engine's words (screens 1 to 3), several files dropped together going one by one, each its
-   own way (6 A); the upload's request built in one shared home beside
-   the bank download's ([flow.py](../../expense/bank_import/flow.py)).
-   *Passes if:* unit tests drive each screen's happy path and each refusal against the fake
-   engine; a dry run writes nothing and `esc` on the preview sends nothing; one idempotency key
-   per apply; tui.md says what the screens do.
 4. **The statement screen after a close (builder).** A statement's lines in
    the paper's order (contract: GET /v1/bank-lines, "Ordering"), its opening balance apart;
    editing a line opens the ledger's Edit form; and an open statement on an account with a

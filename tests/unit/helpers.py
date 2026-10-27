@@ -751,6 +751,115 @@ def complete_answer(
     }
 
 
+def statement_row(
+    place: int,
+    amount_cents: int = -1000,
+    *,
+    outcome: str = "matched",
+    account_id: str = "sig-pen",
+    currency: str = "PEN",
+    day: str = "2026-10-02",
+    description: str | None = "TAMBO MIRAFLORES",
+    fee: bool = False,
+    bank_line_id: str | None = None,
+    transaction_id: str | None = None,
+    near_misses: tuple[tuple[str, str], ...] = (),
+) -> dict:
+    """One row of a `POST /reconciliations/import` answer, every key present: the row
+    as the engine read it from the paper (`place` its number on it, from 1) and what
+    closing does with it (contract: POST /v1/reconciliations/import, "Response").
+    `amount_cents` is given signed here and written as the engine sends it, a magnitude
+    and `transaction_type` (1 out, 2 in). `near_misses` are `(bank_line_id, date)`;
+    a matched row's `bank_line_id` defaults to one of its own."""
+    if outcome == "matched" and bank_line_id is None:
+        bank_line_id = f"bl-{place}"
+    return {
+        "place": place,
+        "account_id": account_id,
+        "currency": currency,
+        "processed_on": None if fee else day,
+        "date": day,
+        "description": description,
+        "type": None,
+        "fee": fee,
+        "amount_cents": abs(amount_cents),
+        "transaction_type": 2 if amount_cents > 0 else 1,
+        "outcome": outcome,
+        "bank_line_id": bank_line_id,
+        "transaction_id": transaction_id,
+        "near_misses": [{"bank_line_id": i, "date": d} for i, d in near_misses],
+    }
+
+
+def statement_half(
+    account_id: str = "sig-pen",
+    currency: str = "PEN",
+    *,
+    creates: bool = True,
+    reconciliation_id: str | None = None,
+    begin: int = -120410,
+    end: int = -51230,
+) -> dict:
+    """One of a `POST /reconciliations/import` answer's `halves`: its account and
+    currency, whether closing creates it, and the paper's balances
+    (contract: POST /v1/reconciliations/import, "Response")."""
+    return {
+        "account_id": account_id,
+        "currency": currency,
+        "reconciliation_id": reconciliation_id,
+        "creates": creates,
+        "beginning_balance_cents": begin,
+        "ending_balance_cents": end,
+    }
+
+
+@answer_of("POST", "/v1/reconciliations/import")
+def statement_import_answer(
+    rows: list[dict] | None = None,
+    *,
+    dry_run: bool = False,
+    name: str = "SIG-202610",
+    date_start: str = "2026-09-26",
+    date_end: str = "2026-10-25",
+    halves: list[dict] | None = None,
+    taken_out: list[str] | None = None,
+    review_lines: list[str] | None = None,
+    counts: dict | None = None,
+) -> dict:
+    """`POST /reconciliations/import`'s answer: `dry_run` echoed, the statement's name
+    and days, its `halves` (one `statement_half` by default), `reconciliation` (on an
+    apply the completed statement as a complete answers it, flagging `review_lines`;
+    `None` on a dry run), one row per row of the paper (each a `statement_row`),
+    `taken_out` and `counts` (by default the rows and the lines taken out counted)
+    (contract: POST /v1/reconciliations/import, "Response"). The bare answer is an
+    apply holding a new row with a near miss, so the drift script checks each nested
+    shape."""
+    if rows is None:
+        rows = [statement_row(1, outcome="new", near_misses=(("bl-near", "2026-10-03"),))]
+    taken = list(taken_out or [])
+    outcomes = [row["outcome"] for row in rows]
+    return {
+        "dry_run": dry_run,
+        "name": name,
+        "date_start": date_start,
+        "date_end": date_end,
+        "halves": halves if halves is not None else [statement_half()],
+        "reconciliation": None
+        if dry_run
+        else complete_answer({"name": name}, review_lines=review_lines),
+        "rows": rows,
+        "taken_out": taken,
+        "counts": counts
+        if counts is not None
+        else {
+            "matched": outcomes.count("matched"),
+            "new": outcomes.count("new"),
+            "empty": outcomes.count("empty"),
+            "taken_out": len(taken),
+        },
+    }
+
+
 #: What `FakeClient` answers a write no `write_responses` entry names: a list of
 #: `(method, path pattern, answer)`, one per write the fake answers in the engine's
 #: shape, the pattern a regex matching the path FakeClient sees (the contract's path

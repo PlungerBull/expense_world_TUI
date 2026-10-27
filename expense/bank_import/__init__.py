@@ -1,18 +1,26 @@
-"""Bank downloads → the ledger, through the TUI import door.
+"""Bank files → the ledger, through the TUI import door: the bank's downloads,
+and a month's statement PDF, which closes the month.
 
-Two modules, neither of which prints or imports typer:
+Three modules, none of which prints or imports typer:
 
-    engine.py  the `POST /transactions/import` body (the file whole, in
-               base64, and the account), and the engine's answer → one row
-               per spreadsheet row with its verdict and reason, the engine's
-               counts, and the days whose file and ledger totals disagree
-    flow.py    the door's steps: read the dropped file's bytes, list the
-               accounts as picks (a card's two accounts as one), make the one
-               call, name the reconciliations that stop a move
+    engine.py     the body of both uploads (the file whole, in base64, and the
+                  account), and the download's answer → one row per
+                  spreadsheet row with its verdict and reason, the engine's
+                  counts, and the days whose file and ledger totals disagree
+    statement.py  the statement upload's answer → its name and days, its
+                  halves and balances, one row per row of the paper with its
+                  outcome and near misses, the lines taken out, the counts
+    flow.py       the door's steps: read the dropped file's bytes, list the
+                  accounts as picks (a card's two accounts as one), make the
+                  one call (`import_call`, `statement_call`), name the
+                  reconciliations that stop a move, read the lines a
+                  statement's answer names by id
 
-engine.py is pure (no HTTP, no config). The app reads no cell of the file:
-reading it, matching it and refusing its rows are the engine's
-(contract: POST /v1/transactions/import). The door is
-expense/tui/screens/bank_import.py, and it runs flow.py. The account is
+engine.py and statement.py are pure (no HTTP, no config). The app reads no
+cell of a download and nothing in a PDF: reading, matching and refusing are
+the engine's (contract: POST /v1/transactions/import)
+(contract: POST /v1/reconciliations/import). The door is
+expense/tui/screens/bank_import.py and the upload
+expense/tui/screens/statement_upload.py, and both run flow.py. The account is
 asked every run, never remembered by file name.
 """

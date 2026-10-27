@@ -51,14 +51,17 @@ docs/decisions.md "Four calls for the LOG bar":
 * the refusal under the bar reuses **route.py's own phrases**, so there is one
   wording.
 
-**A dropped bank file**: a line that is nothing but paths to `.xlsx` files —
-dragged onto the terminal, pasted or typed — is not a transaction.
+**A dropped bank file**: a line that is nothing but paths to `.xlsx` files
+(the bank's downloads) and `.pdf` files (a month's statement) — dragged onto
+the terminal, pasted or typed — is not a transaction.
 `expense/tui/dropped.py` decides it from the text alone; while it holds, the
 bar stands quick-add down (no colouring, no picker, no peek, no refusal), the
-hint names the file(s), the footer reads `esc Cancel  ⏎ Import`, and `↵` hands
-the files to `import_bank_files` instead of staging anything: it reads their
-bytes and opens the import door (`bank_import.py`), or says under the bar why a
-file cannot be read from disk.
+hint names the file(s), the footer reads `esc Cancel  ⏎ Import` (`⏎ Upload` for
+one statement PDF), and `↵` hands the files to `import_bank_files` instead of
+staging anything: it reads their bytes and opens each file's first screen in
+drop order, a download's import door (`bank_import.py`) or a PDF's statement
+upload (`statement_upload.py`), or says under the bar why a file cannot be read
+from disk.
 """
 
 from collections.abc import Hashable
@@ -102,8 +105,8 @@ from expense.reads import (
     load_quickadd_refs,
     pending_label,
 )
-from expense.tui.dropped import dropped_bank_files
-from expense.tui.screens._base import call_while_attached, screen_fetch_kwargs
+from expense.tui.dropped import dropped_bank_files, is_statement
+from expense.tui.screens._base import call_while_attached, relabel, screen_fetch_kwargs
 from expense.tui.screens.modals import DiscardStagedModal
 from expense.tui.theme import ACCENT, AMOUNT_RULE, PALETTE, Palette
 from expense.tui.widgets.cells import amount_cell, amount_text
@@ -170,14 +173,31 @@ LOADING_HINT = "loading accounts, categories and tags…"
 def bank_files_hint(files: list[Path]) -> Text:
     """What the bar says while it holds dropped files instead of a line.
 
-    One file: `bank file · Sueldo Soles (1).xlsx · ⏎ import it`. Several:
+    One file: `bank file · Sueldo Soles (1).xlsx · ⏎ import it`, or for a
+    statement PDF `statement PDF · <name> · ⏎ upload it` (screen A1 of
+    docs/mockups/expense-world-statement-pdf-upload.html). Several downloads:
     `bank files · 2 · ⏎ import them, one by one`, each name on its own
-    indented line under it — they are imported one after the other.
+    indented line under it — they are imported one after the other. Several
+    with a PDF among them: `files · 2 · ⏎ take them, one by one`, each name
+    with its kind (`· bank download`, `· statement PDF`), each going its own way
+    (pane 6A of docs/mockups/expense-world-statement-pdf-screens.html).
     """
+    if len(files) == 1 and is_statement(files[0]):
+        return Text.assemble(
+            ("statement PDF", ACCENT), f" · {files[0].name} · ", ("⏎", "bold"), " upload it"
+        )
     if len(files) == 1:
         return Text.assemble(
             ("bank file", ACCENT), f" · {files[0].name} · ", ("⏎", "bold"), " import it"
         )
+    if any(is_statement(path) for path in files):
+        hint = Text.assemble(
+            ("files", ACCENT), f" · {len(files)} · ", ("⏎", "bold"), " take them, one by one"
+        )
+        for path in files:
+            kind = "statement PDF" if is_statement(path) else "bank download"
+            hint.append(f"\n  {path.name} · {kind}")
+        return hint
     hint = Text.assemble(
         ("bank files", ACCENT),
         f" · {len(files)} · ",
@@ -812,6 +832,10 @@ class LogBarScreen(Screen):
         self._refused = None  # any edit is a new attempt
         self._file_problem = None
         files = dropped_bank_files(text)
+        if files is not None:
+            # One statement PDF is uploaded; anything else is imported (A1, 6A).
+            one_pdf = len(files) == 1 and is_statement(files[0])
+            relabel(self, "enter", "Upload" if one_pdf else "Import")
         if (files is None) != (self._files is None):
             self.refresh_bindings()  # the footer swaps `ctrl+s Save` for `⏎ Import`
         self._files = files
@@ -887,8 +911,8 @@ class LogBarScreen(Screen):
         dropped, never the row.
         """
         from expense.tui.screens.bank_import import (
-            ImportAccountScreen,
             ImportRun,
+            first_screen,
             problem_hint,
             read_dropped,
         )
@@ -901,7 +925,8 @@ class LogBarScreen(Screen):
             return
         self._editing = None
         self._refresh_view()
-        self.app.push_screen(ImportAccountScreen(ImportRun(files), self))
+        run = ImportRun(files)
+        self.app.push_screen(first_screen(run, self))
 
     def import_closed(self, run, *, home: bool) -> None:
         """An import screen closed; the bar is cleared either way. `home` (⏎
