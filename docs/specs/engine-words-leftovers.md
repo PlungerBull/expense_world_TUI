@@ -78,8 +78,8 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-Every task is done; the acceptance check runs again, the contract version recorded at
-`46e2fdf6e11d7548` on 2026-10-27.
+Every task is done. The tester's acceptance check passed on 2026-10-27 at contract version
+`46e2fdf6e11d7548`; the doc sweep runs next.
 
 ## Found along the way
 
@@ -94,3 +94,10 @@ Not built in this spec; drafted into a new spec when it is done.
   transactions and balances. The order stays."; the app asks "Unlocks the assigned transactions
   and this batch's balances." ([reconciliations.py](../../expense/tui/screens/reconciliations.py)).
   (Task 6.)
+- **Two heads show a bracketed name whole with no unit test.** The bank import's account list
+  (`account_lines`) and its `Preview · <account>` head
+  ([bank_import.py](../../expense/tui/screens/bank_import.py)), and the reconciliation detail's
+  head naming the statement and its account
+  ([reconciliations.py](../../expense/tui/screens/reconciliations.py)), showed `[like this]`
+  whole in the app in the tester's acceptance check of 2026-10-27; no test in
+  [test_tui_bracketed_names.py](../../tests/unit/test_tui_bracketed_names.py) pins them.
