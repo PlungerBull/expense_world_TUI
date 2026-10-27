@@ -140,6 +140,17 @@ def _plain(note: str) -> str:
     return Content.from_markup(note).plain
 
 
+def _coloured(note: str) -> list[tuple[str, str]]:
+    """What a refusal note shows in a style, as `(words, style)` in order: the
+    markup read, each styled stretch's words without the line break that may
+    end it, since a line break shows no colour."""
+    content = Content.from_markup(note)
+    return [
+        (content.plain[span.start : span.end].rstrip("\n"), str(span.style))
+        for span in content.spans
+    ]
+
+
 def _answer_unchanged(fake_client, row: dict) -> None:
     """`row` answers its `PUT` with no part changed: the move sent the account
     it is already on (contract: PUT /v1/transactions/{transaction_id}, "Response")."""
@@ -1243,7 +1254,7 @@ def test_a_refusal_naming_no_row_keeps_its_words_and_names_no_row():
     its own, never dressed up as a row; its other lines follow, dim."""
     (note,) = refusal_notes([(None, 0, None, "could not reach engine\n\nHint: start it.")])
     assert _plain(note) == "could not reach engine\nHint: start it."
-    assert note.endswith("[dim]Hint: start it.[/]")
+    assert _coloured(note) == [("could not reach engine", "$error"), ("Hint: start it.", "dim")]
 
 
 def test_a_401_reads_whole_with_its_hint_and_names_its_rows():
@@ -1258,7 +1269,13 @@ def test_a_401_reads_whole_with_its_hint_and_names_its_rows():
         "rows 1, 3\n"
         "Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t)."
     )
-    assert note.endswith("(press t).[/]") and "[dim]Hint:" in note
+    assert _coloured(note) == [
+        ("UNAUTHORIZED — Missing or invalid token.", "$error"),
+        (
+            "Hint: the key is missing or not valid. Set a fresh one on System ▸ Config (press t).",
+            "dim",
+        ),
+    ]
 
 
 def test_a_lost_connection_names_each_row_it_met_on_one_note():
@@ -1276,12 +1293,18 @@ def test_the_engines_words_show_as_sent_and_in_the_error_colour():
     and what was refused is in the error colour, the rows unstyled."""
     err = EngineError("VALIDATION_ERROR", "x", {"title": "Not [b]this[/b]."}, 422, {})
     (note,) = refusal_notes([("t1", 1, *refused_row(err))])
-    content = Content.from_markup(note)
-    assert content.plain == "title: Not [b]this[/b].\nrow 1"
-    first = len("title: Not [b]this[/b].")
-    assert [(span.start, span.end, str(span.style)) for span in content.spans] == [
-        (0, first, "$error")
-    ]
+    assert _plain(note) == "title: Not [b]this[/b].\nrow 1"
+    assert _coloured(note) == [("title: Not [b]this[/b].", "$error")]
+
+
+@pytest.mark.parametrize("words", ["Ends in \\", "Ends in \\\\", "A \\[b] escape \\"])
+def test_a_backslash_ending_the_words_shows_and_the_colours_hold(words):
+    """Words ending in a backslash, the error colour's end straight after them,
+    and an app line ending in one, dim, at the note's end: each shows as sent,
+    in its colour, the rows unstyled."""
+    (note,) = refusal_notes([("t2", 2, ("text", words), f"{words}\n{words}")])
+    assert _plain(note) == f"{words}\nrow 2\n{words}"
+    assert _coloured(note) == [(words, "$error"), (words, "dim")]
 
 
 def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, monkeypatch):
@@ -1324,12 +1347,12 @@ def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, mon
         receipt, refused = list(app._notifications)
         assert (receipt.title, receipt.message) == ("", "1 row → BCP Oro PEN")
         assert (refused.title, refused.severity) == ("2 of 3 refused", "error")
-        note = Content.from_markup(refused.message) if refused.markup else None
-        assert note is not None
-        assert note.plain == "account_id: Locked by completed reconciliation.\nrows 1, 3"
-        said = len("account_id: Locked by completed reconciliation.")
-        assert [(span.start, span.end, str(span.style)) for span in note.spans] == [
-            (0, said, "$error")
+        assert refused.markup
+        assert _plain(refused.message) == (
+            "account_id: Locked by completed reconciliation.\nrows 1, 3"
+        )
+        assert _coloured(refused.message) == [
+            ("account_id: Locked by completed reconciliation.", "$error")
         ]
         assert screen._selected == {"t1", "t3"}
 

@@ -78,10 +78,6 @@ None. Nothing you see changes but the bracketed names, which now show whole.
 
 Approved by the owner on 2026-10-26.
 
-2. **The bulk edit's note keeps a trailing backslash.** Engine words ending in `\` show whole in
-   `refusal_notes` ([transactions.py](../../expense/tui/screens/transactions.py)); the limit in
-   `as_markup`'s docstring ([refusal.py](../../expense/tui/widgets/refusal.py)) is lifted or no
-   longer reached, and a test pins it.
 3. **The unit tests prove what they say.** Each toast of the owner's own typing (`No account
    matches "…"`, `Nothing matches "…"`, System's invalid-URL and config-save toasts) is tested
    with `[like this]` typed and shows it whole. The bulk edit's stop note is pinned with two or
@@ -97,7 +93,9 @@ Approved by the owner on 2026-10-26.
    the `readonly_lines` test says why it writes column words as keywords
    ([test_tui_edit_form.py](../../tests/unit/test_tui_edit_form.py)); the docstring of
    [test_reconciliations_lifecycle.py](../../tests/contract/test_reconciliations_lifecycle.py)
-   names the six locked things.
+   names the six locked things; the step that reads a note's styled stretches has one copy in
+   [helpers.py](../../tests/unit/helpers.py), where `_coloured` in test_tui_bulk_edit.py and
+   the `styled` list in test_tui_engine_words.py each write it (found in task 2).
 6. **The two mockups draw the complete question as the app asks it.**
    `expense-world-split-transaction-screen.html` and `expense-world-card-statement.html` in
    [mockups/](../mockups/) are redrawn, or deleted with their links where they back no open work

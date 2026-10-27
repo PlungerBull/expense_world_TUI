@@ -115,15 +115,37 @@ async def toast_with_words(pilot, app) -> str:
 
 @pytest.mark.parametrize(
     "words",
-    [MESSAGE, FIELD_WORDS, "[/]", "[$error]x[/]", "\\[b]", "a \\\\[b] c", "[[x]]", "x\\y", ""],
+    [
+        MESSAGE,
+        FIELD_WORDS,
+        "[/]",
+        "[$error]x[/]",
+        "\\[b]",
+        "a \\\\[b] c",
+        "[[x]]",
+        "x\\y",
+        "x\\",
+        "x\\\\",
+        "",
+    ],
 )
-@pytest.mark.parametrize("around", ["{}", "[$error]{}[/]", "[dim]{}[/]\nrow 1"])
-def test_words_written_as_markup_read_back_as_sent(words, around):
-    """`as_markup` keeps every `[` as sent, alone or inside the app's styling."""
-    shown = Content.from_markup(around.format(as_markup(words))).plain
-    assert shown == around.replace("[$error]", "").replace("[dim]", "").replace("[/]", "").format(
-        words
-    )
+@pytest.mark.parametrize("styles", [[""], ["$error"], ["dim", ""], ["$error", "", "dim"]])
+def test_words_written_as_markup_read_back_as_sent(words, styles):
+    """`as_markup` keeps every line's words as sent, `[` and a backslash at
+    their end and all, alone or in the app's styles, each line in its own."""
+    lines = [(words, style) for style in styles]
+    content = Content.from_markup(as_markup(lines))
+    assert content.plain == "\n".join(words for _ in styles)
+    styled = [
+        (span.start, content.plain[span.start : span.end].rstrip("\n"), str(span.style))
+        for span in content.spans
+    ]
+    starts = [n * (len(words) + 1) for n in range(len(styles))]
+    lines_at = zip(starts, styles, strict=True)
+    # a style over a line break alone shows nothing, so only words are compared
+    assert [span for span in styled if span[1]] == [
+        (start, words, style) for start, style in lines_at if style and words
+    ]
 
 
 # ---- Manage ------------------------------------------------------------------
@@ -332,6 +354,32 @@ def test_a_refused_bulk_edit_shows_the_words_whole(fake_client, monkeypatch):
         await wait_for(pilot, lambda: any("Refused" in t for t in toasts_shown(app)))
         shown = next(t for t in toasts_shown(app) if t.startswith("Refused"))
         assert f"category_id: {FIELD_WORDS}" in shown
+
+    run_app(scenario, size=(120, 35), toasts=True)
+
+
+@pytest.mark.parametrize(
+    "words", ["Ends in a backslash \\", "Ends in two \\\\", "A \\[b] escape.", "[like this]"]
+)
+def test_a_refused_bulk_edit_keeps_a_backslash_before_its_colour_ends(
+    fake_client, monkeypatch, words
+):
+    """The bulk edit's note styles the engine's words in the error colour, the
+    app's own markup closing after them: a backslash at their end, two, or one
+    before a `[` all show as sent, and so does `[like this]`."""
+    _stub_ledger(monkeypatch)
+    fake_client.errors["PUT"] = EngineError(
+        "VALIDATION_ERROR", MESSAGE, {"category_id": words}, 422, {}, {"category_id": "INVALID"}
+    )
+
+    async def scenario(pilot, app):
+        await _open_ledger(pilot, app)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, BulkPickScreen))
+        await pilot.press(*"kor", "enter")
+        await wait_for(pilot, lambda: any("Refused" in t for t in toasts_shown(app)))
+        shown = next(t for t in toasts_shown(app) if t.startswith("Refused"))
+        assert f"\ncategory_id: {words}\nrow 1" in shown
 
     run_app(scenario, size=(120, 35), toasts=True)
 

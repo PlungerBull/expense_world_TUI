@@ -235,17 +235,17 @@ def refusal_notes(failed: list[RefusedRow]) -> list[str]:
     """One note per kind of refusal, not one per row, in the style the LOG bar
     and the sheet import share (`formatting.grouped_refusals`): what was
     refused in the error colour, the rows it hit under it (`row 2`, or
-    `rows 1, 3`), then the app's lines, dim. Content markup, with the words
-    escaped (`as_markup`), so a bracket in the engine's words shows as the
-    engine sent it."""
+    `rows 1, 3`), then the app's lines, dim. Content markup written by
+    `as_markup`, so the engine's words show as it sent them, `[` and a
+    backslash at their end and all."""
     refusals = [(kind, words, [n] if n else []) for _key, n, kind, words in failed]
     notes = []
     for first, rows, rest in grouped_refusals(refusals):
-        lines = [f"[$error]{as_markup(first)}[/]"]
+        lines = [(first, "$error")]
         if rows:
-            lines.append(rows)
-        lines.extend(f"[dim]{as_markup(line)}[/]" for line in rest)
-        notes.append("\n".join(lines))
+            lines.append((rows, ""))
+        lines.extend((line, "dim") for line in rest)
+        notes.append(as_markup(lines))
     return notes
 
 
@@ -719,7 +719,7 @@ class TransactionsScreen(LogTransactionMixin, SectionScreen):
         if rows:
             toast(self, bulk_receipt(rows, label, left))
         # One toast per kind of refusal, not per row — see `refusal_notes`. Its
-        # colours are content markup, the engine's words escaped inside it.
+        # colours are content markup, the engine's words set in it by `as_markup`.
         head = f"{len(failed)} of {done + len(failed)} refused" if len(failed) > 1 else "Refused"
         for note in refusal_notes(failed):
             self.notify(note, title=head, severity="error", timeout=10, markup=True)

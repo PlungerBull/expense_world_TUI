@@ -45,8 +45,8 @@ expense/tui/
                     #   + under_itself() — words wrapping under themselves
                     #   after a head, as the Edit form's read-only sentences do
                     #   + toast() — a toast whose words the app did not write,
-                    #   shown as text; as_markup() — words set inside the app's
-                    #   own markup, every `[` escaped
+                    #   shown as text; as_markup() — lines of words set
+                    #   inside the app's own markup, each in its style
                     #   + run_stopped() — the one note for a refusal that stops
                     #   a run of writes (the LOG bar's save, the bulk edit)
     parts_table.py  # the Edit form's parts: the Part model, the table, the dim
@@ -981,8 +981,9 @@ name in Manage ▸ Accounts, the ledger and the import preview.
 A toast whose message is not a fixed sentence of the app's goes through
 `toast` in [refusal.py](../expense/tui/widgets/refusal.py), which shows it as text; the
 title is always text. The one toast that styles the engine's words on purpose, the
-ledger's bulk edit note, writes them into its content markup through `as_markup` there,
-which escapes every `[`. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
+ledger's bulk edit note, writes its lines into content markup through `as_markup` there,
+which escapes every `[` and never puts a tag straight after the words, so a backslash
+ending them shows too. [test_toast_words.py](../tests/unit/test_toast_words.py) fails
 on any other `notify` whose message is not a fixed sentence, and
 [test_tui_engine_words.py](../tests/unit/test_tui_engine_words.py) drives each place with
 a refusal holding brackets.
