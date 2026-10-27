@@ -58,14 +58,16 @@ Set aside by the owner on 2026-10-26: not to run now.
 ### Approve the spec for the test suites' leftovers
 Asked 2026-10-25 · Blocks: [specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)
 
-Thirteen small things, all inside the tests and their tools: copies to merge, stale test
-sentences and comments, a test that checks less than its name says, the drift check covering more
-of the engine's answers, the practice-data cleaner reading every page, a live test of a statement
-upload's words for a future-dated line, and two heads pinned showing a bracketed name whole.
-Nothing you see changes.
-Approve it or rewrite it.
+Eighteen small things, all inside the tests and their tools: copies to merge, stale test
+sentences and comments, tests that check less than they say or fail at random in CI, the drift
+check covering more of the engine's answers, the practice-data cleaner reading every page, the
+guard checking a test-engine start whole, and two heads pinned showing a bracketed name whole.
+Nothing you see changes. On 2026-10-27 you moved the future-dated line's live test out (it
+waits on the PDF spec) and brought in the backlog's test-only items. Approve it, and say
+whether it runs before or after the PDF spec.
 
-**Recommended:** approve it, after the PDF spec, which matters more.
+**Recommended:** approve it and run it now: the PDF spec is set aside, and this one waits on
+no answer.
 
 ---
 
@@ -84,7 +86,15 @@ ships (its why moves to [decisions.md](decisions.md)).
   [log_bar.py](../expense/tui/screens/log_bar.py) says "`saved` is the phase-4 half"; say what
   `saved` means instead.
 - **Leftovers in the test suites**: a draft spec waiting for the owner's approval
-  ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)).
+  ([specs/test-suite-leftovers.md](specs/test-suite-leftovers.md)); every backlog item that
+  lives only in the tests and their tools is in it.
+- **A live test checks a statement upload's words for a future-dated line.** The engine names
+  the line, "Row <place>: Must not be in the future." on `rows.<place>.date`, on POST
+  /reconciliations/import as on the other two imports (contract version `46e2fdf6e11d7548`);
+  no live test sends a statement PDF yet, since none made up exists in this repo. It needs the
+  made-up statement PDF that point 7 of
+  [specs/statements-close-from-their-pdf.md](specs/statements-close-from-their-pdf.md) builds,
+  so it comes after that spec, as its own spec.
 - **The "no batch" `?` card lists keys that don't apply.** It shows `esc Back` twice and `esc
   Close the panel`, which is off there, and both `pgdn Load the next 10 rows` and `pgdn Next page`
   once every row is loaded; on a 30-row terminal it clips its last line
@@ -100,38 +110,9 @@ ships (its why moves to [decisions.md](decisions.md)).
   repr) raises `ValueError`. The bound belongs to the engine: read the live contract for the
   largest amount it takes, and if it states none, it becomes an engine ask; the client never
   invents one.
-- **No unit test pins that Reconciliations leaves an archived account with no statement code
-  out.** The browse reads `GET /accounts` with `include_archived` and leaves archived accounts
-  out of its list itself, so the whole card's list can name an archived card account's column
-  ([reconciliations.py](../expense/tui/screens/reconciliations.py) `ReconciliationsScreen.fetch`,
-  [tui.md](tui.md)); `test_an_archived_card_accounts_halves_still_show_under_its_column` pins
-  it for a card account only. A unit test should hold it for an account with no code.
-- **A test docstring says the sheet import brings a colour.**
-  [test_tui_create_forms.py](../tests/unit/test_tui_create_forms.py) around line 409 says "(the
-  sheet import's, say)"; the import sends no colour, and the colour no swatch shows is the
-  engine's own on a row created with none, as [tui.md](tui.md) "Stepping past COLOR keeps it"
-  says.
 - **A comment cites a decisions.md heading in the wrong case.**
   [_base.py](../expense/tui/screens/_base.py) line 419 cites "the ledger fills the window"; the
   heading in [decisions.md](decisions.md) is "The ledger fills the window".
-- **Two unit tests fail at random in CI.** Each fails now and then on one Python version and
-  passes on the others, because it reads the screen before the screen has finished drawing:
-  `test_config_screen_shows_only_the_engine_connection`
-  ([test_tui_system.py](../tests/unit/test_tui_system.py)) finds the `#card` text empty
-  (`assert 'engine url' in ''`; CI runs 38196778409 on 2026-10-12, 38691759623 and 38810299743
-  on 2026-10-15, 38853551793 on 2026-10-16), and
-  `test_state8_a_partial_failure_ticks_what_landed`
-  ([test_tui_log_bar.py](../tests/unit/test_tui_log_bar.py)) raises
-  `NoMatches("No nodes match '#field' on LogBarScreen()")` (runs 38595998705 on 2026-10-14,
-  38860403478 on 2026-10-16). Make each wait for what it reads, and check whether the shared
-  helpers in [helpers.py](../tests/unit/helpers.py) (`wait_for_loaded`, `run_app`) should do
-  that waiting for every test.
-- **A unit fixture quotes an old refusal.** `SEALED_LINE_WORDS` in
-  [test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py) reads "This bank line
-  is in a completed reconciliation and cannot be deleted. …"; the engine sends "Cannot delete a
-  bank line assigned to a completed reconciliation. Revert the reconciliation to draft first.",
-  as [test_tui_delete.py](../tests/unit/test_tui_delete.py) already has. The test passes either
-  way, since the app shows the engine's words whole; align the fixture.
 - **A row's day shows in UTC.** The engine sends times in UTC, and every list shows the first
   ten characters as the day ([formatting.py](../expense/formatting.py) `format_short_date`), so a
   row timed after 19:00 in Lima shows the next day, though the engine counts it on its own day.
@@ -197,33 +178,12 @@ ships (its why moves to [decisions.md](decisions.md)).
   lifecycle contract test's docstring says the state machine follows the read by id; the next
   test is `test_a_period_refuses_any_datetime`
   ([test_reconciliations_lifecycle.py](../tests/contract/test_reconciliations_lifecycle.py)).
-- **The live import test names the stopping reconciliation without the app's own read.**
-  `test_a_completed_reconciliation_stops_the_move_and_the_rest_imports` calls
-  `GET /reconciliations/{id}` directly; it should name it through `reconciliation_names`
-  ([flow.py](../expense/bank_import/flow.py)), so the app's path is proven live and not only
-  mocked ([test_bank_import.py](../tests/contract/test_bank_import.py)).
-- **The contract tests keep copies of `_safe` and `_refused`.** About 15 files in
-  [tests/contract/](../tests/contract/) each define their own; one copy belongs in
-  [conftest.py](../tests/contract/conftest.py) beside `client`, `reason_on` and `statuses`.
-- **The guard allows a practice-engine start from a subfolder of the engine checkout.** It checks
-  the interpreter word `.venv/bin/python`, not that the command runs from the checkout's root
-  ([guard.py](../.claude/hooks/guard.py)); either check the folder or list it under the
-  docstring's limits, with a test.
-
-- **The guard allows a practice-engine start with only one of the two database URLs.** The engine
-  coders' rule is that `SUPABASE_DB_URL` and `ADMIN_DB_URL` are both set on the start command,
-  every time; the guard accepts either one alone and leans on the engine refusing to start
-  ([guard.py](../.claude/hooks/guard.py)). Require both, with a test.
 
 - **The app reads its settings file on every engine call.** `load_usable` at launch, then about
   25 `ensure_loaded()` calls ([reads.py](../expense/reads.py), [app.py](../expense/tui/app.py),
   the screens), so the app cannot take its settings as a pipe and an agent cannot point it at
   the practice engine without the key reaching a file. Load the settings once at launch and hand
   them to every screen; then the pipe form in [runtime.md](runtime.md) works for the app.
-
-- **A test docstring tells history.** `test_tui_reconciliations.py` line 183 says "`date_start`
-  orders the batch now"; state it in the present tense
-  ([test_tui_reconciliations.py](../tests/unit/test_tui_reconciliations.py)).
 
 - **Every thread worker hands back through `call_while_attached`.** A worker whose screen is
   popped or the app closing still runs its callback, which then queries pruned widgets
