@@ -786,8 +786,9 @@ reads the apply's answer, not the dry run's.
 `POST /statements/import` with `dry_run: false` through the shared HTTP client (its
 idempotency key covers a retry); a repeated `⏎` while it is on its way sends nothing more, and
 `esc` on the preview sends nothing. `f` on the screen after the close opens the flagged lines'
-screen on the lines it flagged ("The flagged lines' screen" in §4); back from it, the `⚑` line
-counts the lines still flagged.
+screen on the completed statement, the apply's `statement`, which reads its review list ("The
+lines a complete flagged for review" in §4); back from it, the `⚑` line shows the engine's
+count of the lines still flagged.
 
 **A refused upload** (screen 2) shows under `Preview · <account>` the engine's words as a refused
 download does (`refusal_lines` and `failure_lines` in
@@ -942,8 +943,8 @@ screen can bring it back.**
 `y` sends `DELETE /{resource}/{id}` through `run_write` (the shared client's idempotency
 key, `EngineWriteMixin.confirm_delete` in [_base.py](../expense/tui/screens/_base.py)).
 Deleted, the list reads again from the start, cursor on row 1: a Manage list's first
-page, the ledger's newest ten, the "no batch" list's newest ten, the flagged lines read
-again by their ids. The hashtag question names the
+page, the ledger's newest ten, the "no batch" list's newest ten, the flagged lines' review
+list read again whole. The hashtag question names the
 cascade because the engine never refuses that delete for being in use; it takes the tag
 off every transaction carrying it, and one left with no hashtag carries the pending hashtag
 (contract: DELETE /v1/hashtags/{hashtag_id}). The question names the pending hashtag as the
@@ -1337,8 +1338,8 @@ the flagged lines again, none of them in the footer.
   met a ledger line changed while it ran, `⏎ Preview again` reads the dry run afresh and
   writes nothing. On a statement PDF's preview the apply is `⏎ Close <name>`, named with
   the statement it closes (§2 "A statement PDF closes its month").
-- **`f Flagged` after a statement PDF's close** opens the flagged lines' screen on the lines
-  the close flagged, and shows only while it flagged some.
+- **`f Flagged` after a statement PDF's close** opens the flagged lines' screen on the
+  closed statement's review list, and shows only while lines are flagged.
 - **The preview's `pgdn`/`pgup` are hinted in the body, not the footer.** The
   `… N more · pgdn` / `… N above · pgup` line under the table says where more rows are; the
   footer keeps to `esc` and `⏎`.
@@ -1549,43 +1550,46 @@ keeps no rule of which lines those are, and nothing in it treats them as a refus
 complete. When the answer names any, the app pushes a full screen right after the
 complete, `Reconciliations ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
 [reconciliations.py](../expense/tui/screens/reconciliations.py)); when it names none,
-nothing new shows. The engine names the lines only in that answer (a completed statement's
-`GET /bank-lines?unassigned_in_period_of=` lists none), so the screen reads them by those
-ids in one list read, `GET /bank-lines?ids=…&sort=date_asc` with a `limit` covering them,
-through `reads.fetch_bank_lines_by_ids` in [reads.py](../expense/reads.py), built on
-`fetch_bank_lines`; it reads no line by its id. The engine leaves out a line it no longer
-has (contract: GET /v1/bank-lines, "Left out, never refused"). One read takes at most 200
-ids (contract: GET /v1/bank-lines, "At most 200 ids") and the contract states no bound on
-how many lines a close flags, so more than 200 ids are read 200 at a time, in the order the
-close sent them, each read's lines after the one before. The screen
+nothing new shows. The screen opens on the statement's id, not the lines' ids: it reads the
+statement's review list, the lines its close flagged and still unresolved, whole, page by
+page, `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement` 200 lines a
+page by cursor (`_fetch_all_lines` in [reconciliations.py](../expense/tui/screens/reconciliations.py),
+over `reads.fetch_bank_lines`'s `review_of` in [reads.py](../expense/reads.py)), and how many
+it holds from `GET /bank-lines/count?unassigned_in_period_of=<statement id>`
+(`reads.count_bank_lines`); it sends no id of a line and reads no line by its id
+(contract: GET /v1/bank-lines, "It has no bound"). A line assigned to a statement, moved
+out of the holder or the days, or deleted drops out of the engine's list. The screen
 reads `<statement> is completed. 3 lines dated up to its last day are in no statement.`,
-the count and the rest of that sentence in the warning colour (`1 line dated up to its
+the engine's count and the rest of that sentence in the warning colour (`1 line dated up to its
 last day is in no statement.` for one), then three dim lines, the three choices the
 contract gives
 (contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line"):
 `For each: if it belongs to this statement, revert, tick it, complete again.`,
 `If it belongs to a later statement, leave it: tick it there when it comes.` and
 `If it is a mistake, open it to fix it, or delete it.` Under them, the lines in one list,
-`Date · Account · Title · Amount`, every account's together, in the engine's order: oldest
-first (contract: GET /v1/bank-lines, "Ordering"), within each read of 200 when there are
-more; the app sorts nothing itself. Each row shows the line's day, title and signed
+`Date · Account · Title · Amount`, every account's together, in the engine's order, the
+statement's: its lines hold no place, so they are oldest first, a holder's currencies mixed
+by date (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it"); the
+app sorts nothing itself. Each row shows the line's day, title and signed
 `net_cents` through `bank_line_columns`, sign-coloured as in every bank-line list, and its
 account by name, on a statement of one account too. The footer reads
 `esc Back to the statement  ⏎ Open  d Delete  ↑↓ Move`. `⏎` opens the line in
 the ledger's Edit form (`EditFormScreen`, which reads the line by its id), crumb
 `… ▸ Flagged ▸ Edit`; `d` asks the "no batch" list's question and deletes as it does
 (`ask_line_delete`; "`d` is the TUI's one destructive key" above). After a save or a
-delete the screen reads the ids again, the cursor on row 1: a line the engine no longer
-has leaves the list and the count, and with none left the screen goes back to the
-statement. While the ids are read the list is empty; a read that fails toasts the
-engine's words and keeps what is listed, and `r` reads again.
+delete the screen reads the review list and its count again, the cursor on row 1: a line
+the engine no longer lists leaves the list and the count, and with none left the screen
+goes back to the statement. Until the first read lands the head and the list are empty; a
+read that fails toasts the engine's words and keeps what is listed, and `r` reads again.
+`esc` hands the statement the engine's last count.
 
 **Back on the statement**, while it stays open, the line
 `⚑ 3 lines flagged for review: in no statement, dated up to this one's last day  · f shows them`
 sits under the header, in the warning colour with `· f shows them` dim, and `f Flagged`
 is in the footer and on the `?` card only while flagged lines are left; `f` opens the list
-again on them. Both clear on the next status change (a revert) and once no flagged line is
-left. Leaving the statement forgets them: the lines stay in the ledger, in no statement,
+again. The count is the length of the complete's `review_lines` until the flagged lines'
+screen has counted the review list, then that screen's last count. Both clear on the next
+status change (a revert) and once the engine counts no flagged line left. Leaving the statement forgets them: the lines stay in the ledger, in no statement,
 and show in the account's "no batch" list (`u` on the browse).
 
 **`+` logs a transaction** — Home and Transactions (`LogTransactionMixin` in

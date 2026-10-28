@@ -97,11 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-4. **The flagged lines from the review list (builder).** The flagged-lines screen pages
-   `GET /bank-lines?unassigned_in_period_of=<id>&sort=statement` with its count, in the statement's
-   order as the owner settled, instead of reading by ids.
-   *Passes if:* a unit test pages more than one page of flagged lines with no `ids` sent, and the
-   count is the engine's.
 5. **The engine's current words in the unit tests (builder).** Every quote of the engine's
    "completed reconciliation" words in tests/unit and helpers.py's `LOCK_MESSAGES` says what
    the engine sends now, the sealed-line delete's sentence read from the practice engine
@@ -148,3 +143,14 @@ Not built in this spec; drafted into a new spec when it is done.
   Found by task 1's review.
 - The one-account New statement form, opened on its own (only tests do), sends one balance even
   for an account whose holder holds two. Found by task 1's review.
+- The `⚑` count right after a close is the length of every balance's `review_lines` joined, and
+  a line flagged on two accounts is in both, so it can read one too many until the flagged screen
+  has counted; the engine's count (`GET /bank-lines/count?unassigned_in_period_of=`) would be
+  exact. Found by task 4.
+- `fetch_bank_lines_by_ids` keeps a `sort` parameter, and a paragraph on ordering, that no app
+  code passes any more; and the flagged-lines test's fake engine asserts `ids` is never sent
+  inside the screen's worker, whose `except` turns a failure into a toast, so a regression fails
+  by timeout, not by the assertion. Found by task 4's review.
+- The flagged screen's head is blank while its first read loads; reading the count first and
+  drawing the head as it lands would show it sooner, still the engine's count. Found by task 4's
+  review.

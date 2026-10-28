@@ -124,8 +124,11 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
    real statement is in the repo.
 3. **Bank lines and the review list (builder).**
    [test_bank_lines.py](../../tests/contract/test_bank_lines.py) reading the review list with
-   `sort=statement` only, before and after a close, any other order refused.
-   *Passes if:* the file passes live and names no `reconciliation_id`.
+   `sort=statement` only, before and after a close, any other order refused; the docstring of
+   [test_bank_lines_by_ids.py](../../tests/contract/test_bank_lines_by_ids.py) says the flagged
+   lines' screen reads the review list, not `ids` (found by part 1b's task 4).
+   *Passes if:* the file passes live and names no `reconciliation_id`, and no contract test says
+   the flagged screen reads by `ids`.
 4. **Moves and the import door (builder).**
    [test_bank_line_write.py](../../tests/contract/test_bank_line_write.py),
    [test_bank_line_edit_limits.py](../../tests/contract/test_bank_line_edit_limits.py) and

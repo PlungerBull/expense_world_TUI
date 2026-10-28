@@ -269,6 +269,7 @@ def fetch_bank_lines(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
+    review_of: str | None = None,
     sort: str | None = None,
     after: str | None = None,
     limit: int | None = None,
@@ -277,13 +278,18 @@ def fetch_bank_lines(
     """GET /v1/bank-lines → the raw engine body: one row per bank line, each
     the shape `fetch_bank_line` reads (contract: GET /v1/bank-lines).
 
-    Read by the reconciliation batch screen and the "no batch" list, which list
-    a purchase as one row and never half of it, and through
-    `fetch_bank_lines_by_ids` by the flagged lines' screen. Each filter applies
-    to a whole line; `ids` lists the lines among those bank line ids, sent
-    comma-joined (contract: GET /v1/bank-lines, "Filters"). `sort` is
-    `date_desc` (newest first, the engine's default when none is sent),
-    `date_asc` or `statement` (contract: GET /v1/bank-lines, "Ordering").
+    Read by the reconciliation batch screen, the "no batch" list and the
+    flagged lines' screen, which list a purchase as one row and never half of
+    it, and through `fetch_bank_lines_by_ids` by the statement upload's
+    preview. Each filter applies to a whole line; `ids` lists the lines among
+    those bank line ids, sent comma-joined (contract: GET /v1/bank-lines,
+    "Filters"). `review_of` is a statement's id, sent as
+    `unassigned_in_period_of`: that statement's review list, the lines its
+    close flags, read whole by cursor, taken alone and only with
+    `sort=statement`
+    (contract: GET /v1/bank-lines, "Read in the statement's order, and only in it").
+    `sort` is `date_desc` (newest first, the engine's default when none is
+    sent), `date_asc` or `statement` (contract: GET /v1/bank-lines, "Ordering").
     Cursor-paged like `fetch_transactions`, with `limit` counting lines, but it
     takes no `search` and no `debit_as_negative`: the engine refuses any
     parameter it does not list, and `net_cents` is signed already.
@@ -299,6 +305,7 @@ def fetch_bank_lines(
                 unreconciled=unreconciled,
                 date_from=date_from,
                 date_to=date_to,
+                review_of=review_of,
             ),
             **query_params(sort=sort, after=after, limit=limit),
         },
@@ -320,9 +327,8 @@ def fetch_bank_lines_by_ids(
     `ids` gives, and their answers are joined in that order, so the result is in
     `sort`'s order only within each read of 200.
 
-    Read by the flagged lines' screen: a complete names the lines it flagged for
-    review by id alone, with no bound on how many
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
+    Read by the statement upload's preview (`flow.statement_lines`), whose
+    answer names lines by id alone.
     """
     ids = list(ids)
     lines: list[dict] = []
@@ -341,10 +347,12 @@ def _line_filter_params(
     unreconciled: bool,
     date_from: str | None,
     date_to: str | None,
+    review_of: str | None,
 ) -> dict:
     """The filters `GET /bank-lines` and `/bank-lines/count` share — one copy,
     so the list and its count describe the same lines (contract: GET /v1/bank-lines/count).
-    `ids` goes comma-joined, as the engine reads it."""
+    `ids` goes comma-joined, as the engine reads it; `review_of` goes as
+    `unassigned_in_period_of`."""
     return query_params(
         ids=None if ids is None else ",".join(ids),
         account_id=account,
@@ -352,6 +360,7 @@ def _line_filter_params(
         unreconciled=unreconciled,
         date_from=date_from,
         date_to=date_to,
+        unassigned_in_period_of=review_of,
     )
 
 
@@ -364,14 +373,17 @@ def count_bank_lines(
     unreconciled: bool = False,
     date_from: str | None = None,
     date_to: str | None = None,
+    review_of: str | None = None,
     verbose: bool = False,
 ) -> int:
     """GET /v1/bank-lines/count → how many bank lines the same filters match.
 
     It counts lines, so a purchase split into parts counts once
     (contract: GET /v1/bank-lines/count). Read by the "no batch" list for its
-    `N of M loaded`. Raises when the body carries no int `count`, as
-    `count_transactions` does: a list that cannot get the number fails instead.
+    `N of M loaded`, and by the flagged lines' screen for how many lines a
+    statement's review list holds (`review_of`). Raises when the body carries
+    no int `count`, as `count_transactions` does: a list that cannot get the
+    number fails instead.
     """
     body = fetch_body(
         cfg,
@@ -383,6 +395,7 @@ def count_bank_lines(
             unreconciled=unreconciled,
             date_from=date_from,
             date_to=date_to,
+            review_of=review_of,
         ),
         verbose=verbose,
     )

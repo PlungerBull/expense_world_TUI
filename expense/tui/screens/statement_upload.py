@@ -361,7 +361,8 @@ class StatementPreviewScreen(PreviewScreen):
         """One `POST /statements/import`, the dry run or the apply, through
         flow.py's one call; the client mints the idempotency key. The dry run
         then reads the lines its answer names by id alone (`statement_lines`);
-        the apply's flagged lines are its completed statement's `review_lines`."""
+        the apply's flagged lines are counted off its completed statement's
+        `review_lines`."""
         from expense import config as config_module
         from expense.http import ExpenseClient
 
@@ -378,14 +379,15 @@ class StatementPreviewScreen(PreviewScreen):
                     cfg, answer.lines_to_read(), verbose=verbose
                 )
             else:
-                flagged = review_line_ids(response.get("statement") or {})
+                closed = response.get("statement") or {}
+                statement_id, flagged = str(closed.get("id") or ""), len(review_line_ids(closed))
         except Exception as err:  # every failure is shown, none swallowed
             self.app.call_from_thread(self._failed, err)
             return
         if dry_run:
             self.app.call_from_thread(self._previewed, answer, lines, lines_error)
         else:
-            self.app.call_from_thread(self._applied, answer, flagged)
+            self.app.call_from_thread(self._applied, answer, statement_id, flagged)
 
     def _previewed(
         self, answer: StatementAnswer, lines: dict[str, dict], lines_error: str | None
@@ -395,11 +397,11 @@ class StatementPreviewScreen(PreviewScreen):
         self.refresh_bindings()
         self._repaint()
 
-    def _applied(self, answer: StatementAnswer, flagged: list[str]) -> None:
+    def _applied(self, answer: StatementAnswer, statement_id: str, flagged: int) -> None:
         self._writing = False
         self._run.imported += 1
         self.app.switch_screen(
-            StatementResultScreen(self._run, self._owner, self._pick, answer, flagged)
+            StatementResultScreen(self._run, self._owner, self._pick, answer, statement_id, flagged)
         )
 
     # ---- keys ----------------------------------------------------------------
@@ -542,14 +544,16 @@ class StatementResultScreen(ResultScreen):
         owner,
         pick: AccountPick,
         answer: StatementAnswer,
-        flagged: list[str],
+        statement_id: str,
+        flagged: int,
     ) -> None:
         super().__init__(run, owner)
         self._pick = pick
         self._answer = answer
-        #: The ids of the lines the close flagged, as the flagged lines' screen
-        #: last left them.
-        self._flagged = list(flagged)
+        self._statement_id = statement_id
+        #: How many lines the close flagged: its `review_lines` at first, then
+        #: the engine's count from the flagged lines' screen.
+        self._flagged = flagged
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "flagged":
@@ -563,19 +567,20 @@ class StatementResultScreen(ResultScreen):
             counts_line(self._answer.counts, done=True),
         ]
         if self._flagged:
-            parts.append(flagged_note(len(self._flagged)))
+            parts.append(flagged_note(self._flagged))
         return Group(*parts)
 
     def action_flagged(self) -> None:
         if self._flagged:
             self.app.push_screen(
-                FlaggedLinesScreen(self._flagged, statement=self._answer.name),
+                FlaggedLinesScreen(self._statement_id, statement=self._answer.name),
                 self._flagged_back,
             )
 
-    def _flagged_back(self, ids: list[str] | None) -> None:
-        """Back from the flagged lines: the ones the engine still has."""
-        if ids is not None:
-            self._flagged = list(ids)
+    def _flagged_back(self, count: int | None) -> None:
+        """Back from the flagged lines: the engine's count of them; None when
+        no read landed, which leaves the `⚑` line as it was."""
+        if count is not None:
+            self._flagged = count
             self.refresh_bindings()
             self._repaint()

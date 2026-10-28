@@ -966,16 +966,18 @@ for the second practice user.
 ## A close flags lines instead of refusing, and a card's other account is the engine's (2026-10-26, owner)
 
 **Decision.** (1) **Completing a statement goes through when it adds up, and the app shows the
-lines the close flagged** on a screen of its own, pushed right after the complete, both halves
-of a card in one list, each line opening in the Edit form or deleted after the question; back on
+lines the close flagged** on a screen of its own, pushed right after the complete, every account
+of a holder in one list, each line opening in the Edit form or deleted after the question; back on
 the statement, a `⚑` line under the header and `f` open the list again while flagged lines are
-left (contract: POST /v1/reconciliations/{reconciliation_id}/complete). The owner picked 1 A in
+left (contract: POST /v1/statements/{statement_id}/complete). The owner picked 1 A in
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html).
 Nothing in the app treats leftover lines as a refusal of complete, and it keeps no rule of which
-lines a close flags. (2) **The screen reads the flagged lines by their ids in one list call**,
-oldest first in the engine's order, because the engine names them only in the close's answer
-(contract: GET /v1/bank-lines, "Filters"); the close states no bound on how many it flags while
-`ids` takes at most 200, so more are read 200 at a time in the close's order. (3) **A card's
+lines a close flags. (2) **The screen reads the flagged lines as the statement's review list**, opened on the
+statement's id: `GET /bank-lines?unassigned_in_period_of=<statement id>&sort=statement`, page by
+page in the statement's order with no id sent, its count the engine's from
+`GET /bank-lines/count` on the same filter (contract: GET /v1/bank-lines, "It has no bound"); the
+close's `review_lines` only say whether it flagged any, and how many until the screen has
+counted them. (3) **A card's
 accounts are the engine's holder's**: the import door's account list and Reconciliations pair them by
 `holder_id` (contract: "Holders"), never a match of statement codes; Reconciliations also reads
 the holders, since the statement code is the holder's. (4) **An
@@ -989,13 +991,13 @@ that draw `RESERVED_NAME_HELD` ([runtime.md](runtime.md) "Working against the li
 
 **Why.** Which lines a close leaves behind, and which account is a card's other half, are
 engine rules; a copy in each client drifts. A line dated in a statement but in none is often a
-later statement's, so stopping the close on it blocked the owner for a line that was fine. The
-flagged lines are only named in the close's answer, so a screen right after it is the one place
-the owner sees them all. The engine reads and orders them because a read per line and a sort of
+later statement's, so stopping the close on it blocked the owner for a line that was fine. A
+screen right after the close shows them while the owner is on the statement, and the engine's
+review list reads them again at any time, in the statement's order. The engine reads and orders them because a read per line and a sort of
 the client's own are what every client would otherwise copy (2026-10-27).
 
 **Rejected.** *One read per flagged line, sorted by the app* — a call per line and an ordering
-rule copied in each client; the engine's `ids` filter and `sort=date_asc` replace both. *The
+rule copied in each client; the engine's review list and `sort=statement` replace both. *The
 flagged lines listed on the statement itself* (1 B) — they sit among the
 statement's own lines, where each needs keys of its own. *A column for an archived card account
 with no statement* — it would always be empty. *Dropping the `!` mark* (question 3, B) — the

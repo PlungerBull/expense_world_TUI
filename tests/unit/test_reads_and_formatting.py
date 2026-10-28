@@ -1076,6 +1076,34 @@ def test_count_bank_lines_sends_the_filters_and_nothing_else(configured):
     }
 
 
+@respx.mock
+def test_a_statements_review_list_and_its_count_send_its_id_alone(configured):
+    """`review_of` goes as `unassigned_in_period_of`, with no other filter: the list
+    with `sort=statement` and its paging, the count with nothing else
+    (contract: GET /v1/bank-lines, "Taken alone")."""
+    from expense import config as config_module
+    from expense.reads import count_bank_lines, fetch_bank_lines
+
+    page = {"items": [{"id": "l-a"}], "limit": 200, "next_cursor": None}
+    list_route = respx.get(f"{BASE}/v1/bank-lines").mock(
+        return_value=httpx.Response(200, json=page)
+    )
+    count_route = respx.get(f"{BASE}/v1/bank-lines/count").mock(
+        return_value=httpx.Response(200, json={"count": 1})
+    )
+    cfg = config_module.ensure_loaded()
+    got = fetch_bank_lines(cfg, review_of="st-1", sort="statement", after="c-1", limit=200)
+    assert got == page
+    assert count_bank_lines(cfg, review_of="st-1") == 1
+    assert dict(list_route.calls.last.request.url.params) == {
+        "unassigned_in_period_of": "st-1",
+        "sort": "statement",
+        "after": "c-1",
+        "limit": "200",
+    }
+    assert dict(count_route.calls.last.request.url.params) == {"unassigned_in_period_of": "st-1"}
+
+
 @pytest.mark.parametrize("body", [{}, {"count": None}, {"count": "3"}, {"count": True}, []])
 @respx.mock
 def test_count_bank_lines_raises_without_an_int_count(configured, body):

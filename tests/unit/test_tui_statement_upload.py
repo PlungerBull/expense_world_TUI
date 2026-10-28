@@ -658,8 +658,9 @@ def test_enter_closes_the_month_and_says_so_in_the_past_tense(fake_client, monke
 
 def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path):
     """Screen 3: the ⚑ line counts every account's `review_lines` in the
-    completed statement, and `f` opens the flagged lines' screen on them; back
-    from it, the screen stays."""
+    completed statement, and `f` opens the flagged lines' screen on that
+    statement, which reads its review list and its count, no id sent; back from
+    it, the screen stays."""
     path = _pdf(tmp_path)
     usd_line = bank_line_row(
         "bl-hulu",
@@ -679,6 +680,18 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
     _patch(monkeypatch, lines={**LINES, "bl-hulu": usd_line})
     flagged = {"sig-pen": ["bl-near"], "sig-usd": ["bl-hulu"]}  # each on its own account
     _engine(fake_client, {path.read_bytes(): {**CARD, "review_lines": flagged}})
+    review_reads: list[tuple] = []  # (read, statement id, sort, ids sent)
+
+    def review_list(cfg, *, review_of, sort, **kwargs):
+        review_reads.append(("list", review_of, sort, kwargs.get("ids")))
+        return {"items": [LINES["bl-near"], usd_line], "limit": 200, "next_cursor": None}
+
+    def review_count(cfg, *, review_of, **kwargs):
+        review_reads.append(("count", review_of, None, kwargs.get("ids")))
+        return 2
+
+    monkeypatch.setattr("expense.reads.fetch_bank_lines", review_list)
+    monkeypatch.setattr("expense.reads.count_bank_lines", review_count)
 
     async def scenario(pilot, app):
         await _card_preview(pilot, app, path)
@@ -692,7 +705,11 @@ def test_flagged_lines_show_and_f_opens_them(fake_client, monkeypatch, tmp_path)
         await pilot.press("f")
         flagged = await _on(pilot, app, FlaggedLinesScreen, "f did not open the flagged lines")
         await wait_for(pilot, lambda: flagged._list is not None, message="flagged never read")
-        assert flagged._ids == ["bl-hulu", "bl-near"]  # the balances' order, USD first
+        assert [row.key for row in flagged._list._rows] == ["bl-near", "bl-hulu"]
+        assert review_reads == [
+            ("list", "s-paper", "statement", None),
+            ("count", "s-paper", None, None),
+        ]
         assert flagged._statement == "SIG-202610"
         await pilot.press("escape")
         await _on(pilot, app, StatementResultScreen, "esc did not come back")

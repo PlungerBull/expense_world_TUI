@@ -60,7 +60,7 @@ every ending balance (contract: POST /v1/statements/{statement_id}/complete,
 none first asks for it in a box, saves it in the statement's `balances` with
 PUT /statements/{id}, then asks the usual "Complete reconciliation?". A complete
 whose answer flags lines for review (each balance's `review_lines`, every
-account's of the holder) opens FlaggedLinesScreen on them
+account's of the holder) opens FlaggedLinesScreen on the statement's review list
 (pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
 working screen keeps a `⚑` line and `f` until its next status change.
 """
@@ -1373,9 +1373,10 @@ class ReconciliationDetailScreen(
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
-        # the bank lines the last complete flagged for review, every account's, as
-        # the flagged lines' screen last left them
-        self._flagged: list[str] = []
+        # how many bank lines the last complete flagged for review, every
+        # account's: its `review_lines` at first, then the engine's count from
+        # the flagged lines' screen
+        self._flagged = 0
         # last painted rows, cached so a theme change repaints from memory
         # instead of re-fetching
 
@@ -1732,7 +1733,7 @@ class ReconciliationDetailScreen(
         # were true of the record as it stood one write ago (a revert unseals the
         # very window they named).
         self._show_warnings([])
-        self._show_flagged([])
+        self._show_flagged(0)
         self.run_write(
             method,
             path,
@@ -1779,22 +1780,22 @@ class ReconciliationDetailScreen(
         line.display = True
 
     def _take_flagged(self, body: dict) -> None:
-        """The ids of the bank lines the close flagged for review, every
-        account's of the statement (`review_line_ids`). The screen showing them
-        opens once the complete's success has landed (`_action_done`)."""
-        self._show_flagged(review_line_ids(body))
+        """How many bank lines the close flagged for review, every account's
+        of the statement (`review_line_ids`). The screen showing them opens
+        once the complete's success has landed (`_action_done`)."""
+        self._show_flagged(len(review_line_ids(body)))
 
-    def _show_flagged(self, ids: list[str]) -> None:
-        """The `⚑` line under the header, and `f` with it, while any line the
-        close flagged is still one the engine has; hidden otherwise."""
-        self._flagged = list(ids)
+    def _show_flagged(self, count: int) -> None:
+        """The `⚑` line under the header, and `f` with it, while the close's
+        review list holds any line; hidden otherwise."""
+        self._flagged = count
         line = self.query_one("#rflag", Static)
         self.refresh_bindings()
         if not self._flagged:
             line.display = False
             line.update("")
             return
-        line.update(flagged_note(len(self._flagged)))
+        line.update(flagged_note(self._flagged))
         line.display = True
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
@@ -1810,14 +1811,15 @@ class ReconciliationDetailScreen(
 
     def _open_flagged(self) -> None:
         self.app.push_screen(
-            FlaggedLinesScreen(self._flagged, statement=self._record.get("name") or "—"),
+            FlaggedLinesScreen(self._id, statement=self._record.get("name") or "—"),
             self._flagged_back,
         )
 
-    def _flagged_back(self, ids: list[str] | None) -> None:
-        """Back from the flagged lines: the ones the engine still has."""
-        if ids is not None:
-            self._show_flagged(ids)
+    def _flagged_back(self, count: int | None) -> None:
+        """Back from the flagged lines: the engine's count of them; None when
+        no read landed, which leaves the `⚑` line as it was."""
+        if count is not None:
+            self._show_flagged(count)
 
     def _action_failed(self, message: str, verb: str) -> None:
         self._busy = False
@@ -1922,16 +1924,18 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
     """The lines a statement's close flagged for review (pane 1A of
     docs/mockups/expense-world-statement-flagged-lines.html).
 
-    A complete names them by id alone, on each balance
-    (contract: POST /v1/statements/{statement_id}/complete, "Response"),
-    so the screen reads them by those ids, oldest first, every account's together
-    (`reads.fetch_bank_lines_by_ids`, `sort=date_asc`), and lists them in the
-    engine's order: `Date · Account · Title · Amount`. A line the engine no
-    longer has is left out of the read, so it drops from the list. `⏎` opens
-    the line in the ledger's Edit form, `d` deletes it after the delete
-    question, and after either the ids are read again. `esc` goes back to the statement, handing it
-    the ids still flagged; with none left the screen goes back on its own.
-    No `?`: the footer is its whole key list."""
+    Opened on the statement's id, the screen reads its review list, the lines
+    its close flagged and still unresolved, every account's of the holder
+    together, page by page in the statement's order, with no id of a line sent
+    (contract: POST /v1/statements/{statement_id}/complete, "Response"), and
+    how many it holds from the count read on the same filter
+    (contract: GET /v1/bank-lines/count). It lists them in the engine's order:
+    `Date · Account · Title · Amount`. A line assigned, moved or deleted drops
+    out of the engine's list, so it drops from the screen. `⏎` opens the line
+    in the ledger's Edit form, `d` deletes it after the delete question, and
+    after either the list is read again. `esc` goes back to the statement,
+    handing it the engine's count; with no line left the screen goes back on
+    its own. No `?`: the footer is its whole key list."""
 
     BINDINGS = [
         Binding("escape", "back", "Back to the statement"),
@@ -1944,18 +1948,21 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
         Binding("r", "reload", "Refresh", show=False),
     ]
 
-    def __init__(self, ids: list[str], *, statement: str) -> None:
+    def __init__(self, statement_id: str, *, statement: str) -> None:
         super().__init__()
-        self._ids = list(ids)
+        self._statement_id = statement_id
         self._statement = statement
         self.crumb = ("Reconciliations", statement, "Flagged")
         self._lines: list[dict] = []
+        #: How many lines the review list holds, as the engine last counted
+        #: them; None until a read lands.
+        self._count: int | None = None
         self._names: dict = {}
         self._list: CursorList | None = None
 
     def compose(self) -> ComposeResult:
         yield Breadcrumb(self.crumb, id="crumb")
-        yield Static(flagged_head(self._statement, len(self._ids), PALETTE), id="fhead")
+        yield Static("", id="fhead")  # the head, once the engine has counted the lines
         yield Container(id="flist")
         yield Footer()
 
@@ -1972,17 +1979,19 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
 
     @work(thread=True, exclusive=True, group="flagged-load")
     def _load(self) -> None:
-        """The lines still flagged, read by their ids oldest first, and the
-        accounts' names. More than 200 ids are read 200 at a time, so the order
-        is oldest first within each read only (`reads.fetch_bank_lines_by_ids`).
-        A failed read shows the engine's words and keeps what is listed."""
+        """The statement's review list, every page of it in the statement's
+        order (`unassigned_in_period_of` with `sort=statement`, through
+        `_fetch_all_lines`), the engine's count of it, and the accounts' names
+        (contract: GET /v1/bank-lines, "It has no bound"). A failed read shows
+        the engine's words and keeps what is listed."""
         from expense import config as config_module
 
         worker = get_current_worker()
         try:
             cfg = config_module.ensure_loaded()
             kw = screen_fetch_kwargs(self.app)
-            lines = reads.fetch_bank_lines_by_ids(cfg, self._ids, sort="date_asc", **kw)
+            lines = _fetch_all_lines(cfg, review_of=self._statement_id, sort="statement", **kw)
+            count = reads.count_bank_lines(cfg, review_of=self._statement_id, **kw)
             names = load_account_name_map()
         except Exception as exc:  # surface engine/config errors in-app, don't crash
             if not worker.is_cancelled:
@@ -1990,19 +1999,16 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
             return
         if worker.is_cancelled:
             return
-        call_while_attached(self, self._populate, lines, names)
+        call_while_attached(self, self._populate, lines, count, names)
 
-    async def _populate(self, lines: list[dict], names: dict) -> None:
-        """Paint a read, the cursor on row 1; with no line left, back to the
-        statement. The ids still flagged keep the close's order, so the next
-        read splits them as the close sent them."""
-        self._lines, self._names = lines, names
-        live = {str(line.get("id")) for line in lines}
-        self._ids = [line_id for line_id in self._ids if line_id in live]
+    async def _populate(self, lines: list[dict], count: int, names: dict) -> None:
+        """Paint a read, the cursor on row 1, under the engine's count; with no
+        line left, back to the statement."""
+        self._lines, self._count, self._names = lines, count, names
         if not lines:
-            self.dismiss(self._ids)
+            self.dismiss(count)
             return
-        self.query_one("#fhead", Static).update(flagged_head(self._statement, len(lines), PALETTE))
+        self.query_one("#fhead", Static).update(flagged_head(self._statement, count, PALETTE))
         rows = flagged_rows(lines, names, palette=PALETTE)
         if self._list is not None:
             self._list.set_rows(rows)
@@ -2052,4 +2058,4 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
         self._load()
 
     def action_back(self) -> None:
-        self.dismiss(self._ids)
+        self.dismiss(self._count)
