@@ -791,9 +791,9 @@ counts the lines still flagged.
 download does (`refusal_lines` and `failure_lines` in
 [bank_import.py](../expense/tui/screens/bank_import.py)): `CODE — message`, a `!` line per refused
 key (`! file: …` for a paper the engine cannot read, misread or that does not add up, or a
-period or month another statement holds; `! account_id: …` for an account with no statement
-code, archived, or of another currency, or on a holder that also holds an account in a currency
-the paper does not print; a row's `rows.<place>.date` future date as the engine's
+period or month another statement holds; `! account_id: …` for an account archived, of
+another currency, or on a holder with no statement code or that also holds an account in a
+currency the paper does not print; a row's `rows.<place>.date` future date as the engine's
 `Row <place>: Must not be in the future.` alone), then `Nothing was written.` dim, and the app's
 line when "When the engine says no" gives one: for `RECONCILIATION_NOT_DRAFT` on `file`, a month
 already completed, `Revert it first, then drop the PDF again.` The footer is `esc Back` on the

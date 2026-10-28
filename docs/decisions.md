@@ -574,8 +574,8 @@ right the bank's day and the ledger's agree, so the row points at a reconciliati
 wrong. It says "not moved", because the bank's title and operation number still land on it
 (contract: POST /v1/transactions/import). (5) **The days where the file and the ledger disagree
 stay on the preview only**; after importing, the screen gives the counts alone, since the
-preview already showed every row. (6) The stopping reconciliation is named by one read of it by its
-id, once per distinct id, in the worker (contract: GET /v1/reconciliations/{reconciliation_id}).
+preview already showed every row. (6) The stopping statement is named by one read of it by its
+id, once per distinct id, in the worker (contract: GET /v1/statements/{statement_id}).
 The engine keeps a reference to another record an id alone, so it declined to put the name in
 the import's answer. The fallback `a reconciliation` stays for a read that fails, and one failed
 read does not stop the others, so the other rows keep their names. (7) **A row of `0` is

@@ -1,4 +1,4 @@
-# Caught up with contract f00534abdde7fa82, part 1 of 7: the terminal app reads and writes on holders and statements
+# Caught up with contract e7393dd869963db1, part 1 of 7: the terminal app reads and writes on holders and statements
 
 2026-10-28
 
@@ -16,10 +16,10 @@ reads and writes, with its screens unchanged. Moving a transaction to another ac
 statement PDF upload, and the bank download's list of accounts work on the new routes and names.
 The statement screens, the live tests, and cards in the app follow, each with its own reply.
 
-The app records contract `f00534abdde7fa82`. The versions after `e7393dd869963db1` (the account
-move, a holder deleted with its last account, a holder created with its accounts, bank lines
-listed by holder, `IN_LIVE_STATEMENT` on an account's delete, and the words on a flagged line)
-have no hand-off yet; the owner asks for one from `e7393dd869963db1` to `f00534abdde7fa82`.
+The app records contract `f00534abdde7fa82`. The versions after `e7393dd869963db1` are your
+hand-off of 2026-10-28, "An account moves between holders, a holder is made and unmade with its
+accounts, and a holder's bank lines list in one read", which the terminal app takes into the
+later parts of this catch-up.
 
 ## Done when, checked
 
@@ -29,8 +29,9 @@ All checked on 2026-10-28 against the practice engine on `f00534abdde7fa82`.
   it:** worked. It records `f00534abdde7fa82`, which follows it, and has read up to it.
 - **Every holder screen works against /holders with holder_id, and no request names /cards or
   card_id:** in part. No request in the app names `/cards` or `card_id`. The app reads
-  `GET /holders`, `GET /statements?holder_id=` and `GET /statements/{id}`, and pairs a holder's
-  accounts by each account's `holder_id`. Its holder screens come in a later part.
+  `GET /statements/{id}` to name a statement, and pairs a holder's accounts by each account's
+  `holder_id`. Its reads of `GET /holders` and `GET /statements?holder_id=` are written for its
+  holder screens, which come in a later part.
 
 What the app did against the practice engine:
 
@@ -54,6 +55,12 @@ What the app did against the practice engine:
   contract changed. If versions are renamed when the contract is rebuilt, the log could say
   which old version each new one replaces. The ask "Keep every change-log entry in the contract"
   is still with the owner.
+
+- **Your hand-off's last version is not in the change log.** The hand-off "An account moves
+  between holders…" ends at `256f3190cf24fc36`; the contract's change log on the practice engine
+  lists the same change, `DELETE /accounts/{id}` refused with `IN_LIVE_STATEMENT`, as
+  `f00534abdde7fa82`, and `256f3190cf24fc36` nowhere. A client cannot tell from the contract
+  which version the hand-off reaches.
 
 ## Asks this closes
 

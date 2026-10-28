@@ -28,22 +28,6 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for their hand-off on the holder changes
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
-
-The engine already serves changes their hand-off file has not covered yet, and this client
-records their version, `f00534abdde7fa82` (you, 2026-10-28). Its change log lists, since
-`e7393dd869963db1`: moving an account onto another holder (`POST /accounts/{id}/move`), a holder
-deleted with its last account, a holder created with its accounts (`POST /holders` taking
-`accounts`), bank lines listed by holder (`GET /bank-lines?holder_id=`), an account's delete
-refused while a live statement holds it (`IN_LIVE_STATEMENT`), and new words on what a client
-does with a flagged line. The log does not list `88333696fca6a504`, the version recorded before
-it. The hand-off goes into the cards spec, which plans pairing and unpairing on them, with their
-live tests.
-
-**Recommended:** ask them for the hand-off from `e7393dd869963db1` to `f00534abdde7fa82`, and
-copy it into [from-engine/](from-engine/) when it comes.
-
 ### Approve the spec for what part 1a turned up, and pick a holder's line
 Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1a-leftovers.md](specs/catch-up-cards-statements-1a-leftovers.md)
 

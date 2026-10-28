@@ -10,16 +10,15 @@ everywhere". Its part 2, the rename of card to holder (`2cec1b59048f50dc`, `e739
 answered by the terminal app's cards and statements catch-up, with its own reply when that is
 done.
 
-The terminal app records contract `88333696fca6a504`, which follows these. The three versions
-after `e7393dd869963db1` (the account move, a holder deleted with its last account, a holder
-created with its accounts) have no hand-off yet; the owner asks for one from `e7393dd869963db1`
-to `88333696fca6a504`.
+The terminal app records contract `f00534abdde7fa82`, which follows these. The versions after
+`e7393dd869963db1` are your hand-off of 2026-10-28, "An account moves between holders, a holder is
+made and unmade with its accounts, and a holder's bank lines list in one read".
 
 ## Done when, checked
 
 All checked on 2026-10-28 against the practice engine.
 
-- **The TUI has recorded contract `e7393dd869963db1`:** worked. It records `88333696fca6a504`,
+- **The TUI has recorded contract `e7393dd869963db1`:** worked. It records `f00534abdde7fa82`,
   which follows it.
 - **A person's opening balance can be added from the app:** worked. A person's Edit form shows
   `opening` and `as of`, as a bank account's does. Adding `-150.00` dated 2025-12-31 to a person
