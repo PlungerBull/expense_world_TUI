@@ -28,18 +28,34 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for their hand-off from `256f3190cf24fc36` to `0cf6711e3a98fefe`
-Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and the acceptance check of [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md)
+### The engine moved again: say whether to go on, and ask for one hand-off to `ec1b54dcf8b39917`
+Asked 2026-10-28 · Blocks: every new task, among them [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md)'s task 7 and its close; [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
 
-The engine moved on 2026-10-28 to contract `0cf6711e3a98fefe`, recorded here that day (you
-picked A). This client last caught up to `f00534abdde7fa82`, which the engine's change log names
-`256f3190cf24fc36`. Ask the engine coders for one hand-off file covering the six versions after
-it (`4dd95f836dba7be2` to `0cf6711e3a98fefe`): person holders and `is_person`, the archive and
-the change of kind moved to the holder, `POST /people` gone, `PERSON_TAKES_NO_STATEMENT`, and a
-person's move. Drop it into [from-engine/](from-engine/); it is planned into the catch-up specs,
-part 6 (cards) first. Part 1b's last task runs meanwhile.
+While part 1b's acceptance check ran on 2026-10-28, the practice engine restarted on a newer
+contract: saved `0cf6711e3a98fefe` (recorded that day), engine `ec1b54dcf8b39917`. The check
+lists two versions after the saved one, both dated 2026-10-28:
 
-**Recommended:** none: only you can ask them.
+- `1d7021fa568b0388`: wording only: `GET /bank-lines` (`?holder_id=` with `?account_id=`),
+  `DELETE /accounts/{id}` and `HAS_TRANSACTIONS` point to archiving the holder
+  (`POST /holders/{id}/archive`), and `archived_people` on the dashboard.
+- `ec1b54dcf8b39917`: `POST /accounts/{id}/move` takes `holder`, a new holder made and the
+  account moved onto it in one write (the ask "Move an account onto a new holder in one write");
+  exactly one of `holder_id` and `holder` is sent (`REQUIRED`, `CONFLICTING_PARAMETERS`); the
+  holder cap is checked on that move too; wording.
+
+Nothing in either touches the statement routes. Part 1b's screens passed in the app against it.
+The hand-off you are asking the engine coders for (from `256f3190cf24fc36`, this client's
+`f00534abdde7fa82`, after which come `4dd95f836dba7be2`, `e1959ea3b1d8ca6d`, `abaa7b2637ec0bad`,
+`fccaa61852f29d3c`, `aa3589bfe7427241` and `0cf6711e3a98fefe`: person holders, the archive and the
+change of kind moved to the holder, `POST /people` gone) now reaches `ec1b54dcf8b39917`.
+
+- **A.** Record `ec1b54dcf8b39917`, finish part 1b (task 7, a one-line test guard, then the doc
+  sweep and its close), and ask the engine coders for one hand-off file from `256f3190cf24fc36`
+  to `ec1b54dcf8b39917`, planned into the catch-up specs when it comes.
+- **B.** The same, but stop until the hand-off is planned.
+
+**Recommended:** A, because neither new version touches what 1b built, and task 7 only fixes a
+test guard.
 
 ---
 

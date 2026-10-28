@@ -97,7 +97,15 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-Every task is done (2026-10-28); the tester's acceptance check and the librarian's sweep remain.
+Tasks 1 to 6 are done (2026-10-28). The tester's acceptance check of 2026-10-28 passed checks 1
+and 2 in the app and the unit suite, and found one task:
+
+7. **The ordering guard checks the statement list's citation (builder).** Task 1 moved the list
+   order's citation to `(contract: "Statements", "Ordering")` (tui.md, reconciliations.py), but
+   `_ORDERING_CITATIONS` in [test_docs_links.py](../../tests/unit/test_docs_links.py) still names
+   `(contract: "Reconciliations", "Ordering")`, so the guard no longer checks it.
+   *Passes if:* the guard names the statements' citation and no longer the reconciliations',
+   and fails when the statement list's citation loses its direction.
 
 ## Reply to the engine
 
