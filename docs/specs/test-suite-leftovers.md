@@ -19,12 +19,14 @@ their tools: nothing you see changes, and no engine change is needed.
 The points on code the catch-up to `e06456a20aca6e4c` rewrites moved into it: one account-record
 builder for the unit suite, the coverage-gap warning fixture, the sealed line's delete words and
 two test comments on statements and people into
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md); the contract
+[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
+[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md); the contract
 files building their records through `Scratch`, `_transaction_ids`, the statement-order helper
 and the create-into-a-statement test going, the practice-user cleaner (reading every page among
 its rework) and the import test naming
 its stopping statement into
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md); the
+[catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md) and
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md); the
 statement head shown whole into
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 The points on things the engine no longer has are dropped: a card statement's create answer

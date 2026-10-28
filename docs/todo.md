@@ -28,21 +28,22 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Approve the first two specs of the cards and statements catch-up, and their tasks
-Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1-routes.md](specs/catch-up-cards-statements-1-routes.md), [specs/catch-up-cards-statements-2-live-suite.md](specs/catch-up-cards-statements-2-live-suite.md)
+### Approve the first four specs of the cards and statements catch-up, and their tasks
+Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
 
 The engine's hand-off of 2026-10-27 (contract `46e2fdf6e11d7548` to `e06456a20aca6e4c`) makes a
 card its own thing in the engine and a month's statement one record for the whole card. Much of
 the app stops working against it: the statement screens, creating and archiving accounts, moving
-a transaction to another account, and the PDF upload. On 2026-10-27 you said to catch up, and the
-hand-off is planned into five specs, run in order. The first two change nothing you see: spec 1
-puts the app on the engine's new routes and names, spec 2 the live tests (8 tasks each, drafted
-in each spec). Spec 1 holds two small questions: the order of the lines a close flags, and the
-app's line when `t` is refused for an account that has been in a statement.
+a transaction to another account, and the PDF upload. On 2026-10-27 you said to catch up, and to
+keep each spec small; the hand-off is planned into seven specs, run in order. The first four
+change nothing you see: 1a puts the app's reads and writes on the engine's new routes and names,
+1b the statement screens, 2a and 2b the live tests; their tasks are drafted in each spec. 1b
+holds two small questions: the order of the lines a close flags, and the app's line when `t` is
+refused for an account that has been in a statement.
 
-**Recommended:** approve both, with 1 A and 2 A in spec 1, and run them now. Creating a bank
-account, `t` from person to bank account, `a` on a bank account and `--create-names` stay broken
-until the catch-up's "Cards in the app".
+**Recommended:** approve all four, with 1 A and 2 A in 1b, and start with 1a now. Creating a
+bank account, `t` from person to bank account, `a` on a bank account and `--create-names` stay
+broken until the catch-up's "Cards in the app".
 
 ### Approve the sheet import's counts line spec
 Asked 2026-10-27 · Blocks: [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md)
@@ -51,7 +52,7 @@ Part 3 of the catch-up: the sheet import says how many sheet rows its split tran
 from. Its question 1 is the words, `split transactions 3 (8 rows)` or `split transactions 3 ·
 rows in them 8`, and whether `(0 rows)` shows when there are none. Two tasks are drafted.
 
-**Recommended:** approve it with 1 A, `(0 rows)` shown, to run after spec 2.
+**Recommended:** approve it with 1 A, `(0 rows)` shown, to run after the live tests' specs, 2a and 2b.
 
 ### Hand over the answer on moving an account to another card
 Asked 2026-10-27 · Blocks: question 1 of [specs/before-the-official-import.md](specs/before-the-official-import.md), and pairing in [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
@@ -77,7 +78,7 @@ Four things every app would otherwise work out on its own, each its own file in
 - "Say what a client does with a flagged line on a card with a statement code".
 
 Each is an option in a question of "Cards in the app" or "A card's statement on one screen", so
-handing them over now lets the engine coders work while specs 1 and 2 run.
+handing them over now lets the engine coders work while the first four specs run.
 - **A.** Hand over all four now.
 - **B.** Wait until you answer those specs' questions.
 
@@ -91,8 +92,8 @@ account gets its card, pairing and unpairing, archiving a whole card, the statem
 a two-currency card, closing a currency with no movement by hand, and when flagged lines show.
 Their questions are in each spec; the ones about screens come with mockups.
 
-**Recommended:** read them now and say if anything is missing; the mockups are drawn while specs
-1 and 2 run, and you pick from them then.
+**Recommended:** read them now and say if anything is missing; the mockups are drawn while the
+first four specs run, and you pick from them then.
 
 ### Answer the official import's three questions
 Asked 2026-10-27 · Blocks: [specs/before-the-official-import.md](specs/before-the-official-import.md)
@@ -246,10 +247,12 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-26**: the hand-off, planned into four specs, its notes
   spec and the bank download and closing a statement done on 2026-10-26, the sheet import
   through the engine on 2026-10-27; the PDF statement below is what is left.
-- **The engine catch-up of 2026-10-27, cards and statements** (to `e06456a20aca6e4c`): five
+- **The engine catch-up of 2026-10-27, cards and statements** (to `e06456a20aca6e4c`): seven
   specs, run in order:
-  [specs/catch-up-cards-statements-1-routes.md](specs/catch-up-cards-statements-1-routes.md),
-  [specs/catch-up-cards-statements-2-live-suite.md](specs/catch-up-cards-statements-2-live-suite.md),
+  [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md),
+  [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
+  [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
+  [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
   [specs/catch-up-split-rows.md](specs/catch-up-split-rows.md),
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).

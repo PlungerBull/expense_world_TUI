@@ -5,8 +5,10 @@ Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the engine's
 closed statement's review list is readable in full", its part "Smaller changes" (`f91a1e0ae626c712` and `f0ee03d6faa96af1`), answering the ask "The sheet
 import's counts say how many sheet rows its split lines come from". The rest of that hand-off is
 caught up in
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md),
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md),
+[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md),
+[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+[catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
 [catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
@@ -50,7 +52,7 @@ see.
 3. The unit suite and the live suite pass, and the drift check no longer names
    `counts.split_rows`. The live checks run once the shared helpers of the live suite create
    accounts on cards
-   ([catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md)).
+   ([catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md)).
 
 ## Questions for the owner
 

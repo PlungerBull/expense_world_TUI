@@ -1,17 +1,19 @@
 # Cards in the app
 
-Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: part 3 of the engine's
+Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the cards part of the engine's
 hand-off of 2026-10-27, "A card is its own object, its statement is one object for the whole
 card, and a closed statement's review list is readable in full" (`29228c5191b6669b` and
 `e06456a20aca6e4c`, cards and archiving a card). The other parts:
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md),
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md),
+[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md),
+[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
+[catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),
 [catch-up-split-rows.md](catch-up-split-rows.md) and
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 
 **Status: draft, for the owner to rewrite or approve; questions 1 to 9 wait on the owner. Its
 tasks are drafted when the owner names it the current spec.** It runs after
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md), and
+[catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md), and
 [before-the-official-import.md](before-the-official-import.md) runs after it. When done, the why
 moves to [decisions.md](../decisions.md) and this file is deleted.
 
@@ -81,7 +83,7 @@ both serve `e06456a20aca6e4c` on 2026-10-27):
    card refused as `INVALID_REFERENCE`, with the app's own line only where question 9 adds one.
 10. **Each new write lands with unit tests** for its happy path and each refusal it handles; the
     live tests of the card routes are
-    [catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md)'s.
+    [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md)'s.
 
 ## How the owner knows it is done
 

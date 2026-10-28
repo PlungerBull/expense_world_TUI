@@ -10,9 +10,9 @@ statement for the whole card.
 **Status: approved and named the current spec by the owner on 2026-10-27, every question
 answered; paused on 2026-10-27 until the catch-up to `e06456a20aca6e4c` lands.** The upload is
 built; moving it to the new routes is in
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md), its live tests
+[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md), its live tests
 and the card's in
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md), and the
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md), and the
 statement screen after a close in
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md).
 Every pick the owner made here stands. When done, the why moves to
@@ -183,12 +183,12 @@ Approved by the owner on 2026-10-27. The screens are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
 screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and the upload in
 the app, are built; their move to contract `e06456a20aca6e4c` is in
-[catch-up-cards-statements-1-routes.md](catch-up-cards-statements-1-routes.md) and
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md). Task 4,
+[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md). Task 4,
 the statement screen after a close, is in
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md),
 with screen 4 redrawn for a statement of the whole card. Task 6, the card's live tests, is in
-[catch-up-cards-statements-2-live-suite.md](catch-up-cards-statements-2-live-suite.md), built
+[catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md), built
 on the engine's sample PDFs. The one task left runs after those three specs.
 
 5. **The docs say what changed (builder).** [file-import-plan.md](../file-import-plan.md) says
