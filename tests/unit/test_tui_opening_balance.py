@@ -21,7 +21,15 @@ from expense.tui.screens.accounts import AccountsScreen
 from expense.tui.screens.create_forms import EditAccountScreen
 from expense.tui.screens.modals import ConfirmModal
 from expense.tui.widgets.cursor_list import CursorList
-from tests.unit.helpers import render_text, run_app, wait_for, wait_for_list, whole
+from tests.unit.helpers import (
+    LOCK_MESSAGES,
+    LOCKED_WORDS,
+    render_text,
+    run_app,
+    wait_for,
+    wait_for_list,
+    whole,
+)
 
 EFECTIVO = {
     "id": "acc-efe",
@@ -673,8 +681,11 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
             "PUT",
             EngineError(
                 "VALIDATION_ERROR",
-                "Validation failed",
-                {"date": "Date falls in a sealed period: Marzo 2026."},
+                "Transaction falls inside a sealed statement period.",
+                {
+                    "date": "Period 2026-03-01 to 2026-03-30 is sealed by completed statement "
+                    "'Marzo 2026'. Revert it to draft to change anything inside it."
+                },
                 422,
                 {},
                 {"date": "SEALED_PERIOD"},
@@ -699,8 +710,8 @@ def test_screen_6_esc_just_leaves_with_the_account_saved(fake_client, notes):
             "PUT",
             EngineError(
                 "VALIDATION_ERROR",
-                "Validation failed",
-                {"amount_cents": "Field is locked by a completed reconciliation."},
+                LOCKED_WORDS,
+                {"amount_cents": LOCK_MESSAGES["LOCKED"]},
                 422,
                 {},
                 {"amount_cents": "LOCKED"},

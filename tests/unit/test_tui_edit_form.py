@@ -43,6 +43,7 @@ from tests.unit.helpers import (
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
     LOCK_MESSAGES,
+    LOCKED_WORDS,
     edit_limits,
     hashtag_refusal,
     import_part,
@@ -632,10 +633,11 @@ def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
     fake_client, monkeypatch
 ):
     """The engine checks `LOCKED` first; the form shows its refusal and stays."""
+    locked = LOCK_MESSAGES["LOCKED"]
     err = EngineError(
         "VALIDATION_ERROR",
-        "Fields are locked by a completed reconciliation.",
-        {"account_id": "Locked by completed reconciliation."},
+        LOCKED_WORDS,
+        {"account_id": locked, "statement_id": locked},
         422,
         {},
         reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
@@ -644,8 +646,8 @@ def test_a_move_on_a_completed_reconciliation_shows_the_lock_under_the_parts(
     assert fake_client.calls == [
         ("PUT", PATH, {"account_id": "acc2", "statement_id": None, "parts": [_kept()]})
     ]
-    assert "VALIDATION_ERROR — Fields are locked by a completed reconciliation." in summary
-    assert "! account_id: Locked by completed reconciliation." in summary
+    assert f"VALIDATION_ERROR — {LOCKED_WORDS}" in summary
+    assert f"! account_id: {locked}" in summary
     assert "Nothing was saved." in summary
     assert on_top  # not dismissed: nothing was saved
 
@@ -926,7 +928,7 @@ def test_a_completed_reconciliations_line_says_why_once_under_its_fields(fake_cl
         "date     2026-06-20  read-only",
         "title    Farmacia  read-only",
         "account  BCP PEN  read-only",
-        "date, title, account: Locked by completed reconciliation.",
+        "date, title, account: Locked by completed statement.",
         "",
         "      amount    category       hashtags        note",
         "▌ 1   -42.50    Mascotas       #dog            receta",
@@ -1004,7 +1006,7 @@ def test_line_fields_locked_for_different_reasons_get_a_sentence_each(fake_clien
     _patch(monkeypatch, line)
     assert _drawn(TXN, line)[3:5] == [
         "date, account: The account is archived. Unarchive it first.",
-        "title: Locked by completed reconciliation.",
+        "title: Locked by completed statement.",
     ]
 
 
@@ -1014,7 +1016,7 @@ def test_the_sentences_are_dim_like_the_rest_of_their_lines(fake_client, monkeyp
     line = _line(TXN, limits=COMPLETED_LIMITS)
     _patch(monkeypatch, line)
     wanted = {
-        "date, title, account: Locked by completed reconciliation.",
+        "date, title, account: Locked by completed statement.",
         "amount  read-only · The parts must add up to the line's total.",
     }
     seen = set()
@@ -1032,7 +1034,7 @@ def test_the_sentences_are_dim_like_the_rest_of_their_lines(fake_client, monkeyp
 def test_the_engines_sentence_shows_as_sent_never_as_styling(fake_client, monkeypatch):
     """`[like this]`, `[/]` and `[bold]` in the engine's words show whole, under
     the shared fields and beside a part column's `read-only`."""
-    words = "Locked [like this] by [bold]a[/] reconciliation."
+    words = "Locked [like this] by [bold]completed[/] statement."
     limits = {
         **COMPLETED_LIMITS,
         "locked_fields": {

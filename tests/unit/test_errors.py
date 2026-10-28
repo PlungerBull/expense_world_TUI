@@ -743,21 +743,22 @@ def test_the_table_is_keyed_by_code_and_reason_only():
 
 def test_a_missing_ending_balance_says_press_c_again():
     """The refused complete keeps the engine's words whole, then the line saying
-    what to do (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
-    "The ending balance must be entered")."""
+    what to do (contract: POST /v1/statements/{statement_id}/complete,
+    "Every ending balance must be entered"). The message is the practice engine's;
+    the contract does not print it."""
     from expense.errors import next_step
 
     err = _refusal(
         "VALIDATION_ERROR",
-        "ending_balance_cents",
+        "balances.acc1.ending_balance_cents",
         "ENDING_BALANCE_REQUIRED",
         status=422,
-        message="A reconciliation needs its ending balance to be completed.",
+        message="Cannot complete the statement without every account's ending balance.",
     )
     assert next_step(err) == "Press c again: the app asks for it first."
     assert format_error(err).endswith("\n\nPress c again: the app asks for it first.")
     assert format_error(err).startswith(
-        "VALIDATION_ERROR — A reconciliation needs its ending balance to be completed."
+        "VALIDATION_ERROR — Cannot complete the statement without every account's ending balance."
     )
 
 

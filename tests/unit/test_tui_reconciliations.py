@@ -16,6 +16,9 @@ from tests.unit.helpers import (
     ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
+    SEALED_FIELD_WORDS,
+    SEALED_LINE_WORDS,
+    SEALED_TRANSACTION_WORDS,
     account_record,
     archived_refusal,
     archived_words,
@@ -1496,37 +1499,33 @@ def test_any_other_answer_on_a_purchase_sends_nothing(monkeypatch, fake_client, 
     assert fake_client.deletes == []
 
 
-SEALED_LINE_WORDS = (
-    "This bank line is in a completed reconciliation and cannot be deleted. "
-    "Revert the reconciliation to draft first."
-)
-
-
 @pytest.mark.parametrize(
-    ("row", "path", "status", "code", "fields", "reasons"),
+    ("row", "path", "status", "code", "words", "fields", "reasons"),
     [
         (
             "bl-farm",
             "/bank-lines/bl-farm",
             409,
             "CONFLICT",
-            {"bank_line_id": "Must not be assigned to a completed reconciliation."},
+            SEALED_LINE_WORDS,
+            {"bank_line_id": SEALED_FIELD_WORDS},
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
-        ("bl-farm", "/bank-lines/bl-farm", 404, "NOT_FOUND", None, None),
+        ("bl-farm", "/bank-lines/bl-farm", 404, "NOT_FOUND", "bank_line not found.", None, None),
         (
             "bl-net",
             "/transactions/bl-net-p1",
             409,
             "CONFLICT",
-            {"transaction_id": "Must not be assigned to a completed reconciliation."},
+            SEALED_TRANSACTION_WORDS,
+            {"transaction_id": SEALED_FIELD_WORDS},
             {"transaction_id": "IN_COMPLETED_RECONCILIATION"},
         ),
     ],
     ids=["purchase-sealed", "purchase-gone", "transaction-sealed"],
 )
 def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
-    monkeypatch, fake_client, row, path, status, code, fields, reasons
+    monkeypatch, fake_client, row, path, status, code, words, fields, reasons
 ):
     """The engine refuses: its words in the "Failed" note, nothing deleted, the
     list not read again and the cursor where it was."""
@@ -1535,7 +1534,7 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
 
     _patch_browse(monkeypatch)
     calls, _counts = _patch_unfiled(monkeypatch)
-    err = EngineError(code, SEALED_LINE_WORDS, fields, status, {}, reasons)
+    err = EngineError(code, words, fields, status, {}, reasons)
     fake_client.errors["DELETE"] = err
 
     async def scenario(pilot, app):
@@ -1549,7 +1548,7 @@ def test_a_refused_delete_shows_the_engine_words_and_keeps_the_list(
         await wait_for(pilot, lambda: notes)
         await pilot.pause()
         assert notes == [("Failed", list_refusal_text(err))]
-        assert notes[0][1].startswith(f"{code} — {SEALED_LINE_WORDS}")
+        assert notes[0][1].startswith(f"{code} — {words}")
         assert len(calls) == reads and len(screen._batch_list._rows) == 3
         assert screen._batch_list.cursor_key == row
 

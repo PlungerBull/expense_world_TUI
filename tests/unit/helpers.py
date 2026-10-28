@@ -166,16 +166,38 @@ ARCHIVED_PUT_WORDS = (
     "The transaction's account is archived: only its category, hashtags and description "
     "can change. Unarchive the account first."
 )
-#: The engine's message on a refused `PUT /statements/{id}`.
-ARCHIVED_RECONCILIATION_PUT_WORDS = (
-    "The reconciliation's account is archived. Unarchive the account first."
-)
+#: The engine's message on a refused `PUT /statements/{id}`, as the practice engine
+#: sends it (the contract does not print it).
+ARCHIVED_STATEMENT_PUT_WORDS = "The statement's holder is archived. Unarchive it first."
 
 
 def archived_words(verb: str, thing: str) -> str:
-    """The engine's message on a refused delete, complete or revert:
+    """The engine's message on a refused delete of a transaction or a bank line:
     `Cannot <verb> a <thing> on an archived account. Unarchive the account first.`"""
     return f"Cannot {verb} a {thing} on an archived account. Unarchive the account first."
+
+
+def archived_statement_words(verb: str) -> str:
+    """The engine's message on a refused complete, revert or delete of a statement
+    whose holder is archived, as the practice engine sends it (the contract does not
+    print it): `Cannot <verb> a statement whose holder is archived. Unarchive the
+    holder first.`"""
+    return f"Cannot {verb} a statement whose holder is archived. Unarchive the holder first."
+
+
+#: The engine's words on a delete of a bank line or a transaction in a completed
+#: statement (`IN_COMPLETED_RECONCILIATION`), as the practice engine sends them; the
+#: contract does not print them (contract: POST /v1/statements/{statement_id}/complete).
+SEALED_LINE_WORDS = (
+    "Cannot delete a bank line assigned to a completed statement. "
+    "Revert the statement to draft first."
+)
+SEALED_TRANSACTION_WORDS = (
+    "Cannot delete a transaction assigned to a completed statement. "
+    "Revert the statement to draft first."
+)
+#: The field's words beside either, on `bank_line_id` or `transaction_id`.
+SEALED_FIELD_WORDS = "Must not be assigned to a completed statement."
 
 
 def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
@@ -237,7 +259,7 @@ def import_part(
     `amount_cents` is given signed here and written as the engine sends it.
     `statement_line` and `statement_place` are the line's, the same on every part:
     the engine builds the first from the account's statement code, the completed
-    reconciliation's month and the place (contract: "Transactions (Ledger)", "Bank lines")."""
+    statement's month and the place (contract: "Transactions (Ledger)", "Bank lines")."""
     return {
         "id": tx_id,
         "user_id": "u-1",
@@ -268,7 +290,7 @@ def import_part(
 #: The live suite fails when one differs from the engine's words
 #: (tests/contract/test_bank_line_edit_limits.py).
 LOCK_MESSAGES = {
-    "LOCKED": "Locked by completed reconciliation.",
+    "LOCKED": "Locked by completed statement.",
     "ACCOUNT_ARCHIVED": "The account is archived. Unarchive it first.",
     "OPENING_BALANCE_ACCOUNT_FIXED": "Must not move an opening balance to another account.",
     "SPLIT_TOTAL_MISMATCH": "The parts must add up to the line's total.",
@@ -277,6 +299,13 @@ LOCK_MESSAGES = {
     ),
     "OPENING_BALANCE_NOT_TAGGED": "Must be empty: an opening balance carries no hashtag.",
 }
+
+
+#: The engine's message on a transaction or bank line write refused by the field
+#: lock, as the practice engine sends it; the contract prints only the field's
+#: sentence, `LOCK_MESSAGES["LOCKED"]`
+#: (contract: PUT /v1/transactions/{transaction_id}, "Field locking").
+LOCKED_WORDS = "Transaction belongs to a completed statement. These fields are locked."
 
 
 def _locks(reasons: dict[str, str]) -> dict[str, dict[str, str]]:

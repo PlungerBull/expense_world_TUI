@@ -16,7 +16,10 @@ from expense.formatting import grouped_refusals, rows_phrase
 from tests.unit.test_batch_write import _Client, _invalid, _items, _refusal
 
 _ZERO = "Must not be zero."
-_SEALED = "The date falls inside a completed reconciliation's period."
+_SEALED = (
+    "Period 2026-08-01 to 2026-08-25 is sealed by completed statement 'August 2026'. "
+    "Revert it to draft to change anything inside it."
+)
 
 
 # --- the shared lines ------------------------------------------------------------

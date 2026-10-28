@@ -97,11 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-5. **The engine's current words in the unit tests (builder).** Every quote of the engine's
-   "completed reconciliation" words in tests/unit and helpers.py's `LOCK_MESSAGES` says what
-   the engine sends now, the sealed-line delete's sentence read from the practice engine
-   (moved from test-suite-leftovers; the contract does not print it).
-   *Passes if:* no unit test quotes a sentence the engine no longer sends.
 6. **The engine's current words in the docs, and the app's lines for its refusals (builder).**
    The same words in tui.md and the grouped-refusals mockup;
    [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go (but
@@ -154,3 +149,15 @@ Not built in this spec; drafted into a new spec when it is done.
 - The flagged screen's head is blank while its first read loads; reading the count first and
   drawing the head as it lands would show it sooner, still the engine's count. Found by task 4's
   review.
+- Engine words in unit tests that name no statement and were not checked: a missing bank line is
+  "Bank line not found." in test_tui_delete.py and test_tui_flagged_lines.py but
+  "bank_line not found." as the practice engine sends it in test_tui_reconciliations.py; the
+  opening balance's zero-amount case says "Amount cannot be zero." where the contract prints
+  "Must not be zero."; a test pins `CONCURRENT_CHANGE` on `PUT /statements/{id}`, which the
+  contract lists only on its `DELETE`; the sealed-line words cite the complete instead of the
+  bank-line and transaction deletes; and some test names still say reconciliation. Found by
+  task 5 and its review.
+- tests/unit/test_tui_account_kind.py keeps the old `HAS_RECONCILIATION` words for `t` on a
+  bank account: its route, `POST /accounts/{id}/make-person`, answers `404` from contract
+  `0cf6711e3a98fefe`, so the catch-up to that contract rebuilds `t` on the holder's route and
+  this test with it (owner, 2026-10-28, A). Found by task 5.

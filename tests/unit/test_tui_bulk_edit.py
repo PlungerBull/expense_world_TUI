@@ -38,6 +38,8 @@ from tests.unit.helpers import (
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_NAMES,
     HASHTAG_REFUSALS,
+    LOCK_MESSAGES,
+    LOCKED_WORDS,
     archived_refusal,
     fake_ledger,
     hashtag_refusal,
@@ -425,8 +427,27 @@ def test_h_replaces_the_tag_set_with_several(fake_client, monkeypatch):
     run_app(scenario, size=(120, 30))
 
 
+#: Stand-in words for a refusal naming no field.
+_UNKEYED = "Engine words naming no field."
+#: The field lock's sentence on a locked field.
+_LOCKED_FIELD = LOCK_MESSAGES["LOCKED"]
+
+
+def _locked(*reasons: str) -> EngineError:
+    """The field lock's refusal of an account move, in the engine's words, its
+    sentence on `account_id` and `reasons` naming each key locked."""
+    return EngineError(
+        "VALIDATION_ERROR",
+        LOCKED_WORDS,
+        {"account_id": _LOCKED_FIELD},
+        422,
+        {},
+        reasons=dict.fromkeys(reasons, "LOCKED"),
+    )
+
+
 def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch):
-    """The account move a completed reconciliation refuses: row 2 is
+    """An account move refused with no field named: row 2 is
     reported by number, rows 1 and 3 are written, and row 2 stays selected so
     the same key retries exactly it."""
     _stub_ledger(monkeypatch)
@@ -435,9 +456,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
 
     def put(path, json_body=None):
         if path.endswith("/t2"):
-            raise EngineError(
-                "CONFLICT", "account is locked by a completed reconciliation", None, 409, {}
-            )
+            raise EngineError("CONFLICT", _UNKEYED, None, 409, {})
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
@@ -458,9 +477,7 @@ def test_a_refused_row_is_named_and_the_rest_go_through(fake_client, monkeypatch
         assert [p for p, _b in fake_client.puts] == ["/transactions/t1", "/transactions/t3"]
         refused = next(m for t, m in toasts if t == "Refused")
         # no field named: whole, its code first, as the LOG bar reads a refusal naming no row
-        assert (
-            _plain(refused) == "CONFLICT — account is locked by a completed reconciliation\nrow 2"
-        )
+        assert _plain(refused) == f"CONFLICT — {_UNKEYED}\nrow 2"
         assert ("", "2 rows → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
         assert screen._selected == {"t2"}
@@ -723,9 +740,7 @@ def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypat
     def put(path, json_body=None):
         puts.append(path)
         if path.endswith("/t1"):
-            raise EngineError(
-                "CONFLICT", "account is locked by a completed reconciliation", None, 409, {}
-            )
+            raise EngineError("CONFLICT", _UNKEYED, None, 409, {})
         raise _settings_missing()
 
     fake_client.put = put
@@ -742,12 +757,7 @@ def test_a_row_refused_before_the_stop_keeps_its_own_note(fake_client, monkeypat
 
         assert puts == ["/transactions/t1", "/transactions/t2"]
         assert toasts == [
-            (
-                "Refused",
-                "CONFLICT — account is locked by a completed reconciliation\nrow 1",
-                "error",
-                True,
-            ),
+            ("Refused", f"CONFLICT — {_UNKEYED}\nrow 1", "error", True),
             STOP_TOAST,
         ]
         assert screen._selected == {"t1", "t2", "t3"}
@@ -818,18 +828,9 @@ def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkey
     def put(path, json_body=None):
         puts.append(path)
         if path.endswith("/t2"):
-            raise EngineError(
-                "CONFLICT", "account is locked by a completed reconciliation", None, 409, {}
-            )
+            raise EngineError("CONFLICT", _UNKEYED, None, 409, {})
         if path.endswith("/t3"):
-            raise EngineError(
-                "VALIDATION_ERROR",
-                "Fields are locked by a completed reconciliation.",
-                {"account_id": "Locked by completed reconciliation."},
-                422,
-                {},
-                reasons={"account_id": "LOCKED"},
-            )
+            raise _locked("account_id")
         if path.endswith("/t4"):
             raise _settings_missing()
         return real_put(path, json_body=json_body)
@@ -851,18 +852,8 @@ def test_rows_refused_before_the_stop_are_counted_without_it(fake_client, monkey
         assert puts == [f"/transactions/t{i}" for i in range(1, 5)]
         assert toasts == [
             ("", "1 row → BCP Oro PEN", "information", False),
-            (
-                "2 of 3 refused",
-                "CONFLICT — account is locked by a completed reconciliation\nrow 2",
-                "error",
-                True,
-            ),
-            (
-                "2 of 3 refused",
-                "account_id: Locked by completed reconciliation.\nrow 3",
-                "error",
-                True,
-            ),
+            ("2 of 3 refused", f"CONFLICT — {_UNKEYED}\nrow 2", "error", True),
+            ("2 of 3 refused", f"account_id: {_LOCKED_FIELD}\nrow 3", "error", True),
             STOP_TOAST,
         ]
         assert screen._selected == {"t2", "t3", "t4", "t5"}
@@ -934,7 +925,7 @@ def test_b_onto_the_rows_own_account_never_unassigns(fake_client, monkeypatch):
 
 
 def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
-    """t1 and t2 onto acc2: t1 is refused by a completed reconciliation, t2 is
+    """t1 and t2 onto acc2: t1 is refused by a completed statement, t2 is
     already there and its answer lists no part. Nothing moved, so no receipt;
     the refusal still names row 1."""
     _stub_ledger(monkeypatch, MIXED)
@@ -943,14 +934,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
 
     def put(path, json_body=None):
         if path.endswith("/t1"):
-            raise EngineError(
-                "VALIDATION_ERROR",
-                "Fields are locked by a completed reconciliation.",
-                {"account_id": "Locked by completed reconciliation."},
-                422,
-                {},
-                reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
-            )
+            raise _locked("account_id", "statement_id")
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
@@ -973,7 +957,7 @@ def test_b_that_moves_nothing_still_names_its_refusal(fake_client, monkeypatch):
         assert len(toasts) == 1
         title, message = toasts[0]
         assert title == "Refused"
-        assert _plain(message) == "account_id: Locked by completed reconciliation.\nrow 1"
+        assert _plain(message) == f"account_id: {_LOCKED_FIELD}\nrow 1"
         assert screen._selected == {"t1"}
 
     run_app(scenario, size=(120, 30))
@@ -988,14 +972,7 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
 
     def put(path, json_body=None):
         if path.endswith("/t1"):
-            raise EngineError(
-                "VALIDATION_ERROR",
-                "Fields are locked by a completed reconciliation.",
-                {"account_id": "Locked by completed reconciliation."},
-                422,
-                {},
-                reasons={"account_id": "LOCKED", "statement_id": "LOCKED"},
-            )
+            raise _locked("account_id", "statement_id")
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
@@ -1015,7 +992,7 @@ def test_b_on_a_completed_reconciliation_is_still_refused_with_the_lock(fake_cli
         await pilot.press("o", "r", "o", "enter")
         await wait_for(pilot, lambda: any(t == "Refused" for t, _m in toasts))
         refused = next(m for t, m in toasts if t == "Refused")
-        assert _plain(refused) == "account_id: Locked by completed reconciliation.\nrow 1"
+        assert _plain(refused) == f"account_id: {_LOCKED_FIELD}\nrow 1"
         # t1 refused, t2 already on acc2: only t3 moved, and it was in none
         assert ("", "1 row → BCP Oro PEN") in toasts
         await wait_for(pilot, lambda: not screen._bulk_busy)
@@ -1303,11 +1280,16 @@ def test_the_pick_screen_footer_offers_esc_only(fake_client, monkeypatch):
 # Question 5 A of docs/mockups/expense-world-wording-picks.html
 
 
-def _sealed(period: str) -> EngineError:
+def _sealed(period: str, name: str = "August 2026") -> EngineError:
+    """An account move onto a day the statement `name` seals, in the engine's words
+    (contract: "Transactions (Ledger)", "Sealed periods")."""
     return EngineError(
         "VALIDATION_ERROR",
-        "Transaction falls inside a sealed reconciliation period.",
-        {"account_id": f"Period {period} is sealed by completed reconciliation."},
+        "Transaction falls inside a sealed statement period.",
+        {
+            "account_id": f"Period {period} is sealed by completed statement '{name}'. "
+            "Revert it to draft to change anything inside it."
+        },
         422,
         {},
         reasons={"account_id": "SEALED_PERIOD"},
@@ -1319,7 +1301,8 @@ def test_refusals_collapse_to_one_note_per_kind():
     each the engine's words for the field, then the rows they hit. A kind is
     the code, fields and reasons as the engine sent them (`errors.refusal_kind`):
     nothing here reads the period out of the words."""
-    aug, jul = _sealed("2026-07-24 to 2026-08-25"), _sealed("2026-06-26 to 2026-07-23")
+    aug = _sealed("2026-07-24 to 2026-08-25")
+    jul = _sealed("2026-06-26 to 2026-07-23", "July 2026")
     failed = [(f"t{n}", n, *refused_row(aug)) for n in (1, 2, 3, 4, 5)]
     failed += [(f"t{n}", n, *refused_row(jul)) for n in (7, 8, 9)]
     assert [_plain(note) for note in refusal_notes(failed)] == [
@@ -1401,7 +1384,7 @@ def test_a_backslash_ending_the_words_shows_and_the_colours_hold(words):
 def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, monkeypatch):
     """Question 5 A of docs/mockups/expense-world-wording-picks.html: rows 1, 2
     and 3 selected, `b` onto BCP Oro PEN, rows 1 and 3 in a completed
-    reconciliation. The receipt counts the row that moved; the refusal is one
+    statement. The receipt counts the row that moved; the refusal is one
     note under "2 of 3 refused": the field and the engine's words for it, in the
     error colour, then the rows, unstyled; the engine's first sentence left
     out, as the LOG bar leaves it out. Read from the app's notifications, as
@@ -1412,14 +1395,7 @@ def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, mon
 
     def put(path, json_body=None):
         if path.endswith(("/t1", "/t3")):
-            raise EngineError(
-                "VALIDATION_ERROR",
-                "Fields are locked by a completed reconciliation.",
-                {"account_id": "Locked by completed reconciliation."},
-                422,
-                {},
-                reasons={"account_id": "LOCKED"},
-            )
+            raise _locked("account_id")
         return real_put(path, json_body=json_body)
 
     fake_client.put = put
@@ -1439,12 +1415,8 @@ def test_b_with_two_of_three_rows_refused_reads_as_question_5_a(fake_client, mon
         assert (receipt.title, receipt.message) == ("", "1 row → BCP Oro PEN")
         assert (refused.title, refused.severity) == ("2 of 3 refused", "error")
         assert refused.markup
-        assert _plain(refused.message) == (
-            "account_id: Locked by completed reconciliation.\nrows 1, 3"
-        )
-        assert _coloured(refused.message) == [
-            ("account_id: Locked by completed reconciliation.", "$error")
-        ]
+        assert _plain(refused.message) == f"account_id: {_LOCKED_FIELD}\nrows 1, 3"
+        assert _coloured(refused.message) == [(f"account_id: {_LOCKED_FIELD}", "$error")]
         assert screen._selected == {"t1", "t3"}
 
     run_app(scenario, size=(120, 30))
@@ -1486,15 +1458,10 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
     _stub_ledger(monkeypatch)
     toasts: list[tuple[str, str]] = []
 
+    period = "2026-07-24 to 2026-08-25"
+
     def put(path, json_body=None):
-        raise EngineError(
-            "VALIDATION_ERROR",
-            "Transaction falls inside a sealed reconciliation period.",
-            {"account_id": "Period … is sealed by completed reconciliation 'August 2026'."},
-            422,
-            {},
-            reasons={"account_id": "SEALED_PERIOD"},
-        )
+        raise _sealed(period)
 
     fake_client.put = put
 
@@ -1516,10 +1483,8 @@ def test_eight_sealed_rows_raise_two_toasts_not_eight(fake_client, monkeypatch):
         assert len(refusals) == 1
         title, message = refusals[0]
         assert title == "3 of 3 refused"
-        assert _plain(message) == (
-            "account_id: Period … is sealed by completed reconciliation 'August 2026'.\n"
-            "rows 1, 2, 3"
-        )
+        words = _sealed(period).fields["account_id"]
+        assert _plain(message) == f"account_id: {words}\nrows 1, 2, 3"
         assert screen._selected == {"t1", "t2", "t3"}  # all stay selected for the retry
 
     run_app(scenario, size=(120, 30))

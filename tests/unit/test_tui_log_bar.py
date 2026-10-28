@@ -863,6 +863,14 @@ def test_state8_a_partial_failure_ticks_what_landed(fake_client, monkeypatch):
     run_app(scenario)
 
 
+#: The engine's words on a batch item dated on a sealed day, of the form the contract
+#: prints (contract: "Transactions (Ledger)", "Sealed periods").
+_SEALED = (
+    "Period 2026-08-01 to 2026-08-25 is sealed by completed statement 'August 2026'. "
+    "Revert it to draft to change anything inside it."
+)
+
+
 def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_client, monkeypatch):
     """The wall, at the LOG bar's door (sealed-periods plan S4).
 
@@ -874,17 +882,13 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
     while the row that was fine still ticks.
     """
     _patch(monkeypatch)
-    sealed_text = (
-        "Period 2026-08-01 to 2026-08-25 is sealed by completed reconciliation "
-        "'August 2026'. Revert it to draft to change anything inside it."
-    )
 
     def sealed(index: int) -> EngineError:
         key = f"transactions.{index}.date"
         return EngineError(
             "VALIDATION_ERROR",
-            "Transaction falls inside a sealed reconciliation period.",
-            {key: sealed_text},
+            "Batch validation failed.",
+            {key: _SEALED},
             422,
             {},
             reasons={key: "SEALED_PERIOD"},
@@ -905,7 +909,7 @@ def test_a_sealed_row_keeps_its_period_and_the_rest_of_the_batch_saves(fake_clie
         # and where it wraps is a width detail, not the assertion
         out = " ".join(_text(screen._staged_renderable()).split())
         assert "1 logged" in out
-        assert f"date: {sealed_text} row 2" in out  # the way out survives, then the row
+        assert f"date: {_SEALED} row 2" in out  # the way out survives, then the row
 
     run_app(scenario)
 
@@ -1003,8 +1007,8 @@ def test_a_run_stop_keeps_a_rows_own_earlier_refusal(fake_client, monkeypatch):
     date_key = "transactions.1.date"
     own = EngineError(
         "VALIDATION_ERROR",
-        "Transaction falls inside a sealed reconciliation period.",
-        {date_key: "Period 2026-08-01 to 2026-08-25 is sealed."},
+        "Batch validation failed.",
+        {date_key: _SEALED},
         422,
         {},
         reasons={date_key: "SEALED_PERIOD"},
@@ -1034,7 +1038,7 @@ def test_a_run_stop_keeps_a_rows_own_earlier_refusal(fake_client, monkeypatch):
         assert len(fake_client.posts) == 2
         assert not first.saved and first.error is None  # never settled: no marker
         assert not second.saved and second.error is not None
-        assert "Period 2026-08-01 to 2026-08-25 is sealed." in second.error
+        assert _SEALED in second.error
         assert "LIMIT_REACHED" not in second.error
         assert sum("LIMIT_REACHED" in t for t in toasts) == 1
 
@@ -1332,9 +1336,6 @@ def test_the_error_block_names_the_row_and_says_what_to_press():
     assert "ctrl+s retries just the rows without a ✓." in out
 
 
-_SEALED = "The date falls inside a completed reconciliation's period."
-
-
 def _two_kinds() -> EngineError:
     """One batch 422 naming rows 1 and 3 for a zero amount and row 2 for a
     sealed date (contract: POST /v1/transactions/batch)."""
@@ -1365,7 +1366,7 @@ def test_refused_rows_read_one_line_per_kind_screen_2a(fake_client, monkeypatch)
         await pilot.press("ctrl+s")
         await _save_settled(pilot, screen, fake_client)
 
-        out = _text(save_errors(screen._staged))
+        out = _text(save_errors(screen._staged), width=200)  # the sealed line whole
         assert out == (
             "  amount_cents: Must not be zero. rows 2, 4\n"
             f"  date: {_SEALED} row 3\n"

@@ -28,7 +28,18 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-Nothing waits on the owner as of 2026-10-28.
+### Ask the engine coders for their hand-off from `256f3190cf24fc36` to `0cf6711e3a98fefe`
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and the acceptance check of [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md)
+
+The engine moved on 2026-10-28 to contract `0cf6711e3a98fefe`, recorded here that day (you
+picked A). This client last caught up to `f00534abdde7fa82`, which the engine's change log names
+`256f3190cf24fc36`. Ask the engine coders for one hand-off file covering the six versions after
+it (`4dd95f836dba7be2` to `0cf6711e3a98fefe`): person holders and `is_person`, the archive and
+the change of kind moved to the holder, `POST /people` gone, `PERSON_TAKES_NO_STATEMENT`, and a
+person's move. Drop it into [from-engine/](from-engine/); it is planned into the catch-up specs,
+part 6 (cards) first. Part 1b's last task runs meanwhile.
+
+**Recommended:** none: only you can ask them.
 
 ---
 

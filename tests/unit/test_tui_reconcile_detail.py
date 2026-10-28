@@ -28,10 +28,10 @@ from expense.tui.widgets.checklist import CheckList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ARCHIVED_PUT_WORDS,
-    ARCHIVED_RECONCILIATION_PUT_WORDS,
+    ARCHIVED_STATEMENT_PUT_WORDS,
     ENGINE_URL,
     archived_refusal,
-    archived_words,
+    archived_statement_words,
     bank_line_row,
     cursor_page,
     edit_limits,
@@ -722,7 +722,7 @@ def test_a_refused_status_write_with_a_tick_behind_it_draws_the_list_again(
 
     statement_reads = _patch(monkeypatch)
     release = threading.Event()
-    refusal = EngineError("CONFLICT", "Reconciliation changed elsewhere.", None, 409, {})
+    refusal = EngineError("CONFLICT", archived_statement_words("revert"), None, 409, {})
 
     def held_post(path, json_body=None):
         release.wait(timeout=5)
@@ -989,7 +989,7 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
     _patch(monkeypatch)
     fake_client.errors["DELETE"] = EngineError(
         "CONFLICT",
-        "Cannot delete a completed reconciliation. Revert to draft first.",
+        "Cannot delete a completed statement. Revert it to draft first.",
         None,
         409,
         {},
@@ -1008,7 +1008,7 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
         await pilot.press("y")
         await wait_for(pilot, lambda: notices)
         assert fake_client.deletes == [STATEMENT_PATH]  # request was attempted
-        assert any("Revert to draft first" in m for m in notices)
+        assert any("Revert it to draft first" in m for m in notices)
 
     run_app(scenario)
 
@@ -1026,7 +1026,7 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
     then the line naming this screen's own key: `u` reverts, `r` reads it again."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
-    words = "Cannot delete a completed reconciliation. Revert to draft first."
+    words = "Cannot delete a completed statement. Revert it to draft first."
     fake_client.errors["DELETE"] = EngineError(
         "CONFLICT",
         words,
@@ -1079,7 +1079,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     words, no line of the app's; the statement stays open as a draft."""
     _patch(monkeypatch)
     _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the statement fresh
-    err = archived_refusal(409, archived_words(verb, "reconciliation"), "statement_id")
+    err = archived_refusal(409, archived_statement_words(verb), "statement_id")
     fake_client.errors[method] = err
     notices = _notes(monkeypatch)
 
@@ -1095,7 +1095,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
         assert notices == [
             (
                 f"Couldn't {verb}",
-                f"CONFLICT — {archived_words(verb, 'reconciliation')}\n"
+                f"CONFLICT — {archived_statement_words(verb)}\n"
                 f"  statement_id: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
@@ -1816,8 +1816,8 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
     _patch(monkeypatch)
     fake_client.errors["PUT"] = EngineError(
         "CONFLICT",
-        "The reconciliation changed.",
-        {"statement_id": "Changed meanwhile."},
+        "Engine words for CONCURRENT_CHANGE.",
+        {"statement_id": "stand-in field words"},
         409,
         {},
         {"statement_id": "CONCURRENT_CHANGE"},
@@ -1832,8 +1832,8 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
         assert notices == [
             (
                 "Couldn't save",
-                "CONFLICT — The reconciliation changed.\n"
-                "  statement_id: Changed meanwhile.\n\n"
+                "CONFLICT — Engine words for CONCURRENT_CHANGE.\n"
+                "  statement_id: stand-in field words\n\n"
                 "It changed at the same moment: press r, then try again.",
                 "error",
             )
@@ -1856,7 +1856,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
     app's; nothing is completed and the end stays empty."""
     _patch(monkeypatch)
     field = "balances.acc1.ending_balance_cents"
-    err = archived_refusal(422, ARCHIVED_RECONCILIATION_PUT_WORDS, field)
+    err = archived_refusal(422, ARCHIVED_STATEMENT_PUT_WORDS, field)
     fake_client.errors["PUT"] = err
     notices = _notes(monkeypatch)
 
@@ -1868,7 +1868,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
         assert notices == [
             (
                 "Couldn't save",
-                f"VALIDATION_ERROR — {ARCHIVED_RECONCILIATION_PUT_WORDS}\n"
+                f"VALIDATION_ERROR — {ARCHIVED_STATEMENT_PUT_WORDS}\n"
                 f"  {field}: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
@@ -1929,7 +1929,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
     from expense.tui.screens.modals import AmountPromptModal
 
     _patch(monkeypatch)
-    words = "A reconciliation needs its ending balance to be completed."
+    words = "Cannot complete the statement without every account's ending balance."
     field = "balances.acc1.ending_balance_cents"
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",

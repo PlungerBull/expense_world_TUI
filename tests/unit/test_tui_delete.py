@@ -27,6 +27,9 @@ from expense.tui.widgets.cursor_list import CursorList
 from tests.unit.helpers import (
     ARCHIVED_FIELD_WORDS,
     ENGINE_URL,
+    SEALED_FIELD_WORDS,
+    SEALED_LINE_WORDS,
+    SEALED_TRANSACTION_WORDS,
     account_record,
     archived_refusal,
     archived_words,
@@ -535,10 +538,7 @@ def test_a_refusal_shows_the_engine_words_and_what_to_do(
 def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatch):
     """The engine's message already says what to do, so nothing is added."""
     _stub_ledger(monkeypatch, list(LEDGER[:3]))
-    words = (
-        "Cannot delete a transaction assigned to a completed reconciliation. "
-        "Revert the reconciliation to draft first."
-    )
+    words, field = SEALED_TRANSACTION_WORDS, SEALED_FIELD_WORDS
 
     async def scenario(pilot, app):
         screen = TransactionsScreen()
@@ -551,7 +551,7 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
         assert notes == [
             (
                 "Failed",
-                f"CONFLICT — {words}\n  transaction_id: Must not be in a completed reconciliation.",
+                f"CONFLICT — {words}\n  transaction_id: {field}",
             )
         ]
         assert "t1" in screen._by_id and len(screen._rows) == 3
@@ -563,7 +563,7 @@ def test_a_sealed_transaction_shows_only_the_engine_words(configured, monkeypatc
                 409,
                 "CONFLICT",
                 words,
-                {"transaction_id": "Must not be in a completed reconciliation."},
+                {"transaction_id": field},
                 {"transaction_id": "IN_COMPLETED_RECONCILIATION"},
             )
         )
@@ -701,14 +701,6 @@ def test_a_cancelled_delete_keeps_the_archive_re_selection(configured, monkeypat
 # names its bank line; `d` reads that line once (contract: GET
 # /v1/bank-lines/{bank_line_id}) and a line of more than one part goes whole, in
 # one `DELETE /bank-lines/{id}` (contract: DELETE /v1/bank-lines/{bank_line_id}).
-
-#: The engine's own words for a line in a completed reconciliation, as the practice
-#: engine sends them (contract: DELETE /v1/bank-lines/{bank_line_id}).
-SEALED_LINE_WORDS = (
-    "Cannot delete a bank line assigned to a completed reconciliation. "
-    "Revert the reconciliation to draft first."
-)
-SEALED_LINE_FIELD = "Must not be assigned to a completed reconciliation."
 
 
 def _ledger_row(tx_id: str, title: str, amount: int, line: str, day: str = "2026-10-11") -> dict:
@@ -900,7 +892,7 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
             409,
             "CONFLICT",
             SEALED_LINE_WORDS,
-            {"bank_line_id": SEALED_LINE_FIELD},
+            {"bank_line_id": SEALED_FIELD_WORDS},
             {"bank_line_id": "IN_COMPLETED_RECONCILIATION"},
         ),
         (404, "NOT_FOUND", "Bank line not found.", None, None),
@@ -913,14 +905,14 @@ def test_any_other_answer_on_a_purchase_sends_nothing(configured, monkeypatch, l
             {"bank_line_id": "ACCOUNT_ARCHIVED"},
         ),
     ],
-    ids=["completed-reconciliation", "gone", "archived-account"],
+    ids=["completed-statement", "gone", "archived-account"],
 )
 def test_a_refused_purchase_delete_shows_the_engine_words_and_keeps_the_list(
     configured, monkeypatch, line_engine, status, code, words, fields, reasons
 ):
     """3d: the engine refuses; nothing is deleted, the list is not read again and
     the cursor stays on the part. The note is the engine's words whole: its
-    message already says to revert the reconciliation to draft, or to unarchive
+    message already says to revert the statement to draft, or to unarchive
     the account, so the app adds no line, and any other refusal reads as every
     delete's does."""
     rows, line = _split_ledger(2)
