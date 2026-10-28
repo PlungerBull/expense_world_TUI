@@ -44,6 +44,17 @@ live tests.
 **Recommended:** ask them for the hand-off from `e7393dd869963db1` to `f00534abdde7fa82`, and
 copy it into [from-engine/](from-engine/) when it comes.
 
+### Approve the spec for what part 1a turned up, and pick a holder's line
+Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-1a-leftovers.md](specs/catch-up-cards-statements-1a-leftovers.md)
+
+Part 1a of the cards and statements catch-up is done. It turned up three small things: how the
+import door's account list names a holder of three currencies or more whose accounts share no
+name, the practice-user cleaning script printing a code accounts no longer carry, and the drift
+check missing keys a test passes by name. Its question 1 picks the line's name: panes A and B
+of [mockups/expense-world-holder-pick-line.html](mockups/expense-world-holder-pick-line.html).
+
+**Recommended:** approve it with 1 A.
+
 ### Approve the spec for a person's opening hint, and pick its words
 Asked 2026-10-28 · Blocks: [specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)
 
@@ -211,7 +222,7 @@ ships (its why moves to [decisions.md](decisions.md)).
 - **The engine catch-up of 2026-10-27, cards and statements** (to `e7393dd869963db1`, the
   rename of card to holder of 2026-10-28 included): seven
   specs, run in order:
-  [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md),
+  part 1a (done on 2026-10-28),
   [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md),
   [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md),
   [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md),

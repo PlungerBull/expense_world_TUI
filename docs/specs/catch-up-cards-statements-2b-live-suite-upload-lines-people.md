@@ -7,7 +7,7 @@ and the rename in its hand-off of 2026-10-28, "A person carries an opening balan
 is now called a holder everywhere" (`2cec1b59048f50dc` and `e7393dd869963db1`). The catch-up is
 seven specs, run in this order:
 
-1. [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md);
+1. part 1a, the app's reads and writes, done on 2026-10-28;
 2. [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md);
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md);
 4. this one;

@@ -11,7 +11,7 @@ holder.
 **Status: approved and named the current spec by the owner on 2026-10-27, every question
 answered; paused on 2026-10-27 until the catch-up to `e7393dd869963db1` lands.** The upload is
 built; moving it to the new routes is in
-[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md), its live tests
+part 1a, the app's reads and writes (done on 2026-10-28), its live tests
 and the card's in
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md), and the
 statement screen after a close in
@@ -184,7 +184,7 @@ Approved by the owner on 2026-10-27. The screens are picked in
 [expense-world-statement-pdf-screens.html](../mockups/expense-world-statement-pdf-screens.html):
 screens 1 to 4 as drawn, 5 A and 6 A. Tasks 2 and 3, the upload's live tests and the upload in
 the app, are built; their move to contract `e7393dd869963db1` is in
-[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
+part 1a, the app's reads and writes (done on 2026-10-28) and
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md). Task 4,
 the statement screen after a close, is in
 [catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md),

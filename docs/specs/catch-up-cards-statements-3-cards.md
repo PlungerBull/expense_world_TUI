@@ -7,7 +7,7 @@ card, and a closed statement's review list is readable in full" (`29228c5191b666
 2026-10-28, "A person carries an opening balance, and a card is now called a holder everywhere"
 (`2cec1b59048f50dc` and `e7393dd869963db1`: holder in every route, field, reason and
 section). The other parts:
-[catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md),
+part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),

@@ -4,7 +4,7 @@ Catches up to contract `e06456a20aca6e4c`, from `46e2fdf6e11d7548`: the engine's
 2026-10-27, "A card is its own object, its statement is one object for the whole card, and a
 closed statement's review list is readable in full", the part about what the statement screens
 show. The routes, the live suite, the sheet import's counts and cards themselves are the other
-specs of this catch-up: [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md),
+specs of this catch-up: part 1a, the app's reads and writes (done on 2026-10-28),
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md),
 [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md),
 [catch-up-cards-statements-2b-live-suite-upload-lines-people.md](catch-up-cards-statements-2b-live-suite-upload-lines-people.md),

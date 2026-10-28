@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Holder line names</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme=dark]){
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  :root[data-theme=light]{
+    --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+    --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1560px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:96ch}
+  .head b,.blurb b,.cap b,.pick b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:100ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}
+  .var{margin-top:18px}
+  .opt.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,740px),1fr))}
+  .opt.wide pre{font-size:11px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .oh .rec{color:var(--pos);border:1px solid var(--pos);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .oh .ref{color:var(--dim);border:1px solid var(--dim);border-radius:4px;padding:1px 6px;margin-left:8px;
+           font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:100ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick ul{margin:4px 0 0;padding-left:20px}
+  .theme{position:fixed;top:12px;right:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+         background:var(--pad);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+
+  .qs{margin-top:22px;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;
+       color:var(--muted);font-size:13px;line-height:1.7}
+  .qs h2{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--warn);margin:0 0 6px;font-weight:600}
+  .qs ol{margin:4px 0 0;padding-left:20px}
+  .qs li{margin:0 0 10px}
+  .qs ul{margin:2px 0 0;padding-left:18px}
+  .qs b,.qs code{color:var(--text)}
+  .qs code{font-size:12px;font-family:var(--mono)}
+  .qs,.head{width:min(1560px,100%)}
+</style>
+
+</head>
+<body>
+<button class="theme" type="button">light / dark</button>
+<div class="head">
+  <h1>A holder of three currencies on the import door's account list</h1>
+  <p>The engine lets a holder hold one account per currency, so three or more is possible. Here the holder <b>Interbank Global</b> holds three accounts the owner named <code>Sueldo</code> (PEN), <code>Viajes</code> (USD) and <code>Euros</code> (EUR). A card's two accounts, <code>BCP Signature PEN</code> and <code>BCP Signature USD</code>, show as today in both panes. No such holder is in the owner's data today. The names are invented.</p>
+  <p>Use the button at the top right for a light terminal.</p>
+</div>
+<div class="pane"><div class="lbl">The holder's line <span>— which name it shows</span></div>
+<div class="opt">
+<div class="var"><div class="oh">A · <span>the accounts' names, as a card's line is named today</span> <span class="rec">recommended</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Import</span>
+<span class="d">────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this file?  <span class="d">movimientos-2026-10.xlsx</span>
+
+<span class="rev">    BCP Signature                       PEN + USD          </span>
+    Sueldo / Viajes / Euros             PEN + USD + EUR
+    Interbank Ahorros                   PEN
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">The rule a card's line uses: the name its accounts share once each drops its currency code, or their names joined by <code>/</code> when they share none.</p></div>
+<div class="var"><div class="oh">B · <span>the holder's own name</span></div><div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div><div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Capture &amp; ledger  ▸  <span class="b">Import</span>
+<span class="d">────────────────────────────────────────────────────────────────────</span>
+
+  Which account is this file?  <span class="d">movimientos-2026-10.xlsx</span>
+
+<span class="rev">    BCP Signature                       PEN + USD          </span>
+    Interbank Global                    PEN + USD + EUR
+    Interbank Ahorros                   PEN
+
+ <span class="d">esc Cancel  ⏎ Pick  ↑↓ Move</span></pre></div></div><p class="cap">The line shows the holder's name, read from the engine's holders. Shown only where the accounts share no name; a card whose accounts share one, as above, keeps it.</p></div>
+</div></div>
+<div class="pick">Pick <b>A</b> or <b>B</b>.</div>
+
+<script>
+document.querySelector('.theme').addEventListener('click',function(){
+  var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  var cur=r.dataset.theme||(dark?'dark':'light'); r.dataset.theme=cur==='dark'?'light':'dark';
+});
+</script>
+</body>
+</html>

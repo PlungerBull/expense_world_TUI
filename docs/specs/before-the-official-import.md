@@ -2,7 +2,7 @@
 
 **Status: waits on the cards-and-statements catch-up, which reaches contract
 `e7393dd869963db1`: the app working again
-([catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md) and
+(part 1a, the app's reads and writes (done on 2026-10-28) and
 [catch-up-cards-statements-1b-statement-screens.md](catch-up-cards-statements-1b-statement-screens.md)) and holders in
 the app ([catch-up-cards-statements-3-cards.md](catch-up-cards-statements-3-cards.md)), and on
 pairing in the app with the engine's move of an account onto another holder (decided 10). The

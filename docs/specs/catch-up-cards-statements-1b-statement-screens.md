@@ -9,9 +9,8 @@ balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc` and
 caught up on its own, done on 2026-10-28). This is part 1b of
 seven specs that share that range, run in this order:
 
-1. [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md):
-   the app's reads and writes on the engine's new routes and names, the statement PDF upload
-   among them;
+1. part 1a, done on 2026-10-28: the app's reads and writes on the engine's new routes and
+   names, the statement PDF upload among them;
 2. this one: the statement screens on the engine's new routes, with nothing you see changing
    but the order of the flagged lines, now the statement's;
 3. [catch-up-cards-statements-2a-live-suite-foundation.md](catch-up-cards-statements-2a-live-suite-foundation.md):
