@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Person opening hint</title>
+<style>
+  :root{
+    --page:#0b0b0e; --pad:#000; --text:#d6d6da; --muted:#9a9ea7; --dim:#666a73;
+    --accent:#7fa6d6; --pos:#7fbf8f; --neg:#d98f8f; --warn:#d6b97f; --line:#26262d;
+    --s1:#4a90d9; --s2:#3fb27f; --s3:#d98a4a; --s4:#b06ad9; --s5:#8a8a8a;
+    --mono:"Berkeley Mono","JetBrains Mono","SF Mono","Menlo","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --page:#f3f3ef; --pad:#fff; --text:#1c1c20; --muted:#50535a; --dim:#8a8d94;
+      --accent:#23589b; --pos:#23743f; --neg:#b23232; --warn:#855f0c; --line:#d6d6d0;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:40px 16px 90px;font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased}
+  .head,.pane,.pick{width:min(1080px,100%)}
+  .head h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+  .head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 10px;max-width:88ch}
+  .head b,.blurb b,.cap b{color:var(--text)}
+  .pane{margin-top:42px}
+  .lbl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  .lbl span{color:var(--dim);letter-spacing:.03em;text-transform:none;font-size:12.5px}
+  .lbl .new{color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:1px 6px;margin-left:8px;
+            font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .blurb{color:var(--muted);font-size:13px;line-height:1.65;margin:8px 0 12px;max-width:90ch}
+  .blurb code,.cap code,.pick code,.head code{color:var(--text);font-size:12px;font-family:var(--mono)}
+  .term{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--pad)}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--pad)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f57}.y{background:#febc2e}.g{background:#28c840}
+  .ttl{margin-left:6px;color:var(--dim);font-size:12px}
+  .app{padding:12px 18px 16px}
+  pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto}
+  .d{color:var(--dim)} .b{font-weight:700} .a{color:var(--accent)} .ab{color:var(--accent);font-weight:700}
+  .n{color:var(--neg)} .nb{color:var(--neg);font-weight:700} .p{color:var(--pos)} .w{color:var(--warn)}
+  .rev{background:var(--text);color:var(--pad)}
+  .s1{color:var(--s1)} .s2{color:var(--s2)} .s3{color:var(--s3)} .s4{color:var(--s4)} .s5{color:var(--s5)}
+  .var{margin-top:18px}
+  .oh{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin:0 0 8px}
+  .oh span{color:var(--dim);letter-spacing:.03em;text-transform:none}
+  .cap{color:var(--muted);font-size:12.5px;line-height:1.6;margin:8px 0 0;max-width:90ch}
+  .pick{margin-top:42px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;
+        color:var(--muted);font-size:13px;line-height:1.8}
+  .pick b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>A person's opening hint</h1>
+  <p>A person's Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) has an <b>opening</b> line, as a bank account's does. While you type on it, the line under it explains the sign. Today it is the bank account's words, which speak of money you <i>have</i>; on a person, a positive balance is money they owe you. This page draws the two choices. The names and amounts are invented.</p>
+</div>
+
+<div class="pane">
+<div class="lbl">A · Keep the bank account's words <span></span></div>
+<p class="blurb">The same hint on every account, a person included.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">OPENING         </span>-150.00<span class="a">▍</span>
+
+
+   <span class="d">signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional</span>
+
+
+
+   <span class="d">type      person  read-only</span>
+   name      Eliana
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   <span class="b">opening   </span><span class="n">-150.00</span>
+   as of     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">One sentence for every account. On a person, “money you have” stands for money they owe you.</p></div>
+</div>
+<div class="pane">
+<div class="lbl">B · A person's own words <span>— recommended</span></div>
+<p class="blurb">A person's opening line says who owes whom; a bank account's stays as it is.</p>
+<div class="var">
+<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
+<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
+
+<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
+
+   <span class="b">OPENING         </span>-150.00<span class="a">▍</span>
+
+
+   <span class="d">signed · 150.00 is money they owe you · -150.00 is money you owe them · in PEN · optional</span>
+
+
+
+   <span class="d">type      person  read-only</span>
+   name      Eliana
+   <span class="d">currency  PEN  read-only</span>
+   color     <span class="d">—  (optional)</span>
+   <span class="b">opening   </span><span class="n">-150.00</span>
+   as of     <span class="d">—  (optional)</span>
+
+ <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
+<p class="cap">Read on a person, the sign says whose debt it is. A bank account keeps “money you have · money you owe”.</p></div>
+</div>
+
+<div class="pick">
+  <b>To pick:</b> <b>A</b> or <b>B</b> (recommended: on a person, the balance is a debt, and the words say whose).
+</div>
+
+</body>
+</html>

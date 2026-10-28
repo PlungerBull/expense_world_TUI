@@ -144,7 +144,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   `743f76692347e6a4`, `e06456a20aca6e4c`), then `2cec1b59048f50dc` and `e7393dd869963db1`
   (the rename), reaching `e7393dd869963db1`, shared with the six other parts;
   `d34fc8d06ff652c4` and `4ac20e42cf8566ee` are
-  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
+  answered by the catch-up on a person's opening balance, done on 2026-10-28.
 - **The engine's "Done when" checks to report on:** this client's contract snapshot is at
   `e06456a20aca6e4c` (recorded in commit `ab67440`), and it reports having read up to it; and
   "Every holder screen works against /holders with holder_id, and no request names /cards or

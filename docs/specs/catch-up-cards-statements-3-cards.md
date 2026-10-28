@@ -28,6 +28,11 @@ terminal app's seven card and statement specs the engine's coming changes touch"
 - **An account moves between holders,** which is how pairing and unpairing work: in the live
   contract since `3e472b3256dcdc69`, of 2026-10-28 (contract: POST /v1/accounts/{account_id}/move);
   its hand-off is still to come.
+- **A holder goes with its last account, and is created with its accounts:** since
+  `88333696fca6a504`, of 2026-10-28, deleting a holder's last live account deletes the holder too
+  (contract: DELETE /v1/accounts/{account_id}), and `POST /v1/holders` takes its accounts in the
+  same write (contract: POST /v1/holders). They answer the asks of questions 7 and 8; their
+  hand-off is still to come, with the move's.
 - **People become holders too,** so creating, converting and archiving a person happen on its
   holder, and the people route goes: not yet in the contract.
 
@@ -56,7 +61,7 @@ onto it. The move answers this client's "Yes to moving an account to another car
 come.
 
 Until this spec lands, these break against the engine (the live engine serves
-`e7393dd869963db1` and the practice engine `3e472b3256dcdc69` on 2026-10-28):
+`e7393dd869963db1` and the practice engine `88333696fca6a504` on 2026-10-28):
 
 - **A new bank account** (`n` on Manage ▸ Accounts) is refused: the engine needs the holder it
   goes on (contract: POST /v1/accounts).
@@ -84,7 +89,7 @@ Until this spec lands, these break against the engine (the live engine serves
 3. **The statement code is the holder's,** set, changed and cleared where question 3 decides
    (contract: "Holders", "Statement code"); the account's New and Edit forms lose their code line,
    and a person's Edit form keeps its `opening` and `as of` lines
-   ([catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)). The app's line for
+   ([decisions.md](../decisions.md) "A person carries an opening balance"). The app's line for
    `HAS_STATEMENT_CODE`, which `make-person` no longer sends now that the code is the holder's, goes
    with the code line, in errors.py, tui.md and test_errors.py.
 4. **`a` on a bank account archives its holder, every account on it,** and unarchives it the same
@@ -199,7 +204,8 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
      "Delete a card with its last account, so no client leaves an empty card behind" (handed
      over).
 
-   **Recommended:** B, with A until it lands.
+   **Recommended:** B, with A until it lands. The engine does B since `88333696fca6a504`; the
+   question goes when this spec is rewritten.
 8. **`--create-names`: a holder's name when one name is used in two currencies.** Each account it
    creates gets a holder of its own. Holder names are unique (contract: POST /v1/holders), and a
    name used in two currencies (the four people in both currencies, the old Oro card) makes two
@@ -212,7 +218,8 @@ line, "Archived with its card: …", "Another card has this code: …") say "car
    turns it into a person. Also: the line `Created 4 accounts, 3 categories, 2 hashtags.` says
    nothing of holders; should it count them? **Recommended:** no: a holder per account is how
    accounts are made. The ask "Create a bank account and its own card in one write"
-   (handed over) makes each of these one write instead of two.
+   (handed over) makes each of these one write instead of two; `POST /v1/holders` takes its
+   accounts since `88333696fca6a504`.
 9. **`STATEMENT_CODE_EXISTS`: the app's line.** It says "Another account in this currency has
    this code: pick another, or clear it there first.", which is no longer true: a code is held by
    one holder, whatever the currency (contract: "Holders", "One holder per code").
@@ -239,7 +246,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   catch-up; the holders (`29228c5191b6669b`), archiving a holder (`e06456a20aca6e4c`) and the
   rename of card to holder (`2cec1b59048f50dc`, `e7393dd869963db1`). `d34fc8d06ff652c4` and
   `4ac20e42cf8566ee` are
-  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
+  answered by the catch-up on a person's opening balance, done on 2026-10-28.
 - **The engine's "Done when" checks to report on:** the TUI reads and writes holders, and creates
   accounts with `holder_id`; archiving a bank account goes through its holder; make-account
   creates the new holder first, then sends `{"holder_id": …}`. From the hand-off "A person

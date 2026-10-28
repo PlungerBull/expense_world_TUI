@@ -29,8 +29,8 @@ everywhere"): the routes are `/holders`, the field is `holder_id` everywhere, an
 and message names the holder, with nothing behaving differently (contract: "Holders").
 "Card" names only the bank's product: a credit card, its paper and the `card` and
 `card-no-dollars` samples. A person carries an opening balance since contract
-`4ac20e42cf8566ee` (its own catch-up:
-[catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)), so this spec's live
+`4ac20e42cf8566ee` (its own catch-up, done on
+2026-10-28), so this spec's live
 tests of turning an account into a person read its refusals without `HAS_OPENING_BALANCE` and
 check the opening balance is kept. Still to come: people become holders, so turning an account
 into a person or back, and archiving, act on the holder, and the people route and the accounts'
@@ -143,7 +143,7 @@ citations of the files it touches, and moves them onto 2a's shared helpers.
    `make-person`'s refusals are read in the engine's order (`ACCOUNT_ARCHIVED`,
    `KIND_UNCHANGED`, `HAS_RECONCILIATION`, `HOLDER_HAS_OTHER_ACCOUNTS`, `HOLDER_HAS_STATEMENT`)
    (contract: POST /v1/accounts/{account_id}/make-person). A person keeps its opening balance
-   ([catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)): test_account_kind.py
+   ([decisions.md](../decisions.md) "A person carries an opening balance"): test_account_kind.py
    drops `HAS_OPENING_BALANCE` (its case, its place in the order and its docstrings'
    mentions); test_people_lifecycle.py's point that a person refuses an opening balance is turned
    round; and a live check proves `make-person`, then `make-account`, keep the same opening-balance
@@ -177,7 +177,7 @@ those of [2a](catch-up-cards-statements-2a-live-suite-foundation.md).
   `29228c5191b6669b`, `c3caf28dd580253d`, `e767584fd1b13108`, `dc990e964df6b627`,
   `743f76692347e6a4`, `e06456a20aca6e4c`, `2cec1b59048f50dc`, `e7393dd869963db1`), shared by
   the seven specs; `d34fc8d06ff652c4` and `4ac20e42cf8566ee`, between them, are
-  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
+  answered by the catch-up on a person's opening balance, done on 2026-10-28.
 - **The engine's "Done when" checks this spec reports on:** the upload is tested against the
   published samples.
 - **The asks it closes:** "Publish one made-up sample statement PDF per paper, so every client

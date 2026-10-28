@@ -28,16 +28,29 @@ Asked <date> · Blocks: <task or spec>
 **Recommended:** <letter>, because <why> — or "none", when it is a fact only the owner knows
 ```
 
-### Ask the engine coders for their hand-off on moving an account
+### Ask the engine coders for their hand-off on the holder changes
 Asked 2026-10-28 · Blocks: [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md)
 
-The engine already serves moving an account onto another holder (contract `3e472b3256dcdc69`,
-`POST /accounts/{id}/move`), the change their answer of 2026-10-27 planned, and this client
-records that version (you, 2026-10-28). Its hand-off file has not come yet. It goes into the
-cards spec, which plans pairing and unpairing on it, with the move's live tests.
+The engine already serves three holder changes their answer of 2026-10-27 planned, and this
+client records their version, `88333696fca6a504` (you, 2026-10-28): moving an account onto
+another holder (`POST /accounts/{id}/move`), a holder deleted with its last account, and a holder
+created with its accounts (`POST /holders` taking `accounts`). Their hand-off file has not come
+yet. It goes into the cards spec, which plans pairing and unpairing on them, with their live
+tests.
 
-**Recommended:** ask them for the hand-off from `e7393dd869963db1` to `3e472b3256dcdc69`, and
+**Recommended:** ask them for the hand-off from `e7393dd869963db1` to `88333696fca6a504`, and
 copy it into [from-engine/](from-engine/) when it comes.
+
+### Approve the spec for a person's opening hint, and pick its words
+Asked 2026-10-28 · Blocks: [specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)
+
+The catch-up on a person's opening balance is done. It turned up two small things: the words
+under a person's `opening` line speak of money you *have*, where on a person it is money they owe
+you; and nothing proves live that the sheet import gives a person its opening balance. Its
+question 1 picks the words: panes A and B of
+[mockups/expense-world-person-opening-hint.html](mockups/expense-world-person-opening-hint.html).
+
+**Recommended:** approve it with 1 B.
 
 ### Approve the first four specs of the cards and statements catch-up, and their tasks
 Asked 2026-10-27 · Blocks: [specs/catch-up-cards-statements-1a-reads-and-writes.md](specs/catch-up-cards-statements-1a-reads-and-writes.md), [specs/catch-up-cards-statements-1b-statement-screens.md](specs/catch-up-cards-statements-1b-statement-screens.md), [specs/catch-up-cards-statements-2a-live-suite-foundation.md](specs/catch-up-cards-statements-2a-live-suite-foundation.md), [specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md](specs/catch-up-cards-statements-2b-live-suite-upload-lines-people.md)
@@ -54,8 +67,8 @@ refused for an account that has been in a statement.
 
 **Recommended:** approve all four, with 1 A and 2 A in 1b. The engine's rename of card to
 holder is in since contract `e7393dd869963db1` (its hand-off of 2026-10-28), and each spec is
-written on the holder names, so 1a, 1b and 2a can run once the person's opening balance spec is
-done; 2b also waits on people becoming holders. Creating a bank account,
+written on the holder names, so 1a, 1b and 2a can run once you approve them; 2b also waits on
+people becoming holders. Creating a bank account,
 `t` from person to bank account, `a` on a bank account and `--create-names` stay broken until
 the catch-up's "Cards in the app".
 
@@ -223,11 +236,11 @@ ships (its why moves to [decisions.md](decisions.md)).
   [specs/catch-up-cards-statements-3-cards.md](specs/catch-up-cards-statements-3-cards.md) and
   [specs/catch-up-cards-statements-4-statement-screen.md](specs/catch-up-cards-statements-4-statement-screen.md).
   The counts line's last task, its live tests, waits on 2a; the first four wait on the owner's
-  approval and run after the person's opening balance; 2b also waits on people becoming holders,
+  approval; 2b also waits on people becoming holders,
   and the cards spec on that and on the move's hand-off.
-- **The engine catch-up of 2026-10-28, a person's opening balance** (to `4ac20e42cf8566ee`): the
-  current spec, approved by the owner on 2026-10-28
-  ([specs/catch-up-person-opening-balance.md](specs/catch-up-person-opening-balance.md)).
+- **A person's opening balance: its hint and the sheet import's test**: a draft spec waiting for
+  the owner's approval and a pick
+  ([specs/person-opening-balance-leftovers.md](specs/person-opening-balance-leftovers.md)).
 - **Amounts follow your number format.** The app reads the Mac's region by default, and an
   optional setting on the owner's account wins when set, so every device agrees (an engine
   ask). The format is used both for amounts typed and for every amount shown (owner, 2026-10-25).

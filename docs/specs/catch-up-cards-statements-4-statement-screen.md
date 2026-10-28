@@ -225,7 +225,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 - **Range:** `46e2fdf6e11d7548` → `e06456a20aca6e4c`, then `2cec1b59048f50dc` and
   `e7393dd869963db1` (the rename), reaching `e7393dd869963db1`, shared with the other specs of
   this catch-up; `d34fc8d06ff652c4` and `4ac20e42cf8566ee` are
-  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
+  answered by the catch-up on a person's opening balance, done on 2026-10-28.
 - **The engine's "Done when" checks to report on:** "Every statement screen uses /statements,
   one object per card, with balances per account."
 - **The asks it closes:** none. It raises "List a card's bank lines in no statement in one read"

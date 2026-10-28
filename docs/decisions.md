@@ -704,6 +704,22 @@ the step* — `import sheet` stays the only command.
 *The app counting the split rows itself* — only possible after an apply, and the grouping is the
 engine's rule.
 
+## A person carries an opening balance (2026-10-28, owner)
+
+**Context.** A person is someone the owner lends to or borrows from, and the balance on their
+account is that debt. When tracking starts with someone who already owed, or was already owed,
+that starting debt is an opening balance, as on a bank account.
+
+**Decision.** A person's opening balance is judged by the engine exactly as a bank account's
+(contract: POST /v1/accounts/{account_id}/opening-balance), and the app treats it the same way:
+a person's Edit form shows `opening` and `as of` after the colour, through the same code as a bank
+account's, and `t` turns an account into a person keeping its opening balance
+(contract: POST /v1/accounts/{account_id}/make-person). The statement code line stays off a
+person.
+
+**Rejected.** *A person's opening balance only from the sheet import* — a starting debt is a
+balance like any other, and the app would have no way to set or fix one by hand.
+
 ## An account becomes a person, and back, with one key (2026-10-22, owner)
 
 **Context.** The owner's sheet records loans the way the app does: every movement with a person
@@ -716,8 +732,9 @@ import creates every sheet account as a bank account.
 is reversible and keeps the account's id, name, currency, balance and transactions
 (contract: POST /v1/accounts/{account_id}/make-person). The cursor stays on the account in its
 new group, and the note says what it became, so a second `t` turns it back. (2) **A refusal is
-the engine's words,** and `HAS_OPENING_BALANCE` adds what to do: empty the opening balance with
-`e` first, since a person cannot carry one. A person never has reconciliations either, since a
+the engine's words.** An account's opening balance goes with it both ways, since a person
+carries one as a bank account does (see "A person carries an opening balance"). A person never
+has reconciliations, since a
 reconciliation checks the ledger against a bank statement and a person sends none (owner,
 2026-10-22): `HAS_RECONCILIATION` adds `On Reconciliations, press d on each of its
 reconciliations; a completed one needs u first.`, because the engine's words cannot say that a

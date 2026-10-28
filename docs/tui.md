@@ -1172,8 +1172,8 @@ person's in pane A of
 [expense-world-person-opening-balance.html](mockups/expense-world-person-opening-balance.html)).
 The form ends with two optional lines after `color`: **`opening`**, the amount, and
 **`as of`**, its day. There is no title line; the engine names the row. A person's form has
-both lines, as a bank account's does, and no statement code line; its opening balance is
-written the same way (contract: POST /v1/accounts/{account_id}/opening-balance).
+both lines, as a bank account's does, and its opening balance is written the same way
+(contract: POST /v1/accounts/{account_id}/opening-balance).
 
 - **The amount is signed and taken as typed**, in the account's currency. The hint reads
   `signed · 350.00 is money you have · -350.00 is money you owe · in PEN · optional`; the
@@ -1662,8 +1662,8 @@ and the Edit forms' TITLE read `free text · enter to go on`, and a new reconcil
 `e.g. “April 2026” · enter to go on`. A bank account's STATEMENT CODE reads
 `optional · three capital letters, e.g. SIG · enter to go on`, with `· empty clears it` before
 `· enter to go on` on Edit. The account's COLOR, New and Edit, reads
-`optional · enter keeps it · ↑↓ another swatch`, though on New, and on a person's Edit, it is
-the last line and `⏎` there saves. Some lines where `⏎` saves say so: a new category's COLOR
+`optional · enter keeps it · ↑↓ another swatch`, though on New it is the last line and `⏎`
+there saves. Some lines where `⏎` saves say so: a new category's COLOR
 (`optional · enter to save · ↑↓ another swatch`), the Edit form's last NOTE (a part's NOTE
 with another part after it reads `optional · enter to go on`), a new reconciliation's END
 BALANCE, and the Edit form's TITLE when no line after it can change, which reads

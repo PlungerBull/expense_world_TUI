@@ -6,7 +6,7 @@ closed statement's review list is readable in full" (`f91a1e0ae626c712` to `e064
 and the rename of card to holder in its hand-off of 2026-10-28, "A person carries an opening
 balance, and a card is now called a holder everywhere" (`2cec1b59048f50dc` and
 `e7393dd869963db1`; that hand-off's opening balance on a person is
-[catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s). This is part 1b of
+caught up on its own, done on 2026-10-28). This is part 1b of
 seven specs that share that range, run in this order:
 
 1. [catch-up-cards-statements-1a-reads-and-writes.md](catch-up-cards-statements-1a-reads-and-writes.md):
@@ -150,7 +150,7 @@ Drafted 2026-10-27; they wait on the owner's approval and on questions 1 and 2. 
    The same words in tui.md and the grouped-refusals mockup;
    [errors.py](../../expense/errors.py)'s lines for reasons no longer sent go (but
    `HAS_OPENING_BALANCE`, and `PERSON_ACCOUNT` on the opening-balance route, which
-   [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md) removes; this spec
+   are gone ([decisions.md](../decisions.md) "A person carries an opening balance"); this spec
    drops `PERSON_ACCOUNT`'s lines on the statement routes), and
    `HAS_RECONCILIATION`'s as question 2 decides; the comment heading test_errors.py's
    archived-account rows says what the rows prove (moved from test-suite-leftovers).
@@ -165,7 +165,7 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
   `29228c5191b6669b`, `c3caf28dd580253d`, `e767584fd1b13108`, `dc990e964df6b627`,
   `743f76692347e6a4`, `e06456a20aca6e4c`, `2cec1b59048f50dc`, `e7393dd869963db1`), shared with
   the six other parts; `d34fc8d06ff652c4` and `4ac20e42cf8566ee`, between them, are
-  [catch-up-person-opening-balance.md](catch-up-person-opening-balance.md)'s.
+  answered by the catch-up on a person's opening balance, done on 2026-10-28.
 - **The engine's "Done when" checks to report on:** every statement call uses `/statements`,
   at the level of the routes (one object per holder on screen is part 7's); a closed statement's
   review list pages in full through the review list route, with no ids sent.

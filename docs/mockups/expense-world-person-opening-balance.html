@@ -57,8 +57,8 @@
 
 <div class="head">
   <h1>A person's opening balance</h1>
-  <p>Since 2026-10-27 the engine lets a <b>person</b> carry an opening balance, as a bank account does: what they already owed you, or you them, on the day you started tracking them. Turning an account that has an opening balance into a person keeps it, with the same amount and date.</p>
-  <p>Today a person's Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) has no <b>opening</b> and <b>as of</b> lines, and <code>t Make person</code> on an account with an opening balance is refused, with the app adding <code>Press e and empty its opening balance first.</code> This page draws the two choices for the form. The names and amounts are invented.</p>
+  <p>A <b>person</b> carries an opening balance, as a bank account does: what they already owed you, or you them, on the day you started tracking them. Turning an account that has an opening balance into a person keeps it, with the same amount and date.</p>
+  <p>Pane A draws a person's Edit form (<code>e</code> on <b>Manage ▸ Accounts</b>) with its <b>opening</b> and <b>as of</b> lines, and <code>t Make person</code> on an account with an opening balance. The names and amounts are invented.</p>
 </div>
 
 <div class="pane">
@@ -85,7 +85,7 @@
    as of     <span class="d">—  (optional)</span>
 
  <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">Leave both empty and the form saves the person exactly as it does now. Fill them and it saves the opening balance as a bank account's form does.</p></div>
+<p class="cap">Leave both empty and the form saves only the person. Fill them and it saves the opening balance as a bank account's form does.</p></div>
 <div class="var"><div class="oh">A2 · <span>a person who has one</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
@@ -124,7 +124,7 @@
   <span class="d">balances are native currency</span>
 
  <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make person  <span class="a">d</span> Delete</pre></div></div>
-<p class="cap">ALEJO PEN has an opening balance of 1,250.00. Today <code>t</code> here is refused.</p></div>
+<p class="cap">ALEJO PEN has an opening balance of 1,250.00.</p></div>
 <div class="var"><div class="oh">A4 · <span>right after t</span></div>
 <div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
 <div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  <span class="b">Accounts</span>
@@ -141,36 +141,11 @@
   <span class="d">balances are native currency</span>
                                                                      <span class="a">▌</span> Now a person.
  <span class="a">⏎</span> Open  <span class="a">esc</span> Back  <span class="a">r</span> Refresh  <span class="a">?</span> Keys  <span class="a">n</span> New  <span class="a">e</span> Edit  <span class="a">a</span> Archive  <span class="a">t</span> Make bank  <span class="a">d</span> Delete</pre></div></div>
-<p class="cap">It turns, as any account does: the same balance, its opening balance kept, the cursor following it among the people. The app's line <code>Press e and empty its opening balance first.</code> goes, since the engine no longer refuses this.</p></div>
-</div>
-
-<div class="pane">
-<div class="lbl">B · A person's Edit form stays as it is</div>
-<p class="blurb">No opening lines on a person. A person gets an opening balance only from the sheet import (a person's first <code>SALDO INICIAL</code> row), or by being turned into a person after it was set on the bank account. <code>t</code> still turns an account with one, as in A3 and A4.</p>
-<div class="var"><div class="oh">B · <span>the person's Edit form, as today</span></div>
-<div class="term"><div class="bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="ttl">expense</span></div>
-<div class="app"><pre>  <span class="b">◈ EXPENSE WORLD</span>  ▸  Manage  ▸  Accounts  ▸  Eliana  ▸  <span class="b">Edit</span>
-
-<span class="d">────────────────────────────────────────────────────────────────────────────────────</span>
-
-   <span class="b">NAME            </span>Eliana<span class="a">▍</span>
-
-
-   <span class="d">enter to save</span>
-
-
-
-   <span class="d">type      person  read-only</span>
-   <span class="b">name      </span>Eliana
-   <span class="d">currency  PEN  read-only</span>
-   color     <span class="d">—  (optional)</span>
-
- <span class="a">esc</span> Cancel  <span class="a">^s</span> Save  <span class="a">⇥</span> Field</pre></div></div>
-<p class="cap">A person with an opening balance keeps it, but no screen shows or changes it.</p></div>
+<p class="cap">It turns, as any account does: the same balance, its opening balance kept, the cursor following it among the people.</p></div>
 </div>
 
 <div class="pick">
-  <b>Picked:</b> <b>A</b> (the owner, 2026-10-28): a person's Edit form shows <code>opening</code> and <code>as of</code>, as a bank account's does.
+  <b>Picked:</b> <b>A</b> (the owner, 2026-10-28): a person's Edit form shows <code>opening</code> and <code>as of</code>, as a bank account's does. The option not picked, and why, is in <code>docs/decisions.md</code> "A person carries an opening balance".
 </div>
 
 </body>
