@@ -700,7 +700,7 @@ def test_a_batch_screen_that_cannot_load_shows_the_words_whole(fake_client, monk
 def test_a_refused_tick_shows_the_words_whole(fake_client, monkeypatch):
     """`space` on a row, its `PUT` refused: "Couldn't update"."""
     _patch_detail(monkeypatch)
-    fake_client.errors["PUT"] = refusal(key="reconciliation_id")
+    fake_client.errors["PUT"] = refusal(key="statement_id")
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -732,7 +732,7 @@ def test_a_refused_ending_balance_shows_the_words_whole(fake_client, monkeypatch
 def test_a_refused_delete_of_a_reconciliation_shows_the_words_whole(fake_client, monkeypatch):
     """`d` then `y` on a batch screen, refused: "Couldn't delete"."""
     _patch_detail(monkeypatch)
-    fake_client.errors["DELETE"] = refusal("CONFLICT", 409, "reconciliation_id")
+    fake_client.errors["DELETE"] = refusal("CONFLICT", 409, "statement_id")
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))

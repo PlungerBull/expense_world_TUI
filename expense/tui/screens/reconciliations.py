@@ -46,19 +46,21 @@ account, its header that account's entry in the statement's `balances`
 account, then the account's in its period that are in no batch (draft) — or a
 read-only list of the statement's lines on it (completed), read from
 `GET /bank-lines` so a purchase split into parts is one row with its total.
-`space` toggles membership (PUT `reconciliation_id` on one part, which moves
+`space` toggles membership (PUT `statement_id` on one part, which moves
 the whole line) and reads the statement and its list again;
-`c`/`u`/`d` complete/revert/delete; `r` reads the statement again by its id,
-`GET /statements/{id}`, and the checklist. Complete
-needs ≥1 transaction and locks the amount, date, title, account, operation
-number and reconciliation of each, an empty title or operation number staying
-fillable (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
-delete is draft-only and just detaches the transactions. Completing also needs the
-ending balance (contract: POST /v1/reconciliations/{reconciliation_id}/complete,
-"The ending balance must be entered"): `c` on a draft that has none first asks
-for it in a box, saves it with PUT /reconciliations/{id}, then asks the usual
-"Complete reconciliation?". A complete whose answer flags lines for review
-(`review_lines`, a card's other half's too) opens FlaggedLinesScreen on them
+`c`/`u`/`d` complete/revert/delete the whole statement, every account of its
+holder, under `/statements/{id}`; `r` reads the statement again by its id,
+`GET /statements/{id}`, and the checklist. Complete needs a transaction on at
+least one account of the statement and locks the amount, date, title, account,
+operation number and statement of each, an empty title or operation number
+staying fillable (contract: PUT /v1/transactions/{transaction_id}, "Field locking");
+delete is draft-only and just detaches the transactions. Completing also needs
+every ending balance (contract: POST /v1/statements/{statement_id}/complete,
+"Every ending balance must be entered"): `c` on a draft whose opened account has
+none first asks for it in a box, saves it in the statement's `balances` with
+PUT /statements/{id}, then asks the usual "Complete reconciliation?". A complete
+whose answer flags lines for review (each balance's `review_lines`, every
+account's of the holder) opens FlaggedLinesScreen on them
 (pick 1A of docs/mockups/expense-world-statement-flagged-lines.html), and the
 working screen keeps a `⚑` line and `f` until its next status change.
 """
@@ -78,6 +80,7 @@ from textual.widgets import Footer, Input, Static
 from textual.worker import get_current_worker
 
 from expense import formatting, reads
+from expense.bank_import.statement import review_line_ids
 from expense.dates import is_calendar_day
 from expense.errors import EngineError, format_error
 from expense.formatting import (
@@ -1292,9 +1295,9 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
 
     One row per bank line, the batch's lines first, then the ones in no batch,
     each read in the engine's order; a line in both reads is listed once.
-    `part_of` maps a line to the one part a tick is sent on: `reconciliation_id`
+    `part_of` maps a line to the one part a tick is sent on: `statement_id`
     is a line field, so a `PUT` on any part moves every part
-    (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment").
+    (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment").
     """
     rows, checked, part_of = [], [], {}
     in_batch = {line.get("id") for line in assigned}
@@ -1308,6 +1311,20 @@ def line_rows(assigned: list[dict], available: list[dict]) -> tuple[list, list, 
             checked.append(key)
         rows.append((key, *formatting.bank_line_columns(line)))
     return rows, checked, part_of
+
+
+def ending_balance_body(statement: dict, account_id: object, cents: int) -> dict:
+    """`PUT /statements/{id}`'s body saving one account's ending balance. Its
+    `balances` names every account the statement holds a balance for, each once,
+    as the write requires; `account_id`'s entry carries `cents`, and every other
+    entry no balance, so the engine keeps that account's as they are
+    (contract: PUT /v1/statements/{statement_id})."""
+    held = [b.get("account_id") for b in statement.get("balances") or [] if isinstance(b, dict)]
+    entries = [
+        {"account_id": a, "ending_balance_cents": cents} if a == account_id else {"account_id": a}
+        for a in held
+    ]
+    return {"balances": entries}
 
 
 #: A status action's done word → the verb its failure note names: `Couldn't delete`.
@@ -1356,7 +1373,7 @@ class ReconciliationDetailScreen(
         self._part_of: dict = {}  # line id → the part a tick is sent on
         self._land_on: object | None = None  # the line just ticked: the cursor's row after
         self._acct_name: str | None = None  # resolved worker-side in _load_txns
-        # the bank lines the last complete flagged for review, both halves', as
+        # the bank lines the last complete flagged for review, every account's, as
         # the flagged lines' screen last left them
         self._flagged: list[str] = []
         # last painted rows, cached so a theme change repaints from memory
@@ -1531,8 +1548,8 @@ class ReconciliationDetailScreen(
 
     # ---- assign / unassign ----------------------------------------------
     def on_check_list_toggled(self, event: CheckList.Toggled) -> None:
-        """`space`: one `PUT` of `reconciliation_id` on one part of the line,
-        which puts every part in the batch or takes every part out
+        """`space`: one `PUT` of `statement_id` on one part of the line,
+        which puts every part in the statement or takes every part out
         (contract: PUT /v1/transactions/{transaction_id}, "Line fields"). The
         mixin queue sends one PUT at a time, in order; once the last one is in,
         the screen reads the batch and its lines again, the cursor on the line
@@ -1544,7 +1561,7 @@ class ReconciliationDetailScreen(
         self.run_write(
             "PUT",
             f"/transactions/{part}",
-            json_body={"reconciliation_id": self._id if event.checked else None},
+            json_body={"statement_id": self._id if event.checked else None},
             on_success=self._assigned,
             on_error=self._assign_failed,
         )
@@ -1595,9 +1612,9 @@ class ReconciliationDetailScreen(
             return
         if self._busy:
             return
-        # The engine refuses to complete without the ending balance (contract:
-        # POST /v1/reconciliations/{reconciliation_id}/complete, "The ending
-        # balance must be entered"), so an empty one is asked for first.
+        # The engine refuses to complete without every ending balance (contract:
+        # POST /v1/statements/{statement_id}/complete, "Every ending balance
+        # must be entered"), so the opened account's, when empty, is asked for first.
         if self._record.get("ending_balance_cents") is None:
             self._ask_ending_balance()
             return
@@ -1614,7 +1631,7 @@ class ReconciliationDetailScreen(
             f" of the {n} ticked {rows}.",
             lambda: self._status_action(
                 "POST",
-                f"/reconciliations/{self._id}/complete",
+                f"/statements/{self._id}/complete",
                 2,
                 "completed",
                 on_response=self._report_close,
@@ -1644,20 +1661,20 @@ class ReconciliationDetailScreen(
         self._busy = True
         self.run_write(
             "PUT",
-            f"/reconciliations/{self._id}",
-            json_body={"ending_balance_cents": cents},
+            f"/statements/{self._id}",
+            json_body=ending_balance_body(self._record, self._account_id, cents),
             on_response=self._balance_saved_record,
             on_success=self._balance_saved,
             on_error=self._balance_failed,
-            # `r` on this screen reads the reconciliation again
+            # `r` on this screen reads the statement again
             error_text=list_refusal_text,
         )
 
     def _balance_saved_record(self, body: dict) -> None:
-        """The engine's own record after the save: the header shows its end and
-        diff before the complete question asks."""
+        """The engine's own statement after the save, opened on this account:
+        the header shows its end and diff before the complete question asks."""
         if body.get("id") == self._id:
-            self._apply_fresh_record(body)
+            self._apply_fresh_record(account_view(body, self._account_id))
 
     def _balance_saved(self) -> None:
         self._busy = False
@@ -1674,13 +1691,13 @@ class ReconciliationDetailScreen(
             "Revert to draft?",
             "Unlocks the assigned transactions and this batch's balances.",
             lambda: self._status_action(
-                "POST", f"/reconciliations/{self._id}/revert", 1, "reverted to draft"
+                "POST", f"/statements/{self._id}/revert", 1, "reverted to draft"
             ),
         )
 
     def action_delete(self) -> None:
         # No draft-only pre-guard: the engine refuses to delete a completed
-        # reconciliation (`RECONCILIATION_NOT_DRAFT`), and the note shows its words
+        # statement (`RECONCILIATION_NOT_DRAFT`), and the note shows its words
         # with the line naming `u` (thin wrapper). Sent from this screen, where
         # `r` reads it again, so a refusal's line is the list one.
         self._confirm(
@@ -1689,7 +1706,7 @@ class ReconciliationDetailScreen(
             "No screen can bring it back.",
             lambda: self._status_action(
                 "DELETE",
-                f"/reconciliations/{self._id}",
+                f"/statements/{self._id}",
                 None,
                 "deleted",
                 error_text=list_refusal_text,
@@ -1725,13 +1742,18 @@ class ReconciliationDetailScreen(
         )
 
     def _report_close(self, body: dict) -> None:
-        """What `complete` answers beside the record: the uncovered-days report
-        (`_report_gap`) and the lines it flagged for review (`_take_flagged`)."""
+        """What `complete` answers on each balance beside its figures: the
+        uncovered-days report (`_report_gap`) and the lines it flagged for
+        review (`_take_flagged`)
+        (contract: POST /v1/statements/{statement_id}/complete, "Response")."""
         self._report_gap(body)
         self._take_flagged(body)
 
     def _report_gap(self, body: dict) -> None:
-        """Surface `complete`'s `warnings` — the uncovered-days report.
+        """Surface the opened account's `warnings` from `complete` — the
+        uncovered-days report of that account, read off its own entry in
+        `balances` (`balance_of`) beside its `coverage_gap`; another account's
+        gap is that account's, and this screen shows this one alone.
 
         Shown as a line under the header rather than a toast: the whole value of
         this message is not being missed, and a toast fades in five seconds. It
@@ -1743,7 +1765,7 @@ class ReconciliationDetailScreen(
         the rows they name. The review surface for that is the "no batch"
         pane (`u`).
         """
-        warnings = body.get("warnings")
+        warnings = balance_of(body, self._account_id).get("warnings")
         self._show_warnings(warnings if isinstance(warnings, list) else [])
 
     def _show_warnings(self, warnings: list) -> None:
@@ -1757,11 +1779,9 @@ class ReconciliationDetailScreen(
         line.display = True
 
     def _take_flagged(self, body: dict) -> None:
-        """The ids of the bank lines the close flagged for review, the named
-        half's `review_lines`, then the other half's (`twin.review_lines`)
-        (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response").
-        The screen showing them opens once the complete's success has landed
-        (`_action_done`)."""
+        """The ids of the bank lines the close flagged for review, every
+        account's of the statement (`review_line_ids`). The screen showing them
+        opens once the complete's success has landed (`_action_done`)."""
         self._show_flagged(review_line_ids(body))
 
     def _show_flagged(self, ids: list[str]) -> None:
@@ -1804,7 +1824,7 @@ class ReconciliationDetailScreen(
         done = verb.split()[0]
         toast(self, message, title=f"Couldn't {_UNDONE.get(done, done)}", severity="error")
         if verb == "completed":
-            # Read the reconciliation fresh: a refusal can say what the screen
+            # Read the statement fresh: a refusal can say what the screen
             # last read is out of date (an ending balance cleared elsewhere),
             # and the next `c` decides on the header it shows.
             self._load_txns(refresh_record=True)
@@ -1830,20 +1850,6 @@ def line_count(n: int) -> str:
     return f"{n} line" if n == 1 else f"{n} lines"
 
 
-def review_line_ids(body: dict) -> list[str]:
-    """The ids of the bank lines a close flagged for review, the named half's
-    `review_lines`, then the other half's (`twin.review_lines`)
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
-    twin = body.get("twin")
-    halves = [body, twin] if isinstance(twin, dict) else [body]
-    ids: list[str] = []
-    for half in halves:
-        named = half.get("review_lines")
-        if isinstance(named, list):
-            ids.extend(str(line_id) for line_id in named if line_id)
-    return ids
-
-
 def flagged_note(n: int) -> Text:
     """The `⚑` line of a close that flagged `n` lines, and `f` beside it: on a
     statement after its complete, and after a statement PDF closed it."""
@@ -1859,7 +1865,7 @@ def flagged_note(n: int) -> Text:
 
 #: What to do with a flagged line, under the count (pane 1A of
 #: docs/mockups/expense-world-statement-flagged-lines.html): the three choices
-#: (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "What a client
+#: (contract: POST /v1/statements/{statement_id}/complete, "What a client
 #: does with a flagged line").
 FLAGGED_CHOICES = (
     "For each: if it belongs to this statement, revert, tick it, complete again.",
@@ -1916,9 +1922,9 @@ class FlaggedLinesScreen(EngineWriteMixin, ContentSwapLockMixin, AdaptiveRowsMix
     """The lines a statement's close flagged for review (pane 1A of
     docs/mockups/expense-world-statement-flagged-lines.html).
 
-    A complete names them by id alone, on each half
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"),
-    so the screen reads them by those ids, oldest first, both halves together
+    A complete names them by id alone, on each balance
+    (contract: POST /v1/statements/{statement_id}/complete, "Response"),
+    so the screen reads them by those ids, oldest first, every account's together
     (`reads.fetch_bank_lines_by_ids`, `sort=date_asc`), and lists them in the
     engine's order: `Date · Account · Title · Amount`. A line the engine no
     longer has is left out of the read, so it drops from the list. `⏎` opens

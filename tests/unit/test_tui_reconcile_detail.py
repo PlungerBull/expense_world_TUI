@@ -1,10 +1,13 @@
 """Reconciliation working-screen tests — the bank-line checklist + assign/complete.
 
 Every list reads `GET /bank-lines`: a purchase split into parts is one row with
-its total, and a tick is one `PUT` of `reconciliation_id` on one of its parts
+its total, and a tick is one `PUT` of `statement_id` on one of its parts
 (contract: GET /v1/bank-lines)
-(contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment")."""
+(contract: PUT /v1/transactions/{transaction_id}, "Statement assignment"). Complete,
+revert and delete act on the whole statement under `/statements/{id}`, and the
+ending balance is saved in its `balances` (contract: PUT /v1/statements/{statement_id})."""
 
+import json
 import threading
 
 import httpx
@@ -18,6 +21,7 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
     account_view,
+    ending_balance_body,
     line_rows,
 )
 from expense.tui.widgets.checklist import CheckList
@@ -29,16 +33,17 @@ from tests.unit.helpers import (
     archived_refusal,
     archived_words,
     bank_line_row,
-    complete_answer,
     cursor_page,
     edit_limits,
+    error_body,
     error_response,
     import_part,
     put_answer,
-    reconciliation_answer,
     refusal_text,
     render_text,
     run_app,
+    statement_complete_answer,
+    statement_put_answer,
     statement_record,
     wait_for,
 )
@@ -47,7 +52,7 @@ from tests.unit.helpers import (
 def _part(tx_id: str, cents: int, *, line: str, day: str, title: str, recon=None) -> dict:
     return {
         **import_part(tx_id, cents, account_id="acc1", line=line, day=day, title=title),
-        "reconciliation_id": recon,
+        "statement_id": recon,
         "category_id": "c1",
         "hashtag_ids": ["h1"],
         "description": "a note the list never shows",
@@ -194,6 +199,21 @@ def _statement(**balance) -> dict:
 #: fields with acc1's entry in `balances` over them (`account_view`).
 STATEMENT = _statement()
 DRAFT = account_view(STATEMENT, "acc1")
+#: The statement's writes: the ending balance's save, complete, revert and delete.
+STATEMENT_PATH = "/statements/r1"
+COMPLETE_PATH = "/statements/r1/complete"
+REVERT_PATH = "/statements/r1/revert"
+
+#: acc2's balances in statement r1 on a holder of two accounts, a card's dollars:
+#: none of acc1's figures.
+ACC2 = {
+    "account_id": "acc2",
+    "beginning_balance_cents": 5000,
+    "ending_balance_cents": 7000,
+    "difference_cents": 120,
+}
+#: Statement r1 on a card's holder: acc2's balances first, then acc1's as `STATEMENT`'s.
+CARD = statement_record({"id": "r1", "balances": [ACC2, *STATEMENT["balances"]]})
 
 
 def _patch(monkeypatch):
@@ -293,11 +313,11 @@ def test_draft_lists_assigned_checked_plus_available(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, monkeypatch):
-    """`space` on a split purchase: one `PUT` on one of its parts, then the
-    month and its lines are read again, and the cursor stays on that row."""
+def test_tick_puts_statement_id_on_one_part_then_reads_again(fake_client, monkeypatch):
+    """`space` on a split purchase: one `PUT` of `statement_id` on one of its parts,
+    then the statement and its lines are read again, and the cursor stays on that row."""
     statement_reads = _patch(monkeypatch)
-    ticked = {**FARMACIA, "parts": [{**p, "reconciliation_id": "r1"} for p in FARMACIA["parts"]]}
+    ticked = {**FARMACIA, "parts": [{**p, "statement_id": "r1"} for p in FARMACIA["parts"]]}
 
     async def scenario(pilot, app):
         screen = ReconciliationDetailScreen(dict(DRAFT))
@@ -313,7 +333,7 @@ def test_tick_puts_reconciliation_id_on_one_part_then_reads_again(fake_client, m
         await pilot.press("space")
         await wait_for(pilot, lambda: fake_client.puts)
         await wait_for(pilot, lambda: screen._list is not first)
-        assert fake_client.puts == [("/transactions/t2a", {"reconciliation_id": "r1"})]
+        assert fake_client.puts == [("/transactions/t2a", {"statement_id": "r1"})]
         assert statement_reads == ["r1"]  # the header's figures, read again
         assert [r[0] for r in screen._list._rows] == ["l1", "l2", "l3"]  # ticked rows first
         assert screen._list.checked == {"l1", "l2"}
@@ -332,7 +352,7 @@ def test_untick_sends_null_on_one_part_then_reads_again(fake_client, monkeypatch
         first = screen._list
         await pilot.press("space")  # the cursor starts on NETFLIX, ticked
         await wait_for(pilot, lambda: screen._list is not first)
-        assert fake_client.puts == [("/transactions/t1", {"reconciliation_id": None})]
+        assert fake_client.puts == [("/transactions/t1", {"statement_id": None})]
         assert statement_reads == ["r1"]
         assert screen._list.cursor_key == "l1"
 
@@ -363,7 +383,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
             )
         )
         read = mock.get(f"{ENGINE_URL}/v1/statements/r1").mock(httpx.Response(200, json=STATEMENT))
-        ticked = [{**p, "reconciliation_id": "r1", "version": 2} for p in FARMACIA["parts"]]
+        ticked = [{**p, "statement_id": "r1", "version": 2} for p in FARMACIA["parts"]]
         answer = put_answer(ticked[0], ticked)
         route = mock.put(f"{ENGINE_URL}/v1/transactions/t2a").mock(httpx.Response(200, json=answer))
         run_app(scenario)
@@ -371,7 +391,7 @@ def test_a_tick_carries_one_idempotency_key(configured, monkeypatch):
     assert read.call_count == 1  # the statement, read again by its id after the tick
     request = route.calls.last.request
     assert request.headers["X-Idempotency-Key"]
-    assert request.read() == b'{"reconciliation_id":"r1"}'
+    assert request.read() == b'{"statement_id":"r1"}'
     sent = [dict(call.request.url.params) for call in lines.calls]
     assert {"statement_id": "r1", "account_id": "acc1", "limit": "200"} in sent
     assert {
@@ -421,8 +441,8 @@ def test_rapid_toggles_serialize_puts_in_order(fake_client, monkeypatch):
     run_app(scenario)
     assert max_active == 1  # serialized: never two PUTs in flight
     assert fake_client.puts == [
-        ("/transactions/t1", {"reconciliation_id": None}),
-        ("/transactions/t2a", {"reconciliation_id": "r1"}),
+        ("/transactions/t1", {"statement_id": None}),
+        ("/transactions/t2a", {"statement_id": "r1"}),
     ]
 
 
@@ -473,22 +493,26 @@ def test_toggle_error_drops_queued_intents_and_resyncs(fake_client, monkeypatch)
 @pytest.mark.parametrize(
     "error",
     [
+        # The statement's refusals of an assignment, on `statement_id`
+        # (contract: "Statements", "Assigning transactions").
         EngineError(
             "VALIDATION_ERROR",
-            "Period 2026-04-01 to 2026-04-30 is sealed by completed reconciliation 'April'.",
-            {"reconciliation_id": "Period is sealed."},
+            "Cannot assign transactions to a completed statement.",
+            {"statement_id": "Cannot assign transactions to a completed statement."},
             422,
             {},
-            reasons={"reconciliation_id": "PERIOD_SEALED"},
+            reasons={"statement_id": "RECONCILIATION_COMPLETED"},
         ),
         EngineError(
             "VALIDATION_ERROR",
-            "Transaction t2b, another part of the same bank line, refuses this change. "
-            "Reconciliation validation failed.",
-            {"reconciliation_id": "Reconciliation account does not match transaction account."},
+            "Transaction t2b, another part of the same bank line, refuses this change.",
+            {
+                "statement_id": "The statement holds no balance of the transaction's account: "
+                "it is another holder's."
+            },
             422,
             {},
-            reasons={"reconciliation_id": "ACCOUNT_MISMATCH"},
+            reasons={"statement_id": "ACCOUNT_MISMATCH"},
         ),
     ],
 )
@@ -524,11 +548,11 @@ def test_a_refused_tick_shows_the_engines_words_and_reads_again(fake_client, mon
 def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client, monkeypatch):
     """Screen 3 A of expense-world-archived-account.html: the batch was opened
     before its account was archived, and `space` is refused. `Couldn't update`
-    carries the engine's words and its `reconciliation_id` words, no line of
+    carries the engine's words and its `statement_id` words, no line of
     the app's; the list is read again as after any refused tick, the engine's
     ticks kept and the cursor on row 1."""
     _patch(monkeypatch)
-    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "reconciliation_id")
+    err = archived_refusal(422, ARCHIVED_PUT_WORDS, "statement_id")
     fake_client.errors["PUT"] = err
     notices: list = []
     monkeypatch.setattr(
@@ -549,8 +573,7 @@ def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client,
         assert notices == [
             (
                 "Couldn't update",
-                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n"
-                f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}",
+                f"VALIDATION_ERROR — {ARCHIVED_PUT_WORDS}\n  statement_id: {ARCHIVED_FIELD_WORDS}",
             )
         ]
         assert notices[0][1] == refusal_text(err, None)
@@ -559,7 +582,7 @@ def test_a_tick_on_an_archived_account_shows_the_engine_words_alone(fake_client,
         assert screen._record["status"] == 1
 
     run_app(scenario)
-    assert fake_client.puts == [("/transactions/t2a", {"reconciliation_id": "r1"})]
+    assert fake_client.puts == [("/transactions/t2a", {"statement_id": "r1"})]
 
 
 def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_client, monkeypatch):
@@ -583,8 +606,8 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
     real_put = fake_client.put
     refusal = EngineError(
         "VALIDATION_ERROR",
-        "Period 2026-04-01 to 2026-04-30 is sealed by completed reconciliation 'April'.",
-        {"reconciliation_id": "Period is sealed."},
+        "Cannot assign transactions to a completed statement.",
+        {"statement_id": "Cannot assign transactions to a completed statement."},
         422,
         {},
     )
@@ -618,8 +641,8 @@ def test_a_burst_ending_in_a_refusal_reads_the_month_and_the_list_again(fake_cli
         await wait_for(pilot, lambda: screen._list is not first)
         await pilot.pause()  # let any further read settle, then count
         assert fake_client.puts == [
-            ("/transactions/t1", {"reconciliation_id": None}),
-            ("/transactions/t2a", {"reconciliation_id": "r1"}),
+            ("/transactions/t1", {"statement_id": None}),
+            ("/transactions/t2a", {"statement_id": "r1"}),
         ]
         assert statement_reads == ["r1"]  # the header's figures, read again once
         assert len(line_reads) - loaded == 2  # the batch's lines and the rest, once
@@ -680,8 +703,8 @@ def test_a_tick_while_a_reload_runs_keeps_the_cursor_on_it(fake_client, monkeypa
         put_open.set()
         await wait_for(pilot, lambda: screen._list is not first)
         assert fake_client.puts == [
-            ("/transactions/t1", {"reconciliation_id": None}),
-            ("/transactions/t2a", {"reconciliation_id": "r1"}),
+            ("/transactions/t1", {"statement_id": None}),
+            ("/transactions/t2a", {"statement_id": "r1"}),
         ]
         assert screen._list.cursor_key == "l2"
 
@@ -794,9 +817,9 @@ def test_toggle_burst_puts_every_toggle_in_order(fake_client, monkeypatch):
         await wait_for(pilot, lambda: screen._list is not first)
         await pilot.pause()
         assert fake_client.puts == [
-            ("/transactions/t1", {"reconciliation_id": None}),
-            ("/transactions/t2a", {"reconciliation_id": "r1"}),
-            ("/transactions/t1", {"reconciliation_id": "r1"}),
+            ("/transactions/t1", {"statement_id": None}),
+            ("/transactions/t2a", {"statement_id": "r1"}),
+            ("/transactions/t1", {"statement_id": "r1"}),
         ]
         assert len(reads) - loaded == 2  # one re-read: the batch's lines and the rest
 
@@ -875,18 +898,18 @@ def test_complete_confirms_then_posts(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")  # confirm
         await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [("/reconciliations/r1/complete", None)]
+        assert fake_client.posts == [(COMPLETE_PATH, None)]
 
     run_app(scenario)
 
 
-#: NETFLIX once its reconciliation is completed: every line field locked and its
+#: NETFLIX once its statement is completed: every line field locked and its
 #: one part's amount held as the total (tests/contract/test_bank_line_edit_limits.py).
 LOCKED_NETFLIX = {
     **NETFLIX,
     "edit_limits": edit_limits(
         locked_fields=dict.fromkeys(
-            ("title", "date", "account_id", "reconciliation_id", "operation_code"), "LOCKED"
+            ("title", "date", "account_id", "statement_id", "operation_code"), "LOCKED"
         ),
         total_fixed=True,
         locked_part_fields={"t1": {"amount_cents": "SPLIT_TOTAL_MISMATCH"}},
@@ -984,7 +1007,7 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: notices)
-        assert fake_client.deletes == ["/reconciliations/r1"]  # request was attempted
+        assert fake_client.deletes == [STATEMENT_PATH]  # request was attempted
         assert any("Revert to draft first" in m for m in notices)
 
     run_app(scenario)
@@ -999,18 +1022,18 @@ def test_delete_completed_surfaces_engine_409(fake_client, monkeypatch):
     ids=["screen-8B", "screen-5A"],
 )
 def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch, reason, line):
-    """The engine's words, then the line naming this screen's own key: `u`
-    reverts, `r` reads it again."""
+    """The engine's words, on `statement_id` (contract: DELETE /v1/statements/{statement_id}),
+    then the line naming this screen's own key: `u` reverts, `r` reads it again."""
     completed = {**DRAFT, "status": 2}
     _patch(monkeypatch)
     words = "Cannot delete a completed reconciliation. Revert to draft first."
     fake_client.errors["DELETE"] = EngineError(
         "CONFLICT",
         words,
-        {"reconciliation_id": "Must be a draft."},
+        {"statement_id": "Must be a draft statement."},
         409,
         {},
-        {"reconciliation_id": reason},
+        {"statement_id": reason},
     )
     notices: list = []
     monkeypatch.setattr(
@@ -1030,7 +1053,7 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
         assert notices == [
             (
                 "Couldn't delete",
-                f"CONFLICT — {words}\n  reconciliation_id: Must be a draft.\n\n{line}",
+                f"CONFLICT — {words}\n  statement_id: Must be a draft statement.\n\n{line}",
             )
         ]
 
@@ -1040,22 +1063,23 @@ def test_a_refused_delete_names_the_key_on_this_screen(fake_client, monkeypatch,
 @pytest.mark.parametrize(
     ("key", "verb", "method", "path"),
     [
-        ("c", "complete", "POST", "/reconciliations/r1/complete"),
-        ("u", "revert", "POST", "/reconciliations/r1/revert"),
-        ("d", "delete", "DELETE", "/reconciliations/r1"),
+        ("c", "complete", "POST", COMPLETE_PATH),
+        ("u", "revert", "POST", REVERT_PATH),
+        ("d", "delete", "DELETE", STATEMENT_PATH),
     ],
     ids=["complete", "revert", "delete"],
 )
 def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     fake_client, monkeypatch, key, verb, method, path
 ):
-    """Screen 3 A of expense-world-archived-account.html: the batch was opened
-    before its account was archived; `c`, `u` or `d`, then `y`, is refused.
-    `Couldn't <verb>` carries the engine's words and its `reconciliation_id`
-    words, no line of the app's; the batch stays open as a draft."""
+    """Screen 3 A of expense-world-archived-account.html: the statement was opened
+    before its holder was archived; `c`, `u` or `d`, then `y`, is refused on
+    `statement_id` (contract: POST /v1/statements/{statement_id}/complete, "An archived
+    holder"). `Couldn't <verb>` carries the engine's words and its `statement_id`
+    words, no line of the app's; the statement stays open as a draft."""
     _patch(monkeypatch)
-    _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the batch fresh
-    err = archived_refusal(409, archived_words(verb, "reconciliation"), "reconciliation_id")
+    _fresh_read(monkeypatch, STATEMENT)  # a refused complete reads the statement fresh
+    err = archived_refusal(409, archived_words(verb, "reconciliation"), "statement_id")
     fake_client.errors[method] = err
     notices = _notes(monkeypatch)
 
@@ -1072,7 +1096,7 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
             (
                 f"Couldn't {verb}",
                 f"CONFLICT — {archived_words(verb, 'reconciliation')}\n"
-                f"  reconciliation_id: {ARCHIVED_FIELD_WORDS}",
+                f"  statement_id: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
         ]
@@ -1085,10 +1109,33 @@ def test_a_status_write_on_an_archived_account_shows_the_engine_words_alone(
     assert [(m, p) for m, p, _b in fake_client.calls if m != "GET"] == [(method, path)]
 
 
-def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatch):
-    """No ≥1-assigned pre-guard: the confirm opens, the POST
-    fires, and the engine's 422 message toasts."""
+#: The engine's message on a complete of a statement with no transaction on any of its
+#: accounts (the engine's hand-off of 2026-10-28, its section 4).
+NO_TRANSACTIONS_WORDS = "Cannot complete a statement with no transaction on any of its accounts."
+
+
+def _no_transactions(*accounts: str) -> EngineError:
+    """The engine's refusal of a complete with no transaction on any account: keyed
+    `balances.<account_id>.transactions` once for every account of the statement
+    (contract: POST /v1/statements/{statement_id}/complete)."""
+    keys = [f"balances.{account}.transactions" for account in accounts]
+    fields = dict.fromkeys(keys, "At least one transaction must be assigned.")
+    reasons = dict.fromkeys(keys, "NO_TRANSACTIONS_ASSIGNED")
+    body = error_body("VALIDATION_ERROR", NO_TRANSACTIONS_WORDS, fields, reasons)
+    return EngineError(
+        "VALIDATION_ERROR", NO_TRANSACTIONS_WORDS, fields, 422, body, reasons=reasons
+    )
+
+
+def test_complete_with_no_transaction_lands_under_the_opened_accounts_transactions(
+    fake_client, monkeypatch
+):
+    """No ≥1-assigned pre-guard: the confirm opens and the POST fires on a card's
+    statement opened on acc1. The engine refuses it on every account's
+    `transactions`, and `Couldn't complete` shows its words whole, acc1's line
+    among them, no line of the app's."""
     _patch(monkeypatch)
+    _fresh_read(monkeypatch, CARD)
 
     def fake_fetch(cfg, **k):  # nothing assigned to r1
         if k.get("account") == "acc1" and k.get("unreconciled"):
@@ -1096,54 +1143,69 @@ def test_complete_with_zero_assigned_surfaces_engine_422(fake_client, monkeypatc
         return cursor_page([])
 
     monkeypatch.setattr("expense.reads.fetch_bank_lines", fake_fetch)
-    fake_client.errors["POST"] = EngineError(
-        "VALIDATION_ERROR",
-        "Cannot complete reconciliation with no assigned transactions.",
-        {"transactions": "At least one transaction must be assigned."},
-        422,
-        {},
-        reasons={"transactions": "NO_TRANSACTIONS_ASSIGNED"},
-    )
-    notices: list = []
-    monkeypatch.setattr(
-        ReconciliationDetailScreen, "notify", lambda self, message, **kw: notices.append(message)
-    )
+    err = _no_transactions("acc2", "acc1")
+    fake_client.errors["POST"] = err
+    notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
-        screen = ReconciliationDetailScreen(dict(DRAFT))
+        screen = ReconciliationDetailScreen(account_view(CARD, "acc1"), currency="PEN")
         await app.push_screen(screen)
         await _wait_list(screen, pilot)
         assert not screen._list.checked
-        screen.action_complete()  # no pre-block: confirm opens
+        await pilot.press("c")  # no pre-block: confirm opens
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: notices)
-        assert fake_client.posts == [("/reconciliations/r1/complete", None)]
-        assert any("At least one transaction must be assigned" in m for m in notices)
+        assert fake_client.posts == [(COMPLETE_PATH, None)]
+        assert notices[0] == ("Couldn't complete", refusal_text(err, None), "error")
+        assert (
+            "  balances.acc1.transactions: At least one transaction must be assigned."
+            in notices[0][1].splitlines()
+        )
+        assert notices[0][1].splitlines()[0] == f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}"
 
     run_app(scenario)
 
 
+#: The days of `GAP`: from the day after the previous completed statement on acc1 to
+#: the day before this statement's first (contract: POST
+#: /v1/statements/{statement_id}/complete, "Response").
+GAP_DAYS = {
+    "first_uncovered_day": "2026-02-25",
+    "last_uncovered_day": "2026-03-31",
+    "unfiled_count": 3,
+}
+#: The engine's sentence for `GAP_DAYS`, as the contract prints it (contract: POST
+#: /v1/statements/{statement_id}/complete, "Response"), built from the same object.
 GAP = (
-    "2026-02-25 to 2026-04-01 is not covered by any completed reconciliation on this "
-    "account — the days after 'February 2026' and before this period are sealed by nothing."
+    "The days 2026-02-25 to 2026-03-31 are not covered by any completed statement on this "
+    "account — they fall between 'February 2026' and this period (3 unfiled transactions "
+    "in them)."
 )
 
 
-#: The `coverage_gap` built from the same object as `GAP` (contract: POST
-#: /v1/reconciliations/{reconciliation_id}/complete, "Response"): its two days.
-GAP_DAYS = {
-    "first_uncovered_day": "2026-02-25",
-    "last_uncovered_day": "2026-04-01",
-    "unfiled_count": 0,
-}
-
-
-def _complete_with_warnings(fake_client, warnings: list[str]) -> None:
-    """The complete's answer: `GAP` comes with its `coverage_gap`, no warning with none."""
-    fake_client.write_responses["/reconciliations/r1/complete"] = complete_answer(
-        {**DRAFT, "status": 2}, warnings=warnings, coverage_gap=GAP_DAYS if warnings else None
+def _complete_with_warnings(fake_client, warnings: list[str], *, statement=STATEMENT) -> None:
+    """The complete's answer: acc1's balance carrying `warnings`, with `GAP_DAYS` as its
+    `coverage_gap` when there are any and `None` when there are none, and every other
+    balance of `statement` as it reads."""
+    acc1 = {"warnings": warnings, "coverage_gap": GAP_DAYS if warnings else None}
+    balances = [
+        {**balance, **acc1} if balance["account_id"] == "acc1" else balance
+        for balance in statement["balances"]
+    ]
+    fake_client.write_responses[COMPLETE_PATH] = statement_complete_answer(
+        {**statement, "status": 2, "balances": balances}
     )
+
+
+def test_the_gap_falls_before_the_statement_and_its_sentence_names_its_days():
+    """The fixture is one the engine could send: the uncovered days end before the
+    statement's first, and the sentence names the days of its `coverage_gap`."""
+    assert GAP_DAYS["first_uncovered_day"] <= GAP_DAYS["last_uncovered_day"]
+    assert GAP_DAYS["last_uncovered_day"] < STATEMENT["date_start"]
+    days = f"{GAP_DAYS['first_uncovered_day']} to {GAP_DAYS['last_uncovered_day']}"
+    assert f"The days {days} are not covered" in GAP
+    assert f"({GAP_DAYS['unfiled_count']} unfiled transactions in them)." in GAP
 
 
 def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
@@ -1170,12 +1232,32 @@ def test_complete_gap_warning_is_a_line_not_a_toast(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: line.display)
-        text = str(line.visual)
-        assert "not covered by any completed reconciliation" in text
-        assert "2026-02-25 to 2026-04-01" in text  # the engine's own sentence, verbatim
+        assert str(line.visual) == f"⚠ {GAP}"  # the engine's own sentence, verbatim
         # the gap never replaces the success feedback
         await wait_for(pilot, lambda: notices)
         assert any("completed" in m for m in notices)
+
+    run_app(scenario)
+
+
+def test_another_accounts_gap_draws_no_line(fake_client, monkeypatch):
+    """The close's notes are per balance: on a card's statement opened on acc1, a gap
+    on acc2's balance alone is acc2's, and acc1's screen draws no line."""
+    _patch(monkeypatch)
+    balances = [{**ACC2, "warnings": [GAP], "coverage_gap": GAP_DAYS}, CARD["balances"][1]]
+    _complete_with_warnings(fake_client, [], statement={**CARD, "balances": balances})
+
+    async def scenario(pilot, app):
+        screen = ReconciliationDetailScreen(account_view(CARD, "acc1"), currency="PEN")
+        await app.push_screen(screen)
+        await _wait_list(screen, pilot)
+        await pilot.press("c")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: screen._record["status"] == 2)
+        await pilot.pause()
+        assert fake_client.posts == [(COMPLETE_PATH, None)]
+        assert not screen.query_one("#rwarn", Static).display
 
     run_app(scenario)
 
@@ -1238,7 +1320,7 @@ def test_revert_on_draft_posts_idempotently(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+        assert fake_client.posts == [(REVERT_PATH, None)]
         await wait_for(pilot, lambda: notices)
         assert any("reverted to draft" in m for m in notices)
 
@@ -1257,7 +1339,7 @@ def test_revert_posts(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+        assert fake_client.posts == [(REVERT_PATH, None)]
 
     run_app(scenario)
 
@@ -1275,7 +1357,7 @@ def test_revert_key_is_u(fake_client, monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
         await pilot.press("y")
         await wait_for(pilot, lambda: fake_client.posts)
-        assert fake_client.posts == [("/reconciliations/r1/revert", None)]
+        assert fake_client.posts == [(REVERT_PATH, None)]
 
     run_app(scenario)
 
@@ -1287,12 +1369,7 @@ CARD_FRESH = statement_record(
         "id": "r1",
         "status": 2,
         "balances": [
-            {
-                "account_id": "acc2",
-                "beginning_balance_cents": 5000,
-                "ending_balance_cents": 7000,
-                "difference_cents": 120,
-            },
+            ACC2,
             {
                 "account_id": "acc1",
                 "beginning_balance_cents": 958000,
@@ -1479,15 +1556,27 @@ def test_detail_fetch_error_notifies_not_crash(fake_client, monkeypatch):
 
 
 # ---- the ending balance, asked for at complete --------------------------------
-# The engine refuses to complete without it (contract: POST
-# /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
+# The engine refuses to complete without every one (contract: POST
+# /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
 
 NO_END_STATEMENT = _statement(ending_balance_cents=None, difference_cents=None)
 NO_END = account_view(NO_END_STATEMENT, "acc1")
 SAVED_STATEMENT = _statement(ending_balance_cents=1385320, difference_cents=0)
-SAVED = account_view(SAVED_STATEMENT, "acc1")
-PUT_PATH = "/reconciliations/r1"
-COMPLETE_PATH = "/reconciliations/r1/complete"
+#: The ending balance's save of 13,853.20 on acc1, in the statement's `balances`.
+SAVED_BODY = {"balances": [{"account_id": "acc1", "ending_balance_cents": 1385320}]}
+
+
+def test_the_ending_balance_is_saved_in_balances_naming_every_account():
+    """`PUT /statements/{id}` takes `balances` naming every account of the holder, each
+    once; the opened account's entry carries the figure, every other no balance, so
+    the engine keeps that account's (contract: PUT /v1/statements/{statement_id})."""
+    assert ending_balance_body(STATEMENT, "acc1", 1385320) == SAVED_BODY
+    assert ending_balance_body(CARD, "acc1", -12050) == {
+        "balances": [
+            {"account_id": "acc2"},
+            {"account_id": "acc1", "ending_balance_cents": -12050},
+        ]
+    }
 
 
 def _notes(monkeypatch) -> list:
@@ -1547,8 +1636,10 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
     engine's saved end and diff, then "Complete reconciliation?" and only `y`
     completes."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
-    fake_client.write_responses[COMPLETE_PATH] = complete_answer({**SAVED, "status": 2})
+    fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
+    fake_client.write_responses[COMPLETE_PATH] = statement_complete_answer(
+        {**SAVED_STATEMENT, "status": 2}
+    )
     notices = _notes(monkeypatch)
 
     async def scenario(pilot, app):
@@ -1556,7 +1647,7 @@ def test_enter_saves_the_balance_then_the_usual_question_and_y_completes(fake_cl
         await _type(pilot, "13853.20")
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
-        assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": 1385320})]
+        assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
         assert fake_client.posts == []  # the question comes first
         head = str(screen.query_one("#rhead", Static).visual)
         assert "end 13,853.20" in head and "diff —" in head and "status draft" in head
@@ -1578,8 +1669,8 @@ def test_the_sign_is_the_one_typed(fake_client, monkeypatch):
     """The amount is taken exactly as typed: a negative stays negative, a bare
     figure stays positive — never added or flipped."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = reconciliation_answer(
-        {**SAVED, "ending_balance_cents": -12050}
+    fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(
+        _statement(ending_balance_cents=-12050, difference_cents=0)
     )
 
     async def scenario(pilot, app):
@@ -1587,9 +1678,72 @@ def test_the_sign_is_the_one_typed(fake_client, monkeypatch):
         await _type(pilot, "-120.50")
         await pilot.press("enter")
         await wait_for(pilot, lambda: fake_client.puts)
-        assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": -12050})]
+        assert fake_client.puts == [
+            (STATEMENT_PATH, {"balances": [{"account_id": "acc1", "ending_balance_cents": -12050}]})
+        ]
 
     run_app(scenario)
+
+
+def test_a_cards_save_names_both_accounts_and_the_header_shows_the_opened_ones(
+    fake_client, monkeypatch
+):
+    """On a card's statement opened on acc1, `enter` sends one `PUT` naming both
+    accounts, acc1's with the figure and acc2's with none; the header then shows
+    acc1's entry of the engine's answer, never acc2's figures."""
+    _patch(monkeypatch)
+    no_end = statement_record({"id": "r1", "balances": [ACC2, *NO_END_STATEMENT["balances"]]})
+    saved = statement_record({"id": "r1", "balances": [ACC2, *SAVED_STATEMENT["balances"]]})
+    fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(saved)
+
+    async def scenario(pilot, app):
+        screen = await _open_box(pilot, app, record=account_view(no_end, "acc1"))
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+        assert fake_client.puts == [
+            (
+                STATEMENT_PATH,
+                {
+                    "balances": [
+                        {"account_id": "acc2"},
+                        {"account_id": "acc1", "ending_balance_cents": 1385320},
+                    ]
+                },
+            )
+        ]
+        head = str(screen.query_one("#rhead", Static).visual)
+        assert "begin 9,580.00    end 13,853.20" in head
+        assert "70.00" not in head and "1.20" not in head  # acc2's figures
+
+    run_app(scenario)
+
+
+def test_the_balance_save_is_one_put_under_one_key(configured, monkeypatch):
+    """Through the shared write path and the real HTTP client, `enter` in the box is
+    one `PUT /statements/{id}` carrying one `X-Idempotency-Key`, its body the
+    balance in `balances`."""
+    monkeypatch.setattr(
+        "expense.tui.screens.reconciliations.load_account_name_map", lambda: {"acc1": "BCP PEN"}
+    )
+
+    async def scenario(pilot, app):
+        await _open_box(pilot, app)
+        await _type(pilot, "13853.20")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmModal))
+
+    with respx.mock() as mock:
+        _detail_lines(mock)
+        route = mock.put(f"{ENGINE_URL}/v1{STATEMENT_PATH}").mock(
+            httpx.Response(200, json=statement_put_answer(SAVED_STATEMENT))
+        )
+        run_app(scenario)
+        writes = [call.request for call in mock.calls if call.request.method != "GET"]
+    assert route.call_count == 1
+    assert writes == [route.calls.last.request]
+    assert writes[0].headers["X-Idempotency-Key"]
+    assert json.loads(writes[0].read()) == SAVED_BODY
 
 
 @pytest.mark.parametrize("answer", ["n", "escape", "enter"])
@@ -1597,7 +1751,7 @@ def test_no_on_the_question_leaves_a_saved_draft(fake_client, monkeypatch, answe
     """A2: say no and the reconciliation stays a draft with its balance saved;
     the next `c` goes straight to the question, no box."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
+    fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
 
     async def scenario(pilot, app):
         screen = await _open_box(pilot, app)
@@ -1663,10 +1817,10 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
     fake_client.errors["PUT"] = EngineError(
         "CONFLICT",
         "The reconciliation changed.",
-        {"reconciliation_id": "Changed meanwhile."},
+        {"statement_id": "Changed meanwhile."},
         409,
         {},
-        {"reconciliation_id": "CONCURRENT_CHANGE"},
+        {"statement_id": "CONCURRENT_CHANGE"},
     )
     notices = _notes(monkeypatch)
 
@@ -1679,7 +1833,7 @@ def test_a_refused_save_shows_the_engines_words_and_completes_nothing(fake_clien
             (
                 "Couldn't save",
                 "CONFLICT — The reconciliation changed.\n"
-                "  reconciliation_id: Changed meanwhile.\n\n"
+                "  statement_id: Changed meanwhile.\n\n"
                 "It changed at the same moment: press r, then try again.",
                 "error",
             )
@@ -1696,11 +1850,13 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
 ):
     """Screen 3 A of expense-world-archived-account.html: `c` on a draft with
     no ending balance, opened before its account was archived; the figure's
-    save is refused. `Couldn't save` carries the engine's words and its
-    `ending_balance_cents` words, no line of the app's; nothing is completed
-    and the end stays empty."""
+    save is refused on the balance sent, `balances.<account_id>.ending_balance_cents`
+    (contract: PUT /v1/statements/{statement_id}, "An archived holder").
+    `Couldn't save` carries the engine's words and that field's words, no line of the
+    app's; nothing is completed and the end stays empty."""
     _patch(monkeypatch)
-    err = archived_refusal(422, ARCHIVED_RECONCILIATION_PUT_WORDS, "ending_balance_cents")
+    field = "balances.acc1.ending_balance_cents"
+    err = archived_refusal(422, ARCHIVED_RECONCILIATION_PUT_WORDS, field)
     fake_client.errors["PUT"] = err
     notices = _notes(monkeypatch)
 
@@ -1713,7 +1869,7 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
             (
                 "Couldn't save",
                 f"VALIDATION_ERROR — {ARCHIVED_RECONCILIATION_PUT_WORDS}\n"
-                f"  ending_balance_cents: {ARCHIVED_FIELD_WORDS}",
+                f"  {field}: {ARCHIVED_FIELD_WORDS}",
                 "error",
             )
         ]
@@ -1722,25 +1878,19 @@ def test_a_balance_save_on_an_archived_account_shows_the_engine_words_alone(
         assert screen._record["ending_balance_cents"] is None
 
     run_app(scenario)
-    assert fake_client.puts == [(PUT_PATH, {"ending_balance_cents": 1385320})]
+    assert fake_client.puts == [(STATEMENT_PATH, SAVED_BODY)]
     assert fake_client.posts == []
 
 
-def test_saved_then_complete_refused_says_which_half_went_through(fake_client, monkeypatch):
+def test_saved_then_complete_refused_says_the_balance_is_saved_and_the_complete_is_not(
+    fake_client, monkeypatch
+):
     """Screen 3: the balance saves, the complete is refused. The note says the
     balance is saved, then the engine's words; the header keeps the saved end,
     and the next `c` goes straight to the question."""
     _patch(monkeypatch)
-    fake_client.write_responses[PUT_PATH] = reconciliation_answer(SAVED)
-    words = "Cannot complete reconciliation with no assigned transactions."
-    fake_client.errors["POST"] = EngineError(
-        "VALIDATION_ERROR",
-        words,
-        {"transactions": "At least one transaction must be assigned."},
-        422,
-        {},
-        {"transactions": "NO_TRANSACTIONS_ASSIGNED"},
-    )
+    fake_client.write_responses[STATEMENT_PATH] = statement_put_answer(SAVED_STATEMENT)
+    fake_client.errors["POST"] = _no_transactions("acc1")
     _fresh_read(monkeypatch, SAVED_STATEMENT)
     notices = _notes(monkeypatch)
 
@@ -1754,8 +1904,8 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
         assert notices[0] == (
             "Couldn't complete",
             "The ending balance is saved. The reconciliation is not completed:\n"
-            f"VALIDATION_ERROR — {words}\n"
-            "  transactions: At least one transaction must be assigned.",
+            f"VALIDATION_ERROR — {NO_TRANSACTIONS_WORDS}\n"
+            "  balances.acc1.transactions: At least one transaction must be assigned.",
             "error",
         )
         await pilot.pause()
@@ -1771,21 +1921,23 @@ def test_saved_then_complete_refused_says_which_half_went_through(fake_client, m
 def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
     fake_client, monkeypatch
 ):
-    """Screen 4: the screen read a balance, the engine says it is missing. The
-    engine's words plus the line saying what to do; the screen reads the
-    reconciliation fresh, so the header's end is empty again and `c` starts
-    over from the box."""
+    """Screen 4: the screen read a balance, the engine says it is missing, on the
+    account's `balances.<account_id>.ending_balance_cents`
+    (contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be
+    entered"). The engine's words plus the line saying what to do; the screen reads the
+    statement fresh, so the header's end is empty again and `c` starts over from the box."""
     from expense.tui.screens.modals import AmountPromptModal
 
     _patch(monkeypatch)
     words = "A reconciliation needs its ending balance to be completed."
+    field = "balances.acc1.ending_balance_cents"
     fake_client.errors["POST"] = EngineError(
         "VALIDATION_ERROR",
         words,
-        {"ending_balance_cents": "Required to complete."},
+        {field: "Must be entered before completing."},
         422,
         {},
-        {"ending_balance_cents": "ENDING_BALANCE_REQUIRED"},
+        {field: "ENDING_BALANCE_REQUIRED"},
     )
     _fresh_read(monkeypatch, NO_END_STATEMENT)
     notices = _notes(monkeypatch)
@@ -1800,7 +1952,7 @@ def test_complete_refused_for_a_missing_balance_shows_the_line_and_reads_fresh(
         await wait_for(pilot, lambda: notices)
         assert notices[0] == (
             "Couldn't complete",
-            f"VALIDATION_ERROR — {words}\n  ending_balance_cents: Required to complete.\n\n"
+            f"VALIDATION_ERROR — {words}\n  {field}: Must be entered before completing.\n\n"
             "Press c again: the app asks for it first.",
             "error",
         )

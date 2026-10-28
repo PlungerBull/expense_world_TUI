@@ -159,14 +159,14 @@ def hashtag_refusal(code: str, status: int, reason: str, *, item: int | None = N
 
 #: The engine's words on each key a write on an archived account refuses, every
 #: route alike (contract: PUT /v1/transactions/{transaction_id}, "Archived accounts")
-#: (contract: PUT /v1/reconciliations/{reconciliation_id}, "Archived accounts").
+#: (contract: PUT /v1/statements/{statement_id}, "An archived holder").
 ARCHIVED_FIELD_WORDS = "The account is archived. Unarchive it first."
 #: The engine's message on a refused `PUT /transactions/{id}`.
 ARCHIVED_PUT_WORDS = (
     "The transaction's account is archived: only its category, hashtags and description "
     "can change. Unarchive the account first."
 )
-#: The engine's message on a refused `PUT /reconciliations/{id}`.
+#: The engine's message on a refused `PUT /statements/{id}`.
 ARCHIVED_RECONCILIATION_PUT_WORDS = (
     "The reconciliation's account is archived. Unarchive the account first."
 )
@@ -184,7 +184,7 @@ def archived_refusal(status: int, message: str, *keys: str) -> EngineError:
     revert, a `422 VALIDATION_ERROR` on a `PUT`
     (contract: DELETE /v1/transactions/{transaction_id})
     (contract: PUT /v1/bank-lines/{bank_line_id}, "Rules")
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete)."""
+    (contract: POST /v1/statements/{statement_id}/complete, "An archived holder")."""
     code = "CONFLICT" if status == 409 else "VALIDATION_ERROR"
     fields = dict.fromkeys(keys, ARCHIVED_FIELD_WORDS)
     reasons = dict.fromkeys(keys, "ACCOUNT_ARCHIVED")
@@ -350,25 +350,6 @@ def put_answer(named: dict, changed: list[dict], *, left: tuple[str, ...] = ()) 
             {"transaction": part, "left_statement": part["id"] in left} for part in changed
         ],
     }
-
-
-#: The three fields every reconciliation carries, on every read and every write's
-#: answer: its statement's other half and how far the statement is from ordered
-#: (contract: "Reconciliations", "Every reconciliation says its statement's other half
-#: and whether the statement is ordered").
-#: On an account without a statement code all three are null: `NO_STATEMENT`.
-NO_STATEMENT = {"twin_id": None, "unplaced_count": None, "shared_place_count": None}
-#: On an account with a statement code and no twin, its statement ordered: no line
-#: without a place, no place held twice.
-ORDERED_ALONE = {"twin_id": None, "unplaced_count": 0, "shared_place_count": 0}
-
-
-def reconciliation_answer(record: dict, twin: dict | None = None) -> dict:
-    """A reconciliation write's answer: the half the path names, after the write, plus
-    `twin`, the statement's other half, `None` when it has none
-    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response"). A complete's
-    answer is `complete_answer`."""
-    return {**record, "twin": twin}
 
 
 #: Every fixture builder that stands for an engine endpoint's answer, keyed by that
@@ -616,93 +597,6 @@ def sheet_import_answer(
         },
         "rows": rows,
         "counts": counts if counts is not None else sheet_counts(rows),
-    }
-
-
-#: A draft reconciliation as `GET /reconciliations/{id}` reads it, every field present,
-#: on an account without a statement code: what the write answers below spread a
-#: test's record over.
-_DRAFT = {
-    "id": "r1",
-    "user_id": "u-1",
-    "account_id": "acc1",
-    "name": "April 2026",
-    "date_start": "2026-04-01",
-    "date_end": "2026-04-30",
-    "status": 1,
-    "beginning_balance_cents": 0,
-    "ending_balance_cents": None,
-    "difference_cents": None,
-    **NO_STATEMENT,
-    "created_at": "2026-04-01T15:00:00Z",
-    "updated_at": "2026-04-01T15:00:00Z",
-    "version": 1,
-    "deleted_at": None,
-}
-#: The same reconciliation completed.
-_COMPLETED = {
-    **_DRAFT,
-    "status": 2,
-    "ending_balance_cents": 0,
-    "difference_cents": 0,
-    "updated_at": "2026-05-02T15:00:00Z",
-    "version": 2,
-}
-#: The same draft deleted: a deleted reconciliation has no twin
-#: (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response").
-_DELETED = {**_DRAFT, "deleted_at": "2026-05-02T15:00:00Z"}
-
-
-def _half(base: dict, record: dict | None) -> dict | None:
-    """`record` spread over `base`; None stays None (a reconciliation with no twin)."""
-    return None if record is None else {**base, **record}
-
-
-@answer_of("POST", "/v1/reconciliations/{reconciliation_id}/revert")
-def revert_answer(record: dict | None = None, *, twin: dict | None = None) -> dict:
-    """`POST /reconciliations/{id}/revert`'s answer: the half the path names after the
-    write, `record` spread over a draft, plus `twin`, the statement's other half spread
-    over a draft too, `None` when it has none
-    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)."""
-    return {**_DRAFT, **(record or {}), "twin": _half(_DRAFT, twin)}
-
-
-@answer_of("DELETE", "/v1/reconciliations/{reconciliation_id}")
-def delete_answer(record: dict | None = None, *, twin: dict | None = None) -> dict:
-    """`DELETE /reconciliations/{id}`'s answer: the half the path names as it is after
-    the delete, `record` spread over a deleted draft, plus `twin`, the statement's
-    other half spread over one too, `None` when it has none
-    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
-    return {**_DELETED, **(record or {}), "twin": _half(_DELETED, twin)}
-
-
-@answer_of("POST", "/v1/reconciliations/{reconciliation_id}/complete")
-def complete_answer(
-    record: dict | None = None,
-    *,
-    warnings: list[str] | None = None,
-    coverage_gap: dict | None = None,
-    review_lines: list[str] | None = None,
-    twin: dict | None = None,
-) -> dict:
-    """`POST /reconciliations/{id}/complete`'s answer: the half the path names after
-    the write, `record` spread over a completed reconciliation, plus `warnings` (`[]`
-    by default), `coverage_gap` (`None`: no gap), `review_lines` (the ids of the bank
-    lines the close flagged for review on the half's account, oldest first, `[]` by
-    default) and `twin`, the statement's other half spread over a completed one with
-    its own `warnings` (`[]`), `coverage_gap` (`None`) and `review_lines` (`[]`)
-    unless it names them, `None` when it has none. `warnings` and `coverage_gap` are
-    built from one object, so a gap's sentence comes with its `coverage_gap`
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")."""
-    return {
-        **_COMPLETED,
-        **(record or {}),
-        "warnings": list(warnings or []),
-        "coverage_gap": coverage_gap,
-        "review_lines": list(review_lines or []),
-        "twin": _half(
-            {**_COMPLETED, "warnings": [], "coverage_gap": None, "review_lines": []}, twin
-        ),
     }
 
 
@@ -1036,55 +930,6 @@ def fake_answer(method: str, path: str) -> Callable[[Callable[..., dict]], Calla
     return mark
 
 
-def _statement_of(client: "FakeClient", reconciliation_id: str) -> tuple[dict, dict | None]:
-    """The half the path names, as the test serves `GET /reconciliations/{id}` (its id
-    alone when it serves none), and its twin when that names a `twin_id`, read the
-    same way, naming the half back and, as a twin's account holds a statement code,
-    with an ordered statement unless the test serves it otherwise."""
-    served = client.get_responses
-    half = {"id": reconciliation_id, **served.get(f"/reconciliations/{reconciliation_id}", {})}
-    twin_id = half.get("twin_id")
-    if not twin_id:
-        return half, None
-    return half, {
-        **ORDERED_ALONE,
-        "id": twin_id,
-        "twin_id": reconciliation_id,
-        **served.get(f"/reconciliations/{twin_id}", {}),
-    }
-
-
-@fake_answer("POST", "/v1/reconciliations/{reconciliation_id}/revert")
-def _reverted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
-    half, twin = _statement_of(client, reconciliation_id)
-    return revert_answer({**half, "status": 1}, twin=twin and {**twin, "status": 1})
-
-
-@fake_answer("POST", "/v1/reconciliations/{reconciliation_id}/complete")
-def _completed(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
-    half, twin = _statement_of(client, reconciliation_id)
-    return complete_answer({**half, "status": 2}, twin=twin and {**twin, "status": 2})
-
-
-def _gone(record: dict) -> dict:
-    """`record` deleted: `deleted_at` set, no twin, and its lines unassigned, so both
-    counts `0`, or null without a statement code
-    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
-    counts = ("unplaced_count", "shared_place_count")
-    return {
-        **record,
-        "deleted_at": _DELETED["deleted_at"],
-        "twin_id": None,
-        **{key: 0 for key in counts if record.get(key) is not None},
-    }
-
-
-@fake_answer("DELETE", "/v1/reconciliations/{reconciliation_id}")
-def _deleted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
-    half, twin = _statement_of(client, reconciliation_id)
-    return delete_answer(_gone(half), twin=twin and _gone(twin))
-
-
 def _served_statement(client: "FakeClient", statement_id: str) -> dict:
     """The statement the path names, as the test serves `GET /statements/{id}` (its id
     alone when it serves none)."""
@@ -1291,11 +1136,9 @@ class FakeClient:
     when it has one, in the engine's shape, or else `{}`. `write_responses` is keyed by
     path alone, so `delete` never reads it: a PUT answer set for a path never comes
     back on a DELETE of it. `run_write`'s `on_response` reads the
-    engine's own body (`complete` carries `warnings` and `review_lines`). A reconciliation's
-    revert, complete and delete have entries: each answers the half the path names, as
-    the test serves `GET /reconciliations/{id}` (or its id alone), with its status after
-    the write, and its twin when that record names a `twin_id`. A statement's create,
-    revert, complete and delete have entries alike: the create answers what it was sent;
+    engine's own body (`complete` carries `warnings` and `review_lines` on each balance).
+    A statement's create, revert, complete and delete have entries: the create answers
+    what it was sent;
     the other three answer the statement the path names, as the test serves
     `GET /statements/{id}` (or its id alone), with its status after the write.
 

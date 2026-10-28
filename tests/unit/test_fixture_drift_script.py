@@ -404,7 +404,7 @@ def test_the_script_reads_the_builders_helpers_marks():
     builders = load_drift_script().answer_builders()
 
     assert builders == helpers.ANSWER_BUILDERS
-    assert "POST /v1/reconciliations/{reconciliation_id}/complete" in builders
+    assert "POST /v1/statements/{statement_id}/complete" in builders
     assert all(isinstance(build(), dict) for build in builders.values())
 
 
@@ -424,11 +424,14 @@ def test_a_marked_builder_refuses_an_answer_with_fewer_keys_than_its_bare_one(mo
 
 
 def test_the_complete_answer_keeps_its_fields_whatever_the_record():
-    from tests.unit.helpers import complete_answer
+    from tests.unit.helpers import statement_complete_answer
 
     gap = dict(first_uncovered_day="2026-02-25", last_uncovered_day="2026-03-31", unfiled_count=3)
-    answer = complete_answer(dict(id="r9", status=2), warnings=["a gap"], coverage_gap=gap)
+    noted = dict(account_id="acc1", warnings=["a gap"], coverage_gap=gap)
+    answer = statement_complete_answer(dict(id="s9", balances=[noted]))
+    (balance,) = answer["balances"]
 
-    assert set(complete_answer()) <= set(answer)
-    assert (answer["id"], answer["warnings"], answer["coverage_gap"]) == ("r9", ["a gap"], gap)
-    assert complete_answer()["coverage_gap"] is None and complete_answer()["twin"] is None
+    assert set(statement_complete_answer()) <= set(answer)
+    assert set(statement_complete_answer()["balances"][0]) <= set(balance)
+    assert (answer["id"], balance["warnings"], balance["coverage_gap"]) == ("s9", ["a gap"], gap)
+    assert statement_complete_answer()["balances"][0]["coverage_gap"] is None

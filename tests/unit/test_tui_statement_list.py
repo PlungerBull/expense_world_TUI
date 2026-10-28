@@ -36,14 +36,14 @@ from tests.unit.helpers import (
     ENGINE_URL,
     FakeClient,
     account_record,
-    complete_answer,
     cursor_page,
-    delete_answer,
     holder_list,
     render_text,
-    revert_answer,
     run_app,
+    statement_complete_answer,
+    statement_delete_answer,
     statement_record,
+    statement_revert_answer,
     stub_home_month,
     wait_for,
     wait_for_list,
@@ -582,7 +582,7 @@ def _writing_engine(monkeypatch) -> FakeClient:
     status, a deleted one no longer listed."""
     items = [dict(item) for item in STATEMENTS]
     client = _engine(monkeypatch, items=items)
-    client.get_responses.update({f"/reconciliations/{item['id']}": item for item in items})
+    client.get_responses.update({f"/statements/{item['id']}": item for item in items})
 
     def written(answer: dict) -> dict:
         item = next((it for it in items if it["id"] == answer["id"]), None)
@@ -606,7 +606,7 @@ STATUS_KEYS = {
     "c": (
         3,
         "oct",
-        ("POST", "/reconciliations/oct/complete"),
+        ("POST", "/statements/oct/complete"),
         "Reconciliation completed.",
         "completed",
         [*CARD_ROWS[:3], [*CARD_ROWS[3][:4], "completed", "not in order"]],
@@ -615,7 +615,7 @@ STATUS_KEYS = {
     "u": (
         1,
         "ago",
-        ("POST", "/reconciliations/ago/revert"),
+        ("POST", "/statements/ago/revert"),
         "Reconciliation reverted to draft.",
         "draft",
         [CARD_ROWS[0], [*CARD_ROWS[1][:4], "draft", "in order"], *CARD_ROWS[2:]],
@@ -624,7 +624,7 @@ STATUS_KEYS = {
     "d": (
         3,
         "oct",
-        ("DELETE", "/reconciliations/oct"),
+        ("DELETE", "/statements/oct"),
         "Reconciliation deleted.",
         None,
         CARD_ROWS[:3],
@@ -685,11 +685,12 @@ def test_a_status_key_on_a_card_statement_is_one_request_under_one_key(
     statement opened from a card account is one request carrying one
     `X-Idempotency-Key`."""
     _row, opened, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
-    record = account_view(next(item for item in CARD if item["id"] == opened), SIG_USD["id"])
+    statement = next(item for item in CARD if item["id"] == opened)
+    record = account_view(statement, SIG_USD["id"])
     answers = {
-        "c": complete_answer({**record, "status": 2}),
-        "u": revert_answer({**record, "status": 1}),
-        "d": delete_answer(record),
+        "c": statement_complete_answer({**statement, "status": 2}),
+        "u": statement_revert_answer({**statement, "status": 1}),
+        "d": statement_delete_answer(statement),
     }
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map",

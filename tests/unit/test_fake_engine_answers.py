@@ -1,11 +1,6 @@
-"""FakeClient answers a reconciliation or statement write in the engine's shape, and
-the statement and holder builders answer as the engine does.
+"""FakeClient answers a statement write in the engine's shape, and the statement and
+holder builders answer as the engine does.
 
-A reconciliation's revert, complete and delete each answer the half the
-write names plus `twin`, the statement's other half, `None` when it has none
-(contract: POST /v1/reconciliations/{reconciliation_id}/revert)
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")
-(contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response").
 A statement's reads and writes each answer the whole statement, one balance per
 account of its holder (contract: "Statements", "Statement response").
 Each default answer is built by the endpoint's `answer_of` builder, the one
@@ -20,11 +15,8 @@ from tests.unit.helpers import (
     FAKE_ANSWERS,
     FakeClient,
     account_record,
-    complete_answer,
-    delete_answer,
     holder_list,
     holder_record,
-    revert_answer,
     statement_complete_answer,
     statement_create_answer,
     statement_delete_answer,
@@ -37,24 +29,27 @@ from tests.unit.helpers import (
     upload_balance,
 )
 
-REVERT = "POST /v1/reconciliations/{reconciliation_id}/revert"
-COMPLETE = "POST /v1/reconciliations/{reconciliation_id}/complete"
-DELETE = "DELETE /v1/reconciliations/{reconciliation_id}"
 S_CREATE = "POST /v1/statements"
 S_REVERT = "POST /v1/statements/{statement_id}/revert"
 S_COMPLETE = "POST /v1/statements/{statement_id}/complete"
 S_DELETE = "DELETE /v1/statements/{statement_id}"
 S_READ = "GET /v1/statements/{statement_id}"
 
-#: A reconciliation's body, as a write on it sends one.
-SENT = {
-    "id": "r-new",
-    "account_id": "acc-bcp",
+#: A card's statement create: its two accounts, the dollar one with no ending yet.
+STATEMENT_SENT = {
+    "id": "s-new",
+    "holder_id": "h-visa",
     "name": "Marzo 2026",
     "date_start": "2026-02-26",
     "date_end": "2026-03-25",
-    "beginning_balance_cents": -124050,
-    "ending_balance_cents": -38070,
+    "balances": [
+        {
+            "account_id": "acc-pen",
+            "beginning_balance_cents": -124050,
+            "ending_balance_cents": -38070,
+        },
+        {"account_id": "acc-usd", "beginning_balance_cents": -6012},
+    ],
 }
 
 
@@ -64,18 +59,13 @@ def _keeps_the_bare_answer(endpoint: str, answer: dict) -> None:
 
 def test_each_write_with_a_default_answer_has_a_marked_builder():
     """The drift script checks every builder `answer_of` marks; each default answer
-    the fake gives has one."""
-    assert ANSWER_BUILDERS[REVERT] is revert_answer
-    assert ANSWER_BUILDERS[COMPLETE] is complete_answer
-    assert ANSWER_BUILDERS[DELETE] is delete_answer
+    the fake gives has one, and the fake answers no reconciliation route."""
     assert ANSWER_BUILDERS[S_CREATE] is statement_create_answer
     assert ANSWER_BUILDERS[S_REVERT] is statement_revert_answer
     assert ANSWER_BUILDERS[S_COMPLETE] is statement_complete_answer
     assert ANSWER_BUILDERS[S_DELETE] is statement_delete_answer
+    assert not [endpoint for endpoint in ANSWER_BUILDERS if "/reconciliations" in endpoint]
     assert {(method, pattern.pattern) for method, pattern, _ in FAKE_ANSWERS} == {
-        ("POST", "/reconciliations/(?P<reconciliation_id>[^/]+)/revert"),
-        ("POST", "/reconciliations/(?P<reconciliation_id>[^/]+)/complete"),
-        ("DELETE", "/reconciliations/(?P<reconciliation_id>[^/]+)"),
         ("POST", "/statements"),
         ("POST", "/statements/(?P<statement_id>[^/]+)/revert"),
         ("POST", "/statements/(?P<statement_id>[^/]+)/complete"),
@@ -100,104 +90,12 @@ def test_a_default_answer_needs_a_marked_builder():
 
 
 @pytest.mark.parametrize(
-    ("verb", "path", "endpoint", "status"),
-    [
-        ("post", "/reconciliations/r7/revert", REVERT, 1),
-        ("post", "/reconciliations/r7/complete", COMPLETE, 2),
-        ("delete", "/reconciliations/r7", DELETE, 1),
-    ],
-)
-def test_a_status_write_answers_the_half_its_path_names(verb, path, endpoint, status):
-    answer = getattr(FakeClient(), verb)(path)
-
-    _keeps_the_bare_answer(endpoint, answer)
-    assert (answer["id"], answer["status"], answer["twin"]) == ("r7", status, None)
-    assert (answer["deleted_at"] is not None) is (endpoint == DELETE)
-
-
-def test_the_complete_answer_carries_its_warnings_envelope():
-    answer = FakeClient().post("/reconciliations/r1/complete")
-
-    assert (answer["warnings"], answer["coverage_gap"]) == ([], None)
-
-
-def _card_client(status: int) -> FakeClient:
-    """A card statement the test serves: r1 on soles, its twin r2 on dollars."""
-    client = FakeClient()
-    client.get_responses["/reconciliations/r1"] = {
-        "id": "r1",
-        "account_id": "acc-pen",
-        "status": status,
-        "twin_id": "r2",
-        "unplaced_count": 0,
-        "shared_place_count": 1,
-    }
-    client.get_responses["/reconciliations/r2"] = {
-        "id": "r2",
-        "account_id": "acc-usd",
-        "status": status,
-        "twin_id": "r1",
-        "unplaced_count": 2,
-        "shared_place_count": 0,
-    }
-    return client
-
-
-def test_a_card_revert_answers_both_halves_as_drafts():
-    answer = _card_client(2).post("/reconciliations/r1/revert")
-    twin = answer["twin"]
-
-    assert (answer["status"], answer["account_id"], answer["twin_id"]) == (1, "acc-pen", "r2")
-    assert (twin["id"], twin["status"], twin["account_id"], twin["twin_id"]) == (
-        "r2",
-        1,
-        "acc-usd",
-        "r1",
-    )
-    assert set(revert_answer()) - {"twin"} <= set(twin) and "twin" not in twin
-
-
-def test_a_card_complete_answers_both_halves_with_their_own_envelopes():
-    answer = _card_client(1).post("/reconciliations/r1/complete")
-    twin = answer["twin"]
-
-    assert (answer["status"], twin["id"], twin["status"]) == (2, "r2", 2)
-    assert (twin["warnings"], twin["coverage_gap"]) == ([], None)
-    assert set(complete_answer()) - {"twin"} <= set(twin) and "twin" not in twin
-
-
-def test_a_card_delete_answers_both_halves_deleted_and_unpaired():
-    answer = _card_client(1).delete("/reconciliations/r1")
-    twin = answer["twin"]
-
-    assert twin["id"] == "r2"
-    for half in (answer, twin):
-        assert half["deleted_at"] is not None and half["twin_id"] is None
-        assert (half["unplaced_count"], half["shared_place_count"]) == (0, 0)
-
-
-def test_a_twin_the_test_does_not_serve_is_read_from_its_ids():
-    client = FakeClient()
-    client.get_responses["/reconciliations/r1"] = {"id": "r1", "twin_id": "r2"}
-
-    twin = client.post("/reconciliations/r1/revert")["twin"]
-
-    assert (twin["id"], twin["twin_id"], twin["unplaced_count"]) == ("r2", "r1", 0)
-
-
-def test_a_half_without_a_statement_code_deletes_with_null_counts():
-    answer = FakeClient().delete("/reconciliations/r1")
-
-    assert (answer["unplaced_count"], answer["shared_place_count"]) == (None, None)
-
-
-@pytest.mark.parametrize(
     ("verb", "path"),
     [
         ("post", "/statements"),
-        ("post", "/reconciliations/r1/revert"),
-        ("post", "/reconciliations/r1/complete"),
-        ("put", "/reconciliations/r1"),
+        ("post", "/statements/s1/revert"),
+        ("post", "/statements/s1/complete"),
+        ("put", "/statements/s1"),
     ],
 )
 def test_a_test_s_own_answer_is_given_exactly(verb, path):
@@ -205,10 +103,8 @@ def test_a_test_s_own_answer_is_given_exactly(verb, path):
     own = {"id": "mine"}
     client.write_responses[path] = own
 
-    assert (
-        getattr(client, verb)(path, dict(SENT) if verb == "put" or path == "/statements" else None)
-        is own
-    )
+    sent = dict(STATEMENT_SENT) if verb == "put" or path == "/statements" else None
+    assert getattr(client, verb)(path, sent) is own
 
 
 def test_a_put_answer_set_for_a_path_never_comes_back_on_a_delete_of_it():
@@ -216,45 +112,25 @@ def test_a_put_answer_set_for_a_path_never_comes_back_on_a_delete_of_it():
     DELETE of a path whose PUT answer the test set still answers in the engine's
     shape, or `{}` where the fake has no default."""
     client = FakeClient()
-    put_answer = {"id": "r1", "name": "saved"}
-    client.write_responses["/reconciliations/r1"] = put_answer
+    put_answer = {"id": "s1", "name": "saved"}
+    client.write_responses["/statements/s1"] = put_answer
     client.write_responses["/transactions/t1"] = {"id": "t1"}
 
-    deleted = client.delete("/reconciliations/r1")
+    deleted = client.delete("/statements/s1")
 
     assert deleted is not put_answer and deleted["deleted_at"] is not None
-    _keeps_the_bare_answer(DELETE, deleted)
+    _keeps_the_bare_answer(S_DELETE, deleted)
     assert client.delete("/transactions/t1") == {}
-    assert client.put("/reconciliations/r1", {"name": "saved"}) is put_answer
+    assert client.put("/statements/s1", {"name": "saved"}) is put_answer
 
 
 def test_a_write_without_a_default_answer_still_answers_empty():
     client = FakeClient()
 
-    assert client.put("/reconciliations/r1", {"name": "x"}) == {}
     assert client.post("/transactions", {"title": "x"}) == {}
     assert client.delete("/transactions/t1") == {}
-    assert client.post("/reconciliations/r1/places", {"places": []}) == {}
     assert client.put("/statements/s1", {"name": "x"}) == {}
     assert client.post("/statements/import", {"dry_run": True}) == {}
-
-
-#: A card's statement create: its two accounts, the dollar one with no ending yet.
-STATEMENT_SENT = {
-    "id": "s-new",
-    "holder_id": "h-visa",
-    "name": "Marzo 2026",
-    "date_start": "2026-02-26",
-    "date_end": "2026-03-25",
-    "balances": [
-        {
-            "account_id": "acc-pen",
-            "beginning_balance_cents": -124050,
-            "ending_balance_cents": -38070,
-        },
-        {"account_id": "acc-usd", "beginning_balance_cents": -6012},
-    ],
-}
 
 
 def test_a_statement_create_answers_the_draft_it_was_sent():

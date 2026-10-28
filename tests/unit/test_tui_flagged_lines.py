@@ -1,9 +1,9 @@
 """The lines a statement's close flagged for review (pick 1A of
 docs/mockups/expense-world-statement-flagged-lines.html).
 
-A complete goes through with lines left in no statement and names them by id, the
-half's own `review_lines` and its twin's
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"). The
+A complete goes through with lines left in no statement and names them by id, each
+balance's `review_lines`, every account's of the statement
+(contract: POST /v1/statements/{statement_id}/complete, "Response"). The
 app pushes a screen of its own on them, read by their ids in one list read, oldest
 first, 200 ids at most each (contract: GET /v1/bank-lines, "At most 200 ids"), and
 the statement keeps a `⚑` line and `f` until its next status change."""
@@ -19,17 +19,17 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     FlaggedLinesScreen,
     ReconciliationDetailScreen,
+    account_view,
 )
 from expense.tui.theme import PALETTE
 from tests.unit.helpers import (
-    NO_STATEMENT,
-    ORDERED_ALONE,
     bank_line_row,
-    complete_answer,
     cursor_page,
     import_part,
     render_text,
     run_app,
+    statement_complete_answer,
+    statement_record,
     wait_for,
 )
 
@@ -55,22 +55,44 @@ FARMACIA = bank_line_row(
     account_id="sig-pen",
 )
 
-#: The soles half of Octubre 2026, a draft with its ending balance, and its twin.
-SOLES = {
-    "id": "r-pen",
-    "account_id": "sig-pen",
-    "name": "Octubre 2026",
-    "date_start": "2026-09-26",
-    "date_end": "2026-10-25",
-    "beginning_balance_cents": 0,
-    "ending_balance_cents": -4490,
-    "difference_cents": 0,
-    "status": 1,
-    **ORDERED_ALONE,
-    "twin_id": "r-usd",
-}
-#: A reconciliation on an account with no statement code: no twin.
-PLAIN = {**SOLES, "id": "r1", "account_id": "acc1", "name": "Octubre BCP", **NO_STATEMENT}
+
+def _balance(account: str) -> dict:
+    """An account's balances in a draft whose ending balance is entered and adds up."""
+    return {
+        "account_id": account,
+        "beginning_balance_cents": 0,
+        "ending_balance_cents": -4490,
+        "difference_cents": 0,
+    }
+
+
+#: Octubre 2026, a draft statement of the card holding Signature PEN and Signature USD,
+#: every ending balance entered and its order whole.
+CARD = statement_record(
+    {
+        "id": "s-sig",
+        "holder_id": "h-sig",
+        "name": "Octubre 2026",
+        "date_start": "2026-09-26",
+        "date_end": "2026-10-25",
+        "unplaced_count": 0,
+        "shared_place_count": 0,
+        "balances": [_balance("sig-pen"), _balance("sig-usd")],
+    }
+)
+#: The same days' statement of a holder of acc1 alone, with no statement code.
+BCP = statement_record(
+    {
+        "id": "s1",
+        "name": "Octubre BCP",
+        "date_start": "2026-09-26",
+        "date_end": "2026-10-25",
+        "balances": [_balance("acc1")],
+    }
+)
+#: The card's statement opened on Signature PEN, and the plain one opened on acc1.
+SOLES = account_view(CARD, "sig-pen")
+PLAIN = account_view(BCP, "acc1")
 
 
 class Lines(dict):
@@ -143,12 +165,16 @@ def _patch(monkeypatch) -> None:
     )
 
 
-def _flags(fake_client, record: dict, own: list[str], twin: list[str] | None = None) -> None:
-    """The complete's answer: the named half's `review_lines`, and the twin's when
-    the statement has one."""
-    other = None if twin is None else {"id": "r-usd", "account_id": "sig-usd", "review_lines": twin}
-    fake_client.write_responses[f"/reconciliations/{record['id']}/complete"] = complete_answer(
-        {**record, "status": 2}, review_lines=own, twin=other
+def _flags(fake_client, record: dict, own: list[str], other: list[str] | None = None) -> None:
+    """The complete's answer on the statement `record` is opened on: the opened
+    account's balance flags `own`, the card's other account's balance `other`."""
+    statement = {CARD["id"]: CARD, BCP["id"]: BCP}[record["id"]]
+    balances = [
+        {**b, "review_lines": own if b["account_id"] == record["account_id"] else other or []}
+        for b in statement["balances"]
+    ]
+    fake_client.write_responses[f"/statements/{record['id']}/complete"] = statement_complete_answer(
+        {**statement, "status": 2, "balances": balances}
     )
 
 
@@ -213,7 +239,7 @@ def test_a_close_that_flags_nothing_opens_no_screen_and_adds_nothing(fake_client
 
 
 def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, monkeypatch):
-    """No twin: the lines come from the named half alone, in one list read by
+    """A holder of one account: the lines come from its one balance, in one list read by
     their ids, oldest first, with a `limit` covering them, and no line read by its
     id; the rows in the engine's order, not the close's; the screen's words, its
     columns and its footer as pane 1A draws them."""
@@ -253,8 +279,8 @@ def test_a_close_on_one_account_shows_its_flagged_lines_as_drawn(fake_client, mo
     run_app(scenario)
 
 
-def test_a_card_shows_both_halves_lines_oldest_first(fake_client, monkeypatch):
-    """The named half's `review_lines`, then the twin's, in one read, listed oldest
+def test_a_card_shows_every_accounts_lines_oldest_first(fake_client, monkeypatch):
+    """Each balance's `review_lines`, in the balances' order, in one read, listed oldest
     first as the engine orders them, each row naming its account."""
     _patch(monkeypatch)
     engine = Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
@@ -273,7 +299,7 @@ def test_a_card_shows_both_halves_lines_oldest_first(fake_client, monkeypatch):
     run_app(scenario)
 
 
-def test_the_twins_lines_merge_by_day_whichever_half_is_named(fake_client, monkeypatch):
+def test_both_accounts_lines_merge_by_day_whichever_holds_them(fake_client, monkeypatch):
     _patch(monkeypatch)
     Lines(monkeypatch, fake_client, TAMBO, UBER, SPOTIFY)
     _flags(fake_client, SOLES, ["l-spotify"], ["l-tambo", "l-uber"])

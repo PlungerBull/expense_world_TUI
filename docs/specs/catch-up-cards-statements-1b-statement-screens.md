@@ -97,18 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-3. **A statement's actions on the new routes (builder).** The detail screen ticks with
-   `statement_id`, saves the ending balance in `balances`, and completes, reverts and deletes
-   under `/statements`; the close's `warnings` and `coverage_gap` are read per balance, the
-   `GAP` fixture quoting the engine's current sentence (moved from test-suite-leftovers); a
-   complete with no transaction is refused as `NO_TRANSACTIONS_ASSIGNED` keyed
-   `balances.<account_id>.transactions`, `"At least one transaction must be assigned."`, once
-   per account, under the top-level `"Cannot complete a statement with no transaction on any of
-   its accounts."` (the engine's hand-off of 2026-10-28, its section 4).
-   *Passes if:* the detail screen's tick, balance, complete, revert and delete tests pass on the
-   new answers, the `NO_TRANSACTIONS_ASSIGNED` refusal lands under the opened account's
-   transactions, the `GAP` fixture's last uncovered day falls before the statement's first, and
-   no reconciliation builder is left.
 4. **The flagged lines from the review list (builder).** The flagged-lines screen pages
    `GET /bank-lines?unassigned_in_period_of=<id>&sort=statement` with its count, in the statement's
    order as the owner settled, instead of reading by ids.

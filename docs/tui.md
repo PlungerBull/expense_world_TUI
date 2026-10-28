@@ -1482,8 +1482,8 @@ Title · Operation · Amount`, made by `bank_line_columns` in
 `operation_code` (a dim `—` when it has none) and its signed `net_cents`, sign-coloured
 (contract: GET /v1/bank-lines/{bank_line_id}); no category, hashtags, note or part count.
 **Keys**: `space` puts the line under the cursor in or out of the batch with one
-`PUT /transactions/{id}` of `reconciliation_id` (or `null`) on one of its parts, which
-moves every part (contract: PUT /v1/transactions/{transaction_id}, "Reconciliation assignment");
+`PUT /transactions/{id}` of `statement_id` (or `null`) on one of its parts, which
+moves every part (contract: PUT /v1/transactions/{transaction_id}, "Statement assignment");
 once every tick sent is answered, the screen reads the statement and its lines again,
 so the header's `diff` is the engine's, and the cursor stays on the line ticked last, now
 among the ticked ones; a read that lands while a tick is still unanswered is not drawn, so
@@ -1500,38 +1500,51 @@ ticked row, an empty title or operation number staying fillable
 lines, `esc` goes back. A statement deleted elsewhere reads as a `404`
 (contract: GET /v1/statements/{statement_id}), so the screen says `This reconciliation no
 longer exists.` and goes back; any other refused read shows the engine's words and stays.
+`c`, `u` and `d` act on the whole statement, every account of its holder, in one write:
+`POST /statements/{id}/complete`, `POST /statements/{id}/revert` and
+`DELETE /statements/{id}` (contract: POST /v1/statements/{statement_id}/complete)
+(contract: POST /v1/statements/{statement_id}/revert)
+(contract: DELETE /v1/statements/{statement_id}).
 **Opened on one account of a card's statement** the screen shows that account alone, its
-own lines and figures, while `c`, `u` and `d` act on both halves in one write, from either half
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete)
-(contract: DELETE /v1/reconciliations/{reconciliation_id}).
-On an account with a statement code the engine completes nothing until every line of the
-statement has a place in its order (contract: POST /v1/reconciliations/{reconciliation_id}/complete),
+own lines and figures, while `c`, `u` and `d` act on every account of the card.
+On a holder with a statement code the engine completes nothing until every line of the
+statement has a place in its order (contract: POST /v1/statements/{statement_id}/complete),
 and no screen sets the order ([decisions.md](decisions.md) "A card's statement is one statement, and a month closes from the bank's PDF").
-**`c` needs the ending balance**: the engine completes no reconciliation without it
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "The ending balance must be entered").
+A complete with no transaction on any account of the statement is refused as
+`NO_TRANSACTIONS_ASSIGNED` on each account's `balances.<account_id>.transactions`, and
+`Couldn't complete` shows the engine's words whole, the opened account's line among them.
+**`c` needs the ending balance**: the engine completes no statement without every account's
+(contract: POST /v1/statements/{statement_id}/complete, "Every ending balance must be entered").
 On a draft whose `end` is empty, `c` first opens the box `Ending balance first` (`The
 statement's closing figure for <account>, in <currency> · signed · e.g. 13,853.20`,
 `[enter] save    [esc] cancel`). The figure is read by the shared money parser exactly as
 typed — the sign is the one typed, never added or flipped; text it cannot read keeps the
 box open with what was typed and notes `End balance: a signed decimal, e.g. 9460.00`, and
-nothing is sent. `esc` closes it with nothing saved. `enter` saves it
-(`PUT /reconciliations/{id}` with `ending_balance_cents`), the header shows the engine's
-saved `end` and `diff`, and then the usual `Complete reconciliation?` asks; only `y`
-completes, and any other answer leaves a draft with its balance saved, so the next `c`
-goes straight to the question. A draft that already has its ending balance goes straight
-to the question too. A refused save shows `Couldn't save` with the engine's words and,
-for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try again.`. A
-refused complete shows `Couldn't complete` with the engine's words — after a save in the
-same `c`, under the line `The ending balance is saved. The reconciliation is not
-completed:` — and the screen reads the statement fresh, so the header and the next
-`c` go by what the engine holds.
+nothing is sent. `esc` closes it with nothing saved. `enter` saves it with
+`PUT /statements/{id}`, whose `balances` names every account of the statement, each once:
+the opened account's entry with `ending_balance_cents`, every other entry with no balance,
+so the engine keeps that account's (`ending_balance_body`)
+(contract: PUT /v1/statements/{statement_id}). The header shows the engine's saved `end`
+and `diff` from the opened account's entry, and then the usual `Complete reconciliation?`
+asks; only `y` completes, and any other answer leaves a draft with its balance saved, so
+the next `c` goes straight to the question. A draft that already has its ending balance
+goes straight to the question too. A refused save shows `Couldn't save` with the engine's
+words and, for `CONCURRENT_CHANGE`, `It changed at the same moment: press r, then try
+again.`. A refused complete shows `Couldn't complete` with the engine's words — after a
+save in the same `c`, under the line `The ending balance is saved. The reconciliation is
+not completed:` — and the screen reads the statement fresh, so the header and the next
+`c` go by what the engine holds. A complete's answer carries the close's notes on each
+balance, its account's `warnings` and `coverage_gap`
+(contract: POST /v1/statements/{statement_id}/complete, "Response"); the opened account's
+`warnings` sentence shows under the header, `⚠ <sentence>` in the warning colour, in the
+engine's words, until the next status change, and another account's is not shown here.
 
 **The lines a complete flagged for review** (pick 1A of
 [expense-world-statement-flagged-lines.html](mockups/expense-world-statement-flagged-lines.html)).
 A complete goes through while lines dated in the statement are in no statement: its answer
-names the bank lines it flagged for review on the named half, `review_lines`, and on the
-other half of a card, `twin.review_lines`, each oldest first
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response"). The app
+names the bank lines it flagged for review on each balance, `review_lines`, every account's
+of the statement, each oldest first
+(contract: POST /v1/statements/{statement_id}/complete, "Response"). The app
 keeps no rule of which lines those are, and nothing in it treats them as a refusal of
 complete. When the answer names any, the app pushes a full screen right after the
 complete, `Reconciliations ▸ <statement> ▸ Flagged` (`FlaggedLinesScreen` in
@@ -1549,11 +1562,11 @@ reads `<statement> is completed. 3 lines dated up to its last day are in no stat
 the count and the rest of that sentence in the warning colour (`1 line dated up to its
 last day is in no statement.` for one), then three dim lines, the three choices the
 contract gives
-(contract: POST /v1/reconciliations/{reconciliation_id}/complete, "What a client does with a flagged line"):
+(contract: POST /v1/statements/{statement_id}/complete, "What a client does with a flagged line"):
 `For each: if it belongs to this statement, revert, tick it, complete again.`,
 `If it belongs to a later statement, leave it: tick it there when it comes.` and
 `If it is a mistake, open it to fix it, or delete it.` Under them, the lines in one list,
-`Date · Account · Title · Amount`, both halves together, in the engine's order: oldest
+`Date · Account · Title · Amount`, every account's together, in the engine's order: oldest
 first (contract: GET /v1/bank-lines, "Ordering"), within each read of 200 when there are
 more; the app sorts nothing itself. Each row shows the line's day, title and signed
 `net_cents` through `bank_line_columns`, sign-coloured as in every bank-line list, and its
@@ -1829,11 +1842,7 @@ make rows fit that do not. Width has **no** floor of any kind.
   complete and delete have entries: the create answers the draft it was sent, one balance
   per account it names; the other three answer the statement the path names, read from
   the test's `GET /statements/{id}` when it serves one (its id alone otherwise), with its
-  status after the write, a complete adding the close's notes to each balance. A
-  reconciliation's revert, complete and delete have entries too, for the batch screen,
-  which still writes them: each answers the half the path names, read from the test's
-  `GET /reconciliations/{id}` when it serves one (its id alone otherwise), with its status
-  after the write, and its twin when that record names a `twin_id`.
+  status after the write, a complete adding the close's notes to each balance.
 - **`helpers.account_record` is the shared account builder** — the engine's account
   record, every field present, on holder `h1` (contract: GET /v1/accounts/{account_id}),
   marked with `answer_of` so the drift check covers it. A test passes only the fields it
