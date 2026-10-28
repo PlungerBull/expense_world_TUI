@@ -1,4 +1,4 @@
-"""Reconciliations tests — list rows + new-batch form (fake client)."""
+"""Reconciliations tests — list rows + new-statement form (fake client)."""
 
 import json
 
@@ -16,54 +16,74 @@ from tests.unit.helpers import (
     ARCHIVED_PUT_WORDS,
     ENGINE_ORDER_ACCOUNTS,
     ENGINE_ORDER_BANK_NAMES,
-    NO_STATEMENT,
     account_record,
     archived_refusal,
     archived_words,
     bank_line_row,
     cursor_page,
+    holder_list,
     import_part,
     in_order,
     refusal_text,
     render_text,
     run_app,
+    statement_list,
+    statement_record,
     wait_for,
     wait_for_list,
     whole,
 )
 
+
+def _statement(sid: str, holder: str, name: str, days: tuple[str, str], **fields) -> dict:
+    """A statement of a holder with no statement code, as `GET /statements` reads it:
+    its one account's balances are `fields`'s `balances`, or nothing entered past a
+    begin of 0 on `acc1` (`statement_record`)."""
+    return statement_record(
+        {"id": sid, "holder_id": holder, "name": name, "date_start": days[0], "date_end": days[1]}
+        | fields
+    )
+
+
+#: One statement on each holder: March on acc1's, completed and adding up; April on
+#: acc2's, a draft with no ending balance yet, off by -35.00.
 ITEMS = [
-    {
-        "id": "r1",
-        "account_id": "acc1",
-        "name": "March 2026",
-        "date_start": "2026-03-01",
-        "date_end": "2026-03-31",
-        "beginning_balance_cents": 1200000,
-        "ending_balance_cents": 958000,
-        "difference_cents": 0,
-        "status": 2,
-        **NO_STATEMENT,
-    },
-    {
-        "id": "r2",
-        "account_id": "acc2",
-        "name": "April 2026",
-        "date_start": "2026-04-01",
-        "date_end": "2026-04-30",
-        "beginning_balance_cents": 958000,
-        "ending_balance_cents": None,
-        "difference_cents": -3500,
-        "status": 1,
-        **NO_STATEMENT,
-    },
+    _statement(
+        "r1",
+        "h1",
+        "March 2026",
+        ("2026-03-01", "2026-03-31"),
+        status=2,
+        balances=[
+            {
+                "account_id": "acc1",
+                "beginning_balance_cents": 1200000,
+                "ending_balance_cents": 958000,
+                "difference_cents": 0,
+            }
+        ],
+    ),
+    _statement(
+        "r2",
+        "h2",
+        "April 2026",
+        ("2026-04-01", "2026-04-30"),
+        balances=[
+            {
+                "account_id": "acc2",
+                "beginning_balance_cents": 958000,
+                "ending_balance_cents": None,
+                "difference_cents": -3500,
+            }
+        ],
+    ),
 ]
 
 
 def test_batch_rows_format():
     from expense.tui.screens.reconciliations import batch_rows
 
-    rows = batch_rows(ITEMS)
+    rows = batch_rows(ITEMS[:1], "acc1")
     assert rows[0][0] == "r1"
     cells = rows[0][1]
     assert cells[0] == "March 2026"
@@ -74,10 +94,30 @@ def test_batch_rows_format():
     assert rows[0][2] == "dim"  # completed dimmed
     # draft, null end balance — and a batch that is off by -35.00 prints the
     # signed figure
-    off = batch_rows([ITEMS[1]])[0][1]
+    off = batch_rows([ITEMS[1]], "acc2")[0][1]
     assert off[5] == "draft"
     assert off[1] == "2026-04-01 → 2026-04-30"
     assert str(off[4]) == "-35.00"
+
+
+def test_batch_rows_read_the_open_accounts_entry_in_balances():
+    """Each row's Begin, End and Diff are the open account's, from its entry in the
+    statement's `balances`, whatever other entry the statement holds
+    (contract: "Statements", "Statement response")."""
+    from expense.tui.screens.reconciliations import batch_rows
+
+    two = _statement(
+        "s1",
+        "h1",
+        "May 2026",
+        ("2026-05-01", "2026-05-31"),
+        balances=[
+            {"account_id": "acc-other", "beginning_balance_cents": 500},
+            {"account_id": "acc1", "beginning_balance_cents": 100, "ending_balance_cents": 200},
+        ],
+    )
+    [(_key, cells, _style)] = batch_rows([two], "acc1")
+    assert [str(cell) for cell in cells[2:4]] == ["1.00", "2.00"]
 
 
 def _patch(monkeypatch):
@@ -108,10 +148,11 @@ async def _wait_accounts(screen, pilot):
     await wait_for(pilot, lambda: screen._accounts)
 
 
-def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeypatch):
-    """One straight path: begin is always typed,
-    and `beginning_balance_source` must never be sent: the engine forbids it,
-    so shipping it is a 422 (contract: POST /v1/reconciliations)."""
+def test_new_statement_sends_its_holder_and_the_picked_accounts_balances(fake_client, monkeypatch):
+    """The form alone: the account picked, its holder is the one the accounts read
+    names on it, and one `POST /statements` sends exactly the fields the engine takes,
+    the account's typed balances its one entry in `balances`; the engine refuses any
+    other field (contract: POST /v1/statements)."""
     _patch(monkeypatch)
 
     async def scenario(pilot, app):
@@ -119,21 +160,21 @@ def test_new_reconciliation_always_sends_begin_never_source(fake_client, monkeyp
         await app.push_screen(screen)
         await _wait_accounts(screen, pilot)
         _enter(screen, "April 2026")  # name
-        _enter(screen, "BCP")  # account → acc1
+        _enter(screen, "Interbank")  # account → acc2, on holder h2
         _enter(screen, "2026-04-01")  # date_start (required)
         _enter(screen, "2026-04-30")  # date_end (required)
         _enter(screen, "9580.00")  # begin
         _enter(screen, "9460.00")  # end → submits
         await wait_for(pilot, lambda: fake_client.posts)
-        path, body = fake_client.posts[0]
-        assert path == "/reconciliations"
-        assert body["account_id"] == "acc1" and body["name"] == "April 2026"
-        assert body["beginning_balance_cents"] == 958000
-        assert body["ending_balance_cents"] == 946000
-        assert "beginning_balance_source" not in body
-        assert "sort_order" not in body
 
     run_app(scenario)
+    [(path, body)] = fake_client.posts
+    assert path == "/statements"
+    assert set(body) == {"id", "holder_id", "name", "date_start", "date_end", "balances"}
+    assert body["holder_id"] == "h2" and body["name"] == "April 2026"
+    assert body["balances"] == [
+        {"account_id": "acc2", "beginning_balance_cents": 958000, "ending_balance_cents": 946000}
+    ]
 
 
 def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_client, monkeypatch):
@@ -163,8 +204,9 @@ def test_new_reconciliation_refuses_a_balance_with_a_comma_after_its_dot(fake_cl
         "End balance: a signed decimal, e.g. 9460.00",
     ]
     [(_path, body)] = fake_client.posts
-    assert body["beginning_balance_cents"] == 958000
-    assert body["ending_balance_cents"] == 946000
+    [balance] = body["balances"]
+    assert balance["beginning_balance_cents"] == 958000
+    assert balance["ending_balance_cents"] == 946000
 
 
 def test_new_reconciliation_sends_the_typed_days_and_refuses_other_shapes(fake_client, monkeypatch):
@@ -276,22 +318,32 @@ def test_the_browse_lists_accounts_in_the_engines_order(monkeypatch):
     run_app(scenario)
 
 
+#: acc1's and acc2's holders as `GET /holders` reads them, one account each, no
+#: statement code.
+HOLDERS = [
+    {"id": "h1", "account_ids": ["acc1"]},
+    {"id": "h2", "name": "Interbank USD", "account_ids": ["acc2"]},
+]
+
+
 def _patch_browse(monkeypatch, items=None, fail=False):
-    """Two accounts, one reconciliation each — the browse screen's standard
-    fixture. The fake reads like the engine: one account at a time (the account
-    is required), the list whole, never paged. Returns the accounts it was
-    asked for, in order."""
+    """Two accounts, each alone on its holder with no statement code, one
+    statement each — the browse screen's standard fixture. The fake reads like
+    the engine: one holder at a time (the holder is required), the list whole,
+    never paged (contract: GET /v1/statements). Returns the holders it was asked
+    for, in order."""
     reads: list = []
     rows = ITEMS if items is None else items
 
-    def fetch(_cfg, *, account_id, **kw):
+    def fetch(_cfg, holder_id, **kw):
         assert "limit" not in kw and "offset" not in kw, "the engine refuses paging here"
-        reads.append(account_id)
+        reads.append(holder_id)
         if fail:
-            raise RuntimeError("reconciliations unavailable")
-        return whole([r for r in rows if r.get("account_id") == account_id])
+            raise RuntimeError("statements unavailable")
+        return statement_list([r for r in rows if r.get("holder_id") == holder_id])
 
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", fetch)
+    monkeypatch.setattr("expense.reads.fetch_statements", fetch)
+    monkeypatch.setattr("expense.reads.fetch_holders", lambda *a, **k: holder_list(HOLDERS))
     monkeypatch.setattr(
         "expense.reads.fetch_accounts",
         lambda *a, **k: whole(
@@ -338,7 +390,7 @@ async def _open_panel(pilot, app, *, down: int = 0):
     return screen
 
 
-def test_the_browse_opens_on_the_accounts_alone_and_reads_no_reconciliations(monkeypatch):
+def test_the_browse_opens_on_the_accounts_alone_and_reads_no_statements(monkeypatch):
     reads = _patch_browse(monkeypatch)
 
     async def scenario(pilot, app):
@@ -368,7 +420,7 @@ def test_enter_reads_that_account_and_opens_the_panel_with_the_cursor_in_it(monk
 
     async def scenario(pilot, app):
         screen = await _open_panel(pilot, app, down=1)
-        assert reads == ["acc2"]  # that account, and only that one
+        assert reads == ["h2"]  # that account's holder, and only that one
         assert [r.key for r in screen._batch_list._rows] == ["r2"]
         assert screen._batch_list.has_focus
         assert "Reconciliations · Interbank USD" in (screen._batch_list._caption or "")
@@ -393,37 +445,13 @@ def test_an_account_with_no_reconciliations_says_so_in_the_panel(monkeypatch):
 
 
 def test_the_panel_keeps_the_order_the_engine_sends(monkeypatch):
-    """The account's list arrives `date_start` ascending, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"); the screen does not
+    """The holder's list arrives `date_start` ascending, then creation time,
+    oldest first (contract: "Statements", "Ordering"); the screen does not
     re-sort it. Served out of date order on purpose, so a re-sort would show."""
     served = [
-        {
-            "id": "b-march",
-            "account_id": "acc1",
-            "name": "March",
-            "status": 1,
-            **NO_STATEMENT,
-            "date_start": "2026-03-01",
-            "date_end": "2026-03-31",
-        },
-        {
-            "id": "b-april",
-            "account_id": "acc1",
-            "name": "April",
-            "status": 1,
-            **NO_STATEMENT,
-            "date_start": "2026-04-01",
-            "date_end": "2026-04-30",
-        },
-        {
-            "id": "b-feb",
-            "account_id": "acc1",
-            "name": "February",
-            "status": 1,
-            **NO_STATEMENT,
-            "date_start": "2026-02-01",
-            "date_end": "2026-02-28",
-        },
+        _statement("b-march", "h1", "March", ("2026-03-01", "2026-03-31")),
+        _statement("b-april", "h1", "April", ("2026-04-01", "2026-04-30")),
+        _statement("b-feb", "h1", "February", ("2026-02-01", "2026-02-28")),
     ]
     _patch_browse(monkeypatch, items=served)
 
@@ -525,24 +553,8 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
     from expense.tui.screens.reconciliations import ReconciliationDetailScreen
 
     two = [
-        {
-            "id": "b1",
-            "account_id": "acc1",
-            "name": "March",
-            "date_start": "2026-03-01",
-            "date_end": "2026-03-31",
-            "status": 2,
-            **NO_STATEMENT,
-        },
-        {
-            "id": "b2",
-            "account_id": "acc1",
-            "name": "April",
-            "date_start": "2026-04-01",
-            "date_end": "2026-04-30",
-            "status": 2,
-            **NO_STATEMENT,
-        },
+        _statement("b1", "h1", "March", ("2026-03-01", "2026-03-31"), status=2),
+        _statement("b2", "h1", "April", ("2026-04-01", "2026-04-30"), status=2),
     ]
     reads = _patch_browse(monkeypatch, items=two)
     # the working screen's own reads are not what this test is about
@@ -557,7 +569,7 @@ def test_coming_back_from_a_reconciliation_keeps_the_panel_on_the_same_row(monke
         app.screen.dismiss()
         await wait_for(pilot, lambda: len(reads) == 2 and screen._mode == "batches")
         await wait_for(pilot, lambda: screen._batch_list is not None)
-        assert reads == ["acc1", "acc1"]  # the open account, re-read
+        assert reads == ["h1", "h1"]  # the open account's holder, re-read
         assert screen._batch_list.cursor_key == "b2"
         assert screen._batch_list.has_focus
 
@@ -580,20 +592,11 @@ def test_n_on_the_plain_list_saves_into_that_accounts_open_panel(monkeypatch):
         await wait_for(pilot, lambda: isinstance(app.screen, NewReconciliationScreen))
         form = app.screen
         assert form._values["account"] == "acc2"  # the account under the cursor
-        rows.append(
-            {
-                "id": "new-1",
-                "account_id": "acc2",
-                "name": "May 2026",
-                "date_start": "2026-05-01",
-                "date_end": "2026-05-31",
-                "status": 1,
-                **NO_STATEMENT,
-            }
-        )
+        assert form._holder_id == "h2"  # and its holder
+        rows.append(_statement("new-1", "h2", "May 2026", ("2026-05-01", "2026-05-31")))
         form.dismiss("new-1")  # what `_done` hands back after the POST
         await wait_for(pilot, lambda: screen._batch_list is not None)
-        assert reads == ["acc2"]
+        assert reads == ["h2"]
         assert screen._mode == "batches"
         assert screen._batch_list.cursor_key == "new-1"
         assert _crumb(screen)[-1] == "Interbank USD"
@@ -664,21 +667,25 @@ def test_the_account_picker_matches_through_accents_like_every_other_one():
     assert [a[0] for a in screen._suggestions] == ["acc2"]
 
 
-def test_a_new_reconciliation_on_a_person_shows_the_engine_words_alone(fake_client, monkeypatch):
-    """The browse was read before its account became a person, so `n` still
-    offers it: the engine refuses the create (contract: POST /v1/reconciliations,
-    "A person account never has reconciliations"). The "Failed" note is the
-    engine's words and its field's words under them, with no line of the app's;
-    the form stays open with what was typed, and nothing is handed back."""
+def test_a_new_statement_whose_holder_is_gone_shows_the_engine_words_alone(
+    fake_client, monkeypatch
+):
+    """The browse was read before its account became a person, which deleted the
+    holder it was alone on (contract: "Holders", "A holder is deleted with its last
+    account"), so `n` still offers it: the engine refuses the create's `holder_id`
+    (contract: POST /v1/statements). The "Failed" note is the engine's words and its
+    field's words under them, with no line of the app's; the form stays open with what
+    was typed, and nothing is handed back."""
     from expense.errors import EngineError
 
+    words = "Stand-in field words."  # the contract does not print this refusal's sentence
     err = EngineError(
         "VALIDATION_ERROR",
-        "Account validation failed.",
-        {"account_id": "Person accounts cannot have reconciliations."},
+        "Statement validation failed.",
+        {"holder_id": words},
         422,
         {},
-        reasons={"account_id": "PERSON_ACCOUNT"},
+        reasons={"holder_id": "INVALID_REFERENCE"},
     )
     fake_client.errors["POST"] = err
     notices: list = []
@@ -690,7 +697,9 @@ def test_a_new_reconciliation_on_a_person_shows_the_engine_words_alone(fake_clie
     handed: list = []
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc1", account_name="ALEJO PEN")
+        screen = NewReconciliationScreen(
+            account_id="acc1", account_name="ALEJO PEN", holder_id="h1"
+        )
         await app.push_screen(screen, handed.append)
         _enter(screen, "October 2026")  # name
         _enter(screen, "2026-10-01")  # date_start
@@ -700,17 +709,13 @@ def test_a_new_reconciliation_on_a_person_shows_the_engine_words_alone(fake_clie
         _enter(screen, "")  # end → submits
         await wait_for(pilot, lambda: notices and not screen._submitting)
         assert notices == [
-            (
-                "Failed",
-                "VALIDATION_ERROR — Account validation failed.\n"
-                "  account_id: Person accounts cannot have reconciliations.",
-            )
+            ("Failed", f"VALIDATION_ERROR — Statement validation failed.\n  holder_id: {words}")
         ]
         assert notices[0][1] == refusal_text(err, None)
         assert app.screen is screen and screen._values == typed
 
     run_app(scenario)
-    assert [path for path, _body in fake_client.posts] == ["/reconciliations"]
+    assert [path for path, _body in fake_client.posts] == ["/statements"]
     assert handed == []
 
 
@@ -744,20 +749,22 @@ UNFILED = [
 ]
 
 
-def test_blocking_windows_takes_only_this_accounts_periods():
-    from expense.tui.screens.reconciliations import blocking_windows
+def test_statement_windows_take_the_statements_holding_this_accounts_balances():
+    """A statement holds a balance per account of its holder; the `!` days are those
+    of the statements holding one of this account's."""
+    from expense.tui.screens.reconciliations import statement_windows
 
-    assert blocking_windows(ITEMS, "acc1") == [("2026-03-01", "2026-03-31", "March 2026")]
-    assert blocking_windows(ITEMS, "acc2") == [("2026-04-01", "2026-04-30", "April 2026")]
+    assert statement_windows(ITEMS, "acc1") == [("2026-03-01", "2026-03-31", "March 2026")]
+    assert statement_windows(ITEMS, "acc2") == [("2026-04-01", "2026-04-30", "April 2026")]
 
 
 def test_unfiled_rows_are_the_bank_columns_one_line_each_in_the_engine_order():
     """2d: date · title · operation · amount, the signed `net_cents`, a dim `—`
     for no operation code; a split purchase is one row with its title alone and its
-    total; `!` on the rows inside a month's dates."""
-    from expense.tui.screens.reconciliations import blocking_windows, unfiled_rows
+    total; `!` on the rows dated inside a statement's days."""
+    from expense.tui.screens.reconciliations import statement_windows, unfiled_rows
 
-    windows = blocking_windows(ITEMS, "acc1")
+    windows = statement_windows(ITEMS, "acc1")
     rows = unfiled_rows(UNFILED, windows)
     assert [r[0] for r in rows] == ["bl-uber", "bl-farm", "bl-net"]  # as the engine sent them
     cells = [[str(c) for c in r[1]] for r in rows]

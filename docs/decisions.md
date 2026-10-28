@@ -374,7 +374,7 @@ the bar is where the right file gets dropped next.
 
 ## Reconciliations opens on the accounts (2026-09-25, owner)
 
-**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its reconciliations (`GET /reconciliations?account_id=`, or `?statement_of=` on an account with a statement code, which lists every account holding the code; whole, in the engine's order: [tui.md](tui.md) "The Reconciliations browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
+**Decision.** The screen opens with **the accounts alone** and reads nothing. `⏎` on an account reads its holder's statements (`GET /statements?holder_id=`, whole, in the engine's order: [tui.md](tui.md) "The Reconciliations browse") and opens the panel under it; `esc` closes it. `u` works only inside an open panel. Returning from a reconciliation re-reads the account and lands on the same row; "not in the account's list" is how the working screen knows a reconciliation was deleted.
 
 **Rejected.** *Reading on cursor pause* — a read per pause for a screen whose next step is always `⏎`. *Reading every account's list at open* — grows with the account list.
 
@@ -885,9 +885,9 @@ already shows read-only, and the engine's words are enough.
 **Decision.** (1) **A card is two bank accounts, one per currency, sharing a statement code**,
 and the engine acts on a card's month as one statement: one create makes both halves, and a
 complete, revert, delete or `PUT` on either half writes both
-(contract: "Reconciliations", "A statement's order"). (2) **An account with a statement code
-lists its statements from one `GET /reconciliations?statement_of=`**, one row per statement, the
-other half found by its `twin_id` among the same items, never by days or names; what the row
+(contract: "Reconciliations", "A statement's order"). (2) **A card lists its statements from one
+`GET /statements?holder_id=`**, one row per statement, each account's balances from its entry in
+`balances`, never matched by days or names; what the row
 shows is in [tui.md](tui.md) "The Reconciliations browse". The owner picked 1 A and question 3 B
 in [expense-world-card-statement.html](mockups/expense-world-card-statement.html). (3) **The
 statement line is never shown**: it only keeps a statement's lines in the paper's order. (4)
@@ -976,9 +976,9 @@ lines a close flags. (2) **The screen reads the flagged lines by their ids in on
 oldest first in the engine's order, because the engine names them only in the close's answer
 (contract: GET /v1/bank-lines, "Filters"); the close states no bound on how many it flags while
 `ids` takes at most 200, so more are read 200 at a time in the close's order. (3) **A card's
-accounts are the engine's holder's**: the import door's account list pairs them by `holder_id`
-(contract: "Holders"), Reconciliations by the engine's `statement_partner_id`, never a match of
-statement codes. (4) **An
+accounts are the engine's holder's**: the import door's account list and Reconciliations pair them by
+`holder_id` (contract: "Holders"), never a match of statement codes; Reconciliations also reads
+the holders, since the statement code is the holder's. (4) **An
 archived card account with no statement gets no column** on the card's statement list (owner,
 question 2, A). (5) **The "no batch" list explains its `!` as `! dated inside a statement`**: a
 close flags such a line instead of being blocked by it (owner, question 3, A, drawn in

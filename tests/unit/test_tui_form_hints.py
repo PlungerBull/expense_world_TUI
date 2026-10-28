@@ -243,6 +243,7 @@ def _card() -> NewCardStatementScreen:
         account=("acc1", "Signature PEN", "PEN"),
         partner=("acc2", "Signature USD", "USD"),
         code="SIG",
+        holder_id="h1",
     )
 
 
@@ -333,6 +334,7 @@ SHAPES = {
             account=("acc1", "Signature PEN", "PEN"),
             partner=("acc2", "Signature USD", "USD"),
             code="SIG",
+            holder_id="h1",
         )
     ],
     SetupScreen: lambda: [SetupScreen(), _with_profile(SetupScreen())],

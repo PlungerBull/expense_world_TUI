@@ -450,10 +450,9 @@ def fetch_reconciliations(
     that account's own, as `account_id` does. The list comes back whole as
     `{items}`, no `limit`, no `offset`, no `total`, sorted `date_start`
     ascending, then by account in the accounts' order, then creation time,
-    oldest first (contract: "Reconciliations", "Ordering"). Read by the TUI's
-    Reconciliations screens: the browse's panel reads `statement_of` on an
-    account with a code and `account_id` on one without. A row not in its
-    account's list has been deleted.
+    oldest first (contract: "Reconciliations", "Ordering"). Read by the
+    reconciliation batch screen, which reads `account_id` to read itself
+    again. A row not in its account's list has been deleted.
     """
     if (account_id is None) == (statement_of is None):
         raise ValueError("fetch_reconciliations takes exactly one of account_id, statement_of")
@@ -818,32 +817,6 @@ def account_choices(
             row = (*row, a.get("current_balance_cents"))
         out.append(row)
     return out
-
-
-def card_partners(items: list) -> dict[str, tuple[str, str, str]]:
-    """Each card account's other account, from one accounts read:
-    `account id → (other id, other name, other currency)`.
-
-    The engine names it on every account as `statement_partner_id`, the
-    account a card statement's other half is created on
-    (contract: "Bank Accounts", "Statement partner"). It reads null on an
-    account with no code, on one whose code no other live account holds, on a
-    person, and on both accounts while either is archived
-    (contract: "Bank Accounts", "While one of the two accounts is archived"),
-    so such an account has no entry; nor does one naming an account the read
-    does not hold.
-    """
-    rows = {row["id"]: row for row in items if row.get("id")}
-    partners: dict[str, tuple[str, str, str]] = {}
-    for aid, row in rows.items():
-        other = rows.get(row.get("statement_partner_id"))
-        if other is not None:
-            partners[aid] = (
-                other["id"],
-                other.get("name") or "(unnamed)",
-                other.get("currency_code") or "?",
-            )
-    return partners
 
 
 def holder_accounts(items: list) -> dict[str, list[dict]]:

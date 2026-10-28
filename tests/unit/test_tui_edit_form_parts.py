@@ -51,10 +51,12 @@ from tests.unit.helpers import (
     cursor_page,
     edit_limits,
     hashtag_refusal,
+    holder_list,
     import_part,
     line_code_of,
     render_text,
     run_app,
+    statement_list,
     wait_for,
     wait_for_list,
     whole,
@@ -253,7 +255,8 @@ class LineClient(FakeClient):
                 "/accounts": whole(ACCOUNTS),
                 "/categories": whole(CATEGORIES),
                 "/hashtags": whole(HASHTAGS),
-                "/reconciliations": whole([]),
+                "/holders": holder_list(),
+                "/statements": statement_list([]),
             }
         )
         for line in LINES:

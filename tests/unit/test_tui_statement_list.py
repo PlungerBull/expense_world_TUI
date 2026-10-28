@@ -1,17 +1,17 @@
-"""The Reconciliations browse on an account with a statement code: one row per statement.
+"""The Reconciliations browse: one row per statement of the open account's holder.
 
 Pane 1 A of docs/mockups/expense-world-card-statement.html, and its task 6 question 3 B
-for a code no other account holds. `⏎` on an account with a code reads
-`GET /reconciliations?statement_of=<its id>`, the reconciliations of every account
-holding the code, and nothing else about reconciliations; each row is an item and the
-item its `twin_id` names in the same answer (contract: GET /v1/reconciliations). An
-account with no code keeps today's read and list. On a card half's batch screen, `c`, `u`
-and `d` each send one write, which the engine applies to both halves.
+for a holder of one account with a code. `⏎` on an account reads
+`GET /statements?holder_id=<its holder>`, every statement of the holder, and nothing
+else about statements; each row is one statement, each Diff the difference of one
+account of the holder, from that account's entry in `balances` (contract: GET /v1/statements)
+(contract: "Statements", "Statement response"). A holder with no statement code keeps
+today's list, the open account's Begin, End and Diff. On a statement's batch screen
+opened from a card account, `c`, `u` and `d` each send one write.
 
 The engine is a `FakeClient` behind the reads module's own HTTP client, so the query
 each read sends is the one `expense/reads.py` builds; it answers the way the contract
-says the engine does: `statement_of` lists every account holding the named account's
-code, an archived one included, in the engine's order, `account_id` one account alone.
+says the engine does: `holder_id` lists that holder's statements, in the engine's order.
 """
 
 from typing import NamedTuple
@@ -26,7 +26,10 @@ from expense.tui.screens.modals import ConfirmModal
 from expense.tui.screens.reconciliations import (
     ReconciliationDetailScreen,
     ReconciliationsScreen,
+    StatementAccounts,
+    account_view,
     order_cell,
+    statement_columns,
     statement_rows,
 )
 from tests.unit.helpers import (
@@ -36,9 +39,11 @@ from tests.unit.helpers import (
     complete_answer,
     cursor_page,
     delete_answer,
+    holder_list,
     render_text,
     revert_answer,
     run_app,
+    statement_record,
     stub_home_month,
     wait_for,
     wait_for_list,
@@ -51,17 +56,10 @@ def _held(cents: int) -> dict:
     return {"current_balance_cents": cents, "current_balance_home_cents": cents}
 
 
-#: The accounts as `GET /accounts` reads them, each with the statement code the
-#: Reconciliations screens and `_answer` read off an account, and a card's two with the
-#: partner the screens read: the card's other account, absent on any other account
-#: (contract: "Bank Accounts", "Statement partner").
+#: The accounts as `GET /accounts` reads them, each naming the holder it is on
+#: (contract: "Holders"): a card's two on one holder, three others alone on theirs.
 SIG_PEN = account_record(
-    id="acc-sig-pen",
-    **_held(-51230),
-    name="Signature PEN",
-    sort_order=1,
-    statement_code="SIG",
-    statement_partner_id="acc-sig-usd",
+    id="acc-sig-pen", **_held(-51230), name="Signature PEN", sort_order=1, holder_id="h-sig"
 )
 SIG_USD = account_record(
     id="acc-sig-usd",
@@ -69,69 +67,68 @@ SIG_USD = account_record(
     name="Signature USD",
     currency_code="USD",
     sort_order=2,
-    statement_code="SIG",
-    statement_partner_id="acc-sig-pen",
+    holder_id="h-sig",
 )
 AHORRO = account_record(
-    id="acc-ahorro",
-    **_held(648000),
-    name="Ahorro Soles",
-    holder_id="h2",
-    sort_order=3,
-    statement_code="AHO",
+    id="acc-ahorro", **_held(648000), name="Ahorro Soles", sort_order=3, holder_id="h-aho"
 )
 SUELDO = account_record(
-    id="acc-sueldo",
-    **_held(1245000),
-    name="Sueldo Soles",
-    holder_id="h3",
-    sort_order=4,
-    statement_code=None,
+    id="acc-sueldo", **_held(1245000), name="Sueldo Soles", sort_order=4, holder_id="h-sue"
 )
 DIGITAL = account_record(
     id="acc-digital",
     **_held(82015),
     name="Cuenta Digital Dólares",
     currency_code="USD",
-    holder_id="h4",
     sort_order=5,
-    statement_code=None,
+    holder_id="h-dig",
 )
 ACCOUNTS = [SIG_PEN, SIG_USD, AHORRO, SUELDO, DIGITAL]
+#: The holders as `GET /holders` reads them: the card's with code SIG, Ahorro's with
+#: AHO, the other two with none (contract: "Holders", "Statement code").
+HOLDERS = [
+    {"id": "h-sig", "statement_code": "SIG", "account_ids": ["acc-sig-pen", "acc-sig-usd"]},
+    {"id": "h-aho", "statement_code": "AHO", "account_ids": ["acc-ahorro"]},
+    {"id": "h-sue", "account_ids": ["acc-sueldo"]},
+    {"id": "h-dig", "account_ids": ["acc-digital"]},
+]
+#: Each holder's statement code, as the browse keeps it.
+CODES = {"h-sig": "SIG", "h-aho": "AHO", "h-sue": None, "h-dig": None}
 
 
-def _half(
-    rid: str,
-    account: dict,
+def _statement(
+    sid: str,
+    holder: str,
     name: str,
     days: tuple[str, str],
+    diffs: dict[str, int | None],
     *,
     status: int,
-    diff: int | None = 0,
-    twin: str | None = None,
     unplaced: int | None = 0,
     shared: int | None = 0,
 ) -> dict:
-    """A reconciliation as `GET /reconciliations` reads it, every field it serves."""
-    return {
-        "id": rid,
-        "user_id": "u-1",
-        "account_id": account["id"],
-        "name": name,
-        "date_start": days[0],
-        "date_end": days[1],
-        "status": status,
-        "beginning_balance_cents": 0,
-        "ending_balance_cents": None if diff is None else 0,
-        "difference_cents": diff,
-        "twin_id": twin,
-        "unplaced_count": unplaced,
-        "shared_place_count": shared,
-        "created_at": "2026-10-01T00:00:00Z",
-        "updated_at": "2026-10-01T00:00:00Z",
-        "version": 1,
-        "deleted_at": None,
-    }
+    """A statement as `GET /statements` reads it: one balance per account of `diffs`,
+    each beginning at 0 and its ending entered unless its difference is `None`."""
+    return statement_record(
+        {
+            "id": sid,
+            "holder_id": holder,
+            "name": name,
+            "date_start": days[0],
+            "date_end": days[1],
+            "status": status,
+            "unplaced_count": unplaced,
+            "shared_place_count": shared,
+            "balances": [
+                {
+                    "account_id": account,
+                    "ending_balance_cents": None if diff is None else 0,
+                    "difference_cents": diff,
+                }
+                for account, diff in diffs.items()
+            ],
+        }
+    )
 
 
 JUL = ("2026-06-26", "2026-07-25")
@@ -139,79 +136,71 @@ AGO = ("2026-07-26", "2026-08-25")
 SEP = ("2026-08-26", "2026-09-25")
 OCT = ("2026-09-26", "2026-10-25")
 
-#: The card's four months of pane 1 A, in the engine's order: `date_start` ascending,
-#: then the accounts' order, oldest first (contract: "Reconciliations", "Ordering").
-#: Julio has only a soles half; Agosto is completed; Septiembre's soles half is
-#: completed and its dollar half a draft; Octubre is open, the dollar half off by -2.99.
-#: Both halves read the same two counts (contract: "Reconciliations", "A statement's order").
+
+def _card(diff_usd: int | None = 0) -> dict[str, int | None]:
+    return {"acc-sig-pen": 0, "acc-sig-usd": diff_usd}
+
+
+#: The card's four months of pane 1 A, in the engine's order: `date_start` ascending
+#: (contract: "Statements", "Ordering"). Julio and Agosto are completed; Septiembre is
+#: a draft with three lines unplaced; Octubre is a draft, its dollar account off by
+#: -2.99, two lines unplaced and a place held twice.
 CARD = [
-    _half("jul-pen", SIG_PEN, "Julio 2026", JUL, status=2),
-    _half("ago-pen", SIG_PEN, "Agosto 2026", AGO, status=2, twin="ago-usd"),
-    _half("ago-usd", SIG_USD, "Agosto 2026", AGO, status=2, twin="ago-pen"),
-    _half("sep-pen", SIG_PEN, "Septiembre 2026", SEP, status=2, twin="sep-usd", unplaced=3),
-    _half("sep-usd", SIG_USD, "Septiembre 2026", SEP, status=1, twin="sep-pen", unplaced=3),
-    _half("oct-pen", SIG_PEN, "Octubre 2026", OCT, status=1, twin="oct-usd", unplaced=2, shared=1),
-    _half(
-        "oct-usd",
-        SIG_USD,
-        "Octubre 2026",
-        OCT,
-        status=1,
-        diff=-299,
-        twin="oct-pen",
-        unplaced=2,
-        shared=1,
-    ),
+    _statement("jul", "h-sig", "Julio 2026", JUL, _card(), status=2),
+    _statement("ago", "h-sig", "Agosto 2026", AGO, _card(), status=2),
+    _statement("sep", "h-sig", "Septiembre 2026", SEP, _card(), status=1, unplaced=3),
+    _statement("oct", "h-sig", "Octubre 2026", OCT, _card(-299), status=1, unplaced=2, shared=1),
 ]
 
-#: Ahorro Soles holds AHO alone (question 3 B): no item has a twin.
+#: Ahorro Soles' holder holds AHO and one account (question 3 B).
 AHO = [
-    _half("aho-ago", AHORRO, "Agosto 2026", ("2026-08-01", "2026-08-31"), status=2),
-    _half("aho-sep", AHORRO, "Septiembre 2026", ("2026-09-01", "2026-09-30"), status=2),
-    _half("aho-oct", AHORRO, "Octubre 2026", ("2026-10-01", "2026-10-31"), status=1, unplaced=4),
+    _statement(
+        f"aho-{month}",
+        "h-aho",
+        f"{name} 2026",
+        (f"2026-{number}-01", f"2026-{number}-{last}"),
+        {"acc-ahorro": 0},
+        status=status,
+        unplaced=unplaced,
+    )
+    for month, name, number, last, status, unplaced in [
+        ("ago", "Agosto", "08", "31", 2, 0),
+        ("sep", "Septiembre", "09", "30", 2, 0),
+        ("oct", "Octubre", "10", "31", 1, 4),
+    ]
 ]
 
-#: Sueldo Soles has no code: all three fields null.
+#: Sueldo Soles' holder has no code: both order counts null.
 NO_CODE = [
-    {
-        **_half("sue-oct", SUELDO, "Octubre 2026", ("2026-10-01", "2026-10-31"), status=1),
-        "twin_id": None,
-        "unplaced_count": None,
-        "shared_place_count": None,
-    }
+    _statement(
+        "sue-oct",
+        "h-sue",
+        "Octubre 2026",
+        ("2026-10-01", "2026-10-31"),
+        {"acc-sueldo": 0},
+        status=1,
+        unplaced=None,
+        shared=None,
+    )
 ]
 
-RECONCILIATIONS = [*CARD, *AHO, *NO_CODE]
+STATEMENTS = [*CARD, *AHO, *NO_CODE]
 
 CARD_TITLE = "Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest"
 CARD_HEADERS = ["Name", "Period", "Diff PEN", "Diff USD", "Status", "Order"]
 
 #: Pane 1 A's rows, cell by cell.
 CARD_ROWS = [
-    ["Julio 2026", "2026-06-26 → 2026-07-25", "—", "no half", "completed", "in order"],
+    ["Julio 2026", "2026-06-26 → 2026-07-25", "—", "—", "completed", "in order"],
     ["Agosto 2026", "2026-07-26 → 2026-08-25", "—", "—", "completed", "in order"],
-    ["Septiembre 2026", "2026-08-26 → 2026-09-25", "—", "—", "half completed", "not in order"],
+    ["Septiembre 2026", "2026-08-26 → 2026-09-25", "—", "—", "draft", "not in order"],
     ["Octubre 2026", "2026-09-26 → 2026-10-25", "—", "-2.99", "draft", "not in order"],
 ]
 
 
-def _answer(params: dict, accounts: list[dict], items: list[dict]) -> list[dict]:
-    """`GET /reconciliations` as the contract says the engine answers it."""
-    if "statement_of" in params:
-        named = next((a for a in accounts if a["id"] == params["statement_of"]), None)
-        code = named and named["statement_code"]
-        if not code:
-            on = {params["statement_of"]}
-        else:
-            on = {a["id"] for a in accounts if a["statement_code"] == code}
-    else:
-        on = {params["account_id"]}
-    return [it for it in items if it["account_id"] in on]
-
-
-def _engine(monkeypatch, accounts=ACCOUNTS, items=RECONCILIATIONS, fail=None) -> FakeClient:
+def _engine(monkeypatch, accounts=ACCOUNTS, items=STATEMENTS, fail=None) -> FakeClient:
     """The fake engine every read of the browse and the batch screen goes to.
-    `fail`, an EngineError, is what `GET /reconciliations` answers instead."""
+    `fail`, an EngineError, is what `GET /statements` answers instead."""
     client = FakeClient()
 
     def get(path: str, *, auth: bool = True, params: dict | None = None):
@@ -220,10 +209,12 @@ def _engine(monkeypatch, accounts=ACCOUNTS, items=RECONCILIATIONS, fail=None) ->
         if path == "/accounts":
             archived = params.get("include_archived") == "true"
             return whole([a for a in accounts if archived or not a["is_archived"]])
-        if path == "/reconciliations":
+        if path == "/holders":
+            return holder_list(HOLDERS)
+        if path == "/statements":
             if fail is not None:
                 raise fail
-            return whole(_answer(params, accounts, items))
+            return whole([it for it in items if it["holder_id"] == params["holder_id"]])
         if path == "/bank-lines":
             return cursor_page([])
         if path == "/bank-lines/count":
@@ -237,8 +228,8 @@ def _engine(monkeypatch, accounts=ACCOUNTS, items=RECONCILIATIONS, fail=None) ->
     return client
 
 
-def _reconciliation_reads(client: FakeClient) -> list[dict]:
-    return [params for method, path, params in client.calls if path == "/reconciliations"]
+def _statement_reads(client: FakeClient) -> list[dict]:
+    return [params for method, path, params in client.calls if path == "/statements"]
 
 
 async def _open(pilot, app, account: dict) -> ReconciliationsScreen:
@@ -294,14 +285,15 @@ def test_a_card_lists_one_row_per_statement_from_one_read(monkeypatch, account):
         seen["shown"] = render_text(screen._batch_list._build(), width=120)
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"statement_of": account["id"]}]
+    assert _statement_reads(client) == [{"holder_id": "h-sig"}]
     assert seen["panel"].caption == CARD_TITLE
     assert seen["panel"].headers == CARD_HEADERS
+    assert seen["panel"].keys == ["jul", "ago", "sep", "oct"]
     assert seen["panel"].cells == CARD_ROWS
     # a completed statement is dimmed, as a completed reconciliation is today
     assert seen["panel"].styles == ["dim", "dim", "", ""]
     assert seen["marked"] == ["▸ Signature PEN", "▸ Signature USD"]
-    for word in ["Diff PEN", "Diff USD", "no half", "half completed", "not in order"]:
+    for word in ["Diff PEN", "Diff USD", "not in order"]:
         assert word in seen["shown"]
 
 
@@ -312,7 +304,7 @@ def test_either_card_account_shows_the_identical_list(monkeypatch):
     async def scenario(pilot, app):
         for account in (SIG_PEN, SIG_USD):
             screen = await _open(pilot, app, account)
-            lists.append(_panel(screen)._replace(keys=[]))
+            lists.append(_panel(screen))
             app.pop_screen()
             await pilot.pause()
 
@@ -320,36 +312,42 @@ def test_either_card_account_shows_the_identical_list(monkeypatch):
     assert lists[0] == lists[1]
 
 
-@pytest.mark.parametrize(
-    "account, keys",
-    [
-        (SIG_PEN, ["jul-pen", "ago-pen", "sep-pen", "oct-pen"]),
-        (SIG_USD, ["jul-pen", "ago-usd", "sep-usd", "oct-usd"]),
-    ],
-    ids=["soles", "dollars"],
-)
-def test_enter_on_a_statement_opens_the_open_accounts_half_else_the_other(
-    monkeypatch, account, keys
-):
-    """Each row stands for the open account's half, or the other half on a month with
-    none there; `⏎` opens that half on the batch screen, in its own currency."""
+@pytest.mark.parametrize("account", [SIG_PEN, SIG_USD], ids=["soles", "dollars"])
+def test_enter_on_a_statement_opens_it_on_the_open_account(monkeypatch, account):
+    """`⏎` opens the statement on the batch screen as the open account's: that
+    account's balances from its entry in `balances`, in its own currency."""
     _engine(monkeypatch)
     opened: list = []
 
     async def scenario(pilot, app):
         screen = await _open(pilot, app, account)
-        assert [row.key for row in screen._batch_list._rows] == keys
         for index in (0, 3):
             screen._batch_list.set_cursor(index)
             await pilot.press("enter")
             await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
-            opened.append((app.screen._id, app.screen._currency))
+            record = app.screen._record
+            opened.append(
+                (
+                    app.screen._id,
+                    app.screen._currency,
+                    record["account_id"],
+                    record["difference_cents"],
+                )
+            )
             await pilot.press("escape")
             await wait_for(pilot, lambda: app.screen is screen and screen._mode == "batches")
 
     run_app(scenario, size=(140, 50))
-    currency = account["currency_code"]
-    assert opened == [("jul-pen", "PEN"), (keys[3], currency)]
+    currency, aid = account["currency_code"], account["id"]
+    october = -299 if account is SIG_USD else 0
+    assert opened == [("jul", currency, aid, 0), ("oct", currency, aid, october)]
+
+
+def test_a_statement_opened_on_an_account_is_the_statement_and_that_accounts_balances():
+    view = account_view(CARD[3], "acc-sig-usd")
+    assert (view["id"], view["name"], view["status"]) == ("oct", "Octubre 2026", 1)
+    assert (view["account_id"], view["difference_cents"]) == ("acc-sig-usd", -299)
+    assert (view["beginning_balance_cents"], view["ending_balance_cents"]) == (0, 0)
 
 
 def test_coming_back_and_r_read_the_whole_card_again_and_nothing_else(monkeypatch):
@@ -361,16 +359,16 @@ def test_coming_back_and_r_read_the_whole_card_again_and_nothing_else(monkeypatc
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ReconciliationDetailScreen))
         await pilot.press("escape")
-        await wait_for(pilot, lambda: len(_reconciliation_reads(client)) == 2)
+        await wait_for(pilot, lambda: len(_statement_reads(client)) == 2)
         await wait_for(pilot, lambda: screen._mode == "batches")
-        assert screen._batch_list.cursor_key == "oct-usd"
+        assert screen._batch_list.cursor_key == "oct"
         assert _panel(screen).cells == CARD_ROWS
         await pilot.press("r")
-        await wait_for(pilot, lambda: len(_reconciliation_reads(client)) == 3)
+        await wait_for(pilot, lambda: len(_statement_reads(client)) == 3)
         await wait_for(pilot, lambda: screen._mode == "batches")
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"statement_of": SIG_USD["id"]}] * 3
+    assert _statement_reads(client) == [{"holder_id": "h-sig"}] * 3
 
 
 def test_the_footer_and_u_stay_as_today_on_a_card(monkeypatch):
@@ -416,44 +414,37 @@ def test_u_then_esc_brings_the_statements_back(monkeypatch):
     assert seen["panel"].caption == CARD_TITLE
     assert seen["panel"].headers == CARD_HEADERS
     assert seen["panel"].cells == CARD_ROWS
-    assert _reconciliation_reads(client) == [{"statement_of": SIG_PEN["id"]}]
+    assert _statement_reads(client) == [{"holder_id": "h-sig"}]
 
 
-# ---- status and order, row by row -------------------------------------------------
+# ---- status, each account's difference and order, row by row -----------------------
 
 
-@pytest.mark.parametrize(
-    "statuses, word",
-    [
-        ((2, 2), "completed"),
-        ((1, 1), "draft"),
-        ((2, 1), "half completed"),
-        ((1, 2), "half completed"),
-        ((2,), "completed"),
-        ((1,), "draft"),
-    ],
-)
-def test_a_statements_status_is_its_halves(statuses, word):
-    halves = [
-        _half(f"h{i}", account, "Octubre 2026", OCT, status=status)
-        for i, (account, status) in enumerate(zip((SIG_PEN, SIG_USD), statuses, strict=False))
-    ]
-    if len(halves) == 2:
-        halves[0]["twin_id"], halves[1]["twin_id"] = "h1", "h0"
-    columns = (("acc-sig-pen", "", "PEN"), ("acc-sig-usd", "", "USD"))
-    [(_key, cells, style)] = statement_rows(halves, columns, "acc-sig-pen")
-    assert cells[4] == word
-    assert style == ("dim" if word == "completed" else "")
-    assert ("no half" in cells) is (len(halves) == 1)
+COLUMNS = (("acc-sig-pen", "", "PEN"), ("acc-sig-usd", "", "USD"))
 
 
-def test_a_one_half_month_on_the_other_account_says_no_half_where_it_lacks_one():
-    usd_only = [_half("nov-usd", SIG_USD, "Noviembre 2026", OCT, status=1, diff=None)]
-    columns = (("acc-sig-pen", "", "PEN"), ("acc-sig-usd", "", "USD"))
-    [(key, cells, _style)] = statement_rows(usd_only, columns, "acc-sig-pen")
-    assert key == "nov-usd"
-    # no ending balance on the dollar half: its Diff is blank, as today's list shows it
-    assert cells[2:5] == ["no half", "", "draft"]
+@pytest.mark.parametrize("status, word", [(2, "completed"), (1, "draft")])
+def test_a_statements_status_is_its_own(status, word):
+    """One status for the whole holder (contract: "Statements"); a completed one dims."""
+    [(key, cells, style)] = statement_rows([{**CARD[3], "status": status}], COLUMNS)
+    assert (key, cells[4]) == ("oct", word)
+    assert style == ("dim" if status == 2 else "")
+
+
+def test_each_diff_is_its_own_accounts_entry_whatever_the_order_of_balances():
+    """The engine lists `balances` in the accounts' order; each column reads its own
+    account's entry by id, so a Diff never shows another account's figure."""
+    swapped = {**CARD[3], "balances": list(reversed(CARD[3]["balances"]))}
+    [(_key, cells, _style)] = statement_rows([swapped], COLUMNS)
+    assert [str(cell) for cell in cells[2:4]] == ["—", "-2.99"]
+
+
+def test_an_account_with_no_ending_balance_shows_a_blank_diff():
+    """`difference_cents` is null until the ending balance is entered, shown blank as
+    today's list shows it (contract: "Statements", "`difference_cents` — the add-up check")."""
+    open_usd = _statement("nov", "h-sig", "Noviembre 2026", OCT, _card(None), status=1)
+    [(_key, cells, _style)] = statement_rows([open_usd], COLUMNS)
+    assert [str(cell) for cell in cells[2:5]] == ["—", "", "draft"]
 
 
 @pytest.mark.parametrize(
@@ -461,19 +452,19 @@ def test_a_one_half_month_on_the_other_account_says_no_half_where_it_lacks_one()
     [(0, 0, "in order"), (2, 0, "not in order"), (0, 1, "not in order"), (2, 1, "not in order")],
 )
 def test_the_order_is_the_engines_two_counts(unplaced, shared, word):
-    item = _half("r", AHORRO, "Octubre 2026", OCT, status=1, unplaced=unplaced, shared=shared)
+    item = {**AHO[2], "unplaced_count": unplaced, "shared_place_count": shared}
     assert str(order_cell(item)) == word
 
 
 def test_no_counts_show_no_order():
-    """On an account with no code the engine reads null counts: there is no order."""
+    """On a holder with no code the engine reads null counts: there is no order."""
     assert order_cell(NO_CODE[0]) == ""
 
 
-# ---- a code no other account holds (question 3 B) ----------------------------------
+# ---- a holder of one account with a code (question 3 B) ----------------------------
 
 
-def test_a_code_with_no_other_account_lists_its_statements_with_one_diff(monkeypatch):
+def test_a_code_on_a_holder_of_one_account_lists_its_statements_with_one_diff(monkeypatch):
     client = _engine(monkeypatch)
     seen: dict = {}
 
@@ -483,7 +474,7 @@ def test_a_code_with_no_other_account_lists_its_statements_with_one_diff(monkeyp
         seen["marked"] = _marked(screen)
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"statement_of": AHORRO["id"]}]
+    assert _statement_reads(client) == [{"holder_id": "h-aho"}]
     assert seen["panel"].caption == "Reconciliations · Ahorro Soles · AHO   ·   oldest → newest"
     assert seen["panel"].headers == ["Name", "Period", "Diff", "Status", "Order"]
     assert seen["panel"].keys == ["aho-ago", "aho-sep", "aho-oct"]
@@ -495,10 +486,10 @@ def test_a_code_with_no_other_account_lists_its_statements_with_one_diff(monkeyp
     assert seen["marked"] == ["▸ Ahorro Soles"]
 
 
-# ---- an account with no code keeps today's list -------------------------------------
+# ---- a holder with no code keeps today's list ---------------------------------------
 
 
-def test_an_account_with_no_code_keeps_todays_read_and_list(monkeypatch):
+def test_a_holder_with_no_code_keeps_todays_list(monkeypatch):
     client = _engine(monkeypatch)
     seen: dict = {}
 
@@ -508,7 +499,7 @@ def test_an_account_with_no_code_keeps_todays_read_and_list(monkeypatch):
         seen["marked"] = _marked(screen)
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"account_id": SUELDO["id"]}]
+    assert _statement_reads(client) == [{"holder_id": "h-sue"}]
     assert seen["panel"].caption == "Reconciliations · Sueldo Soles   ·   oldest → newest"
     assert seen["panel"].headers == ["Name", "Period", "Begin", "End", "Diff", "Status"]
     assert seen["panel"].cells == [
@@ -521,7 +512,7 @@ def test_an_account_with_no_code_keeps_todays_read_and_list(monkeypatch):
 
 
 def test_a_refused_read_leaves_the_panel_closed_with_the_engines_words(monkeypatch):
-    err = EngineError("VALIDATION_ERROR", "Validation failed.", {"statement_of": "Bad."}, 422, {})
+    err = EngineError("VALIDATION_ERROR", "Validation failed.", {"holder_id": "Bad."}, 422, {})
     client = _engine(monkeypatch, fail=err)
     notes: list = []
     monkeypatch.setattr(
@@ -539,41 +530,30 @@ def test_a_refused_read_leaves_the_panel_closed_with_the_engines_words(monkeypat
         assert screen._mode == "accts" and screen._batch_list is None
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"statement_of": SIG_PEN["id"]}]
+    assert _statement_reads(client) == [{"holder_id": "h-sig"}]
     assert notes == [("Failed", format_error(err))]
 
 
-# ---- an archived card account --------------------------------------------------------
+# ---- an archived holder ------------------------------------------------------------
 
 
-def test_an_archived_card_accounts_halves_still_show_under_its_column(monkeypatch):
-    """The engine's whole-card list holds an archived card account's halves
-    (contract: GET /v1/reconciliations), though neither account names the other while
-    one is archived (contract: "Bank Accounts", "While one of the two accounts is archived");
-    the browse lists no archived account, yet the accounts read names its column and the
-    title, so every half shows where it belongs."""
-    live_pen = account_record(SIG_PEN, statement_partner_id=None)
-    archived_usd = account_record(SIG_USD, statement_partner_id=None, is_archived=True)
-    accounts = [live_pen, archived_usd, AHORRO, SUELDO, DIGITAL]
-    client = _engine(monkeypatch, accounts=accounts)
+def test_an_archived_holders_accounts_are_not_listed(monkeypatch):
+    """A holder is archived whole, every account of it with it (contract: "Holders",
+    "A holder is archived whole"): the browse reads the live accounts alone, so an
+    archived card lists neither account."""
+    archived = [account_record(a, is_archived=True) for a in (SIG_PEN, SIG_USD)]
+    client = _engine(monkeypatch, accounts=[*archived, AHORRO, SUELDO, DIGITAL])
     seen: dict = {}
 
     async def scenario(pilot, app):
-        screen = await _open(pilot, app, SIG_PEN)
-        seen["panel"] = _panel(screen)
+        screen = ReconciliationsScreen()
+        await app.push_screen(screen)
+        await wait_for_list(pilot, app)
         seen["listed"] = [str(r.cells[0]) for r in screen._accts_list._rows]
 
     run_app(scenario, size=(140, 50))
-    assert _reconciliation_reads(client) == [{"statement_of": SIG_PEN["id"]}]
-    assert seen["listed"] == [
-        "▸ Signature PEN",
-        "Ahorro Soles",
-        "Sueldo Soles",
-        "Cuenta Digital Dólares",
-    ]
-    assert seen["panel"].caption == CARD_TITLE
-    assert seen["panel"].headers == CARD_HEADERS
-    assert seen["panel"].cells == CARD_ROWS
+    assert seen["listed"] == ["Ahorro Soles", "Sueldo Soles", "Cuenta Digital Dólares"]
+    assert [params for _m, path, params in client.calls if path == "/accounts"][0] == {}
 
 
 # ---- the shared read and the accounts a code labels ---------------------------------
@@ -590,50 +570,37 @@ def test_the_list_read_takes_exactly_one_of_its_two_parameters(kw):
         fetch_reconciliations(object(), **kw)
 
 
-def test_a_statement_shows_the_account_its_partner_and_every_account_it_has_a_half_on():
-    """The columns are the open account, the account the engine names on it, and
-    every account the `statement_of` answer has a half on, in the accounts read's
-    order; never another account found by its code."""
-    from expense.tui.screens.reconciliations import StatementAccounts, statement_columns
-
+def test_a_statement_list_shows_every_account_of_the_holder_titled_by_its_code():
+    """The columns are the open account's holder's accounts, in the accounts read's
+    order, from either of them; the code is the holder's. A holder with no code has no
+    statement list: None."""
     pen, usd = ("acc-sig-pen", "Signature PEN", "PEN"), ("acc-sig-usd", "Signature USD", "USD")
-    accounts = [SIG_PEN, SIG_USD, AHORRO, SUELDO]
-    assert statement_columns("acc-sig-usd", accounts, []) == StatementAccounts("SIG", (pen, usd))
-    unnamed_pen = account_record(SIG_PEN, statement_partner_id=None)
-    archived_usd = account_record(SIG_USD, statement_partner_id=None, is_archived=True)
-    accounts = [unnamed_pen, archived_usd, AHORRO, SUELDO]
-    assert statement_columns("acc-sig-pen", accounts, CARD) == StatementAccounts("SIG", (pen, usd))
-    assert statement_columns("acc-sig-pen", accounts, []) == StatementAccounts("SIG", (pen,))
-    assert statement_columns("acc-ahorro", accounts, AHO) == StatementAccounts(
+    for aid in ("acc-sig-pen", "acc-sig-usd"):
+        assert statement_columns(aid, ACCOUNTS, CODES) == StatementAccounts("SIG", (pen, usd))
+    assert statement_columns("acc-ahorro", ACCOUNTS, CODES) == StatementAccounts(
         "AHO", (("acc-ahorro", "Ahorro Soles", "PEN"),)
     )
-    assert statement_columns("acc-sueldo", accounts, NO_CODE) is None
+    assert statement_columns("acc-sueldo", ACCOUNTS, CODES) is None
 
 
-# ---- c, u and d on a card half's batch screen act on both halves --------------------
+# ---- c, u and d on a statement opened from a card account ---------------------------
 
 
 def _writing_engine(monkeypatch) -> FakeClient:
-    """`_engine` over its own copy of the reconciliations, which a write changes as the
-    engine does: the write answers in the engine's shape (`FAKE_ANSWERS`), the half the
-    path names and its `twin`, and each half that answer names reads afterwards with
-    the answer's status, a deleted half no longer listed
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete, "Response")
-    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)
-    (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response")."""
-    items = [dict(item) for item in RECONCILIATIONS]
+    """`_engine` over its own copy of the statements, which a write changes: the batch
+    screen's write answers in the engine's shape (`FAKE_ANSWERS`), the record its path
+    names as the test serves it, and that statement reads afterwards with the answer's
+    status, a deleted one no longer listed."""
+    items = [dict(item) for item in STATEMENTS]
     client = _engine(monkeypatch, items=items)
     client.get_responses.update({f"/reconciliations/{item['id']}": item for item in items})
 
     def written(answer: dict) -> dict:
-        for half in (answer, answer.get("twin")):
-            item = next((it for it in items if half and it["id"] == half["id"]), None)
-            if item is None:
-                continue
-            if half.get("deleted_at"):
-                items.remove(item)
-            else:
-                item["status"] = half["status"]
+        item = next((it for it in items if it["id"] == answer["id"]), None)
+        if item is not None and answer.get("deleted_at"):
+            items.remove(item)
+        elif item is not None:
+            item["status"] = answer["status"]
         return answer
 
     post, delete = client.post, client.delete
@@ -642,15 +609,15 @@ def _writing_engine(monkeypatch) -> FakeClient:
     return client
 
 
-#: Each status key on a card half's batch screen, opened from the dollar account on the
-#: row at `row`: the half it opens, the one write it sends, its toast, the header's status
-#: after it (`None`: the screen closes), and the browse's rows after it. Octubre is a
-#: draft, Agosto completed (`CARD`); a completed statement's row is dimmed.
+#: Each status key on a statement's batch screen, opened from the dollar account on the
+#: row at `row`: the statement it opens, the one write it sends, its toast, the header's
+#: status after it (`None`: the screen closes), and the browse's rows after it. Octubre
+#: is a draft, Agosto completed (`CARD`); a completed statement's row is dimmed.
 STATUS_KEYS = {
     "c": (
         3,
-        "oct-usd",
-        ("POST", "/reconciliations/oct-usd/complete"),
+        "oct",
+        ("POST", "/reconciliations/oct/complete"),
         "Reconciliation completed.",
         "completed",
         [*CARD_ROWS[:3], [*CARD_ROWS[3][:4], "completed", "not in order"]],
@@ -658,8 +625,8 @@ STATUS_KEYS = {
     ),
     "u": (
         1,
-        "ago-usd",
-        ("POST", "/reconciliations/ago-usd/revert"),
+        "ago",
+        ("POST", "/reconciliations/ago/revert"),
         "Reconciliation reverted to draft.",
         "draft",
         [CARD_ROWS[0], [*CARD_ROWS[1][:4], "draft", "in order"], *CARD_ROWS[2:]],
@@ -667,8 +634,8 @@ STATUS_KEYS = {
     ),
     "d": (
         3,
-        "oct-usd",
-        ("DELETE", "/reconciliations/oct-usd"),
+        "oct",
+        ("DELETE", "/reconciliations/oct"),
         "Reconciliation deleted.",
         None,
         CARD_ROWS[:3],
@@ -678,16 +645,12 @@ STATUS_KEYS = {
 
 
 @pytest.mark.parametrize("key", list(STATUS_KEYS))
-def test_c_u_and_d_on_a_card_half_send_one_write_and_both_halves_show_it(monkeypatch, key):
-    """`c`, `u` and `d` on one half of a card statement, each confirmed with `y`, send
-    one write on the half the screen shows, never one per half: the engine completes,
-    reverts or deletes the whole statement from either half
-    (contract: POST /v1/reconciliations/{reconciliation_id}/complete)
-    (contract: POST /v1/reconciliations/{reconciliation_id}/revert)
-    (contract: DELETE /v1/reconciliations/{reconciliation_id}). The batch screen's
-    header shows its half's new status, and back on the browse the statement's row,
-    read again, shows both halves' (a deleted statement's row gone)."""
-    row, half, write, toast, status, rows, styles = STATUS_KEYS[key]
+def test_c_u_and_d_on_a_card_statement_send_one_write_and_the_list_shows_it(monkeypatch, key):
+    """`c`, `u` and `d` on a statement opened from one card account, each confirmed
+    with `y`, send one write on the statement the screen shows. The batch screen's
+    header shows its new status, and back on the browse the statement's row, read
+    again, shows it (a deleted statement's row gone)."""
+    row, opened, write, toast, status, rows, styles = STATUS_KEYS[key]
     client = _writing_engine(monkeypatch)
     notes: list = []
     monkeypatch.setattr(
@@ -716,7 +679,7 @@ def test_c_u_and_d_on_a_card_half_send_one_write_and_both_halves_show_it(monkeyp
         seen["panel"] = _panel(screen)
 
     run_app(scenario, size=(140, 50))
-    assert seen["opened"] == half
+    assert seen["opened"] == opened
     assert [(method, path) for method, path, _ in client.calls if method != "GET"] == [write]
     assert notes == [toast]
     if status is not None:
@@ -726,17 +689,18 @@ def test_c_u_and_d_on_a_card_half_send_one_write_and_both_halves_show_it(monkeyp
 
 
 @pytest.mark.parametrize("key", list(STATUS_KEYS))
-def test_a_status_key_on_a_card_half_is_one_request_under_one_key(configured, monkeypatch, key):
+def test_a_status_key_on_a_card_statement_is_one_request_under_one_key(
+    configured, monkeypatch, key
+):
     """Through the shared write path and the real HTTP client, each key's write on a
-    card half is one request carrying one `X-Idempotency-Key`, and nothing is sent on
-    the other half's path."""
-    row, half, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
-    record = next(item for item in CARD if item["id"] == half)
-    twin = next(item for item in CARD if item["id"] == record["twin_id"])
+    statement opened from a card account is one request carrying one
+    `X-Idempotency-Key`."""
+    _row, opened, (method, path), toast, _status, _rows, _styles = STATUS_KEYS[key]
+    record = account_view(next(item for item in CARD if item["id"] == opened), SIG_USD["id"])
     answers = {
-        "c": complete_answer({**record, "status": 2}, twin={**twin, "status": 2}),
-        "u": revert_answer({**record, "status": 1}, twin={**twin, "status": 1}),
-        "d": delete_answer(record, twin=twin),
+        "c": complete_answer({**record, "status": 2}),
+        "u": revert_answer({**record, "status": 1}),
+        "d": delete_answer(record),
     }
     monkeypatch.setattr(
         "expense.tui.screens.reconciliations.load_account_name_map",

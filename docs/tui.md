@@ -537,8 +537,8 @@ builder, `formatting.build_range_grid`, is covered by
 
 **`u` on the Reconciliations browse — the account's bank lines in no batch** (pane 2d of
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)).
-The **panel swaps**: same screen, same place, and the open account's reconciliations
-are replaced by its bank lines assigned to no reconciliation, any day: `GET /bank-lines`
+The **panel swaps**: same screen, same place, and the open account's statements
+are replaced by its bank lines assigned to no statement, any day: `GET /bank-lines`
 with `account_id` and `unreconciled=true` and no dates (contract: GET /v1/bank-lines), through
 `fetch_bank_lines` in [reads.py](../expense/reads.py). `u` works only while an account's
 panel is open — on the plain account list it does nothing and is not in the footer.
@@ -561,7 +561,9 @@ read together with the first rows, and counts a split transaction once
 (contract: GET /v1/bank-lines/count); a count that cannot be read fails the pane. `r`, an
 edit and a delete all start again from the newest ten, cursor on row 1. The **`!` flag is
 a hint, not a ruling** — it marks a row whose date falls inside the days of a statement this
-screen already holds, draft or completed, so it costs no request. It stops nothing: a close goes
+screen already holds with a balance of the open account, draft or completed
+(`statement_windows` in [reconciliations.py](../expense/tui/screens/reconciliations.py)), so
+it costs no request. It stops nothing: a close goes
 through with such lines in no statement and names the ones it flags in its answer ("The lines a
 complete flagged for review" below), and which lines those are is the engine's alone.
 
@@ -1368,54 +1370,51 @@ other list it is the next page of rows already loaded (§5). On Home it walks th
 window one month older, `pgup` one newer (§2).
 
 **The Reconciliations browse** opens on
-the **account list alone**, full height, and reads no reconciliations. The list is the
-bank accounts of one `GET /accounts?include_archived=true`, people and archived accounts
-left out, so an archived account and its own list are not offered until it is unarchived on
-Manage ▸ Accounts; the read keeps the archived ones only to name a statement list's
-columns (below). Nothing about reconciliations is read until `⏎`, so moving the account
-cursor costs nothing. `⏎ Its reconciliations` reads that account's list in **one read**,
-whole, in the engine's order (`date_start` ascending, then by account in the accounts'
-order, then creation time, oldest first (contract: "Reconciliations", "Ordering")), and
-opens the **panel** under the accounts, halving the height, with the cursor in it; the
-open account keeps an accent `▸`, and the breadcrumb grows to
-`Reconciliations ▸ <account>`. An account with none says `none yet · n to create one`
-inside the panel; a read that fails toasts the engine's words and leaves the panel closed.
-Coming back from a reconciliation, or `r`, reads the same list again and lands on the same
-row.
+the **account list alone**, full height, and reads no statements. The list is the bank
+accounts of one `GET /accounts`, people left out; an archived account is not in that read, so
+it and its statements are not offered until its holder is unarchived. A holder is archived
+whole, so a listed account's holder is live and so is each of its accounts
+(contract: "Holders", "A holder is archived whole"). One `GET /holders` beside it gives each
+holder's statement code (`fetch_holders` in [reads.py](../expense/reads.py)): the code is the
+holder's, never an account's (contract: "Holders", "Statement code"). Nothing about statements is
+read until `⏎`, so moving the account cursor costs nothing. `⏎ Its reconciliations` reads
+the statements of that account's holder in **one read**, `GET /statements?holder_id=<id>`
+(`fetch_statements`), whole, in the engine's order (`date_start` ascending, then creation
+time, oldest first (contract: "Statements", "Ordering")), and opens the **panel** under the
+accounts, halving the height, with the cursor in it; the open account keeps an accent `▸`,
+and the breadcrumb grows to `Reconciliations ▸ <account>`. An account with none says
+`none yet · n to create one` inside the panel; a read that fails toasts the engine's words
+and leaves the panel closed. Coming back from a statement, or `r`, reads the same list again
+and lands on the same row. A holder's accounts are the accounts of the one accounts read
+naming it as `holder_id` (`holder_mates` in
+[reconciliations.py](../expense/tui/screens/reconciliations.py), through `holder_accounts` in
+[reads.py](../expense/reads.py)), in that read's order. Every statement holds one entry in
+`balances` per account of its holder (contract: "Statements", "Statement response"), and
+each row shows the open account's from it.
 
-- **An account with no statement code** reads `GET /reconciliations?account_id=<id>` and
-  lists one row per reconciliation: `Name · Period · Begin · End · Diff · Status`, titled
-  `Reconciliations · BCP PEN   ·   oldest → newest`.
-- **An account with a statement code** reads `GET /reconciliations?statement_of=<id>`
-  instead: the reconciliations of every account holding its code, an archived one
-  included, the same items in the same order from either card account, each non-null
-  `twin_id` naming an item of the same answer (contract: GET /v1/reconciliations). It lists
-  **one row per statement** (pane 1 A of
+- **A holder with no statement code** lists one row per statement:
+  `Name · Period · Begin · End · Diff · Status`, Begin, End and Diff the open account's,
+  titled `Reconciliations · BCP PEN   ·   oldest → newest`.
+- **A holder with a statement code** lists **one row per statement** (pane 1 A of
   [expense-world-card-statement.html](mockups/expense-world-card-statement.html), and its
-  task 6 question 3 B for a code one account holds): an item, and the item its `twin_id`
-  names, found by id, the row standing where the first of them stands; no other read, and
-  no pairing by dates or names. The statement's accounts are the open account, the card's
-  other account the engine names on it as `statement_partner_id`
-  (contract: "Bank Accounts", "Statement partner"), and any account the answer has a half on
-  (`statement_columns` in [reconciliations.py](../expense/tui/screens/reconciliations.py));
-  the app never pairs accounts by their codes. The columns are `Name · Period`, one
-  `Diff <CUR>` per account of the statement in the accounts' order (`Diff PEN · Diff USD`;
-  `Diff` alone on a code one account holds), then `Status · Order`. Each Diff is that half's difference by
-  the rule of every reconciliation list (a dim `—` when it adds up, the figure when off, blank with no ending
-  balance), `no half` where the statement has none on that account. Status is `completed`
-  or `draft` when the halves agree and `half completed` (warning) when they do not; Order
-  is `in order` when the engine's `unplaced_count` and `shared_place_count` both read 0 and
-  `not in order` (warning) otherwise, the same two counts on both halves (contract: "Reconciliations", "A statement's order").
-  A completed statement is dim, as a completed reconciliation is. The title names every
-  account of the statement, then the code:
+  task 6 question 3 B for a holder of one account) with a column per account of the holder
+  (`statement_columns` in [reconciliations.py](../expense/tui/screens/reconciliations.py)).
+  The columns are `Name · Period`, one `Diff <CUR>` per account of the holder in the
+  accounts' order (`Diff PEN · Diff USD`; `Diff` alone on a holder of one account), then
+  `Status · Order`. Each Diff is that account's `difference_cents`, read from its own entry
+  in `balances` by its id, by the rule of every reconciliation list (a dim `—` when it adds
+  up, the figure when off, blank with no ending balance). Status is the statement's one
+  status, `completed` or `draft`, the same for every account of the holder
+  (contract: "Statements"); Order is `in order` when the engine's `unplaced_count` and
+  `shared_place_count` both read 0 and `not in order` (warning) otherwise
+  (contract: "Statements", "A statement's order"). A completed statement is dim, as a
+  completed reconciliation is. The title names every account of the holder, then the code:
   `Reconciliations · Signature PEN + Signature USD · SIG   ·   oldest → newest`, and every
-  listed one carries the `▸`, so opening either card account shows the identical list. An
-  archived card account is not listed, and while it is archived neither account names the
-  other (contract: "Bank Accounts", "While one of the two accounts is archived"), but its
-  halves still show under its own column, which the answer's halves and the accounts read
-  name; while it holds no half it has no column. A row stands for the open account's half,
-  or the other half on a month with none there: `⏎` opens that half on the batch
-  screen, in its own currency.
+  listed one carries the `▸`, so opening either card account shows the identical list.
+
+On either, `⏎` opens the row's statement on the batch screen as the open account's: the
+statement's own fields with that account's entry in `balances` over them (`account_view`),
+in the account's currency.
 
 **Keys**: `n` new
 batch — for the open account, or with no panel for the account under the cursor, and once
@@ -1431,33 +1430,34 @@ dim as every hint is (panes 1 B and 2 B of
 `signed decimal · your statement's opening balance`, then directly under it
 `0.00 if it holds the account's opening balance, which already counts it`. The engine sums
 every transaction assigned to a reconciliation, an account's opening balance included, into
-its add-up check (contract: "Reconciliations", "`difference_cents` — the add-up check"), so
+its add-up check (contract: "Statements", "`difference_cents` — the add-up check"), so
 the statement holding that line begins at 0.00; the form cannot know which statement that is,
 so the line is always there. Each half's begin on a card's form carries the same second line.
 
-**A card statement's create form** (`n` on a card account; pane 2 A of
-[expense-world-card-statement.html](mockups/expense-world-card-statement.html)). A card is
-two bank accounts sharing a statement code, one per currency
-(contract: "Bank Accounts", "Statement code"). The engine names a card account's other account
-on it as `statement_partner_id`, and the browse reads that account from the accounts list it
-already holds (`card_partners` in [reads.py](../expense/reads.py))
-(contract: "Bank Accounts", "Statement partner"). It is null on an account with no code, on one
-whose code no other live account holds, and on both accounts while either is archived, so such
-an account keeps the one-account form. On a card account `n` opens one
-form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line `accounts  Signature PEN +
-Signature USD · SIG` (stated, never edited), `date start`, `date end`, then the open account's
-`begin balance <CUR>` and `end balance <CUR>`, then the other account's. Each balance's hint
-names its half by currency (`signed decimal · the dollar half's opening balance`; `soles half`
-for PEN, `dollar half` for USD, any other by its code, `formatting.half_name`), a begin's
-with the opening-balance line under it (above); both begins are
-required, both ends optional. `^s Create both`, or `⏎` on the last line, sends one
-`POST /reconciliations` whose `twin` is the other half, its own id, account and balances,
-taking the request's name and days (contract: POST /v1/reconciliations). Both halves are
-created, or neither is: a refusal is the form's `Failed` note with the engine's words whole,
-one check at a time, a `twin.` key naming the other half (`twin.date_start: Overlaps …`); no
-line of the app's is added (a taken id keeps its app-fault line), and the form stays with
-what was typed. Saved, it says `Statement created.` and, as the one-account form does, the
-panel opens on the open account's reconciliations, the cursor on its new half.
+**A card statement's create form** (`n` on an account whose holder holds another account;
+pane 2 A of [expense-world-card-statement.html](mockups/expense-world-card-statement.html)).
+A card is one holder of two bank accounts, one per currency, and a statement covers its whole
+holder, one balance for each of its accounts (contract: "Statements", "A statement covers its whole holder").
+The browse finds the other account among the accounts it already holds, the one naming the same
+`holder_id` (`holder_mates` in [reconciliations.py](../expense/tui/screens/reconciliations.py)),
+and the code on the holder it read; an account alone on its holder keeps the one-account form.
+`n` opens one form, `Reconciliations ▸ <account> ▸ New`: `name`, then the line
+`accounts  Signature PEN + Signature USD · SIG` (stated, never edited; `· <code>` left off on a
+holder with no code), `date start`, `date end`, then the open account's `begin balance <CUR>`
+and `end balance <CUR>`, then the other account's. Each balance's hint names its half by
+currency (`signed decimal · the dollar half's opening balance`; `soles half` for PEN,
+`dollar half` for USD, any other by its code, `formatting.half_name`), a begin's with the
+opening-balance line under it (above); both begins are required, both ends optional.
+`^s Create both`, or `⏎` on the last line, sends one `POST /statements` with the holder's
+`holder_id` and one entry in `balances` per account: its `account_id`, its begin and, when
+typed, its end (contract: POST /v1/statements). The one statement is created, or nothing is: a
+refusal is the form's `Failed` note with the engine's words whole, one check at a time, a key
+on an account's balance naming that account by id
+(`balances.<account_id>.beginning_balance_cents`) or by its place in the list
+(`balances.0.account_id`) (contract: "Statements", "Which account a refusal names"); no line
+of the app's is added (a taken id keeps its app-fault line), and the form stays with what was
+typed. Saved, it says `Statement created.` and, as the one-account form does, the panel opens
+on the open account's statements, the cursor on the new one.
 
 **A reconciliation's batch screen** (`⏎` on one in the panel; screens 2a–2c in
 [expense-world-bank-lines-whole.html](mockups/expense-world-bank-lines-whole.html)) is its
@@ -1813,18 +1813,17 @@ make rows fit that do not. Width has **no** floor of any kind.
   POST or PUT gets the test's own `write_responses[path]` first, exactly as set; then,
   as a DELETE always does (`write_responses` is keyed by path alone, so a PUT answer
   never comes back on a DELETE of the same path), the endpoint's entry in
-  `helpers.FAKE_ANSWERS`; otherwise `{}`. A reconciliation's create, revert,
-  complete and delete have entries, each built by the endpoint's `answer_of` builder, so
-  the drift check covers its shape ([runtime.md](runtime.md) "Working against the live
-  engine", "Fixture drift"): the
-  create answers what it was sent, `twin` included on a card; the other three answer the
-  half the path names, read from the test's `GET /reconciliations/{id}` when it serves
-  one (its id alone otherwise), with its status after the write, and its twin when that
-  record names a `twin_id`. A statement's create, revert, complete and delete have entries
-  alike: the create answers the draft it was sent, one balance per account it names; the
-  other three answer the statement the path names, read from the test's
-  `GET /statements/{id}` when it serves one (its id alone otherwise), with its status
-  after the write, a complete adding the close's notes to each balance.
+  `helpers.FAKE_ANSWERS`; otherwise `{}`. Each entry is built by the endpoint's
+  `answer_of` builder, so the drift check covers its shape ([runtime.md](runtime.md)
+  "Working against the live engine", "Fixture drift"). A statement's create, revert,
+  complete and delete have entries: the create answers the draft it was sent, one balance
+  per account it names; the other three answer the statement the path names, read from
+  the test's `GET /statements/{id}` when it serves one (its id alone otherwise), with its
+  status after the write, a complete adding the close's notes to each balance. A
+  reconciliation's revert, complete and delete have entries too, for the batch screen,
+  which still writes them: each answers the half the path names, read from the test's
+  `GET /reconciliations/{id}` when it serves one (its id alone otherwise), with its status
+  after the write, and its twin when that record names a `twin_id`.
 - **`helpers.account_record` is the shared account builder** — the engine's account
   record, every field present, on holder `h1` (contract: GET /v1/accounts/{account_id}),
   marked with `answer_of` so the drift check covers it. A test passes only the fields it

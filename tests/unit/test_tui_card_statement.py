@@ -1,123 +1,70 @@
-"""A card statement's create form: both halves in one form and one write.
+"""A card statement's create form: both accounts' balances in one form and one write.
 
-Pane 2 A of docs/mockups/expense-world-card-statement.html: `n` on a card
-account opens one form, the name and days typed once, then each half's
-balances; `^s Create both` sends one `POST /reconciliations` with its `twin`
-(contract: POST /v1/reconciliations). Any other account keeps today's form.
+Pane 2 A of docs/mockups/expense-world-card-statement.html: `n` on an account whose
+holder holds another account opens one form, the name and days typed once, then each
+account's balances; `^s Create both` sends one `POST /statements` with the holder and
+an entry in `balances` for each account (contract: POST /v1/statements). An account
+alone on its holder keeps today's form.
 """
 
 import pytest
 from textual.widgets import Input, Static
 
-from expense import errors
 from expense.errors import EngineError
 from expense.formatting import half_name
-from expense.reads import card_partners
 from expense.tui.screens.reconciliations import (
     NewCardStatementScreen,
     NewReconciliationScreen,
     ReconciliationsScreen,
 )
 from tests.unit.helpers import (
+    ARCHIVED_FIELD_WORDS,
     account_record,
-    reconciliation_answer,
+    holder_list,
     refusal_text,
     render_text,
     run_app,
+    statement_create_answer,
+    statement_list,
     wait_for,
     wait_for_list,
     whole,
 )
 
-#: The accounts as the engine reads them, each with the statement code and partner
-#: `reads.card_partners` and the Reconciliations screens read off an account: the
-#: partner is the card's other account, null on any account that is not half of a
-#: live card (contract: "Bank Accounts", "Statement partner").
-SIG_PEN = account_record(
-    id="acc-sig-pen",
-    name="Signature PEN",
-    statement_code="SIG",
-    statement_partner_id="acc-sig-usd",
-)
+#: The accounts as the engine reads them, each naming the holder it is on
+#: (contract: "Holders"): a card's two on one holder, and two accounts alone on theirs.
+SIG_PEN = account_record(id="acc-sig-pen", name="Signature PEN", holder_id="h-sig")
 SIG_USD = account_record(
-    id="acc-sig-usd",
-    name="Signature USD",
-    currency_code="USD",
-    statement_code="SIG",
-    statement_partner_id="acc-sig-pen",
+    id="acc-sig-usd", name="Signature USD", currency_code="USD", holder_id="h-sig"
 )
-SUELDO = account_record(
-    id="acc-sueldo",
-    name="Sueldo Soles",
-    holder_id="h2",
-    statement_code=None,
-    statement_partner_id=None,
+SUELDO = account_record(id="acc-sueldo", name="Sueldo Soles", holder_id="h-sueldo")
+AHORRO = account_record(id="acc-ahorro", name="Ahorro PEN", holder_id="h-ahorro")
+JOINT_PEN = account_record(id="acc-joint-pen", name="Joint PEN", holder_id="h-joint")
+JOINT_USD = account_record(
+    id="acc-joint-usd", name="Joint USD", currency_code="USD", holder_id="h-joint"
 )
-AHORRO = account_record(  # a code, no other half
-    id="acc-ahorro",
-    name="Ahorro PEN",
-    holder_id="h3",
-    statement_code="AHO",
-    statement_partner_id=None,
-)
-ACCOUNTS = [SIG_PEN, SIG_USD, SUELDO, AHORRO]
-#: A card with its dollar account archived: both read null
-#: (contract: "Bank Accounts", "While one of the two accounts is archived").
-HALF_ARCHIVED = [
-    account_record(SIG_PEN, statement_partner_id=None),
-    account_record(SIG_USD, statement_partner_id=None, is_archived=True),
+ACCOUNTS = [SIG_PEN, SIG_USD, SUELDO, AHORRO, JOINT_PEN, JOINT_USD]
+#: The holders as `GET /holders` reads them: the card's with code SIG, Sueldo's with
+#: none, Ahorro's with a code and one account, and Joint's two accounts with no code.
+HOLDERS = [
+    {
+        "id": "h-sig",
+        "name": "BCP Signature",
+        "statement_code": "SIG",
+        "account_ids": ["acc-sig-pen", "acc-sig-usd"],
+    },
+    {"id": "h-sueldo", "name": "Sueldo Soles", "account_ids": ["acc-sueldo"]},
+    {
+        "id": "h-ahorro",
+        "name": "Ahorro PEN",
+        "statement_code": "AHO",
+        "account_ids": ["acc-ahorro"],
+    },
+    {"id": "h-joint", "name": "Joint", "account_ids": ["acc-joint-pen", "acc-joint-usd"]},
 ]
 
 PEN_ACCOUNT = (SIG_PEN["id"], "Signature PEN", "PEN")
 USD_ACCOUNT = (SIG_USD["id"], "Signature USD", "USD")
-
-
-# ---- the partner lookup and the half's name ----------------------------------
-
-
-def test_each_card_account_names_the_other_and_no_other_account_has_one():
-    """The other account is the one the engine names, never one found by code."""
-    partners = card_partners(ACCOUNTS)
-    assert partners == {
-        "acc-sig-pen": ("acc-sig-usd", "Signature USD", "USD"),
-        "acc-sig-usd": ("acc-sig-pen", "Signature PEN", "PEN"),
-    }
-
-
-def test_accounts_sharing_a_code_are_no_card_unless_the_engine_names_them():
-    """Two accounts holding one code, neither naming the other, make no card;
-    a named partner is read whatever codes the two hold."""
-    unnamed = [
-        account_record(SIG_PEN, statement_partner_id=None),
-        account_record(SIG_USD, statement_partner_id=None),
-    ]
-    assert card_partners(unnamed) == {}
-    other_codes = [
-        account_record(SUELDO, statement_partner_id="acc-ahorro"),
-        account_record(AHORRO, statement_partner_id="acc-sueldo"),
-    ]
-    assert card_partners(other_codes) == {
-        "acc-sueldo": ("acc-ahorro", "Ahorro PEN", "PEN"),
-        "acc-ahorro": ("acc-sueldo", "Sueldo Soles", "PEN"),
-    }
-
-
-def test_an_archived_half_leaves_both_accounts_with_none():
-    """While one of the two is archived the engine reads both null
-    (contract: "Bank Accounts", "While one of the two accounts is archived")."""
-    assert card_partners(HALF_ARCHIVED) == {}
-
-
-def test_a_partner_the_read_does_not_hold_or_an_id_less_row_makes_no_entry():
-    unread = {"name": None, "currency_code": None}
-    nameless = account_record(unread, id="acc-x", statement_partner_id="acc-y")
-    blank = account_record(unread, id="acc-y", statement_partner_id="acc-x")
-    no_id = account_record(SIG_USD, id=None)
-    assert card_partners([SIG_PEN, no_id]) == {}
-    assert card_partners([nameless, blank]) == {
-        "acc-x": ("acc-y", "(unnamed)", "?"),
-        "acc-y": ("acc-x", "(unnamed)", "?"),
-    }
 
 
 def test_a_half_is_named_after_its_currency():
@@ -129,73 +76,22 @@ def test_a_half_is_named_after_its_currency():
 # ---- `n` on the browse --------------------------------------------------------
 
 
-def _patch_browse(monkeypatch, fake_client, accounts=ACCOUNTS) -> list:
-    """`accounts`, an archived one only when asked for, as the engine lists
-    them; the reconciliations are what the fake engine has created, each half
-    naming its twin: `account_id` lists one account's, `statement_of` every
-    account's holding the named account's code (contract: GET /v1/reconciliations).
-    Returns each read's `(parameter, account)`."""
+def _patch_browse(monkeypatch, fake_client) -> list:
+    """The accounts and holders as the engine lists them; the statements are what
+    the fake engine has created, each listed under the holder it names, as
+    `POST /statements` answers it (contract: GET /v1/statements). Returns the holder
+    each statement read asked for."""
     reads: list = []
 
-    def fetch(_cfg, *, account_id=None, statement_of=None, **kw):
-        named = account_id or statement_of
-        reads.append(("account_id" if account_id else "statement_of", named))
-        code = next((a["statement_code"] for a in accounts if a["id"] == named), None)
-        on = {named}
-        if statement_of and code:
-            on = {a["id"] for a in accounts if a["statement_code"] == code}
-        made = [
-            half
-            for _path, body in fake_client.posts
-            for half in _records(body)
-            if half["account_id"] in on
-        ]
-        return whole(made)
+    def fetch(_cfg, holder_id, **kw):
+        reads.append(holder_id)
+        made = [body for _path, body in fake_client.posts if body["holder_id"] == holder_id]
+        return statement_list([statement_create_answer(body) for body in made])
 
-    monkeypatch.setattr("expense.reads.fetch_reconciliations", fetch)
-
-    def fetch_accounts(_cfg, *, include_archived=False, **kw):
-        return whole([a for a in accounts if include_archived or not a.get("is_archived")])
-
-    monkeypatch.setattr("expense.reads.fetch_accounts", fetch_accounts)
+    monkeypatch.setattr("expense.reads.fetch_statements", fetch)
+    monkeypatch.setattr("expense.reads.fetch_accounts", lambda *a, **k: whole(ACCOUNTS))
+    monkeypatch.setattr("expense.reads.fetch_holders", lambda *a, **k: holder_list(HOLDERS))
     return reads
-
-
-def _halves(body: dict) -> list[dict]:
-    """The halves a create sends: its top level, and its `twin` taking the
-    request's name and days."""
-    twin = body.get("twin")
-    if not twin:
-        return [body]
-    shared = {key: body[key] for key in ("name", "date_start", "date_end")}
-    return [body, {**shared, **twin}]
-
-
-def _records(body: dict) -> list[dict]:
-    """The halves one create makes, as the engine reads them back, each
-    naming the other as its `twin_id`."""
-    records = [_record(half) for half in _halves(body)]
-    if len(records) == 2:
-        records[0]["twin_id"], records[1]["twin_id"] = records[1]["id"], records[0]["id"]
-    return records
-
-
-def _record(sent: dict) -> dict:
-    """A half as the engine reads it back from what was sent."""
-    return {
-        "id": sent["id"],
-        "account_id": sent["account_id"],
-        "name": sent["name"],
-        "date_start": sent["date_start"],
-        "date_end": sent["date_end"],
-        "status": 1,
-        "beginning_balance_cents": sent["beginning_balance_cents"],
-        "ending_balance_cents": sent.get("ending_balance_cents"),
-        "difference_cents": None,
-        "twin_id": None,
-        "unplaced_count": 0,
-        "shared_place_count": 0,
-    }
 
 
 async def _press_n_on(pilot, app, row: int):
@@ -224,46 +120,38 @@ def test_n_on_either_card_account_opens_the_one_form(monkeypatch, fake_client, r
         assert type(form) is NewCardStatementScreen
         assert form._values["account"] == account[0]
         assert form._partner_id != account[0]
+        assert form._holder_id == "h-sig"
         assert form._display["accounts"] == f"{account[1]} + {other} · SIG"
 
     run_app(scenario)
 
 
-@pytest.mark.parametrize("row", [2, 3], ids=["no statement code", "a code and no other half"])
-def test_n_on_any_other_account_keeps_todays_form(monkeypatch, fake_client, row):
+@pytest.mark.parametrize(
+    "row, holder",
+    [(2, "h-sueldo"), (3, "h-ahorro")],
+    ids=["no statement code", "a code and one account"],
+)
+def test_n_on_an_account_alone_on_its_holder_keeps_todays_form(
+    monkeypatch, fake_client, row, holder
+):
     _patch_browse(monkeypatch, fake_client)
 
     async def scenario(pilot, app):
         await _press_n_on(pilot, app, row)
         assert type(app.screen) is NewReconciliationScreen
         assert app.screen._sequence() == ["name", "date_start", "date_end", "begin", "end"]
+        assert app.screen._holder_id == holder
 
     run_app(scenario)
-
-
-def test_a_card_whose_other_account_is_archived_keeps_todays_form(monkeypatch, fake_client):
-    """The engine names no other account on Signature PEN while Signature USD is
-    archived: `n` opens the one-account form, and its save sends no `twin`."""
-    _patch_browse(monkeypatch, fake_client, HALF_ARCHIVED)
-
-    async def scenario(pilot, app):
-        await _press_n_on(pilot, app, 0)
-        form = app.screen
-        assert type(form) is NewReconciliationScreen
-        for text in ["Octubre 2026", "2026-09-26", "2026-10-25", "-1,240.50", ""]:
-            _enter(form, text)
-        await wait_for(pilot, lambda: fake_client.posts)
-
-    run_app(scenario)
-    [(_path, body)] = fake_client.posts
-    assert body["account_id"] == "acc-sig-pen" and "twin" not in body
 
 
 # ---- the form -----------------------------------------------------------------
 
 
-def _form() -> NewCardStatementScreen:
-    return NewCardStatementScreen(account=PEN_ACCOUNT, partner=USD_ACCOUNT, code="SIG")
+def _form(code: str = "SIG") -> NewCardStatementScreen:
+    return NewCardStatementScreen(
+        account=PEN_ACCOUNT, partner=USD_ACCOUNT, code=code, holder_id="h-sig"
+    )
 
 
 def _enter(screen, text):
@@ -277,7 +165,7 @@ TYPED = ["Octubre 2026", "2026-09-26", "2026-10-25", "-1,240.50", "-380.70", "-6
 
 def test_the_form_is_drawn_as_picked(fake_client):
     """The name and days once, the accounts stated on their own line, then each
-    half's balances in its own currency; the footer says `Create both`."""
+    account's balances in its own currency; the footer says `Create both`."""
 
     async def scenario(pilot, app):
         screen = _form()
@@ -307,6 +195,45 @@ def test_the_form_is_drawn_as_picked(fake_client):
     run_app(scenario)
 
 
+def test_a_holder_with_no_code_states_its_accounts_alone():
+    """A holder's code is optional (contract: "Holders", "Statement code"): with none,
+    the accounts' line names the two accounts and nothing after them."""
+    assert _form(code="")._display["accounts"] == "Signature PEN + Signature USD"
+
+
+def test_n_on_a_holder_of_two_accounts_with_no_code_opens_the_card_form(monkeypatch, fake_client):
+    """Two accounts on one holder with no statement code: `n` opens the card form,
+    its accounts' line the two accounts alone, and `^s` sends one create naming the
+    holder with both accounts' balances."""
+    _patch_browse(monkeypatch, fake_client)
+
+    async def scenario(pilot, app):
+        await _press_n_on(pilot, app, 4)
+        form = app.screen
+        assert type(form) is NewCardStatementScreen
+        assert form._holder_id == "h-joint"
+        for text in TYPED[:2]:
+            _enter(form, text)
+        summary = render_text(form._summary_renderable(), width=100)
+        assert summary.splitlines()[1].split() == ["accounts", "Joint", "PEN", "+", "Joint", "USD"]
+        for text in TYPED[2:]:
+            _enter(form, text)
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: fake_client.posts)
+
+    run_app(scenario)
+    [(path, body)] = fake_client.posts
+    assert path == "/statements" and body["holder_id"] == "h-joint"
+    assert body["balances"] == [
+        {
+            "account_id": "acc-joint-pen",
+            "beginning_balance_cents": -124050,
+            "ending_balance_cents": -38070,
+        },
+        {"account_id": "acc-joint-usd", "beginning_balance_cents": -6012},
+    ]
+
+
 def test_the_hints_say_save_only_on_the_last_line():
     screen = _form()
     for key, half in (("begin", "soles"), ("twin_begin", "dollar")):
@@ -320,7 +247,7 @@ def test_the_hints_say_save_only_on_the_last_line():
     )
 
 
-def test_ctrl_s_sends_one_create_with_its_twin(fake_client):
+def test_ctrl_s_sends_one_create_with_both_accounts_balances(fake_client):
     async def scenario(pilot, app):
         screen = _form()
         await app.push_screen(screen)
@@ -332,24 +259,20 @@ def test_ctrl_s_sends_one_create_with_its_twin(fake_client):
 
     run_app(scenario)
     [(path, body)] = fake_client.posts
-    assert path == "/reconciliations"
-    twin = body.pop("twin")
-    assert set(body) == {
-        "id",
-        "account_id",
-        "name",
-        "date_start",
-        "date_end",
-        "beginning_balance_cents",
-        "ending_balance_cents",
-    }
-    assert body["account_id"] == "acc-sig-pen" and body["name"] == "Octubre 2026"
+    assert path == "/statements"
+    assert set(body) == {"id", "holder_id", "name", "date_start", "date_end", "balances"}
+    assert body["holder_id"] == "h-sig" and body["name"] == "Octubre 2026"
     assert (body["date_start"], body["date_end"]) == ("2026-09-26", "2026-10-25")
-    assert (body["beginning_balance_cents"], body["ending_balance_cents"]) == (-124050, -38070)
-    # the twin takes the request's name and days: only its id, account and balances
-    assert set(twin) == {"id", "account_id", "beginning_balance_cents"}
-    assert twin["account_id"] == "acc-sig-usd" and twin["beginning_balance_cents"] == -6012
-    assert twin["id"] != body["id"]
+    # one entry per account of the holder, the open account's first; no end typed for
+    # the dollar account, so its entry leaves the key out
+    assert body["balances"] == [
+        {
+            "account_id": "acc-sig-pen",
+            "beginning_balance_cents": -124050,
+            "ending_balance_cents": -38070,
+        },
+        {"account_id": "acc-sig-usd", "beginning_balance_cents": -6012},
+    ]
 
 
 def test_enter_on_the_last_line_saves_and_an_empty_end_is_left_out(fake_client):
@@ -363,8 +286,9 @@ def test_enter_on_the_last_line_saves_and_an_empty_end_is_left_out(fake_client):
 
     run_app(scenario)
     [(_path, body)] = fake_client.posts
-    assert "ending_balance_cents" not in body
-    assert body["twin"]["ending_balance_cents"] == -5388
+    pen, usd = body["balances"]
+    assert "ending_balance_cents" not in pen
+    assert usd["ending_balance_cents"] == -5388
 
 
 def test_a_missing_begin_balance_is_named_and_nothing_is_sent(fake_client, monkeypatch):
@@ -388,20 +312,14 @@ def test_a_missing_begin_balance_is_named_and_nothing_is_sent(fake_client, monke
 
 
 def test_saved_it_says_so_and_the_panel_lands_on_the_new_statement(monkeypatch, fake_client):
-    """As the one-account form does: back to the browse, the open account's
-    panel read again, the cursor on its new half, and the note `Statement
+    """As the one-account form does: back to the browse, the open account's holder's
+    statements read again, the cursor on the new one, and the note `Statement
     created.`; no screen is pushed."""
     reads = _patch_browse(monkeypatch, fake_client)
     notes: list = []
     monkeypatch.setattr(
         NewCardStatementScreen, "notify", lambda self, message, **kw: notes.append(message)
     )
-
-    def post(path, json_body=None):
-        fake_client.calls.append(("POST", path, json_body))
-        return reconciliation_answer(*(_record(half) for half in _halves(json_body)))
-
-    fake_client.post = post
 
     async def scenario(pilot, app):
         browse = await _press_n_on(pilot, app, 0)
@@ -411,9 +329,9 @@ def test_saved_it_says_so_and_the_panel_lands_on_the_new_statement(monkeypatch, 
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: app.screen is browse and browse._batch_list is not None)
         [(_path, body)] = fake_client.posts
-        assert reads == [("statement_of", "acc-sig-pen")]
+        assert reads == ["h-sig"]
         assert browse._mode == "batches" and browse._batch_list.has_focus
-        # the new statement is one row, standing for this account's half
+        # the new statement is one row, keyed by its id
         assert browse._batch_list.cursor_key == body["id"]
         assert [r.key for r in browse._batch_list._rows] == [body["id"]]
 
@@ -423,17 +341,18 @@ def test_saved_it_says_so_and_the_panel_lands_on_the_new_statement(monkeypatch, 
 
 # ---- every refusal the create can meet ----------------------------------------
 
-_INVALID = "Must reference an active, non-archived account."
-_PERSON = "Person accounts cannot have reconciliations."
+_ON_HOLDER = "Must be a live account of the statement's holder."
 _OVERLAP = "Overlaps 'Septiembre 2026' (2026-08-26 to 2026-09-25). A day belongs to one statement."
 _MONTH = "Statement month taken by 'Octubre 2026' (2026-09-26 to 2026-10-25)."
+#: The field words of a refusal whose sentence the contract does not print.
+_STAND_IN = "Stand-in field words."
 
 
 def _refusal(code: str, status: int, refused: dict[str, tuple[str, str]]) -> EngineError:
     """`refused` is `key → (reason, words)`."""
     return EngineError(
         code,
-        "Reconciliation validation failed.",
+        "Statement validation failed.",
         {key: words for key, (_reason, words) in refused.items()},
         status,
         {},
@@ -441,91 +360,70 @@ def _refusal(code: str, status: int, refused: dict[str, tuple[str, str]]) -> Eng
     )
 
 
-#: In the order the engine checks them, one check at a time
-#: (contract: POST /v1/reconciliations, "One check at a time"); `twin.` names
-#: the other half (contract: POST /v1/reconciliations, "Which half a refusal names").
+def _invalid(refused: dict[str, tuple[str, str]]) -> EngineError:
+    return _refusal("VALIDATION_ERROR", 422, refused)
+
+
+#: In the order the engine checks them, the first that refuses answering
+#: (contract: POST /v1/statements); a refusal of the request's own list names an
+#: entry by its place (contract: "Statements", "Which account a refusal names").
 REFUSALS = {
-    "an empty name": _refusal("VALIDATION_ERROR", 422, {"name": ("EMPTY", "Must not be empty.")}),
-    "an inverted period": _refusal(
-        "VALIDATION_ERROR",
-        422,
-        {"date_end": ("RANGE_INVERTED", "Must be on or after date_start.")},
+    "an empty name": _invalid({"name": ("EMPTY", "Must not be empty.")}),
+    "an inverted period": _invalid(
+        {"date_end": ("RANGE_INVERTED", "Must be on or after date_start.")}
     ),
-    "the same id twice": _refusal(
-        "VALIDATION_ERROR",
-        422,
-        {"twin.id": ("DUPLICATE_IN_REQUEST", "Must differ from id.")},
+    "an account listed twice": _invalid(
+        {"balances.1.account_id": ("DUPLICATE_IN_REQUEST", _STAND_IN)}
     ),
-    "this half's id taken": _refusal("CONFLICT", 409, {"id": ("ID_EXISTS", "Already exists.")}),
-    "the other half's id taken": _refusal(
-        "CONFLICT", 409, {"twin.id": ("ID_EXISTS", "Already exists.")}
+    "the id taken": _refusal("CONFLICT", 409, {"id": ("ID_EXISTS", "Already exists.")}),
+    "the holder gone": _invalid({"holder_id": ("INVALID_REFERENCE", _STAND_IN)}),
+    "an account no longer on the holder": _invalid(
+        {"balances.1.account_id": ("ACCOUNT_NOT_ON_HOLDER", _ON_HOLDER)}
     ),
-    "both ids taken": _refusal(
-        "CONFLICT",
-        409,
-        {"id": ("ID_EXISTS", "Already exists."), "twin.id": ("ID_EXISTS", "Already exists.")},
+    "an account of the holder left out": _invalid(
+        {"balances": ("HOLDER_ACCOUNTS_MISSING", _STAND_IN)}
     ),
-    "this account gone": _refusal(
-        "VALIDATION_ERROR", 422, {"account_id": ("INVALID_REFERENCE", _INVALID)}
-    ),
-    "this account a person": _refusal(
-        "VALIDATION_ERROR", 422, {"account_id": ("PERSON_ACCOUNT", _PERSON)}
-    ),
-    "the other account gone": _refusal(
-        "VALIDATION_ERROR", 422, {"twin.account_id": ("INVALID_REFERENCE", _INVALID)}
-    ),
-    "the other account a person": _refusal(
-        "VALIDATION_ERROR", 422, {"twin.account_id": ("PERSON_ACCOUNT", _PERSON)}
-    ),
-    "the other account no longer the card's": _refusal(
-        "VALIDATION_ERROR",
-        422,
-        {
-            "twin.account_id": (
-                "NOT_STATEMENT_PARTNER",
-                "Must be the other account holding this account's statement code.",
-            )
-        },
-    ),
-    "this half's days overlapping": _refusal(
-        "VALIDATION_ERROR", 422, {"date_start": ("PERIOD_OVERLAPS", _OVERLAP)}
-    ),
-    "the other half's days overlapping": _refusal(
-        "VALIDATION_ERROR", 422, {"twin.date_start": ("PERIOD_OVERLAPS", _OVERLAP)}
-    ),
-    "both halves' days overlapping": _refusal(
-        "VALIDATION_ERROR",
-        422,
-        {
-            "date_start": ("PERIOD_OVERLAPS", _OVERLAP),
-            "twin.date_start": ("PERIOD_OVERLAPS", _OVERLAP),
-        },
-    ),
-    "the statement month taken": _refusal(
-        "VALIDATION_ERROR",
-        422,
-        {
-            "date_end": ("STATEMENT_MONTH_TAKEN", _MONTH),
-            "twin.date_end": ("STATEMENT_MONTH_TAKEN", _MONTH),
-        },
-    ),
+    "the holder archived": _invalid({"holder_id": ("ACCOUNT_ARCHIVED", ARCHIVED_FIELD_WORDS)}),
+    "the days overlapping": _invalid({"date_start": ("PERIOD_OVERLAPS", _OVERLAP)}),
+    "the statement month taken": _invalid({"date_end": ("STATEMENT_MONTH_TAKEN", _MONTH)}),
 }
 
-#: The one refusal with a line of the app's under the engine's words: a taken
-#: id, on either half, is the app's fault (`errors.NEXT_STEPS`).
+#: The one refusal with a line of the app's under the engine's words: a taken id is
+#: the app's fault. Every other case has none.
 LINES = {
-    case: errors.next_step(err)
-    for case, err in REFUSALS.items()
-    if "ID_EXISTS" in (err.reasons or {}).values()
+    "the id taken": (
+        "Not your mistake: the app sent it wrong and nothing was saved. "
+        "Try again; if it happens again, report it."
+    ),
 }
 
 
 @pytest.mark.parametrize("case", list(REFUSALS))
 def test_a_refusal_shows_the_engine_words_and_creates_nothing(fake_client, monkeypatch, case):
-    """The form's `Failed` note is the engine's words whole, the refused keys
-    naming each half; the form stays with what was typed, and nothing is
-    handed back."""
-    err = REFUSALS[case]
+    """The form's `Failed` note is the engine's words whole, each refused key as the
+    engine names it, then the app's line where it has one (`LINES`); the form stays
+    with what was typed, and nothing is handed back."""
+    _refused_on_the_form(fake_client, monkeypatch, REFUSALS[case], LINES.get(case))
+
+
+def test_a_refusal_keyed_by_an_accounts_balances_lands_under_its_field(fake_client, monkeypatch):
+    """A refusal about one account's balances is keyed `balances.<account_id>.<field>`,
+    by the account's id (contract: "Statements", "Which account a refusal names"): the
+    note shows it under the engine's message as that key and its words, with no line
+    of the app's."""
+    key = "balances.acc-sig-usd.beginning_balance_cents"
+    err = _invalid({key: ("OUT_OF_RANGE", _STAND_IN)})
+    note = _refused_on_the_form(fake_client, monkeypatch, err, None)
+    assert note.splitlines() == [
+        "VALIDATION_ERROR — Statement validation failed.",
+        f"  {key}: {_STAND_IN}",
+    ]
+
+
+def _refused_on_the_form(fake_client, monkeypatch, err: EngineError, line: str | None) -> str:
+    """The card form, filled and sent with `^s`, `err` the engine's answer: the
+    `Failed` note is `err`'s words and `line`, the form stays with what was typed, one
+    create was sent and nothing is handed back. Returns the note."""
     fake_client.errors["POST"] = err
     notices: list = []
     monkeypatch.setattr(
@@ -544,20 +442,23 @@ def test_a_refusal_shows_the_engine_words_and_creates_nothing(fake_client, monke
         typed = dict(screen._values)
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: notices and not screen._submitting)
-        assert notices == [("Failed", refusal_text(err, LINES.get(case)))]
         assert app.screen is screen and screen._values == typed
 
     run_app(scenario)
-    assert [path for path, _body in fake_client.posts] == ["/reconciliations"]
+    assert notices == [("Failed", refusal_text(err, line))]
+    assert [path for path, _body in fake_client.posts] == ["/statements"]
     assert handed == []
+    return notices[0][1]
 
 
 def test_the_todays_form_still_saves_on_enter_on_end(fake_client):
-    """The balances' commit is shared with today's form, whose END BALANCE is
-    still its last line: `⏎` there saves one reconciliation, no `twin`."""
+    """The balances' commit is shared with today's form, whose END BALANCE is still
+    its last line: `⏎` there saves one statement, one account's balances in it."""
 
     async def scenario(pilot, app):
-        screen = NewReconciliationScreen(account_id="acc-sueldo", account_name="Sueldo Soles")
+        screen = NewReconciliationScreen(
+            account_id="acc-sueldo", account_name="Sueldo Soles", holder_id="h-sueldo"
+        )
         await app.push_screen(screen)
         await wait_for(pilot, lambda: bool(screen.query("#bar")))
         for text in ["Octubre 2026", "2026-10-01", "2026-10-31", "100", "90"]:
@@ -566,4 +467,7 @@ def test_the_todays_form_still_saves_on_enter_on_end(fake_client):
 
     run_app(scenario)
     [(_path, body)] = fake_client.posts
-    assert "twin" not in body and body["ending_balance_cents"] == 9000
+    assert body["holder_id"] == "h-sueldo"
+    assert body["balances"] == [
+        {"account_id": "acc-sueldo", "beginning_balance_cents": 10000, "ending_balance_cents": 9000}
+    ]

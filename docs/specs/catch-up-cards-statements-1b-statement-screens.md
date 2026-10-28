@@ -97,16 +97,6 @@ Drafted 2026-10-27; approved by the owner on 2026-10-28. Each leaves
 `pytest tests/unit` green. Each task fixes the `(contract: …)` citations and the
 [tui.md](../tui.md) and [runtime.md](../runtime.md) lines of the code it touches.
 
-1. **The browse and the new-statement forms on the new routes (builder).** In
-   [reconciliations.py](../../expense/tui/screens/reconciliations.py): the browse reads
-   `GET /statements?holder_id=`, each row's balances from its account's entry in `balances`; the
-   create forms send `POST /statements` with the holder (`holder_id`) and every account's
-   balances; the "no batch" `!` mark matches a statement by its holder's accounts, its helper named for what it
-   marks (today `blocking_windows`), and the `unfiled_rows` docstring and the comment over
-   `UNFILED_FILTER` say what is true (catch-up leftovers).
-   *Passes if:* the browse and create tests pass on the new answers, a refusal keyed
-   `balances.<account_id>.<field>` lands under its field, and the browse's old builders are
-   gone.
 2. **A statement's screen read and shown from the new routes (builder).** reconciliations.py's
    detail screen reads `GET /statements/{id}` and shows the opened account's balances from its
    entry in `balances`, its header and lines as today.
@@ -162,3 +152,16 @@ Written into [to-engine/](../to-engine/) when the spec is done, with the tester'
 ## Found along the way
 
 Not built in this spec; drafted into a new spec when it is done.
+
+- The card form that opens a statement shows two accounts, the open one and one other; on a
+  holder of three or more, the engine refuses the statement with `HOLDER_ACCOUNTS_MISSING`
+  (contract: POST /v1/statements). It joins the question on a holder of three currencies in
+  [catch-up-cards-statements-1a-leftovers.md](catch-up-cards-statements-1a-leftovers.md). Found
+  by task 1.
+- A holder of two accounts with no statement code, possible now that pairing needs no code, opens
+  the card form on `n` (its accounts line with no code), while its panel shows only the open
+  account's columns. How such a card's statements look is the statement screen spec's to draw
+  ([catch-up-cards-statements-4-statement-screen.md](catch-up-cards-statements-4-statement-screen.md)).
+  Found by task 1's review.
+- The one-account New statement form, opened on its own (only tests do), sends one balance even
+  for an account whose holder holds two. Found by task 1's review.

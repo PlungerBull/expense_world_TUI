@@ -366,8 +366,8 @@ ORDERED_ALONE = {"twin_id": None, "unplaced_count": 0, "shared_place_count": 0}
 def reconciliation_answer(record: dict, twin: dict | None = None) -> dict:
     """A reconciliation write's answer: the half the path names, after the write, plus
     `twin`, the statement's other half, `None` when it has none
-    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response")
-    (contract: POST /v1/reconciliations). A complete's answer is `complete_answer`."""
+    (contract: PUT /v1/reconciliations/{reconciliation_id}, "Response"). A complete's
+    answer is `complete_answer`."""
     return {**record, "twin": twin}
 
 
@@ -651,57 +651,11 @@ _COMPLETED = {
 #: The same draft deleted: a deleted reconciliation has no twin
 #: (contract: DELETE /v1/reconciliations/{reconciliation_id}, "Response").
 _DELETED = {**_DRAFT, "deleted_at": "2026-05-02T15:00:00Z"}
-#: What a create takes from its request body onto the half it makes; the twin
-#: takes `name`, `date_start` and `date_end` from the top level
-#: (contract: POST /v1/reconciliations).
-_CREATE_FIELDS = (
-    "id",
-    "account_id",
-    "name",
-    "date_start",
-    "date_end",
-    "beginning_balance_cents",
-    "ending_balance_cents",
-)
 
 
 def _half(base: dict, record: dict | None) -> dict | None:
     """`record` spread over `base`; None stays None (a reconciliation with no twin)."""
     return None if record is None else {**base, **record}
-
-
-@answer_of("POST", "/v1/reconciliations")
-def create_answer(sent: dict | None = None) -> dict:
-    """`POST /reconciliations`'s answer to `sent`, the request body: the draft its top
-    level makes plus `twin`, the draft its `twin` makes over the same name and days, the
-    two naming each other as `twin_id` with an ordered, empty statement each; `twin`
-    is `None` without one (contract: POST /v1/reconciliations, "Response"). A create
-    that becomes an existing half's twin without sending `twin` is a test's own
-    `write_responses` answer."""
-    sent = sent or {}
-    half = {**_DRAFT, **{key: sent[key] for key in _CREATE_FIELDS if key in sent}}
-    other = sent.get("twin")
-    if not other:
-        return {**_added_up(half), "twin": None}
-    twin = {
-        **half,
-        **{key: other[key] for key in _CREATE_FIELDS if key in other},
-        "ending_balance_cents": other.get("ending_balance_cents"),
-    }
-    half.update(ORDERED_ALONE, twin_id=twin["id"])
-    twin.update(ORDERED_ALONE, twin_id=half["id"])
-    return {**_added_up(half), "twin": _added_up(twin)}
-
-
-def _added_up(record: dict) -> dict:
-    """`record` with its `difference_cents` as a fresh create reads it, no transaction
-    assigned yet: ending minus beginning, `None` while the ending balance is
-    (contract: "Reconciliations", "`difference_cents` — the add-up check")."""
-    end = record["ending_balance_cents"]
-    return {
-        **record,
-        "difference_cents": None if end is None else end - record["beginning_balance_cents"],
-    }
 
 
 @answer_of("POST", "/v1/reconciliations/{reconciliation_id}/revert")
@@ -1100,11 +1054,6 @@ def _statement_of(client: "FakeClient", reconciliation_id: str) -> tuple[dict, d
     }
 
 
-@fake_answer("POST", "/v1/reconciliations")
-def _created(client: "FakeClient", body: Any) -> dict:
-    return create_answer(body)
-
-
 @fake_answer("POST", "/v1/reconciliations/{reconciliation_id}/revert")
 def _reverted(client: "FakeClient", body: Any, reconciliation_id: str) -> dict:
     half, twin = _statement_of(client, reconciliation_id)
@@ -1343,9 +1292,8 @@ class FakeClient:
     path alone, so `delete` never reads it: a PUT answer set for a path never comes
     back on a DELETE of it. `run_write`'s `on_response` reads the
     engine's own body (`complete` carries `warnings` and `review_lines`). A reconciliation's
-    create, revert, complete and delete have entries: the create answers what it was
-    sent, `twin` included; the other three answer the half the path names, as the
-    test serves `GET /reconciliations/{id}` (or its id alone), with its status after
+    revert, complete and delete have entries: each answers the half the path names, as
+    the test serves `GET /reconciliations/{id}` (or its id alone), with its status after
     the write, and its twin when that record names a `twin_id`. A statement's create,
     revert, complete and delete have entries alike: the create answers what it was sent;
     the other three answer the statement the path names, as the test serves

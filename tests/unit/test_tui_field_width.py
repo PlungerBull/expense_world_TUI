@@ -66,6 +66,7 @@ def test_the_card_statement_form_fits_a_balance_and_its_currency():
         account=("acc1", "Signature PEN", "PEN"),
         partner=("acc2", "Signature USD", "USD"),
         code="SIG",
+        holder_id="h1",
     )
     labels = {key: form._label(key) for key in form._sequence()}
     clipped = {k: v for k, v in labels.items() if len(v) > width - right_pad}
